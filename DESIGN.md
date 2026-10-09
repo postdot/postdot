@@ -214,6 +214,16 @@ future landing-page decisions remain explicit below.
   in both themes; only its contrast follows the theme. It does not imply borders around every
   content region. Numerical token differences supplement visual review rather
   than establishing perceptual clarity by themselves.
+- Transient feedback: use a toast for a short confirmation of an explicit action
+  when the initiating context has closed or the result otherwise lacks feedback.
+  Keep validation and recovery errors beside the relevant fields or task. Quiet
+  autosave does not need a toast. Durable notifications record events worth finding
+  later, not every UI action; combining both requires a purpose rather than an
+  automatic copy. Toast text must not contain credentials.
+- Popup sizing: menus and option panels use their content width, at least the
+  trigger width, bounded by available screen space. Ordinary action labels should
+  not wrap merely because the trigger is a small icon; exceptionally long content
+  wraps at the available-space boundary.
 - Controls: fields use the field surface and its inset shadow as their default
   boundary. A visible border is reserved for focus, invalid state, or a real
   control grouping. Repeated form controls in one row share the same control

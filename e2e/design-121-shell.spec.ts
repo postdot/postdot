@@ -189,6 +189,97 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
     )
 })
 
+test('keeps a fixed page edge, readable menus and transient action feedback', async ({
+    page,
+}, info) => {
+    test.setTimeout(60_000)
+    await createAccountAndProject(page, randomUUID().slice(0, 8))
+    await page.setViewportSize({ width: 1280, height: 600 })
+    const projectId = new URL(page.url()).pathname.split('/')[3]
+    for (let index = 0; index < 12; index += 1) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: {
+                name: index === 0 ? 'Menu sizing destination' : `Additional destination ${index}`,
+                profile: 'manual-message',
+            },
+        })
+        expect(response.status()).toBe(201)
+    }
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
+    const frame = page.locator('[data-dashboard-frame]')
+    const edge = page.locator('[data-dashboard-frame-edge]')
+    const scroll = page.locator('[data-dashboard-scroll]')
+    const before = await edge.boundingBox()
+    await scroll.evaluate(element => {
+        element.scrollTop = element.scrollHeight
+    })
+    await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    expect(await edge.boundingBox()).toEqual(before)
+    await expect(frame).toHaveCSS('overflow', 'hidden')
+    await expect(edge).toHaveCSS('pointer-events', 'none')
+    await expect(edge).not.toHaveCSS('box-shadow', 'none')
+    await page.screenshot({ path: info.outputPath('fixed-edge-scrolled.png') })
+
+    await page.goto(`/dashboard/projects/${projectId}/queue`)
+    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
+    await page.getByRole('option', { name: 'Manual delivery', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Delivery', exact: true }).click()
+    const options = page.locator('[data-slot="select-content"]')
+    await expect(options).toBeVisible()
+    for (const option of await page.getByRole('option').all()) {
+        const fit = await option.evaluate(element => ({
+            visible: element.clientWidth,
+            content: element.scrollWidth,
+        }))
+        expect(fit.content).toBeLessThanOrEqual(fit.visible)
+    }
+    await page.keyboard.press('Escape')
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    const trigger = page.getByRole('button', {
+        name: 'Manage Menu sizing destination',
+        exact: true,
+    })
+    await trigger.click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    const item = page.getByRole('menuitem', { name: 'Edit profile', exact: true })
+    await expect(item).toBeVisible()
+    const geometry = await item.evaluate(element => ({
+        height: element.clientHeight,
+        lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+        contentWidth: element.scrollWidth,
+        width: element.clientWidth,
+    }))
+    expect(geometry.height).toBeLessThan(geometry.lineHeight * 2)
+    expect(geometry.contentWidth).toBeLessThanOrEqual(geometry.width)
+    await page.screenshot({ path: info.outputPath('intrinsic-menu.png') })
+    await page.getByRole('menuitem', { name: 'Archive', exact: true }).click()
+    await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Archive channel', exact: true })
+        .click()
+    const message = page.locator('[data-slot="toast"]')
+    await expect(message).toContainText('“Menu sizing destination” archived')
+    await expect(page.getByRole('dialog', { name: 'Archive channel', exact: true })).toHaveCount(0)
+    await page.screenshot({ path: info.outputPath('action-toast.png') })
+    await page.keyboard.press('F6')
+    await message.getByRole('button', { name: 'Dismiss message', exact: true }).click()
+    await expect(message).toHaveCount(0)
+
+    for (const width of [768, 390]) {
+        await page.setViewportSize({ width, height: 844 })
+        await trigger.click()
+        await expect(menu).toBeVisible()
+        const bounds = await menu.boundingBox()
+        expect(bounds).not.toBeNull()
+        expect(bounds!.x).toBeGreaterThanOrEqual(0)
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+        await page.keyboard.press('Escape')
+        await expectNoHorizontalOverflow(page)
+    }
+})
+
 async function expectNoHorizontalOverflow(page: Page) {
     const layout = await page.locator('[data-dashboard-scroll]').evaluate(scrollRegion => ({
         clientWidth: (scrollRegion as unknown as { clientWidth: number }).clientWidth,

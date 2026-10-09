@@ -208,13 +208,14 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             ownerDocument: { defaultView: LayoutView }
         }
         const header = shell.querySelector('[data-dashboard-header]')
+        const frame = shell.querySelector('[data-dashboard-frame]')
         const scrollRegion = shell.querySelector('[data-dashboard-scroll]')
         const headerRectangle = header?.getBoundingClientRect()
         const scrollRectangle = scrollRegion?.getBoundingClientRect()
         return {
-            headerIsSiblingToScroll:
-                header?.parentElement !== null &&
-                header?.parentElement === scrollRegion?.parentElement,
+            headerIsSiblingToFrame:
+                header?.parentElement !== null && header?.parentElement === frame?.parentElement,
+            scrollIsInsideFrame: frame !== null && scrollRegion?.parentElement === frame,
             headerPosition:
                 header === null
                     ? null
@@ -224,7 +225,8 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         }
     })
     expect(shellLayout).toMatchObject({
-        headerIsSiblingToScroll: true,
+        headerIsSiblingToFrame: true,
+        scrollIsInsideFrame: true,
         headerPosition: 'sticky',
     })
     expect(shellLayout.scrollTop).toBeGreaterThan(shellLayout.headerTop ?? 0)

@@ -2078,5 +2078,12 @@
     "publisher_organization_required": "Enter the LinkedIn organization ID (digits only).",
     "provider_oauth_description": "Authorize your account on {provider}.",
     "provider_continue_oauth": "Continue to {provider}",
-    "publisher_setup_required": "Setup required"
+    "publisher_setup_required": "Setup required",
+    "toast_dismiss": "Dismiss message",
+    "api_keys_copy_success": "API key copied",
+    "channel_renamed_success": "Channel renamed to “{channel}”",
+    "channel_archived_success": "“{channel}” archived",
+    "channel_restored_success": "“{channel}” restored",
+    "channel_deleted_success": "“{channel}” deleted",
+    "toast_region": "Transient messages"
 }

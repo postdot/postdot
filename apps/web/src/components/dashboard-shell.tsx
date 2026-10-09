@@ -128,21 +128,30 @@ export function DashboardShell({
                         workspaces={global.workspaces}
                     />
                     <div
-                        key={pathname}
-                        ref={scrollRegionRef}
-                        data-dashboard-scroll="true"
-                        className="min-h-0 flex-1 overflow-y-auto bg-surface-background md:shadow-shell md:mr-2 md:mb-2 md:ml-0 md:rounded-lg">
-                        {error ? (
-                            <div className="px-4 pt-4 sm:px-6 lg:px-8">
-                                <Alert
-                                    variant="destructive"
-                                    className="rounded-md border-state-failed/35 bg-state-failed/10">
-                                    <AlertTitle>{m.workspace_action_failed()}</AlertTitle>
-                                    <AlertDescription>{error}</AlertDescription>
-                                </Alert>
-                            </div>
-                        ) : null}
-                        {children}
+                        data-dashboard-frame="true"
+                        className="relative flex min-h-0 flex-1 overflow-hidden bg-surface-background md:mr-2 md:mb-2 md:rounded-lg">
+                        <div
+                            key={pathname}
+                            ref={scrollRegionRef}
+                            data-dashboard-scroll="true"
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+                            {error ? (
+                                <div className="px-4 pt-4 sm:px-6 lg:px-8">
+                                    <Alert
+                                        variant="destructive"
+                                        className="rounded-md border-state-failed/35 bg-state-failed/10">
+                                        <AlertTitle>{m.workspace_action_failed()}</AlertTitle>
+                                        <AlertDescription>{error}</AlertDescription>
+                                    </Alert>
+                                </div>
+                            ) : null}
+                            {children}
+                        </div>
+                        <div
+                            aria-hidden="true"
+                            data-dashboard-frame-edge="true"
+                            className="pointer-events-none absolute inset-0 z-30 hidden rounded-[inherit] shadow-shell md:block"
+                        />
                     </div>
                 </div>
             </SidebarInset>

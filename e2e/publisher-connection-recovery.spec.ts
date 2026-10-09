@@ -357,7 +357,7 @@ test('uses active execution for custom channel readiness and connection actions'
     // Their local cache updates must retain the list's active-version summary.
     await manual.getByRole('button', { name: 'Manage custom-manual', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
-    const rename = page.getByRole('dialog')
+    const rename = page.getByRole('dialog', { name: 'Rename channel', exact: true })
     await rename.getByRole('textbox').fill('Renamed manual')
     await rename.getByRole('button', { name: 'Rename channel', exact: true }).click()
     await expect(manual).toContainText('Renamed manual')
@@ -365,7 +365,7 @@ test('uses active execution for custom channel readiness and connection actions'
     await manual.getByRole('button', { name: 'Manage Renamed manual', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Archive', exact: true }).click()
     await page
-        .getByRole('dialog')
+        .getByRole('dialog', { name: 'Archive channel', exact: true })
         .getByRole('button', { name: 'Archive channel', exact: true })
         .click()
     await expect(manual.getByText('Archived', { exact: true })).toBeVisible()
@@ -373,7 +373,7 @@ test('uses active execution for custom channel readiness and connection actions'
     await manual.getByRole('button', { name: 'Manage Renamed manual', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Restore', exact: true }).click()
     await page
-        .getByRole('dialog')
+        .getByRole('dialog', { name: 'Restore channel', exact: true })
         .getByRole('button', { name: 'Restore channel', exact: true })
         .click()
     await expect(manual.getByText('Manual', { exact: true })).toBeVisible()

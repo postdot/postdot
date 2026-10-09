@@ -33,6 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
+import { toast } from '@herald/ui/components/toast'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
@@ -82,7 +83,6 @@ export function UserApiKeysPage() {
     const [keyToRevoke, setKeyToRevoke] = useState<UserApiKey | null>(null)
     const [keyToEditActions, setKeyToEditActions] = useState<UserApiKey | null>(null)
     const [createOpen, setCreateOpen] = useState(false)
-    const [copied, setCopied] = useState(false)
     const [copyError, setCopyError] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -140,7 +140,6 @@ export function UserApiKeysPage() {
                 actionScope === 'all' ? null : selectedCapabilities
             )
             setCreatedKey({ name: response.key.name, token: response.token })
-            setCopied(false)
             setCopyError(null)
             setKeys(current => (current === null ? current : [response.key, ...current]))
             setCreateOpen(false)
@@ -189,7 +188,7 @@ export function UserApiKeysPage() {
         setCopyError(null)
         try {
             await navigator.clipboard.writeText(createdKey.token)
-            setCopied(true)
+            toast.add({ id: 'api-key-copied', title: m.api_keys_copy_success(), type: 'success' })
         } catch {
             setCopyError(m.api_keys_copy_unavailable())
         }
@@ -269,7 +268,7 @@ export function UserApiKeysPage() {
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <Button type="button" size="sm" onClick={() => void handleCopy()}>
                                     <CopyIcon aria-hidden="true" />
-                                    {copied ? m.api_keys_copied() : m.api_keys_copy()}
+                                    {m.api_keys_copy()}
                                 </Button>
                                 <Button
                                     type="button"

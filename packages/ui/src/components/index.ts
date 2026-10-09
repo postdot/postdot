@@ -133,3 +133,5 @@ export {
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
 export { Textarea } from './textarea'
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
+
+export { Toaster, toast, createToastManager, useToastManager } from './toast'

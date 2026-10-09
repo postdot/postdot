@@ -9,6 +9,7 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
+import { toast } from '@herald/ui/components/toast'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
@@ -103,7 +104,19 @@ export function ChannelLifecycleDialog({
                         type="button"
                         variant={destructive ? 'destructive' : 'default'}
                         disabled={pending || (isRename && name.trim() === '')}
-                        onClick={() => void onAction(action, channel, name.trim())}>
+                        onClick={async () => {
+                            const succeeded = await onAction(action, channel, name.trim())
+                            if (!succeeded) return
+                            const title =
+                                action === 'rename'
+                                    ? m.channel_renamed_success({ channel: name.trim() })
+                                    : action === 'archive'
+                                      ? m.channel_archived_success({ channel: channel.name })
+                                      : action === 'restore'
+                                        ? m.channel_restored_success({ channel: channel.name })
+                                        : m.channel_deleted_success({ channel: channel.name })
+                            toast.add({ title, type: 'success' })
+                        }}>
                         {action === 'archive' ? <ArchiveIcon aria-hidden="true" /> : null}
                         {action === 'restore' ? <RestartIcon aria-hidden="true" /> : null}
                         {action === 'delete' ? (

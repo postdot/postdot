@@ -54,6 +54,13 @@ test('creates and edits user-owned API keys with bounded project and action acce
         ''
     )
     expect(generatedName).toMatch(/^Herald [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/)
+    await page.context().grantPermissions(['clipboard-write'])
+    await page.getByRole('button', { name: 'Copy API key', exact: true }).click()
+    const copiedToast = page.locator('[data-slot="toast"]')
+    await expect(copiedToast).toContainText('API key copied')
+    await page.keyboard.press('F6')
+    await copiedToast.getByRole('button', { name: 'Dismiss message', exact: true }).click()
+    await expect(copiedToast).toHaveCount(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     if (generatedName === undefined) throw new Error('The generated API key name was not rendered')
     await expect(page.getByText(generatedName, { exact: true })).toBeVisible()
