@@ -7,6 +7,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'
@@ -79,10 +80,12 @@ export function ChannelActionsMenu({
     disabled,
     onEditProfile,
     onLifecycleAction,
+    onDisconnect,
 }: {
     readonly channel: Channel
     readonly disabled: boolean
     readonly onEditProfile: () => void
+    readonly onDisconnect?: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
 }) {
     useLanguage()
@@ -90,18 +93,25 @@ export function ChannelActionsMenu({
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button
-                        aria-label={m.channel_manage({ channel: channel.name })}
-                        variant="ghost"
-                        size="icon-sm"
-                        className="shrink-0"
-                        disabled={disabled}>
-                        <MenuDotsVerticalIcon aria-hidden="true" />
-                    </Button>
-                }
-            />
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    aria-label={m.channel_manage({ channel: channel.name })}
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="shrink-0"
+                                    disabled={disabled}>
+                                    <MenuDotsVerticalIcon aria-hidden="true" />
+                                </Button>
+                            }
+                        />
+                    }
+                />
+                <TooltipContent>{m.channel_manage({ channel: channel.name })}</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onEditProfile}>
                     <Pen2Icon aria-hidden="true" />
@@ -111,6 +121,11 @@ export function ChannelActionsMenu({
                     <Pen2Icon aria-hidden="true" />
                     {m.channel_rename()}
                 </DropdownMenuItem>
+                {onDisconnect ? (
+                    <DropdownMenuItem variant="destructive" onClick={onDisconnect}>
+                        {m.publisher_disconnect()}
+                    </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuSeparator />
                 {archived ? (
                     <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>

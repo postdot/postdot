@@ -195,7 +195,9 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     await expect(connectButton()).toBeVisible()
 
     await connectButton().click()
-    await expect(page.getByRole('alert')).toContainText('The provider is temporarily unavailable.')
+    await expect(connection.getByRole('alert')).toContainText(
+        'The provider is temporarily unavailable.'
+    )
 
     let connectAttempt = 0
     await page.route(

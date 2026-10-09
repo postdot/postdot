@@ -252,3 +252,184 @@ test('keeps Bluesky connection failures inside the dialog and preserves the hand
     await handle.fill('other.bsky.social')
     await expect(dialog.getByRole('alert')).toHaveCount(0)
 })
+
+test('keeps connection errors and retries in each form without losing entered details', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(90_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const providers = [
+        {
+            profile: 'mastodon',
+            name: 'Mastodon',
+            fields: [[en.provider_instance, 'https://mastodon.example']],
+            submit: en.provider_continue_mastodon,
+        },
+        {
+            profile: 'discord',
+            name: 'Discord',
+            fields: [
+                [en.provider_discord_channel_id, '123456789012345678'],
+                [en.provider_bot_token, 'fake-test-token-with-at-least-32-characters'],
+            ],
+            submit: en.provider_connect_discord,
+        },
+        {
+            profile: 'devto',
+            name: 'DEV.to',
+            fields: [[en.provider_devto_api_key, 'fake-api-key']],
+            submit: en.provider_connect_devto,
+        },
+        {
+            profile: {
+                id: 'connection-test-http',
+                version: 1,
+                origin: 'custom',
+                contentSchema: {
+                    $schema: 'https://json-schema.org/draft/2020-12/schema',
+                    type: 'object',
+                    properties: { body: { type: 'string', maxLength: 1000 } },
+                    required: ['body'],
+                    additionalProperties: false,
+                },
+                fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
+                capabilities: {
+                    revision: 'v1',
+                    textFields: [
+                        {
+                            bindingId: 'body',
+                            acceptedSourceFormats: ['plain_text'],
+                            maxLength: 1000,
+                        },
+                    ],
+                    mediaFields: [],
+                    relations: [],
+                },
+                execution: {
+                    kind: 'declarative_http',
+                    contractId: 'custom-webhook',
+                    revision: 'v1',
+                    mode: 'herald_webhook',
+                },
+            },
+            name: 'HTTP',
+            fields: [
+                [en.provider_endpoint_url, 'https://publisher.example'],
+                [en.provider_connection_secret, 'fake-test-secret-with-at-least-32-characters'],
+            ],
+            submit: en.provider_connect_endpoint,
+        },
+    ] as const
+    for (const provider of providers) {
+        const created = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name: provider.name, profile: provider.profile },
+        })
+        expect(created.status(), await created.text()).toBe(201)
+    }
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    const requests: Record<string, number> = {}
+    let release: (() => void) | undefined
+    await page.route('**/publisher/*/connect', async route => {
+        const path = route.request().url()
+        requests[path] = (requests[path] ?? 0) + 1
+        await new Promise<void>(resolve => {
+            release = resolve
+        })
+        await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            json: {
+                error: {
+                    code: 'provider_unavailable',
+                    message: 'The provider is temporarily unavailable.',
+                },
+            },
+        })
+    })
+    for (const provider of providers) {
+        const label = en.provider_connect_title.replace('{provider}', provider.name)
+        await page.getByRole('button', { name: label, exact: true }).click()
+        const dialog = page.getByRole('dialog')
+        for (const [field, value] of provider.fields)
+            await dialog.getByLabel(field, { exact: true }).fill(value)
+        const sent = page.waitForRequest(
+            request => request.url().includes('/publisher/') && request.url().endsWith('/connect')
+        )
+        await dialog
+            .getByLabel(provider.fields[provider.fields.length - 1]![0], { exact: true })
+            .press('Enter')
+        const request = await sent
+        await expect(
+            dialog.getByRole('button', { name: provider.submit, exact: true })
+        ).toBeDisabled()
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeDisabled()
+        release!()
+        await expect(dialog.getByRole('alert')).toContainText(
+            'The provider is temporarily unavailable.'
+        )
+        expect(requests[request.url()]).toBe(1)
+        for (const [field, value] of provider.fields)
+            await expect(dialog.getByLabel(field, { exact: true })).toHaveValue(value)
+        await expect(page.getByRole('alert')).toHaveCount(1)
+        const first = dialog.getByLabel(provider.fields[0][0], { exact: true })
+        await first.fill(provider.fields[0][1] + '1')
+        await expect(dialog.getByRole('alert')).toHaveCount(0)
+        await first.fill(provider.fields[0][1])
+        const retry = page.waitForRequest(next => next.url() === request.url())
+        await dialog.getByRole('button', { name: provider.submit, exact: true }).click()
+        await retry
+        release!()
+        await expect(dialog.getByRole('alert')).toBeVisible()
+        expect(requests[request.url()]).toBe(2)
+        await page.setViewportSize({ width: 390, height: 844 })
+        expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(
+            true
+        )
+        await page.screenshot({
+            path: testInfo.outputPath(`connection-${provider.name}-narrow.png`),
+        })
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(dialog).toHaveCount(0)
+        await page.getByRole('button', { name: label, exact: true }).click()
+        for (const [field] of provider.fields)
+            await expect(page.getByRole('dialog').getByLabel(field, { exact: true })).toHaveValue(
+                ''
+            )
+        await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(page.getByRole('dialog')).toHaveCount(0)
+        await page.setViewportSize({ width: 1280, height: 720 })
+    }
+    const linkedin = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'LinkedIn', profile: 'linkedin' },
+    })
+    expect(linkedin.status()).toBe(201)
+    await page.route(`**/api/projects/${projectId}/publishers`, async route => {
+        const response = await route.fetch()
+        const data = await response.json()
+        data.oauthReadiness.linkedin = 'ready'
+        await route.fulfill({ response, json: data })
+    })
+    await page.reload()
+    await page.getByRole('button', { name: 'Connect LinkedIn', exact: true }).click()
+    const linkedinDialog = page.getByRole('dialog')
+    await expect(
+        linkedinDialog.getByRole('combobox', { name: en.publisher_destination })
+    ).toContainText(en.publisher_personal_account)
+    await linkedinDialog.getByRole('combobox', { name: en.publisher_destination }).click()
+    await page.getByRole('option', { name: en.publisher_company_page, exact: true }).click()
+    await linkedinDialog.getByLabel(en.publisher_organization_id, { exact: true }).fill('123456')
+    const sentLinkedIn = page.waitForRequest(request =>
+        request.url().endsWith('/publisher/linkedin/connect')
+    )
+    await linkedinDialog.getByRole('button', { name: 'Continue to LinkedIn', exact: true }).click()
+    const request = await sentLinkedIn
+    expect(request.postDataJSON()).toMatchObject({
+        destination: { type: 'organization', id: '123456' },
+    })
+    release!()
+    await expect(linkedinDialog.getByRole('alert')).toBeVisible()
+    await expect(
+        linkedinDialog.getByLabel(en.publisher_organization_id, { exact: true })
+    ).toHaveValue('123456')
+    await page.screenshot({ path: testInfo.outputPath('connection-linkedin-wide.png') })
+})

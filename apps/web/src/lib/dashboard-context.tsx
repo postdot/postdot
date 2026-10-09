@@ -538,15 +538,14 @@ export function ProjectDashboardProvider({
         destination?: LinkedInConnectionDestination,
         providerApplicationId?: string
     ) {
-        await runAction(async () => {
-            const { authorizationUrl } = await api.startLinkedInPublisherConnection(
-                project.id,
-                channelId,
-                destination,
-                providerApplicationId
-            )
-            window.location.assign(authorizationUrl)
-        })
+        setError(null)
+        const { authorizationUrl } = await api.startLinkedInPublisherConnection(
+            project.id,
+            channelId,
+            destination,
+            providerApplicationId
+        )
+        window.location.assign(authorizationUrl)
     }
 
     async function handleStartBlueskyConnection(
@@ -565,45 +564,43 @@ export function ProjectDashboardProvider({
     }
 
     async function handleStartMastodonConnection(channelId: string, instanceUrl: string) {
-        await runAction(async () => {
-            const { authorizationUrl } = await api.startMastodonPublisherConnection(
-                project.id,
-                channelId,
-                instanceUrl
-            )
-            window.location.assign(authorizationUrl)
-        })
+        setError(null)
+        const { authorizationUrl } = await api.startMastodonPublisherConnection(
+            project.id,
+            channelId,
+            instanceUrl
+        )
+        window.location.assign(authorizationUrl)
     }
 
     async function handleStartXConnection(channelId: string, providerApplicationId?: string) {
-        await runAction(async () => {
-            const { authorizationUrl } = await api.startXPublisherConnection(
-                project.id,
-                channelId,
-                providerApplicationId
-            )
-            window.location.assign(authorizationUrl)
-        })
+        setError(null)
+        const { authorizationUrl } = await api.startXPublisherConnection(
+            project.id,
+            channelId,
+            providerApplicationId
+        )
+        window.location.assign(authorizationUrl)
     }
 
     async function handleConnectDiscordPublisher(
         channelId: string,
         input: { botToken: string; channelId: string }
     ): Promise<boolean> {
-        return runAction(async () => {
-            await api.connectDiscordPublisher(project.id, channelId, input)
-            await refreshProject()
-        })
+        setError(null)
+        await api.connectDiscordPublisher(project.id, channelId, input)
+        await refreshProject()
+        return true
     }
 
     async function handleConnectDevtoPublisher(
         channelId: string,
         apiKey: string
     ): Promise<boolean> {
-        return runAction(async () => {
-            await api.connectDevtoPublisher(project.id, channelId, apiKey)
-            await refreshProject()
-        })
+        setError(null)
+        await api.connectDevtoPublisher(project.id, channelId, apiKey)
+        await refreshProject()
+        return true
     }
 
     async function handleDisconnectPublisher(channelId: string) {
@@ -622,10 +619,10 @@ export function ProjectDashboardProvider({
             secret: string
         }
     ): Promise<boolean> {
-        return runAction(async () => {
-            await api.connectCustomHttpPublisher(project.id, channelId, input)
-            await refreshProject()
-        })
+        setError(null)
+        await api.connectCustomHttpPublisher(project.id, channelId, input)
+        await refreshProject()
+        return true
     }
 
     async function handleRenameChannel(

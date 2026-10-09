@@ -7,14 +7,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { AddIcon } from '@solar-icons/react/linear/add'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
 import type { Channel } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { useConnectionAction } from '@/lib/use-connection-action'
 import * as m from '@/paraglide/messages.js'
 
 interface MastodonConnectionDialogProps {
@@ -33,7 +33,7 @@ export function MastodonConnectionDialog({
     useLanguage()
     const [open, setOpen] = useState(false)
     const [instanceUrl, setInstanceUrl] = useState('')
-    const [error, setError] = useState<string | null>(null)
+    const { submitting, error, setError, run } = useConnectionAction()
 
     function reset() {
         setInstanceUrl('')
@@ -41,6 +41,7 @@ export function MastodonConnectionDialog({
     }
 
     async function submit() {
+        if (disabled || submitting) return
         const normalizedInstanceUrl = instanceUrl.trim()
         if (normalizedInstanceUrl === '') {
             setError(m.provider_instance_required())
@@ -65,7 +66,7 @@ export function MastodonConnectionDialog({
         }
 
         setError(null)
-        await onConnect(channel.id, parsed.origin)
+        await run(() => onConnect(channel.id, parsed.origin))
     }
 
     return (
@@ -73,9 +74,10 @@ export function MastodonConnectionDialog({
             <Button
                 className="self-end sm:self-start"
                 size="sm"
+                variant="outline"
                 onClick={() => setOpen(true)}
-                disabled={disabled}>
-                <AddIcon aria-hidden="true" />
+                disabled={disabled || submitting}>
+                <LinkIcon aria-hidden="true" />
                 {reconnect
                     ? m.provider_reconnect_title({ provider: 'Mastodon' })
                     : m.provider_connect_title({ provider: 'Mastodon' })}
@@ -83,54 +85,68 @@ export function MastodonConnectionDialog({
             <Dialog
                 open={open}
                 onOpenChange={nextOpen => {
+                    if (submitting) return
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {reconnect
-                                ? m.provider_reconnect_title({ provider: channel.name })
-                                : m.provider_connect_title({ provider: channel.name })}
-                        </DialogTitle>
-                        <DialogDescription>{m.provider_mastodon_description()}</DialogDescription>
-                    </DialogHeader>
-                    <Field className="gap-1.5">
-                        <FieldLabel htmlFor={`mastodon-instance-${channel.id}`}>
-                            {m.provider_instance()}
-                        </FieldLabel>
-                        <Input
-                            id={`mastodon-instance-${channel.id}`}
-                            autoFocus
-                            autoComplete="url"
-                            inputMode="url"
-                            value={instanceUrl}
-                            onChange={event => setInstanceUrl(event.target.value)}
-                            placeholder={m.provider_instance_placeholder()}
-                            aria-describedby={`mastodon-instance-help-${channel.id}`}
-                        />
-                        <FieldDescription id={`mastodon-instance-help-${channel.id}`}>
-                            {m.provider_mastodon_help()}
-                        </FieldDescription>
-                        {error === null ? null : (
-                            <p className="text-sm text-destructive" role="alert">
-                                {error}
-                            </p>
-                        )}
-                    </Field>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setOpen(false)}
-                            disabled={disabled}>
-                            {m.common_cancel()}
-                        </Button>
-                        <Button type="button" onClick={() => void submit()} disabled={disabled}>
-                            <LinkIcon aria-hidden="true" />
-                            {m.provider_continue_mastodon()}
-                        </Button>
-                    </DialogFooter>
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-x-hidden overflow-y-auto bg-background sm:max-w-sm">
+                    <form
+                        className="grid gap-4"
+                        onSubmit={event => {
+                            event.preventDefault()
+                            void submit()
+                        }}
+                        aria-busy={submitting}>
+                        <DialogHeader>
+                            <DialogTitle>
+                                {reconnect
+                                    ? m.provider_reconnect_title({ provider: channel.name })
+                                    : m.provider_connect_title({ provider: channel.name })}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {m.provider_mastodon_description()}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor={`mastodon-instance-${channel.id}`}>
+                                {m.provider_instance()}
+                            </FieldLabel>
+                            <Input
+                                disabled={disabled || submitting}
+                                id={`mastodon-instance-${channel.id}`}
+                                autoFocus
+                                autoComplete="url"
+                                inputMode="url"
+                                value={instanceUrl}
+                                onChange={event => {
+                                    setInstanceUrl(event.target.value)
+                                    setError(null)
+                                }}
+                                placeholder={m.provider_instance_placeholder()}
+                            />
+                            {error === null ? null : (
+                                <p className="text-sm text-destructive" role="alert">
+                                    {error}
+                                </p>
+                            )}
+                        </Field>
+                        <DialogFooter className="bg-transparent">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    reset()
+                                    setOpen(false)
+                                }}
+                                disabled={disabled || submitting}>
+                                {m.common_cancel()}
+                            </Button>
+                            <Button type="submit" disabled={disabled || submitting}>
+                                <LinkIcon aria-hidden="true" />
+                                {m.provider_continue_mastodon()}
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </>

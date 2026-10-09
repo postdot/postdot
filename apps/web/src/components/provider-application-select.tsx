@@ -1,4 +1,4 @@
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldLabel } from '@herald/ui/components/field'
 import {
     Select,
     SelectContent,
@@ -36,7 +36,9 @@ export function ProviderApplicationSelect({
                     if (typeof nextValue === 'string') onValueChange(nextValue)
                 }}>
                 <SelectTrigger id={id} disabled={disabled}>
-                    <SelectValue />
+                    <SelectValue>
+                        {applications.find(application => application.id === value)?.name}
+                    </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                     {applications.map(application => (
@@ -47,7 +49,6 @@ export function ProviderApplicationSelect({
                     ))}
                 </SelectContent>
             </Select>
-            <FieldDescription>{m.provider_apps_select_help()}</FieldDescription>
         </Field>
     )
 }
