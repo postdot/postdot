@@ -199,6 +199,25 @@ describe('machine publication workflow', () => {
                 ])
                 return { stdout, stderr, code }
             }
+            const profileRead = await command(['channels', 'profile', '--channel', ids[0]!])
+            expect(profileRead.code).toBe(0)
+            const discovered = JSON.parse(profileRead.stdout)
+            const expectedProfile = await client.api
+                .projects({ projectId: project.id })
+                .channels({ channelId: ids[0]! })
+                .profile.get()
+            expect(expectedProfile.error).toBeNull()
+            expect(discovered).toEqual(expectedProfile.data)
+            expect(discovered.channel.id).toBe(ids[0])
+            expect(discovered.active.profile.capabilities).toBeDefined()
+            const missingProfile = await command([
+                'channels',
+                'profile',
+                '--channel',
+                crypto.randomUUID(),
+            ])
+            expect(missingProfile.code).toBe(1)
+            expect(JSON.parse(missingProfile.stderr).error.status).toBe(404)
             const filePath = join(root, 'fixture.png')
             await Bun.write(filePath, png)
             const upload = await command([

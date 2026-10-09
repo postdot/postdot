@@ -176,6 +176,17 @@ export async function runCli(
         return
     }
 
+    if (resource === 'channels' && action === 'profile') {
+        const result = await call(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .channels({ channelId: requiredOption(args, '--channel') })
+                .profile.get()
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
     if (resource === 'channels' && action === 'create') {
         const projectId = requiredOption(args, '--project')
         const body = await call(
@@ -685,6 +696,8 @@ Resources:
   api-keys create [--name <name>]    Create a user-owned API key
   api-keys revoke --key-id <id>      Revoke one of your API keys
   channels list --project <id>       List project channels
+  channels profile --project <id> --channel <id>
+                                    Inspect active/draft destination contracts
   channels create --project <id> --name <name>
   media policy --project <id>        Inspect accepted types and size limit
   media list --project <id> [--cursor <cursor>]

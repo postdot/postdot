@@ -117,3 +117,23 @@ state before retrying; an unknown result is not proof that the bytes were lost.
 No automatic repeat or deletion is performed. A URL request whose response was
 lost may not expose an asset ID; inspect the library before importing it again.
 `media list` exposes the server cursor rather than silently downloading all pages.
+
+## Discover a destination contract
+
+Before constructing a destination payload, inspect its channel profile:
+
+```sh
+bun scripts/herald.ts channels list --project <project-id> --json
+bun scripts/herald.ts channels profile --project <project-id> --channel <channel-id> --json
+```
+
+The response is the existing API contract: `channel`, `active`, and nullable
+`draft`. Read the definition under `active.profile` for schema, declared bindings,
+text capabilities, and media requirements. The active version is distinct from an
+profile draft awaiting activation. Keep the version reference when preparing a payload;
+server validation and promotion remain authoritative if the channel changes.
+
+Both output modes display the full profile response, rather than guessing field
+names or flattening away constraints. This command neither activates a profile nor
+connects a publisher. A valid content contract does not establish provider
+connection readiness or guarantee publication success.
