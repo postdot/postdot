@@ -19,6 +19,10 @@ import { PublisherConnectionPanel } from '@/components/publisher-connection-pane
 import type { Channel } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import {
+    hasRecoverablePublicationContent,
+    readPublicationRecovery,
+} from '@/lib/publication-recovery'
 import type { PublisherCallbackResult } from '@/lib/publisher-connection-feedback'
 import * as m from '@/paraglide/messages.js'
 
@@ -55,10 +59,26 @@ export function ChannelManagementPage({
         onConnectDiscordPublisher,
         onConnectDevtoPublisher,
         pending,
+        postContent,
+        postTitle,
+        publicationTargets,
+        sourceMedia,
         project,
         projectRole,
     } = useProjectDashboard()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
+    const canResumeComposition =
+        canEditProject &&
+        (hasRecoverablePublicationContent({
+            postContent,
+            postTitle,
+            publicationTargets,
+            sourceMedia,
+        }) ||
+            readPublicationRecovery(project.id) !== null)
+    const backLabel = canResumeComposition
+        ? m.publication_resume_composition()
+        : m.nav_back_to_overview()
     const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
     const [lifecycle, setLifecycle] = useState<{
         readonly action: ChannelLifecycleAction
@@ -96,17 +116,24 @@ export function ChannelManagementPage({
                 }
                 back={
                     <Link
-                        aria-label={m.nav_back_to_overview()}
+                        aria-label={backLabel}
                         className={buttonVariants({
                             variant: 'ghost',
                             size: 'icon',
-                            className:
-                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                            className: canResumeComposition
+                                ? 'w-auto justify-self-start gap-1.5 px-2.5 text-muted-foreground hover:text-foreground'
+                                : 'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
                         })}
                         params={{ projectId: project.id }}
-                        to="/dashboard/projects/$projectId/overview">
+                        to={
+                            canResumeComposition
+                                ? '/dashboard/projects/$projectId/publications/new'
+                                : '/dashboard/projects/$projectId/overview'
+                        }>
                         <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
+                        <span className={canResumeComposition ? undefined : 'hidden lg:inline'}>
+                            {backLabel}
+                        </span>
                     </Link>
                 }
                 title={m.channels_title()}
@@ -123,6 +150,7 @@ export function ChannelManagementPage({
 
             {publisherFeedback ? (
                 <PublisherCallbackFeedback
+                    canResumeComposition={canResumeComposition}
                     channelId={publisherFeedback.channelId}
                     onDismiss={onDismissPublisherFeedback}
                     onRefreshProject={onRefreshProject}
@@ -189,12 +217,14 @@ export function ChannelManagementPage({
 }
 
 function PublisherCallbackFeedback({
+    canResumeComposition,
     channelId,
     onDismiss,
     onRefreshProject,
     projectId,
     result,
 }: {
+    readonly canResumeComposition: boolean
     readonly channelId?: string
     readonly onDismiss?: () => Promise<void>
     readonly onRefreshProject: () => Promise<void>
@@ -227,7 +257,7 @@ function PublisherCallbackFeedback({
             <AlertTitle>{copy.title}</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span>{copy.description}</span>
-                {isSuccess ? (
+                {isSuccess && !canResumeComposition ? (
                     <Button
                         nativeButton={false}
                         render={

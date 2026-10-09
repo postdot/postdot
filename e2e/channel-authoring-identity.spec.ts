@@ -485,3 +485,77 @@ test('creates the first destination while preserving the first publication', asy
     await page.locator('a[data-publication-edit-link]').first().click()
     await expect(page.locator('#source-body')).toHaveText(body)
 })
+
+test('resumes composition from channel setup and after an OAuth callback reload', async ({
+    page,
+}, info) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    expect(
+        (
+            await page.request.post(`/api/projects/${projectId}/channels`, {
+                data: { name: 'Unused destination', profile: 'manual-message' },
+            })
+        ).status()
+    ).toBe(201)
+    const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Connection destination', profile: 'bluesky' },
+    })
+    expect(response.status()).toBe(201)
+    const channelId = (await response.json()).channel.id
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await expect(
+        page.getByRole('link', { name: en.nav_back_to_overview, exact: true })
+    ).toBeVisible()
+    await expect(
+        page.getByRole('link', { name: en.publication_resume_composition, exact: true })
+    ).toHaveCount(0)
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
+    const content = page.getByRole('textbox', {
+        name: en.publication_new_source_content,
+        exact: true,
+    })
+    await page.getByRole('button', { name: 'Remove Unused destination', exact: true }).click()
+    await page.getByRole('button', { name: 'Add Connection destination', exact: true }).click()
+    const body = 'Keep this text and destination through connection setup.'
+    await content.fill(body)
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await page.getByRole('link', { name: en.publication_resume_composition, exact: true }).click()
+    await expect(content).toHaveText(body)
+    for (const result of ['authorization_denied', 'connected'] as const) {
+        // A full navigation models the existing callback landing URL, not a provider exchange.
+        await page.goto(
+            `/dashboard/projects/${projectId}/channels?publisher=${result}&publisher_channel=${channelId}`
+        )
+        await expect(
+            page.getByText(en[`publisher_callback_${result}_title`], { exact: true })
+        ).toBeVisible()
+        await page.setViewportSize({ width: 390, height: 844 })
+        const resume = page.getByRole('link', {
+            name: en.publication_resume_composition,
+            exact: true,
+        })
+        await expect(resume).toBeVisible()
+        await expect(
+            page.getByRole('button', {
+                name: en.publisher_callback_create_publication,
+                exact: true,
+            })
+        ).toHaveCount(0)
+        await page.screenshot({ path: info.outputPath(`resume-${result}.png`) })
+        await resume.click()
+        const recovery = page.getByRole('dialog', {
+            name: en.publication_new_recovery_title,
+            exact: true,
+        })
+        await expect(recovery).toContainText(body)
+        await recovery
+            .getByRole('button', { name: en.publication_new_recovery_restore, exact: true })
+            .click()
+        await expect(content).toHaveText(body)
+        await expect(page.locator('[data-channel-selected-button]')).toHaveCount(1)
+        await expect(page.locator('[data-channel-selected-button]')).toContainText(
+            'Connection destination'
+        )
+    }
+})
