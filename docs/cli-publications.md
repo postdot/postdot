@@ -76,11 +76,44 @@ With `--json`, success writes the API JSON to stdout. Failure writes one
 1 is an API/transport/command failure, and 2 is invalid local input. Human mode
 uses concise confirmations; inspection commands display formatted JSON.
 
-Requests have a 30-second transport deadline. The CLI never automatically retries
+Requests have a 30-second transport deadline by default; `--timeout-ms` sets a different positive per-request deadline (useful for larger uploads). The CLI never automatically retries
 writes. A transport failure has code `transport_error`; the write may already
 have succeeded on the server. Inspect state before submitting it again. This
 first tranche does not add idempotency keys or promise exactly-once submission.
 
-This text-first workflow does not import new media. Existing media contracts and
-attachments are not disabled; a subsequent CLI tranche will expose file and URL
-import through the existing storage API.
+## Import and inspect media
+
+```sh
+bun run herald media policy --project "$PROJECT_ID" --json
+bun run herald media upload --project "$PROJECT_ID" --file image.png --alt "Release dashboard" --json
+bun run herald media import-url --project "$PROJECT_ID" --url "https://YOUR_HOST/image.png" --json
+bun run herald media show --project "$PROJECT_ID" --asset "$ASSET_ID" --json
+bun run herald media list --project "$PROJECT_ID" --json
+bun run herald media finalize --project "$PROJECT_ID" --intent "$INTENT_ID" --json
+```
+
+File upload checks the current server policy, reserves an asset, streams the raw
+file bytes, and asks the server to inspect/finalize them. `--content-type` overrides
+the filename-derived hint when necessary; it never bypasses inspection or converts
+the file. The upload size limit comes from Herald, not the 1 MiB JSON-input limit.
+Use `--timeout-ms 120000` when a transfer needs a longer deadline.
+
+URL import uses Herald's existing server importer: it downloads and stores a copy,
+not a permanent external reference. URL/network restrictions, supported formats,
+and image/video inspection remain server-owned. MP4 files must satisfy Herald's
+existing ready-to-publish video policy; no conversion is added.
+
+Exit 0 acknowledges a successful API operation, not necessarily a ready asset.
+Check `status`: `ready` includes `media.asset.id` and representations; `pending`
+includes the reservation and intent ID. `failed` exits 1 with
+`media_inspection_failed`. To attach a ready asset, use its ID in source media and
+the destination's declared media field, for example `[{"assetId":"..."}]` for a
+manual message channel. Do not attach pending or failed assets.
+
+The CLI does not poll. Inspect with `media show`, or explicitly finalize a known
+intent again when appropriate. A transfer failure after reservation includes
+`error.media.assetId` and `error.media.intentId` in JSON stderr. Use them to inspect
+state before retrying; an unknown result is not proof that the bytes were lost.
+No automatic repeat or deletion is performed. A URL request whose response was
+lost may not expose an asset ID; inspect the library before importing it again.
+`media list` exposes the server cursor rather than silently downloading all pages.

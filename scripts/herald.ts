@@ -1,4 +1,15 @@
-import { createHeraldClient, type HeraldClient, type Post, type Publication } from '@herald/client'
+import { stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+
+import {
+    createHeraldClient,
+    type HeraldClient,
+    type Post,
+    type Publication,
+    type MediaReservation,
+    type MediaUploadPolicy,
+    type MediaUrlImport,
+} from '@herald/client'
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
@@ -25,6 +36,7 @@ export class CliError extends Error {
     readonly exitCode: number
     readonly code: string
     readonly status?: number
+    media?: { assetId: string; intentId?: string }
 
     constructor(message: string, exitCode = 1, code = 'command_failed', status?: number) {
         super(message)
@@ -41,13 +53,17 @@ export async function runCli(
     dependencies: CliDependencies = {}
 ) {
     const output = dependencies.output ?? console.log
+    const timeoutMs =
+        optionValue(args, '--timeout-ms') === undefined
+            ? 30_000
+            : integerOption(args, '--timeout-ms', 1)
     const transport = dependencies.fetcher ?? fetch
     const fetcher: CliFetcher = (input, init) =>
         transport(input, {
             ...init,
             signal: init?.signal
-                ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
-                : AbortSignal.timeout(30_000),
+                ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+                : AbortSignal.timeout(timeoutMs),
         })
     const jsonOutput = args.includes('--json')
     const baseURL = (
@@ -168,6 +184,120 @@ export async function runCli(
             })
         )
         write(body, 'Channel created.')
+        return
+    }
+
+    if (resource === 'media' && action === 'policy') {
+        const result = await call(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .media['upload-policy'].get()
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'media' && action === 'list') {
+        const cursor = optionValue(args, '--cursor')
+        const result = await call(
+            client.api.projects({ projectId: requiredOption(args, '--project') }).media.get({
+                query: { limit: 100, ...(cursor === undefined ? {} : { cursor }) },
+            })
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'media' && action === 'show') {
+        const result = await call(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .media({ assetId: requiredOption(args, '--asset') })
+                .get()
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'media' && action === 'finalize') {
+        const result = await call<MediaUrlImport>(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .media.uploads({ intentId: requiredOption(args, '--intent') })
+                .finalize.post()
+        )
+        ensureMediaAccepted(result)
+        write(result, `Media ${result.media.asset.id}: ${result.status}.`)
+        return
+    }
+
+    if (resource === 'media' && action === 'import-url') {
+        const result = await call<MediaUrlImport>(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .media.imports.url.post({ url: requiredOption(args, '--url') })
+        )
+        ensureMediaAccepted(result)
+        write(result, `Media ${result.media.asset.id}: ${result.status}.`)
+        return
+    }
+
+    if (resource === 'media' && action === 'upload') {
+        const projectId = requiredOption(args, '--project')
+        const path = requiredOption(args, '--file')
+        let size: number
+        try {
+            const info = await stat(path)
+            if (!info.isFile() || info.size === 0) throw new Error('Not a nonempty file')
+            size = info.size
+        } catch {
+            throw new CliError(
+                '--file must be a readable, nonempty regular file',
+                2,
+                'invalid_input'
+            )
+        }
+        const file = Bun.file(path)
+        const contentType =
+            optionValue(args, '--content-type') ?? file.type ?? 'application/octet-stream'
+        const route = client.api.projects({ projectId }).media
+        const policy = await call<MediaUploadPolicy>(route['upload-policy'].get())
+        if (size > policy.maxFileSize || !policy.allowedContentTypes.includes(contentType)) {
+            throw new CliError(
+                'File exceeds the server upload policy or its content type is unsupported. Inspect media policy.',
+                2,
+                'invalid_input'
+            )
+        }
+        const reservation = await call<MediaReservation>(
+            route.uploads.post({
+                originalFilename: basename(path),
+                expectedSize: size,
+                contentType,
+                defaultAccessibilityText: optionValue(args, '--alt'),
+            })
+        )
+        const checkpoint = { assetId: reservation.asset.id, intentId: reservation.intent.id }
+        try {
+            // Treaty fetch overrides retain a raw stream when the declared body
+            // argument is undefined; do not turn this PUT into JSON or multipart.
+            await call(
+                route.uploads({ intentId: checkpoint.intentId }).put(undefined, {
+                    headers: { 'content-type': contentType },
+                    fetch: { body: file.stream() },
+                })
+            )
+            const result = await call<MediaUrlImport>(
+                route.uploads({ intentId: checkpoint.intentId }).finalize.post()
+            )
+            ensureMediaAccepted(result)
+            write(result, `Media ${checkpoint.assetId}: ${result.status}.`)
+        } catch (error) {
+            const failure =
+                error instanceof CliError ? error : new CliError('Media transfer failed')
+            failure.media = checkpoint
+            throw failure
+        }
         return
     }
 
@@ -328,6 +458,17 @@ export async function runCli(
     }
 
     throw new CliError(`Unknown command: ${resource} ${action ?? ''}`.trim(), 2)
+}
+
+function ensureMediaAccepted(result: MediaUrlImport) {
+    if (result.status !== 'failed') return
+    const error = new CliError(
+        'Media verification failed. Inspect the asset before using it.',
+        1,
+        'media_inspection_failed'
+    )
+    error.media = { assetId: result.media.asset.id }
+    throw error
 }
 
 type ProjectRoutes = ReturnType<HeraldClient['api']['projects']>
@@ -545,6 +686,12 @@ Resources:
   api-keys revoke --key-id <id>      Revoke one of your API keys
   channels list --project <id>       List project channels
   channels create --project <id> --name <name>
+  media policy --project <id>        Inspect accepted types and size limit
+  media list --project <id> [--cursor <cursor>]
+  media show --project <id> --asset <id>
+  media upload --project <id> --file <path> [--alt <text>] [--content-type <type>]
+  media import-url --project <id> --url <url>
+  media finalize --project <id> --intent <id>
   posts create --project <id> --input <file|->
   publications list --project <id> [--cursor <cursor>]
   publications show --project <id> --publication <id>
@@ -559,6 +706,7 @@ Resources:
   audit list --project <id>          List project audit events
 
 Options:
+  --timeout-ms <n>                    Per-request deadline (default: 30000)
   --json                             Print structured JSON
   --base-url <url>                   Herald API URL (default: http://localhost:3000)
   --cookie <value>                   Session cookie for authenticated requests
@@ -600,9 +748,10 @@ if (import.meta.main) {
                           code: cliError.code,
                           message: cliError.message,
                           ...(cliError.status === undefined ? {} : { status: cliError.status }),
+                          ...(cliError.media === undefined ? {} : { media: cliError.media }),
                       },
                   })
-                : `Error: ${cliError.message}`
+                : `Error: ${cliError.message}${cliError.media ? ` (asset ${cliError.media.assetId}, intent ${cliError.media.intentId ?? 'unknown'})` : ''}`
         )
         process.exitCode = cliError.exitCode
     }

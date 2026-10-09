@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { resolve } from 'node:path'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { resolve, join } from 'node:path'
 
 import { runCli } from './herald'
 
@@ -85,9 +87,16 @@ describe('machine publication workflow', () => {
     it('creates two destinations, saves, promotes, reschedules, inspects and cancels through a real API key', async () => {
         const { createApp, createPublisherRuntime } = await import('../apps/api/src/index')
         const { createAuth } = await import('../packages/auth/src/index')
-        const { closeDatabase, createDatabase, runMigrations } =
+        const { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } =
             await import('../packages/db/src/index')
         const { createHeraldClient } = await import('@herald/client')
+        const root = await mkdtemp(join(tmpdir(), 'herald-cli-media-'))
+        const { createLocalMediaStore } = await import('../packages/media/src/index')
+        const { createMediaUrlImporter } = await import('../apps/api/src/modules/media/url-import')
+        const png = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a3ZkAAAAASUVORK5CYII=',
+            'base64'
+        )
         const database = createDatabase(':memory:')
         runMigrations(database)
         const publisher = createPublisherRuntime(database, {
@@ -96,7 +105,25 @@ describe('machine publication workflow', () => {
             publisherEncryptionKey: new Uint8Array(32).fill(7),
             publisherEncryptionKeyId: 'cli-test',
         })
+        const media = createMediaAssetStore(
+            database,
+            createLocalMediaStore({
+                rootDirectory: join(root, 'objects'),
+                storeId: 'cli-test',
+                maxObjectBytes: 2_000_000,
+            })
+        )
         const app = createApp({
+            media,
+            mediaUrlImporter: createMediaUrlImporter({
+                media,
+                fetcher: async () => ({
+                    status: 200,
+                    headers: { 'content-type': 'image/png' },
+                    body: png,
+                    bodyTruncated: false,
+                }),
+            }),
             database,
             publisher,
             auth: createAuth(database, {
@@ -172,13 +199,70 @@ describe('machine publication workflow', () => {
                 ])
                 return { stdout, stderr, code }
             }
+            const filePath = join(root, 'fixture.png')
+            await Bun.write(filePath, png)
+            const upload = await command([
+                'media',
+                'upload',
+                '--file',
+                filePath,
+                '--alt',
+                'CLI image',
+            ])
+            expect(upload.code).toBe(0)
+            expect(upload.stderr).toBe('')
+            const uploaded = JSON.parse(upload.stdout)
+            expect(uploaded.status).toBe('ready')
+            expect(uploaded.media.asset.defaultAccessibilityText).toBe('CLI image')
+            const assetId = uploaded.media.asset.id
+            const content = await client.api
+                .projects({ projectId: project.id })
+                .media({ assetId })
+                .content.get()
+            expect(content.error).toBeNull()
+            const rawContent = await fetch(
+                `${server.url}api/projects/${project.id}/media/${assetId}/content`,
+                { headers: { authorization: `Bearer ${token}` } }
+            )
+            const bytes = new Uint8Array(await rawContent.arrayBuffer())
+            expect(bytes).toEqual(new Uint8Array(png))
+            expect((await command(['media', 'show', '--asset', assetId])).code).toBe(0)
+            const imported = await command([
+                'media',
+                'import-url',
+                '--url',
+                'https://images.example/fixture.png',
+            ])
+            expect(imported.code).toBe(0)
+            expect(JSON.parse(imported.stdout).status).toBe('ready')
+            const mediaList = await command(['media', 'list'])
+            expect(JSON.parse(mediaList.stdout).total).toBe(2)
+            const badFile = join(root, 'invalid.png')
+            await Bun.write(badFile, 'not a PNG')
+            const badUpload = await command(['media', 'upload', '--file', badFile])
+            expect(badUpload.code).toBe(1)
+            const failure = JSON.parse(badUpload.stderr).error
+            expect(failure.code).toBe('media_inspection_failed')
+            expect(failure.media.assetId).toBeString()
+            expect(failure.media.intentId).toBeString()
+            const finalize = await command([
+                'media',
+                'finalize',
+                '--intent',
+                failure.media.intentId,
+            ])
+            expect(finalize.code).toBe(1)
+            expect(JSON.parse(finalize.stderr).error.code).toBe('media_inspection_failed')
             const result = await command(['posts', 'create', '--input', '-'], {
                 title: 'Machine post',
-                sourceContent: { body: { text: 'Source', format: 'plain_text' }, media: [] },
+                sourceContent: {
+                    body: { text: 'Source', format: 'plain_text' },
+                    media: [{ assetId }],
+                },
                 publications: ids.map(channelId => ({
                     channelId,
                     deliveryMode: 'manual',
-                    targetContent: { body: 'Destination copy', media: [] },
+                    targetContent: { body: 'Destination copy', media: [{ assetId }] },
                 })),
             })
             expect(result.stderr).toBe('')
@@ -258,6 +342,7 @@ describe('machine publication workflow', () => {
         } finally {
             await server.stop(true)
             closeDatabase(database)
+            await rm(root, { recursive: true, force: true })
         }
     }, 30_000)
 
@@ -319,5 +404,74 @@ describe('CLI lifecycle transport', () => {
             )
         ).rejects.toMatchObject({ code: 'transport_error', exitCode: 1 })
         expect(requests).toBe(1)
+    })
+})
+
+describe('CLI pending media', () => {
+    it('returns pending verification once without polling or treating it as ready', async () => {
+        let requests = 0
+        const output: string[] = []
+        await runCli(
+            ['media', 'finalize', '--project', 'p', '--intent', 'intent', '--json'],
+            { HERALD_API_KEY: 'fake' },
+            {
+                fetcher: async () => {
+                    requests++
+                    return Response.json(
+                        {
+                            status: 'pending',
+                            media: { asset: { id: 'asset' }, intent: { id: 'intent' } },
+                        },
+                        { status: 202 }
+                    )
+                },
+                output: value => output.push(value),
+            }
+        )
+        expect(requests).toBe(1)
+        expect(JSON.parse(output[0]!)).toMatchObject({
+            status: 'pending',
+            media: { intent: { id: 'intent' } },
+        })
+    })
+})
+
+describe('CLI interrupted media transfer', () => {
+    it('retains the reservation and never repeats the transfer or finalizes it', async () => {
+        const root = await mkdtemp(join(tmpdir(), 'herald-cli-transfer-'))
+        const path = join(root, 'image.png')
+        await Bun.write(path, new Uint8Array([1, 2, 3]))
+        const requests: string[] = []
+        try {
+            await expect(
+                runCli(
+                    ['media', 'upload', '--project', 'p', '--file', path],
+                    { HERALD_API_KEY: 'fake' },
+                    {
+                        fetcher: async (input, init) => {
+                            const request = requestFromInput(input, init)
+                            requests.push(request.method)
+                            if (request.method === 'GET')
+                                return Response.json({
+                                    allowedContentTypes: ['image/png'],
+                                    maxFileSize: 100,
+                                })
+                            if (request.method === 'POST')
+                                return Response.json(
+                                    { asset: { id: 'asset' }, intent: { id: 'intent' } },
+                                    { status: 201 }
+                                )
+                            throw new Error('Connection lost after submission')
+                        },
+                    }
+                )
+            ).rejects.toMatchObject({
+                code: 'transport_error',
+                media: { assetId: 'asset', intentId: 'intent' },
+            })
+            expect(requests).toEqual(['GET', 'POST', 'PUT'])
+        } finally {
+            await rm(root, { recursive: true, force: true })
+        }
     })
 })
