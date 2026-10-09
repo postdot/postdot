@@ -1079,6 +1079,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/publisher/x/connect',
                 '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
+                '/api/projects/{projectId}/posts/{postId}',
+                '/api/projects/{projectId}/posts/{postId}/destinations',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publication-composer-draft',
                 '/api/projects/{projectId}/publications',

@@ -2086,5 +2086,17 @@
     "channel_archived_success": "« {channel} » archivé",
     "channel_restored_success": "« {channel} » restauré",
     "channel_deleted_success": "« {channel} » supprimé",
-    "toast_region": "Messages temporaires"
+    "toast_region": "Messages temporaires",
+    "add_destination_title": "Ajouter une destination",
+    "add_destination_source": "Utilise la source actuelle, révision {revision}. Crée uniquement un brouillon.",
+    "add_destination_channel": "Canal",
+    "add_destination_mode": "Livraison",
+    "add_destination_manual": "Manuelle",
+    "add_destination_automatic": "Automatique",
+    "add_destination_repeat": "Ce post possède déjà une publication pour ce canal. Ajouter un autre brouillon ?",
+    "add_destination_confirm": "Confirmer un autre brouillon",
+    "add_destination_submit": "Créer le brouillon",
+    "add_destination_conflict": "La source a changé. Fermez puis rouvrez pour utiliser sa révision actuelle.",
+    "add_destination_failure": "Impossible d’ajouter cette destination. Votre sélection est conservée.",
+    "add_destination_loading": "Chargement de la source…"
 }

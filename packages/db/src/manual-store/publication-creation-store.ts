@@ -10,13 +10,14 @@ import {
     type ChannelProfileCompiler,
     type DeliveryMode,
     type Publication,
+    type Post,
     type PublicationReviewState,
     type ProjectTag,
     type ValidationIssue,
 } from '@herald/core'
 
 import { createDatabaseTransaction, type HeraldDatabase } from '../client'
-import type { CreatePostInput, CreatedPost } from '../manual-store'
+import type { AddPostDestinationsInput, CreatePostInput, CreatedPost } from '../manual-store'
 import {
     canonicalJson,
     contentHash,
@@ -25,11 +26,12 @@ import {
     isRecord,
     parseProfile,
 } from './content-codec'
-import { toActor, toPublisher } from './mappers'
+import { toActor, toPost, toPublisher } from './mappers'
 import { toChannel, toProject } from './project-channel-mappers'
 import type {
     ActorRow,
     ProfileRow,
+    PostRow,
     PublicationChannelRow,
     ProjectRow,
     ResolvedTargetMedia,
@@ -93,6 +95,13 @@ export function createPublicationCreationStore(
         from projects
         where id = ?1
     `)
+    const loadPostStatement = client.query<PostRow, [string, string]>(`
+        select id, project_id as projectId, title, source_content as sourceContentJson,
+               source_revision as sourceRevision, created_by_actor_id as createdByActorId,
+               created_at as createdAt, updated_at as updatedAt
+        from posts where project_id = ?1 and id = ?2
+    `)
+
     const insertPostStatement = client.query<
         void,
         [
@@ -279,7 +288,7 @@ export function createPublicationCreationStore(
 
     const createPostTransaction = createDatabaseTransaction(
         database,
-        (input: CreatePostInput): CreatedPost | null => {
+        (input: CreatePostInput, existingPost?: Post): CreatedPost | null => {
             if (input.publications.length === 0) {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -294,14 +303,16 @@ export function createPublicationCreationStore(
             const timestamp = requireTimestamp(options.now(), 'now')
             const project = toProject(projectRow)
             const actor = toActor(actorRow)
-            const post = createPost({
-                id: options.createId(),
-                project,
-                createdBy: actor,
-                title: input.title,
-                sourceContent: input.sourceContent,
-                now: timestamp,
-            })
+            const post =
+                existingPost ??
+                createPost({
+                    id: options.createId(),
+                    project,
+                    createdBy: actor,
+                    title: input.title,
+                    sourceContent: input.sourceContent,
+                    now: timestamp,
+                })
 
             const publicationEntries = input.publications.map(publicationInput => {
                 const channelRow = options.loadChannel(project.id, publicationInput.channelId)
@@ -431,25 +442,27 @@ export function createPublicationCreationStore(
             })
             const publications = publicationEntries.map(entry => entry.publication)
 
-            insertPostStatement.run(
-                post.id,
-                project.id,
-                post.title,
-                canonicalJson(post.sourceContent),
-                post.sourceRevision,
-                actor.id,
-                timestamp
-            )
-            options.insertAuditEvent({
-                id: options.createId(),
-                projectId: project.id,
-                actorId: actor.id,
-                action: 'post.created',
-                entityType: 'post',
-                entityId: post.id,
-                metadataJson: JSON.stringify({ title: post.title }),
-                createdAt: timestamp,
-            })
+            if (existingPost === undefined) {
+                insertPostStatement.run(
+                    post.id,
+                    project.id,
+                    post.title,
+                    canonicalJson(post.sourceContent),
+                    post.sourceRevision,
+                    actor.id,
+                    timestamp
+                )
+                options.insertAuditEvent({
+                    id: options.createId(),
+                    projectId: project.id,
+                    actorId: actor.id,
+                    action: 'post.created',
+                    entityType: 'post',
+                    entityId: post.id,
+                    metadataJson: JSON.stringify({ title: post.title }),
+                    createdAt: timestamp,
+                })
+            }
 
             for (const entry of publicationEntries) {
                 const { publication } = entry
@@ -568,6 +581,60 @@ export function createPublicationCreationStore(
     )
 
     return {
+        getPost(projectId: string, postId: string, subjectId: string): Post | null {
+            if (options.loadActor(projectId, subjectId) === null) return null
+            const row = loadPostStatement.get(projectId, postId)
+            return row === null ? null : toPost(row)
+        },
+        addPostDestinations(input: AddPostDestinationsInput): CreatedPost | null {
+            return createDatabaseTransaction(database, () => {
+                if (options.loadActor(input.projectId, input.subjectId) === null) return null
+                const row = loadPostStatement.get(input.projectId, input.postId)
+                if (row === null) return null
+                if (row.sourceRevision !== input.expectedSourceRevision) {
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        'The source post changed before destinations were added'
+                    )
+                }
+                const existingChannels = new Set(
+                    client
+                        .query<{ channelId: string }, [string, string]>(
+                            'select channel_id as channelId from publications where project_id = ?1 and post_id = ?2'
+                        )
+                        .all(input.projectId, input.postId)
+                        .map(item => item.channelId)
+                )
+                const newChannels = new Set<string>()
+                for (const item of input.publications) {
+                    if (
+                        (existingChannels.has(item.channelId) || newChannels.has(item.channelId)) &&
+                        !input.confirmExistingChannels
+                    ) {
+                        throw new DomainInvariantError(
+                            'invalid_transition',
+                            'Adding another publication for an existing channel requires confirmation'
+                        )
+                    }
+                    newChannels.add(item.channelId)
+                }
+                const post = toPost(row)
+                return createPostTransaction.immediate(
+                    {
+                        projectId: input.projectId,
+                        subjectId: input.subjectId,
+                        title: post.title,
+                        sourceContent: post.sourceContent,
+                        publications: input.publications.map(item => ({
+                            channelId: item.channelId,
+                            deliveryMode: item.deliveryMode,
+                            scheduledAt: null,
+                        })),
+                    },
+                    post
+                )
+            }).immediate()
+        },
         createPost(input: CreatePostInput): CreatedPost | null {
             return createPostTransaction.immediate({
                 ...input,

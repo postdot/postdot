@@ -2086,5 +2086,17 @@
     "channel_archived_success": "“{channel}” archived",
     "channel_restored_success": "“{channel}” restored",
     "channel_deleted_success": "“{channel}” deleted",
-    "toast_region": "Transient messages"
+    "toast_region": "Transient messages",
+    "add_destination_title": "Add destination",
+    "add_destination_source": "Uses the current source, revision {revision}. Creates a draft only.",
+    "add_destination_channel": "Channel",
+    "add_destination_mode": "Delivery",
+    "add_destination_manual": "Manual",
+    "add_destination_automatic": "Automatic",
+    "add_destination_repeat": "This post already has a publication for this channel. Add another draft?",
+    "add_destination_confirm": "Confirm another draft",
+    "add_destination_submit": "Create draft",
+    "add_destination_conflict": "The source changed. Close and reopen to use its current revision.",
+    "add_destination_failure": "Could not add this destination. Your selection is preserved.",
+    "add_destination_loading": "Loading source…"
 }

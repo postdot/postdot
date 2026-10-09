@@ -1408,3 +1408,64 @@ for (const [platform, revision] of [
         }
     })
 }
+
+test('adds a destination draft to the existing post with explicit repeated-channel confirmation', async ({
+    page,
+}, info) => {
+    const projectId = await createProject(page)
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Reuse manual' },
+    })
+    expect(channelResponse.status()).toBe(201)
+    const { channel } = await channelResponse.json()
+    const createdResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { text: 'Source for another destination', format: 'plain_text' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(createdResponse.status()).toBe(201)
+    const created = await createdResponse.json()
+    await page.goto(`/dashboard/projects/${projectId}/publications/${created.publications[0].id}`)
+    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('combobox', { name: 'Channel', exact: true }).click()
+    await page.getByRole('option', { name: 'Reuse manual', exact: true }).click()
+    await expect(dialog).toContainText('This post already has a publication for this channel.')
+    await dialog.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await expect(
+        dialog.getByRole('button', { name: 'Confirm another draft', exact: true })
+    ).toBeVisible()
+    const before = await (
+        await page.request.get(`/api/projects/${projectId}/publications?limit=100`)
+    ).json()
+    expect(before.publications).toHaveLength(1)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(dialog).toBeVisible()
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath('add-destination-narrow.png') })
+    const submitted = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/posts/${created.post.id}/destinations`) &&
+            response.request().method() === 'POST'
+    )
+    await dialog.getByRole('button', { name: 'Confirm another draft', exact: true }).click()
+    expect((await submitted).status()).toBe(201)
+    const added = await (await submitted).json()
+    await expect(page).toHaveURL(new RegExp(`/publications/${added.publications[0].id}$`))
+    expect(added.publications[0]).toMatchObject({
+        postId: created.post.id,
+        state: 'draft',
+        scheduledAt: null,
+    })
+    const existing = await (
+        await page.request.get(
+            `/api/projects/${projectId}/publications/${created.publications[0].id}/editor`
+        )
+    ).json()
+    expect(existing.editor.publication.state).toBe('draft')
+    expect(existing.editor.post.sourceRevision).toBe(1)
+})

@@ -1569,6 +1569,26 @@ export const api = {
         )
     },
 
+    async getPost(projectId: string, postId: string): Promise<{ post: Post }> {
+        return unwrap<{ post: Post }>(
+            await client.api.projects({ projectId }).posts({ postId }).get()
+        )
+    },
+
+    async addPostDestinations(
+        projectId: string,
+        postId: string,
+        input: {
+            expectedSourceRevision: number
+            confirmExistingChannels?: boolean
+            publications: Array<{ channelId: string; deliveryMode: 'manual' | 'automatic' }>
+        }
+    ): Promise<{ post: Post; publications: Publication[] }> {
+        return unwrap<{ post: Post; publications: Publication[] }>(
+            await client.api.projects({ projectId }).posts({ postId }).destinations.post(input)
+        )
+    },
+
     async createPost(
         projectId: string,
         input: {

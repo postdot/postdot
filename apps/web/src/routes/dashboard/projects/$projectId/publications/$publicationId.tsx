@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useReducer, useRef } from 'react'
 
+import { AddPostDestination } from '@/components/add-post-destination'
 import { EmptyState } from '@/components/empty-state'
 import { PublicationEditor } from '@/components/publication-editor'
 import { api, ApiError } from '@/lib/api'
@@ -67,6 +68,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 })
 
 function PublicationEditorRoute() {
+    const router = useRouter()
     const { projectId, publicationId } = Route.useParams()
     const { date, from, view, editor: editorEngine } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
@@ -193,6 +195,22 @@ function PublicationEditorRoute() {
             {access.status === 'reconciling' ? <AccessReconcilingNotice /> : null}
             {access.status === 'technical-error' ? (
                 <AccessTechnicalErrorNotice onRetry={retryAccessVerification} />
+            ) : null}
+            {canAct ? (
+                <div className="flex justify-end pb-3">
+                    <AddPostDestination
+                        projectId={projectId}
+                        postId={currentEditor.post.id}
+                        channels={activeChannels}
+                        onAdded={async publicationId => {
+                            await router.invalidate()
+                            await router.navigate({
+                                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                                params: { projectId, publicationId },
+                            })
+                        }}
+                    />
+                </div>
             ) : null}
             <PublicationEditor
                 key={currentEditor.draft.id}

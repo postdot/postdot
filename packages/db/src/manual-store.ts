@@ -153,6 +153,15 @@ export interface CreatePostInput {
     readonly publications: readonly CreatePostPublicationInput[]
 }
 
+export interface AddPostDestinationsInput {
+    readonly projectId: string
+    readonly postId: string
+    readonly subjectId: string
+    readonly expectedSourceRevision: number
+    readonly confirmExistingChannels?: boolean
+    readonly publications: readonly Pick<CreatePostPublicationInput, 'channelId' | 'deliveryMode'>[]
+}
+
 export interface SavePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string

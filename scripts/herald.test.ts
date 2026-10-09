@@ -398,6 +398,81 @@ describe('machine publication workflow', () => {
                 publicationId,
             ])
             expect(JSON.parse(cancelled.stdout).editor.publication.state).toBe('cancelled')
+            const machineClient = createHeraldClient(server.url.href, { token })
+            const sourceRead = await machineClient.api
+                .projects({ projectId: project.id })
+                .posts({ postId: createdPost.post.id })
+                .get()
+            expect(sourceRead.error).toBeNull()
+            const addition = await machineClient.api
+                .projects({ projectId: project.id })
+                .posts({ postId: createdPost.post.id })
+                .destinations.post({
+                    expectedSourceRevision: createdPost.post.sourceRevision,
+                    confirmExistingChannels: true,
+                    publications: [{ channelId: ids[0]!, deliveryMode: 'manual' }],
+                })
+            expect(addition.error).toBeNull()
+            expect(addition.status).toBe(201)
+            const staleAddition = await machineClient.api
+                .projects({ projectId: project.id })
+                .posts({ postId: createdPost.post.id })
+                .destinations.post({
+                    expectedSourceRevision: 999,
+                    publications: [{ channelId: ids[0]!, deliveryMode: 'manual' }],
+                })
+            expect(staleAddition.status).toBe(409)
+            const articleChannel = await client.api
+                .projects({ projectId: project.id })
+                .channels.post({ name: 'Article review', profile: 'devto' })
+            expect(articleChannel.error).toBeNull()
+            const articleAddition = await machineClient.api
+                .projects({ projectId: project.id })
+                .posts({ postId: createdPost.post.id })
+                .destinations.post({
+                    expectedSourceRevision: createdPost.post.sourceRevision,
+                    publications: [
+                        {
+                            channelId: (articleChannel.data as { channel: { id: string } }).channel
+                                .id,
+                            deliveryMode: 'manual',
+                        },
+                    ],
+                })
+            expect(articleAddition.status).toBe(201)
+            expect(
+                (articleAddition.data as { publications: Array<{ reviewState: string }> })
+                    .publications[0]!.reviewState
+            ).toBe('review_required')
+            const readKey = await client.api['api-keys'].post({
+                name: 'Read only',
+                projectIds: [project.id],
+                actionAccess: ['project:read'],
+            })
+            expect(readKey.error).toBeNull()
+            const reader = createHeraldClient(server.url.href, {
+                token: (readKey.data as { token: string }).token,
+            })
+            expect(
+                (
+                    await reader.api
+                        .projects({ projectId: project.id })
+                        .posts({ postId: createdPost.post.id })
+                        .get()
+                ).status
+            ).toBe(200)
+            expect(
+                (
+                    await reader.api
+                        .projects({ projectId: project.id })
+                        .posts({ postId: createdPost.post.id })
+                        .destinations.post({
+                            expectedSourceRevision: createdPost.post.sourceRevision,
+                            confirmExistingChannels: true,
+                            publications: [{ channelId: ids[0]!, deliveryMode: 'manual' }],
+                        })
+                ).status
+            ).toBe(403)
             const retry = await command(['publications', 'retry', '--publication', publicationId])
             expect(retry.code).toBe(1)
             expect(retry.stdout).toBe('')
