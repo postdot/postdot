@@ -702,7 +702,7 @@
     "provider_connect_title": "Connect {provider}",
     "provider_reconnect_title": "Reconnect {provider}",
     "provider_dialog_description": "Save the connection details for {channel} without exposing credentials in the browser after submission.",
-    "provider_bluesky_description": "Enter the Bluesky handle that owns this account. Herald will open Bluesky’s authorization page; no app password is required.",
+    "provider_bluesky_description": "Authorize this account on Bluesky.",
     "provider_bluesky_help": "You can enter it with or without the @ prefix. Custom domains are supported.",
     "provider_handle": "Bluesky handle",
     "provider_handle_placeholder": "you.example.com",

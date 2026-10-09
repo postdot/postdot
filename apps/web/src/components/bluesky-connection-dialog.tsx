@@ -7,14 +7,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
 import { ProviderApplicationSelect } from '@/components/provider-application-select'
-import type { Channel, ProviderApplication } from '@/lib/api'
+import { formatApiError, type Channel, type ProviderApplication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -44,6 +44,7 @@ export function BlueskyConnectionDialog({
     useLanguage()
     const [open, setOpen] = useState(false)
     const [handle, setHandle] = useState('')
+    const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     function reset() {
@@ -59,7 +60,15 @@ export function BlueskyConnectionDialog({
         }
 
         setError(null)
-        await onConnect(channel.id, normalizedHandle, providerApplicationId)
+        if (submitting) return
+        setSubmitting(true)
+        try {
+            await onConnect(channel.id, normalizedHandle, providerApplicationId)
+        } catch (caughtError) {
+            setError(formatApiError(caughtError))
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     return (
@@ -68,7 +77,7 @@ export function BlueskyConnectionDialog({
                 className="self-end sm:self-start"
                 size="sm"
                 onClick={() => setOpen(true)}
-                disabled={disabled}>
+                disabled={disabled || submitting}>
                 <AddIcon aria-hidden="true" />
                 {reconnect
                     ? m.provider_reconnect_title({ provider: 'Bluesky' })
@@ -80,7 +89,7 @@ export function BlueskyConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-lg">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-x-hidden overflow-y-auto bg-background sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle>
                             {reconnect
@@ -98,13 +107,13 @@ export function BlueskyConnectionDialog({
                             autoFocus
                             autoComplete="username"
                             value={handle}
-                            onChange={event => setHandle(event.target.value)}
+                            onChange={event => {
+                                setHandle(event.target.value)
+                                setError(null)
+                            }}
                             placeholder={m.provider_handle_placeholder()}
-                            aria-describedby={`bluesky-handle-help-${channel.id}`}
+                            aria-invalid={error !== null}
                         />
-                        <FieldDescription id={`bluesky-handle-help-${channel.id}`}>
-                            {m.provider_bluesky_help()}
-                        </FieldDescription>
                     </Field>
                     <ProviderApplicationSelect
                         applications={providerApplications}
@@ -113,16 +122,23 @@ export function BlueskyConnectionDialog({
                         onValueChange={onProviderApplicationChange}
                         value={providerApplicationId ?? ''}
                     />
-                    {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                    {error ? (
+                        <p role="alert" className="text-sm text-destructive">
+                            {error}
+                        </p>
+                    ) : null}
                     <DialogFooter>
                         <Button
                             type="button"
                             variant="ghost"
                             onClick={() => setOpen(false)}
-                            disabled={disabled}>
+                            disabled={disabled || submitting}>
                             {m.common_cancel()}
                         </Button>
-                        <Button type="button" onClick={() => void submit()} disabled={disabled}>
+                        <Button
+                            type="button"
+                            onClick={() => void submit()}
+                            disabled={disabled || submitting}>
                             <LinkIcon aria-hidden="true" />
                             {m.provider_continue()}
                         </Button>

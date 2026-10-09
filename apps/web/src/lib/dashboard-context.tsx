@@ -554,15 +554,14 @@ export function ProjectDashboardProvider({
         handle: string,
         providerApplicationId?: string
     ) {
-        await runAction(async () => {
-            const { authorizationUrl } = await api.startBlueskyPublisherConnection(
-                project.id,
-                channelId,
-                handle,
-                providerApplicationId
-            )
-            window.location.assign(authorizationUrl)
-        })
+        setError(null)
+        const { authorizationUrl } = await api.startBlueskyPublisherConnection(
+            project.id,
+            channelId,
+            handle,
+            providerApplicationId
+        )
+        window.location.assign(authorizationUrl)
     }
 
     async function handleStartMastodonConnection(channelId: string, instanceUrl: string) {

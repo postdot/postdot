@@ -208,3 +208,36 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
         throw new Error(`Expected a project route, received ${page.url()}`)
     return match[1]
 }
+
+test('keeps Bluesky connection failures inside the dialog and preserves the handle', async ({
+    page,
+}) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    expect(
+        (
+            await page.request.post(`/api/projects/${projectId}/channels`, {
+                data: { name: 'Bluesky test', profile: 'bluesky' },
+            })
+        ).status()
+    ).toBe(201)
+    await page.route('**/publisher/bluesky/connect', route =>
+        route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                error: { code: 'provider_unavailable', message: 'Unavailable' },
+            }),
+        })
+    )
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Connect Bluesky', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    const handle = dialog.getByLabel(en.provider_handle, { exact: true })
+    await handle.fill('test.bsky.social')
+    await dialog.getByRole('button', { name: en.provider_continue, exact: true }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(en.api_provider_unavailable)
+    await expect(handle).toHaveValue('test.bsky.social')
+    await expect(page.getByText(en.api_provider_unavailable, { exact: true })).toHaveCount(1)
+    await handle.fill('other.bsky.social')
+    await expect(dialog.getByRole('alert')).toHaveCount(0)
+})

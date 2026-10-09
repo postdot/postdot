@@ -702,7 +702,7 @@
     "provider_connect_title": "Connecter {provider}",
     "provider_reconnect_title": "Reconnecter {provider}",
     "provider_dialog_description": "Enregistrez les détails de connexion de {channel} sans exposer les identifiants dans le navigateur après l’envoi.",
-    "provider_bluesky_description": "Saisissez l’identifiant Bluesky associé à ce compte. Herald ouvrira la page d’autorisation Bluesky ; aucun mot de passe d’application n’est nécessaire.",
+    "provider_bluesky_description": "Autorisez ce compte sur Bluesky.",
     "provider_bluesky_help": "Vous pouvez le saisir avec ou sans le préfixe @. Les domaines personnalisés sont pris en charge.",
     "provider_handle": "Identifiant Bluesky",
     "provider_handle_placeholder": "vous.example.com",
