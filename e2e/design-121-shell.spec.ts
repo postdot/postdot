@@ -144,7 +144,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page).toHaveURL(/\/overview$/)
     const calendar = page.locator('[data-calendar="reui"]')
     await expect(calendar).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
     await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
 

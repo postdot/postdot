@@ -319,7 +319,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
     await expect(page.locator('[data-empty-state="network"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
     await expect(page.locator('[data-calendar="reui"]')).toHaveCount(0)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()

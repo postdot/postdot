@@ -433,3 +433,55 @@ test('keeps connection errors and retries in each form without losing entered de
     ).toHaveValue('123456')
     await page.screenshot({ path: testInfo.outputPath('connection-linkedin-wide.png') })
 })
+
+test('creates the first destination while preserving the first publication', async ({
+    page,
+}, info) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    await page
+        .getByRole('main')
+        .getByRole('button', { name: en.overview_new_publication, exact: true })
+        .click()
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/publications/new$`))
+    await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
+    const content = page.getByRole('textbox', {
+        name: en.publication_new_source_content,
+        exact: true,
+    })
+    const body = 'Our first publication stays here while its destination is created.'
+    await content.fill(body)
+    await expect(page.locator('[data-publication-schedule-disclosure]')).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.screenshot({ path: info.outputPath('first-publication-empty.png') })
+    await page.getByRole('button', { name: en.channel_add, exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(content).toHaveText(body)
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/publications/new$`))
+    await page.getByRole('button', { name: en.channel_add, exact: true }).click()
+    await dialog
+        .getByRole('textbox', { name: en.channel_name, exact: true })
+        .fill('First destination')
+    await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(content).toHaveText(body)
+    await expect(page.locator('[data-channel-selected-button]')).toContainText('First destination')
+    await expect(page.locator('[data-publication-schedule-disclosure]')).toBeVisible()
+    await page.screenshot({ path: info.outputPath('first-publication-ready.png') })
+    const submit = page.locator('button[name="publication-action"][value="schedule"]')
+    const created = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/api/projects/${projectId}/posts`) &&
+            response.request().method() === 'POST'
+    )
+    await submit.click()
+    expect((await created).status()).toBe(201)
+    const result = await page.request.get(`/api/projects/${projectId}/publications`)
+    const publications = (await result.json()).publications
+    expect(publications).toHaveLength(1)
+    expect(publications[0].deliveryMode).toBe('manual')
+    await page.goto(`/dashboard/projects/${projectId}/queue`)
+    await expect(page.locator('a[data-publication-edit-link]').first()).toBeVisible()
+    await page.locator('a[data-publication-edit-link]').first().click()
+    await expect(page.locator('#source-body')).toHaveText(body)
+})

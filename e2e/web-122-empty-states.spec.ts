@@ -10,10 +10,10 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
 
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
     await expect(page.locator('[data-calendar="reui"]')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
     await expect(
         page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(0)
+    ).toHaveCount(1)
 
     await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()

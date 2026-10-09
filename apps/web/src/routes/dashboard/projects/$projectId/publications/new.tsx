@@ -27,22 +27,13 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 
 function NewPublicationRoute() {
     const { date, time, editor } = Route.useSearch()
-    const { activeChannels, project, projectRole } = useProjectDashboard()
+    const { project, projectRole } = useProjectDashboard()
     if (projectRole === 'viewer') {
         return (
             <Navigate
                 to="/dashboard/projects/$projectId/queue"
                 params={{ projectId: project.id }}
                 search={{ filter: undefined, sort: undefined, tagIds: undefined }}
-                replace
-            />
-        )
-    }
-    if (activeChannels.length === 0) {
-        return (
-            <Navigate
-                to="/dashboard/projects/$projectId/channels"
-                params={{ projectId: project.id }}
                 replace
             />
         )

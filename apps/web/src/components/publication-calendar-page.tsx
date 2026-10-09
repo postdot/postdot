@@ -196,11 +196,11 @@ export function PublicationCalendarPage({
                                 render={
                                     <Link
                                         params={{ projectId: project.id }}
-                                        to="/dashboard/projects/$projectId/channels"
+                                        to="/dashboard/projects/$projectId/publications/new"
                                     />
                                 }>
                                 <AddIcon aria-hidden="true" />
-                                {m.channel_add()}
+                                {m.overview_new_publication()}
                             </Button>
                         ) : undefined
                     }

@@ -753,7 +753,7 @@ export function NewPublicationPage({
                                 createChannel={
                                     projectRole === 'owner' || projectRole === 'editor' ? (
                                         <ChannelCreationDialog
-                                            compact
+                                            compact={activeChannels.length > 0}
                                             channels={channels}
                                             onCreate={onCreateChannel}
                                             pending={pending}
@@ -1110,57 +1110,61 @@ export function NewPublicationPage({
                             ) : undefined
                         }
                         settings={
-                            <details
-                                data-publication-schedule-disclosure="true"
-                                className="group min-w-0 rounded-md bg-surface-inset/35 px-3 shadow-surface"
-                                open={scheduleDetailsOpen}
-                                onToggle={event =>
-                                    setScheduleDetailsOpen(event.currentTarget.open)
-                                }>
-                                <summary
-                                    aria-label={m.publication_new_schedule_settings()}
-                                    className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 text-sm marker:hidden [&::-webkit-details-marker]:hidden">
-                                    <CalendarMinimalisticIcon
-                                        aria-hidden="true"
-                                        className="size-4 shrink-0 text-muted-foreground"
-                                    />
-                                    <span className="min-w-0 flex-1 truncate font-medium">
-                                        {formatCivilSchedule(defaultScheduledAt, locale) ||
-                                            m.date_time_picker_placeholder()}
-                                    </span>
-                                    <span className="hidden shrink-0 text-muted-foreground sm:inline">
-                                        {defaultDeliveryMode === 'automatic'
-                                            ? m.publication_new_automatic_publication()
-                                            : m.publication_new_manual_publication()}
-                                    </span>
-                                    <AltArrowDownIcon
-                                        aria-hidden="true"
-                                        className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-                                    />
-                                </summary>
-                                <div className="pb-4 pt-1">
-                                    <PublicationChannelSettings
-                                        activeTargetId={activePublicationTabId}
-                                        channels={activeChannels}
-                                        connections={connections}
-                                        customizedTargetIds={customizedTargetIds}
-                                        defaultDeliveryMode={defaultDeliveryMode}
-                                        defaultScheduledAt={defaultScheduledAt}
-                                        disabled={pending}
-                                        onDefaultDeliveryModeChange={
-                                            handleDefaultDeliveryModeChange
-                                        }
-                                        onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
-                                        onChange={onPublicationTargetsChange}
-                                        onTargetCustomizationChange={
-                                            handleTargetCustomizationChange
-                                        }
-                                        projectId={project.id}
-                                        targets={publicationTargets}
-                                        timeZone={project.timeZone}
-                                    />
-                                </div>
-                            </details>
+                            selectedPublicationCount > 0 ? (
+                                <details
+                                    data-publication-schedule-disclosure="true"
+                                    className="group min-w-0 rounded-md bg-surface-inset/35 px-3 shadow-surface"
+                                    open={scheduleDetailsOpen}
+                                    onToggle={event =>
+                                        setScheduleDetailsOpen(event.currentTarget.open)
+                                    }>
+                                    <summary
+                                        aria-label={m.publication_new_schedule_settings()}
+                                        className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 text-sm marker:hidden [&::-webkit-details-marker]:hidden">
+                                        <CalendarMinimalisticIcon
+                                            aria-hidden="true"
+                                            className="size-4 shrink-0 text-muted-foreground"
+                                        />
+                                        <span className="min-w-0 flex-1 truncate font-medium">
+                                            {formatCivilSchedule(defaultScheduledAt, locale) ||
+                                                m.date_time_picker_placeholder()}
+                                        </span>
+                                        <span className="hidden shrink-0 text-muted-foreground sm:inline">
+                                            {defaultDeliveryMode === 'automatic'
+                                                ? m.publication_new_automatic_publication()
+                                                : m.publication_new_manual_publication()}
+                                        </span>
+                                        <AltArrowDownIcon
+                                            aria-hidden="true"
+                                            className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+                                        />
+                                    </summary>
+                                    <div className="pb-4 pt-1">
+                                        <PublicationChannelSettings
+                                            activeTargetId={activePublicationTabId}
+                                            channels={activeChannels}
+                                            connections={connections}
+                                            customizedTargetIds={customizedTargetIds}
+                                            defaultDeliveryMode={defaultDeliveryMode}
+                                            defaultScheduledAt={defaultScheduledAt}
+                                            disabled={pending}
+                                            onDefaultDeliveryModeChange={
+                                                handleDefaultDeliveryModeChange
+                                            }
+                                            onDefaultScheduledAtChange={
+                                                handleDefaultScheduledAtChange
+                                            }
+                                            onChange={onPublicationTargetsChange}
+                                            onTargetCustomizationChange={
+                                                handleTargetCustomizationChange
+                                            }
+                                            projectId={project.id}
+                                            targets={publicationTargets}
+                                            timeZone={project.timeZone}
+                                        />
+                                    </div>
+                                </details>
+                            ) : undefined
                         }
                     />
                 </section>

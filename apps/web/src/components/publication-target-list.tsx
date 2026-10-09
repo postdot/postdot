@@ -205,16 +205,18 @@ export function PublicationChannelTabs({
         return (
             <div
                 data-publication-channel-selection="true"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2.5">
+                className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className="text-sm text-muted-foreground">
                     {m.publication_new_add_channel()}
                 </span>
-                <Link
-                    className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    params={{ projectId }}
-                    to="/dashboard/projects/$projectId/channels">
-                    {m.publication_new_manage_channels()}
-                </Link>
+                {createChannel ?? (
+                    <Link
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        params={{ projectId }}
+                        to="/dashboard/projects/$projectId/channels">
+                        {m.publication_new_manage_channels()}
+                    </Link>
+                )}
             </div>
         )
     }
