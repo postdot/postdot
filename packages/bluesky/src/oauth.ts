@@ -14,7 +14,7 @@ import {
 } from '@atproto/oauth-client'
 import { buildAtprotoLoopbackClientMetadata } from '@atproto/oauth-types'
 
-import { BLUESKY_REQUIRED_SCOPES } from './contract'
+import { BLUESKY_IMAGE_SCOPES, BLUESKY_REQUIRED_SCOPES } from './contract'
 
 const BLUESKY_SCOPE = BLUESKY_REQUIRED_SCOPES.join(' ')
 
@@ -78,6 +78,7 @@ export type SerializedBlueskyState = Omit<InternalStateData, 'dpopKey'> & {
 }
 
 export type SerializedBlueskySession = Omit<Session, 'dpopKey'> & {
+    readonly heraldClientId?: string
     readonly dpopJwk: Jwk
 }
 
@@ -86,6 +87,7 @@ export interface BlueskySessionTokenSet {
     readonly accessToken: string
     readonly refreshToken: string | null
     readonly expiresAt: string | null
+    readonly scopes: readonly string[]
 }
 
 export function createBlueskyRuntimeImplementation(): RuntimeImplementation {
@@ -141,9 +143,13 @@ export async function deserializeBlueskyState(value: string): Promise<InternalSt
     }
 }
 
-export function serializeBlueskySession(session: Session): string {
+export function serializeBlueskySession(session: Session, clientId?: string): string {
     const { dpopKey, ...rest } = session
-    return serialize({ ...rest, dpopJwk: requirePrivateDpopJwk(dpopKey) })
+    return serialize({
+        ...rest,
+        ...(clientId ? { heraldClientId: clientId } : {}),
+        dpopJwk: requirePrivateDpopJwk(dpopKey),
+    })
 }
 
 export async function deserializeBlueskySession(value: string): Promise<Session> {
@@ -161,6 +167,7 @@ export function readBlueskySessionTokenSet(value: string): BlueskySessionTokenSe
                 readonly sub?: string
                 readonly access_token?: string
                 readonly refresh_token?: string
+                readonly scope?: string
                 readonly expires_at?: string
             }
         }
@@ -180,6 +187,10 @@ export function readBlueskySessionTokenSet(value: string): BlueskySessionTokenSe
             accessToken: tokenSet.access_token,
             refreshToken: tokenSet.refresh_token ?? null,
             expiresAt: tokenSet.expires_at ?? null,
+            scopes:
+                typeof tokenSet.scope === 'string'
+                    ? tokenSet.scope.split(/\s+/).filter(Boolean)
+                    : [],
         }
     } catch {
         return null
@@ -241,14 +252,17 @@ export function createBlueskyStateStoreWithKeyCapture(store: SerializedBlueskySt
     }
 }
 
-export function createBlueskySessionStore(store: SerializedBlueskyStore): SessionStore {
+export function createBlueskySessionStore(
+    store: SerializedBlueskyStore,
+    clientId?: string
+): SessionStore {
     return {
         async get(key) {
             const value = await store.get(key)
             return value === undefined ? undefined : deserializeBlueskySession(value)
         },
         async set(key, value) {
-            await store.set(key, serializeBlueskySession(value))
+            await store.set(key, serializeBlueskySession(value, clientId))
         },
         del: store.del,
         clear: store.clear,
@@ -288,22 +302,50 @@ export function createBlueskyOAuthClient(options: BlueskyOAuthClientOptions): OA
     })
 }
 
+/** Older loopback credentials were issued to a client ID containing image-only scopes. */
+export function blueskySessionClientMetadata(
+    metadata: BlueskyOAuthClientMetadata,
+    serializedSession: string
+): BlueskyOAuthClientMetadata {
+    if (!metadata.client_id?.startsWith('http://localhost')) return metadata
+    const redirectUri = metadata.redirect_uris[0]
+    if (!redirectUri) throw new Error('The Bluesky loopback redirect is unavailable')
+    const legacy = buildAtprotoLoopbackClientMetadata({
+        redirect_uris: [redirectUri],
+        scope: BLUESKY_IMAGE_SCOPES.join(' '),
+    })
+    const stored = JSON.parse(serializedSession) as { heraldClientId?: string }
+    if (stored.heraldClientId === metadata.client_id) return metadata
+    if (stored.heraldClientId !== undefined && stored.heraldClientId !== legacy.client_id) {
+        throw new Error(
+            'The stored Bluesky client identity does not match the configured application'
+        )
+    }
+    // Credentials created before identity capture necessarily used the legacy ID.
+    return legacy
+}
+
 export async function restoreBlueskySession(options: {
     readonly sub: string
     readonly serializedSession: string
     readonly client: BlueskyOAuthClientSetupOptions
     readonly onSessionUpdated?: (serializedSession: string) => void
 }): Promise<RestoredBlueskySession> {
+    const clientMetadata = blueskySessionClientMetadata(
+        options.client.clientMetadata,
+        options.serializedSession
+    )
     const serializedStore = createBlueskyMemoryStore([[options.sub, options.serializedSession]])
     let currentSession = await deserializeBlueskySession(options.serializedSession)
     let currentSerializedSession = options.serializedSession
     const client = createBlueskyOAuthClient({
         ...options.client,
+        clientMetadata,
         stateStore: createBlueskyStateStore(createBlueskyMemoryStore()),
-        sessionStore: createBlueskySessionStore(serializedStore),
+        sessionStore: createBlueskySessionStore(serializedStore, clientMetadata.client_id),
         onSessionUpdated(_sub, session) {
             currentSession = session
-            currentSerializedSession = serializeBlueskySession(session)
+            currentSerializedSession = serializeBlueskySession(session, clientMetadata.client_id)
             options.onSessionUpdated?.(currentSerializedSession)
         },
     })

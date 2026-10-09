@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
+import { BLUESKY_REQUIRED_SCOPES } from '@herald/bluesky'
 import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
 
 import { createPublisherRuntime } from './runtime'
@@ -54,7 +55,7 @@ describe('publisher runtime Bluesky OAuth profiles', () => {
                 oauthMode: 'loopback',
             })
             expect(resolved?.clientMetadata.client_id).toBe(
-                'http://localhost?scope=atproto+repo%3Aapp.bsky.feed.post%3Faction%3Dcreate+blob%3Aimage%2F*&redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback'
+                `http://localhost?${new URLSearchParams({ scope: BLUESKY_REQUIRED_SCOPES.join(' '), redirect_uri: 'http://127.0.0.1:3000/api/oauth/bluesky/callback' })}`
             )
             expect(resolved?.clientMetadata.application_type).toBe('native')
         } finally {

@@ -2,6 +2,9 @@ import type { ChannelProfileDefinition } from '@herald/core'
 
 import {
     BLUESKY_EXECUTION_CONTRACT_REVISION,
+    BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION,
+    BLUESKY_MAX_VIDEO_BYTES,
+    BLUESKY_MAX_VIDEO_DURATION_MS,
     BLUESKY_MAX_ALT_TEXT_LENGTH,
     BLUESKY_MAX_GRAPHEMES,
     BLUESKY_MAX_IMAGES,
@@ -10,7 +13,7 @@ import {
     BLUESKY_PROVIDER,
 } from './contract'
 
-export const blueskyChannelProfile: ChannelProfileDefinition = {
+export const blueskyImageChannelProfile: ChannelProfileDefinition = {
     id: BLUESKY_PROVIDER,
     version: 1,
     profileHash: 'sha256:herald-bluesky-post-v1',
@@ -71,6 +74,41 @@ export const blueskyChannelProfile: ChannelProfileDefinition = {
             },
         ],
         relations: [],
+    },
+    execution: {
+        kind: 'built_in',
+        contractId: BLUESKY_PROVIDER,
+        revision: BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION,
+    },
+}
+
+export const blueskyChannelProfile: ChannelProfileDefinition = {
+    ...blueskyImageChannelProfile,
+    version: 2,
+    profileHash: 'sha256:herald-bluesky-post-v2',
+    schemaHash: 'sha256:herald-bluesky-post-schema-v2',
+    capabilities: {
+        ...blueskyImageChannelProfile.capabilities,
+        revision: 'bluesky-post-v2',
+        mediaFields: blueskyImageChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            families: ['image', 'video'],
+            mimeTypes: [...field.mimeTypes, 'video/mp4'],
+            allowMixedFamilies: false,
+            familyConstraints: [
+                { family: 'image', maxBytesPerItem: BLUESKY_MAX_IMAGE_BYTES },
+                {
+                    family: 'video',
+                    maxItems: 1,
+                    maxBytesPerItem: BLUESKY_MAX_VIDEO_BYTES,
+                    duration: {
+                        minMilliseconds: 3000,
+                        maxMilliseconds: BLUESKY_MAX_VIDEO_DURATION_MS,
+                    },
+                },
+            ],
+            maxBytesPerItem: BLUESKY_MAX_VIDEO_BYTES,
+        })),
     },
     execution: {
         kind: 'built_in',

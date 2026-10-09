@@ -133,7 +133,10 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         clientMetadata: bluesky.clientMetadata,
                         handleResolver: bluesky.handleResolver,
                         stateStore,
-                        sessionStore: createBlueskySessionStore(sessionStore),
+                        sessionStore: createBlueskySessionStore(
+                            sessionStore,
+                            bluesky.clientMetadata.client_id
+                        ),
                     })
                     const authorizationUrl = await client.authorize(body.handle.trim())
                     const state = getCapturedKey() ?? authorizationUrl.searchParams.get('state')
@@ -340,7 +343,10 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         clientMetadata: bluesky.clientMetadata,
                         handleResolver: bluesky.handleResolver,
                         stateStore: createBlueskyStateStore(stateStore),
-                        sessionStore: createBlueskySessionStore(sessionStore),
+                        sessionStore: createBlueskySessionStore(
+                            sessionStore,
+                            bluesky.clientMetadata.client_id
+                        ),
                     })
                     callbackStage = 'complete_callback'
                     const callback = await client.callback(parameters)
@@ -380,7 +386,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         providerApplicationId: consumed.attempt.providerApplicationId,
                         externalAccountId: callback.session.did,
                         externalAccountName: readHandle(consumed.attempt.context),
-                        scopes: [...BLUESKY_REQUIRED_SCOPES],
+                        scopes: [...tokenSet.scopes],
                         accessToken: tokenSet.accessToken,
                         refreshToken: tokenSet.refreshToken,
                         providerSession: serializedSession,
@@ -403,7 +409,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                             projectId: consumed.attempt.projectId,
                             credentialId: savedCredential.credential.id,
                             providerApplicationId: consumed.attempt.providerApplicationId,
-                            scopes: [...BLUESKY_REQUIRED_SCOPES],
+                            scopes: [...tokenSet.scopes],
                             accessToken: tokenSet.accessToken,
                             refreshToken: tokenSet.refreshToken,
                             providerSession: serializedSession,

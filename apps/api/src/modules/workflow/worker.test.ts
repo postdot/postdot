@@ -3,6 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import {
+    blueskyChannelProfile,
+    BLUESKY_REQUIRED_SCOPES,
+    readBlueskyVideoBlob,
+    type BlueskyPublisher,
+    type BlueskyVideoService,
+} from '@herald/bluesky'
 import type {
     ChannelProfileDefinition,
     DeclarativeHttpExecutionContract,
@@ -45,9 +52,11 @@ import { eq } from 'drizzle-orm'
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
 import { createMediaPublicDelivery } from '../media/public-delivery'
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
+import { blueskyPublisherConnectionPolicy } from '../publishers/providers/bluesky'
 import { discordPublisherConnectionPolicy } from '../publishers/providers/discord'
 import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from '../publishers/providers/mastodon'
+import { createBlueskyProviderAdapter } from './providers/bluesky'
 import { createDiscordProviderAdapter } from './providers/discord'
 import { createLinkedInProviderAdapter } from './providers/linkedin'
 import { createMastodonProviderAdapter } from './providers/mastodon'
@@ -2758,3 +2767,236 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
         }
     })
 }
+
+it('resumes a durable Bluesky video job without uploading again', async () => {
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-bluesky-video-'))
+    const database = createDatabase(':memory:')
+    let clock = now
+    try {
+        runMigrations(database)
+        const media = createMediaAssetStore(
+            database,
+            createLocalMediaStore({
+                storeId: 'local-test',
+                rootDirectory,
+                maxObjectBytes: 2_000_000,
+            }),
+            { now: () => clock }
+        )
+        const manualStore = createManualStore(database, { now: () => clock, media })
+        const credentials = createPublisherCredentialStore(database, {
+            cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+            now: () => clock,
+        })
+        const publishers = createPublisherStore(database, {
+            credentialRevoker: credentials,
+            connectionPolicies: { bluesky: blueskyPublisherConnectionPolicy },
+            now: () => clock,
+        })
+        const project = manualStore.createProject({
+            name: 'Video project',
+            subjectId: 'video-user',
+            displayName: 'Video editor',
+        })!
+        const channel = manualStore.createChannel({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            name: 'Bluesky video',
+            profile: blueskyChannelProfile,
+        })!
+        const credential = await credentials.createPublisherCredential({
+            projectId: project.project.id,
+            connectedByActorId: project.actor.id,
+            providerId: 'bluesky',
+            externalAccountId: 'did:plc:video',
+            scopes: [...BLUESKY_REQUIRED_SCOPES],
+            providerSession: JSON.stringify({
+                tokenSet: {
+                    sub: 'did:plc:video',
+                    access_token: 'video-secret',
+                    scope: BLUESKY_REQUIRED_SCOPES.join(' '),
+                },
+            }),
+            accessToken: 'video-secret',
+        })
+        if (credential.kind !== 'created') throw new Error('Credential fixture failed')
+        expect(
+            publishers.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'video-user',
+                kind: 'bluesky',
+                credentialId: credential.credential.id,
+            }).kind
+        ).toBe('created')
+        const bytes = await Bun.file(
+            new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
+        ).bytes()
+        const reserved = media.reserveUpload({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            originalFilename: 'video.mp4',
+            contentType: 'video/mp4',
+            expectedSize: bytes.length,
+            defaultAccessibilityText: 'A moving scene',
+        })!
+        expect(
+            await media.upload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                intentId: reserved.intent.id,
+                source: new Blob([bytes]).stream(),
+            })
+        ).toMatchObject({ kind: 'uploaded' })
+        expect(
+            await media.finalizeUpload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                intentId: reserved.intent.id,
+            })
+        ).toMatchObject({ kind: 'ready' })
+        const post = manualStore.createPost({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            sourceContent: {
+                body: { text: 'Native video', format: 'plain_text' },
+                media: [{ assetId: reserved.asset.id, accessibilityText: 'A moving scene' }],
+            },
+            publications: [
+                { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
+            ],
+        })!
+        expect(post).not.toBeNull()
+        let uploads = 0
+        let posts = 0
+        let checks = 0
+        let ready = false
+        let statusUnavailable = false
+        const scopes = BLUESKY_REQUIRED_SCOPES.join(' ')
+        const serializedSession = JSON.stringify({
+            tokenSet: { sub: 'did:plc:video', access_token: 'video-secret', scope: scopes },
+        })
+        // cspell:ignore bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku
+        const blob = readBlueskyVideoBlob({
+            $type: 'blob',
+            ref: { $link: 'bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku' },
+            mimeType: 'video/mp4',
+            size: bytes.length,
+        })!
+        const service: BlueskyVideoService = {
+            async checkLimits() {
+                checks++
+                return { type: 'allowed' }
+            },
+            async upload(input) {
+                uploads++
+                expect(new Uint8Array(await new Response(input.stream).arrayBuffer())).toEqual(
+                    bytes
+                )
+                return { type: 'processing', jobId: 'bluesky-worker-job' }
+            },
+            async getJob(jobId) {
+                expect(jobId).toBe('bluesky-worker-job')
+                if (statusUnavailable)
+                    return {
+                        type: 'retryable_failure',
+                        effectOccurred: false,
+                        errorMessage: 'Video status temporarily unavailable',
+                    }
+                return ready ? { type: 'ready', blob } : { type: 'processing', jobId }
+            },
+        }
+        const publisher: BlueskyPublisher = {
+            async publish(input) {
+                posts++
+                expect(input.video).toMatchObject({
+                    blob,
+                    accessibilityText: 'A moving scene',
+                    width: 320,
+                    height: 180,
+                })
+                if (posts === 1)
+                    return {
+                        type: 'retryable_failure',
+                        effectOccurred: false,
+                        errorMessage: 'Post temporarily unavailable',
+                        code: 'rate_limited',
+                    }
+                return {
+                    type: 'published',
+                    externalId: 'at://did:plc:video/app.bsky.feed.post/video',
+                }
+            },
+        }
+        const adapter = createBlueskyProviderAdapter({
+            oauth: {
+                clientMetadata: {
+                    client_id: 'https://herald.example.com/oauth/client-metadata.json',
+                    client_name: 'Herald',
+                    redirect_uris: ['https://herald.example.com/callback'],
+                    grant_types: ['authorization_code', 'refresh_token'],
+                    response_types: ['code'],
+                    token_endpoint_auth_method: 'none',
+                    dpop_bound_access_tokens: true,
+                },
+                handleResolver: 'https://bsky.social',
+            },
+            restoreSession: async () => ({
+                client: undefined as never,
+                session: {
+                    did: 'did:plc:video',
+                    getTokenInfo: async () => ({ scope: scopes, aud: 'https://pds.example.com' }),
+                } as never,
+                getSession: () => undefined as never,
+                getSerializedSession: () => serializedSession,
+            }),
+            createPublisher: () => publisher,
+            createVideoService: () => service,
+        })
+        const worker = createPublicationWorker({
+            database,
+            publisherStore: publishers,
+            publisherCredentialStore: credentials,
+            media,
+            builtInProviderRegistry: createBuiltInProviderRegistry([adapter]),
+            now: () => clock,
+        })
+        for (let index = 0; index < 5; index++) {
+            await worker.processDueEvents(clock)
+            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+                { state: 'pending', attempts: 0 },
+            ])
+            expect(posts).toBe(0)
+            clock += 30_000
+        }
+        ready = true
+        await worker.processDueEvents(clock)
+        expect({ uploads, checks, posts }).toEqual({ uploads: 1, checks: 1, posts: 1 })
+        statusUnavailable = true
+        clock += 60 * 60_000
+        await worker.processDueEvents(clock)
+        expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+            { state: 'pending', attempts: 2 },
+        ])
+        statusUnavailable = false
+        clock += 60 * 60_000
+        await worker.processDueEvents(clock)
+        expect({ uploads, checks, posts }).toEqual({ uploads: 1, checks: 1, posts: 2 })
+        expect(database.$client.query('select state from publications').all()).toEqual([
+            { state: 'published' },
+        ])
+        expect(
+            database.$client
+                .query('select state, remote_media_id as id from provider_media_deliveries')
+                .all()
+        ).toEqual([
+            {
+                state: 'uploaded',
+                id: JSON.stringify({ type: 'bluesky-video-job', jobId: 'bluesky-worker-job' }),
+            },
+        ])
+    } finally {
+        closeDatabase(database)
+        await rm(rootDirectory, { recursive: true, force: true })
+    }
+})

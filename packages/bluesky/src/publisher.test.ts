@@ -132,3 +132,51 @@ describe('Bluesky publisher', () => {
         expect(fixture.uploads).toHaveLength(0)
     })
 })
+
+it('publishes a processed video with its description and inspected aspect ratio, without uploading again', async () => {
+    const fixture = createAgent()
+    const blob = {
+        ref: { $link: 'bafk-existing' },
+        mimeType: 'video/mp4',
+        size: 100,
+    } as unknown as BlobRef
+    const publisher = createBlueskyPublisher({ agent: fixture.agent })
+    expect(
+        (
+            await publisher.publish({
+                text: 'Native video',
+                media: [],
+                video: {
+                    blob,
+                    width: 320,
+                    height: 180,
+                    accessibilityText: 'A moving scene',
+                },
+            })
+        ).type
+    ).toBe('published')
+    expect(fixture.uploads).toHaveLength(0)
+    expect(fixture.posts[0]).toMatchObject({
+        embed: {
+            $type: 'app.bsky.embed.video',
+            video: blob,
+            alt: 'A moving scene',
+            aspectRatio: { width: 320, height: 180 },
+        },
+    })
+    expect(
+        (
+            await publisher.publish({
+                text: 'Invalid mixed media',
+                media: [{ contentType: 'image/png', size: 1, accessibilityText: 'Image' }],
+                video: {
+                    blob,
+                    width: 320,
+                    height: 180,
+                    accessibilityText: 'Video',
+                },
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(fixture.posts).toHaveLength(1)
+})

@@ -227,6 +227,11 @@ async function startServerWithRuntimeLock(
     })
     const builtInProviderRegistry = createBuiltInProviderRegistry([
         createBlueskyProviderAdapter({
+            revision: 'post-v1',
+            oauth: publisher.bluesky,
+            resolveOAuth: publisher.resolveBlueskyOAuth,
+        }),
+        createBlueskyProviderAdapter({
             oauth: publisher.bluesky,
             resolveOAuth: publisher.resolveBlueskyOAuth,
         }),

@@ -2,6 +2,7 @@ import { type Agent, type AppBskyEmbedImages } from '@atproto/api'
 
 import {
     BLUESKY_MAX_ALT_TEXT_LENGTH,
+    BLUESKY_MAX_VIDEO_BYTES,
     BLUESKY_MAX_GRAPHEMES,
     BLUESKY_MAX_IMAGE_BYTES,
     BLUESKY_MAX_IMAGES,
@@ -56,14 +57,26 @@ export function createBlueskyPublisher(options: {
                 const record: Parameters<Agent['post']>[0] = {
                     text: input.text,
                     createdAt: new Date().toISOString(),
-                    ...(images.length === 0
-                        ? {}
-                        : {
+                    ...(input.video !== undefined
+                        ? {
                               embed: {
-                                  $type: 'app.bsky.embed.images' as const,
-                                  images,
+                                  $type: 'app.bsky.embed.video' as const,
+                                  video: input.video.blob,
+                                  alt: input.video.accessibilityText,
+                                  aspectRatio: {
+                                      width: input.video.width,
+                                      height: input.video.height,
+                                  },
                               },
-                          }),
+                          }
+                        : images.length === 0
+                          ? {}
+                          : {
+                                embed: {
+                                    $type: 'app.bsky.embed.images' as const,
+                                    images,
+                                },
+                            }),
                 }
                 const posted = await options.agent.post(record)
                 const externalUrl = createBlueskyPostUrl(options.agent.did, posted.uri)
@@ -88,6 +101,26 @@ function validateInput(input: BlueskyPostContent): BlueskyPublishOutcome | null 
     }
     if (graphemeCount(input.text) > BLUESKY_MAX_GRAPHEMES) {
         return permanentFailure('Bluesky post text exceeds the grapheme limit')
+    }
+    if (input.video !== undefined) {
+        const video = input.video
+        if (
+            input.media.length !== 0 ||
+            video.blob.mimeType !== 'video/mp4' ||
+            !Number.isSafeInteger(video.blob.size) ||
+            video.blob.size <= 0 ||
+            video.blob.size > BLUESKY_MAX_VIDEO_BYTES ||
+            !Number.isSafeInteger(video.width) ||
+            video.width <= 0 ||
+            !Number.isSafeInteger(video.height) ||
+            video.height <= 0 ||
+            video.accessibilityText.trim().length === 0 ||
+            video.accessibilityText.length > BLUESKY_MAX_ALT_TEXT_LENGTH
+        ) {
+            return permanentFailure(
+                'Bluesky requires one processed MP4 with dimensions and description, without images'
+            )
+        }
     }
     if (input.media.length > BLUESKY_MAX_IMAGES) {
         return permanentFailure(`Bluesky posts support at most ${BLUESKY_MAX_IMAGES} images`)

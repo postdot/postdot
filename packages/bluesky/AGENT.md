@@ -6,3 +6,7 @@
   to the application layer
 - Constraints: do not import Herald database or Better Auth; do not use the Node
   OAuth wrapper; never log OAuth tokens, DPoP keys, or serialized provider sessions
+- Preserve the issuing loopback OAuth client ID when restoring sessions: its scope
+  is part of its identity. Requested scopes are not proof of granted permissions.
+- Video processing job IDs are durable, immutable delivery checkpoints. Resolve
+  them again on retries; do not upload again after a confirmed checkpoint.

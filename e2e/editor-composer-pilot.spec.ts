@@ -1276,6 +1276,7 @@ for (const [platform, revision] of [
     ['linkedin', 'member-post-v4'],
     ['mastodon', 'status-v2'],
     ['discord', 'message-v2'],
+    ['bluesky', 'post-v2'],
 ] as const) {
     test(`imports and plays a native ${platform} MP4 and preserves it in the destination draft`, async ({
         page,
@@ -1326,7 +1327,7 @@ for (const [platform, revision] of [
         await expect(card.locator('video')).toHaveCount(1)
         await card.locator('[data-media-selection-toggle]').click()
         await page.getByRole('button', { name: 'Done', exact: true }).click()
-        if (platform === 'discord') {
+        if (platform === 'discord' || platform === 'bluesky') {
             await page
                 .getByRole('textbox', { name: 'Accessibility text', exact: true })
                 .fill('A moving scene')
@@ -1379,7 +1380,7 @@ for (const [platform, revision] of [
             },
         ])
         expect(editor.profile.profile.execution.revision).toBe(revision)
-        if (platform === 'discord') {
+        if (platform === 'discord' || platform === 'bluesky') {
             await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
             const targetSection = page
                 .locator('details')

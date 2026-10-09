@@ -5,6 +5,7 @@ import type { Session } from '@atproto/oauth-client'
 import { BLUESKY_REQUIRED_SCOPES } from './contract'
 import {
     createBlueskyOAuthClient,
+    blueskySessionClientMetadata,
     createBlueskyLoopbackClientMetadata,
     createBlueskySessionStore,
     createBlueskyRuntimeImplementation,
@@ -36,8 +37,10 @@ describe('Bluesky OAuth runtime', () => {
         })
 
         expect(metadata).toMatchObject({
-            client_id:
-                'http://localhost?scope=atproto+repo%3Aapp.bsky.feed.post%3Faction%3Dcreate+blob%3Aimage%2F*&redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback',
+            client_id: `http://localhost?${new URLSearchParams({
+                scope: BLUESKY_REQUIRED_SCOPES.join(' '),
+                redirect_uri: 'http://127.0.0.1:3000/api/oauth/bluesky/callback',
+            })}`,
             redirect_uris: ['http://127.0.0.1:3000/api/oauth/bluesky/callback'],
             scope: BLUESKY_REQUIRED_SCOPES.join(' '),
             application_type: 'native',
@@ -132,4 +135,28 @@ describe('Bluesky OAuth runtime', () => {
         expect(restored?.tokenSet).toEqual(session.tokenSet)
         expect(serializeBlueskySession(session)).toBe(raw)
     })
+})
+
+it('retains legacy loopback identity for old credentials and captures the new identity for new grants', () => {
+    const metadata = createBlueskyLoopbackClientMetadata({
+        redirectUri: 'http://127.0.0.1:3000/api/oauth/bluesky/callback',
+    })
+    const legacy = blueskySessionClientMetadata(metadata, '{}')
+    expect(legacy.scope).toBe('atproto repo:app.bsky.feed.post?action=create blob:image/*')
+    expect(legacy.client_id).not.toBe(metadata.client_id)
+    expect(
+        blueskySessionClientMetadata(metadata, JSON.stringify({ heraldClientId: legacy.client_id }))
+    ).toEqual(legacy)
+    expect(
+        blueskySessionClientMetadata(
+            metadata,
+            JSON.stringify({ heraldClientId: metadata.client_id })
+        )
+    ).toEqual(metadata)
+    expect(() =>
+        blueskySessionClientMetadata(
+            metadata,
+            JSON.stringify({ heraldClientId: 'http://localhost?scope=atproto' })
+        )
+    ).toThrow('does not match')
 })

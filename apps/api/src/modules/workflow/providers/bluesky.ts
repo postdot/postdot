@@ -1,6 +1,9 @@
 import { Agent, type BlobRef } from '@atproto/api'
 import {
     BLUESKY_EXECUTION_CONTRACT_REVISION,
+    type BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION,
+    BLUESKY_VIDEO_SCOPES,
+    createBlueskyVideoService,
     BLUESKY_PROVIDER,
     createBlueskyPublisher,
     readBlueskyTextContent,
@@ -12,6 +15,7 @@ import type { ExternalEffectOutcome } from '@herald/core'
 import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@herald/db'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { publishBlueskyVideo } from './bluesky-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -25,6 +29,10 @@ export interface BlueskyOAuthConfiguration {
 }
 
 export interface BlueskyProviderAdapterOptions {
+    readonly revision?:
+        | typeof BLUESKY_EXECUTION_CONTRACT_REVISION
+        | typeof BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION
+    readonly createVideoService?: typeof createBlueskyVideoService
     readonly oauth?: BlueskyOAuthConfiguration
     readonly resolveOAuth?: (
         providerApplicationId: string | null
@@ -39,7 +47,7 @@ export function createBlueskyProviderAdapter(
     return {
         providerId: BLUESKY_PROVIDER,
         contractId: BLUESKY_PROVIDER,
-        revision: BLUESKY_EXECUTION_CONTRACT_REVISION,
+        revision: options.revision ?? BLUESKY_EXECUTION_CONTRACT_REVISION,
         execute: input =>
             executeBlueskyPublication({
                 input,
@@ -47,6 +55,8 @@ export function createBlueskyProviderAdapter(
                 resolveOAuth: options.resolveOAuth,
                 restoreSession: options.restoreSession ?? restoreBlueskySession,
                 createPublisher: options.createPublisher ?? createBlueskyPublisher,
+                createVideoService: options.createVideoService ?? createBlueskyVideoService,
+                revision: options.revision ?? BLUESKY_EXECUTION_CONTRACT_REVISION,
             }),
     }
 }
@@ -59,6 +69,8 @@ async function executeBlueskyPublication(input: {
     ) => Promise<BlueskyOAuthConfiguration | undefined>
     readonly restoreSession: typeof restoreBlueskySession
     readonly createPublisher: typeof createBlueskyPublisher
+    readonly createVideoService: typeof createBlueskyVideoService
+    readonly revision: string
 }): Promise<ExternalEffectOutcome> {
     const { input: execution } = input
     const oauth = input.resolveOAuth
@@ -127,6 +139,34 @@ async function executeBlueskyPublication(input: {
     const text = readBlueskyTextContent(target.content)
     if (text === null) {
         return permanentFailure('The execution revision does not contain Bluesky post text')
+    }
+
+    if (target.media.some(item => item.family === 'video')) {
+        if (input.revision !== BLUESKY_EXECUTION_CONTRACT_REVISION) {
+            return permanentFailure('The historical Bluesky execution supports images only')
+        }
+        // Requested scopes and credential metadata are not proof of an actual grant.
+        let tokenInfo: Awaited<ReturnType<typeof restored.session.getTokenInfo>>
+        try {
+            tokenInfo = await restored.session.getTokenInfo()
+        } catch {
+            return permanentFailure(
+                'The Bluesky video permission could not be verified; reconnect the account'
+            )
+        }
+        const granted = new Set(tokenInfo.scope.split(/\s+/))
+        if (!BLUESKY_VIDEO_SCOPES.every(scope => granted.has(scope))) {
+            return permanentFailure(
+                'Reconnect the Bluesky account to authorize video publishing; text and images remain available'
+            )
+        }
+        const agent = new Agent(restored.session)
+        return publishBlueskyVideo({
+            execution,
+            text,
+            service: input.createVideoService({ agent, pdsUrl: tokenInfo.aud }),
+            publisher: input.createPublisher({ agent }),
+        })
     }
 
     const mediaResult = await prepareBlueskyMedia({

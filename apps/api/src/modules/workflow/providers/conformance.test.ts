@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 
 import {
     blueskyChannelProfile,
+    BLUESKY_REQUIRED_SCOPES,
     createBlueskyClientMetadata,
     type BlueskyPublishOutcome,
     type BlueskyPublisher,
@@ -1286,6 +1287,63 @@ describe('built-in provider adapter conformance', () => {
 
     describe('Bluesky adapter specific behavior', () => {
         const blueskyCase = adapterCases.find(c => c.providerId === 'bluesky')!
+
+        it('keeps old grants usable for images while requiring actual video permissions and preserving post-v1', async () => {
+            let scope = 'atproto repo:app.bsky.feed.post?action=create blob:image/*'
+            let dispatched = 0
+            const restoreSession: NonNullable<
+                BlueskyProviderAdapterOptions['restoreSession']
+            > = async () => ({
+                client: undefined as never,
+                session: {
+                    did: blueskyDid,
+                    getTokenInfo: async () => ({ scope, aud: 'https://pds.example.com' }),
+                } as never,
+                getSession: () => undefined as never,
+                getSerializedSession: () => blueskySession,
+            })
+            const options: BlueskyProviderAdapterOptions = {
+                oauth: blueskyOAuth,
+                restoreSession,
+                createPublisher: () => ({
+                    async publish() {
+                        dispatched++
+                        return { type: 'published', externalId: 'image-with-old-grant' }
+                    },
+                }),
+                createVideoService: () => {
+                    throw new Error('Unauthorized videos must not reach the video service')
+                },
+            }
+            const fixture = createExecutionFixture(blueskyCase)
+            const adapter = createBlueskyProviderAdapter(options)
+            expect((await adapter.execute(fixture.input)).type).toBe('published')
+            const videoInput = {
+                ...fixture.input,
+                target: createTarget(blueskyCase, {
+                    media: [
+                        {
+                            ...conformanceMedia,
+                            family: 'video',
+                            contentType: 'video/mp4',
+                            durationMs: 4000,
+                        },
+                    ],
+                }),
+            }
+            expect(await adapter.execute(videoInput)).toMatchObject({
+                type: 'permanent_failure',
+                errorMessage: expect.stringContaining('Reconnect'),
+            })
+            expect(fixture.credentials.reconnectCalls).toBe(0)
+            scope = BLUESKY_REQUIRED_SCOPES.join(' ')
+            const historical = createBlueskyProviderAdapter({ ...options, revision: 'post-v1' })
+            expect(await historical.execute(videoInput)).toMatchObject({
+                type: 'permanent_failure',
+                errorMessage: expect.stringContaining('historical'),
+            })
+            expect(dispatched).toBe(1)
+        })
 
         it('resolves the runtime OAuth application selected by the execution target', async () => {
             let resolvedApplicationId: string | null = null
