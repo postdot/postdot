@@ -1,4 +1,4 @@
-import { createHeraldClient } from '@herald/client'
+import { createHeraldClient, type HeraldClient, type Post, type Publication } from '@herald/client'
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
@@ -11,6 +11,7 @@ export interface HeraldCliEnvironment {
 interface CliDependencies {
     readonly fetcher?: CliFetcher
     readonly output?: (message: string) => void
+    readonly readInput?: (path: string) => Promise<string>
 }
 
 interface ErrorResponse {
@@ -22,11 +23,15 @@ interface ErrorResponse {
 
 export class CliError extends Error {
     readonly exitCode: number
+    readonly code: string
+    readonly status?: number
 
-    constructor(message: string, exitCode = 1) {
+    constructor(message: string, exitCode = 1, code = 'command_failed', status?: number) {
         super(message)
         this.name = 'CliError'
         this.exitCode = exitCode
+        this.code = code
+        this.status = status
     }
 }
 
@@ -36,7 +41,14 @@ export async function runCli(
     dependencies: CliDependencies = {}
 ) {
     const output = dependencies.output ?? console.log
-    const fetcher = dependencies.fetcher ?? fetch
+    const transport = dependencies.fetcher ?? fetch
+    const fetcher: CliFetcher = (input, init) =>
+        transport(input, {
+            ...init,
+            signal: init?.signal
+                ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
+                : AbortSignal.timeout(30_000),
+        })
     const jsonOutput = args.includes('--json')
     const baseURL = (
         optionValue(args, '--base-url') ??
@@ -159,6 +171,99 @@ export async function runCli(
         return
     }
 
+    if (resource === 'posts' && action === 'create') {
+        const projectId = requiredOption(args, '--project')
+        const body = await readJsonInput<CreatePostInput>(args, dependencies)
+        const result = await call<{ post: Post; publications: Publication[] }>(
+            client.api.projects({ projectId }).posts.post(body)
+        )
+        write(
+            result,
+            `Post ${result.post.id} created with ${result.publications.length} publications.`
+        )
+        return
+    }
+
+    if (resource === 'publications' && action === 'list') {
+        const projectId = requiredOption(args, '--project')
+        const cursor = optionValue(args, '--cursor')
+        const result = await call(
+            client.api.projects({ projectId }).publications.get({
+                query: { ...(cursor === undefined ? {} : { cursor }), limit: 100 },
+            })
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'publications' && action === 'show') {
+        const projectId = requiredOption(args, '--project')
+        const publicationId = requiredOption(args, '--publication')
+        const result = await call(
+            client.api.projects({ projectId }).publications({ publicationId }).editor.get()
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'publications' && action === 'save') {
+        const projectId = requiredOption(args, '--project')
+        const publicationId = requiredOption(args, '--publication')
+        const body = await readJsonInput<SaveDraftInput>(args, dependencies)
+        const result = await call(
+            client.api.projects({ projectId }).publications({ publicationId }).draft.patch(body)
+        )
+        write(result, 'Draft saved.')
+        return
+    }
+
+    if (resource === 'publications' && action === 'promote') {
+        const projectId = requiredOption(args, '--project')
+        const publicationId = requiredOption(args, '--publication')
+        const result = await call(
+            client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft.promote.post({
+                    expectedRevision: integerOption(args, '--expected-revision', 1),
+                    scheduledAt: integerOption(args, '--at', 0),
+                })
+        )
+        write(result, 'Draft promoted and scheduled.')
+        return
+    }
+
+    if (resource === 'publications' && (action === 'schedule' || action === 'cancel')) {
+        const projectId = requiredOption(args, '--project')
+        const publicationIds = parseProjectIds(requiredOption(args, '--publications'))
+        if (publicationIds === null) throw new CliError('Publication IDs are required', 2)
+        const route = client.api.projects({ projectId }).publications
+        const result =
+            action === 'schedule'
+                ? await call(
+                      route.schedule.patch({
+                          publicationIds,
+                          scheduledAt: integerOption(args, '--at', 0),
+                      })
+                  )
+                : await call(route.cancel.patch({ publicationIds }))
+        write(
+            result,
+            action === 'schedule' ? 'Publications rescheduled.' : 'Publications cancelled.'
+        )
+        return
+    }
+
+    if (resource === 'publications' && action === 'retry') {
+        const projectId = requiredOption(args, '--project')
+        const publicationId = requiredOption(args, '--publication')
+        const result = await call(
+            client.api.projects({ projectId }).publications({ publicationId }).retry.post()
+        )
+        write(result, 'Publication retry requested.')
+        return
+    }
+
     if (resource === 'publications' && action === 'due') {
         const projectId = requiredOption(args, '--project')
         const body = await call(client.api.projects({ projectId }).publications.due.get())
@@ -225,6 +330,88 @@ export async function runCli(
     throw new CliError(`Unknown command: ${resource} ${action ?? ''}`.trim(), 2)
 }
 
+type ProjectRoutes = ReturnType<HeraldClient['api']['projects']>
+type PublicationRoutes = ReturnType<ProjectRoutes['publications']>
+type CreatePostInput = Parameters<ProjectRoutes['posts']['post']>[0]
+type SaveDraftInput = Parameters<PublicationRoutes['draft']['patch']>[0]
+
+async function readJsonInput<T>(
+    args: readonly string[],
+    dependencies: CliDependencies
+): Promise<T> {
+    const path = requiredOption(args, '--input')
+    let text: string
+    try {
+        text = await (dependencies.readInput ?? readBoundedInput)(path)
+    } catch {
+        throw new CliError('Cannot read --input (maximum 1 MiB)', 2, 'invalid_input')
+    }
+    if (new TextEncoder().encode(text).length > 1_048_576) {
+        throw new CliError('--input exceeds 1 MiB', 2, 'invalid_input')
+    }
+    let value: unknown
+    try {
+        value = JSON.parse(text)
+    } catch {
+        throw new CliError('--input must contain valid JSON', 2, 'invalid_input')
+    }
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        throw new CliError('--input must contain a JSON object', 2, 'invalid_input')
+    }
+    // Untrusted JSON boundary only: the authoritative Elysia schema validates
+    // the payload. Request types are inferred from Treaty, never maintained here.
+    return value as T
+}
+
+async function readBoundedInput(path: string): Promise<string> {
+    const file = path === '-' ? Bun.stdin : Bun.file(path)
+    if (path !== '-' && file.size > 1_048_576) throw new Error('Input too large')
+    const reader = file.stream().getReader()
+    const chunks: Uint8Array[] = []
+    let size = 0
+    try {
+        for (;;) {
+            const { value, done } = await reader.read()
+            if (done) break
+            size += value.byteLength
+            if (size > 1_048_576) throw new Error('Input too large')
+            chunks.push(value)
+        }
+    } finally {
+        await reader.cancel()
+        reader.releaseLock()
+    }
+    const bytes = new Uint8Array(size)
+    let offset = 0
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset)
+        offset += chunk.byteLength
+    }
+    return new TextDecoder().decode(bytes)
+}
+
+function integerOption(args: readonly string[], name: string, minimum: number) {
+    const raw = requiredOption(args, name)
+    const value = Number(raw)
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < minimum) {
+        throw new CliError(`${name} must be an integer >= ${minimum}`, 2, 'invalid_input')
+    }
+    return value
+}
+
+function errorCode(value: unknown): string | undefined {
+    if (typeof value !== 'object' || value === null || !('value' in value)) return undefined
+    const body = value.value
+    if (typeof body !== 'object' || body === null || !('error' in body)) return undefined
+    const error = body.error
+    return typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        typeof error.code === 'string'
+        ? error.code
+        : undefined
+}
+
 async function requestAuthenticated<T>(
     baseURL: string,
     sessionCookie: string | undefined,
@@ -247,13 +434,35 @@ async function requestAuthenticated<T>(
     return { body: body as T, response }
 }
 
-async function call<T>(request: Promise<{ data: unknown; error: unknown; status: number }>) {
-    const result = await request
-    if (result.error !== null) {
+async function call<T>(
+    request: Promise<{ data: unknown; error: unknown; status: number; response?: Response }>
+) {
+    let result: Awaited<typeof request>
+    try {
+        result = await request
+    } catch {
         throw new CliError(
-            errorMessage(result.error) ?? `Request failed with status ${result.status}`
+            'No API response received. A submitted write may have succeeded; inspect its state before retrying.',
+            1,
+            'transport_error'
         )
     }
+    if (result.error !== null && result.response === undefined) {
+        throw new CliError(
+            'No API response received. A submitted write may have succeeded; inspect its state before retrying.',
+            1,
+            'transport_error'
+        )
+    }
+    if (result.error !== null) {
+        throw new CliError(
+            errorMessage(result.error) ?? `Request failed with status ${result.status}`,
+            1,
+            errorCode(result.error) ?? 'http_error',
+            result.status
+        )
+    }
+    if (result.data === null || result.data === undefined) throw new CliError('Empty API response')
     return result.data as T
 }
 
@@ -276,7 +485,7 @@ function optionValue(args: readonly string[], name: string) {
 
 function requiredOption(args: readonly string[], name: string) {
     const value = optionValue(args, name)
-    if (!value) throw new CliError(`Missing required option ${name}`)
+    if (!value) throw new CliError(`Missing required option ${name}`, 2, 'invalid_input')
     return value
 }
 
@@ -336,6 +545,14 @@ Resources:
   api-keys revoke --key-id <id>      Revoke one of your API keys
   channels list --project <id>       List project channels
   channels create --project <id> --name <name>
+  posts create --project <id> --input <file|->
+  publications list --project <id> [--cursor <cursor>]
+  publications show --project <id> --publication <id>
+  publications save --project <id> --publication <id> --input <file|->
+  publications promote --project <id> --publication <id> --expected-revision <n> --at <epoch-ms>
+  publications schedule --project <id> --publications <id,id,...> --at <epoch-ms>
+  publications cancel --project <id> --publications <id,id,...>
+  publications retry --project <id> --publication <id>
   publications due --project <id>    List due manual publications
   publications publish --project <id> --publication <id>
   publications reconcile --project <id> --publication <id> --resolution <published|failed>
@@ -376,7 +593,17 @@ if (import.meta.main) {
         await runCli()
     } catch (error) {
         const cliError = error instanceof CliError ? error : new CliError('The command failed')
-        console.error(`Error: ${cliError.message}`)
+        console.error(
+            Bun.argv.includes('--json')
+                ? JSON.stringify({
+                      error: {
+                          code: cliError.code,
+                          message: cliError.message,
+                          ...(cliError.status === undefined ? {} : { status: cliError.status }),
+                      },
+                  })
+                : `Error: ${cliError.message}`
+        )
         process.exitCode = cliError.exitCode
     }
 }

@@ -206,6 +206,9 @@ bun run herald projects list --json
 bun run herald publications due --project <project-id> --json
 ```
 
+For JSON source/destination creation, revision-guarded scheduling, inspection,
+and cancellation, see [CLI publication workflows](docs/cli-publications.md).
+
 ### Opt-in LinkedIn smoke test
 
 The LinkedIn publisher smoke test creates a real public member post. It is never
