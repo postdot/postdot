@@ -199,6 +199,61 @@ describe('machine publication workflow', () => {
                 ])
                 return { stdout, stderr, code }
             }
+            const publisherRead = await command(['publishers', 'list'])
+            expect(publisherRead.code).toBe(0)
+            const publisherState = JSON.parse(publisherRead.stdout)
+            const expectedPublishers = await client.api
+                .projects({ projectId: project.id })
+                .publishers.get()
+            expect(expectedPublishers.error).toBeNull()
+            expect(publisherState).toEqual(expectedPublishers.data)
+            expect(publisherState.connections).toEqual([])
+            expect(publisherState.oauthReadiness).toEqual({
+                linkedin: 'not_configured',
+                bluesky: 'not_configured',
+                x: 'not_configured',
+            })
+            const connectionChannel = await client.api
+                .projects({ projectId: project.id })
+                .channels.post({
+                    name: 'Connection inspection',
+                    profile: 'linkedin',
+                })
+            expect(connectionChannel.error).toBeNull()
+            const connectionChannelId = (connectionChannel.data as { channel: { id: string } })
+                .channel.id
+            const userId = (await signup.json()).user.id as string
+            const connectedByActorId = database.$client
+                .query<{ id: string }, [string, string]>(
+                    'select id from actors where project_id = ? and subject_id = ?'
+                )
+                .get(project.id, userId)!.id
+            const credential = await publisher.credentialStore.createPublisherCredential({
+                projectId: project.id,
+                connectedByActorId,
+                providerId: 'linkedin',
+                externalAccountId: 'cli-account',
+                externalAccountName: 'CLI connection',
+                scopes: ['w_member_social'],
+                accessToken: 'FAKE_CLI_PUBLISHER_SECRET',
+            })
+            if (credential.kind !== 'created') throw new Error('Credential fixture failed')
+            const connection = publisher.publisherStore.createPublisherConnection({
+                projectId: project.id,
+                channelId: connectionChannelId,
+                subjectId: userId,
+                kind: 'linkedin',
+                credentialId: credential.credential.id,
+            })
+            expect(connection.kind).toBe('created')
+            const connectedRead = await command(['publishers', 'list'])
+            expect(connectedRead.code).toBe(0)
+            expect(JSON.parse(connectedRead.stdout).connections[0]).toMatchObject({
+                channelId: connectionChannelId,
+                state: 'active',
+                externalAccountId: 'cli-account',
+            })
+            expect(connectedRead.stdout).not.toContain('FAKE_CLI_PUBLISHER_SECRET')
             const profileRead = await command(['channels', 'profile', '--channel', ids[0]!])
             expect(profileRead.code).toBe(0)
             const discovered = JSON.parse(profileRead.stdout)
@@ -358,6 +413,10 @@ describe('machine publication workflow', () => {
             expect(denied.code).toBe(1)
             expect(JSON.parse(denied.stderr).error.status).toBe(401)
             expect(denied.stderr).not.toContain(token)
+            const deniedPublishers = await command(['publishers', 'list'])
+            expect(deniedPublishers.code).toBe(1)
+            expect(JSON.parse(deniedPublishers.stderr).error.status).toBe(401)
+            expect(deniedPublishers.stderr).not.toContain(token)
         } finally {
             await server.stop(true)
             closeDatabase(database)

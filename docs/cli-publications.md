@@ -137,3 +137,21 @@ Both output modes display the full profile response, rather than guessing field
 names or flattening away constraints. This command neither activates a profile nor
 connects a publisher. A valid content contract does not establish provider
 connection readiness or guarantee publication success.
+
+## Inspect publisher connections
+
+```sh
+bun scripts/herald.ts publishers list --project <project-id> --json
+```
+
+The response preserves the existing `connections` and `oauthReadiness` fields.
+Each connection identifies its channel, provider, account, scopes, and recorded
+state (`active`, `reconnect_required`, or `revoked`). Credentials are referenced
+by ID; access tokens and refresh tokens are not returned. An empty connection
+list is valid, including for projects using manual channels.
+
+`oauthReadiness` describes application configuration for LinkedIn, Bluesky, and X:
+`ready`, `not_configured`, or `unavailable`. It is not a live provider health check,
+and does not describe every provider. An active connection plus ready application
+configuration does not guarantee a successful delivery. This read command neither
+connects a provider nor sends a test publication.

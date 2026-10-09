@@ -176,6 +176,14 @@ export async function runCli(
         return
     }
 
+    if (resource === 'publishers' && action === 'list') {
+        const result = await call(
+            client.api.projects({ projectId: requiredOption(args, '--project') }).publishers.get()
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
     if (resource === 'channels' && action === 'profile') {
         const result = await call(
             client.api
@@ -695,6 +703,7 @@ Resources:
   api-keys list                      List your API keys
   api-keys create [--name <name>]    Create a user-owned API key
   api-keys revoke --key-id <id>      Revoke one of your API keys
+  publishers list --project <id>     Inspect connections and OAuth configuration
   channels list --project <id>       List project channels
   channels profile --project <id> --channel <id>
                                     Inspect active/draft destination contracts
