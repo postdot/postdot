@@ -1293,7 +1293,7 @@ for (const [platform, revision] of [
                 originalFilename: 'native-video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-                ...(platform !== 'linkedin' ? { defaultAccessibilityText: 'A moving scene' } : {}),
+                ...(platform === 'mastodon' ? { defaultAccessibilityText: 'A moving scene' } : {}),
             },
         })
         expect(reservation.status()).toBe(201)
@@ -1326,6 +1326,11 @@ for (const [platform, revision] of [
         await expect(card.locator('video')).toHaveCount(1)
         await card.locator('[data-media-selection-toggle]').click()
         await page.getByRole('button', { name: 'Done', exact: true }).click()
+        if (platform === 'discord') {
+            await page
+                .getByRole('textbox', { name: 'Accessibility text', exact: true })
+                .fill('A moving scene')
+        }
         const video = page.locator(`[data-preview-platform="${platform}"] video`)
         await expect(video).toHaveAttribute('controls', '')
         await expect
@@ -1374,5 +1379,31 @@ for (const [platform, revision] of [
             },
         ])
         expect(editor.profile.profile.execution.revision).toBe(revision)
+        if (platform === 'discord') {
+            await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
+            const targetSection = page
+                .locator('details')
+                .filter({ has: page.getByText('Customize for this channel', { exact: true }) })
+            await page.getByText('Customize for this channel', { exact: true }).click()
+            const description = targetSection.getByRole('textbox', {
+                name: 'Accessibility text',
+                exact: true,
+            })
+            await expect(description).toHaveValue('A moving scene')
+            const savedDescription = page.waitForResponse(
+                response =>
+                    response.request().method() === 'PATCH' && response.url().includes('/draft')
+            )
+            await description.fill('Destination video description')
+            await savedDescription
+            const updated = await (
+                await page.request.get(
+                    `/api/projects/${projectId}/publications/${publication.id}/editor`
+                )
+            ).json()
+            expect(updated.editor.draft.content.media[0].accessibilityText).toBe(
+                'Destination video description'
+            )
+        }
     })
 }

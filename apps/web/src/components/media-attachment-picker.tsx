@@ -9,7 +9,7 @@ import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { Meta, UploadResult } from '@uppy/core'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
 import { Reorder, useDragControls, useReducedMotion } from 'motion/react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { EmptyState } from '@/components/empty-state'
@@ -1456,7 +1456,12 @@ function MediaAttachmentPickerView({
                                         selection={selection}
                                         total={value.length}
                                         disabled={interactionLocked}
-                                        showAccessibilityText={showSelectedAccessibilityText}
+                                        showAccessibilityText={
+                                            showAccessibilityText ??
+                                            (showSelectedAccessibilityText ||
+                                                (asset !== undefined &&
+                                                    readyRepresentation(asset)?.family === 'video'))
+                                        }
                                         onAccessibilityTextChange={updateAccessibilityText}
                                         onMove={moveSelection}
                                         onRemove={removeSelection}
@@ -1552,7 +1557,13 @@ function MediaAttachmentPickerView({
                                             selection={selection}
                                             total={value.length}
                                             disabled={interactionLocked}
-                                            showAccessibilityText={showSelectedAccessibilityText}
+                                            showAccessibilityText={
+                                                showAccessibilityText ??
+                                                (showSelectedAccessibilityText ||
+                                                    (asset !== undefined &&
+                                                        readyRepresentation(asset)?.family ===
+                                                            'video'))
+                                            }
                                             onAccessibilityTextChange={updateAccessibilityText}
                                             onMove={moveSelection}
                                             onRemove={removeSelection}
@@ -1796,6 +1807,7 @@ function CompactMediaPreview({
     readonly onRemove: (assetId: string) => void
     readonly onPreview: (asset: MediaReference) => void
 }) {
+    const accessibilityInputId = useId()
     const filename = asset?.asset.originalFilename ?? m.media_file_type()
     const representation = asset === undefined ? undefined : readyRepresentation(asset)
     const dragControls = useDragControls()
@@ -1882,11 +1894,11 @@ function CompactMediaPreview({
             </div>
             {showAccessibilityText && asset !== undefined ? (
                 <Field className="min-w-0 w-full max-w-full gap-1 sm:w-56">
-                    <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
+                    <FieldLabel className="text-xs" htmlFor={accessibilityInputId}>
                         {m.media_accessibility_text()}
                     </FieldLabel>
                     <Input
-                        id={`media-alt-${asset.asset.id}`}
+                        id={accessibilityInputId}
                         value={selection.accessibilityText ?? ''}
                         disabled={disabled}
                         onChange={event =>
