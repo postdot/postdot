@@ -2069,5 +2069,7 @@
     "smtp_test_accepted": "Le SMTP a accepté l’email de test. Vérifiez votre boîte de réception.",
     "smtp_test_failed": "Le SMTP n’a pas confirmé le test. Vérifiez les réglages avant de réessayer.",
     "smtp_deployment": "Les réglages actuels proviennent du déploiement. Enregistrer ici les remplace.",
-    "smtp_save_failed": "Impossible d’enregistrer. Vérifiez le serveur, l’expéditeur et les identifiants."
+    "smtp_save_failed": "Impossible d’enregistrer. Vérifiez le serveur, l’expéditeur et les identifiants.",
+    "publisher_oauth_setup_required": "Application OAuth requise.",
+    "publisher_oauth_contact_admin": "Demandez à un administrateur de l’installation de la configurer."
 }

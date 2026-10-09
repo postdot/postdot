@@ -175,7 +175,10 @@ test('targets connection repair from automatic publication detail without changi
         }
         await route.fulfill({
             response,
-            json: { connections: state === 'missing' ? [] : [connection] },
+            json: {
+                ...(await response.json()),
+                connections: state === 'missing' ? [] : [connection],
+            },
         })
     })
     const lifecycle = page.locator('[data-publication-lifecycle]')

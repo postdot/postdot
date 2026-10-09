@@ -134,7 +134,14 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify({ connections: connectionState === null ? [] : [connection] }),
+            body: JSON.stringify({
+                connections: connectionState === null ? [] : [connection],
+                oauthReadiness: {
+                    linkedin: 'not_configured',
+                    bluesky: 'not_configured',
+                    x: 'ready',
+                },
+            }),
         })
     })
 

@@ -1225,12 +1225,20 @@ export const api = {
         )
     },
 
-    async listPublisherConnections(
-        projectId: string
-    ): Promise<{ connections: PublisherConnection[] }> {
-        return unwrap<{ connections: PublisherConnection[] }>(
-            await client.api.projects({ projectId }).publishers.get()
-        )
+    async listPublisherConnections(projectId: string): Promise<{
+        connections: PublisherConnection[]
+        oauthReadiness: Record<
+            ProviderApplicationProvider,
+            'ready' | 'not_configured' | 'unavailable'
+        >
+    }> {
+        return unwrap<{
+            connections: PublisherConnection[]
+            oauthReadiness: Record<
+                ProviderApplicationProvider,
+                'ready' | 'not_configured' | 'unavailable'
+            >
+        }>(await client.api.projects({ projectId }).publishers.get())
     },
 
     async listBlueskyProviderAnalytics(

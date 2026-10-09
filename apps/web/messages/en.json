@@ -2069,5 +2069,7 @@
     "smtp_test_accepted": "SMTP accepted the test email. Check your inbox.",
     "smtp_test_failed": "SMTP did not confirm the test. Check your settings before trying again.",
     "smtp_deployment": "Current settings come from the deployment. Saving here replaces them.",
-    "smtp_save_failed": "Settings could not be saved. Check the server, sender and credentials."
+    "smtp_save_failed": "Settings could not be saved. Check the server, sender and credentials.",
+    "publisher_oauth_setup_required": "OAuth application required.",
+    "publisher_oauth_contact_admin": "Ask an installation administrator to configure it."
 }

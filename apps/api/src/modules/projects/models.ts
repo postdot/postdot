@@ -927,6 +927,23 @@ export const customHttpConnectionResponse = Type.Object({
 
 export const publisherConnectionsSchema = Type.Object({
     connections: Type.Array(publisherConnectionSchema),
+    oauthReadiness: Type.Object({
+        linkedin: Type.Union([
+            Type.Literal('ready'),
+            Type.Literal('not_configured'),
+            Type.Literal('unavailable'),
+        ]),
+        bluesky: Type.Union([
+            Type.Literal('ready'),
+            Type.Literal('not_configured'),
+            Type.Literal('unavailable'),
+        ]),
+        x: Type.Union([
+            Type.Literal('ready'),
+            Type.Literal('not_configured'),
+            Type.Literal('unavailable'),
+        ]),
+    }),
 })
 
 export const publisherDisconnectedSchema = Type.Object({

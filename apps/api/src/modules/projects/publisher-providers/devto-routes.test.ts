@@ -33,7 +33,7 @@ function createDevtoFetcher(responses: readonly Response[]): {
     return { fetcher, calls }
 }
 
-function createFixture(devtoFetcher?: DevtoFetcher) {
+function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const publisher = createPublisherRuntime(database, {
@@ -41,6 +41,9 @@ function createFixture(devtoFetcher?: DevtoFetcher) {
         webOrigin: 'http://localhost:5173',
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
+        ...(configured
+            ? { linkedin: { clientId: 'test-client', clientSecret: 'PRIVATE_CLIENT_SECRET' } }
+            : {}),
     })
     const auth = createAuth(database, { baseURL, secret })
     const notifications = createNotificationStore(database, { now: () => now + 1_000 })
@@ -223,4 +226,46 @@ describe('DEV.to publisher connection routes', () => {
             closeDatabase(database)
         }
     })
+})
+
+it('reports OAuth prerequisites without exposing configuration or mistaking failure for absence', async () => {
+    const { app, database, publisher } = createFixture()
+    try {
+        const cookie = await signUp(app, 'oauth-readiness@herald.local')
+        const { projectId } = await createDevtoChannel(app, cookie)
+        const path = `/api/projects/${projectId}/publishers`
+        const absent = await jsonRequest(app, path, cookie)
+        expect(absent.status).toBe(200)
+        const absentBody = (await absent.json()) as { oauthReadiness: Record<string, string> }
+        expect(absentBody.oauthReadiness).toEqual({
+            linkedin: 'not_configured',
+            bluesky: 'not_configured',
+            x: 'not_configured',
+        })
+        publisher.resolveBlueskyApplication = async () => {
+            throw new Error('PRIVATE_CONFIGURATION_SENTINEL')
+        }
+        const failed = await jsonRequest(app, path, cookie)
+        const body = (await failed.json()) as { oauthReadiness: Record<string, string> }
+        expect(body.oauthReadiness.bluesky).toBe('unavailable')
+        expect(JSON.stringify(body)).not.toContain('PRIVATE_CONFIGURATION_SENTINEL')
+        expect((await jsonRequest(app, path, '')).status).toBe(401)
+    } finally {
+        closeDatabase(database)
+    }
+})
+
+it('recognizes existing server OAuth configuration without returning credentials', async () => {
+    const { app, database } = createFixture(undefined, true)
+    try {
+        const cookie = await signUp(app, 'configured-readiness@herald.local')
+        const { projectId } = await createDevtoChannel(app, cookie)
+        const response = await jsonRequest(app, `/api/projects/${projectId}/publishers`, cookie)
+        expect(response.status).toBe(200)
+        const body = (await response.json()) as { oauthReadiness: Record<string, string> }
+        expect(body.oauthReadiness.linkedin).toBe('ready')
+        expect(JSON.stringify(body)).not.toContain('PRIVATE_CLIENT_SECRET')
+    } finally {
+        closeDatabase(database)
+    }
 })

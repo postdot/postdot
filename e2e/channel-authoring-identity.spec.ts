@@ -230,6 +230,17 @@ test('keeps Bluesky connection failures inside the dialog and preserves the hand
         })
     )
     await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await expect(page.getByText(en.publisher_oauth_setup_required, { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Connect Bluesky', exact: true })).toHaveCount(0)
+    await page.route('**/publishers', async route => {
+        const response = await route.fetch()
+        const body = await response.json()
+        await route.fulfill({
+            response,
+            json: { ...body, oauthReadiness: { ...body.oauthReadiness, bluesky: 'ready' } },
+        })
+    })
+    await page.reload()
     await page.getByRole('button', { name: 'Connect Bluesky', exact: true }).click()
     const dialog = page.getByRole('dialog')
     const handle = dialog.getByLabel(en.provider_handle, { exact: true })

@@ -56,7 +56,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user }) => {
+            async ({ params, status, user }) => {
                 const connections = publisherStore.listPublisherConnections(
                     params.projectId,
                     user.id
@@ -67,7 +67,21 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                return { connections }
+                const readiness = async (resolve: () => Promise<unknown>) => {
+                    try {
+                        return (await resolve()) === undefined
+                            ? ('not_configured' as const)
+                            : ('ready' as const)
+                    } catch {
+                        return 'unavailable' as const
+                    }
+                }
+                const [linkedin, bluesky, x] = await Promise.all([
+                    readiness(() => publisher.resolveLinkedInApplication()),
+                    readiness(() => publisher.resolveBlueskyApplication()),
+                    readiness(() => publisher.resolveXApplication()),
+                ])
+                return { connections, oauthReadiness: { linkedin, bluesky, x } }
             }
         )
         .post(

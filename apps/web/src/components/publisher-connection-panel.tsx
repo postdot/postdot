@@ -86,6 +86,32 @@ export function PublisherConnectionPanel({
     readOnly = false,
 }: PublisherConnectionPanelProps) {
     useLanguage()
+    const [oauthReadiness, setOauthReadiness] = useState<
+        Partial<Record<ProviderApplicationProvider, 'ready' | 'not_configured' | 'unavailable'>>
+    >({})
+    const [readinessAttempt, setReadinessAttempt] = useState(0)
+    const readinessProjectId = channels[0]?.projectId
+    useEffect(() => {
+        if (readOnly || !readinessProjectId) return
+        let cancelled = false
+        setOauthReadiness({})
+        void api
+            .listPublisherConnections(readinessProjectId)
+            .then(response => {
+                if (!cancelled) setOauthReadiness(response.oauthReadiness)
+            })
+            .catch(() => {
+                if (!cancelled)
+                    setOauthReadiness({
+                        linkedin: 'unavailable',
+                        bluesky: 'unavailable',
+                        x: 'unavailable',
+                    })
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [readOnly, readinessProjectId, readinessAttempt])
     const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
     const [providerApplications, setProviderApplications] = useState<ProviderApplication[]>([])
     const [selectedProviderApplications, setSelectedProviderApplications] = useState<
@@ -137,7 +163,7 @@ export function PublisherConnectionPanel({
 
     function selectedApplicationId(provider: ProviderApplicationProvider): string | undefined {
         const applications = applicationsFor(provider)
-        if (applications.length < 2) return undefined
+        if (applications.length < 2) return applications[0]?.id
 
         const selected = selectedProviderApplications[provider]
         if (
@@ -316,8 +342,53 @@ export function PublisherConnectionPanel({
                                 ) : null}
                             </div>
 
-                            {readOnly || channel.state === 'archived' ? null : connectionKind ===
-                                  'linkedin' && canConnect ? (
+                            {readOnly || channel.state === 'archived' ? null : canConnect &&
+                              ['linkedin', 'bluesky', 'x'].includes(connectionKind) &&
+                              oauthReadiness[connectionKind as ProviderApplicationProvider] !==
+                                  'ready' &&
+                              applicationsFor(connectionKind as ProviderApplicationProvider)
+                                  .length === 0 ? (
+                                <div className="flex flex-col gap-2 text-sm sm:items-end">
+                                    <p className="text-muted-foreground">
+                                        {oauthReadiness[
+                                            connectionKind as ProviderApplicationProvider
+                                        ] === 'not_configured'
+                                            ? m.publisher_oauth_setup_required()
+                                            : oauthReadiness[
+                                                    connectionKind as ProviderApplicationProvider
+                                                ] === 'unavailable'
+                                              ? m.api_request_failed()
+                                              : m.common_loading()}
+                                    </p>
+                                    {oauthReadiness[
+                                        connectionKind as ProviderApplicationProvider
+                                    ] === 'not_configured' ? (
+                                        isInstanceAdmin ? (
+                                            <Link
+                                                className="text-primary hover:underline"
+                                                to="/dashboard/settings/provider-applications"
+                                                search={{
+                                                    projectId: channel.projectId,
+                                                    workspaceId: undefined,
+                                                }}>
+                                                {m.provider_apps_title()}
+                                            </Link>
+                                        ) : (
+                                            <p>{m.publisher_oauth_contact_admin()}</p>
+                                        )
+                                    ) : null}
+                                    {oauthReadiness[
+                                        connectionKind as ProviderApplicationProvider
+                                    ] === 'unavailable' ? (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setReadinessAttempt(value => value + 1)}>
+                                            {m.common_retry()}
+                                        </Button>
+                                    ) : null}
+                                </div>
+                            ) : connectionKind === 'linkedin' && canConnect ? (
                                 <div className="grid w-full gap-3 lg:w-80 lg:shrink-0">
                                     <ProviderApplicationSelect
                                         applications={linkedInApplications}
