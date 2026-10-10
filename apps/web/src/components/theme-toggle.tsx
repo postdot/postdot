@@ -3,6 +3,7 @@ import { MoonIcon } from '@solar-icons/react/linear/moon'
 import { SunIcon } from '@solar-icons/react/linear/sun'
 import type { ComponentProps } from 'react'
 
+import { ActionTooltip } from '@/components/action-tooltip'
 import { useLanguage } from '@/lib/i18n'
 import { useTheme } from '@/lib/theme'
 import * as m from '@/paraglide/messages.js'
@@ -21,19 +22,20 @@ export function ThemeToggle({ className, ...props }: ThemeToggleProps) {
               })
 
     return (
-        <Button
-            {...props}
-            aria-label={label}
-            className={className}
-            size="icon-sm"
-            title={label}
-            variant="ghost"
-            onClick={() => setTheme(nextTheme)}>
-            {resolvedTheme === 'dark' ? (
-                <SunIcon aria-hidden="true" />
-            ) : (
-                <MoonIcon aria-hidden="true" />
-            )}
-        </Button>
+        <ActionTooltip label={label}>
+            <Button
+                {...props}
+                aria-label={label}
+                className={className}
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => setTheme(nextTheme)}>
+                {resolvedTheme === 'dark' ? (
+                    <SunIcon aria-hidden="true" />
+                ) : (
+                    <MoonIcon aria-hidden="true" />
+                )}
+            </Button>
+        </ActionTooltip>
     )
 }

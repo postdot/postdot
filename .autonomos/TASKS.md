@@ -714,4 +714,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[UX-386]** Center search loading feedback and adopt design skills `Priority: 🟡` `Complexity: S` — replace visible loading copy with a search-specific indicator inside the result region; install and apply both approved design skills.
 
-- [ ] **[UX-387]** Align header tooltips and search navigation icons `Priority: 🟡` `Complexity: S` — Proposed after the owner-requested quick design review: use shared tooltip for ThemeToggle and semantic navigation icons for search page entries. Preserve layout, copy, permissions and search behavior. See worklog 2026-10-10-CONTENT-384.
+- [x] **[UX-387]** Improve media discovery and inspection `Priority: 🟡` `Complexity: S` — Owner-directed correction: image thumbnails in search, preview-first navigation, calmer media information layout, semantic page icons and shared tooltips on header/media actions. Preserve permissions and existing media operations. See worklog 2026-10-10-UX-387.

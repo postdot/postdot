@@ -16,6 +16,7 @@ const searchResult = Type.Object({
     projectName: Type.String(),
     title: Type.String(),
     description: Type.String(),
+    contentType: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 })
 
 export const searchResponseSchema = Type.Object({ results: Type.Array(searchResult) })

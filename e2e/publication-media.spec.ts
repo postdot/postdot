@@ -852,6 +852,10 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await page.getByRole('menuitem', { name: 'Information', exact: true }).click()
     const mediaInformationDialog = page.locator('[data-media-info-dialog="true"]')
     await expect(mediaInformationDialog).toBeVisible()
+    await page.screenshot({
+        path: '/tmp/herald-media-information-dark.png',
+        animations: 'disabled',
+    })
     await expect(mediaInformationDialog.getByText('File details', { exact: true })).toBeVisible()
     await expect(
         mediaInformationDialog.getByText('No references in this project.', { exact: true })

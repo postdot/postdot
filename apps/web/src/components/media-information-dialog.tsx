@@ -4,17 +4,16 @@ import {
     DialogClose,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/linear/close'
-import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { ActionTooltip } from '@/components/action-tooltip'
 import { publicationStateLabel } from '@/components/dashboard-publication-parts'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { api, type MediaAssetUsage, type MediaReference } from '@/lib/api'
@@ -97,41 +96,42 @@ export function MediaInformationDialog({
             <DialogContent
                 showCloseButton={false}
                 data-media-info-dialog="true"
-                className="max-h-[min(46rem,calc(100vh-2rem))] gap-0 overflow-hidden p-0 sm:max-w-2xl">
-                <DialogHeader className="border-b border-border/60 px-5 py-4 sm:px-6">
+                className="max-h-[min(46rem,calc(100dvh-2rem))] gap-0 overflow-hidden bg-surface-raised p-0 sm:max-w-3xl">
+                <DialogHeader className="px-5 pt-5 pb-3 sm:px-6">
                     <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
-                        <InfoCircleIcon aria-hidden="true" className="shrink-0" />
                         {m.media_info_title()}
                     </DialogTitle>
                     <DialogDescription className="truncate">
                         {asset.asset.originalFilename}
                     </DialogDescription>
                 </DialogHeader>
-                <DialogClose
-                    render={
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={m.common_close()}
-                            className="absolute top-2 right-2"
-                        />
-                    }>
-                    <CloseIcon aria-hidden="true" />
-                </DialogClose>
+                <ActionTooltip label={m.common_close()}>
+                    <DialogClose
+                        render={
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={m.common_close()}
+                                className="absolute top-2 right-2"
+                            />
+                        }>
+                        <CloseIcon aria-hidden="true" />
+                    </DialogClose>
+                </ActionTooltip>
 
                 <div
                     data-media-info-body="true"
                     className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
-                    <div className="grid gap-5 sm:grid-cols-[minmax(10rem,14rem)_minmax(0,1fr)]">
+                    <div className="grid gap-5 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                         <div
                             data-media-info-preview="true"
-                            className="flex aspect-square min-h-40 items-center justify-center overflow-hidden rounded-md bg-muted">
+                            className="flex min-h-48 items-center justify-center overflow-hidden rounded-lg bg-surface-inset sm:min-h-72">
                             <MediaPreview
                                 projectId={asset.asset.projectId}
                                 asset={asset}
                                 representation={representation}
-                                className="flex size-full items-center justify-center object-contain text-xs font-medium uppercase text-muted-foreground"
+                                className="flex size-full items-center justify-center object-contain text-xs font-medium text-muted-foreground"
                             />
                         </div>
 
@@ -139,7 +139,7 @@ export function MediaInformationDialog({
                             <h2 id="media-info-details" className="text-sm font-medium">
                                 {m.media_info_details()}
                             </h2>
-                            <dl className="mt-3 grid gap-3">
+                            <dl className="mt-4 grid gap-2.5">
                                 <InfoRow label={m.media_info_type()} value={contentType ?? '—'} />
                                 <InfoRow label={m.media_info_format()} value={format ?? '—'} />
                                 <InfoRow
@@ -185,12 +185,6 @@ export function MediaInformationDialog({
                         usageLoading={usageLoading}
                     />
                 </div>
-
-                <DialogFooter className="mx-0 mb-0 border-0 bg-surface-inset px-5 py-3 sm:px-6">
-                    <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                        {m.common_close()}
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -257,7 +251,7 @@ function MediaUsageSection({
         <section
             aria-labelledby="media-info-usage"
             data-media-info-usage="true"
-            className="mt-6 border-t border-border/60 pt-5">
+            className="mt-7 pb-2">
             <h2 id="media-info-usage" className="text-sm font-medium">
                 {m.media_info_usage()}
             </h2>
@@ -310,7 +304,7 @@ function UsageGroup({
 }) {
     return (
         <div className="grid gap-2">
-            <h3 className="text-xs font-medium uppercase text-muted-foreground">{title}</h3>
+            <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
             <ul className="grid gap-2">
                 {references.map(reference => (
                     <UsageReference

@@ -12,9 +12,11 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@herald/ui/component
 import { Kbd } from '@herald/ui/components/kbd'
 import { Switch } from '@herald/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { LinkIcon } from '@solar-icons/react/linear/link'
+import { ListIcon } from '@solar-icons/react/linear/list'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
@@ -236,18 +238,31 @@ export function DashboardSearch({
                         aria-busy={phase === 'loading'}>
                         {pages.length > 0 && (
                             <CommandGroup heading={m.search_pages()}>
-                                {pages.map(page => (
-                                    <CommandItem
-                                        key={page.href}
-                                        value={page.href}
-                                        onSelect={() => go(page.href)}>
-                                        <SettingsIcon
-                                            aria-hidden="true"
-                                            className="size-5 shrink-0 text-muted-foreground"
-                                        />
-                                        <span>{page.title}</span>
-                                    </CommandItem>
-                                ))}
+                                {pages.map(page => {
+                                    const PageIcon = page.href.endsWith('/overview')
+                                        ? Widget2Icon
+                                        : page.href.endsWith('/queue')
+                                          ? ListIcon
+                                          : page.href.endsWith('/channels')
+                                            ? LinkIcon
+                                            : page.href.endsWith('/media')
+                                              ? GalleryIcon
+                                              : page.href.endsWith('/performance')
+                                                ? ChartSquareIcon
+                                                : SettingsIcon
+                                    return (
+                                        <CommandItem
+                                            key={page.href}
+                                            value={page.href}
+                                            onSelect={() => go(page.href)}>
+                                            <PageIcon
+                                                aria-hidden="true"
+                                                className="size-5 shrink-0 text-muted-foreground"
+                                            />
+                                            <span>{page.title}</span>
+                                        </CommandItem>
+                                    )
+                                })}
                             </CommandGroup>
                         )}
                         {(['post', 'channel', 'project', 'media'] as const).map(kind => {
@@ -279,10 +294,23 @@ export function DashboardSearch({
                                                     `/dashboard/projects/${encodeURIComponent(result.projectId)}/${kind === 'post' ? `posts/${encodeURIComponent(result.id)}` : kind === 'channel' ? `channels#publisher-connection-${encodeURIComponent(result.id)}` : kind === 'media' ? `media?assetId=${encodeURIComponent(result.id)}` : 'overview'}`
                                                 )
                                             }>
-                                            <Icon
-                                                aria-hidden="true"
-                                                className="size-5 shrink-0 text-muted-foreground"
-                                            />
+                                            {kind === 'media' &&
+                                            result.contentType?.startsWith('image/') ? (
+                                                <img
+                                                    src={api.mediaContentUrl(
+                                                        result.projectId,
+                                                        result.id
+                                                    )}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    className="size-12 shrink-0 rounded-md bg-surface-inset object-cover"
+                                                />
+                                            ) : (
+                                                <Icon
+                                                    aria-hidden="true"
+                                                    className="size-5 shrink-0 text-muted-foreground"
+                                                />
+                                            )}
                                             <div className="min-w-0 flex-1">
                                                 <div className="truncate font-medium">
                                                     {result.title || m.search_untitled_post()}

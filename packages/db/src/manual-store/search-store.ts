@@ -7,6 +7,7 @@ export interface SearchResult {
     readonly projectName: string
     readonly title: string
     readonly description: string
+    readonly contentType?: string | null
 }
 
 /** Callers supply the live authorized project set, never historical actors. */
@@ -52,7 +53,10 @@ export function createSearchStore(database: HeraldDatabase) {
                 .query<Omit<SearchResult, 'kind'>, string[]>(`
                 select item.id, item.project_id as projectId, project.name as projectName,
                        item.original_filename as title,
-                       coalesce(item.default_accessibility_text, '') as description
+                       coalesce(item.default_accessibility_text, '') as description,
+                       (select coalesce(detected_content_type, declared_content_type)
+                        from media_representations where asset_id = item.id
+                          and state = 'ready' and kind = 'original' limit 1) as contentType
                 from media_assets item join projects project on project.id = item.project_id
                 where item.project_id in (${parameters}) and item.state = 'ready'
                   and item.archived_at is null

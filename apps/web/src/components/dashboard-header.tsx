@@ -13,6 +13,7 @@ import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
 
+import { ActionTooltip } from '@/components/action-tooltip'
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
 import { DashboardSearch } from '@/components/dashboard-search'
 import { UserAvatar } from '@/components/identity-visuals'
@@ -91,19 +92,22 @@ export function DashboardHeader({
             data-dashboard-header="true"
             className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-surface-canvas/95 px-4 pl-2 backdrop-blur-sm sm:px-6 sm:pl-2 lg:px-8 lg:pl-2">
             <div className="flex min-w-0 items-center gap-2">
-                <SidebarTrigger aria-label={m.nav_toggle()} title={m.nav_toggle()} />
+                <ActionTooltip label={m.nav_toggle()}>
+                    <SidebarTrigger aria-label={m.nav_toggle()} />
+                </ActionTooltip>
                 {isSettingsShell && !hasPageBack ? (
-                    <Button
-                        aria-label={backLabel}
-                        className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
-                        nativeButton={false}
-                        render={backLink}
-                        size="sm"
-                        title={backLabel}
-                        variant="ghost">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        <span className="hidden sm:inline">{backLabel}</span>
-                    </Button>
+                    <ActionTooltip label={backLabel}>
+                        <Button
+                            aria-label={backLabel}
+                            className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+                            nativeButton={false}
+                            render={backLink}
+                            size="sm"
+                            variant="ghost">
+                            <AltArrowLeftIcon aria-hidden="true" />
+                            <span className="hidden sm:inline">{backLabel}</span>
+                        </Button>
+                    </ActionTooltip>
                 ) : null}
                 <DashboardProjectContext
                     canCreateWorkspace={canCreateWorkspace}

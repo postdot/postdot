@@ -202,7 +202,11 @@ function MediaAttachmentPickerView({
         let active = true
         api.getMedia(projectId, inspectAssetId)
             .then(asset => {
-                if (active) setInformationAsset(asset)
+                if (active) {
+                    setViewerAssets([asset])
+                    setViewerAsset(asset)
+                    setViewerAllowsFileActions(false)
+                }
             })
             .catch(caughtError => {
                 if (active) setError(errorMessage(caughtError))
@@ -1727,7 +1731,10 @@ function MediaAttachmentPickerView({
                         }
                         open
                         onOpenChange={open => {
-                            if (!open) closeViewer()
+                            if (!open) {
+                                closeViewer()
+                                onInspectClose?.()
+                            }
                         }}
                         onAssetChange={setViewerAsset}
                         onEdit={viewerAllowsFileActions ? openEditor : undefined}

@@ -41,7 +41,6 @@ export function LanguageSwitcher() {
                                     className="px-2"
                                     data-slot="language-switcher-trigger"
                                     size="icon-sm"
-                                    title={label}
                                     variant="ghost"
                                 />
                             }

@@ -454,8 +454,10 @@ administration capabilities. Content search defaults to all currently accessible
 projects; the current-project scope is an explicit alternative. Source posts
 appear once regardless of destination count and open their shared-post page;
 channels open their existing row in Channels. Ready, non-archived media are
-matched by filename or accessibility text and open their existing information
-dialog; closing consumes the inspection parameter so a later selection reopens it. Search errors and retry stay inside
+matched by filename or accessibility text. Images have visual thumbnails, while
+other result kinds retain appropriate icons. Media results open the existing
+viewer; information is a secondary inspection surface. Closing consumes the
+inspection parameter so a later selection reopens it. Search errors and retry stay inside
 the palette. Search does not publish, modify content or replace Queue filters.
 
 The search trigger combines an icon and compact keyboard shortcut, with an

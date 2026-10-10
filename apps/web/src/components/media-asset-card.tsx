@@ -16,6 +16,7 @@ import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertic
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { UndoLeftIcon } from '@solar-icons/react/linear/undo-left'
 
+import { ActionTooltip } from '@/components/action-tooltip'
 import { api, type MediaReference } from '@/lib/api'
 import { formatBytes, formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -157,7 +158,6 @@ export function MediaAssetCard({
                         aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         data-media-preview="true"
                         onClick={() => onPreview?.(asset)}
-                        title={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
                         <MediaPreview
                             projectId={projectId}
@@ -338,22 +338,25 @@ function MediaAssetActions({
     return (
         <div className="shrink-0">
             <DropdownMenu modal={false}>
-                <DropdownMenuTrigger
-                    render={
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={interactionDisabled}
-                            data-media-asset-actions="true"
-                            aria-label={m.media_asset_actions({
-                                filename: asset.asset.originalFilename,
-                            })}
-                            className="text-muted-foreground hover:bg-surface-raised hover:text-foreground">
-                            <MenuDotsVerticalIcon aria-hidden="true" />
-                        </Button>
-                    }
-                />
+                <ActionTooltip
+                    label={m.media_asset_actions({ filename: asset.asset.originalFilename })}>
+                    <DropdownMenuTrigger
+                        render={
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={interactionDisabled}
+                                data-media-asset-actions="true"
+                                aria-label={m.media_asset_actions({
+                                    filename: asset.asset.originalFilename,
+                                })}
+                                className="text-muted-foreground hover:bg-surface-raised hover:text-foreground">
+                                <MenuDotsVerticalIcon aria-hidden="true" />
+                            </Button>
+                        }
+                    />
+                </ActionTooltip>
                 <DropdownMenuContent align="end" className="min-w-44">
                     {onRestore !== undefined ? (
                         <DropdownMenuItem

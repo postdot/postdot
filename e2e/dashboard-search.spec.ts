@@ -139,10 +139,21 @@ test('searches across projects, opens source posts and keeps failures inside the
     for (let attempt = 0; attempt < 2; attempt++) {
         await page.keyboard.press('Control+k')
         await input.fill(mediaName)
-        await dialog.getByRole('option', { name: new RegExp(mediaName) }).click()
+        const mediaResult = dialog.getByRole('option', { name: new RegExp(mediaName) })
+        await expect(mediaResult.locator('img')).toBeVisible()
+        await expect
+            .poll(() =>
+                mediaResult
+                    .locator('img')
+                    .evaluate(image => (image as HTMLImageElement).naturalWidth)
+            )
+            .toBeGreaterThan(0)
+        await mediaResult.click()
         await expect(page).toHaveURL(new RegExp(`/media\\?assetId=${mediaId}$`))
-        const information = page.getByRole('dialog')
-        await expect(information.getByText(mediaName, { exact: true })).toBeVisible()
+        const information = page.locator('[data-media-viewer="true"]')
+        await expect(
+            information.getByRole('heading', { name: mediaName, exact: true })
+        ).toBeVisible()
         await page.screenshot({ path: '/tmp/herald-search-media.png' })
         await page.keyboard.press('Escape')
         await expect(information).not.toBeVisible()
