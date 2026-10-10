@@ -2128,5 +2128,18 @@
     "post_destinations": "Destinations",
     "post_source_edit": "Edit source",
     "post_source_conflict": "The source changed elsewhere. Your text is preserved. Copy your changes before cancelling and reopening the latest revision.",
-    "post_source_leave": "Leave without saving your source changes?"
+    "post_source_leave": "Leave without saving your source changes?",
+    "queue_view_label": "Queue view",
+    "queue_view_queue": "Publication order",
+    "queue_view_posts": "By post",
+    "queue_visible_destinations": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} destination in these results",
+                "countPlural=other": "{count} destinations in these results"
+            }
+        }
+    ]
 }

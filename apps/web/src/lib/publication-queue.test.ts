@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import type { PublicationSummary } from '@/lib/api'
 import {
+    groupQueuePublicationsByPost,
     filterQueueByTags,
     filterQueuePublications,
     prioritizeQueuePublications,
@@ -103,4 +104,20 @@ describe('publication queue filters', () => {
         expect(filterQueueByTags(tagged, ['release', 'external'])).toEqual([tagged[0]!])
         expect(filterQueueByTags(tagged, [])).toEqual(tagged)
     })
+})
+
+test('groups filtered destinations by first occurrence without changing input or adding siblings', () => {
+    const first = publication('failed', { postId: 'shared', state: 'failed' })
+    const second = publication('scheduled', { postId: 'other', state: 'scheduled' })
+    const third = publication('published', { postId: 'shared', state: 'published' })
+    const input = [first, second, third]
+    expect(groupQueuePublicationsByPost(input)).toEqual([
+        { postId: 'shared', publications: [first, third] },
+        { postId: 'other', publications: [second] },
+    ])
+    expect(input).toEqual([first, second, third])
+    expect(groupQueuePublicationsByPost([third])).toEqual([
+        { postId: 'shared', publications: [third] },
+    ])
+    expect(groupQueuePublicationsByPost([])).toEqual([])
 })

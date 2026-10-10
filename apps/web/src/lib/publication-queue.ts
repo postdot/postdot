@@ -98,3 +98,17 @@ export function filterQueueByTags(
         return selectedTagIds.every(tagId => publicationTagIds.has(tagId))
     })
 }
+
+/** Groups only the supplied results, preserving first occurrence and destination order. */
+export function groupQueuePublicationsByPost(publications: readonly PublicationSummary[]) {
+    const groups = new Map<string, { postId: string; publications: PublicationSummary[] }>()
+    for (const publication of publications) {
+        let group = groups.get(publication.postId)
+        if (group === undefined) {
+            group = { postId: publication.postId, publications: [] }
+            groups.set(publication.postId, group)
+        }
+        group.publications.push(publication)
+    }
+    return [...groups.values()]
+}

@@ -2128,5 +2128,18 @@
     "post_destinations": "Canaux de destination",
     "post_source_edit": "Modifier la source",
     "post_source_conflict": "La source a changé ailleurs. Votre texte est conservé. Copiez vos modifications avant d’annuler et de rouvrir la dernière révision.",
-    "post_source_leave": "Quitter sans enregistrer les modifications de la source ?"
+    "post_source_leave": "Quitter sans enregistrer les modifications de la source ?",
+    "queue_view_label": "Vue de la file",
+    "queue_view_queue": "Par publication",
+    "queue_view_posts": "Par post",
+    "queue_visible_destinations": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} destination dans ces résultats",
+                "countPlural=other": "{count} destinations dans ces résultats"
+            }
+        }
+    ]
 }

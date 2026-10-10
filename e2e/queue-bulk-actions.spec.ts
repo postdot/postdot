@@ -34,6 +34,8 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
             state: 'draft',
         }),
     ]
+    publications[2]!.postId = publications[0]!.postId
+    publications[2]!.postTitle = publications[0]!.postTitle
     const [firstPublication, secondPublication] = publications
     if (firstPublication === undefined || secondPublication === undefined) {
         throw new Error('Expected two scheduled publications')
@@ -56,18 +58,23 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
                 contentType: 'application/json',
                 body: JSON.stringify({
                     nextCursor: null,
-                    publications: publications.map(publication => {
-                        if (cancelledPublicationIds.has(publication.id)) {
-                            return {
-                                ...publication,
-                                scheduledAt: currentScheduledAt,
-                                state: 'cancelled',
+                    publications: publications
+                        .filter(publication => {
+                            const state = requestUrl.searchParams.get('state')
+                            return state === null || publication.state === state
+                        })
+                        .map(publication => {
+                            if (cancelledPublicationIds.has(publication.id)) {
+                                return {
+                                    ...publication,
+                                    scheduledAt: currentScheduledAt,
+                                    state: 'cancelled',
+                                }
                             }
-                        }
-                        return publication.state === 'scheduled'
-                            ? { ...publication, scheduledAt: currentScheduledAt }
-                            : publication
-                    }),
+                            return publication.state === 'scheduled'
+                                ? { ...publication, scheduledAt: currentScheduledAt }
+                                : publication
+                        }),
                     summary: {
                         total: 3,
                         manual: 0,
@@ -127,6 +134,48 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     const selectionToggles = page.locator('[data-publication-selection-toggle="true"]')
     await expect(selectionToggles).toHaveCount(3)
+    const view = page.getByRole('combobox', { name: 'Queue view', exact: true })
+    await view.click()
+    await page.getByRole('option', { name: 'By post', exact: true }).click()
+    await expect(page).toHaveURL(/view=posts/)
+    const groups = page.locator('[data-queue-post-group]')
+    await expect(groups).toHaveCount(2)
+    await expect(groups.first()).toContainText('2 destinations in these results')
+    await expect(groups.first().locator('[data-publication-selection-toggle="true"]')).toHaveCount(
+        2
+    )
+    await expect(groups.first()).toContainText('Queued')
+    await expect(groups.first()).toContainText('Draft')
+    await expect(
+        groups.first().getByRole('link', { name: 'View post', exact: true })
+    ).toHaveAttribute('href', `/dashboard/projects/${projectId}/posts/${firstPublication.postId}`)
+    await groups.first().locator('[data-publication-selection-toggle="true"]').first().click()
+    await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(1)
+    await view.click()
+    await page.getByRole('option', { name: 'Publication order', exact: true }).click()
+    await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(1)
+    await view.click()
+    await page.getByRole('option', { name: 'By post', exact: true }).click()
+    await page.reload()
+    await expect(groups).toHaveCount(2)
+    await page.getByRole('tab', { name: /^Drafts/ }).click()
+    await expect(groups).toHaveCount(1)
+    await expect(groups.first()).toContainText('1 destination in these results')
+    await expect(selectionToggles).toHaveCount(1)
+    await page.getByRole('tab', { name: /^All / }).click()
+    await expect(groups).toHaveCount(2)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(groups.first().getByRole('link', { name: 'View post', exact: true })).toBeVisible()
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+    await page.screenshot({ path: '/tmp/herald-content382-narrow.png', fullPage: true })
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.screenshot({ path: '/tmp/herald-content382-wide.png', fullPage: true })
+    await view.click()
+    await page.getByRole('option', { name: 'Publication order', exact: true }).click()
+    await expect(groups).toHaveCount(0)
+    await expect(selectionToggles).toHaveCount(3)
     const queueBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await expect(queueBulkActionBar).toBeVisible()
     await expect(
@@ -173,6 +222,7 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     ).toBeVisible()
     await page.getByLabel('Deliver at', { exact: true }).click()
     await expect(page.getByLabel('Time', { exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Apply schedule', exact: true }).click()
 
     await expect

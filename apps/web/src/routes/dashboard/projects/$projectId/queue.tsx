@@ -10,6 +10,7 @@ import {
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/queue')({
     validateSearch: (search: Record<string, unknown>) => ({
+        ...(search.view === 'posts' ? { view: 'posts' as const } : {}),
         filter: parseQueueFilter(search.filter),
         sort: parseQueueSort(search.sort),
         tagIds: parseTagIds(search.tagIds),
@@ -18,8 +19,15 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/queue')({
 })
 
 function QueueRoute() {
-    const { filter, sort, tagIds } = Route.useSearch()
-    return <PublicationQueuePage initialFilter={filter} initialSort={sort} initialTagIds={tagIds} />
+    const { filter, sort, tagIds, view } = Route.useSearch()
+    return (
+        <PublicationQueuePage
+            initialView={view}
+            initialFilter={filter}
+            initialSort={sort}
+            initialTagIds={tagIds}
+        />
+    )
 }
 
 function parseQueueSort(value: unknown): PublicationQueueSort | undefined {

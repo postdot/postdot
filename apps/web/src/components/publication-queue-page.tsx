@@ -49,7 +49,9 @@ export function PublicationQueuePage({
     initialFilter = 'all',
     initialSort,
     initialTagIds = [],
+    initialView = 'queue',
 }: {
+    readonly initialView?: 'queue' | 'posts'
     readonly initialFilter?: QueueFilter
     readonly initialSort?: PublicationQueueSort
     readonly initialTagIds?: readonly string[]
@@ -75,6 +77,8 @@ export function PublicationQueuePage({
     } = useProjectDashboard()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
+    const [view, setView] = useState(initialView)
+    useEffect(() => setView(initialView), [initialView])
     const [filter, setFilter] = useState<QueueFilter>(initialFilter)
     const [sort, setSort] = useState<PublicationQueueSort>(
         initialSort ?? defaultPublicationQueueSort(initialFilter)
@@ -379,6 +383,31 @@ export function PublicationQueuePage({
                 leadingContent={
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <Select
+                            value={view}
+                            onValueChange={value => {
+                                if (value !== 'queue' && value !== 'posts') return
+                                setView(value)
+                                void navigate({
+                                    search: current => ({
+                                        ...current,
+                                        view: value === 'posts' ? 'posts' : undefined,
+                                    }),
+                                })
+                            }}>
+                            <SelectTrigger
+                                aria-label={m.queue_view_label()}
+                                className="w-fit"
+                                size="sm">
+                                <SelectValue>
+                                    {view === 'posts' ? m.queue_view_posts() : m.queue_view_queue()}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectItem value="queue">{m.queue_view_queue()}</SelectItem>
+                                <SelectItem value="posts">{m.queue_view_posts()}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select
                             value={filter === 'manual' ? 'manual' : 'all'}
                             onValueChange={value => {
                                 if (value === 'manual') changeFilter('manual')
@@ -530,6 +559,7 @@ export function PublicationQueuePage({
                         pending={pending}
                         publications={visiblePublications}
                         showPostLink
+                        groupByPost={view === 'posts'}
                         allSelected={allVisibleSelected}
                         onToggleAll={canEditProject ? toggleAllVisiblePublications : undefined}
                         readOnly={!canEditProject}

@@ -94,6 +94,12 @@ future landing-page decisions remain explicit below.
   project and returns to that project's Queue. Queue remains the lifecycle and
   human-action prioritization surface; the Overview calendar does not replace
   it or become a second scheduler.
+  Queue defaults to individual publication order. Its optional By post view groups
+  the currently loaded, filtered destinations by post, ordered by each group's
+  first publication in the selected sort. Counts describe those visible results,
+  not the post's total destinations. Filters, pagination and individual selection
+  keep their publication scope; one group link opens the complete shared post.
+  The view is URL-addressable and changing it preserves the current selection.
   The explicit Queue link to `/dashboard/projects/:projectId/posts/:postId`
   inspects the current shared source and all its destination publications. Post
   inspection retains Queue as its navigation context; individual publication

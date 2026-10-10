@@ -30,6 +30,7 @@ import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
+import { groupQueuePublicationsByPost } from '@/lib/publication-queue'
 import * as m from '@/paraglide/messages.js'
 
 import { EmptyState, type EmptyStateIllustration, type EmptyStateLayout } from './empty-state'
@@ -56,6 +57,7 @@ export function PublicationList({
     selectedPublicationIds,
     showCreationDate = false,
     showPostLink = false,
+    groupByPost = false,
     timeZone,
 }: {
     readonly emptyDescription?: string | null
@@ -77,6 +79,7 @@ export function PublicationList({
     readonly selectedPublicationIds?: ReadonlySet<string>
     readonly showCreationDate?: boolean
     readonly showPostLink?: boolean
+    readonly groupByPost?: boolean
     readonly timeZone: string
 }) {
     useLanguage()
@@ -120,6 +123,7 @@ export function PublicationList({
                 data-publication-list="true">
                 {selectionEnabled ? (
                     <PublicationTableHeader
+                        groupByPost={groupByPost}
                         allSelected={resolvedAllSelected}
                         disabled={pending || onToggleAll === undefined}
                         indeterminate={selectedVisibleCount > 0 && !resolvedAllSelected}
@@ -127,31 +131,64 @@ export function PublicationList({
                     />
                 ) : null}
                 <div className="space-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
-                    {publications.map(publication => {
-                        const selected = selectedPublicationIds?.has(publication.id) ?? false
-                        return (
-                            <PublicationListItem
-                                key={publication.id}
-                                due={duePublicationIds?.has(publication.id) ?? false}
-                                onDeleteDraft={onDeleteDraft}
-                                onDuplicateDraft={onDuplicateDraft}
-                                onPublish={onPublish}
-                                onRetry={onRetry}
-                                onToggleSelection={
-                                    selectionEnabled
-                                        ? () => onToggleSelection(publication)
-                                        : undefined
-                                }
-                                pending={pending}
-                                publication={publication}
-                                readOnly={readOnly}
-                                selected={selected}
-                                showCreationDate={showCreationDate}
-                                showPostLink={showPostLink}
-                                timeZone={timeZone}
-                            />
-                        )
-                    })}
+                    {(groupByPost
+                        ? groupQueuePublicationsByPost(publications)
+                        : [{ postId: 'queue', publications }]
+                    ).map(group => (
+                        <div
+                            key={group.postId}
+                            data-queue-post-group={groupByPost ? group.postId : undefined}
+                            className="space-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
+                            {groupByPost ? (
+                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 pb-2 pt-5 lg:col-span-full">
+                                    <h2 className="min-w-0 basis-full text-sm font-semibold sm:flex-1 sm:basis-auto">
+                                        {publicationIdentityLabel(group.publications[0]!)}
+                                    </h2>
+                                    <span className="text-xs text-muted-foreground">
+                                        {m.queue_visible_destinations({
+                                            count: group.publications.length,
+                                        })}
+                                    </span>
+                                    <Link
+                                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                                        to="/dashboard/projects/$projectId/posts/$postId"
+                                        params={{
+                                            projectId: group.publications[0]!.projectId,
+                                            postId: group.postId,
+                                        }}>
+                                        {m.post_view()}
+                                    </Link>
+                                </div>
+                            ) : null}
+                            {group.publications.map(publication => {
+                                const selected =
+                                    selectedPublicationIds?.has(publication.id) ?? false
+                                return (
+                                    <PublicationListItem
+                                        key={publication.id}
+                                        due={duePublicationIds?.has(publication.id) ?? false}
+                                        onDeleteDraft={onDeleteDraft}
+                                        onDuplicateDraft={onDuplicateDraft}
+                                        onPublish={onPublish}
+                                        onRetry={onRetry}
+                                        onToggleSelection={
+                                            selectionEnabled
+                                                ? () => onToggleSelection(publication)
+                                                : undefined
+                                        }
+                                        pending={pending}
+                                        publication={publication}
+                                        readOnly={readOnly}
+                                        selected={selected}
+                                        showCreationDate={showCreationDate}
+                                        showPostLink={showPostLink && !groupByPost}
+                                        showIdentity={!groupByPost}
+                                        timeZone={timeZone}
+                                    />
+                                )
+                            })}
+                        </div>
+                    ))}
                 </div>
             </div>
         </TooltipProvider>
@@ -159,11 +196,13 @@ export function PublicationList({
 }
 
 function PublicationTableHeader({
+    groupByPost,
     allSelected,
     disabled,
     indeterminate,
     onToggleAll,
 }: {
+    readonly groupByPost: boolean
     readonly allSelected: boolean
     readonly disabled: boolean
     readonly indeterminate: boolean
@@ -184,14 +223,14 @@ function PublicationTableHeader({
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:col-span-3 lg:grid-cols-subgrid lg:gap-7">
                 <div className="min-w-0">
                     <span className="block truncate text-xs font-medium text-muted-foreground">
-                        {m.queue_column_publication()}
+                        {groupByPost ? m.queue_column_destination() : m.queue_column_publication()}
                     </span>
                     <span className="mt-1 block truncate text-xs font-medium text-muted-foreground lg:hidden">
-                        {m.queue_column_destination()}
+                        {groupByPost ? null : m.queue_column_destination()}
                     </span>
                 </div>
                 <span className="hidden truncate text-xs font-medium text-muted-foreground lg:block">
-                    {m.queue_column_destination()}
+                    {groupByPost ? null : m.queue_column_destination()}
                 </span>
                 <span className="text-right text-xs font-medium text-muted-foreground">
                     {m.queue_column_action()}
@@ -214,6 +253,7 @@ function PublicationListItem({
     selected,
     showCreationDate = false,
     showPostLink,
+    showIdentity,
     timeZone,
 }: {
     readonly due: boolean
@@ -227,6 +267,7 @@ function PublicationListItem({
     readonly readOnly: boolean
     readonly selected: boolean
     readonly showCreationDate: boolean
+    readonly showIdentity: boolean
     readonly showPostLink: boolean
     readonly timeZone: string
 }) {
@@ -414,6 +455,7 @@ function PublicationListItem({
                     }
                     due={due}
                     publication={publication}
+                    showIdentity={showIdentity}
                     showCreationDate={showCreationDate}
                     timeZone={timeZone}
                 />
@@ -490,6 +532,7 @@ export function PublicationRow({
     sharedColumns = false,
     selectionEnabled = false,
     showCreationDate = false,
+    showIdentity = true,
     timeZone,
 }: {
     readonly sharedColumns?: boolean
@@ -497,6 +540,7 @@ export function PublicationRow({
     readonly action?: ReactNode
     readonly due?: boolean
     readonly publication: PublicationSummary
+    readonly showIdentity?: boolean
     readonly showCreationDate?: boolean
     readonly timeZone: string
 }) {
@@ -529,17 +573,19 @@ export function PublicationRow({
                           ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
                           : ''
                 )}>
-                <div className="flex min-w-0 items-start gap-2">
-                    {publication.mediaCount > 0 ? (
-                        <PublicationMediaThumbnail publication={publication} />
-                    ) : null}
-                    <div className="min-w-0">
-                        <h2 className="truncate text-sm font-medium" title={identityLabel}>
-                            {identityLabel}
-                        </h2>
+                {showIdentity ? (
+                    <div className="flex min-w-0 items-start gap-2">
+                        {publication.mediaCount > 0 ? (
+                            <PublicationMediaThumbnail publication={publication} />
+                        ) : null}
+                        <div className="min-w-0">
+                            <h2 className="truncate text-sm font-medium" title={identityLabel}>
+                                {identityLabel}
+                            </h2>
+                        </div>
                     </div>
-                </div>
-                <div className="min-w-0">
+                ) : null}
+                <div className={cn('min-w-0', !showIdentity && 'lg:col-span-2')}>
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="inline-flex min-w-0 max-w-full items-center gap-2">
                             <span
