@@ -953,6 +953,12 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     publicationId: params.publicationId,
                     subjectId: user.id,
                     expectedRevision: body.expectedRevision,
+                    ...(body.expectedSourceRevision === undefined
+                        ? {}
+                        : { expectedSourceRevision: body.expectedSourceRevision }),
+                    ...(body.replaceContent === undefined
+                        ? {}
+                        : { replaceContent: body.replaceContent }),
                 })
                 if (draft === null) {
                     return status(404, {

@@ -188,6 +188,8 @@ export interface RebasePublicationDraftInput {
     readonly publicationId: string
     readonly subjectId: string
     readonly expectedRevision: number
+    readonly expectedSourceRevision?: number
+    readonly replaceContent?: boolean
 }
 
 export interface PromotePublicationDraftInput {

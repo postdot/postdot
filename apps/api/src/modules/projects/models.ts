@@ -724,6 +724,8 @@ export const adoptPublicationDraftProfileBody = Type.Object({
 })
 
 export const rebasePublicationDraftBody = Type.Object({
+    expectedSourceRevision: Type.Optional(Type.Integer({ minimum: 1 })),
+    replaceContent: Type.Optional(Type.Boolean()),
     expectedRevision: Type.Integer({ minimum: 1 }),
 })
 

@@ -2107,5 +2107,20 @@
     "recovery_review": "Inspect projects and outstanding publications",
     "recovery_confirmation": "I have reviewed outstanding work and accept the risk of repeating deliveries made after the backup.",
     "recovery_resume": "Resume Herald",
-    "recovery_resume_failed": "Herald could not resume. Reload recovery status before trying again."
+    "recovery_resume_failed": "Herald could not resume. Reload recovery status before trying again.",
+    "source_review_title": "Review destinations",
+    "source_review_description": "Choose how each draft uses the shared source. Nothing is published.",
+    "source_review_done": "Updated",
+    "source_review_locked": "Execution unchanged",
+    "source_review_stale": "Source changed",
+    "source_review_current": "Source current",
+    "source_review_compare": "Compare and choose",
+    "source_review_destination": "Destination draft",
+    "source_review_media": "{target} destination media · {source} source media",
+    "source_review_keep": "Keep my adaptation",
+    "source_review_replace": "Use source text, title and media",
+    "source_review_replace_warning": "Replaces those fields in this saved draft. Other destination fields and execution remain unchanged.",
+    "source_review_apply": "Update this draft",
+    "source_review_refresh": "Refresh review",
+    "source_review_source": "Current source"
 }

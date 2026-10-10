@@ -2107,5 +2107,20 @@
     "recovery_review": "Examiner les projets et les publications en attente",
     "recovery_confirmation": "J’ai examiné les tâches en attente et j’accepte le risque de répéter des envois effectués après la sauvegarde.",
     "recovery_resume": "Reprendre Herald",
-    "recovery_resume_failed": "Herald n’a pas pu reprendre. Rechargez l’état de récupération avant de réessayer."
+    "recovery_resume_failed": "Herald n’a pas pu reprendre. Rechargez l’état de récupération avant de réessayer.",
+    "source_review_title": "Revoir les destinations",
+    "source_review_description": "Choisissez comment chaque brouillon reprend le contenu commun. Rien ne sera publié.",
+    "source_review_done": "Mis à jour",
+    "source_review_locked": "Exécution inchangée",
+    "source_review_stale": "Source modifiée",
+    "source_review_current": "Source à jour",
+    "source_review_compare": "Comparer et choisir",
+    "source_review_destination": "Brouillon de destination",
+    "source_review_media": "{target} médias de destination · {source} médias de la source",
+    "source_review_keep": "Conserver mon adaptation",
+    "source_review_replace": "Reprendre le texte, le titre et les médias de la source",
+    "source_review_replace_warning": "Remplace ces champs dans ce brouillon enregistré. Les autres champs et son exécution restent inchangés.",
+    "source_review_apply": "Mettre à jour ce brouillon",
+    "source_review_refresh": "Actualiser la revue",
+    "source_review_source": "Source actuelle"
 }

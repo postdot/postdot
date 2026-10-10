@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
     createManualChannelProfile,
     adaptSourceContentToProfile,
+    applySourceContentToTarget,
     extractTargetMediaReferences,
     validateTargetContent,
 } from './index'
@@ -24,6 +25,44 @@ describe('target content', () => {
             headline: 'A headline',
             language: 'en-US',
             media: [{ assetId: 'asset-1', accessibilityText: 'A preview' }],
+        })
+    })
+
+    it('replaces declared source copy without discarding destination-specific fields', () => {
+        const original = {
+            body: 'Adapted',
+            headline: 'Adapted title',
+            media: [{ assetId: 'old' }],
+            language: 'fr',
+            tags: ['local'],
+        }
+        const profile = createManualChannelProfile()
+        const applied = applySourceContentToTarget(
+            { body: { text: 'New source', format: 'plain_text' }, media: [] },
+            profile,
+            original
+        )
+        expect(applied).toEqual({ body: 'New source', media: [], language: 'fr', tags: ['local'] })
+        expect(original.body).toBe('Adapted')
+        expect(original.headline).toBe('Adapted title')
+        const nested = {
+            ...profile,
+            fieldBindings: profile.fieldBindings.map(binding =>
+                binding.semantic === 'primary_text'
+                    ? { ...binding, path: '/article/body' }
+                    : binding
+            ),
+        }
+        expect(
+            applySourceContentToTarget(
+                { body: { text: 'Nested source', format: 'plain_text' }, media: [] },
+                nested,
+                { article: { body: 'Old', caption: 'Keep me' }, language: 'fr' }
+            )
+        ).toEqual({
+            article: { body: 'Nested source', caption: 'Keep me' },
+            media: [],
+            language: 'fr',
         })
     })
 

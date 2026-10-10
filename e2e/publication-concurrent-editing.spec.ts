@@ -685,3 +685,62 @@ async function createDraftPair(page: Page) {
         },
     }
 }
+
+test('reviews sibling source changes and explicitly keeps or replaces destination drafts', async ({
+    page,
+}, info) => {
+    const pair = await createDraftPair(page)
+    const firstBefore = await pair.read(page, pair.first)
+    const secondBefore = await pair.read(page, pair.second)
+    const changed = await page.request.patch(
+        `/api/projects/${pair.id}/publications/${pair.first}/draft`,
+        {
+            data: {
+                expectedRevision: firstBefore.draft.revision,
+                sourceContent: {
+                    ...pair.source,
+                    body: { text: 'Revised source for destination review', format: 'plain_text' },
+                    media: [pair.source.media[0]],
+                },
+                targetContent: firstBefore.draft.content,
+            },
+        }
+    )
+    expect(changed.status()).toBe(200)
+    await page.goto(pair.pageUrl(pair.first))
+    await page.getByRole('button', { name: 'Review destinations', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Review destinations', exact: true })
+    const second = dialog.getByRole('region', { name: 'Second channel', exact: true })
+    await expect(second).toContainText('Source changed')
+    await second.getByText('Compare and choose', { exact: true }).click()
+    await expect(
+        second.getByRole('radio', { name: 'Keep my adaptation', exact: true })
+    ).toBeChecked()
+    await expect(second).toContainText('Second destination')
+    await expect(second).toContainText('Revised source for destination review')
+    await second.getByRole('button', { name: 'Update this draft', exact: true }).click()
+    await expect.poll(async () => (await pair.read(page, pair.second)).draft.sourceRevision).toBe(2)
+    const kept = await pair.read(page, pair.second)
+    expect(kept.draft.content).toEqual(secondBefore.draft.content)
+    expect(kept.selectedTarget).toEqual(secondBefore.selectedTarget)
+    expect(kept.publication).toEqual(secondBefore.publication)
+    const first = dialog.getByRole('region', { name: 'First channel', exact: true })
+    await first.getByText('Compare and choose', { exact: true }).click()
+    await first
+        .getByRole('radio', { name: 'Use source text, title and media', exact: true })
+        .check()
+    await expect(first).toContainText('Replaces those fields in this saved draft')
+    await page.setViewportSize({ width: 390, height: 900 })
+    await expect(dialog).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
+    await page.screenshot({ path: info.outputPath('source-review-mobile.png') })
+    await first.getByRole('button', { name: 'Update this draft', exact: true }).click()
+    await expect
+        .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+        .toBe('Revised source for destination review')
+    const replaced = await pair.read(page, pair.first)
+    expect(replaced.draft.content.media).toEqual([pair.source.media[0]])
+    expect(replaced.selectedTarget).toEqual(firstBefore.selectedTarget)
+    expect(replaced.publication).toEqual(firstBefore.publication)
+    expect((await pair.read(page, pair.second)).draft.content).toEqual(secondBefore.draft.content)
+})

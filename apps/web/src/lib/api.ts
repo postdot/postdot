@@ -1861,13 +1861,14 @@ export const api = {
     async rebasePublicationDraft(
         projectId: string,
         publicationId: string,
-        expectedRevision: number
+        expectedRevision: number,
+        sourceUpdate?: { expectedSourceRevision: number; replaceContent: boolean }
     ): Promise<{ editor: PublicationEditorState }> {
         return unwrap<{ editor: PublicationEditorState }>(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
-                .draft.rebase.post({ expectedRevision })
+                .draft.rebase.post({ expectedRevision, ...sourceUpdate })
         )
     },
 

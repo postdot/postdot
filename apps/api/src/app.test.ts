@@ -262,6 +262,74 @@ async function readStreamChunk(response: Response) {
 }
 
 describe('Herald API', () => {
+    it('applies source copy only with the reviewed source and draft revisions', async () => {
+        const { app, database } = createFixture()
+        try {
+            const cookie = await signUp(app)
+            const request = (path: string, body: unknown, method = 'POST') =>
+                jsonRequest(app, path, cookie, { method, body: JSON.stringify(body) })
+            const { project } = (await (
+                await request('/api/projects', { name: 'Source review' })
+            ).json()) as { project: { id: string } }
+            const { channel } = (await (
+                await request(`/api/projects/${project.id}/channels`, { name: 'Destination' })
+            ).json()) as { channel: { id: string } }
+            const created = await request(`/api/projects/${project.id}/posts`, {
+                sourceContent: { body: { text: 'Source', format: 'plain_text' }, media: [] },
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'manual',
+                        targetContent: { body: 'Adapted destination', language: 'fr', media: [] },
+                    },
+                ],
+            })
+            expect(created.status).toBe(201)
+            const { publications } = (await created.json()) as { publications: { id: string }[] }
+            const path = `/api/projects/${project.id}/publications/${publications[0]!.id}/draft/rebase`
+            expect(
+                (await request(path, { expectedRevision: 1, replaceContent: true })).status
+            ).toBe(400)
+            expect(
+                (
+                    await request(path, {
+                        expectedRevision: 1,
+                        expectedSourceRevision: 2,
+                        replaceContent: true,
+                    })
+                ).status
+            ).toBe(409)
+            const applied = await request(path, {
+                expectedRevision: 1,
+                expectedSourceRevision: 1,
+                replaceContent: true,
+            })
+            expect(applied.status).toBe(200)
+            const body = (await applied.json()) as {
+                editor: {
+                    draft: { revision: number; content: unknown }
+                    publication: { state: string }
+                }
+            }
+            expect(body.editor.draft).toMatchObject({
+                revision: 2,
+                content: { body: 'Source', language: 'fr', media: [] },
+            })
+            expect(body.editor.publication.state).toBe('draft')
+            expect(
+                (
+                    await request(path, {
+                        expectedRevision: 1,
+                        expectedSourceRevision: 1,
+                        replaceContent: true,
+                    })
+                ).status
+            ).toBe(409)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('returns safe profile field issues for malformed drafts without changing saved state', async () => {
         const { app, database } = createFixture()
         try {

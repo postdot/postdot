@@ -2728,6 +2728,64 @@ describe('manual workflow store', () => {
                     targetContent: { body: 'Stale copy', media: [] },
                 })
             ).toThrow('changed after revision 1')
+            const before = store.getPublicationEditorState(
+                project.project.id,
+                secondPublication.id,
+                'user-1'
+            )
+            expect(() =>
+                store.rebasePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: secondPublication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 2,
+                    expectedSourceRevision: 1,
+                    replaceContent: true,
+                })
+            ).toThrow('source changed during destination review')
+            expect(
+                store.getPublicationEditorState(project.project.id, secondPublication.id, 'user-1')
+            ).toEqual(before)
+            expect(() =>
+                store.rebasePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: secondPublication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 2,
+                    replaceContent: true,
+                })
+            ).toThrow('requires its expected revision')
+            const applied = store.rebasePublicationDraft({
+                projectId: project.project.id,
+                publicationId: secondPublication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                expectedSourceRevision: 2,
+                replaceContent: true,
+            })
+            expect(applied).toMatchObject({
+                revision: 3,
+                sourceRevision: 2,
+                content: { body: 'First editor source', media: [] },
+                reviewState: 'compatible',
+            })
+            const after = store.getPublicationEditorState(
+                project.project.id,
+                secondPublication.id,
+                'user-1'
+            )
+            expect(after?.publication).toEqual(before?.publication)
+            expect(after?.selectedTarget).toEqual(before?.selectedTarget)
+            expect(() =>
+                store.rebasePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: secondPublication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 2,
+                    expectedSourceRevision: 2,
+                    replaceContent: true,
+                })
+            ).toThrow('changed after revision 2')
         } finally {
             closeDatabase(database)
         }

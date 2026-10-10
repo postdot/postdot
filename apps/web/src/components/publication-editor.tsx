@@ -14,6 +14,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PostSourceReview } from '@/components/post-source-review'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
 import { PublicationAdoptionHistory } from '@/components/publication-adoption-history'
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
@@ -1236,28 +1237,54 @@ export function PublicationEditor({
     )
 
     const sourceSection = (
-        <PublicationEditorSourceSection
-            configuredEditor={configuredEditor}
-            projectId={projectId}
-            sourceContent={sourceContent}
-            sourceRevision={editor.post.sourceRevision}
-            disabled={
-                !publicationEditable || accessWritesBlocked || isRebasing || editorMutationPending
-            }
-            readOnly={!publicationEditable || accessWritesBlocked}
-            mediaDisabled={
-                !publicationEditable ||
-                accessWritesBlocked ||
-                editorMutationPending ||
-                saveState === 'saving' ||
-                saveState === 'rebasing'
-            }
-            onTextChange={updateSourceText}
-            onFormatChange={updateSourceFormat}
-            onOptionalFieldChange={updateSourceOptionalField}
-            onMediaChange={updateSourceMedia}
-            onAssetsChange={setAvailableMedia}
-        />
+        <div className="space-y-4">
+            <PostSourceReview
+                projectId={projectId}
+                postId={editor.post.id}
+                accessEpoch={accessEpoch}
+                disabled={
+                    readOnly ||
+                    accessWritesBlocked ||
+                    hasLocalChanges ||
+                    !['saved', 'conflict'].includes(saveState) ||
+                    editorMutationPending
+                }
+                onApplied={next => {
+                    if (next.publication.id !== editor.publication.id || accessWritesBlocked) return
+                    setEditor(next)
+                    setSourceContent(next.post.sourceContent)
+                    setTargetText(formatJson(next.draft.content))
+                    setExpectedRevision(next.draft.revision)
+                    setDirty(false)
+                    setSaveState('saved')
+                }}
+            />
+            <PublicationEditorSourceSection
+                configuredEditor={configuredEditor}
+                projectId={projectId}
+                sourceContent={sourceContent}
+                sourceRevision={editor.post.sourceRevision}
+                disabled={
+                    !publicationEditable ||
+                    accessWritesBlocked ||
+                    isRebasing ||
+                    editorMutationPending
+                }
+                readOnly={!publicationEditable || accessWritesBlocked}
+                mediaDisabled={
+                    !publicationEditable ||
+                    accessWritesBlocked ||
+                    editorMutationPending ||
+                    saveState === 'saving' ||
+                    saveState === 'rebasing'
+                }
+                onTextChange={updateSourceText}
+                onFormatChange={updateSourceFormat}
+                onOptionalFieldChange={updateSourceOptionalField}
+                onMediaChange={updateSourceMedia}
+                onAssetsChange={setAvailableMedia}
+            />
+        </div>
     )
     const targetSection = (
         <div className="space-y-3">

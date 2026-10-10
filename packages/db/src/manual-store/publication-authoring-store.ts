@@ -1,5 +1,6 @@
 import {
     adaptSourceContentToProfile,
+    applySourceContentToTarget,
     DomainInvariantError,
     requireTimestamp,
     requireNonBlank,
@@ -375,20 +376,72 @@ export function createPublicationAuthoringStore(
                     `Publication ${input.publicationId} has a source revision newer than its post`
                 )
             }
-            if (postRow.sourceRevision === draftRow.sourceRevision) {
+            if (input.replaceContent && input.expectedSourceRevision === undefined) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'Source replacement requires its expected revision'
+                )
+            }
+            if (
+                input.expectedSourceRevision !== undefined &&
+                input.expectedSourceRevision !== postRow.sourceRevision
+            ) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The source changed during destination review'
+                )
+            }
+            if (postRow.sourceRevision === draftRow.sourceRevision && !input.replaceContent) {
                 return toWorkingDraft(draftRow)
             }
 
             const timestamp = requireTimestamp(options.now(), 'now')
-            const update = rebaseWorkingDraftStatement.run(
-                postRow.sourceRevision,
-                postRow.sourceContentJson,
-                actorRow.id,
-                timestamp,
-                input.projectId,
-                input.publicationId,
-                input.expectedRevision
-            )
+            let update: { changes: number }
+            if (input.replaceContent) {
+                const profileRow = options.loadProfile(input.projectId, draftRow.profileVersionId)
+                if (!profileRow || profileRow.channelId !== channelRow.id) {
+                    throw new DomainInvariantError('invalid_input', 'Draft profile unavailable')
+                }
+                const profile = options.profileCompiler.compile(
+                    parseProfile(profileRow.profileJson)
+                )
+                if (!profile.ok) throw invalidProfileError(profile.issues)
+                const content = applySourceContentToTarget(
+                    parseSourceContent(postRow.sourceContentJson),
+                    profile.value.profile,
+                    JSON.parse(draftRow.contentJson)
+                )
+                const validation = profile.value.validate(content)
+                const mediaIssues = options.assessWorkingDraftMedia(
+                    profile.value.profile,
+                    content,
+                    input.projectId,
+                    input.subjectId
+                )
+                update = updateWorkingDraftStatement.run(
+                    postRow.sourceRevision,
+                    postRow.sourceContentJson,
+                    canonicalJson(content),
+                    validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required',
+                    JSON.stringify([...validation.issues, ...mediaIssues]),
+                    draftRow.profileVersionId,
+                    actorRow.id,
+                    timestamp,
+                    input.projectId,
+                    input.publicationId,
+                    input.expectedRevision
+                )
+            } else {
+                update = rebaseWorkingDraftStatement.run(
+                    postRow.sourceRevision,
+                    postRow.sourceContentJson,
+                    actorRow.id,
+                    timestamp,
+                    input.projectId,
+                    input.publicationId,
+                    input.expectedRevision
+                )
+            }
             if (update.changes !== 1) {
                 throw new DomainInvariantError(
                     'write_conflict',
@@ -411,7 +464,7 @@ export function createPublicationAuthoringStore(
                 metadataJson: JSON.stringify({
                     fromSourceRevision: draftRow.sourceRevision,
                     toSourceRevision: postRow.sourceRevision,
-                    targetPreserved: true,
+                    targetPreserved: !input.replaceContent,
                 }),
                 createdAt: timestamp,
             })

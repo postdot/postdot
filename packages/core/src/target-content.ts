@@ -33,6 +33,33 @@ export function adaptSourceContentToProfile(
     return target
 }
 
+/** Explicitly replace source-owned copy and attachments, preserving other target fields. */
+export function applySourceContentToTarget(
+    source: SourceContent,
+    profile: ChannelProfileDefinition,
+    content: TargetContent
+): TargetContent {
+    const target = structuredClone(content) as Record<string, unknown>
+    for (const binding of profile.fieldBindings) {
+        if (!['primary_text', 'headline', 'ordered_media'].includes(binding.semantic)) continue
+        const value = sourceValueForBinding(source, binding)
+        if (value !== undefined) setJsonPointer(target, binding.path, value)
+        else {
+            const segments = binding.path
+                .slice(1)
+                .split('/')
+                .map(segment => segment.replaceAll('~1', '/').replaceAll('~0', '~'))
+            let parent: unknown = target
+            for (const segment of segments.slice(0, -1)) {
+                parent = isRecord(parent) ? parent[segment] : undefined
+            }
+            const key = segments.at(-1)
+            if (isRecord(parent) && key !== undefined) delete parent[key]
+        }
+    }
+    return target
+}
+
 export function validateTargetContent(
     profile: ChannelProfileDefinition,
     content: unknown
