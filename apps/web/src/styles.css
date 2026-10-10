@@ -27,3 +27,15 @@ body:has(.herald-dashboard) {
         transparent 0.25rem 0.5rem
     );
 }
+
+@keyframes herald-search-scan {
+    0%,
+    100% {
+        transform: translateX(-4px) rotate(-8deg);
+        opacity: 0.55;
+    }
+    50% {
+        transform: translateX(4px) rotate(8deg);
+        opacity: 1;
+    }
+}

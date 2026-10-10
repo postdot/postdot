@@ -229,12 +229,9 @@ export function DashboardSearch({
                         ) : (
                             <span />
                         )}
-                        <span role="status" className="text-xs text-muted-foreground">
-                            {phase === 'loading' ? m.search_loading() : null}
-                        </span>
                     </div>
                     <CommandList
-                        className="h-[min(20rem,calc(82dvh-11rem))] max-h-none px-2 pb-3"
+                        className="relative h-[min(20rem,calc(82dvh-11rem))] max-h-none px-2 pb-3"
                         aria-busy={phase === 'loading'}>
                         {pages.length > 0 && (
                             <CommandGroup heading={m.search_pages()}>
@@ -297,6 +294,21 @@ export function DashboardSearch({
                                 </CommandGroup>
                             )
                         })}
+                        {phase === 'loading' && (
+                            <div
+                                role="status"
+                                aria-label={m.search_loading()}
+                                className={
+                                    pages.length === 0
+                                        ? 'absolute inset-0 flex items-center justify-center'
+                                        : 'flex justify-center py-10'
+                                }>
+                                <MagnifierIcon
+                                    aria-hidden="true"
+                                    className="size-9 text-muted-foreground motion-safe:animate-[herald-search-scan_1.4s_ease-in-out_infinite]"
+                                />
+                            </div>
+                        )}
                         {phase === 'error' && (
                             <div
                                 role="alert"

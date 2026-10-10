@@ -51,7 +51,26 @@ test('searches across projects, opens source posts and keeps failures inside the
     const input = dialog.getByRole('combobox', { name: 'Search Herald', exact: true })
     await expect(input).toHaveAttribute('placeholder', 'Search…')
     await expect(dialog.getByText(/Navigate/)).toBeVisible()
+    let releaseSearch!: () => void
+    const pendingSearch = new Promise<void>(resolve => {
+        releaseSearch = resolve
+    })
+    await page.route('**/api/search?*', async route => {
+        await pendingSearch
+        await route.continue()
+    })
     await input.fill('constellation')
+    const loading = dialog.getByRole('status', { name: 'Searching…', exact: true })
+    await expect(loading).toBeVisible()
+    await expect(loading).toHaveText('')
+    const listBox = await dialog.getByRole('listbox').boundingBox()
+    const loaderBox = await loading.locator('svg').boundingBox()
+    expect(
+        Math.abs(loaderBox!.y + loaderBox!.height / 2 - (listBox!.y + listBox!.height / 2))
+    ).toBeLessThan(8)
+    await page.screenshot({ path: '/tmp/herald-search-loading.png' })
+    releaseSearch()
+    await page.unroute('**/api/search?*')
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(2)
     const initialGeometry = await input.boundingBox()
     const initialPanel = await dialog.boundingBox()

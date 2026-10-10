@@ -711,3 +711,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [ ] **[CONTENT-384]** Find media through global search `Priority: 🟡` `Complexity: M` — Proposed follow-up, pending owner approval: reuse media search metadata and existing inspection links in the header palette, with current project access and consistent result rows. No media processing or publication actions.
 
 - [x] **[UX-385]** Polish global search interaction and presentation `Priority: 🟠` `Complexity: M` — compact header trigger, stable input and result region, restrained dark surface, direct project switch and illustrated empty state; review relevant design skills.
+
+- [x] **[UX-386]** Center search loading feedback and adopt design skills `Priority: 🟡` `Complexity: S` — replace visible loading copy with a search-specific indicator inside the result region; install and apply both approved design skills.
