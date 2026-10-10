@@ -43,6 +43,7 @@ import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './realtime-runtime'
 import { registerProjectRoutes } from './routes'
+import { registerSearchRoutes } from './search-routes'
 import { registerTaxonomyRoutes } from './taxonomy-routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
@@ -147,8 +148,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.manualStore,
         options.access
     )
+    const searchRoutes = registerSearchRoutes(projectRoutes, options.manualStore, options.access)
     const projectMemberRoutes = registerProjectMemberRoutes(
-        projectRoutes,
+        searchRoutes,
         options.auth,
         options.access
     )

@@ -1,5 +1,6 @@
 import {
     createHeraldClient,
+    type SearchResponse,
     type EmailSettings,
     type EmailSettingsInput,
     type AuditEvent,
@@ -683,6 +684,13 @@ export const api = {
             invitation: AccessInvitation
             instanceMembership: AccessInstanceMembership
         }>('/api/access/invitations/accept', jsonBody({ token }))
+    },
+
+    async search(query: string, projectId?: string) {
+        const result = await client.api.search.get({
+            query: { q: query, ...(projectId === undefined ? {} : { projectId }) },
+        })
+        return unwrap<SearchResponse>(result)
     },
 
     async listProjects(): Promise<{ projects: Project[] }> {

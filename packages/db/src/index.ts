@@ -348,3 +348,5 @@ export { createInstallationEmailSettingsStore } from './installation-email-setti
 
 export { createRecoveryHold, readRecoveryHold, releaseRecoveryHold } from './recovery-hold'
 export type { RecoveryHold } from './recovery-hold'
+
+export type { SearchResult } from './manual-store/search-store'

@@ -389,3 +389,5 @@ if (import.meta.main) {
         await startServer()
     }
 }
+
+export type { SearchResponse } from './modules/projects/search-routes'

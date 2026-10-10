@@ -444,3 +444,14 @@ actions form one toolbar above the content, with distinct attachment and
 external-image glyphs. The writing area uses the caret without an enclosing
 focus ring; retain visible keyboard focus on toolbar controls and shared field
 styles for popup inputs. Emoji loading reserves the final panel dimensions.
+
+## Global dashboard search
+
+The header search uses a Command palette, opened by its explicit control or
+Ctrl/Cmd+K. It is navigation only: pages/settings, projects, channels and source
+posts have consistent icon/title/context rows. Settings entries respect existing
+administration capabilities. Content search defaults to all currently accessible
+projects; the current-project scope is an explicit alternative. Source posts
+appear once regardless of destination count and open their shared-post page;
+channels open their existing row in Channels. Search errors and retry stay inside
+the palette. Search does not publish, modify content or replace Queue filters.

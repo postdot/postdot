@@ -44,6 +44,7 @@ import type {
     PublicationChannelRow,
     PublicationRow,
 } from './manual-store/rows'
+import { createSearchStore } from './manual-store/search-store'
 import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 
@@ -1045,6 +1046,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
 
     return {
         ...projectChannelStore,
+        ...createSearchStore(database),
         ...channelLifecycleStore,
         ...channelProfileStore,
         ...publicationCreationStore,

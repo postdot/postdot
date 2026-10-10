@@ -1112,6 +1112,7 @@ describe('Herald API', () => {
                 '/api/channel-profile-presets',
                 '/api/projects',
                 '/api/projects/{projectId}',
+                '/api/search',
                 '/api/projects/{projectId}/membership',
                 '/api/projects/{projectId}/members',
                 '/api/projects/{projectId}/invitations',

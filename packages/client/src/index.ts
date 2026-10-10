@@ -124,3 +124,5 @@ export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse
 export type EmailAlertPreference = EmailAlertPreferenceResponse
 
 export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@herald/api'
+
+export type { SearchResponse } from '@herald/api'

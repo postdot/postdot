@@ -2141,5 +2141,31 @@
                 "countPlural=other": "{count} destinations in these results"
             }
         }
-    ]
+    ],
+    "search_open": "Search Herald",
+    "search_placeholder": "Search posts, channels, projects or settings…",
+    "search_scope": "Search scope",
+    "search_all_projects": "All projects",
+    "search_current_project": "Current project",
+    "search_pages": "Pages and settings",
+    "search_posts": "Source posts",
+    "search_projects": "Projects",
+    "search_untitled_post": "Untitled post",
+    "search_loading": "Searching…",
+    "search_failed": "Search is unavailable.",
+    "search_empty": "No results found.",
+    "search_start_typing": "Type at least two characters to search content.",
+    "search_refine": "Showing up to 10 results per category. Refine your search for more.",
+    "search_aliases_preferences": "preferences settings general appearance language theme",
+    "search_aliases_account": "account profile password email",
+    "search_aliases_api_keys": "api key token access credentials",
+    "search_aliases_installation": "installation administration email smtp storage",
+    "search_aliases_instance_access": "members invitations users access",
+    "search_aliases_provider_apps": "oauth provider applications connections",
+    "search_aliases_workspace": "workspace members groups teams",
+    "search_aliases_overview": "calendar overview dates",
+    "search_aliases_queue": "queue posts publications scheduled",
+    "search_aliases_channels": "channels destinations connection",
+    "search_aliases_media": "media images videos library",
+    "search_aliases_performance": "analytics performance statistics"
 }

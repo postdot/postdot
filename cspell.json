@@ -145,7 +145,8 @@
         "wrksz",
         "xrpc",
         "YYYYMMDDTHHMMSS",
-        "Zoomable"
+        "Zoomable",
+        "cmdk"
     ],
     "ignoreWords": [
         "aede",

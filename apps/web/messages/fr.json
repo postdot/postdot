@@ -2141,5 +2141,31 @@
                 "countPlural=other": "{count} destinations dans ces résultats"
             }
         }
-    ]
+    ],
+    "search_open": "Rechercher dans Herald",
+    "search_placeholder": "Rechercher des posts, canaux, projets ou réglages…",
+    "search_scope": "Portée de la recherche",
+    "search_all_projects": "Tous les projets",
+    "search_current_project": "Projet actuel",
+    "search_pages": "Pages et réglages",
+    "search_posts": "Posts sources",
+    "search_projects": "Projets",
+    "search_untitled_post": "Post sans titre",
+    "search_loading": "Recherche…",
+    "search_failed": "La recherche est indisponible.",
+    "search_empty": "Aucun résultat.",
+    "search_start_typing": "Saisissez au moins deux caractères pour chercher du contenu.",
+    "search_refine": "Jusqu’à 10 résultats par catégorie. Précisez votre recherche pour en trouver d’autres.",
+    "search_aliases_preferences": "preferences settings general appearance language theme préférences réglages langue thème",
+    "search_aliases_account": "account profile password email compte profil mot de passe",
+    "search_aliases_api_keys": "api key token clés jeton",
+    "search_aliases_installation": "installation administration email smtp storage stockage",
+    "search_aliases_instance_access": "members invitations utilisateurs membres",
+    "search_aliases_provider_apps": "oauth provider applications fournisseurs",
+    "search_aliases_workspace": "workspace members groups teams espace membres groupes équipes",
+    "search_aliases_overview": "calendar overview calendrier aperçu",
+    "search_aliases_queue": "queue posts publications scheduled file posts planification",
+    "search_aliases_channels": "channels destinations canaux connexion",
+    "search_aliases_media": "media images videos library médias médiathèque",
+    "search_aliases_performance": "analytics performance statistiques"
 }

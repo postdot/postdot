@@ -14,6 +14,7 @@ import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
 
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
+import { DashboardSearch } from '@/components/dashboard-search'
 import { UserAvatar } from '@/components/identity-visuals'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
@@ -124,6 +125,7 @@ export function DashboardHeader({
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+                <DashboardSearch projectId={projectId} workspaceId={workspaceId} />
                 <NotificationInbox
                     projectId={isUserPreferences ? null : projectId}
                     projects={projects}
