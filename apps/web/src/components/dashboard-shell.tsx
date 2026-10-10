@@ -5,6 +5,7 @@ import { useEffect, useRef, type CSSProperties, type FormEvent, type ReactNode }
 
 import { DashboardHeader } from '@/components/dashboard-header'
 import { DashboardSidebar, workspaceSection } from '@/components/dashboard-sidebar'
+import { RecoveryNotice } from '@/components/recovery-settings'
 import type { Channel, Project, ProjectMemberRole, PublisherConnection, Session } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -145,6 +146,7 @@ export function DashboardShell({
                                     </Alert>
                                 </div>
                             ) : null}
+                            <RecoveryNotice />
                             {children}
                         </div>
                         <div

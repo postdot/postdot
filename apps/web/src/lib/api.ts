@@ -506,7 +506,28 @@ function unwrap<T>(result: {
     return result.data as T
 }
 
+export interface RecoveryState {
+    held: boolean
+    hold: {
+        version: 1
+        token: string
+        createdAt: string
+        reason: 'restore' | 'external_restore'
+    } | null
+}
+
 export const api = {
+    async getRecoveryStatus() {
+        return unwrap<{ held: boolean }>(await client.api.recovery.status.get())
+    },
+    async getRecoveryState() {
+        return unwrap<RecoveryState>(await client.api.settings.recovery.get())
+    },
+    async resumeAfterRestore(token: string) {
+        return unwrap<RecoveryState>(
+            await client.api.settings.recovery.resume.post({ token, confirm: true })
+        )
+    },
     async getEmailSettings(): Promise<EmailSettings> {
         return unwrap<EmailSettings>(await client.api.settings.email.get())
     },

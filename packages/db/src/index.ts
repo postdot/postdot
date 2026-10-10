@@ -344,3 +344,6 @@ export {
     type NotificationEmailStore,
 } from './notification-email-store'
 export { createInstallationEmailSettingsStore } from './installation-email-settings-store'
+
+export { createRecoveryHold, readRecoveryHold, releaseRecoveryHold } from './recovery-hold'
+export type { RecoveryHold } from './recovery-hold'

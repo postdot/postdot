@@ -2098,5 +2098,14 @@
     "add_destination_submit": "Créer le brouillon",
     "add_destination_conflict": "La source a changé. Fermez puis rouvrez pour utiliser sa révision actuelle.",
     "add_destination_failure": "Impossible d’ajouter cette destination. Votre sélection est conservée.",
-    "add_destination_loading": "Chargement de la source…"
+    "add_destination_loading": "Chargement de la source…",
+    "recovery_notice": "Mode récupération : modifications, envois et nettoyage des médias suspendus.",
+    "recovery_settings_link": "Examiner la récupération",
+    "recovery_load_failed": "Impossible de charger l’état de récupération.",
+    "recovery_title": "Reprendre après restauration",
+    "recovery_description": "Restaurer Herald n’annule pas les publications ni les e-mails déjà envoyés. Examinez les tâches en attente avant de reprendre les envois et le nettoyage des médias.",
+    "recovery_review": "Examiner les projets et les publications en attente",
+    "recovery_confirmation": "J’ai examiné les tâches en attente et j’accepte le risque de répéter des envois effectués après la sauvegarde.",
+    "recovery_resume": "Reprendre Herald",
+    "recovery_resume_failed": "Herald n’a pas pu reprendre. Rechargez l’état de récupération avant de réessayer."
 }

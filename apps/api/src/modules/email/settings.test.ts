@@ -166,3 +166,44 @@ it('preserves Better Auth disabled-email responses while allowing a later config
         closeDatabase(database)
     }
 })
+
+it('blocks all SMTP delivery during recovery without contacting the transport', async () => {
+    const database = createDatabase(':memory:')
+    runMigrations(database)
+    let held = true
+    let sends = 0
+    try {
+        const service = await createEmailSettingsService({
+            store: createInstallationEmailSettingsStore(
+                database,
+                createSecretCipher({
+                    domain: 'herald.installation-email',
+                    keyId: 'test',
+                    key: new Uint8Array(32).fill(7),
+                })
+            ),
+            initial: {
+                host: 'smtp.example.test',
+                port: 587,
+                secure: false,
+                from: 'sender@example.test',
+            },
+            deliveryAllowed: () => !held,
+            createTransport: () => ({
+                async sendMail() {
+                    sends++
+                },
+            }),
+        })
+        await expect(service.test('admin@example.test')).rejects.toThrow('recovery')
+        await expect(
+            service.sendMail({ to: 'user@example.test', text: 'Auth or alert delivery' })
+        ).rejects.toThrow('recovery')
+        expect(sends).toBe(0)
+        held = false
+        await service.test('admin@example.test')
+        expect(sends).toBe(1)
+    } finally {
+        closeDatabase(database)
+    }
+})

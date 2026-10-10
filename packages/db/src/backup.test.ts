@@ -10,6 +10,7 @@ import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } fr
 import { closeDatabase, createDatabase } from './client'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
+import { readRecoveryHold } from './recovery-hold'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 describe('SQLite backup and restore', () => {
@@ -35,6 +36,7 @@ describe('SQLite backup and restore', () => {
             closeDatabase(target)
 
             restoreDatabase(backupPath, restoredPath)
+            expect(readRecoveryHold(restoredPath)?.reason).toBe('restore')
 
             const restored = new Database(restoredPath, { readonly: true })
             expect(restored.query('select value from records').all()).toEqual([
@@ -183,6 +185,7 @@ describe('SQLite backup and restore', () => {
                 mediaStore: restoredStore,
                 now: () => now,
             })
+            expect(readRecoveryHold(restoredPath)?.reason).toBe('restore')
 
             const restored = createDatabase(restoredPath)
             expect(

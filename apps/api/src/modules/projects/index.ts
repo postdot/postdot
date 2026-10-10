@@ -15,6 +15,7 @@ import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
+import type { RecoveryService } from '../../recovery'
 import { readUserApiKeyMetadata, registerUserApiKeyRoutes } from '../access/api-key-routes'
 import { registerAccessRoutes } from '../access/routes'
 import { registerWorkspaceRoutes } from '../access/workspace-routes'
@@ -23,6 +24,7 @@ import { registerEmailSettingsRoutes } from '../email/settings-routes'
 import { registerMediaRoutes } from '../media/routes'
 import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
+import { registerRecoveryRoutes } from '../recovery/routes'
 import { registerProjectAccessGrantRoutes } from './access-grant-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { canApiKeyAccessRequest } from './api-key-permissions'
@@ -64,6 +66,7 @@ export interface ProjectModuleOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly access: AccessStore
+    readonly recovery?: RecoveryService
     readonly emailSettings?: EmailSettingsService
     readonly emailAlerts?: {
         store: NotificationEmailStore
@@ -121,7 +124,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         },
     })
     const emailSettingsRoutes = registerEmailSettingsRoutes(
-        authenticated,
+        registerRecoveryRoutes(authenticated, options.access, options.recovery),
         options.access,
         options.emailSettings
     )

@@ -94,6 +94,19 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
         if (!executable.endsWith('/bun')) {
             throw new Error(`The production server is not running Bun: ${executable}`)
         }
+        const recoveryStatus = await fetch(`http://127.0.0.1:${port}/api/recovery/status`)
+        const recoveryBody = (await recoveryStatus.json()) as { held: boolean }
+        if (recoveryBody.held !== (stage === 'restored'))
+            throw new Error('Unexpected production recovery hold')
+        if (stage === 'restored') {
+            const blocked = await fetch(`http://127.0.0.1:${port}/api/projects`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: '{}',
+            })
+            if (blocked.status !== 503)
+                throw new Error('Restored production container accepted writes')
+        }
         const dashboard = await verifyProductionDashboard(`http://127.0.0.1:${port}`)
         console.log(
             `The ${stage} production container served the dashboard shell and ${dashboard.assetCount} built assets.`

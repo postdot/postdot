@@ -87,6 +87,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             scheduler: 'started',
             mediaMaintenance: 'started',
             notifications: 'started',
+            recovery: 'normal',
         },
     })
 

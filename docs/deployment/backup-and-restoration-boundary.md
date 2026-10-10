@@ -66,28 +66,63 @@ References: [PostgreSQL continuous archiving](https://www.postgresql.org/docs/17
 
 ## Important limit: restoring history does not undo remote effects
 
-The current restore copies job and delivery state verbatim. Ordinary server
-startup starts the publication worker, email delivery and media maintenance.
-There is no restore-specific hold in these paths. A pending job in the snapshot
+Restore copies job and delivery state verbatim. A pending job in the snapshot
 may have been delivered after the snapshot was taken; its restored state cannot
 prove that delivery never happened. Existing effect markers protect only facts
 present in the snapshot, not facts lost by restoring an earlier database.
 
-Do not assume an ordinary restart after rollback is free from repeated external
-effects. Checking archive integrity proves neither provider reconciliation nor
-safe automatic delivery. Provider credentials may also have changed since the
-snapshot. A restore procedure needs an explicit strategy for these conditions.
+## Recovery hold after restoration
 
-## Proposed next boundary — not implemented
+Both database-only and complete restore now persist a recovery marker next to
+SQLite, before replacing the database. The marker is outside the snapshot and
+survives ordinary restarts. A new restore changes its acknowledgement token.
+An invalid marker prevents startup instead of silently enabling delivery.
 
-A restore-specific durable recovery hold should prevent provider publication and
-external email delivery after database replacement, while allowing inspection.
-An administrator would review uncertain outstanding work before explicitly
-resuming. A normal restart without a restore should retain its current behavior.
-The hold must cover API-triggered effects as well as background executors; merely
-not starting one worker is insufficient. Startup cleanup must be considered before
-inspection of restored media. External database restores require a documented
-way to enter recovery mode too.
+While held, Herald permits inspection and email/password login but rejects HTTP
+mutations with `503 recovery_hold`, except the administrator's explicit resume.
+OAuth callbacks and account verification are suspended too. The publication
+worker, external email delivery runtime and media cleanup runtime are not started;
+startup media cleanup is skipped. SMTP dispatch has an independent recovery guard.
+In-app notification projection remains local and can continue. Readiness remains
+successful for serving inspection, with `checks.recovery: held` and idle executors;
+an actually failed runtime still makes readiness fail.
 
-The exact review/resume policy remains a product decision. This proposal is not
-a claim that recovery mode or provider reconciliation already exists.
+Administration shows the recovery state and requires an explicit acknowledgement
+before resuming delivery and cleanup. Only an authenticated human instance
+administrator can use `POST /api/settings/recovery/resume`; API keys cannot resume.
+Review the pending publications and the provider-side state first. The hold does
+not automatically cancel, reconcile or deduplicate restored work. Pending tasks
+can still repeat earlier remote effects if the administrator resumes them.
+Application writes, including cancellation, are suspended during this first
+recovery implementation; resumption is acknowledgement, not a repair operation.
+
+The marker is `<database path>.recovery.json` on the database volume. It is not a
+runtime lock; do not delete it to bypass acknowledgement. Preserve its restricted
+permissions and do not expose it through the web server. An unchanged ordinary
+installation without a marker starts normally.
+
+### Restores performed outside Herald
+
+An external SQLite restore cannot be detected reliably from its database content.
+Before starting Herald on an externally restored database, enter the hold through
+the maintenance command, with the server stopped:
+
+```sh
+bun apps/api/src/index.ts recovery hold --database /absolute/path/herald.sqlite
+bun apps/api/src/index.ts recovery status --database /absolute/path/herald.sqlite
+```
+
+In a production image, pass the same arguments to its normal server entrypoint
+using the same database volume. No separate runtime is required. Use the
+administration page to resume after inspecting the recovered installation.
+If restored accounts are inaccessible, the machine administrator can acknowledge
+offline with the server stopped:
+
+```sh
+bun apps/api/src/index.ts recovery resume --confirm --database /absolute/path/herald.sqlite
+```
+
+Offline entry and acknowledgement acquire the runtime lock and refuse an active
+server. Neither command contacts a provider. The next normal startup after offline
+acknowledgement enables delivery and cleanup. Missing deployment keys and stale
+provider credentials still need administrator attention.

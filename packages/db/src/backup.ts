@@ -6,6 +6,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 import type { MediaStore } from '@herald/media'
 
+import { createRecoveryHold } from './recovery-hold'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 const SQLITE_BUSY_TIMEOUT_MILLISECONDS = 5_000
@@ -142,6 +143,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
         } finally {
             restored.close()
         }
+        createRecoveryHold(destinationPath, 'restore', true)
         renameSync(temporaryPath, destinationPath)
     } catch (error) {
         removeIfPresent(temporaryPath)
@@ -390,6 +392,7 @@ async function restoreWithMediaWithoutRuntimeLock(
         }
 
         fence?.refresh(now())
+        createRecoveryHold(destinationPath, 'restore', true)
         renameSync(temporaryPath, destinationPath)
     } catch (error) {
         await removeIfPresentAsync(temporaryPath)

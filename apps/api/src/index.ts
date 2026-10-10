@@ -51,6 +51,7 @@ import { createBuiltInProviderRegistry } from './modules/workflow/providers/regi
 import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
+import { createRecoveryService } from './recovery'
 import { registerServingHandle } from './serving'
 import { createShutdownHandler } from './shutdown'
 
@@ -125,6 +126,8 @@ async function startServerWithRuntimeLock(
     config: ReturnType<typeof createHeraldConfig>,
     runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock>
 ) {
+    let resumeRuntimes: (() => void) | undefined
+    const recovery = createRecoveryService(config.database.fileName, () => resumeRuntimes?.())
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
     const access = createAccessStore(database)
@@ -143,10 +146,11 @@ async function startServerWithRuntimeLock(
         ),
         initial: config.email?.smtp,
         onChange: () => emailRuntime?.replan(),
+        deliveryAllowed: () => !recovery.held(),
     })
     emailRuntime = createNotificationEmailRuntime({
         store: emailStore,
-        getSmtp: emailSettings.current,
+        getSmtp: () => (recovery.held() ? undefined : emailSettings.current()),
         transport: emailSettings,
         webOrigin: config.web.origin,
     })
@@ -174,7 +178,7 @@ async function startServerWithRuntimeLock(
         signingSecret: config.security.mediaPublicUrlSecret,
         lifetimeMs: config.media.publicUrlLifetimeMs,
     })
-    await media.reconcile()
+    if (!recovery.held()) await media.reconcile()
     const mediaMaintenance = createMediaReconciliationRuntime({
         reconcile: async () => {
             const result = await media.reconcile()
@@ -183,7 +187,7 @@ async function startServerWithRuntimeLock(
         },
     })
     const email = createHeraldAuthEmailDelivery({
-        getSmtp: emailSettings.current,
+        getSmtp: () => (recovery.held() ? undefined : emailSettings.current()),
         transport: emailSettings,
         webOrigin: config.web.origin,
         onDeliveryError: kind => {
@@ -293,6 +297,7 @@ async function startServerWithRuntimeLock(
     })
     metrics?.bindScheduler(worker.scheduler)
     const baseApp = createApp({
+        recovery,
         auth,
         database,
         publisher,
@@ -319,6 +324,7 @@ async function startServerWithRuntimeLock(
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,
         runtime: {
+            recovery,
             scheduler: worker.scheduler,
             mediaMaintenance,
             notifications: notificationProjection,
@@ -329,10 +335,15 @@ async function startServerWithRuntimeLock(
             ? baseApp.use(await createWebAssets(config.web.assetsDirectory))
             : baseApp
 
-    worker.start()
-    mediaMaintenance.start()
+    resumeRuntimes = () => {
+        worker.start()
+        mediaMaintenance.start()
+        emailRuntime?.start()
+    }
+    if (!recovery.held()) resumeRuntimes()
     notificationProjection.start()
-    emailRuntime?.start()
+    if (recovery.held())
+        console.warn('[herald-recovery] inspection only; resume from installation settings')
     app.listen(config.server.port)
     registerServingHandle(app.server)
 
@@ -366,7 +377,7 @@ if (import.meta.main) {
             console.error(`[herald-maintenance] ${message}`)
             process.exitCode = 1
         }
-    } else if (args[0] === 'backup' || args[0] === 'restore') {
+    } else if (args[0] === 'backup' || args[0] === 'restore' || args[0] === 'recovery') {
         const config = createHeraldMaintenanceConfig()
         await runMaintenanceCommand(args, {
             databaseFileName: config.databaseFileName,

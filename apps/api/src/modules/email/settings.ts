@@ -42,6 +42,7 @@ export async function createEmailSettingsService(options: {
     store: ReturnType<typeof createInstallationEmailSettingsStore>
     initial?: HeraldSmtpConfig
     onChange?: () => void
+    deliveryAllowed?: () => boolean
     createTransport?: (smtp: HeraldSmtpConfig) => {
         sendMail(message: SendMailOptions): Promise<unknown>
     }
@@ -72,6 +73,8 @@ export async function createEmailSettingsService(options: {
     }
     let tail = Promise.resolve()
     const sendMail = async (message: SendMailOptions) => {
+        if (options.deliveryAllowed?.() === false)
+            throw new Error('Email delivery is suspended during recovery')
         const smtp = current()
         if (smtp === undefined) throw new Error('Email delivery is disabled')
         const transport =

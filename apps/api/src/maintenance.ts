@@ -1,4 +1,13 @@
-import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from '@herald/db'
+import {
+    acquireRuntimeQuiescenceLock,
+    createRecoveryHold,
+    readRecoveryHold,
+    releaseRecoveryHold,
+    backupDatabase,
+    backupWithMedia,
+    restoreDatabase,
+    restoreWithMedia,
+} from '@herald/db'
 import type { MediaStore } from '@herald/media'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
@@ -15,11 +24,46 @@ export async function runMaintenanceCommand(
         await runLocalAccountPasswordRecovery(args)
         return true
     }
-    if (command !== 'backup' && command !== 'restore') return false
+    if (command !== 'backup' && command !== 'restore' && command !== 'recovery') return false
 
     const databaseFilename = optionValue(args, '--database') ?? options.databaseFileName
     if (databaseFilename === undefined) {
         throw new Error('A database path must be configured or passed with --database')
+    }
+
+    if (command === 'recovery') {
+        if (args[1] === 'status') {
+            console.log(JSON.stringify(readRecoveryHold(databaseFilename)))
+            return true
+        }
+        if (!['hold', 'resume'].includes(args[1] ?? ''))
+            throw new Error('Use recovery hold, status or resume --confirm')
+        if (args[1] === 'resume' && !args.includes('--confirm'))
+            throw new Error(
+                'Offline resumption requires --confirm after reviewing outstanding work'
+            )
+        const lock = acquireRuntimeQuiescenceLock(databaseFilename, 'recovery')
+        let released = false
+        try {
+            if (args[1] === 'resume') {
+                const hold = readRecoveryHold(databaseFilename)
+                if (!hold) throw new Error('No recovery hold exists')
+                releaseRecoveryHold(databaseFilename, hold.token)
+                console.log(
+                    'Recovery hold released. The next startup resumes delivery and cleanup.'
+                )
+            } else {
+                createRecoveryHold(databaseFilename, 'external_restore')
+                console.log(
+                    'Recovery hold enabled. Start Herald to inspect and resume from administration.'
+                )
+            }
+        } finally {
+            released = lock.release()
+            if (!released) console.error('[herald-maintenance] recovery runtime lock was retained')
+        }
+        if (!released) throw new Error('Recovery runtime lock was retained')
+        return true
     }
 
     if (command === 'backup') {

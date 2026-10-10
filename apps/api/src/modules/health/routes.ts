@@ -22,6 +22,7 @@ const readinessChecksSchema = Type.Object({
         scheduler: runtimeStateSchema,
         mediaMaintenance: runtimeStateSchema,
         notifications: runtimeStateSchema,
+        recovery: Type.Optional(Type.Union([Type.Literal('held'), Type.Literal('normal')])),
     }),
 })
 
@@ -36,6 +37,7 @@ const notReadyResponseSchema = Type.Intersect([
 ])
 
 type ReadinessChecks = {
+    readonly recovery?: 'held' | 'normal'
     readonly database: 'ok' | 'failed'
     readonly scheduler: SchedulerState | 'not_configured'
     readonly mediaMaintenance: MediaReconciliationRuntimeState | 'not_configured'
@@ -43,6 +45,7 @@ type ReadinessChecks = {
 }
 
 type HealthRuntime = {
+    readonly recovery?: { held(): boolean }
     readonly scheduler?: { readonly state: SchedulerState }
     readonly mediaMaintenance?: { readonly state: MediaReconciliationRuntimeState }
     readonly notifications?: { readonly state: NotificationProjectionRuntimeState }
@@ -89,6 +92,13 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
             },
             ({ status }) => {
                 const checks: ReadinessChecks = {
+                    ...(runtime?.recovery
+                        ? {
+                              recovery: runtime.recovery.held()
+                                  ? ('held' as const)
+                                  : ('normal' as const),
+                          }
+                        : {}),
                     database: readDatabaseStatus(database),
                     scheduler: runtime?.scheduler?.state ?? 'not_configured',
                     mediaMaintenance: runtime?.mediaMaintenance?.state ?? 'not_configured',
@@ -112,8 +122,10 @@ function readDatabaseStatus(database: HeraldDatabase): 'ok' | 'failed' {
 function isReady(checks: ReadinessChecks) {
     return (
         checks.database === 'ok' &&
-        isActiveRuntime(checks.scheduler) &&
-        isActiveRuntime(checks.mediaMaintenance) &&
+        (isActiveRuntime(checks.scheduler) ||
+            (checks.recovery === 'held' && checks.scheduler === 'idle')) &&
+        (isActiveRuntime(checks.mediaMaintenance) ||
+            (checks.recovery === 'held' && checks.mediaMaintenance === 'idle')) &&
         isActiveRuntime(checks.notifications)
     )
 }

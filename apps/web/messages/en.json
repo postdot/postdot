@@ -2098,5 +2098,14 @@
     "add_destination_submit": "Create draft",
     "add_destination_conflict": "The source changed. Close and reopen to use its current revision.",
     "add_destination_failure": "Could not add this destination. Your selection is preserved.",
-    "add_destination_loading": "Loading source…"
+    "add_destination_loading": "Loading source…",
+    "recovery_notice": "Recovery mode: changes, delivery and media cleanup are suspended.",
+    "recovery_settings_link": "Review recovery",
+    "recovery_load_failed": "Recovery status could not be loaded.",
+    "recovery_title": "Resume after restoration",
+    "recovery_description": "Restoring Herald does not undo publications or emails already sent. Review outstanding work before restarting delivery and media cleanup.",
+    "recovery_review": "Inspect projects and outstanding publications",
+    "recovery_confirmation": "I have reviewed outstanding work and accept the risk of repeating deliveries made after the backup.",
+    "recovery_resume": "Resume Herald",
+    "recovery_resume_failed": "Herald could not resume. Reload recovery status before trying again."
 }

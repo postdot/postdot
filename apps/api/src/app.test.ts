@@ -29,6 +29,7 @@ import { createHeraldMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import type { ChannelListItemResponse } from './modules/projects/models'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
+import type { RecoveryService } from './recovery'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
@@ -123,6 +124,7 @@ type OpenApiOperation = {
 
 function createFixture(
     options: {
+        readonly recovery?: RecoveryService
         readonly emailSettings?: EmailSettingsService
         readonly emailAlerts?: boolean
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
@@ -168,6 +170,7 @@ function createFixture(
         runtime: options.runtime,
         metrics: options.metrics,
         notifications,
+        recovery: options.recovery,
         emailSettings: options.emailSettings,
         emailAlerts:
             options.emailAlerts === undefined
@@ -1007,12 +1010,15 @@ describe('Herald API', () => {
                 >
             }
             expect(Object.keys(specification.paths)).toEqual([
+                '/api/recovery/status',
                 '/health',
                 '/ready',
                 '/api/account/avatar',
                 '/api/account/avatars/{id}',
                 '/api/instance/status',
                 '/api/access/invitations/{token}',
+                '/api/settings/recovery',
+                '/api/settings/recovery/resume',
                 '/api/settings/email',
                 '/api/settings/email/test',
                 '/api/access',
@@ -5746,5 +5752,104 @@ it('restricts SMTP settings to human instance administrators and never returns c
     } finally {
         closeDatabase(database)
         closeDatabase(settingsDatabase)
+    }
+})
+
+it('keeps recovery inspection accessible, blocks writes and requires administrator acknowledgement', async () => {
+    let held = false
+    let resumes = 0
+    const hold = {
+        version: 1 as const,
+        token: 'current-hold',
+        createdAt: new Date().toISOString(),
+        reason: 'restore' as const,
+    }
+    const recovery: RecoveryService = {
+        held: () => held,
+        view: () => ({ held, hold: held ? hold : null }),
+        resume(token) {
+            if (!held || token !== hold.token) throw new Error('Stale recovery')
+            held = false
+            resumes++
+        },
+    }
+    const { app, database, access, auth } = createFixture({
+        recovery,
+        allowAdditionalSignups: true,
+    })
+    try {
+        const admin = await signUp(app, 'recovery-admin@herald.local')
+        const member = await signUp(app, 'recovery-member@herald.local')
+        const memberUser = database.$client
+            .query<{ id: string }, []>(
+                "select id from user where email = 'recovery-member@herald.local'"
+            )
+            .get()!
+        const adminUser = database.$client
+            .query<{ id: string }, []>(
+                "select id from user where email = 'recovery-admin@herald.local'"
+            )
+            .get()!
+        await auth.api.setRole({
+            body: { userId: memberUser.id, role: 'user' },
+            headers: new Headers({ cookie: admin }),
+        })
+        expect(access.isInstanceAdmin(adminUser.id)).toBe(true)
+        expect(access.isInstanceAdmin(memberUser.id)).toBe(false)
+        held = true
+        expect((await app.handle(new Request(`${baseURL}/api/recovery/status`))).status).toBe(200)
+        expect((await jsonRequest(app, '/api/projects', admin)).status).toBe(200)
+        for (const path of [
+            '/api/projects',
+            '/api/settings/email/test',
+            '/api/projects/missing/publications/missing/publish',
+        ]) {
+            const response = await jsonRequest(app, path, admin, { method: 'POST', body: '{}' })
+            expect(response.status).toBe(503)
+            expect(((await response.json()) as { error: { code: string } }).error.code).toBe(
+                'recovery_hold'
+            )
+        }
+        expect((await jsonRequest(app, '/api/settings/recovery', member)).status).toBe(403)
+        const resume = (cookie: string, token: string) =>
+            jsonRequest(app, '/api/settings/recovery/resume', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ token, confirm: true }),
+            })
+        expect((await resume(member, hold.token)).status).toBe(403)
+        expect((await resume(admin, 'old-token')).status).toBe(409)
+        expect(held).toBe(true)
+        expect((await resume(admin, hold.token)).status).toBe(200)
+        expect(resumes).toBe(1)
+        expect((await resume(admin, hold.token)).status).toBe(409)
+        const created = await jsonRequest(app, '/api/projects', admin, {
+            method: 'POST',
+            body: JSON.stringify({ name: 'Recovered project' }),
+        })
+        expect(created.status).toBe(201)
+    } finally {
+        closeDatabase(database)
+    }
+})
+
+it('serves recovery inspection as ready without masking failed runtimes', async () => {
+    for (const state of ['idle', 'failed'] as const) {
+        const { app, database } = createFixture({
+            runtime: {
+                recovery: { held: () => true },
+                scheduler: { state },
+                mediaMaintenance: { state: 'idle' },
+                notifications: { state: 'started' },
+            },
+        })
+        try {
+            const response = await app.handle(new Request(`${baseURL}/ready`))
+            expect(response.status).toBe(state === 'idle' ? 200 : 503)
+            expect(await response.json()).toMatchObject({
+                checks: { recovery: 'held', scheduler: state },
+            })
+        } finally {
+            closeDatabase(database)
+        }
     }
 })

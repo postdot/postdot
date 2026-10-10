@@ -26,6 +26,7 @@ import type { DiscordFetcher } from '@herald/discord'
 import { xChannelProfileValidationAdapter } from '@herald/x'
 import type { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
+import { Type } from 'typebox'
 
 import type { HeraldLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
@@ -43,6 +44,7 @@ import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
 import { createHeraldLogger, createRequestLogger } from './plugins/logger'
+import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
 export interface HeraldAppOptions {
     readonly auth: HeraldAuth
@@ -67,6 +69,7 @@ export interface HeraldAppOptions {
     readonly runtime?: HealthRoutesOptions['runtime']
     /** The shared Herald instance access store. */
     readonly access?: AccessStore
+    readonly recovery?: RecoveryService
     readonly emailSettings?: EmailSettingsService
     readonly emailAlerts?: {
         store: NotificationEmailStore
@@ -102,6 +105,7 @@ function createDomainApp({
     notifications,
     emailAlerts,
     emailSettings,
+    recovery,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -141,6 +145,27 @@ function createDomainApp({
     const eventJournal = createEventJournalStore(database)
 
     return new Elysia({ name: 'herald-api' })
+        .request(({ request }) => {
+            if (recovery?.held() && recoveryBlocksRequest(request))
+                return Response.json(
+                    {
+                        error: {
+                            code: 'recovery_hold',
+                            message:
+                                'Herald is in recovery mode; an administrator must authorize resumption',
+                        },
+                    },
+                    { status: 503 }
+                )
+        })
+        .get(
+            '/api/recovery/status',
+            {
+                response: { 200: Type.Object({ held: Type.Boolean() }) },
+                detail: { operationId: 'getRecoveryStatus', tags: ['System'] },
+            },
+            () => ({ held: recovery?.held() ?? false })
+        )
         .use(createBlueskyMetadataRoutes(publisher))
         .use(
             openapi({
@@ -228,6 +253,7 @@ function createDomainApp({
                 auth,
                 emailAlerts,
                 emailSettings,
+                recovery,
                 manualStore,
                 publisher,
                 media,
@@ -279,6 +305,7 @@ export function createApp({
     notifications,
     emailAlerts,
     emailSettings,
+    recovery,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -309,6 +336,7 @@ export function createApp({
         notifications,
         emailAlerts,
         emailSettings,
+        recovery,
         analytics,
         providerAnalytics,
         taxonomy,
