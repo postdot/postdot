@@ -267,11 +267,11 @@ export function NewPublicationPage({
             setRecovery(null)
         }
         const publication = publications?.[0]
-        if (mode !== 'draft' || publication === undefined) return
+        if (publication === undefined) return
 
         await navigate({
-            to: '/dashboard/projects/$projectId/publications/$publicationId',
-            params: { projectId: project.id, publicationId: publication.id },
+            to: '/dashboard/projects/$projectId/posts/$postId',
+            params: { projectId: project.id, postId: publication.postId },
         })
     }
 

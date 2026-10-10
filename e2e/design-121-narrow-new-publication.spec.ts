@@ -290,6 +290,15 @@ test('keeps narrow new-publication flow and queue usable with long channel names
         page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click(),
     ]).then(([response]) => response)
     expect(createResponse.status(), await createResponse.text()).toBe(201)
+    const created = await createResponse.json()
+    await expect(page).toHaveURL(new RegExp(`/posts/${created.post.id}$`))
+    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(2)
+    expect(
+        created.publications.every((item: { state: string }) => item.state === 'scheduled')
+    ).toBe(true)
+    await expectNoHorizontalOverflow(page)
 
     await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
     await page.getByRole('link', { name: 'Queue', exact: true }).click()

@@ -1,4 +1,5 @@
 import { adaptSourceContentToProfile } from '@herald/core'
+import { toast } from '@herald/ui/components/toast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     createContext,
@@ -446,7 +447,7 @@ export function ProjectDashboardProvider({
             ])
             await refreshProject()
             if (tagAssignmentError !== null) {
-                setError(`${m.taxonomy_assignment_failed()} ${formatApiError(tagAssignmentError)}`)
+                toast.add({ title: m.taxonomy_assignment_failed(), type: 'warning' })
             }
         })
         return succeeded ? createdPublications : null

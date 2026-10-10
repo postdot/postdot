@@ -142,7 +142,10 @@ future landing-page decisions remain explicit below.
   the active destination returns to shared copy while preserving remaining
   selections and overrides. Recovery restores the exact editing scope. Quiet
   composition autosave remains distinct from creating a persistent draft, and
-  final actions name the outcome and scheduled publication count.
+  final actions name the outcome and scheduled publication count. Successful draft
+  and scheduled creation open the shared post page, with every created destination
+  reachable through its own publication link. Refused creation stays in Compose
+  with the working content preserved.
   When an interrupted composition blocks new editing pending a recovery choice,
   present a modal decision with a draft excerpt and explicit restore/discard
   actions. The background stays inert; dismissal must not silently choose an

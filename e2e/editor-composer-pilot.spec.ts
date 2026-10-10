@@ -142,6 +142,15 @@ test('recovers composition text, target formatting and media through the existin
     })
     expect(created.post.sourceContent.media).toHaveLength(1)
     expect(created.publications).toHaveLength(3)
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${id}/posts/${created.post.id}$`))
+    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    await expect(destinations.locator('a[data-publication-edit-link]')).toHaveCount(3)
+    for (const publication of created.publications) {
+        await expect(
+            destinations.locator(`a[href$="/publications/${publication.id}"]`).first()
+        ).toBeVisible()
+    }
     expect(created.publications.every((item: { state: string }) => item.state === 'draft')).toBe(
         true
     )
@@ -1468,4 +1477,61 @@ test('adds a destination draft to the existing post with explicit repeated-chann
     ).json()
     expect(existing.editor.publication.state).toBe('draft')
     expect(existing.editor.post.sourceRevision).toBe(1)
+})
+
+test('keeps partial tag-assignment feedback visible after reaching the created post', async ({
+    page,
+}) => {
+    const projectId = await createProject(page)
+    expect(
+        (
+            await page.request.post(`/api/projects/${projectId}/channels`, {
+                data: { name: 'Tagged destination' },
+            })
+        ).status()
+    ).toBe(201)
+    expect(
+        (
+            await page.request.post(`/api/projects/${projectId}/tags`, {
+                data: { name: 'Campaign' },
+            })
+        ).status()
+    ).toBe(201)
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    await page
+        .getByRole('textbox', { name: 'Content', exact: true })
+        .fill('A created post with a tag warning')
+    await page.getByRole('button', { name: 'No tags', exact: true }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Campaign', exact: true }).click()
+    await page.keyboard.press('Escape')
+    let creations = 0
+    page.on('request', request => {
+        if (request.method() === 'POST' && request.url().endsWith('/posts')) creations++
+    })
+    await page.route(`**/api/projects/${projectId}/publications/*/tags`, route =>
+        route.request().method() === 'PUT'
+            ? route.fulfill({
+                  status: 503,
+                  contentType: 'application/json',
+                  body: JSON.stringify({ error: 'Tag service unavailable' }),
+              })
+            : route.continue()
+    )
+    const creation = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const response = await creation
+    expect(response.status()).toBe(201)
+    const created = await response.json()
+    await expect(page).toHaveURL(new RegExp(`/posts/${created.post.id}$`))
+    await expect(page.locator('[data-slot="toast"]')).toContainText(
+        'Publication created, but its tags could not be saved.'
+    )
+    await expect(
+        page
+            .getByRole('region', { name: 'Destinations', exact: true })
+            .locator('a[data-publication-edit-link]')
+    ).toHaveCount(1)
+    expect(creations).toBe(1)
 })

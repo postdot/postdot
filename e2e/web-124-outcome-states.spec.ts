@@ -1194,8 +1194,15 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
     await page.getByRole('button', { name: en.publication_new_create_draft, exact: true }).click()
-    const result = (await (await created).json()) as { publications: { id: string }[] }
+    const result = (await (await created).json()) as {
+        post: { id: string }
+        publications: { id: string }[]
+    }
     const publicationId = result.publications[0]!.id
+    await expect(page).toHaveURL(new RegExp(`/posts/${result.post.id}$`))
+    await page
+        .locator(`a[data-publication-edit-link][href$="/publications/${publicationId}"]`)
+        .click()
     await expect(page).toHaveURL(new RegExp(`/publications/${publicationId}$`))
     const endpoint = `/api/projects/${id}/publications/${publicationId}`
     const editorResponse = await page.request.get(`${endpoint}/editor`)

@@ -5,6 +5,7 @@ import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
@@ -71,17 +72,21 @@ export function PublicationTagPicker({
                 }
             />
             <DropdownMenuContent align="start" className="min-w-48">
-                {label ? <DropdownMenuLabel>{label}</DropdownMenuLabel> : null}
-                {tags.map(tag => (
-                    <DropdownMenuCheckboxItem
-                        key={tag.id}
-                        checked={selectedIds.has(tag.id)}
-                        disabled={tag.state === 'archived' && !selectedIds.has(tag.id)}
-                        onCheckedChange={checked => handleTagChange(tag.id, checked)}>
-                        {tag.name}
-                        {tag.state === 'archived' && archivedLabel ? ` · ${archivedLabel}` : null}
-                    </DropdownMenuCheckboxItem>
-                ))}
+                <DropdownMenuGroup>
+                    {label ? <DropdownMenuLabel>{label}</DropdownMenuLabel> : null}
+                    {tags.map(tag => (
+                        <DropdownMenuCheckboxItem
+                            key={tag.id}
+                            checked={selectedIds.has(tag.id)}
+                            disabled={tag.state === 'archived' && !selectedIds.has(tag.id)}
+                            onCheckedChange={checked => handleTagChange(tag.id, checked)}>
+                            {tag.name}
+                            {tag.state === 'archived' && archivedLabel
+                                ? ` · ${archivedLabel}`
+                                : null}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
     )

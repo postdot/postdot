@@ -35,7 +35,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
         ),
         scheduleButton.click(),
     ])
-    await expect(scheduleButton).toBeEnabled()
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/posts/[^/]+$`))
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const publicationLink = page.locator('a[data-publication-edit-link="true"]').first()

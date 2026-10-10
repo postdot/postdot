@@ -402,12 +402,17 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     )
     await page.getByRole('button', { name: 'Create draft', exact: true }).click()
     const draftResult = (await (await draftResponse).json()) as {
-        publications: { id: string; state: string }[]
+        publications: { id: string; postId: string; state: string }[]
     }
     expect(draftResult.publications[0]?.state).toBe('draft')
     await expect(page).toHaveURL(
-        new RegExp(`/dashboard/projects/[^/]+/publications/${draftResult.publications[0]?.id}$`)
+        new RegExp(`/dashboard/projects/[^/]+/posts/${draftResult.publications[0]?.postId}$`)
     )
+    await page
+        .locator(
+            `a[data-publication-edit-link][href$="/publications/${draftResult.publications[0]?.id}"]`
+        )
+        .click()
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
     await expect(page.getByText('Draft', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use this version', exact: true })).toBeVisible()
