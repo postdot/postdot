@@ -12,6 +12,16 @@ Applied on owner approval. `AGENT.md` now carries the two obligations, and the
 selector distinguishes a documentation-only change set from a code change set so an
 ordinary worklog no longer forces the matrix on its own.
 
+## Owner amendment — 2026-10-10
+
+The owner replaced automatic full-suite triggers with proportionate validation.
+For local presentation/copy changes, static checks and the focused scenario are
+sufficient. An unmapped selector path, a shared primitive edit or a local commit
+is not by itself a full-suite trigger. The selector remains advisory; semantic
+impact determines the required scope. Full validation is reserved for meaningful
+milestones or demonstrated cross-cutting risk. The current root AGENT.md takes
+precedence over the earlier trigger list retained below as history.
+
 ## Context
 
 `AGENT.md` currently names one obligation: run the full `bun run check`. Because

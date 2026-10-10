@@ -22,18 +22,13 @@ content generator.
   direction, merge completed work directly into local `main`. Do not open pull
   requests or wait for GitHub Actions. Local integration must not depend on
   publishing `main` to the remote.
-- **Two validation obligations (ADR-077, accepted):** A *local commit* and a
-  *full validation* are different acts with different triggers. A local commit
-  requires `check:quick`, all unit tests, the scenarios reported by
-  `bun scripts/e2e-affected.ts --base <mission base>`, and the relevant build. A
-  full validation requires `bun run check`, plus
-  `bun run test:container:recovery` when container behaviour is involved, and is
-  triggered by: closing a coherent set of passes; publishing; a risky transversal
-  change; an authentication, session, authorization, or access-revocation change;
-  a claim the targeted layer cannot support; or a retained selection that is not
-  materially cheaper than the matrix. Merging into `main` is **not** an automatic
-  trigger. Never narrow the full control itself and never weaken a check to make a
-  targeted run pass.
+- **Proportionate validation (owner direction, 2026-10-10):** Verify local UI
+  and copy changes with static checks and the focused affected scenario or test.
+  Do not run the whole repository because a selector path is unmapped, a shared
+  primitive is touched, or a local commit is being made. The selector is advisory;
+  use the actual semantic impact to choose checks and record the scope honestly.
+  Run full validation for a meaningful integration milestone or demonstrated
+  cross-cutting risk, not mechanically for every change. Never weaken assertions.
 - **Evidence records are documentation:** `.autonomos/**`, `docs/**`, and Markdown
   are observed by no scenario, so a worklog or task-board change does not by itself
   require the matrix. A code path in the same change set decides on its own terms,

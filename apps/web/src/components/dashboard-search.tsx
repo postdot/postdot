@@ -8,14 +8,9 @@ import {
     CommandItem,
     CommandList,
 } from '@herald/ui/components/command'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@herald/ui/components/empty'
 import { Kbd } from '@herald/ui/components/kbd'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@herald/ui/components/select'
+import { Switch } from '@herald/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { LinkIcon } from '@solar-icons/react/linear/link'
@@ -25,6 +20,7 @@ import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { EmptyIllustration } from '@/components/empty-state'
 import { api } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import * as m from '@/paraglide/messages.js'
@@ -190,21 +186,27 @@ export function DashboardSearch({
                         <Button
                             variant="ghost"
                             size="sm"
+                            className="gap-2 px-2"
                             aria-label={m.search_open()}
                             onClick={() => setOpen(true)}
-                            className="gap-2"
                         />
                     }>
                     <MagnifierIcon aria-hidden="true" className="size-4" />
-                    <span className="hidden lg:inline">{m.search_open()}</span>
                     <Kbd className="hidden sm:inline-flex">
                         {navigator.platform.includes('Mac') ? '⌘ K' : 'Ctrl K'}
                     </Kbd>
                 </TooltipTrigger>
-                <TooltipContent>{m.search_open()}</TooltipContent>
+                <TooltipContent className="flex items-center gap-2">
+                    {m.search_open()}
+                    <Kbd>{navigator.platform.includes('Mac') ? '⌘ K' : 'Ctrl K'}</Kbd>
+                </TooltipContent>
             </Tooltip>
-            <CommandDialog open={open} onOpenChange={setOpen} title={m.search_open()}>
-                <Command shouldFilter={false}>
+            <CommandDialog
+                open={open}
+                onOpenChange={setOpen}
+                title={m.search_open()}
+                contentClassName="top-[min(18dvh,8rem)] translate-y-0 dark:bg-surface-raised">
+                <Command shouldFilter={false} className="dark:bg-surface-raised">
                     <CommandInput
                         aria-label={m.search_open()}
                         placeholder={m.search_placeholder()}
@@ -212,29 +214,28 @@ export function DashboardSearch({
                         onValueChange={setQuery}
                         maxLength={200}
                     />
-                    <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-                        <Select value={scope} onValueChange={value => setScope(value ?? 'all')}>
-                            <SelectTrigger
-                                size="sm"
-                                className="w-auto border-0 bg-transparent shadow-none"
-                                aria-label={m.search_scope()}>
-                                <SelectValue>
-                                    {scope === 'current' && projectId !== null
-                                        ? m.search_current_project()
-                                        : m.search_all_projects()}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">{m.search_all_projects()}</SelectItem>
-                                {projectId !== null && (
-                                    <SelectItem value="current">
-                                        {m.search_current_project()}
-                                    </SelectItem>
-                                )}
-                            </SelectContent>
-                        </Select>
+                    <div className="flex h-14 shrink-0 items-center justify-between px-4 pb-2 pt-3">
+                        {projectId !== null ? (
+                            <label className="flex cursor-pointer items-center gap-2.5 text-xs text-muted-foreground">
+                                <Switch
+                                    className="bg-surface-control data-checked:bg-foreground/35 dark:data-checked:bg-foreground/30 [&_[data-slot=switch-thumb]]:bg-background dark:[&_[data-slot=switch-thumb]]:bg-foreground"
+                                    checked={scope === 'all'}
+                                    onCheckedChange={checked =>
+                                        setScope(checked ? 'all' : 'current')
+                                    }
+                                />
+                                {m.search_all_projects()}
+                            </label>
+                        ) : (
+                            <span />
+                        )}
+                        <span role="status" className="text-xs text-muted-foreground">
+                            {phase === 'loading' ? m.search_loading() : null}
+                        </span>
                     </div>
-                    <CommandList aria-busy={phase === 'loading'}>
+                    <CommandList
+                        className="h-[min(20rem,calc(82dvh-11rem))] max-h-none px-2 pb-3"
+                        aria-busy={phase === 'loading'}>
                         {pages.length > 0 && (
                             <CommandGroup heading={m.search_pages()}>
                                 {pages.map(page => (
@@ -296,11 +297,6 @@ export function DashboardSearch({
                                 </CommandGroup>
                             )
                         })}
-                        {phase === 'loading' && (
-                            <div role="status" className="px-3 py-4 text-sm text-muted-foreground">
-                                {m.search_loading()}
-                            </div>
-                        )}
                         {phase === 'error' && (
                             <div
                                 role="alert"
@@ -316,7 +312,16 @@ export function DashboardSearch({
                         )}
                         {phase !== 'loading' && phase !== 'error' && (
                             <CommandEmpty>
-                                {searching ? m.search_empty() : m.search_start_typing()}
+                                <Empty className="py-6">
+                                    <EmptyMedia>
+                                        <EmptyIllustration name="result" className="w-36 sm:w-36" />
+                                    </EmptyMedia>
+                                    <EmptyHeader>
+                                        <EmptyTitle>
+                                            {searching ? m.search_empty() : m.search_start_typing()}
+                                        </EmptyTitle>
+                                    </EmptyHeader>
+                                </Empty>
                             </CommandEmpty>
                         )}
                         {results.some(
@@ -328,6 +333,21 @@ export function DashboardSearch({
                             </p>
                         )}
                     </CommandList>
+                    <div className="flex h-11 shrink-0 items-center justify-end gap-4 px-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                            <Kbd>↑</Kbd>
+                            <Kbd>↓</Kbd>
+                            {m.search_navigate()}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <Kbd>↵</Kbd>
+                            {m.search_open_result()}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <Kbd>Esc</Kbd>
+                            {m.search_close()}
+                        </span>
+                    </div>
                 </Command>
             </CommandDialog>
         </>

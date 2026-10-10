@@ -455,3 +455,12 @@ projects; the current-project scope is an explicit alternative. Source posts
 appear once regardless of destination count and open their shared-post page;
 channels open their existing row in Channels. Search errors and retry stay inside
 the palette. Search does not publish, modify content or replace Queue filters.
+
+The search trigger combines an icon and compact keyboard shortcut, with an
+accessible name and shared tooltip. The input has its own inset surface and a
+short placeholder. A compact footer shows result navigation shortcuts.
+The palette keeps its input anchored near the top of the viewport and reserves a
+stable, viewport-bounded result area across loading, populated and empty states.
+Use spacing rather than separator lines; keep the dark palette close to the
+raised workspace surface. A direct All projects switch controls scope when a
+current project exists. Empty results use the shared illustration vocabulary.

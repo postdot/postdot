@@ -6,6 +6,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     page,
 }) => {
     const suffix = randomUUID().slice(0, 8)
+    await page.addInitScript(() => localStorage.setItem('herald-theme', 'dark'))
     await page.goto('/')
     const signup = await page.request.post('/api/auth/sign-up/email', {
         headers: { origin: new URL(page.url()).origin },
@@ -48,13 +49,37 @@ test('searches across projects, opens source posts and keeps failures inside the
     await page.getByRole('button', { name: 'Search Herald', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search Herald', exact: true })
     const input = dialog.getByRole('combobox', { name: 'Search Herald', exact: true })
+    await expect(input).toHaveAttribute('placeholder', 'Search…')
+    await expect(dialog.getByText(/Navigate/)).toBeVisible()
     await input.fill('constellation')
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(2)
-    await dialog.getByRole('combobox', { name: 'Search scope' }).click()
-    await page.getByRole('option', { name: 'Current project', exact: true }).click()
+    const initialGeometry = await input.boundingBox()
+    const initialPanel = await dialog.boundingBox()
+    await dialog.getByRole('switch', { name: 'All projects', exact: true }).click()
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(1)
     await expect(dialog.getByText(`First search project ${suffix}`, { exact: false })).toBeVisible()
+    await input.fill('zzzz-not-found')
+    await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+    expect((await input.boundingBox())?.y).toBe(initialGeometry?.y)
+    expect((await dialog.boundingBox())?.height).toBe(initialPanel?.height)
+    await page.screenshot({ path: '/tmp/herald-search-empty.png' })
+    await input.fill('constellation')
+    await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
     await page.screenshot({ path: '/tmp/herald-search-wide.png' })
+    const darkSurface = await dialog.evaluate(element => getComputedStyle(element).backgroundColor)
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await page.keyboard.press('Control+k')
+    await expect(dialog).toBeVisible()
+    await expect
+        .poll(() => dialog.evaluate(element => getComputedStyle(element).backgroundColor))
+        .not.toBe(darkSurface)
+    await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
+    await page.screenshot({ path: '/tmp/herald-search-light.png' })
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
     await expect
         .poll(() => dialog.evaluate(element => element.getBoundingClientRect().width))
@@ -74,6 +99,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     await page.keyboard.press('Control+k')
     await input.fill('zzzz-not-found')
     await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+    await expect(dialog.locator('[data-empty-illustration="result"]')).toBeVisible()
     await page.route('**/api/search?*', async route => {
         await route.fulfill({
             status: 503,

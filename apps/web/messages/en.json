@@ -2143,7 +2143,7 @@
         }
     ],
     "search_open": "Search Herald",
-    "search_placeholder": "Search posts, channels, projects or settings…",
+    "search_placeholder": "Search…",
     "search_scope": "Search scope",
     "search_all_projects": "All projects",
     "search_current_project": "Current project",
@@ -2167,5 +2167,8 @@
     "search_aliases_queue": "queue posts publications scheduled",
     "search_aliases_channels": "channels destinations connection",
     "search_aliases_media": "media images videos library",
-    "search_aliases_performance": "analytics performance statistics"
+    "search_aliases_performance": "analytics performance statistics",
+    "search_navigate": "Navigate",
+    "search_open_result": "Open",
+    "search_close": "Close"
 }

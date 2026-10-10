@@ -2143,7 +2143,7 @@
         }
     ],
     "search_open": "Rechercher dans Herald",
-    "search_placeholder": "Rechercher des posts, canaux, projets ou réglages…",
+    "search_placeholder": "Rechercher…",
     "search_scope": "Portée de la recherche",
     "search_all_projects": "Tous les projets",
     "search_current_project": "Projet actuel",
@@ -2167,5 +2167,8 @@
     "search_aliases_queue": "queue posts publications scheduled file posts planification",
     "search_aliases_channels": "channels destinations canaux connexion",
     "search_aliases_media": "media images videos library médias médiathèque",
-    "search_aliases_performance": "analytics performance statistiques"
+    "search_aliases_performance": "analytics performance statistiques",
+    "search_navigate": "Naviguer",
+    "search_open_result": "Ouvrir",
+    "search_close": "Fermer"
 }

@@ -21,12 +21,20 @@ function Command({ className, ...props }: ComponentProps<typeof CommandPrimitive
 function CommandDialog({
     title,
     children,
+    contentClassName,
     ...props
-}: Omit<ComponentProps<typeof Dialog>, 'children'> & { title: string; children: ReactNode }) {
+}: Omit<ComponentProps<typeof Dialog>, 'children'> & {
+    title: string
+    children: ReactNode
+    contentClassName?: string
+}) {
     return (
         <Dialog {...props}>
             <DialogContent
-                className="w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0 sm:max-w-xl"
+                className={cn(
+                    'w-[calc(100vw-2rem)] gap-0 overflow-hidden p-0 sm:max-w-xl',
+                    contentClassName
+                )}
                 showCloseButton={false}>
                 <DialogTitle className="sr-only">{title}</DialogTitle>
                 {children}
@@ -37,7 +45,7 @@ function CommandDialog({
 
 function CommandInput({ className, ...props }: ComponentProps<typeof CommandPrimitive.Input>) {
     return (
-        <div className="flex items-center gap-3 border-b px-4">
+        <div className="m-3 mb-0 flex items-center gap-3 rounded-md bg-surface-inset px-3">
             <MagnifierIcon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
             <CommandPrimitive.Input
                 className={cn(
