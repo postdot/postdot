@@ -744,3 +744,48 @@ test('reviews sibling source changes and explicitly keeps or replaces destinatio
     expect(replaced.publication).toEqual(firstBefore.publication)
     expect((await pair.read(page, pair.second)).draft.content).toEqual(secondBefore.draft.content)
 })
+
+test('opens the shared post from queue and keeps every destination reachable', async ({
+    page,
+}, info) => {
+    const pair = await createDraftPair(page)
+    const first = await pair.read(page, pair.first)
+    await page.goto(`/dashboard/projects/${pair.id}/queue?filter=draft`)
+    const cards = page.locator('[data-publication-selection-card="true"]')
+    await expect(cards).toHaveCount(2)
+    const card = cards.filter({ hasText: 'First channel' })
+    await card.getByRole('link', { name: 'View post', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/posts/${first.post.id}$`))
+    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Queue', exact: true })).toHaveAttribute(
+        'aria-current',
+        'page'
+    )
+    await expect(page.getByRole('region', { name: 'Current source', exact: true })).toContainText(
+        'Initial common source'
+    )
+    const destinations = page.getByRole('region', { name: 'Destinations', exact: true })
+    await expect(destinations.getByRole('link', { name: /First channel/ }).first()).toBeVisible()
+    await expect(destinations.getByRole('link', { name: /Second channel/ }).first()).toBeVisible()
+    await page.reload()
+    await expect(destinations).toContainText('Second channel')
+    for (const width of [1280, 1024, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await expect(destinations).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+            false
+        )
+        await page.screenshot({ path: info.outputPath(`shared-post-${width}.png`) })
+    }
+    await page.getByRole('button', { name: 'Review destinations', exact: true }).click()
+    const review = page.getByRole('dialog', { name: 'Review destinations', exact: true })
+    await expect(review.getByRole('region', { name: 'First channel', exact: true })).toBeVisible()
+    await expect(review.getByRole('region', { name: 'Second channel', exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await destinations.locator(`a[href$="/publications/${pair.second}"]`).first().click()
+    await expect(page).toHaveURL(pair.pageUrl(pair.second))
+    await page.goBack()
+    await expect(page.getByRole('heading', { name: 'Post', exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'Back to queue', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/projects/${pair.id}/queue$`))
+})

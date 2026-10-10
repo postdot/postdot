@@ -415,7 +415,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     }
     if (pathname.includes('/settings')) return 'settings'
     if (pathname.includes('/publications/new')) return 'new-publication'
-    if (pathname.includes('/publications/')) return 'queue'
+    if (pathname.includes('/publications/') || pathname.includes('/posts/')) return 'queue'
     if (pathname.includes('/performance')) return 'performance'
     if (pathname.includes('/queue')) return 'queue'
     if (pathname.includes('/channels')) return 'channels'

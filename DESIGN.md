@@ -94,6 +94,11 @@ future landing-page decisions remain explicit below.
   project and returns to that project's Queue. Queue remains the lifecycle and
   human-action prioritization surface; the Overview calendar does not replace
   it or become a second scheduler.
+  The explicit Queue link to `/dashboard/projects/:projectId/posts/:postId`
+  inspects the current shared source and all its destination publications. Post
+  inspection retains Queue as its navigation context; individual publication
+  links keep their editing and execution-inspection jobs. Source review is an
+  explicit per-destination draft action, separate from publication or scheduling.
 - Calendar planning contract (provisional): show one Monday-first month at a
   time on desktop and tablet, with previous/next/today controls. Scheduled
   publications are grouped by their local date and link to the existing

@@ -314,8 +314,15 @@ async function createAccountAndProject(page: Page, suffix: string) {
         ),
         page.getByRole('button', { name: 'Create account', exact: true }).click(),
     ])
-    await page.goto('/dashboard?projectId=none')
-    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
+    // Keep invitation fixtures below the membership limit regardless of accounts
+    // accumulated by earlier scenarios in the shared runtime.
+    const workspaceResponse = await page.request.post('/api/workspaces', {
+        data: { name: `E2E-312 workspace ${suffix}` },
+    })
+    expect(workspaceResponse.status()).toBe(201)
+    const { workspace } = (await workspaceResponse.json()) as { workspace: { id: string } }
+    await page.goto(`/dashboard?workspaceId=${workspace.id}&projectId=none`)
+    await expect(page).toHaveURL(/\/dashboard\?workspaceId=[^&]+&projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()

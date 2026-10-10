@@ -2122,5 +2122,8 @@
     "source_review_replace_warning": "Replaces those fields in this saved draft. Other destination fields and execution remain unchanged.",
     "source_review_apply": "Update this draft",
     "source_review_refresh": "Refresh review",
-    "source_review_source": "Current source"
+    "source_review_source": "Current source",
+    "post_view": "View post",
+    "post_title": "Post",
+    "post_destinations": "Destinations"
 }

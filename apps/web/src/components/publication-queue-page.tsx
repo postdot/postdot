@@ -529,6 +529,7 @@ export function PublicationQueuePage({
                         onRetry={canEditProject ? onRetryPublication : undefined}
                         pending={pending}
                         publications={visiblePublications}
+                        showPostLink
                         allSelected={allVisibleSelected}
                         onToggleAll={canEditProject ? toggleAllVisiblePublications : undefined}
                         readOnly={!canEditProject}

@@ -2122,5 +2122,8 @@
     "source_review_replace_warning": "Remplace ces champs dans ce brouillon enregistré. Les autres champs et son exécution restent inchangés.",
     "source_review_apply": "Mettre à jour ce brouillon",
     "source_review_refresh": "Actualiser la revue",
-    "source_review_source": "Source actuelle"
+    "source_review_source": "Source actuelle",
+    "post_view": "Voir le post",
+    "post_title": "Post partagé",
+    "post_destinations": "Canaux de destination"
 }

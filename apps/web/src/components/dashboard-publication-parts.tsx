@@ -55,6 +55,7 @@ export function PublicationList({
     readOnly = false,
     selectedPublicationIds,
     showCreationDate = false,
+    showPostLink = false,
     timeZone,
 }: {
     readonly emptyDescription?: string | null
@@ -75,6 +76,7 @@ export function PublicationList({
     readonly readOnly?: boolean
     readonly selectedPublicationIds?: ReadonlySet<string>
     readonly showCreationDate?: boolean
+    readonly showPostLink?: boolean
     readonly timeZone: string
 }) {
     useLanguage()
@@ -145,6 +147,7 @@ export function PublicationList({
                                 readOnly={readOnly}
                                 selected={selected}
                                 showCreationDate={showCreationDate}
+                                showPostLink={showPostLink}
                                 timeZone={timeZone}
                             />
                         )
@@ -210,6 +213,7 @@ function PublicationListItem({
     readOnly,
     selected,
     showCreationDate = false,
+    showPostLink,
     timeZone,
 }: {
     readonly due: boolean
@@ -223,6 +227,7 @@ function PublicationListItem({
     readonly readOnly: boolean
     readonly selected: boolean
     readonly showCreationDate: boolean
+    readonly showPostLink: boolean
     readonly timeZone: string
 }) {
     const selectionEnabled = onToggleSelection !== undefined
@@ -268,57 +273,43 @@ function PublicationListItem({
                     sharedColumns
                     selectionEnabled={selectionEnabled}
                     action={
-                        showRetryAction ? (
-                            <Button
-                                data-publication-action="retry"
-                                disabled={pending}
-                                onClick={() => void onRetry(publication.id)}
-                                size="sm"
-                                type="button">
-                                <RestartIcon aria-hidden="true" />
-                                {m.publication_retry_delivery()}
-                            </Button>
-                        ) : showManualAction ? (
-                            <Button
-                                data-publication-action="record-published"
-                                disabled={pending}
-                                onClick={() => void onPublish(publication.id)}
-                                size="sm"
-                                type="button">
-                                <CheckIcon aria-hidden="true" />
-                                {m.publication_record_published()}
-                            </Button>
-                        ) : showReviewAction ? (
-                            <Button
-                                aria-label={m.publication_review_outcome()}
-                                className="text-muted-foreground hover:text-foreground"
-                                data-publication-action="review-outcome"
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{
-                                            projectId: publication.projectId,
-                                            publicationId: publication.id,
-                                        }}
-                                        to="/dashboard/projects/$projectId/publications/$publicationId"
-                                    />
-                                }
-                                size="sm"
-                                variant="ghost">
-                                <ClipboardCheckIcon aria-hidden="true" className="size-4" />
-                                <span>{m.publication_review_outcome()}</span>
-                            </Button>
-                        ) : (
-                            <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                            {showPostLink ? (
+                                <Link
+                                    className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                                    to="/dashboard/projects/$projectId/posts/$postId"
+                                    params={{
+                                        projectId: publication.projectId,
+                                        postId: publication.postId,
+                                    }}>
+                                    {m.post_view()}
+                                </Link>
+                            ) : null}
+                            {showRetryAction ? (
                                 <Button
-                                    aria-label={
-                                        publication.state === 'draft'
-                                            ? m.queue_resume_draft()
-                                            : editable
-                                              ? m.common_edit()
-                                              : m.common_view()
-                                    }
+                                    data-publication-action="retry"
+                                    disabled={pending}
+                                    onClick={() => void onRetry(publication.id)}
+                                    size="sm"
+                                    type="button">
+                                    <RestartIcon aria-hidden="true" />
+                                    {m.publication_retry_delivery()}
+                                </Button>
+                            ) : showManualAction ? (
+                                <Button
+                                    data-publication-action="record-published"
+                                    disabled={pending}
+                                    onClick={() => void onPublish(publication.id)}
+                                    size="sm"
+                                    type="button">
+                                    <CheckIcon aria-hidden="true" />
+                                    {m.publication_record_published()}
+                                </Button>
+                            ) : showReviewAction ? (
+                                <Button
+                                    aria-label={m.publication_review_outcome()}
                                     className="text-muted-foreground hover:text-foreground"
+                                    data-publication-action="review-outcome"
                                     nativeButton={false}
                                     render={
                                         <Link
@@ -331,65 +322,95 @@ function PublicationListItem({
                                     }
                                     size="sm"
                                     variant="ghost">
-                                    {editable ? (
-                                        <PenIcon aria-hidden="true" className="size-4" />
-                                    ) : (
-                                        <EyeIcon aria-hidden="true" className="size-4" />
-                                    )}
-                                    <span>
-                                        {publication.state === 'draft'
-                                            ? m.queue_resume_draft()
-                                            : editable
-                                              ? m.common_edit()
-                                              : m.common_view()}
-                                    </span>
+                                    <ClipboardCheckIcon aria-hidden="true" className="size-4" />
+                                    <span>{m.publication_review_outcome()}</span>
                                 </Button>
-                                {publication.state === 'draft' &&
-                                (onDeleteDraft !== undefined || onDuplicateDraft !== undefined) ? (
-                                    <DropdownMenu modal={false}>
-                                        <DropdownMenuTrigger
-                                            render={
-                                                <Button
-                                                    aria-label={m.queue_draft_actions()}
-                                                    data-publication-draft-actions="true"
-                                                    disabled={pending}
-                                                    size="icon-sm"
-                                                    type="button"
-                                                    variant="ghost">
-                                                    <MenuDotsVerticalIcon aria-hidden="true" />
-                                                </Button>
-                                            }
-                                        />
-                                        <DropdownMenuContent align="end" className="min-w-40">
-                                            {onDuplicateDraft !== undefined ? (
-                                                <DropdownMenuItem
-                                                    disabled={pending}
-                                                    onClick={() =>
-                                                        onDuplicateDraft(publication.id)
-                                                    }>
-                                                    <CopyIcon aria-hidden="true" />
-                                                    {m.queue_duplicate_draft()}
-                                                </DropdownMenuItem>
-                                            ) : null}
-                                            {onDeleteDraft !== undefined ? (
-                                                <>
-                                                    {onDuplicateDraft !== undefined ? (
-                                                        <DropdownMenuSeparator />
-                                                    ) : null}
+                            ) : (
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        aria-label={
+                                            publication.state === 'draft'
+                                                ? m.queue_resume_draft()
+                                                : editable
+                                                  ? m.common_edit()
+                                                  : m.common_view()
+                                        }
+                                        className="text-muted-foreground hover:text-foreground"
+                                        nativeButton={false}
+                                        render={
+                                            <Link
+                                                params={{
+                                                    projectId: publication.projectId,
+                                                    publicationId: publication.id,
+                                                }}
+                                                to="/dashboard/projects/$projectId/publications/$publicationId"
+                                            />
+                                        }
+                                        size="sm"
+                                        variant="ghost">
+                                        {editable ? (
+                                            <PenIcon aria-hidden="true" className="size-4" />
+                                        ) : (
+                                            <EyeIcon aria-hidden="true" className="size-4" />
+                                        )}
+                                        <span>
+                                            {publication.state === 'draft'
+                                                ? m.queue_resume_draft()
+                                                : editable
+                                                  ? m.common_edit()
+                                                  : m.common_view()}
+                                        </span>
+                                    </Button>
+                                    {publication.state === 'draft' &&
+                                    (onDeleteDraft !== undefined ||
+                                        onDuplicateDraft !== undefined) ? (
+                                        <DropdownMenu modal={false}>
+                                            <DropdownMenuTrigger
+                                                render={
+                                                    <Button
+                                                        aria-label={m.queue_draft_actions()}
+                                                        data-publication-draft-actions="true"
+                                                        disabled={pending}
+                                                        size="icon-sm"
+                                                        type="button"
+                                                        variant="ghost">
+                                                        <MenuDotsVerticalIcon aria-hidden="true" />
+                                                    </Button>
+                                                }
+                                            />
+                                            <DropdownMenuContent align="end" className="min-w-40">
+                                                {onDuplicateDraft !== undefined ? (
                                                     <DropdownMenuItem
                                                         disabled={pending}
-                                                        onClick={() => onDeleteDraft(publication)}
-                                                        variant="destructive">
-                                                        <TrashBinMinimalisticIcon aria-hidden="true" />
-                                                        {m.queue_delete_draft()}
+                                                        onClick={() =>
+                                                            onDuplicateDraft(publication.id)
+                                                        }>
+                                                        <CopyIcon aria-hidden="true" />
+                                                        {m.queue_duplicate_draft()}
                                                     </DropdownMenuItem>
-                                                </>
-                                            ) : null}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                ) : null}
-                            </div>
-                        )
+                                                ) : null}
+                                                {onDeleteDraft !== undefined ? (
+                                                    <>
+                                                        {onDuplicateDraft !== undefined ? (
+                                                            <DropdownMenuSeparator />
+                                                        ) : null}
+                                                        <DropdownMenuItem
+                                                            disabled={pending}
+                                                            onClick={() =>
+                                                                onDeleteDraft(publication)
+                                                            }
+                                                            variant="destructive">
+                                                            <TrashBinMinimalisticIcon aria-hidden="true" />
+                                                            {m.queue_delete_draft()}
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                ) : null}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : null}
+                                </div>
+                            )}
+                        </div>
                     }
                     due={due}
                     publication={publication}
