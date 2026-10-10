@@ -1596,6 +1596,16 @@ export const api = {
         )
     },
 
+    async savePostSource(
+        projectId: string,
+        postId: string,
+        input: { expectedSourceRevision: number; sourceContent: Post['sourceContent'] }
+    ): Promise<{ post: Post }> {
+        return unwrap<{ post: Post }>(
+            await client.api.projects({ projectId }).posts({ postId }).patch(input)
+        )
+    },
+
     async addPostDestinations(
         projectId: string,
         postId: string,

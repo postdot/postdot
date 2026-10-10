@@ -34,6 +34,7 @@ const supportedProjectEventSubjects = {
     'channel.profile_draft.updated': 'channel',
     'channel.profile_activated': 'channel',
     'post.created': 'post',
+    'post.source.updated': 'post',
     'publication.created': 'publication',
     'publication.approval_requested': 'publication',
     'publication.approval_approved': 'publication',

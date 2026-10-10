@@ -47,7 +47,10 @@ export function AddPostDestination({
                             projectId={projectId}
                             postId={postId}
                             channels={channels}
-                            onAdded={onAdded}
+                            onAdded={async publicationId => {
+                                await onAdded(publicationId)
+                                setOpen(false)
+                            }}
                         />
                     ) : null}
                 </DialogContent>

@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
+import { AddPostDestination } from '@/components/add-post-destination'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
+import { PostSourceEditor } from '@/components/post-source-editor'
 import { PostSourceReview } from '@/components/post-source-review'
-import { SourceComparisonContent } from '@/components/publication-editor-sidebar'
 import { QueryErrorState } from '@/components/query-error-state'
 import { api, type PublicationSummary } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -21,10 +22,14 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/posts/$post
 function PostRoute() {
     useLanguage()
     const { projectId, postId } = Route.useParams()
-    const { project, projectRole } = useProjectDashboard()
+    const { project, projectRole, channels } = useProjectDashboard()
+    const [editingSource, setEditingSource] = useState(false)
     const [suspended, setSuspended] = useState(false)
     const [epoch, setEpoch] = useState(0)
     const generation = useRef(0)
+    useEffect(() => {
+        setEditingSource(false)
+    }, [postId])
     const query = useQuery({
         queryKey: [...projectQueryKeys.data(projectId), 'post', postId],
         queryFn: async () => {
@@ -88,40 +93,50 @@ function PostRoute() {
                     </Link>
                 }
             />
+            {query.data ? (
+                <div hidden={suspended || query.isError} className="mb-8">
+                    <PostSourceEditor
+                        key={query.data.post.id}
+                        getAccessEpoch={() => generation.current}
+                        projectId={projectId}
+                        post={query.data.post}
+                        media={query.data.media}
+                        canEdit={Boolean(canReview)}
+                        accessEpoch={epoch}
+                        onSaved={() => void query.refetch()}
+                        onEditingChange={setEditingSource}
+                    />
+                </div>
+            ) : null}
             {suspended || query.isError ? (
                 <QueryErrorState onRetry={() => void retry()} />
             ) : query.isPending ? (
                 <p role="status">{m.common_loading()}</p>
             ) : (
                 <div className="space-y-8">
-                    <section aria-label={m.source_review_source()}>
-                        <div className="flex flex-wrap items-baseline justify-between gap-3">
-                            <h2 className="text-lg font-semibold">{m.source_review_source()}</h2>
-                            <span className="text-xs text-muted-foreground">
-                                {m.editor_source_revision({
-                                    revision: query.data.post.sourceRevision,
-                                })}
-                            </span>
-                        </div>
-                        <SourceComparisonContent
-                            projectId={projectId}
-                            content={query.data.post.sourceContent}
-                            media={query.data.media}
-                        />
-                    </section>
                     <section aria-label={m.post_destinations()}>
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <h2 className="text-lg font-semibold">{m.post_destinations()}</h2>
-                            {canReview ? (
-                                <PostSourceReview
-                                    projectId={projectId}
-                                    postId={postId}
-                                    disabled={!canReview}
-                                    accessEpoch={epoch}
-                                    onApplied={() => {
-                                        if (generation.current === epoch) void query.refetch()
-                                    }}
-                                />
+                            {canReview && !editingSource ? (
+                                <div className="flex flex-wrap gap-2">
+                                    <AddPostDestination
+                                        projectId={projectId}
+                                        postId={postId}
+                                        channels={channels}
+                                        onAdded={async () => {
+                                            await query.refetch()
+                                        }}
+                                    />
+                                    <PostSourceReview
+                                        projectId={projectId}
+                                        postId={postId}
+                                        disabled={!canReview}
+                                        accessEpoch={epoch}
+                                        onApplied={() => {
+                                            if (generation.current === epoch) void query.refetch()
+                                        }}
+                                    />
+                                </div>
                             ) : null}
                         </div>
                         <PublicationList

@@ -2125,5 +2125,8 @@
     "source_review_source": "Source actuelle",
     "post_view": "Voir le post",
     "post_title": "Post partagé",
-    "post_destinations": "Canaux de destination"
+    "post_destinations": "Canaux de destination",
+    "post_source_edit": "Modifier la source",
+    "post_source_conflict": "La source a changé ailleurs. Votre texte est conservé. Copiez vos modifications avant d’annuler et de rouvrir la dernière révision.",
+    "post_source_leave": "Quitter sans enregistrer les modifications de la source ?"
 }

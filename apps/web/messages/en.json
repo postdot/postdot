@@ -2125,5 +2125,8 @@
     "source_review_source": "Current source",
     "post_view": "View post",
     "post_title": "Post",
-    "post_destinations": "Destinations"
+    "post_destinations": "Destinations",
+    "post_source_edit": "Edit source",
+    "post_source_conflict": "The source changed elsewhere. Your text is preserved. Copy your changes before cancelling and reopening the latest revision.",
+    "post_source_leave": "Leave without saving your source changes?"
 }

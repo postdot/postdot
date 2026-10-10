@@ -99,6 +99,9 @@ future landing-page decisions remain explicit below.
   inspection retains Queue as its navigation context; individual publication
   links keep their editing and execution-inspection jobs. Source review is an
   explicit per-destination draft action, separate from publication or scheduling.
+  The post page also owns explicit shared-source saving, independently of any
+  destination lifecycle. Editing preserves historical targets and leaves destination
+  adaptations unchanged; unsaved source work is not used for review or addition.
 - Calendar planning contract (provisional): show one Monday-first month at a
   time on desktop and tablet, with previous/next/today controls. Scheduled
   publications are grouped by their local date and link to the existing

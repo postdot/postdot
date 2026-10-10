@@ -272,6 +272,7 @@ export type {
     DuplicateDraftPublicationResult,
     PublicationTargetRevision,
     SavePublicationDraftInput,
+    SavePostSourceInput,
     RebasePublicationDraftInput,
     RestoreChannelInput,
     RetryFailedPublicationInput,

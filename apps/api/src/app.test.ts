@@ -5921,3 +5921,85 @@ it('serves recovery inspection as ready without masking failed runtimes', async 
         }
     }
 })
+
+it('saves the standalone post source with revision guards and no destination changes', async () => {
+    const { app, database, access } = createFixture({ allowAdditionalSignups: true })
+    try {
+        const cookie = await signUp(app)
+        const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+            method: 'POST',
+            body: JSON.stringify({ name: 'Shared source' }),
+        })
+        const { project } = (await projectResponse.json()) as { project: { id: string } }
+        const channelResponse = await jsonRequest(
+            app,
+            `/api/projects/${project.id}/channels`,
+            cookie,
+            { method: 'POST', body: JSON.stringify({ name: 'Manual' }) }
+        )
+        const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+        const created = await jsonRequest(app, `/api/projects/${project.id}/posts`, cookie, {
+            method: 'POST',
+            body: JSON.stringify({
+                sourceContent: { body: { text: 'Original', format: 'plain_text' }, media: [] },
+                publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+            }),
+        })
+        const { post } = (await created.json()) as { post: { id: string } }
+        const url = `/api/projects/${project.id}/posts/${post.id}`
+        const body = JSON.stringify({
+            expectedSourceRevision: 1,
+            sourceContent: { body: { text: 'Updated', format: 'plain_text' }, media: [] },
+        })
+        const before = database.$client.query('select * from publication_working_drafts').all()
+        const updated = await jsonRequest(app, url, cookie, { method: 'PATCH', body })
+        expect(updated.status).toBe(200)
+        const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@herald.local')
+        const viewer = database.$client
+            .query<{ id: string }, [string]>('select id from user where email = ?1')
+            .get('source-viewer@herald.local')!
+        expect(
+            access.grantProjectUserAccess({
+                projectId: project.id,
+                userId: viewer.id,
+                role: 'viewer',
+            })
+        ).not.toBeNull()
+        expect((await jsonRequest(app, url, viewerCookie)).status).toBe(200)
+        expect((await jsonRequest(app, url, viewerCookie, { method: 'PATCH', body })).status).toBe(
+            403
+        )
+        const outsiderCookie = await signUpFixtureAdditionalUser(
+            app,
+            'source-outsider@herald.local'
+        )
+        expect(
+            (await jsonRequest(app, url, outsiderCookie, { method: 'PATCH', body })).status
+        ).toBe(404)
+
+        expect(((await updated.json()) as { post: { sourceRevision: number } }).post).toMatchObject(
+            {
+                sourceRevision: 2,
+                sourceContent: { body: { text: 'Updated' } },
+            }
+        )
+        expect(database.$client.query('select * from publication_working_drafts').all()).toEqual(
+            before
+        )
+        expect((await jsonRequest(app, url, cookie, { method: 'PATCH', body })).status).toBe(409)
+        expect((await jsonRequest(app, url, '', { method: 'PATCH', body })).status).toBe(401)
+        expect(
+            (
+                await jsonRequest(app, url, cookie, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        expectedSourceRevision: 2,
+                        sourceContent: { media: [] },
+                    }),
+                })
+            ).status
+        ).toBe(400)
+    } finally {
+        closeDatabase(database)
+    }
+})

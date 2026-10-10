@@ -1,3 +1,4 @@
+import { sourceContentSchema } from '@herald/core'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -45,6 +46,50 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
             },
             ({ params, user, status }) => {
                 const post = manualStore.getPost(params.projectId, params.postId, user.id)
+                return post === null
+                    ? status(404, { error: { code: 'not_found', message: 'Post not found' } })
+                    : { post }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/posts/:postId',
+            {
+                auth: true,
+                detail: {
+                    operationId: 'savePostSource',
+                    summary: 'Save the shared source without modifying destinations',
+                    tags: ['Posts'],
+                },
+                params: Type.Object({
+                    projectId: Type.String({ minLength: 1 }),
+                    postId: Type.String({ minLength: 1 }),
+                }),
+                body: Type.Object({
+                    expectedSourceRevision: Type.Integer({ minimum: 1 }),
+                    sourceContent: sourceContentSchema,
+                }),
+                response: {
+                    200: Type.Object({ post: postSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+            },
+            ({ params, body, authMethod, user, status }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(403, forbiddenProjectMutation())
+                const post = manualStore.savePostSource({ ...params, ...body, subjectId: user.id })
                 return post === null
                     ? status(404, { error: { code: 'not_found', message: 'Post not found' } })
                     : { post }

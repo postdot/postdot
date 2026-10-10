@@ -789,3 +789,72 @@ test('opens the shared post from queue and keeps every destination reachable', a
     await page.getByRole('link', { name: 'Back to queue', exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/projects/${pair.id}/queue$`))
 })
+
+test('saves the post source explicitly and preserves local text on a concurrent source change', async ({
+    page,
+}, info) => {
+    const pair = await createDraftPair(page)
+    const first = await pair.read(page, pair.first)
+    const second = await pair.read(page, pair.second)
+    const postUrl = `/api/projects/${pair.id}/posts/${first.post.id}`
+    await page.goto(`/dashboard/projects/${pair.id}/posts/${first.post.id}`)
+    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await page.locator('#source-body').fill('Independent shared source')
+    expect((await pair.read(page, pair.first)).post.sourceRevision).toBe(1)
+    await expect(
+        page.getByRole('button', { name: 'Review destinations', exact: true })
+    ).toHaveCount(0)
+    const saved = page.waitForResponse(
+        response => response.url().endsWith(postUrl) && response.request().method() === 'PATCH'
+    )
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    expect((await saved).status()).toBe(200)
+    await expect(page.getByRole('region', { name: 'Current source', exact: true })).toContainText(
+        'Independent shared source'
+    )
+    expect((await pair.read(page, pair.first)).draft).toEqual(first.draft)
+    expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
+    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await page.locator('#source-body').fill('My unsaved source')
+    const external = await page.request.patch(postUrl, {
+        data: {
+            expectedSourceRevision: 2,
+            sourceContent: {
+                ...first.post.sourceContent,
+                body: { text: 'Concurrent shared source', format: 'plain_text' },
+            },
+        },
+    })
+    expect(external.status()).toBe(200)
+    await expect(
+        page.getByRole('alert').filter({ hasText: 'The source changed elsewhere.' })
+    ).toBeVisible()
+    await expect(page.locator('#source-body')).toHaveText('My unsaved source')
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+            false
+        )
+        await page.screenshot({ path: info.outputPath(`source-edit-conflict-${width}.png`) })
+    }
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Discard', exact: true }).click()
+    await page.getByRole('button', { name: 'Edit source', exact: true }).click()
+    await expect(page.locator('#source-body')).toHaveText('Concurrent shared source')
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Add destination', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    const addition = page.getByRole('dialog')
+    await addition.getByRole('combobox', { name: 'Channel', exact: true }).click()
+    await page.getByRole('option', { name: 'Second channel', exact: true }).click()
+    await addition.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await addition.getByRole('button', { name: 'Confirm another draft', exact: true }).click()
+    await expect(addition).toHaveCount(0)
+    await expect(
+        page
+            .getByRole('region', { name: 'Destinations', exact: true })
+            .locator('[data-publication-selection-card="true"]')
+    ).toHaveCount(3)
+    expect((await pair.read(page, pair.second)).draft).toEqual(second.draft)
+})

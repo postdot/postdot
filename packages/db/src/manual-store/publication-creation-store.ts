@@ -6,6 +6,7 @@ import {
     DomainInvariantError,
     requireNonBlank,
     requireTimestamp,
+    validateSourceContent,
     type ChannelProfileDefinition,
     type ChannelProfileCompiler,
     type DeliveryMode,
@@ -17,11 +18,17 @@ import {
 } from '@herald/core'
 
 import { createDatabaseTransaction, type HeraldDatabase } from '../client'
-import type { AddPostDestinationsInput, CreatePostInput, CreatedPost } from '../manual-store'
+import type {
+    AddPostDestinationsInput,
+    CreatePostInput,
+    CreatedPost,
+    SavePostSourceInput,
+} from '../manual-store'
 import {
     canonicalJson,
     contentHash,
     invalidProfileError,
+    invalidSourceContentError,
     invalidTargetContentError,
     isRecord,
     parseProfile,
@@ -585,6 +592,66 @@ export function createPublicationCreationStore(
             if (options.loadActor(projectId, subjectId) === null) return null
             const row = loadPostStatement.get(projectId, postId)
             return row === null ? null : toPost(row)
+        },
+        savePostSource(input: SavePostSourceInput): Post | null {
+            return createDatabaseTransaction(database, () => {
+                const actor = options.loadActor(input.projectId, input.subjectId)
+                const row = loadPostStatement.get(input.projectId, input.postId)
+                if (actor === null || row === null) return null
+                if (row.sourceRevision !== input.expectedSourceRevision) {
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        'The source post changed before it could be saved'
+                    )
+                }
+                const validation = validateSourceContent(input.sourceContent)
+                if (!validation.ok) throw invalidSourceContentError(validation.issues)
+                for (const media of validation.value.media) {
+                    const asset = client
+                        .query(
+                            'select id from media_assets where project_id = ?1 and id = ?2 and state = ?3 and deleted_at is null and deletion_requested_at is null'
+                        )
+                        .get(input.projectId, media.assetId, 'ready')
+                    if (asset === null)
+                        throw new DomainInvariantError(
+                            'invalid_content',
+                            'Source media must be available in this project'
+                        )
+                }
+                const content = canonicalJson(validation.value)
+                if (content === canonicalJson(toPost(row).sourceContent)) return toPost(row)
+                const timestamp = requireTimestamp(options.now(), 'now')
+                const result = client
+                    .query(
+                        `update posts set source_content = ?1, source_revision = source_revision + 1, updated_at = ?2 where project_id = ?3 and id = ?4 and source_revision = ?5`
+                    )
+                    .run(
+                        content,
+                        timestamp,
+                        input.projectId,
+                        input.postId,
+                        input.expectedSourceRevision
+                    )
+                if (result.changes !== 1)
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        'The source post changed before it could be saved'
+                    )
+                options.insertAuditEvent({
+                    id: options.createId(),
+                    projectId: input.projectId,
+                    actorId: actor.id,
+                    action: 'post.source.updated',
+                    entityType: 'post',
+                    entityId: input.postId,
+                    metadataJson: JSON.stringify({
+                        fromSourceRevision: row.sourceRevision,
+                        toSourceRevision: row.sourceRevision + 1,
+                    }),
+                    createdAt: timestamp,
+                })
+                return toPost(loadPostStatement.get(input.projectId, input.postId)!)
+            }).immediate()
         },
         addPostDestinations(input: AddPostDestinationsInput): CreatedPost | null {
             return createDatabaseTransaction(database, () => {

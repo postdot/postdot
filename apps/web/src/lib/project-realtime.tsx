@@ -34,6 +34,7 @@ const projectRealtimeEventTypes = [
     'channel.profile_draft.updated',
     'channel.profile_activated',
     'post.created',
+    'post.source.updated',
     'publication.created',
     'publication.approval_requested',
     'publication.approval_approved',
@@ -661,7 +662,7 @@ function isEmptyPayload(value: unknown): value is Record<string, never> {
 }
 
 function eventResource(type: ProjectRealtimeEventType): 'project' | 'publications' {
-    if (type.startsWith('publication') || type === 'post.created') return 'publications'
+    if (type.startsWith('publication') || type.startsWith('post.')) return 'publications'
     return 'project'
 }
 
