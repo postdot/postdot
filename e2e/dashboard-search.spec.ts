@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 test('searches across projects, opens source posts and keeps failures inside the palette', async ({
     page,
@@ -45,6 +45,8 @@ test('searches across projects, opens source posts and keeps failures inside the
         if (name === 'First') firstPostId = (await postResponse.json()).post.id
     }
     const projectId = projects[0]!
+    const mediaName = `search-photo-${suffix}.png`
+    const mediaId = await createMediaAsset(page, projectId, mediaName)
     await page.goto(`/dashboard/projects/${projectId}/overview`)
     await page.getByRole('button', { name: 'Search Herald', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search Herald', exact: true })
@@ -70,7 +72,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     ).toBeLessThan(8)
     await page.screenshot({ path: '/tmp/herald-search-loading.png' })
     releaseSearch()
-    await page.unroute('**/api/search?*')
+    await page.unrouteAll({ behavior: 'wait' })
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(2)
     const initialGeometry = await input.boundingBox()
     const initialPanel = await dialog.boundingBox()
@@ -134,4 +136,51 @@ test('searches across projects, opens source posts and keeps failures inside the
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(2)
     await page.keyboard.press('Escape')
     await expect(dialog).not.toBeVisible()
+    for (let attempt = 0; attempt < 2; attempt++) {
+        await page.keyboard.press('Control+k')
+        await input.fill(mediaName)
+        await dialog.getByRole('option', { name: new RegExp(mediaName) }).click()
+        await expect(page).toHaveURL(new RegExp(`/media\\?assetId=${mediaId}$`))
+        const information = page.getByRole('dialog')
+        await expect(information.getByText(mediaName, { exact: true })).toBeVisible()
+        await page.screenshot({ path: '/tmp/herald-search-media.png' })
+        await page.keyboard.press('Escape')
+        await expect(information).not.toBeVisible()
+        await expect(page).toHaveURL(new RegExp('/media$'))
+    }
 })
+
+const previewPng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+)
+
+async function createMediaAsset(page: Page, projectId: string, filename: string): Promise<string> {
+    const reserved = await page.request.post(`/api/projects/${projectId}/media/uploads`, {
+        data: {
+            originalFilename: filename,
+            contentType: 'image/png',
+            expectedSize: previewPng.byteLength,
+            defaultAccessibilityText: `Alt text for ${filename}`,
+        },
+    })
+    expect(reserved.status()).toBe(201)
+    const intent = (await reserved.json()) as { upload: { intentId: string } }
+
+    const uploaded = await page.request.put(
+        `/api/projects/${projectId}/media/uploads/${intent.upload.intentId}`,
+        { data: previewPng }
+    )
+    expect(uploaded.status()).toBe(200)
+
+    const finalized = await page.request.post(
+        `/api/projects/${projectId}/media/uploads/${intent.upload.intentId}/finalize`
+    )
+    expect(finalized.status()).toBe(200)
+    const finalized_ = (await finalized.json()) as {
+        status: 'ready' | 'failed'
+        media: { asset: { id: string } }
+    }
+    expect(finalized_.status).toBe('ready')
+    return finalized_.media.asset.id
+}

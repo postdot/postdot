@@ -1,7 +1,7 @@
 import { Button, buttonVariants } from '@herald/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { UploadIcon } from '@solar-icons/react/linear/upload'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -11,6 +11,8 @@ import * as m from '@/paraglide/messages.js'
 
 export function MediaLibraryPage() {
     useLanguage()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/media' })
+    const { assetId } = useSearch({ from: '/dashboard/projects/$projectId/media' })
     const { project, projectRole } = useProjectDashboard()
     const readOnly = projectRole === 'viewer'
 
@@ -20,6 +22,10 @@ export function MediaLibraryPage() {
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}
+                    inspectAssetId={assetId}
+                    onInspectClose={() => {
+                        if (assetId) void navigate({ search: {}, replace: true })
+                    }}
                     renderHeader={({ disabled, onImport, uploading, view }) => (
                         <DashboardPageHeader
                             back={

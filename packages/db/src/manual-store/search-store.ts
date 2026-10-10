@@ -1,7 +1,7 @@
 import type { HeraldDatabase } from '../client'
 
 export interface SearchResult {
-    readonly kind: 'post' | 'channel' | 'project'
+    readonly kind: 'post' | 'channel' | 'project' | 'media'
     readonly id: string
     readonly projectId: string
     readonly projectName: string
@@ -48,6 +48,26 @@ export function createSearchStore(database: HeraldDatabase) {
                     .all(...projectIds, needle, needle)
                 results.push(...rows.map(row => ({ ...row, kind })))
             }
+            const media = database.$client
+                .query<Omit<SearchResult, 'kind'>, string[]>(`
+                select item.id, item.project_id as projectId, project.name as projectName,
+                       item.original_filename as title,
+                       coalesce(item.default_accessibility_text, '') as description
+                from media_assets item join projects project on project.id = item.project_id
+                where item.project_id in (${parameters}) and item.state = 'ready'
+                  and item.archived_at is null
+                  and (instr(lower(item.original_filename), lower(?)) > 0
+                    or instr(lower(coalesce(item.default_accessibility_text, '')), lower(?)) > 0)
+                order by item.updated_at desc, item.id asc limit 10
+            `)
+                .all(...projectIds, needle, needle)
+            results.push(
+                ...media.map(row => ({
+                    ...row,
+                    kind: 'media' as const,
+                    description: row.description.slice(0, 180),
+                }))
+            )
             return results
         },
     }

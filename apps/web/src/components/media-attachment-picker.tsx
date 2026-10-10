@@ -94,6 +94,8 @@ export type MediaAttachmentPickerSelectionMode = 'attach' | 'manage'
 
 export interface MediaAttachmentPickerProps {
     readonly projectId: string
+    readonly inspectAssetId?: string
+    readonly onInspectClose?: () => void
     readonly scopeId?: string
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
@@ -142,6 +144,8 @@ function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
 
 function MediaAttachmentPickerView({
     projectId,
+    inspectAssetId,
+    onInspectClose,
     value,
     onChange,
     onAssetsChange,
@@ -193,6 +197,20 @@ function MediaAttachmentPickerView({
     const [viewerAllowsFileActions, setViewerAllowsFileActions] = useState(false)
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
     const [informationAsset, setInformationAsset] = useState<MediaReference | null>(null)
+    useEffect(() => {
+        if (!inspectAssetId) return
+        let active = true
+        api.getMedia(projectId, inspectAssetId)
+            .then(asset => {
+                if (active) setInformationAsset(asset)
+            })
+            .catch(caughtError => {
+                if (active) setError(errorMessage(caughtError))
+            })
+        return () => {
+            active = false
+        }
+    }, [projectId, inspectAssetId])
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
@@ -1774,7 +1792,10 @@ function MediaAttachmentPickerView({
             <MediaInformationDialog
                 asset={informationAsset}
                 onOpenChange={open => {
-                    if (!open) setInformationAsset(null)
+                    if (!open) {
+                        setInformationAsset(null)
+                        onInspectClose?.()
+                    }
                 }}
                 open={informationAsset !== null}
             />

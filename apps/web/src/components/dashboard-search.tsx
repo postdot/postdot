@@ -13,6 +13,7 @@ import { Kbd } from '@herald/ui/components/kbd'
 import { Switch } from '@herald/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
+import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
@@ -249,20 +250,24 @@ export function DashboardSearch({
                                 ))}
                             </CommandGroup>
                         )}
-                        {(['post', 'channel', 'project'] as const).map(kind => {
+                        {(['post', 'channel', 'project', 'media'] as const).map(kind => {
                             const items = results.filter(result => result.kind === kind)
                             const Icon =
                                 kind === 'post'
                                     ? DocumentTextIcon
                                     : kind === 'channel'
                                       ? LinkIcon
-                                      : Widget2Icon
+                                      : kind === 'media'
+                                        ? GalleryIcon
+                                        : Widget2Icon
                             const heading =
                                 kind === 'post'
                                     ? m.search_posts()
                                     : kind === 'channel'
                                       ? m.nav_channels()
-                                      : m.search_projects()
+                                      : kind === 'media'
+                                        ? m.nav_media()
+                                        : m.search_projects()
                             return items.length === 0 ? null : (
                                 <CommandGroup key={kind} heading={heading}>
                                     {items.map(result => (
@@ -271,7 +276,7 @@ export function DashboardSearch({
                                             value={`${kind}:${result.id}`}
                                             onSelect={() =>
                                                 go(
-                                                    `/dashboard/projects/${encodeURIComponent(result.projectId)}/${kind === 'post' ? `posts/${encodeURIComponent(result.id)}` : kind === 'channel' ? `channels#publisher-connection-${encodeURIComponent(result.id)}` : 'overview'}`
+                                                    `/dashboard/projects/${encodeURIComponent(result.projectId)}/${kind === 'post' ? `posts/${encodeURIComponent(result.id)}` : kind === 'channel' ? `channels#publisher-connection-${encodeURIComponent(result.id)}` : kind === 'media' ? `media?assetId=${encodeURIComponent(result.id)}` : 'overview'}`
                                                 )
                                             }>
                                             <Icon

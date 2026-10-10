@@ -138,8 +138,34 @@ describe('global dashboard search', () => {
                     }
                 ).results
             }
+            const actor = database.$client
+                .query<{ id: string }, string[]>(
+                    'select id from actors where project_id = ? limit 1'
+                )
+                .get(project.id)!
+            for (const [id, state, archivedAt] of [
+                ['search-media', 'ready', null],
+                ['search-pending', 'reserved', null],
+                ['search-archived', 'ready', now],
+            ] as const) {
+                database.$client.run(
+                    `insert into media_assets
+                    (id, project_id, original_filename, default_accessibility_text, state,
+                    archived_at, created_by_actor_id, created_at, updated_at)
+                    values (?, ?, 'Needle-photo.png', 'A mountain landscape', ?, ?, ?, ?, ?)`,
+                    [id, project.id, state, archivedAt, actor.id, now, now]
+                )
+            }
+            expect((await search(ownerCookie, 'mountain')).map(result => result.id)).toEqual([
+                'search-media',
+            ])
             const results = await search(ownerCookie, 'NEEDLE')
-            expect(results.map(result => result.kind)).toEqual(['project', 'channel', 'post'])
+            expect(results.map(result => result.kind)).toEqual([
+                'project',
+                'channel',
+                'post',
+                'media',
+            ])
             expect(results.filter(result => result.id === post.post.id)).toHaveLength(1)
             expect((await search(ownerCookie, '%_')).map(result => result.kind)).toEqual(['post'])
             expect(await search(ownerCookie, 'Needle', 'inaccessible-project')).toEqual([])
@@ -151,7 +177,7 @@ describe('global dashboard search', () => {
                     role: 'viewer',
                 })
             ).not.toBeNull()
-            expect(await search(readerCookie, 'Needle', project.id)).toHaveLength(3)
+            expect(await search(readerCookie, 'Needle', project.id)).toHaveLength(4)
             expect(access.removeProjectUserAccess(project.id, readerId)).toBe(true)
             expect(await search(readerCookie, 'Needle')).toEqual([])
             expect((await sessionRequest(app, '/api/search?q=x', ownerCookie)).status).toBe(422)

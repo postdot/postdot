@@ -5,7 +5,12 @@ import { errorResponse } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 const searchResult = Type.Object({
-    kind: Type.Union([Type.Literal('post'), Type.Literal('channel'), Type.Literal('project')]),
+    kind: Type.Union([
+        Type.Literal('post'),
+        Type.Literal('channel'),
+        Type.Literal('project'),
+        Type.Literal('media'),
+    ]),
     id: Type.String(),
     projectId: Type.String(),
     projectName: Type.String(),
@@ -37,7 +42,7 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
             },
             detail: {
                 operationId: 'searchHerald',
-                summary: 'Search current source posts, channels and accessible projects',
+                summary: 'Search current source posts, channels, media and accessible projects',
                 tags: ['Search'],
             },
         },
