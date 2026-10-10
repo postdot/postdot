@@ -27,6 +27,7 @@ import { MediaPermanentDeletionDialog } from '@/components/media-permanent-delet
 import { MediaSourcePickerDialog } from '@/components/media-source-picker-dialog'
 import { MediaUploadRecoveryNotice } from '@/components/media-upload-recovery-notice'
 import { MediaWebcamDialog } from '@/components/media-webcam-dialog'
+import { MediaLibrarySkeleton } from '@/components/media/media-library-skeleton'
 import {
     ApiError,
     api,
@@ -1550,14 +1551,7 @@ function MediaAttachmentPickerView({
                         ) : null}
 
                         {loading && assets.length === 0 ? (
-                            <p
-                                className={
-                                    inline
-                                        ? 'mt-2 text-xs text-muted-foreground'
-                                        : 'mt-4 text-sm text-muted-foreground'
-                                }>
-                                {m.media_loading()}
-                            </p>
+                            <MediaLibrarySkeleton viewMode={compact ? 'compact' : 'list'} />
                         ) : compact ? (
                             inline ? null : selectedAssets.length === 0 ? (
                                 <p className="mt-2 text-xs text-muted-foreground">

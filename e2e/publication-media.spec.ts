@@ -542,10 +542,27 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await createAccountAndProject(page, suffix)
     const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
 
+    let releaseLibrary!: () => void
+    const heldLibrary = new Promise<void>(resolve => {
+        releaseLibrary = resolve
+    })
+    await page.route('**/api/projects/*/media?*', async route => {
+        await heldLibrary
+        await route.continue()
+    })
     await page.getByRole('link', { name: 'Media', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
     await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible()
     await expect(page.locator('[data-media-dropzone="true"]')).toBeVisible()
+    const libraryLoading = page.getByRole('status', { name: 'Loading media…', exact: true })
+    await expect(libraryLoading).toBeVisible()
+    await expect(libraryLoading).toHaveText('')
+    await expect(libraryLoading.locator('[data-slot="skeleton"]')).toHaveCount(18)
+    await page.screenshot({ path: '/tmp/herald-media-library-loading.png', animations: 'disabled' })
+    releaseLibrary()
+    await page.unrouteAll({ behavior: 'wait' })
+    await expect(libraryLoading).not.toBeVisible()
+
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible()

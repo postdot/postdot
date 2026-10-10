@@ -715,3 +715,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[UX-386]** Center search loading feedback and adopt design skills `Priority: 🟡` `Complexity: S` — replace visible loading copy with a search-specific indicator inside the result region; install and apply both approved design skills.
 
 - [x] **[UX-387]** Improve media discovery and inspection `Priority: 🟡` `Complexity: S` — Owner-directed correction: image thumbnails in search, preview-first navigation, calmer media information layout, semantic page icons and shared tooltips on header/media actions. Preserve permissions and existing media operations. See worklog 2026-10-10-UX-387.
+
+- [x] **[UX-388]** Replace media loading text with faithful skeletons `Priority: 🟡` `Complexity: S` — Shared grid/list/compact loading surface for library and pickers; transfer review recorded in 2026-10-10-UX-388.
+- [ ] **[MEDIA-389]** Serve bounded image previews for library and search `Priority: 🟡` `Complexity: M` — Proposed: derivatives inside the Bun monolith, authenticated serving, existing assets and deletion/backup compatibility. Preserve originals; measure transfer savings. Video posters separate, no FFmpeg requirement introduced.

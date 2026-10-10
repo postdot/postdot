@@ -19,6 +19,7 @@ import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 import { MediaAssetCollection, mediaLibraryGridClass } from './media-asset-collection'
+import { MediaLibrarySkeleton } from './media-library-skeleton'
 import { MediaLibraryToolbar, type MediaLibraryFeatureOptions } from './media-library-toolbar'
 
 export interface MediaLibraryManagementSurfaceProps {
@@ -257,7 +258,7 @@ export function MediaLibraryManagementSurface({
             ) : null}
 
             {loading && assets.length === 0 ? (
-                <p className="mt-4 text-sm text-muted-foreground">{m.media_loading()}</p>
+                <MediaLibrarySkeleton viewMode={mediaViewMode} />
             ) : assets.length === 0 ? (
                 searchQuery.trim() !== '' ? (
                     <EmptyState

@@ -29,6 +29,8 @@ import type { MediaLibraryViewMode } from '@/lib/media-library-view'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
+import { MediaLibrarySkeleton } from './media-library-skeleton'
+
 export interface MediaAttachmentLibraryDialogProps {
     readonly open: boolean
     readonly onOpenChange: (open: boolean) => void
@@ -157,7 +159,7 @@ export function MediaAttachmentLibraryDialog({
                     data-media-attachment-scroll="true"
                     className="-mr-5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1 pr-5">
                     {loading ? (
-                        <p className="text-sm text-muted-foreground">{m.media_loading()}</p>
+                        <MediaLibrarySkeleton viewMode={mediaViewMode} />
                     ) : assets.length === 0 ? (
                         <EmptyState
                             action={
