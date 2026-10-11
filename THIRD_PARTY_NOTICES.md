@@ -26,8 +26,9 @@ code and definition licenses must be considered separately.
 
 Full available notice texts are retained in [docs/licenses](docs/licenses/README.md)
 and copied into the runtime image. The conservative production dependency closure
-contains 357 installed package versions; 345 ship notice files. The 12 missing
-texts are listed there for follow-up. This inventory does not establish bundle
+contains 357 installed package versions; 345 ship notice files. Nine additional
+versions have full texts recovered from version-linked upstream sources. Three
+remaining evidence gaps are listed there for release review. This inventory does not establish bundle
 reachability or clear the remaining public-release requirements.
 
 The portrait source was recovered from the UX-247 worklog:

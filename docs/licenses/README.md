@@ -1,4 +1,4 @@
-<!-- cspell:ignore Wischofsky -->
+<!-- cspell:ignore Wischofsky Bereket Engida -->
 
 # Distribution notice snapshot
 
@@ -39,26 +39,51 @@ license with its files. Notices for branded symbols do not grant trademark right
   attribution for the empty-state SVG pack by ravi kumar. The Figma resource
   page independently confirmed the owner-supplied license and creator.
 
-## Missing shipped texts
+## Recovered upstream texts
 
-These packages declare licenses in metadata but ship no top-level license or
-notice file. Obtain the applicable upstream version's text and copyright before
-public distribution if the package is included. Metadata is not a substitute.
+The original 12 packages shipped no top-level license file. Nine now have full
+texts recovered from their version's source repository. These are supplementary
+to the original 345-package installed-file snapshot, giving 354 of 357 package
+versions full texts with version-linked evidence.
 
-| Package                              | Version | Declared license |
-| ------------------------------------ | ------- | ---------------- |
-| `@better-auth/utils`                 | 0.4.2   | MIT              |
-| `@better-auth/utils`                 | 0.5.0   | MIT              |
-| `@uppy/components`                   | 2.0.0   | MIT              |
-| `@wrksz/themes`                      | 2.0.2   | MIT              |
-| `drizzle-orm`                        | 0.45.3  | Apache-2.0       |
-| `drizzle-typebox`                    | 0.3.3   | Apache-2.0       |
-| `mdast-util-inline-spoiler`          | 2.1.0   | MIT              |
-| `micromark-extension-inline-spoiler` | 2.1.0   | MIT              |
-| `mime-match`                         | 1.0.2   | ISC              |
-| `react-remove-scroll-bar`            | 2.3.8   | MIT              |
-| `remark-inline-spoiler`              | 2.1.0   | MIT              |
-| `wildcard`                           | 1.1.2   | MIT              |
+| Package / version                                                                                            | Retained text             | Evidence                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `@uppy/components@2.0.0`                                                                                     | `Uppy-components.LICENSE` | npm publication commit `3582173228dc2fa797e01df58a39def1a91708d4`                                                  |
+| `@wrksz/themes@2.0.2`                                                                                        | `Themes.LICENSE`          | npm publication commit `233310f99ca22c72937f647eb216165d26e43184`                                                  |
+| `drizzle-orm@0.45.3`, `drizzle-typebox@0.3.3`                                                                | `Drizzle.LICENSE`         | release tag `0.45.3`, commit `15454dbe49d827c6081f3d0231e2e7985e517295`; sibling manifest confirms TypeBox version |
+| `mdast-util-inline-spoiler@2.1.0`, `micromark-extension-inline-spoiler@2.1.0`, `remark-inline-spoiler@2.1.0` | `Inline-spoiler.LICENSE`  | commit `fdb18a6287a7999d20c9be32ce04f91941dd9b50`; all three source manifests match                                |
+| `mime-match@1.0.2`                                                                                           | `Mime-match.LICENSE`      | complete ISC section from README at npm publication commit `6299160272c42c3d26e56ddc444567cb985908f2`              |
+| `wildcard@1.1.2`                                                                                             | `Wildcard.LICENSE`        | complete MIT section from README at npm publication commit `d844aaa3ac09f35c79036178040c85b97ce74c54`              |
+
+The upstream sources are pinned:
+
+- `Uppy-components.LICENSE`: <https://raw.githubusercontent.com/transloadit/uppy/3582173228dc2fa797e01df58a39def1a91708d4/LICENSE>
+- `Themes.LICENSE`: <https://raw.githubusercontent.com/jakubwarkusz/themes/233310f99ca22c72937f647eb216165d26e43184/LICENSE>
+- `Drizzle.LICENSE`: <https://raw.githubusercontent.com/drizzle-team/drizzle-orm/15454dbe49d827c6081f3d0231e2e7985e517295/LICENSE>
+- `Inline-spoiler.LICENSE`: <https://raw.githubusercontent.com/hlysine/remark-inline-spoiler/fdb18a6287a7999d20c9be32ce04f91941dd9b50/LICENSE>
+- `Mime-match.LICENSE`: <https://raw.githubusercontent.com/DamonOehlman/mime-match/6299160272c42c3d26e56ddc444567cb985908f2/README.md>
+- `Wildcard.LICENSE`: <https://raw.githubusercontent.com/DamonOehlman/wildcard/d844aaa3ac09f35c79036178040c85b97ce74c54/README.md>
+
+## Remaining evidence gaps
+
+- `@better-auth/utils@0.4.2` and `@better-auth/utils@0.5.0`: the release sources
+  and npm manifests declare MIT and identify author Bereket Engida, but contain
+  no complete license text or project copyright notice. Release README files
+  state only `MIT`. This is missing notice evidence, not a claim that the
+  package is unlicensed or prohibited. Do not invent a copyright year or insert
+  another project's notice as though it were supplied for this package.
+  Sources: <https://github.com/better-auth/utils/tree/b20329a32d78f1f9bcc088bbd6f982b28c4192f1>
+  and <https://github.com/better-auth/utils/tree/f03c1c76aff7bfa3f4de4af47b112315c770a0d1>.
+- `react-remove-scroll-bar@2.3.8`: MIT declared. The npm publication commit
+  `b3b1287aad81def2e2ae707274b74531b61ddbaf` is unavailable in the declared
+  upstream repository. A full MIT notice exists in the current repository,
+  but the inspected package history reaches version 2.3.7, not 2.3.8. A current
+  notice alone is not presented as version-matched evidence. Verify release
+  provenance before closing this gap.
+
+These three gaps remain bounded release checks; no upstream contact or
+replacement dependency has been initiated. Metadata is not a substitute for
+version-specific notice evidence.
 
 ## Refresh before a release
 
@@ -84,3 +109,15 @@ SHA-256 values for the retained standalone texts:
 - `shadcn.LICENSE`: `fbdad8aa044b43ce787fbee20a866b0dd9643956a51e3df37d34c41b0c6ef7e7`
 
 - `CC-BY-4.0.LICENSE`: `9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411`
+
+- `Uppy-components.LICENSE`: `a0bceade78956c1954caa8dc9a8a665e78792ce94021baa15af72ffd6072b793`
+
+- `Themes.LICENSE`: `0576a0d0923e9d522619b04706ef80c124df6d4986c1defc6dd476d4a208300e`
+
+- `Drizzle.LICENSE`: `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`
+
+- `Inline-spoiler.LICENSE`: `91b4e39053f42a5527b261482df85d8319922ab80184631b4992b8ff91add8e7`
+
+- `Mime-match.LICENSE`: `246e1db8cdfb6f229c577d46b340606b0f8933530ea105a3db0599a825215fe3`
+
+- `Wildcard.LICENSE`: `984dad806fc9843be655fdef946a57198a48f8c79fe48a7ddb5064194fad1291`
