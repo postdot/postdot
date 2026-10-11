@@ -1,6 +1,6 @@
-# Proposed release policy
+# Release policy
 
-Status: proposed, awaiting owner acceptance. Related task: RELEASE-303.
+Status: accepted by the owner on 2026-10-11. Related task: RELEASE-303.
 This document does not authorize publication or change the current source-build
 installation. The repository and image visibility remain unchanged.
 
@@ -60,10 +60,11 @@ image. After acceptance, implement and validate the build workflow without
 external publication. Owner authorization of public opening and first publication
 remains a separate final step. Preserve the current local Compose path meanwhile.
 
-## Owner choices
+## Accepted scope and remaining evidence
 
-Accept or amend the registry, alpha version and two target architectures before
-implementing the publication workflow. If ARM validation cannot be completed,
+The owner accepted GHCR, the alpha version and two target architectures. A Docker
+Hub mirror is deferred until it serves a demonstrated distribution need.
+If ARM validation cannot be completed,
 report the obstacle and choose explicitly between postponing publication and
 launching with AMD64 only; do not silently reduce the advertised platforms.
 
@@ -72,3 +73,28 @@ launching with AMD64 only; do not silently reduce the advertised platforms.
 - [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Package visibility](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)
 - [Docker multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
+
+## Candidate workflow
+
+`.github/workflows/container-candidate.yml` is manual (`workflow_dispatch`) and
+has read-only repository permissions. Select the intended branch or tag when
+starting it. Both native jobs build from that selected commit, check the packaged
+H.264 decoder and Bun image generation, and run production recovery acceptance
+against the exact local image. The job summary records the source and local image
+ID; this ID is not a registry manifest digest. No login or push step exists.
+
+GitHub runner execution has not yet been performed from this private checkout.
+Local AMD64 evidence does not establish ARM64 support. The workflow is a candidate
+check, not a substitute for the integration gate before the eventual release.
+Images are not exported as large Actions artifacts in this preparation step.
+Publication and multi-platform manifest assembly remain separate work.
+
+For local checks against an already-built image:
+
+```bash
+HERALD_CONTAINER_TEST_IMAGE=herald:local bun run test:container:recovery
+```
+
+The supplied image must exist locally. The harness creates isolated disposable
+containers and directories but retains that image. Without this variable, the
+existing command still builds and removes its own uniquely tagged image.

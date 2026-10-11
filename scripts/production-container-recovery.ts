@@ -1,3 +1,4 @@
+// cspell:words nostdin image2pipe
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { chmod, mkdtemp, mkdir, rm } from 'node:fs/promises'
@@ -8,7 +9,8 @@ import { verifyProductionDashboard } from './production-web-assets'
 
 const repositoryRoot = resolve(import.meta.dir, '..')
 const runId = randomUUID().replaceAll('-', '').slice(0, 12)
-const imageTag = `herald-recovery:${runId}`
+const suppliedImage = process.env.HERALD_CONTAINER_TEST_IMAGE
+const imageTag = suppliedImage ?? `herald-recovery:${runId}`
 const containerName = `herald-recovery-${runId}`
 const testRoot = await mkdtemp(join(tmpdir(), 'herald-production-recovery-'))
 const sourceData = join(testRoot, 'source-data')
@@ -18,6 +20,7 @@ const authSecret = 'production-image-recovery-test-auth-secret'
 const mediaUrlSecret = 'production-image-recovery-test-media-secret'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 let imageBuilt = false
+let imageAvailable = false
 let containerStarted = false
 
 async function prepareContainerWritableDirectory(path: string): Promise<void> {
@@ -93,6 +96,11 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
         ])
         if (!executable.endsWith('/bun')) {
             throw new Error(`The production server is not running Bun: ${executable}`)
+        }
+        if (stage === 'source') {
+            const session = await fetch(`http://127.0.0.1:${port}/api/auth/get-session`)
+            if (!session.ok || (await session.json()) !== null)
+                throw new Error('Production session route did not return an anonymous session')
         }
         const recoveryStatus = await fetch(`http://127.0.0.1:${port}/api/recovery/status`)
         const recoveryBody = (await recoveryStatus.json()) as { held: boolean }
@@ -277,8 +285,34 @@ function runDockerLogs(container: string): string {
 try {
     await prepareContainerWritableDirectory(sourceData)
     await prepareContainerWritableDirectory(backupDirectory)
-    runDocker(['build', '--tag', imageTag, '.'])
-    imageBuilt = true
+    if (suppliedImage === undefined) {
+        runDocker(['build', '--tag', imageTag, '.'])
+        imageBuilt = true
+    } else {
+        runDocker(['image', 'inspect', imageTag])
+    }
+    imageAvailable = true
+    runDocker([
+        'run',
+        '--rm',
+        '--mount',
+        `type=bind,source=${join(repositoryRoot, 'packages/db/src/fixtures/video-h264.mp4')},target=/fixture.mp4,readonly`,
+        '--entrypoint',
+        'bun',
+        imageTag,
+        '-e',
+        `const child = Bun.spawn(['/usr/local/bin/herald-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
+        const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
+        try {
+            const source = await new Response(child.stdout).blob();
+            if (await child.exited !== 0) throw new Error('Poster decoder failed');
+            const placeholder = await new Bun.Image(source).placeholder();
+            const preview = await new Bun.Image(source).resize(256, 256, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).blob();
+            const metadata = await new Bun.Image(preview).metadata();
+            if (!placeholder || preview.size === 0 || metadata.width > 256 || metadata.height > 256) throw new Error('Native image preview failed');
+        } finally { clearTimeout(timer); }`,
+    ])
+    console.log('Packaged H.264 decoder and native image preview generation passed.')
 
     await startServer(sourceData, 'source')
 
@@ -330,7 +364,7 @@ try {
         }
     }
 
-    if (imageBuilt) {
+    if (imageAvailable) {
         try {
             runDocker([
                 'run',
@@ -350,7 +384,9 @@ try {
         } catch {
             // The host cleanup below still removes these paths when ownership permits it.
         }
+    }
 
+    if (imageBuilt) {
         try {
             runDocker(['image', 'rm', imageTag])
         } catch {
