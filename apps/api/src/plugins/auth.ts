@@ -12,8 +12,15 @@ interface UserApiKeyAuthentication {
     readonly permissions: HeraldApiKeyPermissions
 }
 
-export function createAuthRoutes(auth: HeraldAuth) {
-    return new Elysia({ name: 'herald-auth-routes' }).mount(auth.handler)
+export function createAuthRoutes(auth: Pick<HeraldAuth, 'handler'>) {
+    return (
+        new Elysia({ name: 'herald-auth-routes' })
+            // A method-specific SPA fallback otherwise wins over the root ALL mount.
+            .get('/api/auth/*', { parse: 'none', detail: { hide: true } }, ({ request }) =>
+                auth.handler(request)
+            )
+            .mount(auth.handler)
+    )
 }
 
 export interface AuthenticatedElysiaOptions {

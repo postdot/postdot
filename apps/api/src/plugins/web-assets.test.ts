@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { Elysia } from 'elysia'
+
+import { createAuthRoutes } from './auth'
 import { createWebAssets } from './web-assets'
 
 describe('Herald web assets', () => {
@@ -38,6 +41,46 @@ describe('Herald web assets', () => {
                 new Request('http://localhost/assets/missing.js')
             )
             expect(unknownAssetResponse.status).toBe(404)
+        })
+    })
+
+    it('keeps mounted auth GET and POST routes ahead of the dashboard fallback', async () => {
+        await withAssetFixture(async directory => {
+            const auth = {
+                handler: async (request: Request) =>
+                    Response.json({
+                        path: new URL(request.url).pathname,
+                        method: request.method,
+                        body: request.method === 'POST' ? await request.json() : null,
+                    }),
+            }
+            const app = new Elysia()
+                .use(createAuthRoutes(auth))
+                .use(await createWebAssets(directory))
+
+            const session = await app.handle(new Request('http://localhost/api/auth/get-session'))
+            expect(session.status).toBe(200)
+            expect(await session.json()).toEqual({
+                path: '/api/auth/get-session',
+                method: 'GET',
+                body: null,
+            })
+            const signIn = await app.handle(
+                new Request('http://localhost/api/auth/sign-in/email', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ email: 'operator@example.com' }),
+                })
+            )
+            expect(signIn.status).toBe(200)
+            expect(await signIn.json()).toEqual({
+                path: '/api/auth/sign-in/email',
+                method: 'POST',
+                body: { email: 'operator@example.com' },
+            })
+            const dashboard = await app.handle(new Request('http://localhost/dashboard'))
+            expect(dashboard.status).toBe(200)
+            expect(await dashboard.text()).toContain('<title>Herald fixture</title>')
         })
     })
 

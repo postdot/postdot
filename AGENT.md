@@ -13,6 +13,8 @@ It provides one source of truth for automated and manual destinations. It does n
 replace project-specific communications repositories or act as an embedded AI
 content generator.
 
+- **License review scope (owner direction, 2026-10-11):** Preserve upstream declarations and available notices with minimal attribution. Do not pursue exhaustive transitive-license investigations during product work; keep unresolved release facts recorded without adding user-facing reading requirements.
+
 - **Licensing:** Original Herald code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
 
 ## ⚙️ Workflow & Preferences

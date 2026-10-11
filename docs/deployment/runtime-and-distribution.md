@@ -6,12 +6,12 @@ claim that a public distribution is ready.
 
 ## Runtime boundaries
 
-| Scope | Current execution |
-| --- | --- |
-| Production API, scheduler, worker, dashboard files | One Bun process, bundled Elysia server |
-| Database and object storage | Bun SQLite and Bun-backed local/S3 adapters |
-| Web compilation and development server | Vite explicitly launched with Bun |
-| Browser tests and other developer CLIs | Tool-dependent; some use Node |
+| Scope                                              | Current execution                           |
+| -------------------------------------------------- | ------------------------------------------- |
+| Production API, scheduler, worker, dashboard files | One Bun process, bundled Elysia server      |
+| Database and object storage                        | Bun SQLite and Bun-backed local/S3 adapters |
+| Web compilation and development server             | Vite explicitly launched with Bun           |
+| Browser tests and other developer CLIs             | Tool-dependent; some use Node               |
 
 Imports from `node:*` are compatibility APIs available in Bun, not evidence of a
 separate Node process. The Bun base image also supplies a command named `node`
@@ -38,8 +38,9 @@ recovery step and a local `bun run test:container:recovery` command.
 
 The recovery check uses a fresh image and isolated temporary data. It checks the
 production executable, readiness, dashboard assets, database/media backup and
-restored startup. It does not prove real publisher delivery, graceful shutdown,
-multi-architecture support or an upgrade from a previously released image.
+restored startup. It also checks graceful shutdown and forced-termination visibility. It does not
+prove real publisher delivery, multi-architecture support or an upgrade from a
+previously released image.
 
 The October 4 review reproduced and corrected a web build failure in the Bun
 container. Browser loading, web compilation and module hot updates also passed
@@ -73,8 +74,7 @@ an orderly stop. Track any remaining release work in OPS-300 follow-ups.
    (DOCS-304).
 
 A README, contributor guide and several deployment/security documents already
-exist. Their presence does not yet provide a coherent first-user journey. No root
-project license, production Compose file or image-publication workflow was found
-in this review. Provider/API references and asset-specific licenses do not settle
-the license of Herald itself. License selection and external publication remain
-owner decisions, not implicit consequences of the technical checks above.
+exist. The first-user journey is now consolidated in DOCS-301. The original review predated the accepted AGPL-3.0-only license and the production
+Compose example. See the root LICENSE and [installation guide](self-hosting.md)
+for their current state. An image-publication workflow remains future work;
+external publication is still an owner decision.

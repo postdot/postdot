@@ -283,6 +283,10 @@ critical-path behavior, not a global percentage, is the merge requirement.
 
 ## Production deployment and recovery
 
+Start with the [Docker Compose installation guide](docs/deployment/self-hosting.md)
+for a fresh self-hosted deployment. The reference commands below cover maintenance
+and existing deployment details.
+
 On Linux x64, record the comparable M0 build and runtime footprint with:
 
 ```sh
