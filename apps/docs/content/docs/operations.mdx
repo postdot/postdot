@@ -1,0 +1,21 @@
+---
+title: Backups and updates
+description: Preserve data and control external effects after restoration.
+---
+
+The administrator owns backup scheduling, retention and off-host storage. Herald
+provides commands for consistent database backups and complete bundles that can
+include managed media.
+
+Keep the deployment secrets separately. Restoring a database does not reconstruct
+lost encryption keys or undo an action that already happened at a provider.
+
+A restored instance starts with a recovery hold. Inspect the restored state and
+external outcomes before explicitly resuming delivery. Do not remove the hold
+merely to make the scheduler start again.
+
+Before upgrading, take a backup and keep the matching previous image or source
+revision. Replacing the image does not reverse a database migration.
+
+Use the verified [installation guide](/docs/installation/) for the backup,
+restoration and update commands. Published image versions remain future work.

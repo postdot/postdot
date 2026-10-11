@@ -20,6 +20,7 @@ WORKDIR /app
 
 COPY package.json bun.lock turbo.json tsconfig.json bunfig.toml ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/docs/package.json apps/docs/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/client/package.json packages/client/package.json
@@ -41,7 +42,7 @@ RUN HUSKY=0 bun install --frozen-lockfile
 
 COPY . .
 
-RUN bun run build
+RUN bunx --no-install turbo run build --filter=@herald/api --filter=@herald/web
 RUN mkdir -p /out/migrations /out/public
 RUN cp apps/api/dist/index.js /out/herald.js
 RUN cp -R packages/db/drizzle/. /out/migrations/

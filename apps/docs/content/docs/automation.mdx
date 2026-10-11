@@ -1,0 +1,21 @@
+---
+title: API and CLI
+description: The web app is one client of Herald.
+---
+
+The REST API and machine CLI use the same project boundaries and publication
+workflow. An API key has a stored scope and action ceilings, and its owner's
+current access still applies.
+
+Create a key with only the projects and actions your integration needs. Keep the
+key private and revoke it when the integration no longer needs it.
+
+From a source checkout, discover available CLI commands with:
+
+```sh
+bun run herald --help
+```
+
+The typed client lives in `packages/client`. Discovery and read commands do not
+publish content; publication actions remain explicit. A detailed command reference
+will follow the verified installation and basic workflow guides.

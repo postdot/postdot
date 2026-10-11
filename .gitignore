@@ -30,3 +30,10 @@ data/
 .DS_Store
 *.log
 *.pem
+
+# Static documentation build
+apps/docs/.next/
+apps/docs/.source/
+apps/docs/out/
+apps/docs/next-env.d.ts
+apps/docs/content/docs/installation.mdx

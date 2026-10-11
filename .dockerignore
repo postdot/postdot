@@ -13,3 +13,7 @@ node_modules
 *.sqlite
 *.sqlite-*
 *.log
+
+.next
+.source
+out

@@ -1,0 +1,24 @@
+---
+title: Provider connections
+description: Connect destinations without mixing them with your Herald login.
+---
+
+Herald supports connected channels for Bluesky, Discord, LinkedIn, Mastodon, X and
+DEV.to, alongside manual and custom HTTP destinations. Content and media support
+vary by provider and profile.
+
+Connect an account from its channel. Some providers require an application, scopes
+or account eligibility; others use a token. Herald account login is separate from
+these publisher connections.
+
+OAuth providers need a reachable deployment and correct callback configuration.
+Bluesky has additional public client-metadata requirements, so an ordinary local
+installation is not sufficient for its OAuth connection.
+
+Keep tokens on the server. Do not place provider credentials in shared post content
+or commit them to the repository. A successful connection confirms authorization,
+not unrestricted access to every provider feature.
+
+The deployment-specific provider requirements remain documented in the source
+checkout at `docs/deployment/provider-requirements.md`. Full provider setup guides
+will be added before the public launch.
