@@ -10,6 +10,7 @@ import '@fontsource-variable/bricolage-grotesque'
 import '@fontsource-variable/space-grotesk'
 
 import './directions.css'
+import './prism-system.css'
 
 import { HeraldLogo } from './brand'
 const labels = { prism: 'Prism', studio: 'Studio', signal: 'Signal' }
@@ -34,23 +35,28 @@ function Comparison({ current }: { current?: Style }) {
     return (
         <nav className="d-comparison" aria-label="Design directions">
             <Link href="/">Directions</Link>
-            {directions.map(style => (
-                <Link
-                    key={style}
-                    href={`/directions/${style}/`}
-                    aria-current={current === style ? 'page' : undefined}>
-                    {labels[style]}
-                </Link>
-            ))}
+            {directions
+                .filter(style => style !== 'signal')
+                .map(style => (
+                    <Link
+                        key={style}
+                        href={`/directions/${style}/`}
+                        aria-current={current === style ? 'page' : undefined}>
+                        {labels[style]}
+                    </Link>
+                ))}
         </nav>
     )
 }
-function Header() {
+function Header({ style }: { style: Style }) {
     return (
         <header className="d-header">
             <Brand />
             <nav aria-label="Main navigation">
                 <a href="#workflow">Product</a>
+                {style === 'prism' && (
+                    <Link href="/directions/prism/workspace/">Workspace study</Link>
+                )}
                 <Link href="/docs/">Docs</Link>
                 <Link className="d-small-cta" href="/docs/installation/">
                     Get started
@@ -406,7 +412,7 @@ export function Direction({ direction: style }: { direction: Style }) {
             <a className="d-skip" href="#main">
                 Skip to content
             </a>
-            <Header />
+            <Header style={style} />
             <main id="main">
                 {style === 'prism' ? (
                     <section className="d-hero prism-hero">
@@ -452,7 +458,7 @@ export function Direction({ direction: style }: { direction: Style }) {
                                 <p>
                                     A new collection.
                                     <br />
-                                    Three ways to tell the story.
+                                    Two directions to tell the story.
                                 </p>
                                 <span>Form & Field / Friday</span>
                             </div>
@@ -555,44 +561,42 @@ export function DirectionGallery() {
             </header>
             <main>
                 <h1>
-                    Three ways
+                    Two directions
                     <br />
                     to see Herald.
                 </h1>
                 <p>Typography. Material. Rhythm. A complete direction for each.</p>
                 <div className="d-gallery-list">
-                    {directions.map(style => (
-                        <Link
-                            className={`d-gallery-card direction-${style}`}
-                            key={style}
-                            href={`/directions/${style}/`}>
-                            <div className="d-gallery-art">
-                                {style === 'signal' ? (
-                                    <SignalField />
-                                ) : (
+                    {directions
+                        .filter(style => style !== 'signal')
+                        .map(style => (
+                            <Link
+                                className={`d-gallery-card direction-${style}`}
+                                key={style}
+                                href={`/directions/${style}/`}>
+                                <div className="d-gallery-art">
                                     <img src={image(style)} width="1536" height="1024" alt="" />
-                                )}
-                                <span>
-                                    {style === 'prism'
-                                        ? 'Good ideas deserve to travel.'
-                                        : style === 'studio'
-                                          ? 'Make it. Share it. Own it.'
-                                          : 'Your voice. Full reach. Your rules.'}
-                                </span>
-                            </div>
-                            <div className="d-gallery-caption">
-                                <h2>{labels[style]}</h2>
-                                <p>
-                                    {style === 'prism'
-                                        ? 'Light, glass and product depth.'
-                                        : style === 'studio'
-                                          ? 'Image-led, expressive and independent.'
-                                          : 'Dark, precise and broadcast-inspired.'}
-                                </p>
-                                <span aria-hidden="true">↗</span>
-                            </div>
-                        </Link>
-                    ))}
+                                    <span>
+                                        {style === 'prism'
+                                            ? 'Good ideas deserve to travel.'
+                                            : style === 'studio'
+                                              ? 'Make it. Share it. Own it.'
+                                              : 'Your voice. Full reach. Your rules.'}
+                                    </span>
+                                </div>
+                                <div className="d-gallery-caption">
+                                    <h2>{labels[style]}</h2>
+                                    <p>
+                                        {style === 'prism'
+                                            ? 'Light, glass and product depth.'
+                                            : style === 'studio'
+                                              ? 'Image-led, expressive and independent.'
+                                              : 'Dark, precise and broadcast-inspired.'}
+                                    </p>
+                                    <span aria-hidden="true">↗</span>
+                                </div>
+                            </Link>
+                        ))}
                 </div>
             </main>
         </div>
