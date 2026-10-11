@@ -35,6 +35,10 @@ The Dockerfile copies this directory to `/app/licenses`, alongside FFmpeg's
 notice from its build stage. The web build already ships the emoji dataset
 license with its files. Notices for branded symbols do not grant trademark rights.
 
+- `CC-BY-4.0.LICENSE` and `Empty-state-illustrations.md`: full legal text and
+  attribution for the empty-state SVG pack by ravi kumar. The Figma resource
+  page independently confirmed the owner-supplied license and creator.
+
 ## Missing shipped texts
 
 These packages declare licenses in metadata but ship no top-level license or
@@ -78,3 +82,5 @@ SHA-256 values for the retained standalone texts:
 - `Provider-logos.LICENSE`: `36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673`
 - `Recursive.LICENSE`: `b4160a38a0fb152c167fada709bd6757a5785cfa4670c3106d386d5558626ce3`
 - `shadcn.LICENSE`: `fbdad8aa044b43ce787fbee20a866b0dd9643956a51e3df37d34c41b0c6ef7e7`
+
+- `CC-BY-4.0.LICENSE`: `9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411`

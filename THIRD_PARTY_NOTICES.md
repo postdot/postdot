@@ -37,9 +37,12 @@ It remains an illustrative stock photo, not a connected user's identity. The
 of this use, subject to its restrictions; this is not a clearance of personality
 or trademark rights. The photographer and original photo page remain unverified.
 
-The 16 empty-state SVGs have no identified source/license in their files or the
-inspected repository history. Their provenance remains a public-release blocker;
-no ownership or license is inferred from their inclusion in Git.
+The 16 empty-state SVGs are selected exports from
+[Empty State Illustrations](https://www.figma.com/community/file/1348310526654272437/empty-state-illustrations)
+by [ravi kumar](https://www.figma.com/@ravirafa), licensed under CC BY 4.0.
+Attribution and integration details are retained in
+[docs/licenses/Empty-state-illustrations.md](docs/licenses/Empty-state-illustrations.md),
+alongside the full license text, and copied into the runtime image.
 
 ## Direct production dependencies
 
@@ -138,9 +141,9 @@ license texts or a transitive dependency review.
   than inferring rights from a package name or registry label.
 - Preserve the original licenses of adapted components and copied assets. Ensure
   source releases and images carry the appropriate license and notice files.
-- Establish source, permission and attribution requirements for the empty-state SVG
-  illustrations and sample portrait. The portrait source URL is recovered above; the SVG source and permissions
-  still need confirmation. No clearance of those SVGs is asserted.
+- Preserve the empty-state illustration attribution, source and CC BY 4.0 text
+  in the release, including any later modifications. The portrait source URL is
+  recovered above; non-copyright rights remain outside this inventory.
 - Supply source corresponding to the released Herald executable, including build
   scripts, and a source-access mechanism appropriate to AGPL obligations. Agree on
   the public source location before implementing links in the application.
