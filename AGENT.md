@@ -13,6 +13,8 @@ It provides one source of truth for automated and manual destinations. It does n
 replace project-specific communications repositories or act as an embedded AI
 content generator.
 
+- **Licensing:** Original Herald code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
+
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits

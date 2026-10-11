@@ -3,6 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "description": "OAuth protocol mechanics for Herald publisher connections",
+    "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
     "exports": {

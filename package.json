@@ -2,6 +2,7 @@
     "name": "herald",
     "private": true,
     "description": "Lightweight, self-hosted multichannel publication orchestrator",
+    "license": "AGPL-3.0-only",
     "workspaces": [
         "apps/*",
         "packages/*"

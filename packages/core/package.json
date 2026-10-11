@@ -3,6 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "description": "Framework-independent Herald domain model",
+    "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
     "exports": {

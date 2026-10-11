@@ -7,6 +7,13 @@ Current target-state specifications live in [`.autonomos/specs/`](.autonomos/spe
 with technical rationale in
 [`.autonomos/decisions/`](.autonomos/decisions/).
 
+## License
+
+Herald's original code is licensed under **AGPL-3.0-only**. See [LICENSE](LICENSE).
+Third-party code and assets retain their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the current inventory and
+remaining distribution checks. This choice does not announce a public release.
+
 ## Development
 
 Requirements: Bun 1.4.2 or newer.

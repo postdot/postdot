@@ -53,6 +53,8 @@ WORKDIR /app
 
 COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/herald-poster
 COPY --from=poster /src/ffmpeg-9.0.2/COPYING.LGPLv2.1 ./licenses/FFmpeg.LICENSE
+COPY --from=build --chown=bun:bun /app/LICENSE ./LICENSE
+COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 COPY --from=build --chown=bun:bun /out/herald.js ./herald.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public

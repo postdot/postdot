@@ -1,6 +1,7 @@
 {
     "name": "@herald/web",
     "private": true,
+    "license": "AGPL-3.0-only",
     "type": "module",
     "scripts": {
         "prebuild": "bun run i18n:compile && bun run i18n:coverage",
