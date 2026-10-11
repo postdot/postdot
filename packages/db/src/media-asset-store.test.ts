@@ -355,6 +355,95 @@ describe('project media lifecycle', () => {
         })
     })
 
+    it('backfills legacy images without duplicates and repairs only the missing stored variant', async () => {
+        await withFixture(async ({ media, projectId, subjectId, store, database }) => {
+            const bytes = previewFixturePng(40, 30)
+            const reservation = media.reserveUpload({
+                projectId,
+                subjectId,
+                originalFilename: 'legacy.png',
+                expectedSize: bytes.length,
+                contentType: 'image/png',
+            })!
+            await media.upload({
+                projectId,
+                subjectId,
+                intentId: reservation.intent.id,
+                source: streamOf(bytes),
+            })
+            await media.finalizeUpload({ projectId, subjectId, intentId: reservation.intent.id })
+            const initial = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            for (const item of initial.representations.filter(item => item.kind === 'derived'))
+                await store.delete(item.objectKey)
+            database.$client.run(
+                "delete from media_representations where asset_id = ? and kind = 'derived'",
+                [reservation.asset.id]
+            )
+            expect(await media.generateMissingImagePreviews({ dryRun: true })).toEqual({
+                eligible: 1,
+                generated: 0,
+                alreadyReady: 0,
+                failed: 0,
+            })
+            expect(
+                media.getAsset(projectId, reservation.asset.id, subjectId)?.representations
+            ).toHaveLength(1)
+            expect(
+                await media.generateMissingImagePreviews({ projectId: 'other-project' })
+            ).toEqual({ eligible: 0, generated: 0, alreadyReady: 0, failed: 0 })
+            expect(await media.generateMissingImagePreviews()).toEqual({
+                eligible: 1,
+                generated: 1,
+                alreadyReady: 0,
+                failed: 0,
+            })
+            const filled = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            expect(filled.representations).toHaveLength(3)
+            expect(await media.generateMissingImagePreviews()).toEqual({
+                eligible: 1,
+                generated: 0,
+                alreadyReady: 1,
+                failed: 0,
+            })
+            expect(
+                media.getAsset(projectId, reservation.asset.id, subjectId)?.representations
+            ).toEqual(filled.representations)
+            const previews = filled.representations.filter(item => item.kind === 'derived')
+            await store.delete(previews[0]!.objectKey)
+            expect(await media.generateMissingImagePreviews()).toEqual({
+                eligible: 1,
+                generated: 1,
+                alreadyReady: 0,
+                failed: 0,
+            })
+            const repaired = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            expect(repaired.representations.find(item => item.id === previews[0]!.id)?.state).toBe(
+                'failed'
+            )
+            expect(repaired.representations.find(item => item.id === previews[1]!.id)).toEqual(
+                previews[1]
+            )
+            expect(
+                repaired.representations.filter(
+                    item => item.kind === 'derived' && item.state === 'ready'
+                )
+            ).toHaveLength(2)
+            expect(repaired.representations.find(item => item.kind === 'original')).toEqual(
+                initial.representations.find(item => item.kind === 'original')
+            )
+            const original = await media.openAssetContent(
+                projectId,
+                reservation.asset.id,
+                subjectId
+            )
+            expect(new Uint8Array(await new Response(original!.stream).arrayBuffer())).toEqual(
+                new Uint8Array(bytes)
+            )
+            media.requestDeletion(projectId, reservation.asset.id, subjectId)
+            expect((await media.generateMissingImagePreviews()).eligible).toBe(0)
+        })
+    })
+
     it('reserves, streams, verifies, and finalizes an immutable representation', async () => {
         await withFixture(async ({ media, projectId, subjectId }) => {
             const bytes = createPng()

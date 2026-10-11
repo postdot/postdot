@@ -718,3 +718,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[UX-388]** Replace media loading text with faithful skeletons `Priority: 🟡` `Complexity: S` — Shared grid/list/compact loading surface for library and pickers; transfer review recorded in 2026-10-10-UX-388.
 - [x] **[MEDIA-389]** Serve bounded image previews for library and search `Priority: 🟡` `Complexity: M` — Stored 256/768 WebP variants and embedded ThumbHash placeholder at import, native Bun, authenticated delivery, one library asset, deletion/backup compatibility and original publication bytes preserved. Focused store/API/backup/provider and browser checks. See worklogs/2026-10-11-MEDIA-389.md. Existing images and video posters remain separate.
+
+- [x] **[MEDIA-390]** Generate missing previews for existing images `Priority: 🟡` `Complexity: M` — Explicit offline maintenance command, shared import processor, restart-safe missing-variant selection, original bytes and publication references preserved.

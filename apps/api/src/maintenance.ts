@@ -1,5 +1,10 @@
+import { statSync } from 'node:fs'
+
 import {
     acquireRuntimeQuiescenceLock,
+    createDatabase,
+    closeDatabase,
+    createMediaAssetStore,
     createRecoveryHold,
     readRecoveryHold,
     releaseRecoveryHold,
@@ -24,11 +29,45 @@ export async function runMaintenanceCommand(
         await runLocalAccountPasswordRecovery(args)
         return true
     }
-    if (command !== 'backup' && command !== 'restore' && command !== 'recovery') return false
+    if (!['backup', 'restore', 'recovery', 'media-previews'].includes(command ?? '')) return false
 
     const databaseFilename = optionValue(args, '--database') ?? options.databaseFileName
     if (databaseFilename === undefined) {
         throw new Error('A database path must be configured or passed with --database')
+    }
+
+    if (command === 'media-previews') {
+        const mediaStore = requireMediaStore(options)
+        const projectId = args.includes('--project') ? requiredOption(args, '--project') : undefined
+        if (!statSync(databaseFilename).isFile())
+            throw new Error('An existing database file is required')
+        const lock = acquireRuntimeQuiescenceLock(databaseFilename, 'recovery')
+        let released = false
+        try {
+            const database = createDatabase(databaseFilename)
+            try {
+                const report = await createMediaAssetStore(
+                    database,
+                    mediaStore
+                ).generateMissingImagePreviews({
+                    projectId,
+                    dryRun: args.includes('--dry-run'),
+                })
+                console.log(JSON.stringify({ dryRun: args.includes('--dry-run'), ...report }))
+                if (report.failed > 0)
+                    throw new Error(
+                        'Some image previews could not be generated; originals were preserved'
+                    )
+            } finally {
+                closeDatabase(database)
+            }
+        } finally {
+            released = lock.release()
+            if (!released)
+                console.error('[herald-maintenance] media preview runtime lock was retained')
+        }
+        if (!released) throw new Error('Media preview runtime lock was retained')
+        return true
     }
 
     if (command === 'recovery') {
@@ -97,7 +136,7 @@ export async function runMaintenanceCommand(
 
 function requireMediaStore(options: { readonly mediaStore?: MediaStore }): MediaStore {
     if (options.mediaStore === undefined) {
-        throw new Error('A configured media store is required when --media is used')
+        throw new Error('A configured media store is required for this command')
     }
     return options.mediaStore
 }

@@ -377,11 +377,16 @@ if (import.meta.main) {
             console.error(`[herald-maintenance] ${message}`)
             process.exitCode = 1
         }
-    } else if (args[0] === 'backup' || args[0] === 'restore' || args[0] === 'recovery') {
+    } else if (
+        args[0] === 'backup' ||
+        args[0] === 'restore' ||
+        args[0] === 'recovery' ||
+        args[0] === 'media-previews'
+    ) {
         const config = createHeraldMaintenanceConfig()
         await runMaintenanceCommand(args, {
             databaseFileName: config.databaseFileName,
-            ...(args.includes('--media')
+            ...(args.includes('--media') || args[0] === 'media-previews'
                 ? { mediaStore: createConfiguredMediaStore(config.media) }
                 : {}),
         })

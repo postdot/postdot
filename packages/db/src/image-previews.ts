@@ -16,7 +16,10 @@ export async function generateImagePreviews(
         width: number,
         height: number,
         placeholder: string
-    ) => Promise<void>
+    ) => Promise<void>,
+    variants: readonly ImagePreviewVariant[] = Object.keys(
+        imagePreviewPresets
+    ) as ImagePreviewVariant[]
 ): Promise<void> {
     const previous = processing
     let release!: () => void
@@ -29,19 +32,14 @@ export async function generateImagePreviews(
         if (opened === null) throw new Error('Image source unavailable')
         const source = await new Response(opened.stream).blob()
         const placeholder = await new Bun.Image(source).placeholder()
-        for (const [variant, dimension] of Object.entries(imagePreviewPresets)) {
+        for (const variant of variants) {
+            const dimension = imagePreviewPresets[variant]
             const blob = await new Bun.Image(source)
                 .resize(dimension, dimension, { fit: 'inside', withoutEnlargement: true })
                 .webp({ quality: 80 })
                 .blob()
             const metadata = await new Bun.Image(blob).metadata()
-            await consume(
-                variant as ImagePreviewVariant,
-                blob,
-                metadata.width,
-                metadata.height,
-                placeholder
-            )
+            await consume(variant, blob, metadata.width, metadata.height, placeholder)
         }
     } finally {
         release()

@@ -313,6 +313,28 @@ OPS-10 deployment baseline.
 The example reuses the local environment file for convenience; deployment setups
 should provide an equivalent secret-managed environment file and must not commit it.
 
+To generate missing thumbnails for images imported before stored previews were
+introduced, stop Herald and run the maintenance command against the same data
+volume and media-store configuration:
+
+```sh
+docker run --rm \
+  --mount type=volume,source=herald-data,target=/data \
+  herald:local media-previews --dry-run
+
+docker run --rm \
+  --mount type=volume,source=herald-data,target=/data \
+  herald:local media-previews
+```
+
+Add `--project <id>` to limit the command to one project. A source checkout can
+run `bun run --cwd apps/api src/index.ts media-previews --dry-run` instead.
+The command preserves originals and publication references, generates only
+missing current-version previews, and can be rerun after interruption. It
+reports failures and returns a nonzero exit status when an image fails; completed
+previews remain available. Restart Herald after maintenance. This command never
+reclaims an existing runtime lock.
+
 Create a complete application backup from a running container by mounting the
 application data volume and a separate host backup directory. The command uses
 the local media-store defaults from the image and does not need the web

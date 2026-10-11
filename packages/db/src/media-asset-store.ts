@@ -26,6 +26,7 @@ import {
     generateImagePreviews,
     imagePreviewProcessor,
     imagePreviewVersion,
+    imagePreviewPresets,
     type ImagePreviewVariant,
 } from './image-previews'
 import { createMp4Inspection } from './mp4-inspection'
@@ -1517,6 +1518,121 @@ export function createMediaAssetStore(
         expireTransaction.immediate({ at, projectId, reservation })
     }
 
+    async function missingImagePreviews(
+        media: MediaAssetReference,
+        repairMetadata = false
+    ): Promise<ImagePreviewVariant[]> {
+        const missing: ImagePreviewVariant[] = []
+        for (const variant of Object.keys(imagePreviewPresets) as ImagePreviewVariant[]) {
+            const candidates = media.representations.filter(
+                item =>
+                    item.kind === 'derived' &&
+                    item.state === 'ready' &&
+                    item.processorId === imagePreviewProcessor &&
+                    item.processorVersion === imagePreviewVersion &&
+                    item.recipeJson !== null &&
+                    JSON.parse(item.recipeJson).variant === variant
+            )
+            let available = false
+            for (const candidate of candidates) {
+                if ((await mediaStore.stat(candidate.objectKey)) !== null) available = true
+                else if (repairMetadata)
+                    markMissingRepresentationStatement.run(
+                        requireTimestamp(now(), 'now'),
+                        media.asset.projectId,
+                        candidate.id
+                    )
+            }
+            if (!available) missing.push(variant)
+        }
+        return missing
+    }
+
+    async function ensureImagePreviews(
+        projectId: string,
+        assetId: string,
+        source: MediaRepresentation,
+        requiredState: 'inspecting' | 'ready',
+        timestamp: number
+    ): Promise<boolean> {
+        await previewGeneration.get(assetId)
+        const asset = readMedia(projectId, assetId)
+        if (asset === null || asset.asset.state !== requiredState) return false
+        const missing = await missingImagePreviews(asset, true)
+        if (missing.length === 0) return true
+        let releasePreview!: () => void
+        previewGeneration.set(
+            assetId,
+            new Promise<void>(resolve => {
+                releasePreview = resolve
+            })
+        )
+        try {
+            await generateImagePreviews(
+                mediaStore,
+                source.objectKey,
+                async (variant, blob, width, height, placeholder) => {
+                    if (readMedia(projectId, assetId)?.asset.state !== requiredState) {
+                        throw new Error('Image import no longer active')
+                    }
+                    const id = crypto.randomUUID()
+                    const objectKey = `previews/${projectId}/${assetId}/${id}.webp`
+                    // Register ownership before storage writes, including partially failed writes.
+                    client
+                        .query(`insert into media_representations
+                                (id, project_id, asset_id, kind, source_representation_id, state,
+                                 store_id, object_key, processor_id, processor_version, recipe_json,
+                                 created_at, updated_at)
+                                values (?, ?, ?, 'derived', ?, 'reserved', ?, ?, ?, ?, ?, ?, ?)`)
+                        .run(
+                            id,
+                            projectId,
+                            assetId,
+                            source.id,
+                            mediaStore.storeId,
+                            objectKey,
+                            imagePreviewProcessor,
+                            imagePreviewVersion,
+                            JSON.stringify({ variant, placeholder }),
+                            timestamp,
+                            timestamp
+                        )
+                    try {
+                        await mediaStore.put(objectKey, blob.stream(), {
+                            expectedSize: blob.size,
+                            contentType: 'image/webp',
+                        })
+                        const sha256 = createHash('sha256')
+                            .update(new Uint8Array(await blob.arrayBuffer()))
+                            .digest('hex')
+                        client
+                            .query(`update media_representations set state = 'ready',
+                                    declared_content_type = 'image/webp', detected_content_type = 'image/webp',
+                                    detected_format = 'webp', family = 'image', byte_size = ?, sha256 = ?,
+                                    width = ?, height = ?, is_animated = 0 where id = ? and state = 'reserved'`)
+                            .run(blob.size, sha256, width, height, id)
+                    } catch {
+                        client
+                            .query(`update media_representations set state = 'failed',
+                                    failure_code = 'preview_generation_failed',
+                                    failure_message = 'The image preview could not be generated' where id = ? and state = 'reserved'`)
+                            .run(id)
+                        throw new Error('Image preview storage failed')
+                    }
+                },
+                missing
+            )
+        } catch {
+            // Preview failure must not discard a verified original. Never expose codec errors.
+            console.error('[herald-media] Image preview generation failed')
+            return false
+        } finally {
+            previewGeneration.delete(assetId)
+            releasePreview()
+        }
+        return true
+    }
+
     async function inspectAndFinalize(
         projectId: string,
         intentId: string,
@@ -1637,77 +1753,13 @@ export function createMediaAssetStore(
                 inspection.isAnimated !== true &&
                 ['image/jpeg', 'image/png', 'image/webp'].includes(inspection.contentType)
             ) {
-                let releasePreview!: () => void
-                previewGeneration.set(
+                await ensureImagePreviews(
+                    projectId,
                     inspecting.asset.id,
-                    new Promise<void>(resolve => {
-                        releasePreview = resolve
-                    })
+                    inspecting.representation,
+                    'inspecting',
+                    timestamp
                 )
-                try {
-                    await generateImagePreviews(
-                        mediaStore,
-                        inspecting.representation.objectKey,
-                        async (variant, blob, width, height, placeholder) => {
-                            if (
-                                readMedia(projectId, inspecting.asset.id)?.asset.state !==
-                                'inspecting'
-                            ) {
-                                throw new Error('Image import no longer active')
-                            }
-                            const id = crypto.randomUUID()
-                            const objectKey = `previews/${projectId}/${inspecting.asset.id}/${id}.webp`
-                            // Register ownership before storage writes, including partially failed writes.
-                            client
-                                .query(`insert into media_representations
-                                (id, project_id, asset_id, kind, source_representation_id, state,
-                                 store_id, object_key, processor_id, processor_version, recipe_json,
-                                 created_at, updated_at)
-                                values (?, ?, ?, 'derived', ?, 'reserved', ?, ?, ?, ?, ?, ?, ?)`)
-                                .run(
-                                    id,
-                                    projectId,
-                                    inspecting.asset.id,
-                                    inspecting.representation.id,
-                                    mediaStore.storeId,
-                                    objectKey,
-                                    imagePreviewProcessor,
-                                    imagePreviewVersion,
-                                    JSON.stringify({ variant, placeholder }),
-                                    timestamp,
-                                    timestamp
-                                )
-                            try {
-                                await mediaStore.put(objectKey, blob.stream(), {
-                                    expectedSize: blob.size,
-                                    contentType: 'image/webp',
-                                })
-                                const sha256 = createHash('sha256')
-                                    .update(new Uint8Array(await blob.arrayBuffer()))
-                                    .digest('hex')
-                                client
-                                    .query(`update media_representations set state = 'ready',
-                                    declared_content_type = 'image/webp', detected_content_type = 'image/webp',
-                                    detected_format = 'webp', family = 'image', byte_size = ?, sha256 = ?,
-                                    width = ?, height = ?, is_animated = 0 where id = ? and state = 'reserved'`)
-                                    .run(blob.size, sha256, width, height, id)
-                            } catch {
-                                client
-                                    .query(`update media_representations set state = 'failed',
-                                    failure_code = 'preview_generation_failed',
-                                    failure_message = 'The image preview could not be generated' where id = ? and state = 'reserved'`)
-                                    .run(id)
-                                throw new Error('Image preview storage failed')
-                            }
-                        }
-                    )
-                } catch {
-                    // Preview failure must not discard a verified original. Never expose codec errors.
-                    console.error('[herald-media] Image preview generation failed')
-                } finally {
-                    previewGeneration.delete(inspecting.asset.id)
-                    releasePreview()
-                }
             }
 
             finalizeReadyTransaction.immediate({
@@ -1784,6 +1836,48 @@ export function createMediaAssetStore(
     }
 
     return {
+        /** Offline maintenance only; the caller must hold the database runtime lock. */
+        async generateMissingImagePreviews(
+            options: { readonly projectId?: string; readonly dryRun?: boolean } = {}
+        ) {
+            const report = { eligible: 0, generated: 0, alreadyReady: 0, failed: 0 }
+            const rows = client
+                .query<{ id: string; projectId: string }, [string | null]>(`
+                select media_assets.id, media_assets.project_id as projectId from media_assets
+                where media_assets.state = 'ready' and media_assets.archived_at is null
+                  and (?1 is null or media_assets.project_id = ?1)
+                  and exists (select 1 from media_representations r
+                    where r.project_id = media_assets.project_id and r.asset_id = media_assets.id
+                      and r.kind = 'original' and r.state = 'ready' and coalesce(r.is_animated, 0) = 0
+                      and r.detected_content_type in ('image/jpeg', 'image/png', 'image/webp'))
+                order by media_assets.id`)
+                .all(options.projectId ?? null)
+            for (const row of rows) {
+                const asset = readMedia(row.projectId, row.id)!
+                const source = asset.representations.find(
+                    item => item.kind === 'original' && item.state === 'ready'
+                )!
+                report.eligible++
+                if ((await missingImagePreviews(asset)).length === 0) {
+                    report.alreadyReady++
+                    continue
+                }
+                if (options.dryRun) continue
+                if (
+                    await ensureImagePreviews(
+                        row.projectId,
+                        row.id,
+                        source,
+                        'ready',
+                        requireTimestamp(now(), 'now')
+                    )
+                )
+                    report.generated++
+                else report.failed++
+            }
+            return report
+        },
+
         getUploadPolicy(projectId: string, subjectId: string): MediaUploadPolicy | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
