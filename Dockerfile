@@ -1,3 +1,19 @@
+# cspell:words ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
+# Isolated from application sources so normal Herald builds reuse this layer.
+FROM oven/bun:1.4.2-slim AS poster
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential xz-utils curl ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN curl --fail --location --max-time 120 https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz -o source.tar.xz \
+    && echo '8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e  source.tar.xz' | sha256sum -c - \
+    && tar -xf source.tar.xz
+WORKDIR /src/ffmpeg-9.0.2
+RUN ./configure --disable-everything --disable-autodetect --disable-doc --disable-debug --disable-network --disable-asm --disable-ffplay --disable-ffprobe \
+    --enable-ffmpeg --enable-avcodec --enable-avformat --enable-avfilter --enable-swscale --enable-protocol=file,pipe \
+    --enable-demuxer=mov --enable-decoder=h264 --enable-parser=h264 --enable-encoder=mjpeg --enable-muxer=image2pipe \
+    --enable-filter=scale,format,buffer,buffersink,transpose,hflip,vflip --enable-small \
+    && make -j4
+
 FROM oven/bun:1.4.2 AS build
 
 WORKDIR /app
@@ -35,6 +51,8 @@ FROM oven/bun:1.4.2-slim
 
 WORKDIR /app
 
+COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/herald-poster
+COPY --from=poster /src/ffmpeg-9.0.2/COPYING.LGPLv2.1 ./licenses/FFmpeg.LICENSE
 COPY --from=build --chown=bun:bun /out/herald.js ./herald.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public

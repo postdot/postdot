@@ -25,6 +25,7 @@ import type { AuthenticatedElysia } from './types'
 const supportedProjectEventSubjects = {
     'project.created': 'project',
     'project.timezone_updated': 'project',
+    'project.media_previews.updated': 'project',
     'channel.created': 'channel',
     'channel.renamed': 'channel',
     'channel.archived': 'channel',

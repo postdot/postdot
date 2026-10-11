@@ -54,6 +54,7 @@ import {
     type MediaLibraryViewMode,
     writeMediaLibraryViewMode,
 } from '@/lib/media-library-view'
+import { subscribeMediaPreviewUpdates } from '@/lib/project-realtime'
 import {
     mediaSelectionsEqual,
     reorderMediaSelections,
@@ -299,6 +300,31 @@ function MediaAttachmentPickerView({
     const selectedMediaByIdRef = useRef(new Map<string, MediaReference>())
     const selectionHydrationRequestId = useRef(0)
     const [hydratingSelection, setHydratingSelection] = useState(false)
+    useEffect(() => {
+        let active = true
+        const unsubscribe = subscribeMediaPreviewUpdates(projectId, () => {
+            const ids = assetsRef.current
+                .filter(item =>
+                    item.representations.some(
+                        rep => rep.kind === 'original' && rep.family === 'video'
+                    )
+                )
+                .map(item => item.asset.id)
+            void Promise.all(ids.map(id => api.getMedia(projectId, id).catch(() => null))).then(
+                updated => {
+                    if (!active) return
+                    const byId = new Map(
+                        updated.filter(item => item !== null).map(item => [item.asset.id, item])
+                    )
+                    setAssets(current => current.map(item => byId.get(item.asset.id) ?? item))
+                }
+            )
+        })
+        return () => {
+            active = false
+            unsubscribe()
+        }
+    }, [projectId])
     const selectedAssetIds = [...new Set(value.map(selection => selection.assetId))]
         .sort()
         .join('\u0000')

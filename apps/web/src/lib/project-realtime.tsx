@@ -25,6 +25,7 @@ export const projectQueryKeys = {
 const projectRealtimeEventTypes = [
     'project.created',
     'project.timezone_updated',
+    'project.media_previews.updated',
     'channel.created',
     'channel.renamed',
     'channel.archived',
@@ -228,6 +229,17 @@ export function createUserRealtimeClient(
     eventSourceFactory: ProjectRealtimeEventSourceFactory = createBrowserEventSource
 ): UserRealtimeEventSource {
     return new BrowserUserRealtimeEventSource(eventSourceFactory)
+}
+
+const mediaPreviewListeners = new Map<string, Set<() => void>>()
+export function subscribeMediaPreviewUpdates(projectId: string, listener: () => void) {
+    const listeners = mediaPreviewListeners.get(projectId) ?? new Set<() => void>()
+    mediaPreviewListeners.set(projectId, listeners)
+    listeners.add(listener)
+    return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) mediaPreviewListeners.delete(projectId)
+    }
 }
 
 type ProjectAccessRevocationListener = () => void
@@ -556,6 +568,10 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     return
                 }
 
+                if (signal.event.type === 'project.media_previews.updated') {
+                    for (const listener of mediaPreviewListeners.get(projectId) ?? []) listener()
+                    return
+                }
                 const resource = eventResource(signal.event.type)
                 if (resource === 'project') void refresh('project')
                 else {

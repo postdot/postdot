@@ -54,6 +54,7 @@ import { createWebAssets } from './plugins/web-assets'
 import { createRecoveryService } from './recovery'
 import { registerServingHandle } from './serving'
 import { createShutdownHandler } from './shutdown'
+import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-posters'
 
 export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
 export { createApp } from './app'
@@ -169,9 +170,20 @@ async function startServerWithRuntimeLock(
     )
     const objectStorage = createConfiguredMediaStore(config.media)
     const avatars = createUserAvatarStore(database, objectStorage)
+    const posterExtractor = createVideoPosterExtractor(objectStorage)
+    let posterRuntime: ReturnType<typeof createVideoPosterRuntime> | undefined
     const media = createMediaAssetStore(database, objectStorage, {
+        videoPoster: key => posterExtractor.extract(key),
+        onVideoReady: (projectId, assetId) => {
+            if (posterExtractor.available) posterRuntime?.enqueue(projectId, assetId)
+        },
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
+    })
+    posterRuntime = createVideoPosterRuntime({
+        pending: () => (posterExtractor.available ? media.listPendingVideoPreviews() : []),
+        generate: (projectId, assetId) => media.generateVideoPreviews(projectId, assetId),
+        cancel: () => posterExtractor.cancel(),
     })
     const mediaPublicDelivery = createMediaPublicDelivery({
         baseURL: config.auth.baseURL,
@@ -338,6 +350,7 @@ async function startServerWithRuntimeLock(
     resumeRuntimes = () => {
         worker.start()
         mediaMaintenance.start()
+        posterRuntime?.start()
         emailRuntime?.start()
     }
     if (!recovery.held()) resumeRuntimes()
@@ -352,7 +365,10 @@ async function startServerWithRuntimeLock(
             await worker.stop()
             await emailRuntime?.stop()
         },
-        stopMediaMaintenance: () => mediaMaintenance.stop(),
+        stopMediaMaintenance: async () => {
+            await posterRuntime?.stop()
+            await mediaMaintenance.stop()
+        },
         stopNotificationProjection: () => notificationProjection.stop(),
         stopRealtime: () => realtime.stop(),
         clearCommitObserver: () => clearDatabaseCommitObserver(),

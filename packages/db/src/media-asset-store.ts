@@ -21,7 +21,8 @@ import {
 } from '@herald/core'
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@herald/media'
 
-import type { HeraldDatabase } from './client'
+import { createDatabaseTransaction, type HeraldDatabase } from './client'
+import { createEventJournalStore } from './event-journal-store'
 import {
     generateImagePreviews,
     imagePreviewProcessor,
@@ -58,6 +59,8 @@ export type MediaAssetDateFilter = (typeof mediaAssetDateFilters)[number]
 export type MediaAssetFamilyFilter = 'all' | MediaFamily
 
 export interface MediaAssetStoreOptions {
+    readonly videoPoster?: (objectKey: string) => Promise<Blob>
+    readonly onVideoReady?: (projectId: string, assetId: string) => void
     readonly now?: () => number
     readonly createId?: () => string
     readonly uploadIntentTtlMs?: number
@@ -1568,6 +1571,11 @@ export function createMediaAssetStore(
             })
         )
         try {
+            const poster =
+                source.family === 'video'
+                    ? await options.videoPoster?.(source.objectKey)
+                    : undefined
+            if (source.family === 'video' && !poster) throw new Error('Video poster unavailable')
             await generateImagePreviews(
                 mediaStore,
                 source.objectKey,
@@ -1605,12 +1613,27 @@ export function createMediaAssetStore(
                         const sha256 = createHash('sha256')
                             .update(new Uint8Array(await blob.arrayBuffer()))
                             .digest('hex')
-                        client
-                            .query(`update media_representations set state = 'ready',
+                        createDatabaseTransaction(database, () => {
+                            client
+                                .query(`update media_representations set state = 'ready',
                                     declared_content_type = 'image/webp', detected_content_type = 'image/webp',
                                     detected_format = 'webp', family = 'image', byte_size = ?, sha256 = ?,
                                     width = ?, height = ?, is_animated = 0 where id = ? and state = 'reserved'`)
-                            .run(blob.size, sha256, width, height, id)
+                                .run(blob.size, sha256, width, height, id)
+                            if (
+                                source.family === 'video' &&
+                                variant === missing[missing.length - 1]
+                            )
+                                createEventJournalStore(database).append({
+                                    projectId,
+                                    actorId: asset.asset.createdByActorId,
+                                    name: 'project.media_previews.updated',
+                                    version: 1,
+                                    subject: { type: 'project', id: projectId },
+                                    payload: {},
+                                    occurredAt: timestamp,
+                                })
+                        }).immediate()
                     } catch {
                         client
                             .query(`update media_representations set state = 'failed',
@@ -1620,11 +1643,34 @@ export function createMediaAssetStore(
                         throw new Error('Image preview storage failed')
                     }
                 },
-                missing
+                missing,
+                poster
             )
-        } catch {
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return false
             // Preview failure must not discard a verified original. Never expose codec errors.
-            console.error('[herald-media] Image preview generation failed')
+            if (
+                source.family === 'video' &&
+                readMedia(projectId, assetId)?.asset.state === 'ready'
+            ) {
+                client
+                    .query(`insert into media_representations
+                    (id, project_id, asset_id, kind, source_representation_id, state, store_id,
+                     object_key, processor_id, processor_version, recipe_json, failure_code, failure_message, created_at, updated_at)
+                    values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'herald-video-poster', '1', '{}',
+                    'poster_generation_failed', 'Video preview unavailable', ?, ?)`)
+                    .run(
+                        crypto.randomUUID(),
+                        projectId,
+                        assetId,
+                        source.id,
+                        mediaStore.storeId,
+                        `previews/${projectId}/${assetId}/${crypto.randomUUID()}.webp`,
+                        timestamp,
+                        timestamp
+                    )
+            }
+            console.error('[herald-media] Preview generation failed')
             return false
         } finally {
             previewGeneration.delete(assetId)
@@ -1771,6 +1817,13 @@ export function createMediaAssetStore(
                 sha256: scanned.sha256,
             })
             const ready = loadReservation(projectId, intentId)
+            if (ready?.asset.state === 'ready' && inspection.family === 'video') {
+                try {
+                    options.onVideoReady?.(projectId, ready.asset.id)
+                } catch {
+                    console.error('[herald-media] Poster wakeup failed')
+                }
+            }
             if (ready === null) return { kind: 'not_found' }
             return ready.asset.state === 'ready' && ready.representation.state === 'ready'
                 ? { kind: 'ready', reservation: ready }
@@ -1836,6 +1889,37 @@ export function createMediaAssetStore(
     }
 
     return {
+        listPendingVideoPreviews() {
+            return client
+                .query<{ projectId: string; id: string }, []>(`
+                select a.project_id as projectId, a.id from media_assets a
+                where a.state = 'ready' and a.archived_at is null
+                and exists (select 1 from media_representations r where r.asset_id = a.id
+                    and r.kind = 'original' and r.state = 'ready' and r.family = 'video')
+                and not exists (select 1 from media_representations r where r.asset_id = a.id
+                    and r.processor_id = 'herald-video-poster' and r.processor_version = '1' and r.state = 'failed')
+                and (select count(distinct json_extract(r.recipe_json, '$.variant')) from media_representations r
+                    where r.asset_id = a.id and r.processor_id = 'herald-image-preview'
+                    and r.processor_version = '1' and r.state = 'ready') < 2
+            `)
+                .all()
+        },
+        async generateVideoPreviews(projectId: string, assetId: string) {
+            const asset = readMedia(projectId, assetId)
+            const source = asset?.representations.find(
+                item =>
+                    item.kind === 'original' && item.state === 'ready' && item.family === 'video'
+            )
+            if (!source || asset?.asset.state !== 'ready' || asset.asset.archivedAt !== null)
+                return false
+            return ensureImagePreviews(
+                projectId,
+                assetId,
+                source,
+                'ready',
+                requireTimestamp(now(), 'now')
+            )
+        },
         /** Offline maintenance only; the caller must hold the database runtime lock. */
         async generateMissingImagePreviews(
             options: { readonly projectId?: string; readonly dryRun?: boolean } = {}

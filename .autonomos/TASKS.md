@@ -724,3 +724,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[MEDIA-391]** Measure minimal server video poster extraction `Priority: 🟡` `Complexity: S` — Owner-authorized isolated FFmpeg experiment; 2.38 MiB binary, Bun stdout image decoding, fixture/1080p/4K measurements. No production integration. See worklogs/2026-10-11-MEDIA-391.md.
 
 - [x] **[MEDIA-392]** Verify minimal poster extraction in Bun slim `Priority: 🟡` `Complexity: S` — Isolated container proof: 2.34 MiB incremental size, cached compilation, non-root extraction and invalid/missing/interrupted child probes. No production integration. See worklogs/2026-10-11-MEDIA-392.md.
+
+- [x] **[MEDIA-393]** Generate optional video posters in the server background `Priority: 🟡` `Complexity: M` — Minimal packaged decoder, bounded serial extraction, startup recovery and upload wakeup, internal representations, non-loading placeholders and graceful drain.

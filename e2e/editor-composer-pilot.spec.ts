@@ -1333,7 +1333,8 @@ for (const [platform, revision] of [
         const card = page
             .locator('[data-media-library="true"] article')
             .filter({ hasText: 'native-video.mp4' })
-        await expect(card.locator('video')).toHaveCount(1)
+        await expect(card.locator('video')).toHaveCount(0)
+        await expect(card.locator('img, [data-video-placeholder]')).toHaveCount(1)
         await card.locator('[data-media-selection-toggle]').click()
         await page.getByRole('button', { name: 'Done', exact: true }).click()
         if (platform === 'discord' || platform === 'bluesky') {

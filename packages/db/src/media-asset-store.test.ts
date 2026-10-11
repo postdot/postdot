@@ -8,7 +8,7 @@ import { createLocalMediaStore } from '@herald/media'
 import { closeDatabase, createDatabase } from './client'
 import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
-import { createMediaAssetStore } from './media-asset-store'
+import { createMediaAssetStore, type MediaAssetStoreOptions } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { actors, posts, projects } from './schema'
 
@@ -54,6 +54,8 @@ function seedProject(database: ReturnType<typeof createDatabase>, suffix: string
 }
 
 interface MediaFixtureOptions {
+    readonly videoPoster?: MediaAssetStoreOptions['videoPoster']
+    readonly onVideoReady?: MediaAssetStoreOptions['onVideoReady']
     readonly now?: () => number
     readonly uploadIntentTtlMs?: number
     readonly deletionGracePeriodMs?: number
@@ -81,6 +83,8 @@ async function withFixture<T>(
         maxObjectBytes: 2_000_000,
     })
     const media = createMediaAssetStore(database, store, {
+        videoPoster: options.videoPoster,
+        onVideoReady: options.onVideoReady,
         now: options.now ?? (() => now),
         createId: (() => {
             let value = 0
@@ -1155,6 +1159,146 @@ describe('project media lifecycle', () => {
                 })
             },
             { deletionGracePeriodMs: 60_000 }
+        )
+    })
+})
+
+describe('optional video posters', () => {
+    it('finalizes before decoding, persists internal variants and preserves original delivery', async () => {
+        let decoded = 0
+        let signalled = 0
+        await withFixture(
+            async ({ media, database, projectId, subjectId, store }) => {
+                const bytes = new Uint8Array(
+                    await Bun.file(
+                        new URL('./fixtures/video-h264.mp4', import.meta.url)
+                    ).arrayBuffer()
+                )
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: 'video.mp4',
+                    contentType: 'video/mp4',
+                    expectedSize: bytes.length,
+                })!
+                await media.upload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                    source: streamOf(bytes),
+                })
+                const result = await media.finalizeUpload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                })
+                expect(result.kind).toBe('ready')
+                expect(signalled).toBe(1)
+                expect(decoded).toBe(0)
+                expect(media.listPendingVideoPreviews()).toEqual([
+                    { projectId, id: reservation.asset.id },
+                ])
+                expect(await media.generateVideoPreviews(projectId, reservation.asset.id)).toBe(
+                    true
+                )
+                expect(decoded).toBe(1)
+                expect(media.listPendingVideoPreviews()).toEqual([])
+                const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
+                expect(
+                    asset.representations.filter(
+                        item => item.kind === 'derived' && item.state === 'ready'
+                    )
+                ).toHaveLength(2)
+                const original = await media.openAssetContent(
+                    projectId,
+                    reservation.asset.id,
+                    subjectId
+                )
+                expect(new Uint8Array(await new Response(original!.stream).arrayBuffer())).toEqual(
+                    bytes
+                )
+                const preview = await media.openAssetContent(
+                    projectId,
+                    reservation.asset.id,
+                    subjectId,
+                    undefined,
+                    'thumbnail'
+                )
+                expect(preview!.representation.detectedContentType).toBe('image/webp')
+                expect(
+                    database.$client
+                        .query(
+                            "select count(*) as count from audit_events where action = 'project.media_previews.updated'"
+                        )
+                        .get()
+                ).toEqual({ count: 1 })
+                expect(await media.generateVideoPreviews(projectId, reservation.asset.id)).toBe(
+                    true
+                )
+                expect(decoded).toBe(1)
+                expect(
+                    await store.stat(
+                        asset.representations.find(item => item.kind === 'original')!.objectKey
+                    )
+                ).not.toBeNull()
+            },
+            {
+                videoPoster: async () => {
+                    decoded++
+                    return new Blob([previewFixturePng(40, 30)])
+                },
+                onVideoReady: () => {
+                    signalled++
+                },
+            }
+        )
+    })
+    it('records one failed attempt without changing original readiness', async () => {
+        await withFixture(
+            async ({ media, projectId, subjectId }) => {
+                const bytes = new Uint8Array(
+                    await Bun.file(
+                        new URL('./fixtures/video-h264.mp4', import.meta.url)
+                    ).arrayBuffer()
+                )
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: 'video.mp4',
+                    contentType: 'video/mp4',
+                    expectedSize: bytes.length,
+                })!
+                await media.upload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                    source: streamOf(bytes),
+                })
+                expect(
+                    (
+                        await media.finalizeUpload({
+                            projectId,
+                            subjectId,
+                            intentId: reservation.intent.id,
+                        })
+                    ).kind
+                ).toBe('ready')
+                expect(await media.generateVideoPreviews(projectId, reservation.asset.id)).toBe(
+                    false
+                )
+                expect(media.listPendingVideoPreviews()).toEqual([])
+                expect(
+                    media.getAsset(projectId, reservation.asset.id, subjectId)!.asset.state
+                ).toBe('ready')
+                expect(
+                    await media.openAssetContent(projectId, reservation.asset.id, subjectId)
+                ).not.toBeNull()
+            },
+            {
+                videoPoster: async () => {
+                    throw new Error('Private decoder detail')
+                },
+            }
         )
     })
 })

@@ -458,3 +458,19 @@ The current workspace contains:
 - `packages/media`: local and S3-compatible media storage contracts and adapters;
 - `packages/oauth`: OAuth authorization-code and PKCE protocol mechanics;
 - `packages/x`: X OAuth and publication adapter;
+
+### Video preview decoder
+
+Video imports become available before their optional posters are generated. The
+container includes a minimal FFmpeg 9.0.2 decoder (MP4/H.264 to one JPEG); the
+original is never transcoded. Native development uses `herald-poster` or `ffmpeg`
+when available on PATH. Without either tool, video import and playback still work
+with a static placeholder. A failed preview is not retried repeatedly; restarting
+does not retry a recorded failure for that processor version.
+
+The decoder is built separately from application sources for Docker layer caching.
+Its unmodified sources are available at
+https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz; the exact checksum and build flags
+are in Dockerfile. The runtime image includes its LGPL 2.1 license at
+`/app/licenses/FFmpeg.LICENSE`. Keep source availability, configuration and license
+information with redistributed images.

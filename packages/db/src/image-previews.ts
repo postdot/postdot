@@ -19,7 +19,8 @@ export async function generateImagePreviews(
     ) => Promise<void>,
     variants: readonly ImagePreviewVariant[] = Object.keys(
         imagePreviewPresets
-    ) as ImagePreviewVariant[]
+    ) as ImagePreviewVariant[],
+    posterSource?: Blob
 ): Promise<void> {
     const previous = processing
     let release!: () => void
@@ -28,9 +29,11 @@ export async function generateImagePreviews(
     })
     await previous
     try {
-        const opened = await store.open(objectKey, { maxBytes: store.maxObjectBytes })
-        if (opened === null) throw new Error('Image source unavailable')
-        const source = await new Response(opened.stream).blob()
+        const opened = posterSource
+            ? null
+            : await store.open(objectKey, { maxBytes: store.maxObjectBytes })
+        if (!posterSource && opened === null) throw new Error('Image source unavailable')
+        const source = posterSource ?? (await new Response(opened!.stream).blob())
         const placeholder = await new Bun.Image(source).placeholder()
         for (const variant of variants) {
             const dimension = imagePreviewPresets[variant]

@@ -350,6 +350,19 @@ describe('project event stream', () => {
         expect(result.text).toContain('id: event-sequence:1')
     })
 
+    it('delivers preview completion without paths or codec diagnostics', () => {
+        const event = toProjectRealtimeEvent({
+            ...journalEntry({
+                id: 'poster-ready',
+                name: 'project.media_previews.updated',
+                sequence: 1,
+            }),
+            subject: { type: 'project', id: 'project-1' },
+            payload: { privatePath: 'not public' },
+        })
+        expect(event).toMatchObject({ type: 'project.media_previews.updated', payload: {} })
+    })
+
     it('filters unsupported event versions and subject mismatches', () => {
         const unsupported = toProjectRealtimeEvent(
             journalEntry({ id: 'unsupported', name: 'publisher.secret_rotated', sequence: 1 })

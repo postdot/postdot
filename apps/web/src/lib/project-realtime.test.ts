@@ -93,6 +93,32 @@ describe('project realtime event source', () => {
         expect(fake.closed).toBe(true)
     })
 
+    test('accepts preview completion through the project event stream', () => {
+        const fake = new FakeEventSource()
+        const source = createProjectRealtimeClient('project-1', () => fake)
+        const signals: unknown[] = []
+        source.subscribe(signal => signals.push(signal))
+        fake.emit(
+            'project.update',
+            JSON.stringify({
+                id: 'poster-ready',
+                cursor: 'event-sequence:1',
+                projectId: 'project-1',
+                version: 1,
+                type: 'project.media_previews.updated',
+                entity: { type: 'project', id: 'project-1' },
+                occurredAt: 1_800_000_000_000,
+                payload: {},
+            })
+        )
+        expect(signals).toHaveLength(1)
+        expect(signals[0]).toMatchObject({
+            kind: 'update',
+            event: { type: 'project.media_previews.updated' },
+        })
+        source.close()
+    })
+
     test('opens the user-wide notification stream and validates project context', () => {
         const fake = new FakeEventSource()
         const signals: unknown[] = []

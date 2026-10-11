@@ -15,6 +15,7 @@ import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { UndoLeftIcon } from '@solar-icons/react/linear/undo-left'
+import { VideoFrameIcon } from '@solar-icons/react/linear/video-frame'
 import { useState } from 'react'
 
 import { ActionTooltip } from '@/components/action-tooltip'
@@ -560,11 +561,45 @@ export function MediaPreview({
     readonly variant?: 'thumbnail' | 'preview' | 'original'
 }) {
     if (representation?.family === 'video') {
+        const poster = asset.representations.find(
+            item =>
+                item.kind === 'derived' &&
+                item.state === 'ready' &&
+                item.processorId === 'herald-image-preview' &&
+                item.recipeJson !== null &&
+                JSON.parse(item.recipeJson).variant ===
+                    (variant === 'original' ? 'preview' : variant)
+        )
+        const posterUrl = poster
+            ? api.mediaContentUrl(
+                  projectId,
+                  asset.asset.id,
+                  variant === 'thumbnail' ? 'thumbnail' : 'preview'
+              )
+            : undefined
+        if (!playable)
+            return posterUrl ? (
+                <MediaPreviewImage
+                    key={posterUrl}
+                    src={posterUrl}
+                    alt={alt}
+                    className={className}
+                    draggable={draggable}
+                />
+            ) : (
+                <span
+                    data-video-placeholder="true"
+                    aria-label={alt || asset.asset.originalFilename}
+                    className={`${className ?? 'size-12 rounded-md'} flex items-center justify-center bg-muted text-muted-foreground`}>
+                    <VideoFrameIcon className="size-8" aria-hidden="true" />
+                </span>
+            )
         return (
             <video
                 src={src ?? api.mediaContentUrl(projectId, asset.asset.id)}
                 aria-label={alt || asset.asset.originalFilename}
                 controls={playable}
+                poster={posterUrl}
                 preload="metadata"
                 playsInline
                 muted={!playable}
