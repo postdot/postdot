@@ -715,6 +715,11 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             {
                 auth: true,
                 params: mediaAssetParams,
+                query: Type.Object({
+                    variant: Type.Optional(
+                        Type.Union([Type.Literal('thumbnail'), Type.Literal('preview')])
+                    ),
+                }),
                 detail: {
                     operationId: 'streamProjectMedia',
                     summary: 'Stream verified media bytes for a project asset',
@@ -768,7 +773,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     },
                 },
             },
-            async ({ params, status, user, request }) => {
+            async ({ params, status, user, request, query }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
                 const rangeHeader = request.headers.get('range')
                 const reference = rangeHeader
@@ -777,11 +782,18 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 const representation =
                     reference?.representations.find(
                         item =>
+                            query.variant !== undefined &&
+                            item.kind === 'derived' &&
+                            item.processorId === 'herald-image-preview' &&
+                            item.processorVersion === '1' &&
+                            ['ready', 'deletion_requested'].includes(item.state) &&
+                            item.recipeJson !== null &&
+                            JSON.parse(item.recipeJson).variant === query.variant
+                    ) ??
+                    reference?.representations.find(
+                        item =>
                             item.kind === 'original' &&
                             ['ready', 'deletion_requested'].includes(item.state)
-                    ) ??
-                    reference?.representations.find(item =>
-                        ['ready', 'deletion_requested'].includes(item.state)
                     )
                 const range =
                     rangeHeader &&
@@ -801,7 +813,8 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     params.projectId,
                     params.assetId,
                     user.id,
-                    range ?? undefined
+                    range ?? undefined,
+                    query.variant
                 )
                 if (content === null) {
                     return status(404, {

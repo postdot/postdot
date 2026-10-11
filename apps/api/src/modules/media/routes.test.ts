@@ -7,6 +7,7 @@ import { createAuth } from '@herald/auth'
 import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@herald/db'
 import { createLocalMediaStore, type MediaStore } from '@herald/media'
 
+import { previewFixturePng } from '../../../../../packages/db/src/image-preview-fixture'
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 import { createMediaPublicDelivery } from './public-delivery'
@@ -16,21 +17,6 @@ const secret = 'herald-test-secret-with-at-least-32-characters'
 const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
-
-function createPng(width = 4, height = 3): Uint8Array {
-    const bytes = new Uint8Array(33)
-    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
-    bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8)
-    bytes[16] = (width >>> 24) & 0xff
-    bytes[17] = (width >>> 16) & 0xff
-    bytes[18] = (width >>> 8) & 0xff
-    bytes[19] = width & 0xff
-    bytes[20] = (height >>> 24) & 0xff
-    bytes[21] = (height >>> 16) & 0xff
-    bytes[22] = (height >>> 8) & 0xff
-    bytes[23] = height & 0xff
-    return bytes
-}
 
 async function signUp(app: ReturnType<typeof createApp>): Promise<string> {
     const response = await app.handle(
@@ -181,7 +167,7 @@ describe('media HTTP routes', () => {
             )
             expect(disabledUrlImportResponse.status).toBe(404)
 
-            const bytes = createPng()
+            const bytes = previewFixturePng(4, 3)
             const reserveResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/uploads`,
@@ -252,6 +238,7 @@ describe('media HTTP routes', () => {
                     asset: { id: string; state: string }
                     representations: Array<{
                         id: string
+                        kind: string
                         state: string
                         detectedFormat: string | null
                         detectedContentType: string | null
@@ -262,21 +249,22 @@ describe('media HTTP routes', () => {
                     }>
                 }
             }
-            expect(finalizedBody).toMatchObject({
-                status: 'ready',
-                media: {
-                    asset: { id: reservationBody.asset.id, state: 'ready' },
-                    representations: [
-                        {
-                            state: 'ready',
-                            detectedFormat: 'png',
-                            detectedContentType: 'image/png',
-                            family: 'image',
-                            width: 4,
-                            height: 3,
-                        },
-                    ],
-                },
+            expect(finalizedBody.status).toBe('ready')
+            expect(finalizedBody.media.asset).toMatchObject({
+                id: reservationBody.asset.id,
+                state: 'ready',
+            })
+            expect(finalizedBody.media.representations).toHaveLength(1)
+            const originalRepresentation = finalizedBody.media.representations.find(
+                item => item.kind === 'original'
+            )!
+            expect(originalRepresentation).toMatchObject({
+                state: 'ready',
+                detectedFormat: 'png',
+                detectedContentType: 'image/png',
+                family: 'image',
+                width: 4,
+                height: 3,
             })
             expect(finalizedBody.media.representations[0]).not.toHaveProperty('objectKey')
 
@@ -289,12 +277,39 @@ describe('media HTTP routes', () => {
             expect(contentResponse.headers.get('content-type')).toBe('image/png')
             expect(contentResponse.headers.get('content-length')).toBe(String(bytes.byteLength))
             expect(contentResponse.headers.get('cache-control')).toBe('private, no-store')
-            expect(contentResponse.headers.get('etag')).toBe(
-                `"${finalizedBody.media.representations[0]?.sha256}"`
-            )
+            expect(contentResponse.headers.get('etag')).toBe(`"${originalRepresentation.sha256}"`)
             expect(Array.from(new Uint8Array(await contentResponse.arrayBuffer()))).toEqual(
                 Array.from(bytes)
             )
+
+            const previewResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content?variant=thumbnail`,
+                cookie
+            )
+            expect(previewResponse.status).toBe(200)
+            expect(previewResponse.headers.get('content-type')).toBe('image/webp')
+            const previewBytes = new Uint8Array(await previewResponse.arrayBuffer())
+            expect((await new Bun.Image(previewBytes).metadata()).width).toBe(4)
+            const previewRange = await app.handle(
+                new Request(
+                    `${baseURL}/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content?variant=thumbnail`,
+                    { headers: { cookie, range: 'bytes=2-5' } }
+                )
+            )
+            expect(previewRange.status).toBe(206)
+            expect(new Uint8Array(await previewRange.arrayBuffer())).toEqual(
+                previewBytes.slice(2, 6)
+            )
+            expect(
+                (
+                    await app.handle(
+                        new Request(
+                            `${baseURL}/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content?variant=thumbnail`
+                        )
+                    )
+                ).status
+            ).toBe(401)
 
             for (const [range, expectedStatus, expectedBytes] of [
                 ['bytes=2-5', 206, bytes.slice(2, 6)],

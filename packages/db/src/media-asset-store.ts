@@ -22,6 +22,12 @@ import {
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@herald/media'
 
 import type { HeraldDatabase } from './client'
+import {
+    generateImagePreviews,
+    imagePreviewProcessor,
+    imagePreviewVersion,
+    type ImagePreviewVariant,
+} from './image-previews'
 import { createMp4Inspection } from './mp4-inspection'
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000
@@ -471,6 +477,7 @@ export function createMediaAssetStore(
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const uploadIntentTtlMs = options.uploadIntentTtlMs ?? DEFAULT_UPLOAD_INTENT_TTL_MS
+    const previewGeneration = new Map<string, Promise<void>>()
     const inspectionLimits = options.inspectionLimits ?? defaultMediaInspectionLimits
     const deletionGracePeriodMs = options.deletionGracePeriodMs ?? DEFAULT_DELETION_GRACE_PERIOD_MS
     const inspectors = new MediaInspectionRegistry()
@@ -1090,7 +1097,7 @@ export function createMediaAssetStore(
           and not exists (
               select 1 from media_representations
               where project_id = ?2 and asset_id = ?3
-                and id <> ?4 and state = 'ready'
+                and id <> ?4 and state = 'ready' and kind = 'original'
           )
     `)
 
@@ -1625,6 +1632,84 @@ export function createMediaAssetStore(
                 )
             }
 
+            if (
+                inspection.family === 'image' &&
+                inspection.isAnimated !== true &&
+                ['image/jpeg', 'image/png', 'image/webp'].includes(inspection.contentType)
+            ) {
+                let releasePreview!: () => void
+                previewGeneration.set(
+                    inspecting.asset.id,
+                    new Promise<void>(resolve => {
+                        releasePreview = resolve
+                    })
+                )
+                try {
+                    await generateImagePreviews(
+                        mediaStore,
+                        inspecting.representation.objectKey,
+                        async (variant, blob, width, height, placeholder) => {
+                            if (
+                                readMedia(projectId, inspecting.asset.id)?.asset.state !==
+                                'inspecting'
+                            ) {
+                                throw new Error('Image import no longer active')
+                            }
+                            const id = crypto.randomUUID()
+                            const objectKey = `previews/${projectId}/${inspecting.asset.id}/${id}.webp`
+                            // Register ownership before storage writes, including partially failed writes.
+                            client
+                                .query(`insert into media_representations
+                                (id, project_id, asset_id, kind, source_representation_id, state,
+                                 store_id, object_key, processor_id, processor_version, recipe_json,
+                                 created_at, updated_at)
+                                values (?, ?, ?, 'derived', ?, 'reserved', ?, ?, ?, ?, ?, ?, ?)`)
+                                .run(
+                                    id,
+                                    projectId,
+                                    inspecting.asset.id,
+                                    inspecting.representation.id,
+                                    mediaStore.storeId,
+                                    objectKey,
+                                    imagePreviewProcessor,
+                                    imagePreviewVersion,
+                                    JSON.stringify({ variant, placeholder }),
+                                    timestamp,
+                                    timestamp
+                                )
+                            try {
+                                await mediaStore.put(objectKey, blob.stream(), {
+                                    expectedSize: blob.size,
+                                    contentType: 'image/webp',
+                                })
+                                const sha256 = createHash('sha256')
+                                    .update(new Uint8Array(await blob.arrayBuffer()))
+                                    .digest('hex')
+                                client
+                                    .query(`update media_representations set state = 'ready',
+                                    declared_content_type = 'image/webp', detected_content_type = 'image/webp',
+                                    detected_format = 'webp', family = 'image', byte_size = ?, sha256 = ?,
+                                    width = ?, height = ?, is_animated = 0 where id = ? and state = 'reserved'`)
+                                    .run(blob.size, sha256, width, height, id)
+                            } catch {
+                                client
+                                    .query(`update media_representations set state = 'failed',
+                                    failure_code = 'preview_generation_failed',
+                                    failure_message = 'The image preview could not be generated' where id = ? and state = 'reserved'`)
+                                    .run(id)
+                                throw new Error('Image preview storage failed')
+                            }
+                        }
+                    )
+                } catch {
+                    // Preview failure must not discard a verified original. Never expose codec errors.
+                    console.error('[herald-media] Image preview generation failed')
+                } finally {
+                    previewGeneration.delete(inspecting.asset.id)
+                    releasePreview()
+                }
+            }
+
             finalizeReadyTransaction.immediate({
                 at: timestamp,
                 projectId,
@@ -1659,6 +1744,8 @@ export function createMediaAssetStore(
         at: number,
         gracePeriodMs: number
     ): Promise<PurgeMediaAssetResult> {
+        // Finish writes before physical deletion; a delayed put must not recreate a purged file.
+        await previewGeneration.get(assetId)
         if (activeBackupFenceStatement.get(at) !== null) {
             return { kind: 'blocked', reason: 'backup_in_progress' }
         }
@@ -1853,7 +1940,8 @@ export function createMediaAssetStore(
             projectId: string,
             assetId: string,
             subjectId: string,
-            range?: { readonly start: number; readonly end: number }
+            range?: { readonly start: number; readonly end: number },
+            variant?: ImagePreviewVariant
         ): Promise<MediaAssetContent | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
@@ -1864,14 +1952,24 @@ export function createMediaAssetStore(
                 return null
             }
 
+            const preview =
+                variant === undefined
+                    ? undefined
+                    : media.representations.find(
+                          candidate =>
+                              candidate.kind === 'derived' &&
+                              candidate.processorId === imagePreviewProcessor &&
+                              candidate.processorVersion === imagePreviewVersion &&
+                              ['ready', 'deletion_requested'].includes(candidate.state) &&
+                              candidate.recipeJson !== null &&
+                              JSON.parse(candidate.recipeJson).variant === variant
+                      )
             const representation =
+                preview ??
                 media.representations.find(
                     candidate =>
                         candidate.kind === 'original' &&
                         ['ready', 'deletion_requested'].includes(candidate.state)
-                ) ??
-                media.representations.find(candidate =>
-                    ['ready', 'deletion_requested'].includes(candidate.state)
                 )
             return representation === undefined
                 ? null

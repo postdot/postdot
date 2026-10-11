@@ -15,6 +15,7 @@ import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { UndoLeftIcon } from '@solar-icons/react/linear/undo-left'
+import { useState } from 'react'
 
 import { ActionTooltip } from '@/components/action-tooltip'
 import { api, type MediaReference } from '@/lib/api'
@@ -145,6 +146,7 @@ export function MediaAssetCard({
                             representation={representation}
                             className={previewClassName}
                             src={previewUrl}
+                            variant={isGrid ? 'preview' : 'thumbnail'}
                         />
                     </div>
                 ) : (
@@ -165,6 +167,7 @@ export function MediaAssetCard({
                             representation={representation}
                             className={previewClassName}
                             src={previewUrl}
+                            variant={isGrid ? 'preview' : 'thumbnail'}
                         />
                     </button>
                 )}
@@ -544,6 +547,7 @@ export function MediaPreview({
     draggable,
     src,
     playable = false,
+    variant = 'thumbnail',
 }: {
     readonly alt?: string
     readonly projectId: string
@@ -553,6 +557,7 @@ export function MediaPreview({
     readonly draggable?: boolean
     readonly src?: string
     readonly playable?: boolean
+    readonly variant?: 'thumbnail' | 'preview' | 'original'
 }) {
     if (representation?.family === 'video') {
         return (
@@ -568,13 +573,32 @@ export function MediaPreview({
         )
     }
     if (representation?.family === 'image') {
+        const derived = asset.representations.find(
+            item =>
+                item.kind === 'derived' &&
+                item.state === 'ready' &&
+                item.processorId === 'herald-image-preview' &&
+                item.recipeJson !== null &&
+                JSON.parse(item.recipeJson).variant === variant
+        )
+        const placeholder = derived?.recipeJson
+            ? (JSON.parse(derived.recipeJson).placeholder as string)
+            : undefined
+        const url =
+            src ??
+            api.mediaContentUrl(
+                projectId,
+                asset.asset.id,
+                variant === 'original' ? undefined : variant
+            )
         return (
-            <img
-                src={src ?? api.mediaContentUrl(projectId, asset.asset.id)}
+            <MediaPreviewImage
+                key={url}
+                src={url}
+                placeholder={placeholder}
                 alt={alt}
-                loading="lazy"
                 draggable={draggable}
-                className={className ?? 'size-12 rounded-md object-cover shadow-field'}
+                className={className}
             />
         )
     }
@@ -608,4 +632,40 @@ function mediaStateLabel(state: MediaReference['asset']['state']) {
         default:
             return m.media_state_unknown()
     }
+}
+
+function MediaPreviewImage({
+    src,
+    placeholder,
+    alt,
+    draggable,
+    className,
+}: {
+    readonly src: string
+    readonly placeholder?: string
+    readonly alt: string
+    readonly draggable?: boolean
+    readonly className?: string
+}) {
+    const [loaded, setLoaded] = useState(false)
+    return (
+        <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            draggable={draggable}
+            onLoad={() => setLoaded(true)}
+            style={
+                !loaded && placeholder
+                    ? {
+                          backgroundImage: `url("${placeholder}")`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                      }
+                    : undefined
+            }
+            className={className ?? 'size-12 rounded-md object-cover shadow-field'}
+        />
+    )
 }

@@ -576,6 +576,11 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    const previewImage = page
+        .getByRole('button', { name: `View ${mediaFilename}`, exact: true })
+        .locator('img')
+    await expect(previewImage).toHaveAttribute('src', /[?]variant=preview$/)
+    await expect(previewImage).toHaveJSProperty('naturalWidth', 1)
     await page.setViewportSize({ width: 390, height: 844 })
     const mediaToolbar = page.locator('[data-media-library-toolbar="true"]')
     const filterToggle = mediaToolbar.getByRole('button', { name: /^Filters/ })
@@ -679,6 +684,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await mediaViewerZoomReset.click()
     await expect(mediaViewerZoomReset).toBeDisabled()
     const viewerImage = mediaLibraryViewer.locator('main img').first()
+    await expect(viewerImage).toHaveAttribute('src', /\/content$/)
     const viewerImageBounds = await viewerImage.boundingBox()
     expect(viewerImageBounds).not.toBeNull()
     await page.mouse.move(

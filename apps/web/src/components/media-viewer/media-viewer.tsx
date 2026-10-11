@@ -360,6 +360,7 @@ export function MediaViewer({
                                             />
                                         ) : (
                                             <MediaPreview
+                                                variant="original"
                                                 playable
                                                 projectId={currentAsset.asset.projectId}
                                                 asset={currentAsset}

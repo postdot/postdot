@@ -299,7 +299,8 @@ export function DashboardSearch({
                                                 <img
                                                     src={api.mediaContentUrl(
                                                         result.projectId,
-                                                        result.id
+                                                        result.id,
+                                                        'thumbnail'
                                                     )}
                                                     alt=""
                                                     loading="lazy"

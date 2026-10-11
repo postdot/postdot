@@ -7,6 +7,7 @@ import type { ChannelProfileDefinition } from '@herald/core'
 import { createLocalMediaStore } from '@herald/media'
 
 import { closeDatabase, createDatabase } from './client'
+import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
@@ -75,14 +76,6 @@ const profile: ChannelProfileDefinition = {
     execution: { kind: 'built_in', contractId: 'media-provider', revision: 'v1' },
 }
 
-function pngBytes(): Uint8Array {
-    const bytes = new Uint8Array(33)
-    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-    bytes.set([0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52], 8)
-    bytes.set([0, 0, 0, 4, 0, 0, 0, 3], 16)
-    return bytes
-}
-
 describe('provider media delivery store', () => {
     it('pins revision media before the effect boundary and persists delivery retries', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'herald-provider-media-'))
@@ -125,19 +118,20 @@ describe('provider media delivery store', () => {
                 })
                 .run()
 
+            const bytes = previewFixturePng(4, 3)
             const reservation = media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'subject-1',
                 originalFilename: 'cover.png',
                 defaultAccessibilityText: 'Default cover description',
-                expectedSize: 33,
+                expectedSize: bytes.length,
             })
             if (reservation === null) throw new Error('Media reservation was not created')
             await media.upload({
                 projectId: project.project.id,
                 subjectId: 'subject-1',
                 intentId: reservation.intent.id,
-                source: new Blob([pngBytes()]).stream(),
+                source: new Blob([bytes]).stream(),
             })
             const finalized = await media.finalizeUpload({
                 projectId: project.project.id,
@@ -184,6 +178,11 @@ describe('provider media delivery store', () => {
             const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
             expect(executionMedia).toHaveLength(1)
             expect(executionMedia[0]?.assetId).toBe(reservation.asset.id)
+            expect(executionMedia[0]?.representationId).toBe(reservation.representation.id)
+            expect(
+                media.getAsset(project.project.id, reservation.asset.id, 'subject-1')
+                    ?.representations
+            ).toHaveLength(3)
             expect(executionMedia[0]?.accessibilityText).toBe('Default cover description')
 
             const deliveries = createProviderMediaDeliveryStore(database, { now: () => now })

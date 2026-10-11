@@ -41,16 +41,33 @@ Registry manifests were read without installing any package. Repository main
 sources may differ from released code. No claims of package maturity or
 exhaustive market coverage.
 
-## Recommendation for next implementation
+## Owner clarification and revised recommendation
 
-Reuse native Bun.Image for ordinary images and portable WebP output. Before
-adding abstraction, compare the published Nifra backend in a disposable small
-probe with the direct native call; adopt it only if its contract removes real
-work. Do not build a general-purpose URL transformation service or migrate
-Herald's media model. A few named size presets, stored derivatives, current
-project authorization and cleanup wiring remain Herald-specific regardless of
-codec choice. Sharp fallback should cover demonstrated unsupported formats,
-not silently retry every failure or bypass input/resource limits.
+The owner rejected @nifrajs/image as a dependency. Do not install or experiment
+with it. The earlier candidate recommendation is superseded. The requested
+primitive concerns variant generation, persistence and delivery, not a wrapper
+around Bun.Image and Sharp.
 
-Next: select the narrow processing seam, then implement MEDIA-389 and measure
-actual bytes for representative large images. No application behavior changed.
+Payload's upload imageSizes configuration demonstrates the established CMS
+pattern: named sizes generated during upload, stored files and sizes metadata,
+and an adminThumbnail selection. This belongs to its collection upload lifecycle;
+no standalone extraction is proposed. Reference:
+https://payloadcms.com/docs/upload/overview .
+
+IPX is the closest inspected standalone primitive: an embedded image optimizer
+with size/format URL modifiers and storage adapters. It does not require another
+service, but uses Sharp. It does not eliminate Herald's private storage,
+authorization or durable derivative lifecycle integration. Stable v3 reference:
+https://github.com/unjs/ipx/tree/v3 .
+
+For the media library, prefer Payload's stored-variant pattern over an arbitrary
+on-demand transformation endpoint. Herald already models derived representations
+and their source representation. Add a few named presets using that model,
+generate portable WebP with Bun.Image, and connect authenticated delivery and
+cleanup. Browser srcset/sizes can then select the appropriate variant. Preserve
+originals. This is narrow application integration around an existing image
+engine, not a new image processing library. Unsupported formats and video
+posters remain separate, evidence-driven decisions.
+
+No dependency installed or application behavior changed. Next implementation:
+MEDIA-389, with representative before/after transfer byte measurements.

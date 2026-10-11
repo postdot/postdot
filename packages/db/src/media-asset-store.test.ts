@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { createLocalMediaStore } from '@herald/media'
 
 import { closeDatabase, createDatabase } from './client'
+import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
@@ -166,6 +167,192 @@ describe('project media lifecycle', () => {
             },
             { now: () => current, deletionGracePeriodMs: 60_000 }
         )
+    })
+
+    it('stores two private previews under one asset and purges all bytes with the original', async () => {
+        await withFixture(async ({ media, projectId, subjectId, store }) => {
+            const bytes = previewFixturePng()
+            const reservation = media.reserveUpload({
+                projectId,
+                subjectId,
+                originalFilename: 'large.png',
+                expectedSize: bytes.length,
+                contentType: 'image/png',
+            })!
+            await media.upload({
+                projectId,
+                subjectId,
+                intentId: reservation.intent.id,
+                source: streamOf(bytes),
+            })
+            expect(
+                (
+                    await media.finalizeUpload({
+                        projectId,
+                        subjectId,
+                        intentId: reservation.intent.id,
+                    })
+                ).kind
+            ).toBe('ready')
+            const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            expect(media.listAssetsPage({ projectId, subjectId })?.total).toBe(1)
+            expect(asset.representations).toHaveLength(3)
+            const derived = asset.representations.filter(item => item.kind === 'derived')
+            expect(derived.map(item => item.width).sort((a, b) => a! - b!)).toEqual([256, 768])
+            for (const item of derived) {
+                expect(item.sourceRepresentationId).toBe(reservation.representation.id)
+                expect(item.state).toBe('ready')
+                expect(item.byteSize!).toBeLessThan(bytes.length)
+                expect(JSON.parse(item.recipeJson!).placeholder).toMatch(/^data:image\/png;base64,/)
+            }
+            const original = await media.openAssetContent(projectId, asset.asset.id, subjectId)
+            expect(new Uint8Array(await new Response(original!.stream).arrayBuffer())).toEqual(
+                new Uint8Array(bytes)
+            )
+            const thumbnail = await media.openAssetContent(
+                projectId,
+                asset.asset.id,
+                subjectId,
+                undefined,
+                'thumbnail'
+            )
+            const thumbnailBytes = await new Response(thumbnail!.stream).blob()
+            expect((await new Bun.Image(thumbnailBytes).metadata()).width).toBe(256)
+            expect(
+                await media.openAssetContent(
+                    projectId,
+                    asset.asset.id,
+                    'stranger',
+                    undefined,
+                    'thumbnail'
+                )
+            ).toBeNull()
+            // A missing optional preview does not take a usable original out of service.
+            await store.delete(derived[0]!.objectKey)
+            await media.reconcile()
+            expect(media.getAsset(projectId, asset.asset.id, subjectId)?.asset.state).toBe('ready')
+            expect(media.requestDeletion(projectId, asset.asset.id, subjectId).kind).toBe(
+                'requested'
+            )
+            expect(
+                (await media.permanentlyDeleteAsset(projectId, asset.asset.id, subjectId)).kind
+            ).toBe('deleted')
+            for (const item of asset.representations)
+                expect(await store.stat(item.objectKey)).toBeNull()
+            console.info(
+                'Preview bytes:',
+                bytes.length,
+                derived.map(item => item.byteSize)
+            )
+        })
+    })
+
+    it('waits for a preview write before purging an import deleted during generation', async () => {
+        await withFixture(async ({ media, projectId, subjectId, store }) => {
+            const bytes = previewFixturePng(4, 3)
+            const reservation = media.reserveUpload({
+                projectId,
+                subjectId,
+                originalFilename: 'race.png',
+                expectedSize: bytes.length,
+                contentType: 'image/png',
+            })!
+            await media.upload({
+                projectId,
+                subjectId,
+                intentId: reservation.intent.id,
+                source: streamOf(bytes),
+            })
+            const put = store.put.bind(store)
+            let release!: () => void
+            let started!: () => void
+            const held = new Promise<void>(resolve => {
+                release = resolve
+            })
+            const reached = new Promise<void>(resolve => {
+                started = resolve
+            })
+            store.put = async (key, source, options) => {
+                if (key.startsWith('previews/')) {
+                    started()
+                    await held
+                }
+                return put(key, source, options)
+            }
+            const finalizing = media.finalizeUpload({
+                projectId,
+                subjectId,
+                intentId: reservation.intent.id,
+            })
+            await reached
+            const snapshot = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            expect(media.requestDeletion(projectId, reservation.asset.id, subjectId).kind).toBe(
+                'requested'
+            )
+            const purging = media.permanentlyDeleteAsset(projectId, reservation.asset.id, subjectId)
+            release()
+            await finalizing
+            expect((await purging).kind).toBe('deleted')
+            for (const item of snapshot.representations)
+                expect(await store.stat(item.objectKey)).toBeNull()
+            expect(media.getAsset(projectId, reservation.asset.id, subjectId)).toBeNull()
+        })
+    })
+
+    it('preserves the original and tracks cleanup when preview storage fails after writing bytes', async () => {
+        await withFixture(async ({ media, projectId, subjectId, store }) => {
+            const bytes = previewFixturePng(4, 3)
+            const reservation = media.reserveUpload({
+                projectId,
+                subjectId,
+                originalFilename: 'failure.png',
+                expectedSize: bytes.length,
+                contentType: 'image/png',
+            })!
+            await media.upload({
+                projectId,
+                subjectId,
+                intentId: reservation.intent.id,
+                source: streamOf(bytes),
+            })
+            const put = store.put.bind(store)
+            store.put = async (key, source, options) => {
+                const result = await put(key, source, options)
+                if (key.startsWith('previews/')) throw new Error('Simulated storage failure')
+                return result
+            }
+            expect(
+                (
+                    await media.finalizeUpload({
+                        projectId,
+                        subjectId,
+                        intentId: reservation.intent.id,
+                    })
+                ).kind
+            ).toBe('ready')
+            const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            expect(asset.representations.find(item => item.kind === 'derived')?.state).toBe(
+                'failed'
+            )
+            const fallback = await media.openAssetContent(
+                projectId,
+                asset.asset.id,
+                subjectId,
+                undefined,
+                'thumbnail'
+            )
+            expect(new Uint8Array(await new Response(fallback!.stream).arrayBuffer())).toEqual(
+                new Uint8Array(bytes)
+            )
+            expect(media.requestDeletion(projectId, asset.asset.id, subjectId).kind).toBe(
+                'requested'
+            )
+            expect(
+                (await media.permanentlyDeleteAsset(projectId, asset.asset.id, subjectId)).kind
+            ).toBe('deleted')
+            for (const item of asset.representations)
+                expect(await store.stat(item.objectKey)).toBeNull()
+        })
     })
 
     it('reserves, streams, verifies, and finalizes an immutable representation', async () => {

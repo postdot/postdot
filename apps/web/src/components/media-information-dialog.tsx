@@ -128,6 +128,7 @@ export function MediaInformationDialog({
                             data-media-info-preview="true"
                             className="flex min-h-48 items-center justify-center overflow-hidden rounded-lg bg-surface-inset sm:min-h-72">
                             <MediaPreview
+                                variant="preview"
                                 projectId={asset.asset.projectId}
                                 asset={asset}
                                 representation={representation}

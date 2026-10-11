@@ -8,6 +8,7 @@ import { createLocalMediaStore } from '@herald/media'
 
 import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 import { closeDatabase, createDatabase } from './client'
+import { previewFixturePng } from './image-preview-fixture'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { readRecoveryHold } from './recovery-hold'
@@ -127,17 +128,14 @@ describe('SQLite backup and restore', () => {
                     return () => `media-${++sequence}`
                 })(),
             })
+            const bytes = previewFixturePng(4, 3)
             const reservation = media.reserveUpload({
                 projectId: 'project-1',
                 subjectId: 'subject-1',
                 originalFilename: 'backup.png',
-                expectedSize: 33,
+                expectedSize: bytes.length,
             })
             if (reservation === null) throw new Error('Media reservation was not created')
-            const bytes = new Uint8Array(33)
-            bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-            bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8)
-            bytes.set([0, 0, 0, 4, 0, 0, 0, 3], 16)
             await media.upload({
                 projectId: 'project-1',
                 subjectId: 'subject-1',
@@ -158,7 +156,7 @@ describe('SQLite backup and restore', () => {
                 mediaStore: sourceStore,
                 now: () => now,
             })
-            expect(manifest.representations).toHaveLength(1)
+            expect(manifest.representations).toHaveLength(3)
             expect(await Bun.file(join(bundlePath, 'manifest.json')).exists()).toBe(true)
             expect(
                 await Bun.file(
@@ -208,6 +206,11 @@ describe('SQLite backup and restore', () => {
                 count: 0,
             })
             closeDatabase(restored)
+            for (const representation of manifest.representations) {
+                expect((await restoredStore.stat(representation.objectKey))?.size).toBe(
+                    representation.size
+                )
+            }
             const restoredObject = await restoredStore.open(reservation.representation.objectKey)
             expect(restoredObject?.metadata.size).toBe(bytes.byteLength)
         } finally {

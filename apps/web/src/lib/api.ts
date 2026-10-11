@@ -1197,8 +1197,8 @@ export const api = {
         )
     },
 
-    mediaContentUrl(projectId: string, assetId: string): string {
-        return `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/content`
+    mediaContentUrl(projectId: string, assetId: string, variant?: 'thumbnail' | 'preview'): string {
+        return `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/content${variant === undefined ? '' : `?variant=${variant}`}`
     },
 
     async getChannelProfileState(
