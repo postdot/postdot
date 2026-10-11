@@ -293,6 +293,10 @@ On Linux x64, record the comparable M0 build and runtime footprint with:
 bun run measure:footprint
 ```
 
+A separate [AMD64 container baseline](docs/benchmarks/2026-10-11-amd64-baseline.md)
+records image size, startup and idle memory/CPU. It does not establish capacity
+or minimum hardware requirements.
+
 The command performs a production build, measures the API artifact and the initial
 JavaScript needed by `/`, then starts five isolated API processes with temporary
 SQLite databases. It reports median cold-start time and resident memory after a

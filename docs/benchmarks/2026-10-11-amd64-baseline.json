@@ -1,0 +1,973 @@
+{
+  "source": "sha256:4186a104ea63c9821b5b9741833fd0c86d5537f9240a97e12fd58b0a8c0f87dc",
+  "gitCommit": "da39d10636c3a71ac797e62e08c4972992b1539f",
+  "imageBytes": 188437223,
+  "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+  "kernel": "7.2.9-arch1-1",
+  "docker": "29.9.0",
+  "runs": [
+    {
+      "startupMs": 1293.3103030009079,
+      "empty": {
+        "cpuPercentOneCore": 0.2694406415405254,
+        "durationSeconds": 20.007375165001577,
+        "samples": [
+          {
+            "rssBytes": 151969792,
+            "memoryCurrentBytes": 115359744,
+            "dockerWorkingSetBytes": 108994560,
+            "cpuUsec": 1039069,
+            "time": 29053.13190102
+          },
+          {
+            "rssBytes": 148504576,
+            "memoryCurrentBytes": 112070656,
+            "dockerWorkingSetBytes": 105705472,
+            "cpuUsec": 1061541,
+            "time": 29054.132271681
+          },
+          {
+            "rssBytes": 147881984,
+            "memoryCurrentBytes": 111591424,
+            "dockerWorkingSetBytes": 105226240,
+            "cpuUsec": 1067699,
+            "time": 29055.13263914
+          },
+          {
+            "rssBytes": 147533824,
+            "memoryCurrentBytes": 111243264,
+            "dockerWorkingSetBytes": 104878080,
+            "cpuUsec": 1070297,
+            "time": 29056.132999949
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 109137920,
+            "dockerWorkingSetBytes": 102772736,
+            "cpuUsec": 1072313,
+            "time": 29057.133357756
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108982272,
+            "dockerWorkingSetBytes": 102617088,
+            "cpuUsec": 1073494,
+            "time": 29058.133704462
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108920832,
+            "dockerWorkingSetBytes": 102555648,
+            "cpuUsec": 1074819,
+            "time": 29059.134103587
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108920832,
+            "dockerWorkingSetBytes": 102555648,
+            "cpuUsec": 1076123,
+            "time": 29060.134461221
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108920832,
+            "dockerWorkingSetBytes": 102555648,
+            "cpuUsec": 1077356,
+            "time": 29061.134806194
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108720128,
+            "dockerWorkingSetBytes": 102354944,
+            "cpuUsec": 1078665,
+            "time": 29062.135155946
+          },
+          {
+            "rssBytes": 145428480,
+            "memoryCurrentBytes": 108720128,
+            "dockerWorkingSetBytes": 102354944,
+            "cpuUsec": 1080059,
+            "time": 29063.135500077
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1081465,
+            "time": 29064.135881526
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1082975,
+            "time": 29065.136265765
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1084244,
+            "time": 29066.136609482
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1085492,
+            "time": 29067.136986689
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1086670,
+            "time": 29068.137355314
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1087811,
+            "time": 29069.137701969
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1089006,
+            "time": 29070.138058692
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1090340,
+            "time": 29071.138448504
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1091726,
+            "time": 29072.138919495
+          },
+          {
+            "rssBytes": 144822272,
+            "memoryCurrentBytes": 108027904,
+            "dockerWorkingSetBytes": 101662720,
+            "cpuUsec": 1092977,
+            "time": 29073.139276185
+          }
+        ],
+        "rssMedianBytes": 145428480,
+        "rssMaxBytes": 151969792,
+        "workingSetMedianBytes": 102354944
+      },
+      "configured": {
+        "cpuPercentOneCore": 0.14639496552835243,
+        "durationSeconds": 20.007518628997786,
+        "samples": [
+          {
+            "rssBytes": 150323200,
+            "memoryCurrentBytes": 112635904,
+            "dockerWorkingSetBytes": 106270720,
+            "cpuUsec": 1230875,
+            "time": 29083.225625153
+          },
+          {
+            "rssBytes": 149921792,
+            "memoryCurrentBytes": 112234496,
+            "dockerWorkingSetBytes": 105869312,
+            "cpuUsec": 1232733,
+            "time": 29084.225982812
+          },
+          {
+            "rssBytes": 149921792,
+            "memoryCurrentBytes": 111992832,
+            "dockerWorkingSetBytes": 105627648,
+            "cpuUsec": 1233983,
+            "time": 29085.22629736
+          },
+          {
+            "rssBytes": 149921792,
+            "memoryCurrentBytes": 111788032,
+            "dockerWorkingSetBytes": 105422848,
+            "cpuUsec": 1235237,
+            "time": 29086.226634976
+          },
+          {
+            "rssBytes": 149921792,
+            "memoryCurrentBytes": 111788032,
+            "dockerWorkingSetBytes": 105422848,
+            "cpuUsec": 1236638,
+            "time": 29087.226973862
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111783936,
+            "dockerWorkingSetBytes": 105418752,
+            "cpuUsec": 1239271,
+            "time": 29088.227370527
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111747072,
+            "dockerWorkingSetBytes": 105381888,
+            "cpuUsec": 1240566,
+            "time": 29089.227730231
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111587328,
+            "dockerWorkingSetBytes": 105222144,
+            "cpuUsec": 1241810,
+            "time": 29090.228081363
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111587328,
+            "dockerWorkingSetBytes": 105222144,
+            "cpuUsec": 1243110,
+            "time": 29091.228432385
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111566848,
+            "dockerWorkingSetBytes": 105201664,
+            "cpuUsec": 1244455,
+            "time": 29092.228819655
+          },
+          {
+            "rssBytes": 149917696,
+            "memoryCurrentBytes": 111566848,
+            "dockerWorkingSetBytes": 105201664,
+            "cpuUsec": 1245784,
+            "time": 29093.229192144
+          },
+          {
+            "rssBytes": 149323776,
+            "memoryCurrentBytes": 110972928,
+            "dockerWorkingSetBytes": 104607744,
+            "cpuUsec": 1247224,
+            "time": 29094.229539933
+          },
+          {
+            "rssBytes": 149323776,
+            "memoryCurrentBytes": 110972928,
+            "dockerWorkingSetBytes": 104607744,
+            "cpuUsec": 1248604,
+            "time": 29095.22999538
+          },
+          {
+            "rssBytes": 149323776,
+            "memoryCurrentBytes": 110972928,
+            "dockerWorkingSetBytes": 104607744,
+            "cpuUsec": 1249858,
+            "time": 29096.230510895
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111235072,
+            "dockerWorkingSetBytes": 104869888,
+            "cpuUsec": 1251403,
+            "time": 29097.230863391
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111226880,
+            "dockerWorkingSetBytes": 104861696,
+            "cpuUsec": 1252871,
+            "time": 29098.231232235
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111226880,
+            "dockerWorkingSetBytes": 104861696,
+            "cpuUsec": 1254292,
+            "time": 29099.231581569
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111226880,
+            "dockerWorkingSetBytes": 104861696,
+            "cpuUsec": 1255532,
+            "time": 29100.23208916
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111202304,
+            "dockerWorkingSetBytes": 104837120,
+            "cpuUsec": 1256762,
+            "time": 29101.232444532
+          },
+          {
+            "rssBytes": 149327872,
+            "memoryCurrentBytes": 111202304,
+            "dockerWorkingSetBytes": 104837120,
+            "cpuUsec": 1257951,
+            "time": 29102.232791542
+          },
+          {
+            "rssBytes": 149340160,
+            "memoryCurrentBytes": 111136768,
+            "dockerWorkingSetBytes": 104771584,
+            "cpuUsec": 1260165,
+            "time": 29103.233143782
+          }
+        ],
+        "rssMedianBytes": 149917696,
+        "rssMaxBytes": 150323200,
+        "workingSetMedianBytes": 105201664
+      },
+      "dataBytes": 1192084,
+      "exitCode": 0
+    },
+    {
+      "startupMs": 869.0591260019573,
+      "empty": {
+        "cpuPercentOneCore": 0.17113878946572889,
+        "durationSeconds": 20.007737642001302,
+        "samples": [
+          {
+            "rssBytes": 152006656,
+            "memoryCurrentBytes": 115802112,
+            "dockerWorkingSetBytes": 109436928,
+            "cpuUsec": 849348,
+            "time": 29114.675787389
+          },
+          {
+            "rssBytes": 148250624,
+            "memoryCurrentBytes": 111742976,
+            "dockerWorkingSetBytes": 105377792,
+            "cpuUsec": 857874,
+            "time": 29115.676152987
+          },
+          {
+            "rssBytes": 148258816,
+            "memoryCurrentBytes": 111472640,
+            "dockerWorkingSetBytes": 105107456,
+            "cpuUsec": 859176,
+            "time": 29116.676661652
+          },
+          {
+            "rssBytes": 148258816,
+            "memoryCurrentBytes": 111460352,
+            "dockerWorkingSetBytes": 105095168,
+            "cpuUsec": 860695,
+            "time": 29117.677013657
+          },
+          {
+            "rssBytes": 148258816,
+            "memoryCurrentBytes": 111259648,
+            "dockerWorkingSetBytes": 104894464,
+            "cpuUsec": 861844,
+            "time": 29118.677370242
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108990464,
+            "dockerWorkingSetBytes": 102625280,
+            "cpuUsec": 863866,
+            "time": 29119.677750985
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108756992,
+            "dockerWorkingSetBytes": 102391808,
+            "cpuUsec": 865130,
+            "time": 29120.678223097
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108756992,
+            "dockerWorkingSetBytes": 102391808,
+            "cpuUsec": 866412,
+            "time": 29121.678580578
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108756992,
+            "dockerWorkingSetBytes": 102391808,
+            "cpuUsec": 867753,
+            "time": 29122.678929709
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108756992,
+            "dockerWorkingSetBytes": 102391808,
+            "cpuUsec": 869047,
+            "time": 29123.679285279
+          },
+          {
+            "rssBytes": 146161664,
+            "memoryCurrentBytes": 108756992,
+            "dockerWorkingSetBytes": 102391808,
+            "cpuUsec": 870408,
+            "time": 29124.679676757
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108191744,
+            "dockerWorkingSetBytes": 101826560,
+            "cpuUsec": 872031,
+            "time": 29125.680043345
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108183552,
+            "dockerWorkingSetBytes": 101818368,
+            "cpuUsec": 873550,
+            "time": 29126.680462212
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 874816,
+            "time": 29127.680857137
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 876052,
+            "time": 29128.681234822
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 877309,
+            "time": 29129.681590086
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 878534,
+            "time": 29130.681968839
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 879975,
+            "time": 29131.682322261
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 881247,
+            "time": 29132.682762352
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 882391,
+            "time": 29133.683171012
+          },
+          {
+            "rssBytes": 145596416,
+            "memoryCurrentBytes": 108179456,
+            "dockerWorkingSetBytes": 101814272,
+            "cpuUsec": 883589,
+            "time": 29134.683525031
+          }
+        ],
+        "rssMedianBytes": 146161664,
+        "rssMaxBytes": 152006656,
+        "workingSetMedianBytes": 102391808
+      },
+      "configured": {
+        "cpuPercentOneCore": 0.1493236586231769,
+        "durationSeconds": 20.007546208998974,
+        "samples": [
+          {
+            "rssBytes": 150413312,
+            "memoryCurrentBytes": 113033216,
+            "dockerWorkingSetBytes": 106668032,
+            "cpuUsec": 1021589,
+            "time": 29144.770591588
+          },
+          {
+            "rssBytes": 150413312,
+            "memoryCurrentBytes": 113033216,
+            "dockerWorkingSetBytes": 106668032,
+            "cpuUsec": 1022993,
+            "time": 29145.770966747
+          },
+          {
+            "rssBytes": 150413312,
+            "memoryCurrentBytes": 113033216,
+            "dockerWorkingSetBytes": 106668032,
+            "cpuUsec": 1024552,
+            "time": 29146.771309445
+          },
+          {
+            "rssBytes": 150413312,
+            "memoryCurrentBytes": 113033216,
+            "dockerWorkingSetBytes": 106668032,
+            "cpuUsec": 1025915,
+            "time": 29147.771649263
+          },
+          {
+            "rssBytes": 150413312,
+            "memoryCurrentBytes": 113033216,
+            "dockerWorkingSetBytes": 106668032,
+            "cpuUsec": 1027326,
+            "time": 29148.772029039
+          },
+          {
+            "rssBytes": 149954560,
+            "memoryCurrentBytes": 112480256,
+            "dockerWorkingSetBytes": 106115072,
+            "cpuUsec": 1029329,
+            "time": 29149.772373665
+          },
+          {
+            "rssBytes": 149954560,
+            "memoryCurrentBytes": 112480256,
+            "dockerWorkingSetBytes": 106115072,
+            "cpuUsec": 1030660,
+            "time": 29150.772719989
+          },
+          {
+            "rssBytes": 149950464,
+            "memoryCurrentBytes": 112476160,
+            "dockerWorkingSetBytes": 106110976,
+            "cpuUsec": 1033058,
+            "time": 29151.773136582
+          },
+          {
+            "rssBytes": 149950464,
+            "memoryCurrentBytes": 112476160,
+            "dockerWorkingSetBytes": 106110976,
+            "cpuUsec": 1034646,
+            "time": 29152.773708394
+          },
+          {
+            "rssBytes": 149950464,
+            "memoryCurrentBytes": 112476160,
+            "dockerWorkingSetBytes": 106110976,
+            "cpuUsec": 1036038,
+            "time": 29153.774073386
+          },
+          {
+            "rssBytes": 149950464,
+            "memoryCurrentBytes": 112476160,
+            "dockerWorkingSetBytes": 106110976,
+            "cpuUsec": 1037307,
+            "time": 29154.774420007
+          },
+          {
+            "rssBytes": 149356544,
+            "memoryCurrentBytes": 111882240,
+            "dockerWorkingSetBytes": 105517056,
+            "cpuUsec": 1038610,
+            "time": 29155.774773297
+          },
+          {
+            "rssBytes": 149356544,
+            "memoryCurrentBytes": 111882240,
+            "dockerWorkingSetBytes": 105517056,
+            "cpuUsec": 1039863,
+            "time": 29156.775176316
+          },
+          {
+            "rssBytes": 149356544,
+            "memoryCurrentBytes": 111882240,
+            "dockerWorkingSetBytes": 105517056,
+            "cpuUsec": 1041143,
+            "time": 29157.775611274
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111874048,
+            "dockerWorkingSetBytes": 105508864,
+            "cpuUsec": 1042622,
+            "time": 29158.775967672
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111771648,
+            "dockerWorkingSetBytes": 105406464,
+            "cpuUsec": 1043838,
+            "time": 29159.776304818
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111583232,
+            "dockerWorkingSetBytes": 105218048,
+            "cpuUsec": 1045246,
+            "time": 29160.776703393
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111583232,
+            "dockerWorkingSetBytes": 105218048,
+            "cpuUsec": 1046572,
+            "time": 29161.777057508
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111161344,
+            "dockerWorkingSetBytes": 104796160,
+            "cpuUsec": 1047866,
+            "time": 29162.777419022
+          },
+          {
+            "rssBytes": 149360640,
+            "memoryCurrentBytes": 111161344,
+            "dockerWorkingSetBytes": 104796160,
+            "cpuUsec": 1049147,
+            "time": 29163.777761825
+          },
+          {
+            "rssBytes": 149368832,
+            "memoryCurrentBytes": 111386624,
+            "dockerWorkingSetBytes": 105021440,
+            "cpuUsec": 1051465,
+            "time": 29164.778137797
+          }
+        ],
+        "rssMedianBytes": 149950464,
+        "rssMaxBytes": 150413312,
+        "workingSetMedianBytes": 106110976
+      },
+      "dataBytes": 1192084,
+      "exitCode": 0
+    },
+    {
+      "startupMs": 851.6268179992039,
+      "empty": {
+        "cpuPercentOneCore": 0.17172990153051312,
+        "durationSeconds": 20.007581494999613,
+        "samples": [
+          {
+            "rssBytes": 151904256,
+            "memoryCurrentBytes": 115900416,
+            "dockerWorkingSetBytes": 109535232,
+            "cpuUsec": 825864,
+            "time": 29176.202498243
+          },
+          {
+            "rssBytes": 148070400,
+            "memoryCurrentBytes": 112140288,
+            "dockerWorkingSetBytes": 105775104,
+            "cpuUsec": 834653,
+            "time": 29177.202872845
+          },
+          {
+            "rssBytes": 148078592,
+            "memoryCurrentBytes": 111902720,
+            "dockerWorkingSetBytes": 105537536,
+            "cpuUsec": 836078,
+            "time": 29178.203248555
+          },
+          {
+            "rssBytes": 148078592,
+            "memoryCurrentBytes": 111902720,
+            "dockerWorkingSetBytes": 105537536,
+            "cpuUsec": 837396,
+            "time": 29179.203599805
+          },
+          {
+            "rssBytes": 148078592,
+            "memoryCurrentBytes": 111902720,
+            "dockerWorkingSetBytes": 105537536,
+            "cpuUsec": 838523,
+            "time": 29180.203967153
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 109285376,
+            "dockerWorkingSetBytes": 102920192,
+            "cpuUsec": 840656,
+            "time": 29181.204305772
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 109146112,
+            "dockerWorkingSetBytes": 102780928,
+            "cpuUsec": 841946,
+            "time": 29182.204677629
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 109146112,
+            "dockerWorkingSetBytes": 102780928,
+            "cpuUsec": 843226,
+            "time": 29183.205054955
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 109133824,
+            "dockerWorkingSetBytes": 102768640,
+            "cpuUsec": 844507,
+            "time": 29184.20542131
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 108896256,
+            "dockerWorkingSetBytes": 102531072,
+            "cpuUsec": 845849,
+            "time": 29185.205777655
+          },
+          {
+            "rssBytes": 145461248,
+            "memoryCurrentBytes": 108630016,
+            "dockerWorkingSetBytes": 102264832,
+            "cpuUsec": 847241,
+            "time": 29186.206135838
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 108044288,
+            "dockerWorkingSetBytes": 101679104,
+            "cpuUsec": 848620,
+            "time": 29187.206505341
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107782144,
+            "dockerWorkingSetBytes": 101416960,
+            "cpuUsec": 849956,
+            "time": 29188.206871953
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107614208,
+            "dockerWorkingSetBytes": 101249024,
+            "cpuUsec": 851276,
+            "time": 29189.207236704
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 852632,
+            "time": 29190.207604205
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 853853,
+            "time": 29191.207959224
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 855131,
+            "time": 29192.208481442
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 856417,
+            "time": 29193.20883954
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 857629,
+            "time": 29194.209204207
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 858799,
+            "time": 29195.209561973
+          },
+          {
+            "rssBytes": 144875520,
+            "memoryCurrentBytes": 107601920,
+            "dockerWorkingSetBytes": 101236736,
+            "cpuUsec": 860223,
+            "time": 29196.210079738
+          }
+        ],
+        "rssMedianBytes": 145461248,
+        "rssMaxBytes": 151904256,
+        "workingSetMedianBytes": 102264832
+      },
+      "configured": {
+        "cpuPercentOneCore": 0.15227442428916457,
+        "durationSeconds": 20.00729941499958,
+        "samples": [
+          {
+            "rssBytes": 149827584,
+            "memoryCurrentBytes": 112369664,
+            "dockerWorkingSetBytes": 106004480,
+            "cpuUsec": 1000135,
+            "time": 29206.298659296
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111923200,
+            "dockerWorkingSetBytes": 105558016,
+            "cpuUsec": 1002220,
+            "time": 29207.299119232
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111923200,
+            "dockerWorkingSetBytes": 105558016,
+            "cpuUsec": 1003993,
+            "time": 29208.299472568
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111923200,
+            "dockerWorkingSetBytes": 105558016,
+            "cpuUsec": 1005301,
+            "time": 29209.299931952
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111923200,
+            "dockerWorkingSetBytes": 105558016,
+            "cpuUsec": 1006765,
+            "time": 29210.300283686
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111923200,
+            "dockerWorkingSetBytes": 105558016,
+            "cpuUsec": 1008072,
+            "time": 29211.300627419
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111669248,
+            "dockerWorkingSetBytes": 105304064,
+            "cpuUsec": 1009437,
+            "time": 29212.300979371
+          },
+          {
+            "rssBytes": 149381120,
+            "memoryCurrentBytes": 111669248,
+            "dockerWorkingSetBytes": 105304064,
+            "cpuUsec": 1010830,
+            "time": 29213.301295263
+          },
+          {
+            "rssBytes": 149377024,
+            "memoryCurrentBytes": 111665152,
+            "dockerWorkingSetBytes": 105299968,
+            "cpuUsec": 1013369,
+            "time": 29214.301664784
+          },
+          {
+            "rssBytes": 149377024,
+            "memoryCurrentBytes": 111665152,
+            "dockerWorkingSetBytes": 105299968,
+            "cpuUsec": 1014716,
+            "time": 29215.302106773
+          },
+          {
+            "rssBytes": 149377024,
+            "memoryCurrentBytes": 111665152,
+            "dockerWorkingSetBytes": 105299968,
+            "cpuUsec": 1016169,
+            "time": 29216.302453292
+          },
+          {
+            "rssBytes": 148754432,
+            "memoryCurrentBytes": 110989312,
+            "dockerWorkingSetBytes": 104624128,
+            "cpuUsec": 1017648,
+            "time": 29217.302798021
+          },
+          {
+            "rssBytes": 148754432,
+            "memoryCurrentBytes": 110989312,
+            "dockerWorkingSetBytes": 104624128,
+            "cpuUsec": 1018904,
+            "time": 29218.303140699
+          },
+          {
+            "rssBytes": 148754432,
+            "memoryCurrentBytes": 110735360,
+            "dockerWorkingSetBytes": 104370176,
+            "cpuUsec": 1020231,
+            "time": 29219.303480365
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110997504,
+            "dockerWorkingSetBytes": 104632320,
+            "cpuUsec": 1021585,
+            "time": 29220.303849031
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110989312,
+            "dockerWorkingSetBytes": 104624128,
+            "cpuUsec": 1022949,
+            "time": 29221.304195176
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110989312,
+            "dockerWorkingSetBytes": 104624128,
+            "cpuUsec": 1024226,
+            "time": 29222.304535991
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110690304,
+            "dockerWorkingSetBytes": 104325120,
+            "cpuUsec": 1025507,
+            "time": 29223.304878605
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110690304,
+            "dockerWorkingSetBytes": 104325120,
+            "cpuUsec": 1026898,
+            "time": 29224.305238487
+          },
+          {
+            "rssBytes": 148758528,
+            "memoryCurrentBytes": 110571520,
+            "dockerWorkingSetBytes": 104206336,
+            "cpuUsec": 1028301,
+            "time": 29225.305616839
+          },
+          {
+            "rssBytes": 148774912,
+            "memoryCurrentBytes": 110792704,
+            "dockerWorkingSetBytes": 104427520,
+            "cpuUsec": 1030601,
+            "time": 29226.305958711
+          }
+        ],
+        "rssMedianBytes": 149377024,
+        "rssMaxBytes": 149827584,
+        "workingSetMedianBytes": 105299968
+      },
+      "dataBytes": 1192084,
+      "exitCode": 0
+    }
+  ],
+  "gzipDockerSaveBytes": 74922546,
+  "method": {
+    "runs": 3,
+    "warmupSecondsPerPhase": 10,
+    "observationSecondsPerPhase": 20,
+    "samplePeriodSeconds": 1,
+    "cpuPercent": "100% represents one fully occupied logical core; includes container healthcheck",
+    "memory": "host /proc RSS; cgroup v2 memory.current minus inactive_file as Docker-style working set",
+    "startup": "docker run invocation through /ready 200; fresh SQLite, warm image/filesystem caches",
+    "configured": "one administrator, one project, no channels/media/jobs, one dashboard-shell request, no browser or SSE",
+    "imageArchive": "gzip level 6 of docker image save; estimate, not an OCI registry transfer measurement"
+  }
+}
