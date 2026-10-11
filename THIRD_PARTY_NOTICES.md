@@ -8,19 +8,38 @@ This inventory is a preparation record, not a certificate of distribution compli
 
 ## Explicitly retained material
 
-| Material                                | License / provenance                           | Existing notice                                                                             |
-| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Adapted shadcn/ui toast code            | MIT                                            | `packages/ui/LICENSE.shadcn.md`                                                             |
-| Bluesky preview symbols                 | MIT                                            | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                            |
-| Material preview symbols                | Apache-2.0                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                           |
-| MP4Box.js                               | BSD-3-Clause                                   | `docs/licenses/MP4Box.LICENSE`; copied into the runtime image                               |
-| FFmpeg poster executable                | LGPL-2.1-or-later in the current minimal build | Runtime `/app/licenses/FFmpeg.LICENSE`; source checksum and build flags in Dockerfile       |
-| Recursive variable font                 | OFL-1.1                                        | Installed `@fontsource-variable/recursive/LICENSE`; must accompany redistributed font files |
-| DiceBear Lorelei and Shapes definitions | CC0-1.0                                        | License/creator/source metadata inside the installed JSON definitions                       |
+| Material                                | License / provenance                           | Existing notice                                                                       |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Adapted shadcn/ui toast code            | MIT                                            | `packages/ui/LICENSE.shadcn.md`                                                       |
+| Bluesky preview symbols                 | MIT                                            | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                      |
+| Material preview symbols                | Apache-2.0                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                     |
+| MP4Box.js                               | BSD-3-Clause                                   | `docs/licenses/MP4Box.LICENSE`; copied into the runtime image                         |
+| FFmpeg poster executable                | LGPL-2.1-or-later in the current minimal build | Runtime `/app/licenses/FFmpeg.LICENSE`; source checksum and build flags in Dockerfile |
+| Recursive variable font                 | OFL-1.1                                        | `docs/licenses/Recursive.LICENSE`; copied into the runtime image                      |
+| DiceBear Lorelei and Shapes definitions | CC0-1.0                                        | License/creator/source metadata inside the installed JSON definitions                 |
 
 DiceBear's aggregate styles package includes other licenses. Herald imports only
 Lorelei and Shapes; do not treat the entire catalog as CC0. The installed package
 code and definition licenses must be considered separately.
+
+## Packaged notice snapshot
+
+Full available notice texts are retained in [docs/licenses](docs/licenses/README.md)
+and copied into the runtime image. The conservative production dependency closure
+contains 357 installed package versions; 345 ship notice files. The 12 missing
+texts are listed there for follow-up. This inventory does not establish bundle
+reachability or clear the remaining public-release requirements.
+
+The portrait source was recovered from the UX-247 worklog:
+<https://images.unsplash.com/photo-1568602471122-7832951cc4c5>.
+It remains an illustrative stock photo, not a connected user's identity. The
+[Unsplash license](https://unsplash.com/license) permits redistribution as part
+of this use, subject to its restrictions; this is not a clearance of personality
+or trademark rights. The photographer and original photo page remain unverified.
+
+The 16 empty-state SVGs have no identified source/license in their files or the
+inspected repository history. Their provenance remains a public-release blocker;
+no ownership or license is inferred from their inclusion in Git.
 
 ## Direct production dependencies
 
@@ -120,9 +139,8 @@ license texts or a transitive dependency review.
 - Preserve the original licenses of adapted components and copied assets. Ensure
   source releases and images carry the appropriate license and notice files.
 - Establish source, permission and attribution requirements for the empty-state SVG
-  illustrations and sample portrait. A previous worklog identifies the portrait
-  as owner-supplied from Unsplash, but does not establish its exact source URL.
-  No redistribution clearance is asserted for these assets by this inventory.
+  illustrations and sample portrait. The portrait source URL is recovered above; the SVG source and permissions
+  still need confirmation. No clearance of those SVGs is asserted.
 - Supply source corresponding to the released Herald executable, including build
   scripts, and a source-access mechanism appropriate to AGPL obligations. Agree on
   the public source location before implementing links in the application.

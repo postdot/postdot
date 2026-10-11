@@ -58,7 +58,7 @@ COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTI
 COPY --from=build --chown=bun:bun /out/herald.js ./herald.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
-COPY --from=build --chown=bun:bun /app/docs/licenses/MP4Box.LICENSE ./licenses/MP4Box.LICENSE
+COPY --from=build --chown=bun:bun /app/docs/licenses/ ./licenses/
 
 RUN mkdir -p /data && chown bun:bun /data
 
