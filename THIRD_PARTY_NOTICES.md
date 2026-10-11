@@ -1,5 +1,7 @@
 # Third-party licenses and release checks
 
+Original Herald material: Copyright (c) 2026 Hakim Saoudi.
+
 Herald's AGPL-3.0-only declaration applies to original project material, not to
 third-party components. Their licenses and copyright notices remain applicable.
 This inventory is a preparation record, not a certificate of distribution compliance.

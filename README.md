@@ -9,6 +9,8 @@ with technical rationale in
 
 ## License
 
+Copyright (c) 2026 Hakim Saoudi.
+
 Herald's original code is licensed under **AGPL-3.0-only**. See [LICENSE](LICENSE).
 Third-party code and assets retain their own licenses; see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the current inventory and
