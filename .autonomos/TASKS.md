@@ -726,3 +726,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[MEDIA-392]** Verify minimal poster extraction in Bun slim `Priority: 🟡` `Complexity: S` — Isolated container proof: 2.34 MiB incremental size, cached compilation, non-root extraction and invalid/missing/interrupted child probes. No production integration. See worklogs/2026-10-11-MEDIA-392.md.
 
 - [x] **[MEDIA-393]** Generate optional video posters in the server background `Priority: 🟡` `Complexity: M` — Minimal packaged decoder, bounded serial extraction, startup recovery and upload wakeup, internal representations, non-loading placeholders and graceful drain.
+
+- [x] **[PRODUCT-394]** Reassess substantial operator outcomes after media optimization `Priority: 🟠` `Complexity: S` — Repository review recommends reconsidering owner-deferred DOCS-301 as a runnable first-installation milestone; no new client, provider, release publication or test campaign authorized. [Review](worklogs/2026-10-11-PRODUCT-394.md).
