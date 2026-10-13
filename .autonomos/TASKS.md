@@ -746,3 +746,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-402]** Use neutral logo ink and align documentation foundations `Priority: 🟠` `Complexity: S` — Retain layouts; no new public direction or release claims.
 
 - [x] **[SITE-403]** Replace the direction gallery with the actual Postbot public home `Priority: 🟠` `Complexity: M` — Accepted neutral foundations, real product captures and documentation entry points; private and statically exportable.
+
+- [x] **[SITE-404]** Refine the public header and visual theme control `Priority: 🟠` `Complexity: S` — Solar icons, reduced-motion-aware toggle, responsive header; existing marketing copy remains unapproved filler.

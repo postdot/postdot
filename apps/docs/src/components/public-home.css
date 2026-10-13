@@ -351,14 +351,70 @@
         display: none;
     }
 }
+/* The theme control is a compact mechanical toggle, not another navigation link. */
 .public-home .home-theme-toggle {
-    height: 32px;
-    background: transparent;
-    color: var(--home-muted);
-    border: 0;
+    position: relative;
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: center;
+    isolation: isolate;
+    width: 64px;
+    height: 36px;
+    padding: 0 9px;
+    background: var(--home-card);
+    color: var(--home-ink);
+    border: 1px solid var(--home-edge);
+    border-radius: 20px;
     box-shadow: none;
-    font-size: 12px;
-    padding: 4px 8px;
-    transition: none;
-    animation: none;
+}
+.home-theme-thumb {
+    position: absolute;
+    z-index: -1;
+    left: 3px;
+    top: 3px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--home-bg);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+.home-header {
+    min-height: 96px;
+    padding-block: 24px;
+}
+.home-header .home-logo {
+    width: 40px;
+    height: 40px;
+}
+.home-header .home-brand {
+    font-size: 25px;
+    gap: 12px;
+}
+.home-header nav > a {
+    padding: 8px 0;
+}
+.home-header nav > a:hover {
+    text-decoration: underline;
+    text-underline-offset: 6px;
+}
+.home-steps a,
+.home-runtime > a,
+.home-footer > a:last-child {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+@media (max-width: 600px) {
+    .home-header {
+        min-height: 80px;
+        padding: 16px 20px;
+    }
+    .home-header .home-brand {
+        font-size: 21px;
+        gap: 8px;
+    }
+    .home-header .home-logo {
+        width: 32px;
+        height: 32px;
+    }
 }

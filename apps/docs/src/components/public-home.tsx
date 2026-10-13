@@ -1,4 +1,5 @@
 import { Button } from '@postbot/ui/components/button'
+import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
@@ -58,7 +59,6 @@ export function PublicHome() {
                                 Explore the docs
                             </Action>
                         </div>
-                        <span className="home-alpha">Preparing the public alpha</span>
                     </div>
                     <figure className="home-product">
                         <img
@@ -93,13 +93,19 @@ export function PublicHome() {
                             <span className="home-step-number">01</span>
                             <h3>Compose once</h3>
                             <p>Text and media start in one shared post.</p>
-                            <Link href="/docs/concepts/">Posts and destinations ↗</Link>
+                            <Link href="/docs/concepts/">
+                                Posts and destinations{' '}
+                                <ArrowRightUpIcon size={16} aria-hidden="true" />
+                            </Link>
                         </article>
                         <article>
                             <span className="home-step-number">02</span>
                             <h3>Adapt where it matters</h3>
                             <p>Each publication keeps its own content, format and date.</p>
-                            <Link href="/docs/first-publication/">Your first publication ↗</Link>
+                            <Link href="/docs/first-publication/">
+                                Your first publication{' '}
+                                <ArrowRightUpIcon size={16} aria-hidden="true" />
+                            </Link>
                         </article>
                         <article>
                             <span className="home-step-number">03</span>
@@ -107,7 +113,10 @@ export function PublicHome() {
                             <p>
                                 Schedule connected channels. Track manual work and handle failures.
                             </p>
-                            <Link href="/docs/providers/">Provider connections ↗</Link>
+                            <Link href="/docs/providers/">
+                                Provider connections{' '}
+                                <ArrowRightUpIcon size={16} aria-hidden="true" />
+                            </Link>
                         </article>
                     </div>
                 </section>
@@ -146,7 +155,9 @@ export function PublicHome() {
                                 <dd>SQLite · local or S3 media</dd>
                             </div>
                         </dl>
-                        <Link href="/docs/operations/">Backups and updates ↗</Link>
+                        <Link href="/docs/operations/">
+                            Backups and updates <ArrowRightUpIcon size={16} aria-hidden="true" />
+                        </Link>
                     </div>
                 </section>
                 <section className="home-start">
@@ -163,7 +174,9 @@ export function PublicHome() {
                     <span>Postbot</span>
                 </Link>
                 <span>Self-hosted publication management</span>
-                <Link href="/docs/">Documentation ↗</Link>
+                <Link href="/docs/">
+                    Documentation <ArrowRightUpIcon size={16} aria-hidden="true" />
+                </Link>
             </footer>
         </div>
     )
