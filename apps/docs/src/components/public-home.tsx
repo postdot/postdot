@@ -39,8 +39,11 @@ export function PublicHome() {
                 <nav aria-label="Main navigation">
                     <Link href="#workflow">How it works</Link>
                     <Link href="/docs/">Documentation</Link>
-                    <PublicThemeToggle />
                 </nav>
+                <div className="home-header-actions">
+                    <PublicThemeToggle />
+                    <Action href="/docs/installation/">Install</Action>
+                </div>
             </header>
             <main>
                 <section className="home-hero">
@@ -79,18 +82,34 @@ export function PublicHome() {
                 </section>
             </main>
             <footer className="home-footer">
-                <div className="home-footer-top">
-                    <Link href="/" className="home-brand" aria-label="Postbot home">
-                        <PostbotLogo className="home-logo" />
-                        <span>Postbot</span>
+                <div className="home-footer-content">
+                    <Link href="/" className="home-footer-mark" aria-label="Postbot home">
+                        <PostbotLogo />
                     </Link>
-                    <Link href="/docs/">
-                        Documentation <ArrowRightUpIcon size={18} aria-hidden="true" />
-                    </Link>
+                    <nav aria-label="Documentation links" className="home-footer-nav">
+                        <div>
+                            <h2>Start</h2>
+                            <Link href="/docs/installation/">Installation</Link>
+                            <Link href="/docs/first-publication/">First publication</Link>
+                            <Link href="/docs/providers/">Connections</Link>
+                        </div>
+                        <div>
+                            <h2>Build</h2>
+                            <Link href="/docs/concepts/">Concepts</Link>
+                            <Link href="/docs/automation/">API and CLI</Link>
+                            <Link href="/docs/operations/">Operations</Link>
+                        </div>
+                    </nav>
                 </div>
                 <div className="home-footer-signature" aria-hidden="true">
-                    <span>Postbot</span>
-                    <PostbotLogo />
+                    Postbot
+                </div>
+                <div className="home-footer-bottom">
+                    <span>© 2026 Hakim Saoudi</span>
+                    <span>AGPL-3.0-only</span>
+                    <Link href="#">
+                        Back to top <ArrowRightUpIcon size={16} aria-hidden="true" />
+                    </Link>
                 </div>
             </footer>
         </div>
