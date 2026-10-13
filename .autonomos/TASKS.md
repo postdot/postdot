@@ -740,3 +740,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-399]** Restore adjacent surface and selection distinction `Priority: 🟠` `Complexity: S` — Neutral shell elevation, explicit selected-control fill and dedicated calendar cell edges, preserving layout.
 
 - [x] **[BRAND-400]** Adopt Postbot naming and theme-aware owner mark `Priority: 🟠` `Complexity: M` — Rename project-owned identifiers, packages, configuration and tracked records; preserve SVG opacity and layouts, no new motion.
+
+- [x] **[DESIGN-401]** Harmonize search and dialog surfaces and add the Postbot favicon `Priority: 🟠` `Complexity: S` — Existing layouts and behavior preserved.

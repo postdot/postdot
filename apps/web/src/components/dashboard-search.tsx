@@ -208,8 +208,8 @@ export function DashboardSearch({
                 open={open}
                 onOpenChange={setOpen}
                 title={m.search_open()}
-                contentClassName="top-[min(18dvh,8rem)] translate-y-0 dark:bg-surface-raised">
-                <Command shouldFilter={false} className="dark:bg-surface-raised">
+                contentClassName="top-[min(18dvh,8rem)] translate-y-0">
+                <Command shouldFilter={false}>
                     <CommandInput
                         aria-label={m.search_open()}
                         placeholder={m.search_placeholder()}
@@ -221,7 +221,7 @@ export function DashboardSearch({
                         {projectId !== null ? (
                             <label className="flex cursor-pointer items-center gap-2.5 text-xs text-muted-foreground">
                                 <Switch
-                                    className="bg-surface-control data-checked:bg-foreground/35 dark:data-checked:bg-foreground/30 [&_[data-slot=switch-thumb]]:bg-background dark:[&_[data-slot=switch-thumb]]:bg-foreground"
+                                    className="bg-surface-selected data-checked:bg-foreground/35 dark:data-checked:bg-foreground/30 [&_[data-slot=switch-thumb]]:bg-white"
                                     checked={scope === 'all'}
                                     onCheckedChange={checked =>
                                         setScope(checked ? 'all' : 'current')
