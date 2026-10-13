@@ -165,7 +165,7 @@ export function DashboardSidebar({
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton
-                                className="bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-surface"
+                                className="bg-action text-action-foreground hover:bg-action/90 hover:text-action-foreground"
                                 isActive={activeSection === 'new-publication'}
                                 render={workspaceLink(
                                     'new-publication',

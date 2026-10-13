@@ -18,7 +18,7 @@ function ComboboxTrigger({ className, children, ...props }: ComboboxPrimitive.Tr
         <ComboboxPrimitive.Trigger
             data-slot="combobox-trigger"
             className={cn(
-                'flex h-10 w-full items-center justify-between gap-2 rounded-md bg-sidebar-accent/45 px-2.5 text-sm whitespace-nowrap shadow-none transition-[background-color,box-shadow] outline-none select-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50 data-popup-open:bg-sidebar-accent disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+                'flex h-10 w-full items-center justify-between gap-2 rounded-md bg-sidebar-accent/45 px-2.5 text-sm whitespace-nowrap shadow-none transition-[background-color,box-shadow] outline-none select-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-field-focus data-popup-open:bg-sidebar-accent disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
                 className
             )}
             {...props}>
@@ -56,7 +56,7 @@ function ComboboxPopup({ className, ...props }: ComboboxPrimitive.Popup.Props) {
         <ComboboxPrimitive.Popup
             data-slot="combobox-popup"
             className={cn(
-                'relative isolate z-50 w-(--anchor-width) min-w-72 max-w-[calc(100vw-1rem)] origin-(--transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-overlay duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+                'relative isolate z-50 w-(--anchor-width) min-w-72 max-w-[calc(100vw-1rem)] origin-(--transform-origin) overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-overlay duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
                 className
             )}
             {...props}
@@ -69,7 +69,7 @@ function ComboboxInput({ className, ...props }: ComboboxPrimitive.Input.Props) {
         <ComboboxPrimitive.Input
             data-slot="combobox-input"
             className={cn(
-                'h-9 w-full rounded-md bg-surface-control px-3 py-2 text-sm text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+                'h-9 w-full rounded-md border border-input bg-surface-field px-3 py-2 text-sm text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-field-focus',
                 className
             )}
             {...props}

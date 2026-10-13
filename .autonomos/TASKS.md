@@ -734,3 +734,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-396]** Explore three complete public identity directions `Priority: 🟠` `Complexity: M` — Owner-authorized independent palettes, fonts, image treatments, product presentation and documentation entry; Three locally rendered complete candidates delivered with generated campaign images, self-hosted fonts and interactive specimens. Desktop/mobile and static checks passed; owner choice pending, no app redesign or publication.
 
 - [x] **[DESIGN-397]** Refine Prism across public, documentation and operational surfaces `Priority: 🟠` `Complexity: M` — Owner prefers Prism, excludes Signal; develop a shared candidate system and cross-surface study before applying an app-wide redesign.
+
+- [x] **[DESIGN-398]** Apply the owner-calibrated visual foundations to the existing application `Priority: 🟠` `Complexity: M` — Shared typography, neutral surfaces, three-pixel corners, neutral primary actions and close field focus; preserve layouts and product behavior.

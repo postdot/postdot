@@ -4,12 +4,35 @@ Status: accepted
 Scope: product-wide visual direction for the authenticated app and future
 public/documentation surfaces
 Owner: project owner
-Last accepted: 2026-09-02
+Last accepted: 2026-10-13
 
 This contract records the direction accepted after the H-06, H-08, H-09, and
 H-10 disposable calibration studies. It is a product direction, not a promise
 that every surface uses the same composition. Unresolved product decisions and
 future landing-page decisions remain explicit below.
+
+## Current visual foundations (2026-10-13)
+
+The owner-authorized calibration supersedes earlier palette and font guidance
+below. It changes styling of existing surfaces, not page layouts or workflows.
+
+- Host Grotesk is the shared body and heading family, self-hosted under OFL.
+- Light page/field surfaces use #F4F4F4, raised/overlay surfaces #FFFFFF,
+  foreground #1C1C1C, and field/panel edges #EDEDED.
+- Dark page/field surfaces use #171717, raised/overlay surfaces #202020,
+  foreground #F4F4F4, and field/panel edges #2E2E2E.
+- Buttons, fields and ordinary panels use 3 px corners. Preserve intentional
+  circles, pills and existing compact component sizes.
+- Primary action buttons are neutral: #1C1C1C with white text in light mode,
+  #F4F4F4 with #1C1C1C text in dark mode. Blue remains the link/selection
+  color (#2457D6 light, #94B5FF dark), separate from action fills.
+- Field focus stays against the edge: a one-pixel inset ring, a lighter version
+  of the same blue in light mode and #647897 in dark mode. Invalid fields retain
+  their destructive indication.
+- Do not add motion without an explicitly discussed interaction. Existing motion
+  is not redefined by this styling pass. No repository/product rename is implied.
+- Preserve existing page composition and density. Private calibration layouts
+  do not authorize rebuilding the application or changing product behavior.
 
 ## Product truth
 
@@ -200,23 +223,13 @@ future landing-page decisions remain explicit below.
 - Density: density follows the reader's task. Calendar can be spacious enough
   to scan a month; Queue can be denser for comparison; Compose gives the
   source and destination versions room to be edited and checked.
-- Type roles: use Recursive Variable as the accepted primary family with clear
-  display, heading, body, label, and data roles, followed by Inter Variable,
-  Adwaita Sans, Noto Sans, and system fallbacks. The current calibration uses
-  approximately 600 weight with tight tracking and near-unit line-height for
-  primary display headings, approximately 580 for secondary headings, and
-  approximately 650 with compact tracking for action labels. Type should
-  support calm operational reading rather than act as a personality
-  substitute. Do not use all-caps tracking as the default hierarchy device.
-- Color roles: dark is the primary app theme with a neutral near-black canvas,
-  grayscale surfaces, readable text tiers, and restrained semantic colors.
-  `Cobalt instrument` is the provisional brand/action accent. Color belongs
-  to actions, channel identity, selection, and publication state before it
-  belongs to large backgrounds. The explicit light companion must preserve the
-  same role mapping rather than become a separate visual language. The
-  accepted surface palette is Graphite/Ash: near-achromatic charcoal roles in
-  dark mode and neutral ash roles in light mode, with a restrained warm-neutral
-  bias instead of blue-slate surfaces.
+- Type roles: use Host Grotesk for body and headings with system fallbacks.
+  Preserve existing operational text sizes; action labels use weight 500.
+  Type supports calm operational reading. Do not use all-caps tracking as the
+  default hierarchy device.
+- Color roles: use the neutral light/dark foundations specified above. Blue
+  identifies links and selections, while main action fills remain neutral.
+  Preserve existing semantic state colors pending a separate visual decision.
 - Surface/material: use value, spacing, and occasional depth to establish
   zones. Keep the main source object visually distinct because it carries the
   product's central relationship. Avoid gradients, glow, and shadow quotas

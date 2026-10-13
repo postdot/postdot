@@ -9,8 +9,8 @@ export const { ThemeProvider, useTheme } = createThemes({
     enableSystem: false,
     enableColorScheme: true,
     themeColor: {
-        light: '#f3f2ef',
-        dark: '#20201f',
+        light: '#f4f4f4',
+        dark: '#171717',
     },
     disableTransitionOnChange: 'background-color 0s, color 0s, border-color 0s',
 })

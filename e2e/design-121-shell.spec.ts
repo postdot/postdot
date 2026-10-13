@@ -157,7 +157,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.locator('[data-sidebar="trigger"]').click()
     const workNavigation = page.locator('nav').filter({ has: page.locator('a[href$="/channels"]') })
     await expect(workNavigation).toBeVisible()
     const mobileDrawer = page.locator('[data-slot="sidebar"][data-mobile="true"]')
@@ -168,7 +168,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await drawerClose.click()
     await expect(workNavigation).toBeHidden()
 
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.locator('[data-sidebar="trigger"]').click()
     await expect(page.locator('[data-sidebar="menu-button"][href$="/channels"]')).toBeVisible()
     await expectNoHorizontalOverflow(page)
 })
