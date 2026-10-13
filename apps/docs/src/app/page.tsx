@@ -1,5 +1,5 @@
-import { DirectionGallery } from '@/components/directions'
+import { PublicHome } from '@/components/public-home'
 
 export default function Page() {
-    return <DirectionGallery />
+    return <PublicHome />
 }

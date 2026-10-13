@@ -1,0 +1,364 @@
+.public-home {
+    --home-bg: #f4f4f4;
+    --home-card: #fff;
+    --home-ink: #1c1c1c;
+    --home-muted: #666;
+    --home-edge: #ededed;
+    --home-blue: #2457d6;
+    background: var(--home-bg);
+    color: var(--home-ink);
+    font-family: 'Host Grotesk', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+}
+.dark .public-home {
+    --home-bg: #171717;
+    --home-card: #202020;
+    --home-ink: #f4f4f4;
+    --home-muted: #aaa;
+    --home-edge: #2e2e2e;
+    --home-blue: #94b5ff;
+}
+.home-header,
+.home-footer {
+    max-width: 1280px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px 40px;
+}
+.home-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+}
+.home-logo {
+    width: 32px;
+    height: 32px;
+}
+.home-header nav {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    font-size: 14px;
+}
+.home-header a:hover,
+.home-footer a:hover {
+    color: var(--home-blue);
+}
+.home-intro {
+    text-align: center;
+    padding: 72px 24px 56px;
+}
+.home-eyebrow {
+    display: block;
+    font-size: 13px;
+    color: var(--home-muted);
+    margin-bottom: 20px;
+}
+.home-intro h1 {
+    font-size: 56px;
+    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    margin: 0;
+}
+.home-intro p {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--home-muted);
+    margin: 24px auto;
+    max-width: 620px;
+}
+.home-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 28px;
+}
+.public-home .home-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 18px;
+    background: var(--home-ink);
+    color: var(--home-card);
+    font:
+        500 14px/1.4 'Host Grotesk',
+        sans-serif;
+    border-radius: 3px;
+    border: 1px solid var(--home-ink);
+    box-shadow: none;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.public-home .home-action-secondary {
+    background: transparent;
+    color: var(--home-ink);
+    border-color: var(--home-edge);
+}
+.public-home .home-action:hover {
+    opacity: 0.85;
+}
+.public-home a:focus-visible {
+    outline: 2px solid var(--home-blue);
+    outline-offset: 3px;
+}
+.home-alpha {
+    display: block;
+    font-size: 12px;
+    color: var(--home-muted);
+    margin-top: 18px;
+}
+.home-product {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 68px;
+}
+.home-shot {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--home-edge);
+    border-radius: 3px;
+}
+.home-shot-dark {
+    display: none;
+}
+.dark .home-shot-light {
+    display: none;
+}
+.dark .home-shot-dark {
+    display: block;
+}
+.home-product figcaption {
+    text-align: center;
+    font-size: 12px;
+    color: var(--home-muted);
+    padding-top: 14px;
+}
+.home-workflow {
+    background: var(--home-card);
+    padding: 100px max(40px, calc((100vw - 1120px)/2));
+}
+.home-section-heading h2,
+.home-ownership h2,
+.home-start h2 {
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.035em;
+    font-weight: 500;
+    margin: 0;
+}
+.home-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 56px;
+    margin-top: 64px;
+}
+.home-step-number {
+    display: block;
+    font-size: 13px;
+    color: var(--home-blue);
+    margin-bottom: 24px;
+    font-variant-numeric: tabular-nums;
+}
+.home-steps h3 {
+    font-weight: 500;
+    font-size: 20px;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+}
+.home-steps p {
+    color: var(--home-muted);
+    margin: 0 0 24px;
+    max-width: 280px;
+}
+.home-steps a,
+.home-runtime > a {
+    font-size: 14px;
+    color: var(--home-blue);
+}
+.home-ownership {
+    max-width: 1200px;
+    padding: 100px 40px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 100px;
+    align-items: center;
+}
+.home-ownership p {
+    color: var(--home-muted);
+    margin: 24px 0;
+    max-width: 430px;
+}
+.home-runtime {
+    background: var(--home-card);
+    border: 1px solid var(--home-edge);
+    border-radius: 3px;
+    padding: 32px;
+}
+.home-runtime-brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 500;
+}
+.home-runtime-brand svg {
+    width: 56px;
+    height: 56px;
+}
+.home-runtime dl {
+    margin: 28px 0;
+    display: grid;
+    gap: 16px;
+    font-size: 14px;
+}
+.home-runtime dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+}
+.home-runtime dt {
+    color: var(--home-muted);
+}
+.home-runtime dd {
+    margin: 0;
+    text-align: right;
+}
+.home-start {
+    background: var(--home-card);
+    padding: 64px max(40px, calc((100vw - 1120px)/2));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+}
+.home-start p {
+    margin: 14px 0 0;
+    color: var(--home-muted);
+}
+.home-footer {
+    font-size: 12px;
+    color: var(--home-muted);
+    padding-block: 32px;
+}
+.home-footer .home-brand {
+    color: var(--home-ink);
+    font-size: 18px;
+}
+.home-footer .home-logo {
+    width: 26px;
+    height: 26px;
+}
+@media (max-width: 800px) {
+    .home-header,
+    .home-footer {
+        padding: 20px 24px;
+    }
+    .home-header nav {
+        gap: 16px;
+    }
+    .home-header nav > a:first-child {
+        display: none;
+    }
+    .home-intro {
+        padding-top: 56px;
+    }
+    .home-intro h1 {
+        font-size: 44px;
+    }
+    .home-steps {
+        gap: 28px;
+    }
+    .home-workflow {
+        padding: 72px 24px;
+    }
+    .home-ownership {
+        padding: 72px 24px;
+        gap: 40px;
+    }
+    .home-start {
+        padding: 48px 24px;
+    }
+    .home-footer > span {
+        display: none;
+    }
+}
+@media (max-width: 600px) {
+    .home-header nav {
+        gap: 12px;
+    }
+    .home-brand {
+        font-size: 20px;
+    }
+    .home-intro h1 {
+        font-size: 36px;
+    }
+    .home-intro p {
+        font-size: 16px;
+    }
+    .home-desktop-break {
+        display: none;
+    }
+    .home-intro {
+        padding: 48px 24px 40px;
+    }
+    .home-product {
+        padding: 0 16px 48px;
+    }
+    .home-actions {
+        gap: 8px;
+    }
+    .public-home .home-action {
+        padding-inline: 14px;
+    }
+    .home-steps,
+    .home-ownership {
+        grid-template-columns: 1fr;
+    }
+    .home-steps {
+        margin-top: 40px;
+        gap: 36px;
+    }
+    .home-step-number {
+        margin-bottom: 12px;
+    }
+    .home-section-heading h2,
+    .home-ownership h2,
+    .home-start h2 {
+        font-size: 28px;
+    }
+    .home-start {
+        align-items: start;
+        flex-direction: column;
+    }
+    .home-runtime {
+        padding: 24px;
+    }
+    .home-runtime dl > div {
+        gap: 12px;
+    }
+    .home-header nav [data-theme-toggle] {
+        display: none;
+    }
+}
+.public-home .home-theme-toggle {
+    height: 32px;
+    background: transparent;
+    color: var(--home-muted);
+    border: 0;
+    box-shadow: none;
+    font-size: 12px;
+    padding: 4px 8px;
+    transition: none;
+    animation: none;
+}

@@ -744,3 +744,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-401]** Harmonize search and dialog surfaces and add the Postbot favicon `Priority: 🟠` `Complexity: S` — Existing layouts and behavior preserved.
 
 - [x] **[DESIGN-402]** Use neutral logo ink and align documentation foundations `Priority: 🟠` `Complexity: S` — Retain layouts; no new public direction or release claims.
+
+- [x] **[SITE-403]** Replace the direction gallery with the actual Postbot public home `Priority: 🟠` `Complexity: M` — Accepted neutral foundations, real product captures and documentation entry points; private and statically exportable.
