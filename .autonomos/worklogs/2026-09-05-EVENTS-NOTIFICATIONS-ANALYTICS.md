@@ -77,7 +77,7 @@ The immediate preparation is therefore to preserve complete operational facts,
 stable provider identifiers, outcome codes, timestamps, and correlation or
 idempotency context where a real workflow needs them. A later read model can
 aggregate those facts without adding third-party telemetry or prematurely
-committing Herald to a provider-specific analytics shape.
+committing Postbot to a provider-specific analytics shape.
 
 ## Recommended sequence
 

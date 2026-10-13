@@ -1,7 +1,7 @@
-# H-11 — Herald landing holdout
+# H-11 — Postbot landing holdout
 
-Archived calibration study for the transition from Herald's operational
-workspace to a public landing page. This is not a Herald implementation and
+Archived calibration study for the transition from Postbot's operational
+workspace to a public landing page. This is not a Postbot implementation and
 does not define the final public proposition.
 
 The two compositions keep the accepted H-10 contract constant:

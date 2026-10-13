@@ -1,4 +1,4 @@
-# ADR-068 — Coordinate Herald runtime and restore with a fail-closed sidecar lock
+# ADR-068 — Coordinate Postbot runtime and restore with a fail-closed sidecar lock
 
 - Status: proposed
 - Date: 2026-09-11
@@ -7,7 +7,7 @@
 
 ## Context
 
-Herald replaces the database pathname atomically during restore. An API process,
+Postbot replaces the database pathname atomically during restore. An API process,
 its scheduler, or its media runtime can still hold handles to the previous
 database inode if restoration is started against a live deployment. SQLite and
 the media-store fence protect individual operations, but they do not establish
@@ -15,7 +15,7 @@ that the whole application runtime has stopped before the replacement.
 
 ## Decision
 
-Herald coordinates the server and restore commands through one exclusive,
+Postbot coordinates the server and restore commands through one exclusive,
 database-specific sidecar marker at `<database>.runtime.lock`:
 
 - the API acquires it before opening or migrating the database and releases it
@@ -27,7 +27,7 @@ database-specific sidecar marker at `<database>.runtime.lock`:
   records only ownership metadata (version, owner kind, PID, host, timestamp,
   and a random release token);
 - a present marker is never reclaimed automatically. A forced termination
-  therefore fails closed and requires an operator to verify that no Herald
+  therefore fails closed and requires an operator to verify that no Postbot
   process is using the database before removing the exact sidecar.
 
 Online backup remains available. Its existing SQLite snapshot and media fence
@@ -43,7 +43,7 @@ quiescence.
   and partial process state can turn a stale check into a false negative. The
   boundary is intentionally conservative.
 - Hold an application-wide SQLite transaction as a lock: rejected because it
-  would interfere with Herald's own writes and would not coordinate media
+  would interfere with Postbot's own writes and would not coordinate media
   resources or pathname replacement cleanly.
 - Require an external lock service: rejected for the current single-process,
   local/self-hosted deployment model; it would add an infrastructure dependency

@@ -5,14 +5,14 @@ import {
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
-} from '@herald/core'
-import type { ProviderAnalyticsStore } from '@herald/db'
+} from '@postbot/core'
+import type { ProviderAnalyticsStore } from '@postbot/db'
 import {
     DEVTO_PROVIDER,
     createDevtoPublisher,
     type DevtoFetcher,
     type DevtoOperationFailure,
-} from '@herald/devto'
+} from '@postbot/devto'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 
@@ -140,8 +140,8 @@ export function createDevtoAnalyticsService(options: DevtoAnalyticsServiceOption
                     providerSubjectId: content.providerSubjectId,
                     providerSubjectLabel: null,
                     providerContentRevisionId: null,
-                    heraldEntityType: 'publication',
-                    heraldEntityId: content.heraldEntityId,
+                    postbotEntityType: 'publication',
+                    postbotEntityId: content.postbotEntityId,
                     metricName,
                     value: values?.[metricName] ?? null,
                     unit: 'count',

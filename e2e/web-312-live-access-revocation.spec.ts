@@ -26,7 +26,7 @@ test('an open session keeps the last known project state after access is removed
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-312-editor-${suffix}@herald.local`
+    const editorEmail = `e2e-312-editor-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -149,7 +149,7 @@ test('a role downgrade withdraws the create affordances without an announcement'
     const owner = await createAccountAndProject(page, suffix)
     await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-312-downgrade-${suffix}@herald.local`
+    const editorEmail = `e2e-312-downgrade-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -216,7 +216,7 @@ async function countRecoveryBuffers(page: Page) {
     return page.evaluate(
         () =>
             Object.keys(window.localStorage).filter(key =>
-                key.startsWith('herald:publication-editor:')
+                key.startsWith('postbot:publication-editor:')
             ).length
     )
 }
@@ -301,7 +301,7 @@ async function acceptProjectInvitation(
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-312-owner-${suffix}@herald.local`
+    const email = `e2e-312-owner-${suffix}@postbot.local`
 
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)

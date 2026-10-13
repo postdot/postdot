@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { ChannelProfileValidationError } from '@herald/core'
+import { ChannelProfileValidationError } from '@postbot/core'
 
 import { profileValidationFeedback } from './profile-validation-feedback'
 

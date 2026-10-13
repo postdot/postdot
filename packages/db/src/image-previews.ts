@@ -1,6 +1,6 @@
-import type { MediaStore } from '@herald/media'
+import type { MediaStore } from '@postbot/media'
 
-export const imagePreviewProcessor = 'herald-image-preview'
+export const imagePreviewProcessor = 'postbot-image-preview'
 export const imagePreviewVersion = '1'
 export const imagePreviewPresets = { thumbnail: 256, preview: 768 } as const
 export type ImagePreviewVariant = keyof typeof imagePreviewPresets

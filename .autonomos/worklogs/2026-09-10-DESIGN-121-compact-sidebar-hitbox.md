@@ -9,7 +9,7 @@
 ## Owner feedback addressed
 
 The previous shell pass removed the expanded sidebar padding but preserved the
-inset padding in compact mode. Herald therefore rendered a transparent strip
+inset padding in compact mode. Postbot therefore rendered a transparent strip
 around the compact surface, while menu buttons occupied only the middle of the
 rail. Invisible collapsed group labels also retained pointer hitboxes and
 intercepted the lower portion of the last item in each group, notably Queue and
@@ -17,7 +17,7 @@ Access.
 
 ## Changes
 
-- Let Herald's compact sidebar surface fill its complete 66px rail.
+- Let Postbot's compact sidebar surface fill its complete 66px rail.
 - Remove pointer interception from group labels when their labels are hidden in
   icon mode.
 - Extend browser coverage to assert the compact surface has no inset, the page

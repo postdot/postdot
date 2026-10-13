@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@herald/auth'
+import { createAuth } from '@postbot/auth'
 import {
     closeDatabase,
     createAccessStore,
     createDatabase,
     createManualStore,
     runMigrations,
-} from '@herald/db'
-import { devtoChannelProfile } from '@herald/devto'
+} from '@postbot/db'
+import { devtoChannelProfile } from '@postbot/devto'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const did = 'did:plc:api-analytics'
 const postUri = 'at://' + did + '/app.bsky.feed.post/3api'
@@ -69,7 +69,8 @@ describe('provider analytics routes', () => {
             publisherEncryptionKey: new Uint8Array(32).fill(4),
             publisherEncryptionKeyId: 'test-v1',
             bluesky: {
-                clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+                clientMetadataUrl:
+                    'https://postbot.example.test/oauth/bluesky/client-metadata.json',
                 handleResolver: 'https://bsky.social',
             },
         })
@@ -130,10 +131,10 @@ describe('provider analytics routes', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'provider-analytics@herald.local')
+            const cookie = await signUp(app, 'provider-analytics@postbot.local')
             const user = database.$client
                 .query<{ id: string }, [string]>('select id from user where email = ?1')
-                .get('provider-analytics@herald.local')
+                .get('provider-analytics@postbot.local')
             if (user === null || user === undefined) throw new Error('The auth user is missing')
 
             const manual = createManualStore(database, { now: () => now })
@@ -397,7 +398,7 @@ describe('provider analytics routes', () => {
                 app,
                 '/api/projects/' +
                     project.project.id +
-                    '/analytics/provider/devto?heraldEntityId=' +
+                    '/analytics/provider/devto?postbotEntityId=' +
                     devtoPublicationId,
                 cookie
             )

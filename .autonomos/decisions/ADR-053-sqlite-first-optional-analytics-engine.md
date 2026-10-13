@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald deliberately starts as a single-process, self-hostable application with
+Postbot deliberately starts as a single-process, self-hostable application with
 SQLite as its transactional source of truth. This gives the default deployment
 zero required database or coordination services, a small idle footprint, simple
 backup and restore, and one transaction boundary for domain state, durable facts,
@@ -17,7 +17,7 @@ jobs, and notifications.
 
 The analytics discussion identified three different concerns:
 
-1. operational analytics over Herald's current state and durable fact journal;
+1. operational analytics over Postbot's current state and durable fact journal;
 2. provider-owned engagement observations such as followers, likes, views, and
    clicks;
 3. a future multi-instance deployment with shared coordination and database
@@ -38,7 +38,7 @@ pub/sub, locks, TTLs, and multi-process coordination.
 
 ## Decision
 
-Keep SQLite as Herald's default and authoritative persistence engine.
+Keep SQLite as Postbot's default and authoritative persistence engine.
 
 - Domain state, jobs, durable events, notifications, and the first provider
   observation slices remain in SQLite.
@@ -58,7 +58,7 @@ Keep SQLite as Herald's default and authoritative persistence engine.
   job store. It may be reconsidered only for a narrowly defined local capability
   after a benchmark demonstrates a need that SQLite cannot meet.
 
-Herald does not promise that the embedded and distributed deployments have
+Postbot does not promise that the embedded and distributed deployments have
 identical execution semantics. They share domain contracts and capability
 boundaries, while infrastructure implementations may differ:
 
@@ -92,8 +92,8 @@ integration. Provider observations may be a stronger future candidate than
 operational lifecycle facts because they are naturally historical and
 provider-specific, but the same measurement gate applies.
 
-RocksDB does not provide horizontal scaling for Herald: a writable database is
-owned by one process, so separate Herald instances would still need a shared
+RocksDB does not provide horizontal scaling for Postbot: a writable database is
+owned by one process, so separate Postbot instances would still need a shared
 coordination service. PostgreSQL plus Redis is therefore treated as a future
 deployment profile with different concurrency and failure semantics, not as a
 second backend that must be implemented now.
@@ -108,7 +108,7 @@ representative hardware and data:
   materially affect the API or worker;
 - analytical reads interfere with publication writes or scheduler processing;
 - backup, restore, retention, or disk usage becomes operationally unacceptable;
-- multiple Herald processes or hosts become a real supported deployment target;
+- multiple Postbot processes or hosts become a real supported deployment target;
 - a small Bun compatibility spike proves that an embedded DuckDB projection can
   be shipped without undermining the single-package deployment contract.
 

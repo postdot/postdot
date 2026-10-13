@@ -11,9 +11,9 @@ import {
     type ChannelProfileVersionState,
     type PublicationReviewState,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {
     ActivateChannelProfileInput,
     ChannelProfileActivationResult,
@@ -102,7 +102,7 @@ export interface ChannelProfileStoreOptions {
 }
 
 export function createChannelProfileStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ChannelProfileStoreOptions
 ) {
     const client = database.$client

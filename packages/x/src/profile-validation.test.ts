@@ -4,7 +4,7 @@ import {
     ChannelProfileCompiler,
     type ChannelProfileDefinition,
     type JsonSchema,
-} from '@herald/core'
+} from '@postbot/core'
 
 import { xChannelProfile } from './profile'
 import { xChannelProfileValidationAdapter } from './profile-validation'
@@ -22,8 +22,8 @@ function legacyXProfile(): ChannelProfileDefinition {
     return {
         ...xChannelProfile,
         version: 1,
-        profileHash: 'sha256:herald-x-post-v1',
-        schemaHash: 'sha256:herald-x-post-schema-v1',
+        profileHash: 'sha256:postbot-x-post-v1',
+        schemaHash: 'sha256:postbot-x-post-schema-v1',
         contentSchema: {
             ...currentSchema,
             properties: {

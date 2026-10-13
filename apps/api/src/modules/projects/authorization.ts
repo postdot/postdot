@@ -1,12 +1,12 @@
-import type { AccessStore } from '@herald/db'
+import type { AccessStore } from '@postbot/db'
 
-import type { HeraldAuthenticationMethod } from '../../plugins/auth'
+import type { PostbotAuthenticationMethod } from '../../plugins/auth'
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer'
 
 interface ProjectRoleCheck {
     readonly access: AccessStore
-    readonly authMethod: HeraldAuthenticationMethod
+    readonly authMethod: PostbotAuthenticationMethod
     readonly minimumRole: ProjectRole
     readonly projectId: string
     readonly userId: string

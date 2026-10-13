@@ -15,8 +15,8 @@ function seedRecoveryFixture(database: ReturnType<typeof createDatabase>): void 
     database.$client.exec(`
         INSERT INTO user (id, name, email, email_verified, created_at, updated_at)
         VALUES
-            ('user-1', 'Recovery Operator', 'operator@herald.local', 0, ${now}, ${now}),
-            ('user-2', 'Other Member', 'other@herald.local', 0, ${now}, ${now});
+            ('user-1', 'Recovery Operator', 'operator@postbot.local', 0, ${now}, ${now}),
+            ('user-2', 'Other Member', 'other@postbot.local', 0, ${now}, ${now});
 
         INSERT INTO account (
             id, issuer, account_id, provider_id, user_id, password, created_at, updated_at
@@ -55,8 +55,8 @@ function seedRecoveryFixture(database: ReturnType<typeof createDatabase>): void 
 
 describe('offline local account password recovery', () => {
     it('backs up first, changes only the selected credential, and revokes its recovery sessions', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-account-recovery-'))
-        const databaseFilename = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-account-recovery-'))
+        const databaseFilename = join(directory, 'postbot.sqlite')
 
         try {
             const fixture = createDatabase(databaseFilename)
@@ -66,14 +66,14 @@ describe('offline local account password recovery', () => {
 
             const result = recoverLocalAccountPassword({
                 databaseFilename,
-                email: ' OPERATOR@HERALD.LOCAL ',
+                email: ' OPERATOR@POSTBOT.LOCAL ',
                 passwordHash: 'new-better-auth-hash',
                 now: () => now + 1,
             })
 
             expect(result).toMatchObject({
                 databaseFilename,
-                email: 'OPERATOR@HERALD.LOCAL',
+                email: 'OPERATOR@POSTBOT.LOCAL',
                 revokedSessionCount: 1,
                 invalidatedResetTokenCount: 1,
             })
@@ -179,9 +179,9 @@ describe('offline local account password recovery', () => {
         }
     })
 
-    it('fails closed while a Herald server owns the database lock', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-account-recovery-'))
-        const databaseFilename = join(directory, 'herald.sqlite')
+    it('fails closed while a Postbot server owns the database lock', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-account-recovery-'))
+        const databaseFilename = join(directory, 'postbot.sqlite')
 
         try {
             const fixture = createDatabase(databaseFilename)
@@ -193,7 +193,7 @@ describe('offline local account password recovery', () => {
             expect(() =>
                 recoverLocalAccountPassword({
                     databaseFilename,
-                    email: 'operator@herald.local',
+                    email: 'operator@postbot.local',
                     passwordHash: 'must-not-be-written',
                     now: () => now,
                 })
@@ -222,8 +222,8 @@ describe('offline local account password recovery', () => {
     })
 
     it('does not create a backup when the account has no password credential', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-account-recovery-'))
-        const databaseFilename = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-account-recovery-'))
+        const databaseFilename = join(directory, 'postbot.sqlite')
 
         try {
             const fixture = createDatabase(databaseFilename)
@@ -231,7 +231,7 @@ describe('offline local account password recovery', () => {
             fixture.$client
                 .query(
                     `INSERT INTO user (id, name, email, email_verified, created_at, updated_at)
-                     VALUES ('oauth-user', 'OAuth User', 'oauth@herald.local', 0, ?1, ?1)`
+                     VALUES ('oauth-user', 'OAuth User', 'oauth@postbot.local', 0, ?1, ?1)`
                 )
                 .run(now)
             closeDatabase(fixture)
@@ -239,7 +239,7 @@ describe('offline local account password recovery', () => {
             expect(() =>
                 recoverLocalAccountPassword({
                     databaseFilename,
-                    email: 'oauth@herald.local',
+                    email: 'oauth@postbot.local',
                     passwordHash: 'not-used',
                     now: () => now,
                 })

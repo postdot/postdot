@@ -2,7 +2,7 @@ import type { MastodonMediaInput } from './contract'
 
 /** Stream the bounded video instead of materializing a complete multipart Blob. */
 export function createVideoMultipart(input: MastodonMediaInput) {
-    const boundary = `herald-${crypto.randomUUID()}`
+    const boundary = `postbot-${crypto.randomUUID()}`
     const filename = input.filename.replace(/["\r\n\\]/g, '_')
     const encoder = new TextEncoder()
     const prefix = encoder.encode(

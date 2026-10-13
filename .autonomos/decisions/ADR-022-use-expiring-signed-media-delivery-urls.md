@@ -11,28 +11,28 @@
 
 The bounded custom HTTP mapping can deliver media as multipart parts or as URLs.
 Multipart keeps bytes inside the delivery request, but some receivers require a
-publicly readable URL and may fetch the media independently. Herald's local and
+publicly readable URL and may fetch the media independently. Postbot's local and
 S3-compatible stores remain private by default, so a storage locator or permanent
 public object URL cannot become part of the custom-channel contract.
 
 The URL must identify one immutable representation, prevent cross-project access,
 expire without a database write, and stop working when the representation is no
-longer eligible for public delivery. It must not authenticate a person into Herald,
+longer eligible for public delivery. It must not authenticate a person into Postbot,
 read Better Auth sessions, or expose local paths, object keys, storage credentials,
 or publisher secrets.
 
 ## Decision
 
-Herald issues a stateless, versioned bearer URL for one project, asset, and ready
+Postbot issues a stateless, versioned bearer URL for one project, asset, and ready
 representation. The capability contains only the opaque domain identities and an
 expiration timestamp. It is authenticated with HMAC-SHA-256 using the dedicated
-deployment secret `HERALD_MEDIA_PUBLIC_URL_SECRET` and a protocol version/domain
+deployment secret `POSTBOT_MEDIA_PUBLIC_URL_SECRET` and a protocol version/domain
 separation string. The payload is signed, not user-editable, and no storage locator
 is included.
 
 The URL authority has these rules:
 
-- the API origin is the configured Herald API origin;
+- the API origin is the configured Postbot API origin;
 - the default lifetime is short and bounded by a deployment-configured maximum;
 - only an asset in the `ready` state and a representation in the `ready` state may
   be served through the public route;
@@ -40,7 +40,7 @@ The URL authority has these rules:
   service, so a valid token cannot combine identities from different projects;
 - invalid, malformed, expired, deleted, missing, or otherwise ineligible tokens
   return the same not-found response;
-- the response streams bytes through the Herald media contract, sets the verified
+- the response streams bytes through the Postbot media contract, sets the verified
   content type, length, checksum validator, and `X-Content-Type-Options: nosniff`,
   and does not follow redirects or expose storage metadata;
 - responses are not reusable as a permanent public cache, and the route does not
@@ -64,7 +64,7 @@ need an independently fetchable URL.
 - **Reuse Better Auth sessions or its secret directly:** mixes application login
   semantics into media delivery. The selected design uses a dedicated deployment
   secret and has no Better Auth dependency.
-- **Multipart only:** safest for Herald-controlled receivers, but cannot satisfy
+- **Multipart only:** safest for Postbot-controlled receivers, but cannot satisfy
   APIs that require a URL rather than an uploaded part.
 
 ## Consequences

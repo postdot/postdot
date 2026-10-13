@@ -1,8 +1,8 @@
 {
-    "name": "@herald/core",
+    "name": "@postbot/core",
     "version": "0.0.0",
     "private": true,
-    "description": "Framework-independent Herald domain model",
+    "description": "Framework-independent Postbot domain model",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,

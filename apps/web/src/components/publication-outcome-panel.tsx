@@ -1,7 +1,7 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { useState } from 'react'
 
 import { formatApiError, type Publication } from '@/lib/api'

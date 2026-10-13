@@ -4,7 +4,7 @@
 
 ## Finding
 
-A GIF picker is not currently a usable delivery feature. Herald's default upload
+A GIF picker is not currently a usable delivery feature. Postbot's default upload
 policy accepts PNG, JPEG and WebP, and its byte inspector has no GIF parser.
 PNG/APNG and WebP inspection already record animation metadata. All six built-in
 publisher media contracts constrain uploads to JPEG/PNG; broadening MIME labels
@@ -16,21 +16,21 @@ contract and publisher modules. No production provider request was made.
 ## Destination boundaries
 
 - Discord: official client documentation accepts GIF uploads; API attachments use
-  multipart bodies. Existing Herald transport can carry bytes, but the contract,
+  multipart bodies. Existing Postbot transport can carry bytes, but the contract,
   validation and inspection must be extended and tested.
 - Mastodon: animated GIFs become silent MP4/GIFV on the instance. Limits are
   instance-dependent; media processing and polling are part of delivery, not a
   picker concern.
 - LinkedIn: Images API documents GIF support with a 250-frame limit. Client help
-  documents a different 500-frame limit; use the API-specific limit for Herald.
+  documents a different 500-frame limit; use the API-specific limit for Postbot.
   Do not infer animation survival in every publication context without testing.
 - X: client GIF support is established, but old API examples are not a current
   implementation contract. Current chunked upload, media category, processing,
   mix restrictions and account entitlement require a separate adapter review.
 - DEV.to: body Markdown and main-image URLs are the documented article interface.
   External article images already fit the accepted URL boundary. This does not
-  authorize making private Herald assets public or promise remote GIF rendering.
-- Bluesky: Herald currently uses image embeds with JPEG/PNG contracts. GIF-link
+  authorize making private Postbot assets public or promise remote GIF rendering.
+- Bluesky: Postbot currently uses image embeds with JPEG/PNG contracts. GIF-link
   cards/video conversion are distinct content/delivery models; do not silently
   convert them into ordinary image attachments.
 

@@ -27,12 +27,12 @@
     ],
     "dictionaryDefinitions": [
         {
-            "name": "herald",
+            "name": "postbot",
             "path": "./cspell-words.txt"
         }
     ],
     "dictionaries": [
-        "herald",
+        "postbot",
         "bash",
         "companies",
         "computing-acronyms",

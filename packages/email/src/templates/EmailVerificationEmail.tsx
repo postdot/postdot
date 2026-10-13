@@ -4,9 +4,9 @@ import { Text } from '@react-email/text'
 import * as React from 'react'
 
 import { emailStyles } from '../styles'
-import { HeraldEmailLayout } from './HeraldEmailLayout'
+import { PostbotEmailLayout } from './PostbotEmailLayout'
 
-export interface HeraldAccountEmailInput {
+export interface PostbotAccountEmailInput {
     readonly user: {
         readonly email: string
         readonly name: string
@@ -14,16 +14,16 @@ export interface HeraldAccountEmailInput {
     readonly url: string
 }
 
-export const emailVerificationSubject = 'Verify your Herald email address'
+export const emailVerificationSubject = 'Verify your Postbot email address'
 
-export function EmailVerificationEmail({ user, url }: HeraldAccountEmailInput) {
+export function EmailVerificationEmail({ user, url }: PostbotAccountEmailInput) {
     return (
-        <HeraldEmailLayout
-            preview="Confirm your email address to finish setting up your Herald account."
+        <PostbotEmailLayout
+            preview="Confirm your email address to finish setting up your Postbot account."
             title={emailVerificationSubject}>
             <Text style={emailStyles.text}>Hello {user.name},</Text>
             <Text style={emailStyles.text}>
-                Confirm your email address to finish setting up your Herald account.
+                Confirm your email address to finish setting up your Postbot account.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={url} style={emailStyles.button}>
@@ -37,11 +37,11 @@ export function EmailVerificationEmail({ user, url }: HeraldAccountEmailInput) {
                 </Link>
             </Text>
             <Text style={emailStyles.notice}>This link expires after one hour.</Text>
-        </HeraldEmailLayout>
+        </PostbotEmailLayout>
     )
 }
 
-const previewProps: HeraldAccountEmailInput = {
+const previewProps: PostbotAccountEmailInput = {
     user: {
         email: 'preview@example.test',
         name: 'Alex Martin',

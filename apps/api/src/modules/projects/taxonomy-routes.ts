@@ -1,4 +1,4 @@
-import type { AccessStore, TaxonomyStore } from '@herald/db'
+import type { AccessStore, TaxonomyStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'

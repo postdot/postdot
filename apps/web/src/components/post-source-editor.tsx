@@ -1,11 +1,11 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
-} from '@herald/ui/components/dialog'
+} from '@postbot/ui/components/dialog'
 import { useBlocker } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 

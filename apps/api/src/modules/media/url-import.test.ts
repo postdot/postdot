@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import type { NetworkControlledBinaryFetcher } from '@herald/custom-http'
-import type { MediaUploadReservation } from '@herald/db'
+import type { NetworkControlledBinaryFetcher } from '@postbot/custom-http'
+import type { MediaUploadReservation } from '@postbot/db'
 
 import { createMediaUrlImporter, type MediaUrlImporterOptions } from './url-import'
 

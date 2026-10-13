@@ -1,4 +1,4 @@
-# Herald site
+# Postbot site
 
 Local Next.js + Fumadocs site, with a static export and Motion interactions.
 
@@ -14,5 +14,5 @@ content is generated from the canonical deployment guide. Other pages are in
 
 This is a private launch preparation. Hosting, domain, public release claims, and
 indexing remain to be configured before publication. The current metadata asks
-search engines not to index the site. The production Herald image excludes this
+search engines not to index the site. The production Postbot image excludes this
 site.

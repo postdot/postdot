@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import { BellIcon } from '@solar-icons/react/linear/bell'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import type { Meta, StoryObj } from '@storybook/react-vite'

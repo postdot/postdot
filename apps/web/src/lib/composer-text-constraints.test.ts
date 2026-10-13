@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { createManualChannelProfile } from '@herald/core'
+import { createManualChannelProfile } from '@postbot/core'
 
 import { countComposerText, getComposerTextFields } from './composer-text-constraints'
 

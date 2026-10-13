@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 export const X_PROVIDER = 'x' as const
 export const X_EXECUTION_CONTRACT_REVISION = 'post-v1'
@@ -22,7 +22,7 @@ export const X_DEFAULT_TIMEOUT_MS = 30_000
  * Conservative reuse horizon for uploaded media checkpoints.
  *
  * The v2 upload flow reports `expires_after_secs` for the uploaded media.
- * Herald persists the resulting delivery expiry and also applies this shorter
+ * Postbot persists the resulting delivery expiry and also applies this shorter
  * conservative horizon as a safety bound when the provider omits it.
  */
 export const X_UPLOADED_MEDIA_REUSE_TTL_MS = 20 * 60 * 60 * 1_000
@@ -72,7 +72,7 @@ export type XMediaUploadOutcome =
           /**
            * Provider-reported upload-session lifetime in seconds, when the
            * upload response includes `expires_after_secs`. Null when the
-           * provider omits it; Herald then applies its conservative reuse
+           * provider omits it; Postbot then applies its conservative reuse
            * horizon instead of assuming indefinite reuse.
            */
           readonly expiresAfterSecs: number | null

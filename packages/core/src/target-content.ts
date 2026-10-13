@@ -16,7 +16,7 @@ export interface TargetMediaReference {
 }
 
 /**
- * Maps only Herald-owned source semantics. Provider-specific fields must be
+ * Maps only Postbot-owned source semantics. Provider-specific fields must be
  * supplied as an explicit target override by the caller.
  */
 export function adaptSourceContentToProfile(

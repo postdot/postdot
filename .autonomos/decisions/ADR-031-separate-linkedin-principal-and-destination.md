@@ -8,7 +8,7 @@
 
 ## Context
 
-LinkedIn's OAuth flow authenticates a member who grants Herald access. That
+LinkedIn's OAuth flow authenticates a member who grants Postbot access. That
 member is the authorization principal, but the Posts API can publish either as
 that member or as an organization page for which the member has an appropriate
 role. The current implementation uses the member ID as both concepts and always
@@ -21,7 +21,7 @@ may be usable for several project channels and organization pages.
 
 ## Decision
 
-Herald separates the two identities:
+Postbot separates the two identities:
 
 - A project-owned publisher credential stores the encrypted OAuth token and the
   LinkedIn member principal returned by the profile endpoint. It remains the
@@ -34,18 +34,18 @@ Herald separates the two identities:
   are never silently reinterpreted as organization pages.
 - Member authorization requests use `openid`, `profile`, and `w_member_social`.
   Organization-page authorization requests use `openid`, `profile`,
-  `w_organization_social`, and `rw_organization_admin` so Herald can verify the
+  `w_organization_social`, and `rw_organization_admin` so Postbot can verify the
   explicitly requested organization before saving the connection. The exact
   permissions remain subject to the LinkedIn application's approved products.
 - The connection flow receives an explicit organization ID for a page
   destination. After OAuth, the LinkedIn adapter verifies that organization and
-  obtains its display name before Herald creates the connection. Herald never
+  obtains its display name before Postbot creates the connection. Postbot never
   chooses the first organization returned by a provider or accepts an arbitrary
   caller-supplied URN as an author.
 - The LinkedIn Posts API author and Images API upload owner are constructed from
   the connection destination. Text and one-image delivery therefore share the
   same destination boundary.
-- Better Auth remains limited to Herald email/password authentication. It does
+- Better Auth remains limited to Postbot email/password authentication. It does
   not participate in LinkedIn authorization or destination ownership.
 
 ## Alternatives considered

@@ -10,7 +10,7 @@ import {
 const input = {
     accessToken: 'access-token-secret',
     destination: { type: 'member' as const, id: 'member-42' },
-    commentary: 'Hello from Herald',
+    commentary: 'Hello from Postbot',
 } as const
 
 function createPublisher(fetcher: LinkedInFetcher, options: { readonly timeoutMs?: number } = {}) {
@@ -60,7 +60,7 @@ describe('LinkedIn text publisher', () => {
         expect(headers.get('x-restli-protocol-version')).toBe('2.0.0')
         expect(JSON.parse(String(request?.init?.body))).toEqual({
             author: 'urn:li:person:member-42',
-            commentary: 'Hello from Herald',
+            commentary: 'Hello from Postbot',
             visibility: 'PUBLIC',
             distribution: {
                 feedDistribution: 'MAIN_FEED',
@@ -293,7 +293,7 @@ describe('LinkedIn image publisher', () => {
             destination: input.destination,
             commentary: input.commentary,
             imageId,
-            accessibilityText: '  Herald image  ',
+            accessibilityText: '  Postbot image  ',
         })
 
         expect(uploadOutcome).toEqual({ type: 'uploaded', remoteMediaId: imageId })
@@ -334,8 +334,8 @@ describe('LinkedIn image publisher', () => {
         expect(publishRequest.input).toBe('https://linkedin.test/rest/posts')
         expect(JSON.parse(String(publishRequest.init?.body))).toMatchObject({
             author: 'urn:li:person:member-42',
-            commentary: 'Hello from Herald',
-            content: { media: { id: imageId, altText: 'Herald image' } },
+            commentary: 'Hello from Postbot',
+            content: { media: { id: imageId, altText: 'Postbot image' } },
             lifecycleState: 'PUBLISHED',
         })
     })

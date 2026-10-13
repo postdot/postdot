@@ -1,6 +1,6 @@
 # Publication workflows for scripts and agents
 
-The Bun CLI uses the existing `@herald/client` Eden Treaty factory. Request types
+The Bun CLI uses the existing `@postbot/client` Eden Treaty factory. Request types
 come from the Elysia application; no separate REST schema or generated SDK is
 maintained. Eden Fetch offers a different typed calling style, and OpenAPI remains
 available to external consumers. Neither requires a second transport in this CLI.
@@ -8,8 +8,8 @@ See [Eden Treaty](https://elysiajs.com/eden/treaty/overview),
 [Eden Fetch](https://elysiajs.com/eden/fetch), and
 [OpenAPI](https://elysiajs.com/patterns/openapi).
 
-Use `HERALD_URL` and `HERALD_API_KEY` for machine authentication. Connections and
-provider credentials stay in Herald. Existing project roles and API-key action
+Use `POSTBOT_URL` and `POSTBOT_API_KEY` for machine authentication. Connections and
+provider credentials stay in Postbot. Existing project roles and API-key action
 ceilings apply; scheduling requires the corresponding dispatch permission.
 
 ## Create a source and its destinations
@@ -32,7 +32,7 @@ ceilings apply; scheduling requires the corresponding dispatch permission.
 ```
 
 ```sh
-bun run herald posts create --project "$PROJECT_ID" --input post.json --json
+bun run postbot posts create --project "$PROJECT_ID" --input post.json --json
 ```
 
 `--input -` reads stdin. Inputs are bounded to 1 MiB and must contain a JSON object.
@@ -45,11 +45,11 @@ millisecond timestamp; omission creates an unscheduled publication.
 ## Inspect and schedule
 
 ```sh
-bun run herald publications list --project "$PROJECT_ID" --json
-bun run herald publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
-bun run herald publications promote --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --expected-revision 1 --at "$EPOCH_MS" --json
-bun run herald publications schedule --project "$PROJECT_ID" --publications "$PUBLICATION_ID" --at "$LATER_EPOCH_MS" --json
-bun run herald publications cancel --project "$PROJECT_ID" --publications "$PUBLICATION_ID" --json
+bun run postbot publications list --project "$PROJECT_ID" --json
+bun run postbot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
+bun run postbot publications promote --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --expected-revision 1 --at "$EPOCH_MS" --json
+bun run postbot publications schedule --project "$PROJECT_ID" --publications "$PUBLICATION_ID" --at "$LATER_EPOCH_MS" --json
+bun run postbot publications cancel --project "$PROJECT_ID" --publications "$PUBLICATION_ID" --json
 ```
 
 `list` returns one page of at most 100 publications plus `nextCursor`; pass
@@ -84,23 +84,23 @@ first tranche does not add idempotency keys or promise exactly-once submission.
 ## Import and inspect media
 
 ```sh
-bun run herald media policy --project "$PROJECT_ID" --json
-bun run herald media upload --project "$PROJECT_ID" --file image.png --alt "Release dashboard" --json
-bun run herald media import-url --project "$PROJECT_ID" --url "https://YOUR_HOST/image.png" --json
-bun run herald media show --project "$PROJECT_ID" --asset "$ASSET_ID" --json
-bun run herald media list --project "$PROJECT_ID" --json
-bun run herald media finalize --project "$PROJECT_ID" --intent "$INTENT_ID" --json
+bun run postbot media policy --project "$PROJECT_ID" --json
+bun run postbot media upload --project "$PROJECT_ID" --file image.png --alt "Release dashboard" --json
+bun run postbot media import-url --project "$PROJECT_ID" --url "https://YOUR_HOST/image.png" --json
+bun run postbot media show --project "$PROJECT_ID" --asset "$ASSET_ID" --json
+bun run postbot media list --project "$PROJECT_ID" --json
+bun run postbot media finalize --project "$PROJECT_ID" --intent "$INTENT_ID" --json
 ```
 
 File upload checks the current server policy, reserves an asset, streams the raw
 file bytes, and asks the server to inspect/finalize them. `--content-type` overrides
 the filename-derived hint when necessary; it never bypasses inspection or converts
-the file. The upload size limit comes from Herald, not the 1 MiB JSON-input limit.
+the file. The upload size limit comes from Postbot, not the 1 MiB JSON-input limit.
 Use `--timeout-ms 120000` when a transfer needs a longer deadline.
 
-URL import uses Herald's existing server importer: it downloads and stores a copy,
+URL import uses Postbot's existing server importer: it downloads and stores a copy,
 not a permanent external reference. URL/network restrictions, supported formats,
-and image/video inspection remain server-owned. MP4 files must satisfy Herald's
+and image/video inspection remain server-owned. MP4 files must satisfy Postbot's
 existing ready-to-publish video policy; no conversion is added.
 
 Exit 0 acknowledges a successful API operation, not necessarily a ready asset.
@@ -123,8 +123,8 @@ lost may not expose an asset ID; inspect the library before importing it again.
 Before constructing a destination payload, inspect its channel profile:
 
 ```sh
-bun scripts/herald.ts channels list --project <project-id> --json
-bun scripts/herald.ts channels profile --project <project-id> --channel <channel-id> --json
+bun scripts/postbot.ts channels list --project <project-id> --json
+bun scripts/postbot.ts channels profile --project <project-id> --channel <channel-id> --json
 ```
 
 The response is the existing API contract: `channel`, `active`, and nullable
@@ -141,7 +141,7 @@ connection readiness or guarantee publication success.
 ## Inspect publisher connections
 
 ```sh
-bun scripts/herald.ts publishers list --project <project-id> --json
+bun scripts/postbot.ts publishers list --project <project-id> --json
 ```
 
 The response preserves the existing `connections` and `oauthReadiness` fields.

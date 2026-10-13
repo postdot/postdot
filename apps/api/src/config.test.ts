@@ -1,32 +1,36 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createHeraldConfig, createHeraldMaintenanceConfig, defaultMediaDirectory } from './config'
+import {
+    createPostbotConfig,
+    createPostbotMaintenanceConfig,
+    defaultMediaDirectory,
+} from './config'
 
-const secret = 'herald-test-secret-with-at-least-32-characters'
-const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
+const mediaPublicUrlSecret = 'postbot-media-public-url-secret-with-at-least-32-characters'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 
-describe('Herald configuration', () => {
+describe('Postbot configuration', () => {
     it('parses environment variables into one normalized configuration', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 NODE_ENV: 'development',
                 PORT: '3100',
                 DB_FILE_NAME: ':memory:',
-                HERALD_MIGRATIONS_DIR: '/tmp/herald-migrations',
-                HERALD_WEB_ASSETS_DIR: '/tmp/herald-web',
+                POSTBOT_MIGRATIONS_DIR: '/tmp/postbot-migrations',
+                POSTBOT_WEB_ASSETS_DIR: '/tmp/postbot-web',
                 BETTER_AUTH_URL: 'http://localhost:3100/some-path',
                 BETTER_AUTH_SECRET: secret,
-                HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
-                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
-                HERALD_EMAIL_SMTP_PORT: '2525',
-                HERALD_EMAIL_SMTP_SECURE: 'true',
-                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
-                HERALD_EMAIL_SMTP_PASSWORD: 'smtp-password',
-                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_WEB_ORIGIN: 'http://localhost:5173/dashboard',
+                POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
+                POSTBOT_EMAIL_SMTP_HOST: 'smtp.example.test',
+                POSTBOT_EMAIL_SMTP_PORT: '2525',
+                POSTBOT_EMAIL_SMTP_SECURE: 'true',
+                POSTBOT_EMAIL_SMTP_USERNAME: 'smtp-user',
+                POSTBOT_EMAIL_SMTP_PASSWORD: 'smtp-password',
+                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_WEB_ORIGIN: 'http://localhost:5173/dashboard',
                 LOG_LEVEL: 'debug',
                 LOG_PRETTY: 'false',
             })
@@ -37,7 +41,7 @@ describe('Herald configuration', () => {
             },
             database: {
                 fileName: ':memory:',
-                migrationsDirectory: '/tmp/herald-migrations',
+                migrationsDirectory: '/tmp/postbot-migrations',
             },
             media: {
                 driver: 'local',
@@ -58,7 +62,7 @@ describe('Herald configuration', () => {
                     host: 'smtp.example.test',
                     port: 2525,
                     secure: true,
-                    from: 'Herald <no-reply@example.test>',
+                    from: 'Postbot <no-reply@example.test>',
                     username: 'smtp-user',
                     password: 'smtp-password',
                 },
@@ -74,7 +78,7 @@ describe('Herald configuration', () => {
             },
             web: {
                 origin: 'http://localhost:5173',
-                assetsDirectory: '/tmp/herald-web',
+                assetsDirectory: '/tmp/postbot-web',
             },
             logging: {
                 enabled: true,
@@ -86,11 +90,11 @@ describe('Herald configuration', () => {
 
     it('derives development defaults from the environment', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 PORT: '3200',
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toMatchObject({
             environment: 'development',
@@ -104,97 +108,97 @@ describe('Herald configuration', () => {
     it('keeps Prometheus metrics disabled by default and requires a dedicated token to enable them', () => {
         const requiredSecrets = {
             BETTER_AUTH_SECRET: secret,
-            HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-            HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+            POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
         }
 
-        expect(createHeraldConfig(requiredSecrets).metrics).toBeUndefined()
+        expect(createPostbotConfig(requiredSecrets).metrics).toBeUndefined()
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 ...requiredSecrets,
-                HERALD_METRICS_TOKEN: 'stale-token-ignored-while-disabled',
+                POSTBOT_METRICS_TOKEN: 'stale-token-ignored-while-disabled',
             }).metrics
         ).toBeUndefined()
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 ...requiredSecrets,
-                HERALD_METRICS_ENABLED: 'true',
+                POSTBOT_METRICS_ENABLED: 'true',
             })
-        ).toThrow('HERALD_METRICS_TOKEN is required')
+        ).toThrow('POSTBOT_METRICS_TOKEN is required')
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 ...requiredSecrets,
-                HERALD_METRICS_ENABLED: 'true',
-                HERALD_METRICS_TOKEN: 'short-token',
+                POSTBOT_METRICS_ENABLED: 'true',
+                POSTBOT_METRICS_TOKEN: 'short-token',
             })
-        ).toThrow('HERALD_METRICS_TOKEN')
+        ).toThrow('POSTBOT_METRICS_TOKEN')
 
-        const token = 'herald-monitoring-token-for-tests-more-than-32-characters'
+        const token = 'postbot-monitoring-token-for-tests-more-than-32-characters'
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 ...requiredSecrets,
-                HERALD_METRICS_ENABLED: 'true',
-                HERALD_METRICS_TOKEN: token,
+                POSTBOT_METRICS_ENABLED: 'true',
+                POSTBOT_METRICS_TOKEN: token,
             }).metrics
         ).toEqual({ bearerToken: token })
     })
 
     it('keeps email delivery optional and rejects incomplete SMTP configuration', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             }).email
         ).toBeUndefined()
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
             })
-        ).toThrow('HERALD_EMAIL_SMTP_HOST')
+        ).toThrow('POSTBOT_EMAIL_SMTP_HOST')
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
-                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_EMAIL_SMTP_HOST: 'smtp.example.test',
+                POSTBOT_EMAIL_SMTP_USERNAME: 'smtp-user',
             })
-        ).toThrow('HERALD_EMAIL_FROM')
+        ).toThrow('POSTBOT_EMAIL_FROM')
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
-                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
-                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_EMAIL_SMTP_HOST: 'smtp.example.test',
+                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
+                POSTBOT_EMAIL_SMTP_USERNAME: 'smtp-user',
             })
-        ).toThrow('HERALD_EMAIL_SMTP_USERNAME and HERALD_EMAIL_SMTP_PASSWORD')
+        ).toThrow('POSTBOT_EMAIL_SMTP_USERNAME and POSTBOT_EMAIL_SMTP_PASSWORD')
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
             })
         ).toThrow('requires a configured email transport')
     })
 
     it('parses operator-owned private outbound destinations', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_OUTBOUND_PRIVATE_DESTINATIONS: JSON.stringify([
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS: JSON.stringify([
                     {
                         kind: 'cidr',
                         cidr: '10.0.0.0/8',
@@ -213,22 +217,22 @@ describe('Herald configuration', () => {
         ])
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_OUTBOUND_PRIVATE_DESTINATIONS: '{not-json}',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS: '{not-json}',
             })
-        ).toThrow('HERALD_OUTBOUND_PRIVATE_DESTINATIONS')
+        ).toThrow('POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS')
     })
 
     it('logs server errors by default in production without logging successful requests', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 NODE_ENV: 'production',
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             }).logging
         ).toEqual({
             enabled: true,
@@ -239,12 +243,12 @@ describe('Herald configuration', () => {
 
     it('allows operators to explicitly disable all logging', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 NODE_ENV: 'production',
                 LOG_LEVEL: 'silent',
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             }).logging
         ).toEqual({
             enabled: false,
@@ -255,17 +259,17 @@ describe('Herald configuration', () => {
 
     it('normalizes an S3-compatible media store without changing the domain contract', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_MEDIA_STORE: 's3',
-                HERALD_MEDIA_STORE_ID: 'r2-primary',
-                HERALD_MEDIA_S3_BUCKET: 'herald-media',
-                HERALD_MEDIA_S3_ENDPOINT: 'https://r2.example.test',
-                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
-                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
-                HERALD_MEDIA_S3_PREFIX: 'production',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_STORE: 's3',
+                POSTBOT_MEDIA_STORE_ID: 'r2-primary',
+                POSTBOT_MEDIA_S3_BUCKET: 'postbot-media',
+                POSTBOT_MEDIA_S3_ENDPOINT: 'https://r2.example.test',
+                POSTBOT_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+                POSTBOT_MEDIA_S3_PREFIX: 'production',
             }).media
         ).toEqual({
             driver: 's3',
@@ -276,7 +280,7 @@ describe('Herald configuration', () => {
             deletionGracePeriodMs: 86_400_000,
             publicUrlLifetimeMs: 900_000,
             s3: {
-                bucket: 'herald-media',
+                bucket: 'postbot-media',
                 endpoint: 'https://r2.example.test',
                 accessKeyId: 'access-key',
                 secretAccessKey: 'secret-key',
@@ -287,41 +291,41 @@ describe('Herald configuration', () => {
 
     it('requires complete S3 media credentials and a region or endpoint', () => {
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_MEDIA_STORE: 's3',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_STORE: 's3',
             })
-        ).toThrow('HERALD_MEDIA_S3_BUCKET')
+        ).toThrow('POSTBOT_MEDIA_S3_BUCKET')
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_MEDIA_STORE: 's3',
-                HERALD_MEDIA_S3_BUCKET: 'herald-media',
-                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
-                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_STORE: 's3',
+                POSTBOT_MEDIA_S3_BUCKET: 'postbot-media',
+                POSTBOT_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
             })
-        ).toThrow('HERALD_MEDIA_S3_REGION or HERALD_MEDIA_S3_ENDPOINT')
+        ).toThrow('POSTBOT_MEDIA_S3_REGION or POSTBOT_MEDIA_S3_ENDPOINT')
     })
 
     it('reports missing and invalid environment variables together', () => {
-        expect(() => createHeraldConfig({})).toThrow('BETTER_AUTH_SECRET is required')
+        expect(() => createPostbotConfig({})).toThrow('BETTER_AUTH_SECRET is required')
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: 'not-long-enough',
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toThrow('BETTER_AUTH_SECRET')
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 PORT: '70000',
                 LOG_PRETTY: 'sometimes',
             })
@@ -330,17 +334,17 @@ describe('Herald configuration', () => {
 
     it('rejects the example secret and invalid URLs', () => {
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: 'replace-with-a-random-secret-of-at-least-32-characters',
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toThrow('replace the example placeholder')
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 BETTER_AUTH_URL: 'sqlite://local',
             })
         ).toThrow('BETTER_AUTH_URL')
@@ -348,20 +352,20 @@ describe('Herald configuration', () => {
 
     it('keeps LinkedIn publisher configuration separate from application authentication', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: '',
                 LINKEDIN_CLIENT_SECRET: '   ',
             }).publishers.linkedin
         ).toBeUndefined()
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: 'client-id',
             })
         ).toThrow('LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET must be set together')
@@ -369,10 +373,10 @@ describe('Herald configuration', () => {
 
     it('normalizes the optional LinkedIn publisher configuration', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: ' client-id ',
                 LINKEDIN_CLIENT_SECRET: ' client-secret ',
             }).publishers.linkedin
@@ -384,10 +388,10 @@ describe('Herald configuration', () => {
 
     it('normalizes the optional Bluesky OAuth client metadata configuration', () => {
         expect(
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 BETTER_AUTH_URL: 'https://api.example.test',
                 BLUESKY_CLIENT_METADATA_URL:
                     'https://app.example.test/oauth/bluesky/client-metadata.json',
@@ -399,19 +403,19 @@ describe('Herald configuration', () => {
         })
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 BLUESKY_CLIENT_METADATA_URL: 'http://localhost:3000/oauth/client-metadata.json',
             })
         ).toThrow('BLUESKY_CLIENT_METADATA_URL must use https')
 
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 BLUESKY_CLIENT_METADATA_URL: 'https://app.example.test/oauth/client-metadata.json',
             })
         ).toThrow('BETTER_AUTH_URL must use 127.0.0.1 or HTTPS')
@@ -419,26 +423,26 @@ describe('Herald configuration', () => {
 
     it('rejects an invalid publisher encryption key', () => {
         expect(() =>
-            createHeraldConfig({
+            createPostbotConfig({
                 BETTER_AUTH_SECRET: secret,
-                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
-                HERALD_PUBLISHER_ENCRYPTION_KEY: 'not-a-hex-key',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: 'not-a-hex-key',
             })
-        ).toThrow('HERALD_PUBLISHER_ENCRYPTION_KEY')
+        ).toThrow('POSTBOT_PUBLISHER_ENCRYPTION_KEY')
     })
 })
 
-describe('Herald maintenance configuration', () => {
+describe('Postbot maintenance configuration', () => {
     it('loads database and local media settings without requiring server secrets', () => {
         expect(
-            createHeraldMaintenanceConfig({
-                DB_FILE_NAME: '/data/herald.sqlite',
+            createPostbotMaintenanceConfig({
+                DB_FILE_NAME: '/data/postbot.sqlite',
                 BETTER_AUTH_SECRET: 'unused',
-                HERALD_MEDIA_PUBLIC_URL_SECRET: 'unused',
-                HERALD_PUBLISHER_ENCRYPTION_KEY: 'unused',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET: 'unused',
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: 'unused',
             })
         ).toEqual({
-            databaseFileName: '/data/herald.sqlite',
+            databaseFileName: '/data/postbot.sqlite',
             media: {
                 driver: 'local',
                 directory: defaultMediaDirectory,
@@ -453,18 +457,18 @@ describe('Herald maintenance configuration', () => {
 
     it('retains and validates credentials required by the configured S3 media store', () => {
         expect(
-            createHeraldMaintenanceConfig({
-                DB_FILE_NAME: '/data/herald.sqlite',
-                HERALD_MEDIA_STORE: 's3',
-                HERALD_MEDIA_S3_BUCKET: 'herald-media',
-                HERALD_MEDIA_S3_REGION: 'us-east-1',
-                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
-                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+            createPostbotMaintenanceConfig({
+                DB_FILE_NAME: '/data/postbot.sqlite',
+                POSTBOT_MEDIA_STORE: 's3',
+                POSTBOT_MEDIA_S3_BUCKET: 'postbot-media',
+                POSTBOT_MEDIA_S3_REGION: 'us-east-1',
+                POSTBOT_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
             }).media
         ).toMatchObject({
             driver: 's3',
             s3: {
-                bucket: 'herald-media',
+                bucket: 'postbot-media',
                 region: 'us-east-1',
                 accessKeyId: 'access-key',
                 secretAccessKey: 'secret-key',
@@ -472,12 +476,12 @@ describe('Herald maintenance configuration', () => {
         })
 
         expect(() =>
-            createHeraldMaintenanceConfig({
-                HERALD_MEDIA_STORE: 's3',
-                HERALD_MEDIA_S3_BUCKET: 'herald-media',
+            createPostbotMaintenanceConfig({
+                POSTBOT_MEDIA_STORE: 's3',
+                POSTBOT_MEDIA_S3_BUCKET: 'postbot-media',
             })
         ).toThrow(
-            'HERALD_MEDIA_S3_BUCKET, HERALD_MEDIA_S3_ACCESS_KEY_ID, and HERALD_MEDIA_S3_SECRET_ACCESS_KEY'
+            'POSTBOT_MEDIA_S3_BUCKET, POSTBOT_MEDIA_S3_ACCESS_KEY_ID, and POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY'
         )
     })
 })

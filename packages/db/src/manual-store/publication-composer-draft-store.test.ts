@@ -13,7 +13,7 @@ function createFixture() {
     const project = store.createProject({
         name: 'Composer recovery project',
         subjectId: 'user-1',
-        displayName: 'Herald Operator',
+        displayName: 'Postbot Operator',
     })
     return { database, project, store }
 }

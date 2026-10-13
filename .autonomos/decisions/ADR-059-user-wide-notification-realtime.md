@@ -13,7 +13,7 @@ event arrives in another project.
 
 ## Decision
 
-Herald exposes one authenticated SSE endpoint at
+Postbot exposes one authenticated SSE endpoint at
 `/api/notifications/events` for each signed-in user. The stream uses the
 durable global audit-event cursor and emits only safe invalidation envelopes
 for notification-producing publication outcomes in projects currently

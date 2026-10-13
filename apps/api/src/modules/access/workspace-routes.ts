@@ -1,5 +1,5 @@
-import type { HeraldAuth } from '@herald/auth'
-import type { AccessStore } from '@herald/db'
+import type { PostbotAuth } from '@postbot/auth'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
@@ -241,12 +241,12 @@ function toWorkspaceTeamMember(member: {
 
 function isDefaultWorkspaceTeam(workspaceId: string, teamId: string): boolean {
     return ['administrators', 'editors', 'reviewers', 'viewers'].some(
-        name => teamId === `herald-workspace-team:${workspaceId}:${name}`
+        name => teamId === `postbot-workspace-team:${workspaceId}:${name}`
     )
 }
 
 async function findWorkspaceTeam(
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     workspace: NonNullable<ReturnType<AccessStore['getWorkspace']>>,
     teamId: string,
     headers: Headers
@@ -298,7 +298,7 @@ function hasOrganizationRole(role: string, expected: 'owner' | 'admin'): boolean
 
 export function registerWorkspaceRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     access: AccessStore
 ) {
     return app
@@ -317,7 +317,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 },
                 detail: {
                     operationId: 'createWorkspace',
-                    summary: 'Create a workspace for the Herald instance',
+                    summary: 'Create a workspace for the Postbot instance',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -352,14 +352,14 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     .slice(0, 48)
                 const slug = `${slugBase || 'workspace'}-${crypto.randomUUID().slice(0, 8)}`
 
-                let organization: Awaited<ReturnType<HeraldAuth['api']['createOrganization']>>
+                let organization: Awaited<ReturnType<PostbotAuth['api']['createOrganization']>>
                 try {
                     organization = await auth.api.createOrganization({
                         body: {
                             name,
                             slug,
                             userId: user.id,
-                            metadata: { heraldResource: 'workspace' },
+                            metadata: { postbotResource: 'workspace' },
                         },
                     })
                 } catch {

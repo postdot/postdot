@@ -1,6 +1,6 @@
-import { DomainInvariantError, requireNonBlank, type Timestamp } from '@herald/core'
+import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import { canonicalJson, parseJsonObject } from './content-codec'
 import type { ActorRow } from './rows'
 
@@ -44,7 +44,7 @@ export interface PublicationComposerDraftStoreOptions {
 }
 
 export function createPublicationComposerDraftStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationComposerDraftStoreOptions
 ) {
     const client = database.$client

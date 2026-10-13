@@ -6,12 +6,12 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { MediaStore } from '@herald/media'
+import type { MediaStore } from '@postbot/media'
 
 /** One optional decoder, isolated from publication and upload success. */
 export function createVideoPosterExtractor(
     store: MediaStore,
-    executable = Bun.which('herald-poster') ?? Bun.which('ffmpeg')
+    executable = Bun.which('postbot-poster') ?? Bun.which('ffmpeg')
 ) {
     let active: AbortController | undefined
     return {
@@ -21,7 +21,7 @@ export function createVideoPosterExtractor(
         },
         async extract(objectKey: string): Promise<Blob> {
             if (!executable) throw new Error('Video preview decoder unavailable')
-            const directory = await mkdtemp(join(tmpdir(), 'herald-poster-'))
+            const directory = await mkdtemp(join(tmpdir(), 'postbot-poster-'))
             const controller = new AbortController()
             active = controller
             const timer = setTimeout(
@@ -177,7 +177,7 @@ export function createVideoPosterRuntime(options: {
                     try {
                         await options.generate(item.projectId, item.id)
                     } catch {
-                        console.error('[herald-media] Video preview job failed')
+                        console.error('[postbot-media] Video preview job failed')
                     }
                 }
             })

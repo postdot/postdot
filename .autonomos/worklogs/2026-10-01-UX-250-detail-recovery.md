@@ -10,7 +10,7 @@ Removed the now-duplicated recovery banner from PublicationEditorStatus. Ordinar
 
 Files: publication-editor.tsx, publication-editor-status.tsx, English/French catalogs and publication-detail-actions.spec.ts. The existing journey seeds an older local copy against a newer simulated server draft, verifies unchanged storage while the modal is pending, Escape blocking, mobile restoration, and a separate discard outcome preserving the saved source. Uses isolated fixtures only.
 
-Full validation passed with exit zero using Node 24; evidence: /tmp/herald-detail-recovery-final-check.log. Development services remain active; live-browser policy refusal was not bypassed. No AGENT.md update is needed: the accepted explicit decision and data-preservation rules cover this implementation.
+Full validation passed with exit zero using Node 24; evidence: /tmp/postbot-detail-recovery-final-check.log. Development services remain active; live-browser policy refusal was not bypassed. No AGENT.md update is needed: the accepted explicit decision and data-preservation rules cover this implementation.
 
 Remaining: UX-250 still covers additional connected destination and lifecycle visual states. Keep any future multiple-copy/history design explicit rather than silently expanding this narrow recovery mechanism.
 

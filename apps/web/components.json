@@ -14,8 +14,8 @@
     "rtl": false,
     "aliases": {
         "components": "@/components",
-        "utils": "@herald/ui/lib/utils",
-        "ui": "@herald/ui/components",
+        "utils": "@postbot/ui/lib/utils",
+        "ui": "@postbot/ui/components",
         "lib": "@/lib",
         "hooks": "@/hooks"
     },

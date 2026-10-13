@@ -1,9 +1,9 @@
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 import {
     readLinkedInTextContent,
     type LinkedInDestination,
     type LinkedInVideoPublisher,
-} from '@herald/linkedin'
+} from '@postbot/linkedin'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

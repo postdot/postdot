@@ -1,4 +1,4 @@
-import { createBlueskyClientMetadata, createBlueskyLoopbackClientMetadata } from '@herald/bluesky'
+import { createBlueskyClientMetadata, createBlueskyLoopbackClientMetadata } from '@postbot/bluesky'
 import {
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
@@ -6,8 +6,8 @@ import {
     createPublisherStore,
     createProviderApplicationStore,
     createSecretCipher,
-    type HeraldDatabase,
-} from '@herald/db'
+    type PostbotDatabase,
+} from '@postbot/db'
 import {
     LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     LINKEDIN_OAUTH_ISSUER,
@@ -16,21 +16,21 @@ import {
     createLinkedInMemberProfileClient,
     type LinkedInMemberProfileClient,
     type LinkedInOrganizationClient,
-} from '@herald/linkedin'
-import type { MastodonFetcher } from '@herald/mastodon'
+} from '@postbot/linkedin'
+import type { MastodonFetcher } from '@postbot/mastodon'
 import {
     clientSecretBasic,
     clientSecretPost,
     validateReturnPath,
     type OAuthAuthorizationServer,
-} from '@herald/oauth'
+} from '@postbot/oauth'
 import {
     X_OAUTH_AUTHORIZATION_ENDPOINT,
     X_OAUTH_ISSUER,
     X_OAUTH_TOKEN_ENDPOINT,
     createXPublisher,
     type XPublisher,
-} from '@herald/x'
+} from '@postbot/x'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { devtoPublisherConnectionPolicy } from './providers/devto'
@@ -126,7 +126,7 @@ function createBlueskyApplication(options: {
         callbackUri: options.callbackUri,
         clientMetadata: createBlueskyClientMetadata({
             clientId: options.clientMetadataUrl,
-            clientName: 'Herald',
+            clientName: 'Postbot',
             clientUri: options.webOrigin,
             redirectUri: options.callbackUri,
         }),
@@ -135,7 +135,10 @@ function createBlueskyApplication(options: {
     }
 }
 
-export function createPublisherRuntime(database: HeraldDatabase, options: PublisherRuntimeOptions) {
+export function createPublisherRuntime(
+    database: PostbotDatabase,
+    options: PublisherRuntimeOptions
+) {
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const callbackUri = new URL('/api/oauth/linkedin/callback', options.apiOrigin).toString()
@@ -150,7 +153,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         key: options.publisherEncryptionKey,
     })
     const applicationCipher = createSecretCipher({
-        domain: 'herald.provider-application',
+        domain: 'postbot.provider-application',
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
     })
@@ -199,7 +202,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                   callbackUri: blueskyCallbackUri,
                   clientMetadata: createBlueskyClientMetadata({
                       clientId: options.bluesky.clientMetadataUrl,
-                      clientName: 'Herald',
+                      clientName: 'Postbot',
                       clientUri: options.webOrigin,
                       redirectUri: blueskyCallbackUri,
                   }),
@@ -209,7 +212,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
 
     const mastodon = {
         callbackUri: mastodonCallbackUri,
-        clientName: options.mastodon?.clientName ?? 'Herald',
+        clientName: options.mastodon?.clientName ?? 'Postbot',
         ...(options.mastodon?.fetcher === undefined ? {} : { fetcher: options.mastodon.fetcher }),
     }
 

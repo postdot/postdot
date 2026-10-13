@@ -9,7 +9,7 @@
 ## Reason
 
 The initial CRED-18 implementation treated the local development database as if
-it were a deployed database that required an upgrade path. Herald has no released
+it were a deployed database that required an upgrade path. Postbot has no released
 deployment or data to preserve, so that compatibility boundary was not part of
 the product scope and introduced an unnecessary startup failure.
 

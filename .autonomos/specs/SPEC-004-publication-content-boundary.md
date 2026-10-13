@@ -13,7 +13,7 @@
 
 ## Intent
 
-Define a durable boundary between Herald's source content, a channel-specific
+Define a durable boundary between Postbot's source content, a channel-specific
 publication, provider capabilities, and provider API payloads. The boundary must
 support the existing distinction between `Post`, `Publication`, `Channel`, and
 optional `Publisher` without allowing the first provider's request format to become
@@ -27,23 +27,23 @@ contract.
 
 The project owner has directed that:
 
-- Herald is developed continuously; there is no V1 or MVP release boundary that
+- Postbot is developed continuously; there is no V1 or MVP release boundary that
   justifies temporary content or storage foundations.
 - Media must be a durable, extensible part of the publication architecture rather
   than a text-only first implementation with a later retrofit.
 - A channel must be able to express relevant destination requirements without
-  turning Herald into a universal provider-schema engine.
+  turning Postbot into a universal provider-schema engine.
 - Shared publication primitives should cover the common case, while a channel
   publication may carry a precise adaptation when interoperability requires it.
 - The web editor should expose destination constraints reactively. API, CLI, and
   MCP requests must use server-side validation and reject invalid content before
   an external effect.
 - A publication must persist the content snapshot that it represents.
-- Local storage and an S3-compatible backend must share an interchangeable Herald
+- Local storage and an S3-compatible backend must share an interchangeable Postbot
   storage contract from the first media implementation. Local may be the default
   deployment configuration without being the only designed backend.
 - Competitor analysis is research input, not a commitment to feature parity.
-- Herald remains a publication manager whose primary destinations are social and
+- Postbot remains a publication manager whose primary destinations are social and
   adjacent publishing platforms. Custom channels extend destination coverage; they
   do not change the product's primary purpose into a generic workflow engine.
 - A custom channel may define its complete content schema at runtime. Presets are
@@ -91,13 +91,13 @@ their complete feature sets:
 
 | Destination           | Publication shape                                                                      | Media behavior                                                 | Additional constraints                                                                                             |
 | --------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Manual custom channel | Operator-provided destination action                                                   | Outside Herald's automated provider API                        | The content must remain inspectable and actionable without a provider adapter                                      |
+| Manual custom channel | Operator-provided destination action                                                   | Outside Postbot's automated provider API                        | The content must remain inspectable and actionable without a provider adapter                                      |
 | LinkedIn member post  | JSON with commentary, visibility, distribution, lifecycle, and optional nested content | Media is uploaded first and referenced by a provider media URN | The author is a provider URN; the API is versioned; media and other content types have provider-specific schemas   |
 | Mastodon status       | Form fields such as status, media IDs, poll, visibility, language, and scheduling      | Media is uploaded separately and attached through provider IDs | Media and polls are mutually constrained; the provider supports an idempotency key with a bounded retention period |
 
 These differences show that the common domain cannot be a provider payload union
 disguised as a generic object. The common boundary must express only concepts that
-are meaningful to Herald, while adapters retain provider-specific request mapping,
+are meaningful to Postbot, while adapters retain provider-specific request mapping,
 capability checks, and response interpretation.
 
 Sources:
@@ -137,7 +137,7 @@ Sources:
 ## Comparative study
 
 The 2026-08-29 study inspected Postiz, Mixpost, and OpenPost in disposable clones.
-It did not install dependencies or copy competitor code into Herald. The complete
+It did not install dependencies or copy competitor code into Postbot. The complete
 evidence record is [DOMAIN-07](../worklogs/2026-08-29-DOMAIN-07.md).
 
 The useful patterns are:
@@ -147,15 +147,15 @@ The useful patterns are:
   provider settings as a payload alongside the post.
 - Mixpost has account-specific content versions and reactive editor limits. Its
   JSON content and broad filesystem/conversion layer are convenient, but leave
-  more invariants implicit than the contract Herald is seeking.
+  more invariants implicit than the contract Postbot is seeking.
 - OpenPost separates source content, target renditions, media assets, provider
   media delivery, and durable delivery attempts. Its typed capability resolver is
   especially relevant. Its rendition, connector, and delivery layers require a
-  deliberate mapping to Herald's domain rather than wholesale adoption or dismissal.
+  deliberate mapping to Postbot's domain rather than wholesale adoption or dismissal.
 
 These findings support typed capability modules, explicit target snapshots, and a
 first-class media lifecycle. They do not justify copying an entire competitor stack
-without mapping its primitives to Herald's domain. OpenPost's capability resolver,
+without mapping its primitives to Postbot's domain. OpenPost's capability resolver,
 media delivery model, and recovery evidence must be evaluated as candidate
 foundations rather than dismissed solely because they contain more concepts than the
 current code.
@@ -178,7 +178,7 @@ current code.
 ### Common content boundary
 
 - The common content contract must represent the shared content types currently
-  supported by Herald and provide a deliberate extension point for target-specific
+  supported by Postbot and provide a deliberate extension point for target-specific
   adaptations.
 - Media support must be based on an explicitly accepted set of media kinds, formats,
   limits, processing states, and lifecycle states without hard-coding an artificial
@@ -243,7 +243,7 @@ measurements and adversarial tests.
 A resolved channel profile contains three separate artifacts:
 
 1. `contentSchema`: a structural schema for target content;
-2. `fieldBindings`: Herald semantics attached to selected schema locations, such as
+2. `fieldBindings`: Postbot semantics attached to selected schema locations, such as
    primary text, ordered media references, accessibility text, title, or tags;
 3. an optional `transport`: the automatic HTTP delivery contract. A manual channel
    has the first two artifacts and no transport.
@@ -257,7 +257,7 @@ represents.
 same contract with TypeBox and retain static TypeScript inference. Custom-channel
 content remains `unknown` to TypeScript until its stored schema validates it. TypeBox
 1.3 can compile both native JSON Schema and TypeBox-created schemas through the same
-validator API, so Herald does not need a second runtime validator for this boundary.
+validator API, so Postbot does not need a second runtime validator for this boundary.
 
 The custom-channel dialect is intentionally a bounded profile of JSON Schema rather
 than every possible vocabulary:
@@ -268,9 +268,9 @@ than every possible vocabulary:
 - references are limited to the same profile's `$defs`; remote references,
   `$dynamicRef`, user-controlled `$id`, custom vocabularies, and executable formats
   are rejected;
-- `contentEncoding` and `contentMediaType` remain annotations and never cause Herald
+- `contentEncoding` and `contentMediaType` remain annotations and never cause Postbot
   to decode or execute instance data;
-- regular-expression keywords are rejected until Herald has a bounded regular-
+- regular-expression keywords are rejected until Postbot has a bounded regular-
   expression implementation; JavaScript backtracking expressions are not accepted
   from stored custom profiles;
 - schema bytes, nesting depth, node count, properties, composition branches, and
@@ -278,7 +278,7 @@ than every possible vocabulary:
   have finite maxima;
 - defaults are editor suggestions only. Validation never mutates a publication by
   inserting defaults or coercing values;
-- a schema passes the JSON Schema meta-schema and Herald's stricter policy before it
+- a schema passes the JSON Schema meta-schema and Postbot's stricter policy before it
   is compiled. Compiled validators are cached by immutable profile version and
   content hash rather than rebuilt for each request.
 
@@ -317,12 +317,12 @@ Channel profile versions are immutable after activation. Editing a channel creat
 new profile draft; it does not mutate the active profile in place. A preset is copied
 into that draft and has no live authority over the resulting channel.
 
-Before activation, Herald evaluates the new profile against actual affected working
+Before activation, Postbot evaluates the new profile against actual affected working
 drafts and pending target revisions. The activation preview reports compatible
 content, validation failures, removed or changed fields, unavailable media
 representations, and execution-contract changes such as a different transport,
 authentication binding, or built-in module revision. JSON Schema compatibility is
-not guessed in the abstract; Herald validates the persisted instances and applies
+not guessed in the abstract; Postbot validates the persisted instances and applies
 the module's deterministic rules.
 
 Activating the new version has the following effects:
@@ -334,7 +334,7 @@ Activating the new version has the following effects:
   supported;
 - existing working drafts keep their bytes and fields, are revalidated against the
   new profile, and are marked `compatible` or `review_required` with normalized
-  issues. Herald never removes incompatible data during this assessment;
+  issues. Postbot never removes incompatible data during this assessment;
 - an already selected scheduled target stays attached to its old profile. If its
   actual content still satisfies the new constraints and its execution contract is
   unchanged and supported, it may execute without being rewritten and the UI shows
@@ -346,7 +346,7 @@ Activating the new version has the following effects:
 - applying the new profile to a draft or scheduled publication is an explicit
   migration that creates a new validated target revision;
 - removed, renamed, or type-changed fields require an explicit field mapping or user
-  edit. Herald never guesses a destructive conversion;
+  edit. Postbot never guesses a destructive conversion;
 - profile versions referenced by any draft, target, execution, or audit record cannot
   be physically deleted.
 
@@ -367,18 +367,18 @@ deliberately retains the old executable contract.
 ### Accepted declarative HTTP boundary
 
 The owner accepted two automatic custom-channel modes on 2026-08-30. A versioned
-Herald webhook is the default contract for receivers that can implement it. A mapped
+Postbot webhook is the default contract for receivers that can implement it. A mapped
 one-request HTTP contract adapts to an existing API. Both modes use one bounded
 transport rather than separate execution engines; ADR-017 records the decision.
 
 The webhook carries a minimal versioned publication envelope and immutable delivery
-ID. Herald signs the final body with a connection-owned HMAC secret and timestamp.
+ID. Postbot signs the final body with a connection-owned HMAC secret and timestamp.
 The mapped mode owns a structural request shape, while its project-owned connection
 owns the base endpoint and authentication material. Secrets can never be interpolated
 from publication content or stored in the profile.
 
-When a mapping requires a URL rather than a multipart part, Herald resolves each
-immutable representation to a short-lived signed Herald URL. The URL is a temporary
+When a mapping requires a URL rather than a multipart part, Postbot resolves each
+immutable representation to a short-lived signed Postbot URL. The URL is a temporary
 bearer capability and does not expose a local path, object key, storage credential,
 or Better Auth session. Its public delivery rules are defined by [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md).
 
@@ -390,7 +390,7 @@ The smallest contract that covers the representative cases contains:
 - typed value expressions that read content or execution context through JSON
   Pointer, insert literals, build objects or arrays, and map a bounded source array;
 - same-request media as controlled public URLs or multipart file parts;
-- an optional idempotency value mapped from Herald's immutable execution key;
+- an optional idempotency value mapped from Postbot's immutable execution key;
 - success, retryable, rejected, and ambiguous HTTP outcome classifications;
 - JSON Pointer extraction of remote identifiers and URLs from a bounded response.
 
@@ -398,7 +398,7 @@ This structural mapping AST is preferred over string templates because it preser
 JSON types and can map media arrays without parsing generated JSON. It is preferred
 over JSONata, JMESPath, or user JavaScript because the accepted operations, cost, and
 data sources remain explicit. URI templates are limited to path/query construction;
-JSON Pointer addresses values within known Herald documents and provider responses.
+JSON Pointer addresses values within known Postbot documents and provider responses.
 
 The boundary deliberately excludes loops not tied to a bounded input array,
 arbitrary functions, filesystem or environment access, dynamic code, custom signing,
@@ -412,7 +412,7 @@ feature.
 The owner accepted public HTTPS by default plus an instance-operator-controlled
 private destination policy on 2026-08-30. ADR-018 records the normative decision.
 Project members may configure a public HTTPS connection, but project data, imported
-presets, and runtime mappings cannot grant the Herald process access to a private
+presets, and runtime mappings cannot grant the Postbot process access to a private
 network.
 
 Private hostnames, addresses, ports, and plain HTTP require matching deployment
@@ -431,7 +431,7 @@ implicitly reachable by every project-level channel editor.
 - A publication must be able to refer to an ordered subset or adaptation of a
   project's media without duplicating raw bytes in every publication row.
 - Local storage and an S3-compatible implementation must work behind the same
-  Herald-owned contract for the single-process self-hosted deployment. Storage
+  Postbot-owned contract for the single-process self-hosted deployment. Storage
   credentials and provider payloads must not enter the core domain.
 - The storage seam must not leak Bun file objects, provider SDK objects, or storage
   credentials into the domain contract.
@@ -447,7 +447,7 @@ implicitly reachable by every project-level channel editor.
   stable URL, a single identifier, or a synchronous result.
 - Ambiguous outcomes must remain reconcilable even when a provider has multiple
   remote objects or a media upload succeeded before the final post request failed.
-- Revisions, retries, and reconciliation must not cause Herald to lose the exact
+- Revisions, retries, and reconciliation must not cause Postbot to lose the exact
   content or attachment references used for an attempted external effect.
 
 ## Candidate boundaries
@@ -477,7 +477,7 @@ the snapshot into provider payloads.
   supports provider differences without storing raw provider payloads in core.
 - Risks: the document vocabulary, revision semantics, and migrations require more
   design before implementation.
-- Best fit: Herald's requirement that one source can be adapted to destinations with
+- Best fit: Postbot's requirement that one source can be adapted to destinations with
   materially different capabilities while preserving a durable target snapshot.
 
 ### C. Provider payloads stored as opaque JSON
@@ -488,7 +488,7 @@ adapter interpret it.
 - Strengths: quick to add provider-specific features and close to external APIs.
 - Risks: weak domain validation, provider leakage, difficult migrations, poor manual
   channel semantics, and opaque API contracts.
-- Best fit: isolated adapter-owned metadata, not the primary Herald content model.
+- Best fit: isolated adapter-owned metadata, not the primary Postbot content model.
 
 ### D. Universal social-network schema
 
@@ -499,7 +499,7 @@ schema.
 - Strengths: superficially uniform API contracts.
 - Risks: high permanent complexity, lowest-common-denominator behavior, and
   premature decisions about providers that may never be supported.
-- Best fit: none identified for Herald's current constraints.
+- Best fit: none identified for Postbot's current constraints.
 
 ### Accepted common source vocabulary
 
@@ -516,15 +516,15 @@ SourceRevision
 
 At least body text or one media reference is required. `headline` is publishable
 authoring content and must remain distinct from any internal label used to organize a
-post inside Herald. Tags, visibility, polls, replies, thread structure, provider
+post inside Postbot. Tags, visibility, polls, replies, thread structure, provider
 mentions, and similar semantics remain target-profile fields until evidence shows
-that Herald can define one stable meaning for them across destinations.
+that Postbot can define one stable meaning for them across destinations.
 
 This is not the schema sent to every channel. A `PublicationRevision` stores the
 validated target content required by its channel profile. Matching `fieldBindings`
 can seed headline, primary text, language, and media into a new target draft; the
 target validator then reports losses or incompatibilities. A destination may omit a
-source concept, add required fields, or use a richer target structure. Herald does
+source concept, add required fields, or use a richer target structure. Postbot does
 not silently truncate, strip Markdown, discard media, or invent required values.
 
 This shape preserves the central write-once/adapt-many workflow without making
@@ -534,7 +534,7 @@ controls what is scheduled under ADR-014.
 
 The principal alternative is versioned source profiles such as `social-message` and
 `article`. That would represent richer authoring modes more precisely, but it also
-introduces source-profile selection and cross-profile conversion before Herald has
+introduces source-profile selection and cross-profile conversion before Postbot has
 evidence that the small semantic vocabulary is insufficient. The owner accepted the
 fixed semantic source plus exact target revisions on 2026-08-30; ADR-015 records the
 decision.
@@ -566,7 +566,7 @@ associated with the channel.
   provider catalog.
 - Risks: modules need a stable protocol and consistent test expectations; cross-
   provider comparison must be assembled from descriptors at runtime.
-- Best fit: Herald's custom-channel direction and continuous provider evolution.
+- Best fit: Postbot's custom-channel direction and continuous provider evolution.
 
 ### C. Channel-defined arbitrary schemas
 
@@ -576,7 +576,7 @@ validation behavior.
 - Strengths: maximum apparent configurability without changing the application.
 - Risks: weak static guarantees, difficult migrations, unsafe executable behavior,
   inconsistent client assistance, and no stable contract for API, CLI, or MCP.
-- Best fit: none for the core Herald domain. A future external connector protocol
+- Best fit: none for the core Postbot domain. A future external connector protocol
   would need an explicit, separately governed contract instead.
 
 The current recommendation is B. It does not make the shared core aware of every
@@ -595,7 +595,7 @@ Blob-oriented APIs are similar.
   as remote metadata, presigning, and object lifecycle semantics.
 - Best fit: infrastructure-local code, not the application contract.
 
-### B. Herald-owned `MediaStore` with Bun implementations
+### B. Postbot-owned `MediaStore` with Bun implementations
 
 Define a narrow storage contract for media operations and implement it with
 `Bun.file()` for local objects and `Bun.S3Client` for S3/R2 objects.
@@ -605,16 +605,16 @@ Define a narrow storage contract for media operations and implement it with
   and Bun's native performance and dependency footprint are preserved.
 - Risks: the contract must explicitly handle differences in metadata, streaming,
   presigned access, failures, and consistency.
-- Best fit: Herald's self-hosted local default with an S3/R2 deployment option.
+- Best fit: Postbot's self-hosted local default with an S3/R2 deployment option.
 
 ### C. Use FlyDrive as the application storage abstraction
 
 Use FlyDrive's disk and driver model to cover local and remote storage.
 
 - Strengths: a broader abstraction and an existing driver lifecycle can reduce
-  adapter code if Herald later needs many runtimes or storage providers.
+  adapter code if Postbot later needs many runtimes or storage providers.
 - Risks: an additional dependency and abstraction layer may duplicate Bun's native
-  local/S3 primitives and obscure semantics Herald must test explicitly.
+  local/S3 primitives and obscure semantics Postbot must test explicitly.
 - Best fit: reconsider only if cross-runtime support or a provider matrix creates a
   requirement Bun's native implementations cannot satisfy.
 
@@ -624,7 +624,7 @@ temporary local-only model.
 
 ## Accepted target architecture
 
-This section translates the accepted comparative findings into Herald boundaries
+This section translates the accepted comparative findings into Postbot boundaries
 without copying a competitor's entire schema.
 
 ### Provider and channel module boundary
@@ -673,7 +673,7 @@ and is not the source of truth.
 
 The current one-publication-per-channel model can represent the target boundary that
 OpenPost calls a rendition. It should therefore gain explicit revision and target
-snapshot semantics before Herald introduces a separate `Rendition` aggregate. If a
+snapshot semantics before Postbot introduces a separate `Rendition` aggregate. If a
 future requirement allows one publication to fan out to several independently
 adapted accounts or output profiles, that requirement can justify a separate target
 aggregate without invalidating the content and media contracts below.
@@ -714,7 +714,7 @@ not change the payload used by the in-flight, ambiguous, or completed attempt.
 
 ### Media asset and delivery boundary
 
-Herald should distinguish four things:
+Postbot should distinguish four things:
 
 1. `MediaAsset`: the project-owned logical asset, user-facing metadata, lifecycle,
    and stable identity used by working drafts.
@@ -751,14 +751,14 @@ accessibility constraints for each bound media field.
 The core schema should not encode one permanent global MIME enum. A media-inspection
 registry recognizes safe formats and can grow without a database migration, while a
 channel profile stores the exact MIME allowlist that applies to its version. The
-client-declared MIME type and filename extension are hints only; Herald verifies the
+client-declared MIME type and filename extension are hints only; Postbot verifies the
 stored bytes before an asset becomes ready. Active or executable formats are not
 served inline merely because their extension resembles media.
 
 The original object is preserved as an immutable `MediaRepresentation`. Derived
 representations have their own storage locator, MIME type, checksum, byte size,
 dimensions or duration, source representation, processor identity, processor
-version, and canonical transformation recipe. Herald does not overwrite an original
+version, and canonical transformation recipe. Postbot does not overwrite an original
 during conversion. A provider can use the original when compatible or select a
 validated variant. Heavy processors such as a video transcoder are not silently
 added to the base runtime image; a required transformation must have an explicit
@@ -787,10 +787,10 @@ and recovery policy decides when an unreferenced deletion request becomes a stor
 delete; that policy applies equally to local and S3/R2 objects.
 
 Runtime target content may contain media asset IDs at profile-bound JSON locations.
-On promotion, Herald validates the asset and selects a compatible ready
+On promotion, Postbot validates the asset and selects a compatible ready
 representation. If a required representation does not exist, variant generation is
 requested and promotion reports a pending requirement instead of hiding external
-processing inside a database transaction. Once ready, Herald extracts an exact
+processing inside a database transaction. Once ready, Postbot extracts an exact
 `PublicationRevisionMedia` relation in the promotion transaction. The relation
 preserves JSON Pointer location, order, role, accessibility overrides, and the
 selected immutable representation. The target JSON and extracted relational index
@@ -808,7 +808,7 @@ the reusable `MediaAsset`.
 
 ### Storage boundary and consistency
 
-The first media implementation should define a Herald-owned `MediaStore` contract
+The first media implementation should define a Postbot-owned `MediaStore` contract
 and provide both intended backends:
 
 - `LocalMediaStore` backed by `Bun.file()` and `Bun.write()`;
@@ -834,18 +834,18 @@ rewriting the media or publication model.
 Presigned S3 upload and download URLs are an optional infrastructure acceleration,
 not part of the minimum `MediaStore` semantics. The media application service
 exposes one upload/download behavior: local storage streams through authenticated
-Herald routes, while S3 may return short-lived presigned URLs. Both paths end in the
+Postbot routes, while S3 may return short-lived presigned URLs. Both paths end in the
 same server-authoritative finalization. Stored objects and buckets remain private by
-default; Herald does not require permanent public ACLs.
+default; Postbot does not require permanent public ACLs.
 
 Because SQLite and object storage do not share a transaction, media creation should
 use an explicit upload-intent/finalization flow:
 
 1. reserve a project-owned asset, original representation, opaque object key, and
    expiring upload intent in SQLite;
-2. stream locally through Herald or upload directly to S3 through a short-lived
+2. stream locally through Postbot or upload directly to S3 through a short-lived
    signed target;
-3. finalize through Herald, which independently stats and streams the stored bytes,
+3. finalize through Postbot, which independently stats and streams the stored bytes,
    computes the checksum, detects the format, applies resource limits, and extracts
    available metadata;
 4. mark the representation and asset ready in one database transaction only after
@@ -865,23 +865,23 @@ Image inspection and basic variants can use Bun's native image pipeline without 
 npm dependency. Its byte sniffing and `maxPixels` guard fit the accepted verification
 boundary, while its portable Linux support for JPEG, PNG, and WebP can generate
 bounded previews. Other formats and media families enter the format registry only
-with a verified inspector; storing an unknown file must not pretend that Herald can
+with a verified inspector; storing an unknown file must not pretend that Postbot can
 validate provider constraints for it.
 
 Asset deletion is two-phase. Archiving removes an asset from normal selection, while
 physical deletion requires no draft, target, execution, or retained audit reference
 and a completed grace period. Originals and representations are immutable, so a
 reference cannot change meaning while deletion is pending. Provider-side cleanup is
-owned by the provider module and does not determine whether Herald's local object is
+owned by the provider module and does not determine whether Postbot's local object is
 retained.
 
-The complete Herald backup, not the existing SQLite-only primitive, must cover media.
+The complete Postbot backup, not the existing SQLite-only primitive, must cover media.
 A backup manifest records every retained representation, store identity, object key,
 size, and checksum. Local and S3 objects can be streamed into a portable backup
 archive; garbage collection is fenced while the manifest snapshot is copied. Restore
 verifies all bytes before making restored assets ready. An explicitly requested
 metadata-only export may omit object bytes, but it is not described as a recoverable
-Herald backup.
+Postbot backup.
 
 ## Decisions recorded from the project owner
 
@@ -897,14 +897,14 @@ The project owner has accepted the following direction:
 4. Web auto-save must protect the latest draft without implicitly replacing the
    scheduled target. Explicit scheduling/update promotes a validated target revision,
    and execution revisions are immutable after an external effect starts.
-5. Local and S3/R2 media storage share the first Herald-owned `MediaStore` contract.
+5. Local and S3/R2 media storage share the first Postbot-owned `MediaStore` contract.
 6. Reusable source revisions use a small semantic vocabulary: optional plain-text or
    Markdown body, optional publishable headline, optional language, and ordered media
    references. Exact channel content remains in target revisions.
 7. Runtime-defined custom channel content uses a bounded JSON Schema 2020-12 profile,
-   TypeBox compilation, separate Herald field bindings, and normalized validation
+   TypeBox compilation, separate Postbot field bindings, and normalized validation
    issues.
-8. Automatic custom channels use a versioned Herald webhook by default or an advanced
+8. Automatic custom channels use a versioned Postbot webhook by default or an advanced
    structural one-request HTTP mapping. Complex imperative protocols remain built-in
    channel modules.
 9. Public HTTPS is the default custom-channel network authority. Private destinations

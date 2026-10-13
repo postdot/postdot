@@ -1,10 +1,10 @@
-import type { AccessStore } from '@herald/db'
+import type { AccessStore } from '@postbot/db'
 import {
     DEVTO_PROVIDER,
     createDevtoPublisher,
     normalizeDevtoApiKey,
     type DevtoFetcher,
-} from '@herald/devto'
+} from '@postbot/devto'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

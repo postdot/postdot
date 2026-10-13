@@ -23,8 +23,8 @@ function observation(
         providerSubjectId: did,
         providerSubjectLabel: 'analytics.test',
         providerContentRevisionId: null,
-        heraldEntityType: 'channel' as const,
-        heraldEntityId: 'channel-1',
+        postbotEntityType: 'channel' as const,
+        postbotEntityId: 'channel-1',
         metricName: 'followersCount',
         value,
         unit: 'count',
@@ -180,8 +180,8 @@ describe('provider analytics store', () => {
             ).toEqual([
                 {
                     channelId: channel.id,
-                    heraldEntityType: 'publication',
-                    heraldEntityId: publicationId,
+                    postbotEntityType: 'publication',
+                    postbotEntityId: publicationId,
                     providerSubjectId: 'at://did:plc:provider-analytics/app.bsky.feed.post/3known',
                     providerSubjectLabel: null,
                 },

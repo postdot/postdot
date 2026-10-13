@@ -50,16 +50,16 @@ supersedes its in-progress status and stale blocker summary.
 
 ## Decisions still needed
 
-1. Media deletion: should Herald provide an “Undo deletion” action
+1. Media deletion: should Postbot provide an “Undo deletion” action
    during the default 24-hour retention interval? Today, deleting an unused
    image removes it from the library immediately. Its file stays on disk/storage
-   for 24 hours by default, then Herald removes it automatically unless a
+   for 24 hours by default, then Postbot removes it automatically unless a
    reference or backup prevents cleanup. There is currently no way in the UI to
    bring it back. Recommendation: add the restore action so this interval can
    recover an accidental deletion.
 
 META-62 remains blocked by the Codex app-managed worktree control limitation; it
-does not block Herald work. OPS-207 is now actionable backlog, not a blocker.
+does not block Postbot work. OPS-207 is now actionable backlog, not a blocker.
 
 ## Files changed
 

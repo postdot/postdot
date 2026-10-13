@@ -9,7 +9,7 @@
 ## Context
 
 The dashboard is an authenticated application and does not require SEO or server
-rendering. Herald expects to reuse mature ecosystem components as the product grows,
+rendering. Postbot expects to reuse mature ecosystem components as the product grows,
 and the production server must remain the Elysia process rather than adding another
 server runtime.
 
@@ -33,4 +33,4 @@ navigation and route-data boundary.
 - The web application can use the mature React component ecosystem.
 - Initial JavaScript size must remain under the project's footprint gate.
 - Business logic remains outside React components and route handlers.
-- Static production assets can live in the single Herald deployment process.
+- Static production assets can live in the single Postbot deployment process.

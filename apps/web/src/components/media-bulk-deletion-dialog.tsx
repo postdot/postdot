@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -6,7 +6,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
+} from '@postbot/ui/components/dialog'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useEffect, useState } from 'react'
 

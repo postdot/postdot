@@ -1,30 +1,30 @@
-import { createAccessStore, type AccessStore, type HeraldDatabase } from '@herald/db'
-import * as schema from '@herald/db/schema'
+import { createAccessStore, type AccessStore, type PostbotDatabase } from '@postbot/db'
+import * as schema from '@postbot/db/schema'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { hashPassword } from 'better-auth/crypto'
 
 import {
-    createHeraldAuthPlugins,
-    type HeraldAuthInvitationOptions,
-    type HeraldAuthPluginHooks,
-    type HeraldAuthPlugins,
+    createPostbotAuthPlugins,
+    type PostbotAuthInvitationOptions,
+    type PostbotAuthPluginHooks,
+    type PostbotAuthPlugins,
 } from './plugins'
 
-export type { HeraldAuthInvitationOptions, HeraldOrganizationInvitationEmail } from './plugins'
-export { heraldUserApiKeyConfigId } from './plugins'
+export type { PostbotAuthInvitationOptions, PostbotOrganizationInvitationEmail } from './plugins'
+export { postbotUserApiKeyConfigId } from './plugins'
 
-export const heraldPasswordPolicy = {
+export const postbotPasswordPolicy = {
     minimumLength: 8,
     maximumLength: 128,
 } as const
 
 /** Hashes an offline-recovered password with the same format used by Better Auth. */
-export function hashHeraldPassword(password: string): Promise<string> {
+export function hashPostbotPassword(password: string): Promise<string> {
     return hashPassword(password)
 }
 
-export interface HeraldAuthVerificationEmail {
+export interface PostbotAuthVerificationEmail {
     readonly user: {
         readonly email: string
         readonly name: string
@@ -33,23 +33,23 @@ export interface HeraldAuthVerificationEmail {
     readonly token: string
 }
 
-export interface HeraldAuthEmailOptions {
+export interface PostbotAuthEmailOptions {
     /** Live transport availability for explicit email requests. */
     readonly emailDeliveryAvailable?: () => boolean
     /** Optional deployment-provided account verification mail delivery. */
-    readonly sendEmailVerification?: (input: HeraldAuthVerificationEmail) => Promise<void> | void
+    readonly sendEmailVerification?: (input: PostbotAuthVerificationEmail) => Promise<void> | void
     /** Optional deployment-provided password reset mail delivery. */
-    readonly sendPasswordResetEmail?: (input: HeraldAuthVerificationEmail) => Promise<void> | void
+    readonly sendPasswordResetEmail?: (input: PostbotAuthVerificationEmail) => Promise<void> | void
     /** Send account verification mail after a successful email/password signup. */
     readonly sendEmailVerificationOnSignUp?: boolean
 }
 
-export interface HeraldAuthRuntimeOptions
+export interface PostbotAuthRuntimeOptions
     extends
         Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins'>,
-        HeraldAuthInvitationOptions,
-        HeraldAuthEmailOptions {
-    /** Shared Herald access state used by the Better Auth bootstrap hooks. */
+        PostbotAuthInvitationOptions,
+        PostbotAuthEmailOptions {
+    /** Shared Postbot access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
     /**
      * Test-only escape hatch for parallel browser fixtures. Production callers
@@ -59,21 +59,21 @@ export interface HeraldAuthRuntimeOptions
     readonly allowAdditionalSignups?: boolean
 }
 
-type HeraldAuthOptions = BetterAuthOptions & {
+type PostbotAuthOptions = BetterAuthOptions & {
     database: NonNullable<BetterAuthOptions['database']>
     databaseHooks: NonNullable<BetterAuthOptions['databaseHooks']>
     emailAndPassword: { enabled: true } & NonNullable<BetterAuthOptions['emailAndPassword']>
-    plugins: HeraldAuthPlugins
+    plugins: PostbotAuthPlugins
 }
 
 /**
- * These Better Auth mutations are deliberately server-only in Herald. Their
- * native handlers do not know about Herald's instance membership invariants or
+ * These Better Auth mutations are deliberately server-only in Postbot. Their
+ * native handlers do not know about Postbot's instance membership invariants or
  * the actor projection, so exposing them over the public auth mount would let
- * a caller bypass the guarded Herald routes. The plugin remains the owner of
+ * a caller bypass the guarded Postbot routes. The plugin remains the owner of
  * the underlying records and server-side `auth.api` calls continue to use it.
  */
-const heraldManagedAuthMutationPaths = new Set([
+const postbotManagedAuthMutationPaths = new Set([
     '/admin/create-user',
     '/admin/remove-user',
     '/admin/set-role',
@@ -96,19 +96,19 @@ const heraldManagedAuthMutationPaths = new Set([
     '/organization/leave',
 ])
 
-function isHeraldManagedAuthMutation(path: string): boolean {
+function isPostbotManagedAuthMutation(path: string): boolean {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`
-    return [...heraldManagedAuthMutationPaths].some(
+    return [...postbotManagedAuthMutationPaths].some(
         candidate => normalizedPath === candidate || normalizedPath.endsWith(candidate)
     )
 }
 
 /**
  * The Better Auth router type cannot infer endpoints from a tuple assembled by
- * a factory. Keep the small server-only surface Herald calls explicitly typed
+ * a factory. Keep the small server-only surface Postbot calls explicitly typed
  * instead of spreading an `any` cast into the API layer.
  */
-export interface HeraldOrganizationAuthApi {
+export interface PostbotOrganizationAuthApi {
     createOrganization(input: {
         body: {
             name: string
@@ -155,7 +155,7 @@ export interface HeraldOrganizationAuthApi {
     }): Promise<unknown>
 }
 
-export interface HeraldOrganizationMember {
+export interface PostbotOrganizationMember {
     readonly id: string
     readonly organizationId: string
     readonly role: string
@@ -169,7 +169,7 @@ export interface HeraldOrganizationMember {
     }
 }
 
-export interface HeraldApiKeyRecord {
+export interface PostbotApiKeyRecord {
     readonly id: string
     readonly configId: string
     readonly name: string | null
@@ -185,7 +185,7 @@ export interface HeraldApiKeyRecord {
     readonly permissions: Record<string, readonly string[]> | null
 }
 
-export interface HeraldApiKeyAuthApi {
+export interface PostbotApiKeyAuthApi {
     createApiKey(input: {
         body: {
             configId?: string
@@ -197,11 +197,11 @@ export interface HeraldApiKeyAuthApi {
             permissions?: Record<string, string[]>
         }
         headers?: Headers
-    }): Promise<HeraldApiKeyRecord & { readonly key: string }>
+    }): Promise<PostbotApiKeyRecord & { readonly key: string }>
     listApiKeys(input: {
         query: { configId?: string; organizationId?: string; limit?: number; offset?: number }
         headers: Headers
-    }): Promise<{ readonly apiKeys: readonly HeraldApiKeyRecord[]; readonly total: number }>
+    }): Promise<{ readonly apiKeys: readonly PostbotApiKeyRecord[]; readonly total: number }>
     deleteApiKey(input: {
         body: { configId?: string; keyId: string }
         headers: Headers
@@ -217,16 +217,16 @@ export interface HeraldApiKeyAuthApi {
             permissions?: Record<string, string[]> | null
         }
         headers?: Headers
-    }): Promise<HeraldApiKeyRecord>
+    }): Promise<PostbotApiKeyRecord>
     verifyApiKey(input: {
         body: { configId?: string; key: string }
     }): Promise<
-        | { readonly valid: true; readonly error: null; readonly key: HeraldApiKeyRecord }
+        | { readonly valid: true; readonly error: null; readonly key: PostbotApiKeyRecord }
         | { readonly valid: false; readonly error: unknown; readonly key: null }
     >
 }
 
-export interface HeraldOrganizationInvitation {
+export interface PostbotOrganizationInvitation {
     readonly id: string
     readonly email: string
     readonly role: string
@@ -240,13 +240,13 @@ export interface HeraldOrganizationInvitation {
     readonly teamId?: string
 }
 
-export interface HeraldOrganizationInvitationDetails extends HeraldOrganizationInvitation {
+export interface PostbotOrganizationInvitationDetails extends PostbotOrganizationInvitation {
     readonly organizationName: string
     readonly organizationSlug: string
     readonly inviterEmail: string
 }
 
-export interface HeraldOrganizationTeam {
+export interface PostbotOrganizationTeam {
     readonly id: string
     readonly name: string
     readonly organizationId: string
@@ -255,25 +255,25 @@ export interface HeraldOrganizationTeam {
     readonly updatedAt?: Date
 }
 
-export interface HeraldOrganizationTeamMember {
+export interface PostbotOrganizationTeamMember {
     readonly id: string
     readonly teamId: string
     readonly userId: string
     readonly createdAt: Date
 }
 
-export interface HeraldOrganizationInvitationAuthApi {
+export interface PostbotOrganizationInvitationAuthApi {
     listMembers(input: {
         query: { organizationId: string; limit?: number; offset?: number }
         headers: Headers
     }): Promise<{
-        readonly members: readonly HeraldOrganizationMember[]
+        readonly members: readonly PostbotOrganizationMember[]
         readonly total: number
     }>
     listInvitations(input: {
         query: { organizationId: string }
         headers: Headers
-    }): Promise<readonly HeraldOrganizationInvitation[]>
+    }): Promise<readonly PostbotOrganizationInvitation[]>
     createInvitation(input: {
         body: {
             email: string
@@ -285,13 +285,13 @@ export interface HeraldOrganizationInvitationAuthApi {
             projectRole?: string
         }
         headers: Headers
-    }): Promise<HeraldOrganizationInvitation>
+    }): Promise<PostbotOrganizationInvitation>
     getInvitation(input: {
         query: { id: string }
         headers: Headers
-    }): Promise<HeraldOrganizationInvitationDetails>
+    }): Promise<PostbotOrganizationInvitationDetails>
     acceptInvitation(input: { body: { invitationId: string }; headers: Headers }): Promise<{
-        readonly invitation: HeraldOrganizationInvitation
+        readonly invitation: PostbotOrganizationInvitation
         readonly member: {
             readonly id: string
             readonly organizationId: string
@@ -303,37 +303,37 @@ export interface HeraldOrganizationInvitationAuthApi {
     cancelInvitation(input: {
         body: { invitationId: string }
         headers: Headers
-    }): Promise<HeraldOrganizationInvitation>
+    }): Promise<PostbotOrganizationInvitation>
     listOrganizationTeams(input: {
         query: { organizationId: string }
         headers: Headers
-    }): Promise<readonly HeraldOrganizationTeam[]>
+    }): Promise<readonly PostbotOrganizationTeam[]>
     createTeam(input: {
         body: { name: string; organizationId: string }
         headers: Headers
-    }): Promise<HeraldOrganizationTeam>
+    }): Promise<PostbotOrganizationTeam>
     updateTeam(input: {
         body: {
             teamId: string
             data: { name?: string; organizationId?: string }
         }
         headers: Headers
-    }): Promise<HeraldOrganizationTeam>
+    }): Promise<PostbotOrganizationTeam>
     listTeamMembers(input: {
         query: { teamId: string }
         headers: Headers
-    }): Promise<readonly HeraldOrganizationTeamMember[]>
+    }): Promise<readonly PostbotOrganizationTeamMember[]>
     addTeamMember(input: {
         body: { teamId: string; userId: string; organizationId: string }
         headers: Headers
-    }): Promise<HeraldOrganizationTeamMember>
+    }): Promise<PostbotOrganizationTeamMember>
     removeTeamMember(input: {
         body: { teamId: string; userId: string; organizationId: string }
         headers: Headers
     }): Promise<{ readonly message: string }>
 }
 
-export interface HeraldAdminAuthApi {
+export interface PostbotAdminAuthApi {
     setRole(input: {
         body: { userId: string; role: string | string[] }
         headers: Headers
@@ -345,18 +345,18 @@ export interface HeraldAdminAuthApi {
     unbanUser(input: { body: { userId: string }; headers: Headers }): Promise<unknown>
 }
 
-export type HeraldAuth = Auth<HeraldAuthOptions> & {
-    readonly api: Auth<HeraldAuthOptions>['api'] &
-        HeraldOrganizationAuthApi &
-        HeraldApiKeyAuthApi &
-        HeraldOrganizationInvitationAuthApi &
-        HeraldAdminAuthApi
+export type PostbotAuth = Auth<PostbotAuthOptions> & {
+    readonly api: Auth<PostbotAuthOptions>['api'] &
+        PostbotOrganizationAuthApi &
+        PostbotApiKeyAuthApi &
+        PostbotOrganizationInvitationAuthApi &
+        PostbotAdminAuthApi
 }
 
 export function createAuth(
-    database: HeraldDatabase,
-    runtimeOptions: HeraldAuthRuntimeOptions = {}
-): HeraldAuth {
+    database: PostbotDatabase,
+    runtimeOptions: PostbotAuthRuntimeOptions = {}
+): PostbotAuth {
     const {
         access: accessOption,
         allowAdditionalSignups = false,
@@ -436,18 +436,18 @@ export function createAuth(
                 if (
                     authContext.request !== undefined &&
                     authContext.path !== undefined &&
-                    isHeraldManagedAuthMutation(authContext.path)
+                    isPostbotManagedAuthMutation(authContext.path)
                 ) {
                     throw new APIError('FORBIDDEN', {
-                        message: 'Use the corresponding Herald access route for this operation',
+                        message: 'Use the corresponding Postbot access route for this operation',
                     })
                 }
             },
         },
         emailAndPassword: {
             enabled: true,
-            minPasswordLength: heraldPasswordPolicy.minimumLength,
-            maxPasswordLength: heraldPasswordPolicy.maximumLength,
+            minPasswordLength: postbotPasswordPolicy.minimumLength,
+            maxPasswordLength: postbotPasswordPolicy.maximumLength,
             ...(sendPasswordResetEmail === undefined
                 ? {}
                 : {
@@ -480,7 +480,7 @@ export function createAuth(
                           : { sendOnSignUp: sendEmailVerificationOnSignUp }),
                   },
               }),
-        plugins: createHeraldAuthPlugins(
+        plugins: createPostbotAuthPlugins(
             {
                 afterOrganizationInvitationAccepted: ({
                     organizationId,
@@ -519,7 +519,7 @@ export function createAuth(
                     }
 
                     // A Better Auth organization that is not backed by a
-                    // Herald workspace is legacy data. It must not grant
+                    // Postbot workspace is legacy data. It must not grant
                     // project access after the workspace/grant boundary is
                     // established.
                 },
@@ -529,13 +529,13 @@ export function createAuth(
                     userId,
                     displayName,
                 }) => {
-                    // Only workspace teams can grant Herald project access.
+                    // Only workspace teams can grant Postbot project access.
                     // Legacy Better Auth organizations are not part of the
                     // product-level group model.
                     if (access.getWorkspaceByOrganizationId(organizationId) === null) return
                     access.syncTeamMemberToProjectGrants({ teamId, userId, displayName })
                 },
-            } satisfies HeraldAuthPluginHooks,
+            } satisfies PostbotAuthPluginHooks,
             {
                 organizationInvitationURL,
                 requireEmailVerificationOnInvitation,
@@ -558,7 +558,7 @@ export function createAuth(
                         }
 
                         // Better Auth Admin owns the durable instance-admin role.
-                        // Herald's instance membership remains the installation-level
+                        // Postbot's instance membership remains the installation-level
                         // access boundary while preserving route and audit context.
                         return access.getInstanceState().state === 'claimable'
                             ? { data: { ...data, role: 'admin' } }
@@ -597,5 +597,5 @@ export function createAuth(
                 },
             },
         },
-    }) as unknown as HeraldAuth
+    }) as unknown as PostbotAuth
 }

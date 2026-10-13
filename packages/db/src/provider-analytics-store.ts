@@ -3,19 +3,19 @@ import {
     providerAnalyticsAvailabilityStates,
     providerAnalyticsContractVersion,
     providerAnalyticsFreshnessStates,
-    providerAnalyticsHeraldEntityTypes,
+    providerAnalyticsPostbotEntityTypes,
     providerAnalyticsSubjectTypes,
     requireNonBlank,
     requireTimestamp,
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsFreshness,
-    type ProviderAnalyticsHeraldEntityType,
+    type ProviderAnalyticsPostbotEntityType,
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
     type ProviderAnalyticsSubjectType,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from './client'
+import { createDatabaseTransaction, type PostbotDatabase } from './client'
 
 const defaultObservationLimit = 100
 const maximumObservationLimit = 500
@@ -44,7 +44,7 @@ export interface ListProviderAnalyticsObservationsInput {
     readonly provider: string
     readonly subjectType?: ProviderAnalyticsSubjectType | null
     readonly providerSubjectId?: string | null
-    readonly heraldEntityId?: string | null
+    readonly postbotEntityId?: string | null
     readonly limit?: number
 }
 
@@ -68,8 +68,8 @@ export interface ListKnownProviderContentInput {
 
 export interface KnownProviderContent {
     readonly channelId: string
-    readonly heraldEntityType: 'publication'
-    readonly heraldEntityId: string
+    readonly postbotEntityType: 'publication'
+    readonly postbotEntityId: string
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
 }
@@ -86,8 +86,8 @@ interface ObservationRow {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly heraldEntityType: ProviderAnalyticsHeraldEntityType | null
-    readonly heraldEntityId: string | null
+    readonly postbotEntityType: ProviderAnalyticsPostbotEntityType | null
+    readonly postbotEntityId: string | null
     readonly metricName: string
     readonly value: number | null
     readonly unit: string
@@ -103,12 +103,12 @@ interface ObservationRow {
 
 interface KnownProviderContentRow {
     readonly channelId: string
-    readonly heraldEntityId: string
+    readonly postbotEntityId: string
     readonly providerSubjectId: string
 }
 
 export function createProviderAnalyticsStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ProviderAnalyticsStoreOptions = {}
 ) {
     const client = database.$client
@@ -139,8 +139,8 @@ export function createProviderAnalyticsStore(
             providerSubjectId: string,
             providerSubjectLabel: string | null,
             providerContentRevisionId: string | null,
-            heraldEntityType: string | null,
-            heraldEntityId: string | null,
+            postbotEntityType: string | null,
+            postbotEntityId: string | null,
             metricName: string,
             value: number | null,
             unit: string,
@@ -163,8 +163,8 @@ export function createProviderAnalyticsStore(
             provider_subject_id,
             provider_subject_label,
             provider_content_revision_id,
-            herald_entity_type,
-            herald_entity_id,
+            postbot_entity_type,
+            postbot_entity_id,
             metric_name,
             value,
             unit,
@@ -201,8 +201,8 @@ export function createProviderAnalyticsStore(
                provider_subject_id as providerSubjectId,
                provider_subject_label as providerSubjectLabel,
                provider_content_revision_id as providerContentRevisionId,
-               herald_entity_type as heraldEntityType,
-               herald_entity_id as heraldEntityId,
+               postbot_entity_type as postbotEntityType,
+               postbot_entity_id as postbotEntityId,
                metric_name as metricName,
                value,
                unit,
@@ -231,7 +231,7 @@ export function createProviderAnalyticsStore(
             provider: string,
             subjectType: string | null,
             providerSubjectId: string | null,
-            heraldEntityId: string | null,
+            postbotEntityId: string | null,
             limit: number,
         ]
     >(
@@ -243,8 +243,8 @@ export function createProviderAnalyticsStore(
                provider_subject_id as providerSubjectId,
                provider_subject_label as providerSubjectLabel,
                provider_content_revision_id as providerContentRevisionId,
-               herald_entity_type as heraldEntityType,
-               herald_entity_id as heraldEntityId,
+               postbot_entity_type as postbotEntityType,
+               postbot_entity_id as postbotEntityId,
                metric_name as metricName,
                value,
                unit,
@@ -261,7 +261,7 @@ export function createProviderAnalyticsStore(
           and provider = ?2
           and (?3 is null or subject_type = ?3)
           and (?4 is null or provider_subject_id = ?4)
-          and (?5 is null or herald_entity_id = ?5)
+          and (?5 is null or postbot_entity_id = ?5)
         order by fetched_at desc, id desc
         limit ?6
     `
@@ -272,7 +272,7 @@ export function createProviderAnalyticsStore(
     >(
         String.raw`
         select publications.channel_id as channelId,
-               publications.id as heraldEntityId,
+               publications.id as postbotEntityId,
                publications.external_id as providerSubjectId
         from publications
         inner join publishers
@@ -292,7 +292,7 @@ export function createProviderAnalyticsStore(
         client.query<KnownProviderContentRow, [string, string, string, ...string[]]>(
             String.raw`
             select publications.channel_id as channelId,
-                   publications.id as heraldEntityId,
+                   publications.id as postbotEntityId,
                    publications.external_id as providerSubjectId
             from publications
             inner join publishers
@@ -329,8 +329,8 @@ export function createProviderAnalyticsStore(
                     normalized.providerSubjectId,
                     normalized.providerSubjectLabel,
                     normalized.providerContentRevisionId,
-                    normalized.heraldEntityType,
-                    normalized.heraldEntityId,
+                    normalized.postbotEntityType,
+                    normalized.postbotEntityId,
                     normalized.metricName,
                     normalized.value,
                     normalized.unit,
@@ -390,14 +390,14 @@ export function createProviderAnalyticsStore(
                 input.providerSubjectId,
                 'providerSubjectId'
             )
-            const heraldEntityId = normalizeOptionalText(input.heraldEntityId, 'heraldEntityId')
+            const postbotEntityId = normalizeOptionalText(input.postbotEntityId, 'postbotEntityId')
             const limit = normalizeLimit(input.limit)
             const rows = listObservationsStatement.all(
                 projectId,
                 provider,
                 subjectType,
                 providerSubjectId,
-                heraldEntityId,
+                postbotEntityId,
                 limit + 1
             )
 
@@ -434,8 +434,8 @@ export function createProviderAnalyticsStore(
 
             return rows.slice(0, limit).map(row => ({
                 channelId: row.channelId,
-                heraldEntityType: 'publication',
-                heraldEntityId: row.heraldEntityId,
+                postbotEntityType: 'publication',
+                postbotEntityId: row.postbotEntityId,
                 providerSubjectId: row.providerSubjectId,
                 providerSubjectLabel: null,
             }))
@@ -480,12 +480,12 @@ function normalizeObservation(
         input.providerContentRevisionId,
         'providerContentRevisionId'
     )
-    const heraldEntityType = normalizeOptionalEntityType(input.heraldEntityType)
-    const heraldEntityId = normalizeOptionalText(input.heraldEntityId, 'heraldEntityId')
-    if ((heraldEntityType === null) !== (heraldEntityId === null)) {
+    const postbotEntityType = normalizeOptionalEntityType(input.postbotEntityType)
+    const postbotEntityId = normalizeOptionalText(input.postbotEntityId, 'postbotEntityId')
+    if ((postbotEntityType === null) !== (postbotEntityId === null)) {
         throw new DomainInvariantError(
             'invalid_input',
-            'heraldEntityType and heraldEntityId must be provided together'
+            'postbotEntityType and postbotEntityId must be provided together'
         )
     }
 
@@ -527,8 +527,8 @@ function normalizeObservation(
         providerSubjectId,
         providerSubjectLabel,
         providerContentRevisionId,
-        heraldEntityType,
-        heraldEntityId,
+        postbotEntityType,
+        postbotEntityId,
         metricName,
         value,
         unit,
@@ -567,11 +567,11 @@ function normalizeOptionalSubjectType(
 }
 
 function normalizeOptionalEntityType(
-    value: ProviderAnalyticsHeraldEntityType | null | undefined
-): ProviderAnalyticsHeraldEntityType | null {
+    value: ProviderAnalyticsPostbotEntityType | null | undefined
+): ProviderAnalyticsPostbotEntityType | null {
     if (value === undefined || value === null) return null
-    if (!providerAnalyticsHeraldEntityTypes.includes(value)) {
-        throw new DomainInvariantError('invalid_input', 'heraldEntityType is invalid')
+    if (!providerAnalyticsPostbotEntityTypes.includes(value)) {
+        throw new DomainInvariantError('invalid_input', 'postbotEntityType is invalid')
     }
     return value
 }
@@ -619,8 +619,8 @@ function toObservation(row: ObservationRow): ProviderAnalyticsObservation {
         providerSubjectId: row.providerSubjectId,
         providerSubjectLabel: row.providerSubjectLabel,
         providerContentRevisionId: row.providerContentRevisionId,
-        heraldEntityType: row.heraldEntityType,
-        heraldEntityId: row.heraldEntityId,
+        postbotEntityType: row.postbotEntityType,
+        postbotEntityId: row.postbotEntityId,
         metricName: row.metricName,
         value: row.value,
         unit: row.unit,

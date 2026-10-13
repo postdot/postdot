@@ -11,5 +11,5 @@ The accompanying Apache license is preserved in LICENSE.material.txt.
 
 Sources: https://github.com/bluesky-social/social-app/tree/main/src/components/icons
 and https://github.com/mastodon/mastodon/tree/main/app/javascript/material-icons.
-Only static draft preview decoration uses these assets. Herald's own interface
+Only static draft preview decoration uses these assets. Postbot's own interface
 continues to use its existing Solar icon system.

@@ -1,6 +1,6 @@
-import { requireNonBlank, requireTimestamp } from '@herald/core'
+import { requireNonBlank, requireTimestamp } from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
 export const providerApplicationProviders = ['linkedin', 'bluesky', 'x'] as const
@@ -251,7 +251,7 @@ function toConfiguration(row: ProviderApplicationRow): ProviderApplicationConfig
 }
 
 export function createProviderApplicationStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ProviderApplicationStoreOptions
 ) {
     const client = database.$client

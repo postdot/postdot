@@ -1,6 +1,6 @@
 # Prometheus metrics
 
-Herald's Prometheus endpoint is opt-in and disabled by default. When enabled,
+Postbot's Prometheus endpoint is opt-in and disabled by default. When enabled,
 `GET /metrics` requires a dedicated bearer token; it does not accept a user API
 key or browser session.
 
@@ -10,16 +10,16 @@ Generate a random token with at least 32 characters and provide both settings to
 the API process through its environment or deployment secret manager:
 
 ```sh
-HERALD_METRICS_ENABLED=true
-HERALD_METRICS_TOKEN=<random-secret-token>
+POSTBOT_METRICS_ENABLED=true
+POSTBOT_METRICS_TOKEN=<random-secret-token>
 ```
 
 For example, `openssl rand -hex 32` generates a 64-character token. Do not put
-the token in source control, a public URL, or a query parameter. Restart Herald
+the token in source control, a public URL, or a query parameter. Restart Postbot
 after changing these settings. If metrics are enabled without a valid token,
-Herald refuses to start.
+Postbot refuses to start.
 
-To disable metrics, set `HERALD_METRICS_ENABLED=false` and restart Herald. The
+To disable metrics, set `POSTBOT_METRICS_ENABLED=false` and restart Postbot. The
 route is then absent and responds with `404`.
 
 ## Network boundary and scraping
@@ -30,25 +30,25 @@ remote monitoring, use a VPN or a firewall/reverse-proxy allowlist and TLS; do
 not route `/metrics` to arbitrary public clients. The scrape token should be
 stored as a secret file readable by the Prometheus process.
 
-Prometheus configuration for an API reachable as `herald-api:3000` on the
+Prometheus configuration for an API reachable as `postbot-api:3000` on the
 monitoring network:
 
 ```yaml
 scrape_configs:
-  - job_name: herald
+  - job_name: postbot
     metrics_path: /metrics
     static_configs:
-      - targets: ["herald-api:3000"]
+      - targets: ["postbot-api:3000"]
     authorization:
       type: Bearer
-      credentials_file: /run/secrets/herald-metrics-token
+      credentials_file: /run/secrets/postbot-metrics-token
 ```
 
 The file named by `credentials_file` contains the same token configured as
-`HERALD_METRICS_TOKEN`. An unauthorized scrape receives `401`; a successful
+`POSTBOT_METRICS_TOKEN`. An unauthorized scrape receives `401`; a successful
 scrape returns Prometheus text exposition.
 
-## What Herald records
+## What Postbot records
 
 Metrics are held in process memory and reset when the API restarts. The current
 bounded set covers:

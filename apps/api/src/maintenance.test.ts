@@ -8,14 +8,14 @@ import {
     closeDatabase,
     createDatabase,
     runMigrations,
-} from '@herald/db'
-import { createLocalMediaStore } from '@herald/media'
+} from '@postbot/db'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { runMaintenanceCommand } from './maintenance'
 
 it('runs preview maintenance only against an existing offline database and releases its lock', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'herald-preview-maintenance-'))
-    const databaseFileName = join(directory, 'herald.sqlite')
+    const directory = await mkdtemp(join(tmpdir(), 'postbot-preview-maintenance-'))
+    const databaseFileName = join(directory, 'postbot.sqlite')
     const mediaStore = createLocalMediaStore({
         storeId: 'local-default',
         rootDirectory: join(directory, 'media'),

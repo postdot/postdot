@@ -3,7 +3,7 @@
 # Distribution notice snapshot
 
 Snapshot date: 2026-10-11. These files preserve upstream license texts and
-notices without changing their terms. The root LICENSE covers original Herald
+notices without changing their terms. The root LICENSE covers original Postbot
 material. No public release is authorized by this directory.
 
 ## Collected files

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const resetSubject = 'Reset your Herald password'
+const resetSubject = 'Reset your Postbot password'
 
 test('requests and completes a password reset through the configured mail relay', async ({
     page,
@@ -10,7 +10,7 @@ test('requests and completes a password reset through the configured mail relay'
     test.setTimeout(90_000)
 
     const suffix = randomUUID().slice(0, 8)
-    const email = `e2e-access-219-${suffix}@herald.local`
+    const email = `e2e-access-219-${suffix}@postbot.local`
     const oldPassword = 'old-reset-password-219'
     const newPassword = 'new-reset-password-219'
     const signup = await page.request.post('/api/auth/sign-up/email', {
@@ -19,7 +19,7 @@ test('requests and completes a password reset through the configured mail relay'
     expect(signup.status()).toBe(200)
 
     await page.goto('/forgot-password')
-    await page.getByLabel('Email', { exact: true }).fill(`unknown-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`unknown-${suffix}@postbot.local`)
     const unknownRequest = page.waitForResponse(isResetRequest)
     await page.getByRole('button', { name: 'Send reset link', exact: true }).click()
     const unknownResponse = await unknownRequest
@@ -118,7 +118,7 @@ async function listResetMessages(
 }
 
 function mailpitOrigin(): string {
-    const port = process.env.HERALD_E2E_MAILPIT_UI_PORT
+    const port = process.env.POSTBOT_E2E_MAILPIT_UI_PORT
     if (port === undefined) throw new Error('The Mailpit E2E port is not configured')
     return `http://127.0.0.1:${port}`
 }
@@ -134,7 +134,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
     page,
 }) => {
     const suffix = randomUUID().slice(0, 8)
-    const email = `alerts-${suffix}@herald.local`
+    const email = `alerts-${suffix}@postbot.local`
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: { email, name: 'Alert recipient', password: 'outcome-alert-password' },
     })
@@ -150,7 +150,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
     const { spawnSync } = await import('node:child_process')
     const { join } = await import('node:path')
     const { isSafeE2EDataDirectory } = await import('../scripts/e2e-runtime')
-    const directory = process.env.HERALD_E2E_DATA_DIRECTORY
+    const directory = process.env.POSTBOT_E2E_DATA_DIRECTORY
     if (!isSafeE2EDataDirectory(directory)) throw new Error('Unsafe alert fixture directory')
     function seed() {
         const result = spawnSync(
@@ -167,7 +167,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
                     name: 'publication.execution.failed', version: 1, subject: {type: 'publication',id: 'fixture-publication'}, occurredAt: Date.now()});
 
             closeDatabase(db);`,
-                join(directory!, 'herald.sqlite'),
+                join(directory!, 'postbot.sqlite'),
                 userId,
                 projectId,
             ],
@@ -194,7 +194,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             ).json()
             for (const message of messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Verify your Herald email address' &&
+                    message.Subject === 'Verify your Postbot email address' &&
                     message.To.some(to => to.Address === email)
             )) {
                 const detail = await (
@@ -232,7 +232,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             const { messages } = await response.json()
             return messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Herald — Publication failed' &&
+                    message.Subject === 'Postbot — Publication failed' &&
                     message.To.some(to => to.Address === email)
             ).length
         })
@@ -251,7 +251,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
 test('configures SMTP in administration and sends a real test without exposing credentials', async ({
     page,
 }, testInfo) => {
-    const email = `smtp-admin-${randomUUID().slice(0, 8)}@herald.local`
+    const email = `smtp-admin-${randomUUID().slice(0, 8)}@postbot.local`
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: { email, name: 'SMTP administrator', password: 'smtp-administrator-password' },
     })
@@ -263,7 +263,7 @@ test('configures SMTP in administration and sends a real test without exposing c
     await expect(
         page.getByText('Current settings come from the deployment. Saving here replaces them.')
     ).toBeVisible()
-    await page.getByLabel('Sender address', { exact: true }).fill('herald-test@herald.local')
+    await page.getByLabel('Sender address', { exact: true }).fill('postbot-test@postbot.local')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(
         page.getByRole('status').filter({ hasText: 'Email settings saved.' })
@@ -274,7 +274,7 @@ test('configures SMTP in administration and sends a real test without exposing c
         source: 'database',
         enabled: true,
         hasPassword: false,
-        from: 'herald-test@herald.local',
+        from: 'postbot-test@postbot.local',
     })
     await page.getByRole('button', { name: 'Send me a test email', exact: true }).click()
     await expect(
@@ -287,7 +287,7 @@ test('configures SMTP in administration and sends a real test without exposing c
             ).json()
             return body.messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Herald — SMTP test' &&
+                    message.Subject === 'Postbot — SMTP test' &&
                     message.To.some(to => to.Address === email)
             ).length
         })
@@ -302,7 +302,7 @@ test('configures SMTP in administration and sends a real test without exposing c
     await expect(
         page.getByRole('alert').filter({ hasText: 'SMTP did not confirm the test.' })
     ).toBeVisible()
-    await page.getByLabel('Port', { exact: true }).fill(process.env.HERALD_E2E_MAILPIT_SMTP_PORT!)
+    await page.getByLabel('Port', { exact: true }).fill(process.env.POSTBOT_E2E_MAILPIT_SMTP_PORT!)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(
         page.getByRole('status').filter({ hasText: 'Email settings saved.' })

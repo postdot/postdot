@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import { getTargetEditorFields } from './target-editor'
 

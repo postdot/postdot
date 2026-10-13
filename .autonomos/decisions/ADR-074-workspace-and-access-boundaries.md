@@ -1,28 +1,28 @@
 # ADR-074 — Establish Workspace and Access Boundaries
 
 - Status: accepted — implemented
-- Scope: Better Auth organization/team usage, Herald instance access, project authorization, and invitations
+- Scope: Better Auth organization/team usage, Postbot instance access, project authorization, and invitations
 - Provenance: product direction discussion on 2026-09-18
-- Supersedes: the assumption that one Better Auth organization is the complete Herald project boundary
+- Supersedes: the assumption that one Better Auth organization is the complete Postbot project boundary
 
 ## Context
 
-Herald currently exposes two different access systems:
+Postbot currently exposes two different access systems:
 
-- Herald-owned `instance_memberships` and instance invitations, with `admin` and
+- Postbot-owned `instance_memberships` and instance invitations, with `admin` and
   `member` roles;
 - Better Auth Organization memberships and invitations, currently created one
-  per Herald project and projected into project access.
+  per Postbot project and projected into project access.
 
 This previously made a Better Auth organization function as both a workspace
-and a project. An instance invitation therefore granted access to Herald but
+and a project. An instance invitation therefore granted access to Postbot but
 did not grant access to a project. A newly invited user could legitimately have
 no visible project, even though that was not the intended product experience.
 
 The product needs to support the following primary use case without making the
 user reason about multi-tenancy:
 
-- one person self-hosts Herald;
+- one person self-hosts Postbot;
 - one installation contains a personal project, a business project, and an
   open-source project;
 - each project owns its channels, media, and publications;
@@ -36,7 +36,7 @@ separation without prematurely becoming a public SaaS tenancy platform.
 ### 1. Use five distinct product concepts
 
 ```text
-Herald installation
+Postbot installation
 └── Workspace
     ├── Members and groups
     └── Projects
@@ -46,11 +46,11 @@ Herald installation
 
 | Concept      | Product meaning                                                                         | Primary authority                           |
 | ------------ | --------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Installation | One self-hosted Herald deployment and its global configuration                          | Instance administration                     |
+| Installation | One self-hosted Postbot deployment and its global configuration                          | Instance administration                     |
 | Workspace    | Ownership, membership, and security boundary for a set of projects                      | Better Auth organization                    |
-| Project      | A communication identity or operating context such as Personal, Company, or Open Source | Herald domain model                         |
-| Channel      | A concrete social destination/account owned by a project                                | Herald domain model                         |
-| Group        | A reusable set of workspace members which grants project access                         | Better Auth team plus Herald project grants |
+| Project      | A communication identity or operating context such as Personal, Company, or Open Source | Postbot domain model                         |
+| Channel      | A concrete social destination/account owned by a project                                | Postbot domain model                         |
+| Group        | A reusable set of workspace members which grants project access                         | Better Auth team plus Postbot project grants |
 
 `workspace` is the canonical product term. `organization` remains an
 implementation term when required by Better Auth; the UI must not expose both
@@ -60,7 +60,7 @@ as separate concepts.
 
 The recommended technical mapping is:
 
-| Better Auth primitive     | Herald responsibility                                                 |
+| Better Auth primitive     | Postbot responsibility                                                 |
 | ------------------------- | --------------------------------------------------------------------- |
 | `organization`            | Workspace membership, ownership, and workspace-level roles            |
 | `member`                  | A user's membership in a workspace                                    |
@@ -68,17 +68,17 @@ The recommended technical mapping is:
 | `team`                    | A workspace group used to collect members                             |
 | `teamMember`              | Membership in a group                                                 |
 | `admin` plugin user role  | Instance-level administration and global user operations              |
-| Herald tables/projections | Project membership, group-to-project grants, and domain authorization |
+| Postbot tables/projections | Project membership, group-to-project grants, and domain authorization |
 
 Better Auth's organization plugin already supports custom roles, invitations,
 teams, team-targeted invitations, and organization-scoped permission checks.
-Its team membership record does not carry a Herald project role, so project
+Its team membership record does not carry a Postbot project role, so project
 authorization remains a domain concern rather than being forced into a global
 organization role.
 
 The initial implementation should therefore not create a custom authentication
 system or duplicate Better Auth's organization memberships. It should add only
-the Herald projection needed to answer:
+the Postbot projection needed to answer:
 
 ```text
 Does this user have this role on this project in this workspace?
@@ -87,7 +87,7 @@ Does this user have this role on this project in this workspace?
 ### 3. Keep instance administration separate
 
 The Better Auth `admin` role represents the installation operator, not a
-workspace administrator. The current Herald `instance_memberships` table is a
+workspace administrator. The current Postbot `instance_memberships` table is a
 migration-era access projection and must not become a second permanent source
 of truth for instance roles.
 
@@ -162,7 +162,7 @@ The normal invitation flow is workspace-scoped:
 2. They choose a group or an explicit project assignment.
 3. Better Auth sends a workspace invitation, optionally with its `teamId`.
 4. Acceptance creates the workspace membership and group membership.
-5. Herald redirects the user to the invited workspace and first accessible project.
+5. Postbot redirects the user to the invited workspace and first accessible project.
 
 Instance invitations are reserved for bootstrap and operational administration.
 They must not be the normal way to invite a collaborator.
@@ -176,7 +176,7 @@ creation experience.
 The first implementation slice establishes the boundary without rewriting every
 project route at once:
 
-- `workspaces` is the Herald projection backed by one Better Auth organization;
+- `workspaces` is the Postbot projection backed by one Better Auth organization;
 - the first account receives a default workspace and the starter groups
   Administrators, Editors, Reviewers, and Viewers;
 - projects carry a `workspace_id`;
@@ -198,7 +198,7 @@ small session-only API:
   members and groups;
 - workspace owners and administrators can invite an email to a workspace,
   optionally targeting one of the workspace groups;
-- invited users can accept the invitation through a Herald route, which calls
+- invited users can accept the invitation through a Postbot route, which calls
   Better Auth's organization invitation primitive and keeps the legacy
   instance-membership projection synchronized;
 - project API tokens and project-specific organizations cannot call these
@@ -212,29 +212,29 @@ bootstrap rule.
 
 The project-grant projection is now implemented as the next slice:
 
-- `project_user_grants` stores direct Herald user-to-project roles;
+- `project_user_grants` stores direct Postbot user-to-project roles;
 - `project_team_grants` stores workspace-team-to-project roles;
 - access checks resolve the highest effective role across direct and team
   grants only; Better Auth organization membership is not project access;
 - team grants are exposed through session-only project routes, and team-member
   hooks provision the project actor needed by existing project listing and
   domain operations;
-- project invitations use the workspace organization and create Herald grants;
+- project invitations use the workspace organization and create Postbot grants;
   user-owned API keys keep the creator as their identity and optionally narrow
   requests to selected projects through key metadata.
 
-The project member and invitation routes now read and mutate the Herald grant
+The project member and invitation routes now read and mutate the Postbot grant
 projection. Project invitations use Better Auth workspace invitations with
 `projectId` and `projectRole` custom fields; accepting one keeps the workspace
-membership in Better Auth and creates the corresponding Herald user grant.
+membership in Better Auth and creates the corresponding Postbot user grant.
 Existing workspace members should receive a direct grant instead of another
 invitation. The schema no longer retains a project organization field, and API
 keys are owned by their creating user rather than by a project organization.
 
-Workspace group administration is now exposed as a Herald access surface:
+Workspace group administration is now exposed as a Postbot access surface:
 
 - Better Auth owns team creation, renaming, and membership mutations;
-- workspace owners and administrators are authorized by Herald before those
+- workspace owners and administrators are authorized by Postbot before those
   operations are called;
 - group-member reads use a workspace-scoped access-store query because
   Better Auth's `listTeamMembers` endpoint additionally requires the caller to
@@ -257,7 +257,7 @@ Workspace membership administration is now exposed beside group administration:
 
 | Capability                               |         Instance admin | Workspace owner/admin |      Project owner |           Editor | Viewer |
 | ---------------------------------------- | ---------------------: | --------------------: | -----------------: | ---------------: | -----: |
-| Change Herald authentication and storage |                    Yes |                    No |                 No |               No |     No |
+| Change Postbot authentication and storage |                    Yes |                    No |                 No |               No |     No |
 | Manage instance users and security       |                    Yes |                    No |                 No |               No |     No |
 | Create or archive a workspace            |                    Yes |                    No |                 No |               No |     No |
 | Manage workspace members and groups      |        Appoint/recover |                   Yes |                 No |               No |     No |
@@ -280,16 +280,16 @@ Rejected as the long-term model. It matches the current implementation, but it
 forces workspace membership and project membership to be the same thing. It
 also explains the current blank-space invitation behavior.
 
-### Add a custom Herald workspace above the existing Better Auth organizations
+### Add a custom Postbot workspace above the existing Better Auth organizations
 
 Useful as a migration bridge, but not preferred as the final model. It would
 duplicate workspace memberships and invitations beside Better Auth's native
 organization system, increasing synchronization and authorization risks.
 
-### Use Better Auth teams as projects and skip Herald project authorization
+### Use Better Auth teams as projects and skip Postbot project authorization
 
 Rejected. Better Auth teams provide group membership, but their membership
-record does not express Herald's project roles or publication capabilities. The
+record does not express Postbot's project roles or publication capabilities. The
 domain still needs a project authorization projection.
 
 ### Build full SaaS tenancy now
@@ -373,11 +373,11 @@ merged destructively.
 
 ## Consequences
 
-- Herald gains a coherent hierarchy without exposing tenancy jargon to solo
+- Postbot gains a coherent hierarchy without exposing tenancy jargon to solo
   users.
 - Better Auth handles identity, workspace membership, invitations, teams, and
-  workspace roles instead of being reimplemented by Herald.
-- Herald retains a small, explicit projection for project-level authorization,
+  workspace roles instead of being reimplemented by Postbot.
+- Postbot retains a small, explicit projection for project-level authorization,
   which is necessary because project roles are domain-specific.
 - The first migration is substantial and must be treated as an architecture
   project, not as a route rename.

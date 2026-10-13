@@ -1,4 +1,4 @@
-import type { ChannelProfileValidationError } from '@herald/core'
+import type { ChannelProfileValidationError } from '@postbot/core'
 import { Type } from 'typebox'
 
 const publicCodes = new Set([

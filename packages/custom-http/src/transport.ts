@@ -8,12 +8,12 @@ import {
     type DeclarativeHttpRequestMapping,
     type DeclarativeHttpValueExpression,
     type ExternalEffectOutcome,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     customHttpLimits,
-    HERALD_WEBHOOK_EVENT,
-    HERALD_WEBHOOK_VERSION,
+    POSTBOT_WEBHOOK_EVENT,
+    POSTBOT_WEBHOOK_VERSION,
     type CustomHttpConnection,
     type CustomHttpDeliveryContext,
     type CustomHttpDeliveryInput,
@@ -107,7 +107,7 @@ export function createCustomHttpTransport(
             const timeout = setTimeout(() => controller.abort(), timeoutMs)
             try {
                 const request =
-                    input.execution.mode === 'herald_webhook'
+                    input.execution.mode === 'postbot_webhook'
                         ? await buildWebhookRequest(input, endpoint, maxResponseBytes, now())
                         : await buildMappedRequest(input, endpoint, maxResponseBytes, now())
                 let response: CustomHttpResponse
@@ -163,11 +163,11 @@ async function buildWebhookRequest(
         address: endpoint.selectedAddress,
         headers: {
             'content-type': 'application/json',
-            'x-herald-webhook-version': HERALD_WEBHOOK_VERSION,
-            'x-herald-event': HERALD_WEBHOOK_EVENT,
-            'x-herald-delivery-id': input.context.deliveryId,
-            'x-herald-timestamp': timestamp,
-            'x-herald-signature': `sha256=${signature}`,
+            'x-postbot-webhook-version': POSTBOT_WEBHOOK_VERSION,
+            'x-postbot-event': POSTBOT_WEBHOOK_EVENT,
+            'x-postbot-delivery-id': input.context.deliveryId,
+            'x-postbot-timestamp': timestamp,
+            'x-postbot-signature': `sha256=${signature}`,
         },
         body: requestBody,
         maxResponseBytes,
@@ -215,8 +215,8 @@ function createWebhookEnvelope(
     media: readonly CustomHttpMediaDescriptor[]
 ) {
     return {
-        event: HERALD_WEBHOOK_EVENT,
-        webhookVersion: HERALD_WEBHOOK_VERSION,
+        event: POSTBOT_WEBHOOK_EVENT,
+        webhookVersion: POSTBOT_WEBHOOK_VERSION,
         deliveryId: context.deliveryId,
         publication: {
             id: context.publicationId,
@@ -523,7 +523,7 @@ function multipartBody(
         | undefined,
     maximumBytes: number
 ): CustomHttpRequestBody {
-    const boundary = `----herald-${randomUUID().replaceAll('-', '')}`
+    const boundary = `----postbot-${randomUUID().replaceAll('-', '')}`
     const encodedFields = [...fields.entries()].map(([name, value]) => ({
         header: encodeText(
             `--${boundary}\r\nContent-Disposition: form-data; name="${escapeQuoted(name)}"\r\n\r\n`

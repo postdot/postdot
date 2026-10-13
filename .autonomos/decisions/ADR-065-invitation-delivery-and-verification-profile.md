@@ -7,12 +7,12 @@
 
 ## Decision
 
-Better Auth Organization remains the sole authority for project invitations. Herald
+Better Auth Organization remains the sole authority for project invitations. Postbot
 uses its seven-day invitation expiry and enables
 `cancelPendingInvitationsOnReInvite` so a new invitation replaces an older pending
 invitation for the same address.
 
-The explicit project “Resend” action rotates the invitation ID: Herald cancels every
+The explicit project “Resend” action rotates the invitation ID: Postbot cancels every
 pending invitation for that address, including an expired pending record, and creates
 a fresh invitation. This makes a previously copied link unusable and repairs any
 duplicate pending records that may exist in a disposable development database. The
@@ -21,11 +21,11 @@ configuration.
 
 Mail delivery is an optional deployment capability. `createAuth` exposes a typed,
 transport-neutral invitation callback and a URL factory, but the repository does not
-select or bundle an SMTP/API provider. When no callback is configured, Herald keeps
+select or bundle an SMTP/API provider. When no callback is configured, Postbot keeps
 the copyable invitation-link workflow and makes no claim that an email was sent.
 
 The Better Auth verified-email gate is configurable through
-`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` and defaults to `false` for the
+`POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` and defaults to `false` for the
 local/manual-link profile. A deployment may enable it only after it has a working
 account-verification flow and mail transport. This decision does not add password
 recovery, account administration, ownership transfer, or multiple project owners;
@@ -38,7 +38,7 @@ each remains a separate follow-up decision.
 - A resend is a real credential rotation rather than an expiry extension; clients
   must replace any previously copied link with the new one.
 - Better Auth owns invitation persistence and sends through the deployment callback,
-  while Herald owns the project-scoped route, link shape, and concise UI.
+  while Postbot owns the project-scoped route, link shape, and concise UI.
 - Local development remains fully usable without external mail, and production
   deployments have an explicit verification switch instead of an implicit security
   assumption.

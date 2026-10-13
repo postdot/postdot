@@ -12,12 +12,12 @@ import {
     type ChannelProfileDefinition,
     type Project,
     type Timestamp,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from './client'
 
 export interface PublisherConnectionDestination {
@@ -253,7 +253,7 @@ function credentialFields(row: CredentialRow) {
     } as const
 }
 
-export function createPublisherStore(database: HeraldDatabase, options: PublisherStoreOptions) {
+export function createPublisherStore(database: PostbotDatabase, options: PublisherStoreOptions) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

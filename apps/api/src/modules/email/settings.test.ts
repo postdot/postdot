@@ -1,24 +1,24 @@
 import { it, expect } from 'bun:test'
 
-import { createAuth } from '@herald/auth'
+import { expect as browserExpect } from '@playwright/test'
+import { createAuth } from '@postbot/auth'
 import {
     createDatabase,
     closeDatabase,
     runMigrations,
     createSecretCipher,
     createInstallationEmailSettingsStore,
-} from '@herald/db'
-import { expect as browserExpect } from '@playwright/test'
+} from '@postbot/db'
 import type { SendMailOptions } from 'nodemailer'
 
-import { createHeraldAuthEmailDelivery } from './delivery'
+import { createPostbotAuthEmailDelivery } from './delivery'
 import { createEmailSettingsService } from './settings'
 
 it('encrypts settings, preserves or removes passwords explicitly, and reloads without falling back to deployment', async () => {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const cipher = createSecretCipher({
-        domain: 'herald.installation-email',
+        domain: 'postbot.installation-email',
         keyId: 'test',
         key: new Uint8Array(32).fill(7),
     })
@@ -71,7 +71,7 @@ it('encrypts settings, preserves or removes passwords explicitly, and reloads wi
         const wrong = createInstallationEmailSettingsStore(
             database,
             createSecretCipher({
-                domain: 'herald.installation-email',
+                domain: 'postbot.installation-email',
                 keyId: 'wrong',
                 key: new Uint8Array(32).fill(3),
             })
@@ -88,7 +88,7 @@ it('applies newly saved SMTP to existing auth callbacks and keeps disabled deliv
     const store = createInstallationEmailSettingsStore(
         database,
         createSecretCipher({
-            domain: 'herald.installation-email',
+            domain: 'postbot.installation-email',
             keyId: 'test',
             key: new Uint8Array(32).fill(7),
         })
@@ -102,14 +102,14 @@ it('applies newly saved SMTP to existing auth callbacks and keeps disabled deliv
             },
         }),
     })
-    const delivery = createHeraldAuthEmailDelivery({
+    const delivery = createPostbotAuthEmailDelivery({
         getSmtp: service.current,
         transport: service,
         webOrigin: 'http://localhost:5173',
     })
     const verification = {
         user: { email: 'recipient@example.test', name: 'Recipient' },
-        url: 'https://herald.example.test/verify',
+        url: 'https://postbot.example.test/verify',
         token: 'fixture-token',
     }
     try {
@@ -177,7 +177,7 @@ it('blocks all SMTP delivery during recovery without contacting the transport', 
             store: createInstallationEmailSettingsStore(
                 database,
                 createSecretCipher({
-                    domain: 'herald.installation-email',
+                    domain: 'postbot.installation-email',
                     keyId: 'test',
                     key: new Uint8Array(32).fill(7),
                 })

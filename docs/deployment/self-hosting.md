@@ -1,13 +1,13 @@
-# Install Herald with Docker Compose
+# Install Postbot with Docker Compose
 
-Herald runs its API, dashboard, publication worker and scheduler in one Bun
+Postbot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. This guide uses a
 source checkout; no public registry image or released upgrade path is available yet.
 
 ## First installation
 
 Requirements: Docker Engine with Compose v2.20 or newer, Git, and OpenSSL for generating
-secrets. Start in the root of your Herald source checkout.
+secrets. Start in the root of your Postbot source checkout.
 
 ```sh
 cp compose.env.example .env
@@ -18,13 +18,13 @@ openssl rand -hex 32
 ```
 
 Paste the three generated values into the empty `BETTER_AUTH_SECRET`,
-`HERALD_MEDIA_PUBLIC_URL_SECRET` and `HERALD_PUBLISHER_ENCRYPTION_KEY` entries,
+`POSTBOT_MEDIA_PUBLIC_URL_SECRET` and `POSTBOT_PUBLISHER_ENCRYPTION_KEY` entries,
 respectively. Use independent values and retain this file securely. Losing the
 publisher key makes stored connection credentials unusable; replacing it is not
 an ordinary configuration update.
 
 The defaults serve <http://127.0.0.1:3000>. If this port is occupied, change
-`HERALD_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
+`POSTBOT_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
 Git and never publish the output of `docker compose config`, which includes secrets.
 
 ```sh
@@ -41,7 +41,7 @@ provider account. Invite additional users through the application.
 
 For a public deployment, keep the container bound to loopback and place an HTTPS
 reverse proxy on the host in front of it. Set `BETTER_AUTH_URL` and
-`HERALD_WEB_ORIGIN` to the same public HTTPS origin before starting. A proxy running
+`POSTBOT_WEB_ORIGIN` to the same public HTTPS origin before starting. A proxy running
 in another container needs an appropriate private network configuration instead
 of this host-loopback example. Complete initial account setup before exposing the
 installation. Provider OAuth and media delivery have additional reachability
@@ -49,16 +49,16 @@ requirements: see [provider requirements](provider-requirements.md).
 
 ## Persistent data and ordinary operation
 
-Compose owns a `herald-data` volume under its project name. `/data/herald.sqlite`
+Compose owns a `postbot-data` volume under its project name. `/data/postbot.sqlite`
 contains application state; `/data/media` contains originals, previews and avatars.
 Keep the Compose project name stable so a later invocation uses the same volume.
 The image contains committed migrations, which apply automatically at startup.
 
 ```sh
 docker compose ps
-docker compose logs --tail 100 herald
-docker compose restart herald
-docker compose stop herald
+docker compose logs --tail 100 postbot
+docker compose restart postbot
+docker compose stop postbot
 docker compose up -d --wait
 ```
 
@@ -82,12 +82,12 @@ email publication alerts are unavailable. Configure the commented SMTP group in
 docker compose up -d --force-recreate --wait
 ```
 
-Port 587 normally uses `HERALD_EMAIL_SMTP_SECURE=false` with STARTTLS; implicit
+Port 587 normally uses `POSTBOT_EMAIL_SMTP_SECURE=false` with STARTTLS; implicit
 TLS on port 465 uses `true`. Username/password must be supplied together. Use the
 relay's actual settings and test delivery. There is no bundled production mail server.
 
-Local media is the default. S3-compatible storage uses `HERALD_MEDIA_STORE=s3`,
-`HERALD_MEDIA_S3_BUCKET`, access-key and secret-key variables, plus a region or
+Local media is the default. S3-compatible storage uses `POSTBOT_MEDIA_STORE=s3`,
+`POSTBOT_MEDIA_S3_BUCKET`, access-key and secret-key variables, plus a region or
 endpoint. The complete list is in `apps/api/.env.example`. Keep the store ID stable
 and pass the same configuration to maintenance commands. Switching the setting
 alone does not migrate existing media. No S3 service is required for first use.
@@ -95,18 +95,18 @@ alone does not migrate existing media. No S3 service is required for first use.
 ## Backup and restoration
 
 Backup scheduling, off-host storage and retention belong to the administrator.
-Herald offers a consistent portable bundle containing SQLite and stored media.
+Postbot offers a consistent portable bundle containing SQLite and stored media.
 Preserve deployment secrets separately; they are not included in the bundle.
 
-Create a uniquely named backup while Herald is running, then copy it outside the
+Create a uniquely named backup while Postbot is running, then copy it outside the
 application volume:
 
 ```sh
-docker compose exec herald mkdir -p /data/backups
-docker compose exec herald bun /app/herald.js backup --media --output /data/backups/pre-update.bundle
+docker compose exec postbot mkdir -p /data/backups
+docker compose exec postbot bun /app/postbot.js backup --media --output /data/backups/pre-update.bundle
 umask 077
 mkdir -p backups
-docker compose cp herald:/data/backups/pre-update.bundle ./backups/
+docker compose cp postbot:/data/backups/pre-update.bundle ./backups/
 ```
 
 `compose exec` runs the explicit Bun command; `compose run` below uses the
@@ -120,8 +120,8 @@ a successful backup alone does not prove your recovery procedure.
 To restore the bundle still available under `/data/backups`:
 
 ```sh
-docker compose stop herald
-docker compose run --rm --no-deps herald restore --media --input /data/backups/pre-update.bundle
+docker compose stop postbot
+docker compose run --rm --no-deps postbot restore --media --input /data/backups/pre-update.bundle
 docker compose up -d --wait
 ```
 
@@ -139,7 +139,7 @@ before building an update. Back up data and secrets first.
 
 ```sh
 git rev-parse HEAD
-docker image tag herald:local herald:before-update
+docker image tag postbot:local postbot:before-update
 # Update the source checkout to the intended commit, then:
 docker compose build
 docker compose up -d --wait

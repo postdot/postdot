@@ -171,7 +171,7 @@ describe('bounded custom JSON Schema profile', () => {
                 kind: 'declarative_http',
                 contractId: 'project-blog-webhook',
                 revision: '1',
-                mode: 'herald_webhook',
+                mode: 'postbot_webhook',
             },
         })
 

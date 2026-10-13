@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@herald/db'
-import type { DevtoFetcher } from '@herald/devto'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
+import type { DevtoFetcher } from '@postbot/devto'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(7)
 const apiKey = 'devto-test-api-key-that-must-not-leak'
@@ -65,7 +65,7 @@ async function signUp(app: ReturnType<typeof createApp>, email: string) {
             headers: { 'content-type': 'application/json', origin: baseURL },
             body: JSON.stringify({
                 email,
-                name: 'Herald Operator',
+                name: 'Postbot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })
@@ -115,12 +115,12 @@ async function createDevtoChannel(app: ReturnType<typeof createApp>, cookie: str
 describe('DEV.to publisher connection routes', () => {
     it('verifies and stores a project-owned API key without exposing it', async () => {
         const devto = createDevtoFetcher([
-            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
         ])
         const { app, database } = createFixture(devto.fetcher)
 
         try {
-            const cookie = await signUp(app, 'devto-operator@herald.local')
+            const cookie = await signUp(app, 'devto-operator@postbot.local')
             const { projectId, channelId } = await createDevtoChannel(app, cookie)
             const response = await jsonRequest(
                 app,
@@ -135,7 +135,7 @@ describe('DEV.to publisher connection routes', () => {
                 kind: 'devto',
                 providerId: 'devto',
                 externalAccountId: '42',
-                destination: { type: 'account', id: '42', name: 'Herald' },
+                destination: { type: 'account', id: '42', name: 'Postbot' },
             })
             expect(JSON.stringify(body)).not.toContain(apiKey)
 
@@ -151,7 +151,7 @@ describe('DEV.to publisher connection routes', () => {
         const { app, database } = createFixture(devto.fetcher)
 
         try {
-            const cookie = await signUp(app, 'devto-invalid@herald.local')
+            const cookie = await signUp(app, 'devto-invalid@postbot.local')
             const { projectId, channelId } = await createDevtoChannel(app, cookie)
             const response = await jsonRequest(
                 app,
@@ -169,13 +169,13 @@ describe('DEV.to publisher connection routes', () => {
 
     it('reconnects a channel after its credential requires reconnection', async () => {
         const devto = createDevtoFetcher([
-            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
-            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
         ])
         const { app, database, publisher } = createFixture(devto.fetcher)
 
         try {
-            const cookie = await signUp(app, 'devto-reconnect@herald.local')
+            const cookie = await signUp(app, 'devto-reconnect@postbot.local')
             const { projectId, channelId } = await createDevtoChannel(app, cookie)
             const initial = await jsonRequest(
                 app,
@@ -231,7 +231,7 @@ describe('DEV.to publisher connection routes', () => {
 it('reports OAuth prerequisites without exposing configuration or mistaking failure for absence', async () => {
     const { app, database, publisher } = createFixture()
     try {
-        const cookie = await signUp(app, 'oauth-readiness@herald.local')
+        const cookie = await signUp(app, 'oauth-readiness@postbot.local')
         const { projectId } = await createDevtoChannel(app, cookie)
         const path = `/api/projects/${projectId}/publishers`
         const absent = await jsonRequest(app, path, cookie)
@@ -258,7 +258,7 @@ it('reports OAuth prerequisites without exposing configuration or mistaking fail
 it('recognizes existing server OAuth configuration without returning credentials', async () => {
     const { app, database } = createFixture(undefined, true)
     try {
-        const cookie = await signUp(app, 'configured-readiness@herald.local')
+        const cookie = await signUp(app, 'configured-readiness@postbot.local')
         const { projectId } = await createDevtoChannel(app, cookie)
         const response = await jsonRequest(app, `/api/projects/${projectId}/publishers`, cookie)
         expect(response.status).toBe(200)

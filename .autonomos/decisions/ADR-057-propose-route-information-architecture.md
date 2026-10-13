@@ -1,4 +1,4 @@
-# ADR-057 — Propose a route-oriented Herald workspace with progressive disclosure
+# ADR-057 — Propose a route-oriented Postbot workspace with progressive disclosure
 
 - Status: accepted
 - Scope: authenticated web route hierarchy and first-action contracts
@@ -12,7 +12,7 @@
 
 ## Context
 
-Herald's accepted design direction describes a quiet dispatch desk in which one
+Postbot's accepted design direction describes a quiet dispatch desk in which one
 source becomes several accountable publications. The initial proposal treated
 Overview and Calendar as separate destinations, while the live application
 keeps the calendar on Overview. The audit found that the current summary relies
@@ -21,7 +21,7 @@ when empty.
 
 Two independent read-only audits agree that the visual foundation is broadly
 coherent but identify route hierarchy, progressive disclosure, shell context,
-and responsive accessibility as the next product risks. The owner wants Herald
+and responsive accessibility as the next product risks. The owner wants Postbot
 to hide complexity by ordering and grouping it, using icons and spatial
 relationships where appropriate, without removing capabilities or turning the
 application into an unexplained collection of compact controls.

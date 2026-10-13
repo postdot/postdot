@@ -1,5 +1,5 @@
-import type { MediaAssetStore } from '@herald/db'
-import { MediaStoreError } from '@herald/media'
+import type { MediaAssetStore } from '@postbot/db'
+import { MediaStoreError } from '@postbot/media'
 import { Elysia } from 'elysia'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type } from 'typebox'
@@ -12,7 +12,7 @@ const publicMediaParams = Type.Object({
 })
 
 export function createPublicMediaRoutes(media: MediaAssetStore, delivery: MediaPublicDelivery) {
-    return new Elysia({ name: 'herald-public-media' }).get(
+    return new Elysia({ name: 'postbot-public-media' }).get(
         '/api/media/public/:token',
         {
             params: publicMediaParams,

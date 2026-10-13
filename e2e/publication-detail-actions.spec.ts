@@ -222,7 +222,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     })
     sourceConflict = false
     olderRecovery = true
-    const recoveryKey = `herald:publication-editor:v3:${projectId}:${publicationId}`
+    const recoveryKey = `postbot:publication-editor:v3:${projectId}:${publicationId}`
     const localCopy = {
         version: 3,
         baseRevision: 1,
@@ -318,8 +318,8 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     if (textField === undefined) throw new Error('The manual profile has no text field')
     textField.maxLength = 10
     profile.capabilities.revision = 'manual-message-v2'
-    profile.profileHash = 'sha256:herald-manual-message-e2e-v2'
-    profile.schemaHash = 'sha256:herald-manual-message-schema-e2e-v2'
+    profile.profileHash = 'sha256:postbot-manual-message-e2e-v2'
+    profile.schemaHash = 'sha256:postbot-manual-message-schema-e2e-v2'
     const draftResponse = await page.request.post(
         `/api/projects/${projectId}/channels/${channel.channel.id}/profile-drafts`,
         { data: { profile } }
@@ -533,7 +533,7 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         (await (await page.request.get(`${apiUrl}/draft/adoptions`)).json()).adoptions[0].draft
     ).toEqual(before.draft)
     await page.evaluate(({ key, buffer }) => localStorage.setItem(key, JSON.stringify(buffer)), {
-        key: `herald:publication-editor:v3:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`,
+        key: `postbot:publication-editor:v3:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`,
         buffer: {
             version: 3,
             baseRevision: after.draft.revision + 1,
@@ -556,9 +556,9 @@ test('adapts a draft explicitly without changing its source or selecting a publi
 async function createAccountAndProject(page: Page, suffix: string) {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E detail ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-detail-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-detail-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-detail-password')
     await Promise.all([
         page.waitForResponse(

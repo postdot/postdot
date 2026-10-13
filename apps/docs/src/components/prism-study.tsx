@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import '@fontsource-variable/manrope'
 
-import { HeraldLogo } from './brand'
+import { PostbotLogo } from './brand'
 
 import './prism-system.css'
 
@@ -50,8 +50,8 @@ const entries: Entry[] = [
 function Brand() {
     return (
         <Link className="p-brand" href="/directions/prism/">
-            <HeraldLogo />
-            Herald
+            <PostbotLogo />
+            Postbot
         </Link>
     )
 }
@@ -380,7 +380,7 @@ function Workspace() {
                                 </div>
                                 <p className="p-specimen-note">
                                     Text stays in this study only. Nothing is published or saved to
-                                    Herald.
+                                    Postbot.
                                 </p>
                             </div>
                         ) : (
@@ -430,7 +430,7 @@ function Documentation() {
                     </a>
                     <Link href="/docs/installation/">Installation</Link>
                     <Link href="/docs/concepts/">Posts and destinations</Link>
-                    <span>Working with Herald</span>
+                    <span>Working with Postbot</span>
                     <Link href="/docs/providers/">Provider connections</Link>
                     <Link href="/docs/media/">Media</Link>
                     <Link href="/docs/automation/">API and CLI</Link>
@@ -444,7 +444,7 @@ function Documentation() {
                         provider.
                     </p>
                     <div className="p-doc-callout">
-                        <HeraldLogo />
+                        <PostbotLogo />
                         <p>
                             A post holds your source. Each destination has its own draft, schedule
                             and history.
@@ -452,7 +452,7 @@ function Documentation() {
                     </div>
                     <h2 id="project">Create your project</h2>
                     <p>
-                        Open Herald and create a project. This is where your channels, media and
+                        Open Postbot and create a project. This is where your channels, media and
                         publications live.
                     </p>
                     <div className="p-doc-project">

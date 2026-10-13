@@ -4,7 +4,7 @@ This package owns Mastodon-specific protocol knowledge: instance origins, OAuth
 application registration, account verification, status payloads, media upload
 responses, and provider error classification.
 
-- Keep the package independent from Elysia, the database, Better Auth, and Herald
+- Keep the package independent from Elysia, the database, Better Auth, and Postbot
   persistence.
 - Inject fetchers and timing boundaries in tests; never use a real Mastodon instance
   from the test suite.

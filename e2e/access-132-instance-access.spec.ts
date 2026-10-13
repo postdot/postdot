@@ -30,7 +30,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     ).toContainText('Enabled')
     await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toHaveCount(0)
 
-    await expect(page.getByRole('form', { name: 'Invite to Herald', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('form', { name: 'Invite to Postbot', exact: true })).toHaveCount(0)
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -73,7 +73,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
         }
     }
     await page.setViewportSize({ width: 1280, height: 844 })
-    const pendingEmail = `pending-${suffix}@herald.local`
+    const pendingEmail = `pending-${suffix}@postbot.local`
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
@@ -134,7 +134,7 @@ test('a member cannot enter instance administration', async ({ page }) => {
                     id: 'member-membership',
                     userId: 'member-user',
                     email: account.email,
-                    name: 'Invited Herald member',
+                    name: 'Invited Postbot member',
                     role: 'member',
                     state: 'enabled',
                     createdAt: Date.now(),
@@ -160,7 +160,7 @@ async function readInvitationLink(page: Page) {
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-132-admin-${suffix}@herald.local`
+    const email = `e2e-132-admin-${suffix}@postbot.local`
     const projectName = `E2E-132 access project ${suffix}`
 
     await page.goto('/setup')

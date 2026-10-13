@@ -1,8 +1,8 @@
 {
-    "name": "@herald/custom-http",
+    "name": "@postbot/custom-http",
     "version": "0.0.0",
     "private": true,
-    "description": "Bounded HTTP delivery for Herald custom channels",
+    "description": "Bounded HTTP delivery for Postbot custom channels",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -20,7 +20,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@herald/core": "workspace:*"
+        "@postbot/core": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

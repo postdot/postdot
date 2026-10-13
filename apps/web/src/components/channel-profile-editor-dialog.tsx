@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -7,9 +7,9 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
-import { Textarea } from '@herald/ui/components/textarea'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
+import { Textarea } from '@postbot/ui/components/textarea'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'

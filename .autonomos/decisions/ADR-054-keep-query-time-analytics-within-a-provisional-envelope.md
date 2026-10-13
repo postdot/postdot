@@ -64,7 +64,7 @@ separate gate in ADR-053.
 
 ## Consequences
 
-Herald avoids a second durable analytics lifecycle while the product is still
+Postbot avoids a second durable analytics lifecycle while the product is still
 early, and the current read model is substantially cheaper without changing its
 meaning. Operators still have a clear warning boundary rather than an implicit
 promise that arbitrary history is inexpensive.

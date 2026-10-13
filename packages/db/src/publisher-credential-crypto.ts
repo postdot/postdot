@@ -56,7 +56,7 @@ export function createPublisherCredentialCipher(
     let cipher: ReturnType<typeof createSecretCipher>
     try {
         cipher = createSecretCipher({
-            domain: 'herald.publisher-secret',
+            domain: 'postbot.publisher-secret',
             keyId: options.keyId,
             key: options.key,
         })

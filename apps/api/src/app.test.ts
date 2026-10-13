@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import { createAuth } from '@herald/auth'
-import type { ChannelProfileDefinition } from '@herald/core'
+import { createAuth } from '@postbot/auth'
+import type { ChannelProfileDefinition } from '@postbot/core'
 import {
     closeDatabase,
     createInstallationEmailSettingsStore,
@@ -13,26 +13,26 @@ import {
     createNotificationStore,
     createNotificationEmailStore,
     runMigrations,
-} from '@herald/db'
-import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
+} from '@postbot/db'
+import { publications, publisherCredentials, user as authUser } from '@postbot/db/schema'
 import {
     createLinkedInMemberProfileClient,
     createLinkedInOrganizationClient,
-} from '@herald/linkedin'
-import type { OAuthAuthorizationServer } from '@herald/oauth'
+} from '@postbot/linkedin'
+import type { OAuthAuthorizationServer } from '@postbot/oauth'
 import type { Registry } from '@prometheus-io/client'
 import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
 import { createEmailSettingsService, type EmailSettingsService } from './modules/email/settings'
-import { createHeraldMetrics } from './modules/metrics/metrics'
+import { createPostbotMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import type { ChannelListItemResponse } from './modules/projects/models'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 import type { RecoveryService } from './recovery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -66,7 +66,7 @@ const customWebhookProfile: ChannelProfileDefinition = {
         kind: 'declarative_http',
         contractId: 'custom-webhook',
         revision: '1',
-        mode: 'herald_webhook',
+        mode: 'postbot_webhook',
     },
 }
 
@@ -149,7 +149,7 @@ function createFixture(
         linkedin: options.linkedin,
         x: options.x,
         bluesky: {
-            clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -181,7 +181,7 @@ function createFixture(
     return { access, app, auth, database, notifications, publisher }
 }
 
-async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
+async function signUp(app: ReturnType<typeof createApp>, email = 'operator@postbot.local') {
     const response = await app.handle(
         new Request(`${baseURL}/api/auth/sign-up/email`, {
             method: 'POST',
@@ -191,7 +191,7 @@ async function signUp(app: ReturnType<typeof createApp>, email = 'operator@heral
             },
             body: JSON.stringify({
                 email,
-                name: 'Herald Operator',
+                name: 'Postbot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })
@@ -261,7 +261,7 @@ async function readStreamChunk(response: Response) {
     }
 }
 
-describe('Herald API', () => {
+describe('Postbot API', () => {
     it('applies source copy only with the reviewed source and draft revisions', async () => {
         const { app, database } = createFixture()
         try {
@@ -453,7 +453,7 @@ describe('Herald API', () => {
                 },
                 fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
                 capabilities: {
-                    revision: 'herald-custom-v1',
+                    revision: 'postbot-custom-v1',
                     textFields: [
                         {
                             bindingId: 'body',
@@ -583,10 +583,10 @@ describe('Herald API', () => {
     })
 
     it('serves authenticated Prometheus scrapes over HTTP and reflects worker updates', async () => {
-        const metrics = createHeraldMetrics()
+        const metrics = createPostbotMetrics()
         metrics.bindScheduler({ state: 'running' })
         metrics.observeWorkerRun({ outcome: 'success', durationSeconds: 0.25 })
-        const bearerToken = 'herald-test-monitoring-token-with-more-than-32-characters'
+        const bearerToken = 'postbot-test-monitoring-token-with-more-than-32-characters'
         const { app, database } = createFixture({
             metrics: { registry: metrics.registry, bearerToken },
         })
@@ -613,15 +613,15 @@ describe('Herald API', () => {
             expect(response.status).toBe(200)
             expect(response.headers.get('content-type')).toBe(metrics.registry.contentType)
             const firstExposition = await response.text()
-            expect(firstExposition).toContain('herald_process_memory_bytes{type="rss"}')
+            expect(firstExposition).toContain('postbot_process_memory_bytes{type="rss"}')
             expect(firstExposition).toContain(
-                'herald_publication_scheduler_state{state="running"} 1'
+                'postbot_publication_scheduler_state{state="running"} 1'
             )
             expect(firstExposition).toContain(
-                'herald_publication_worker_runs_total{outcome="success"} 1'
+                'postbot_publication_worker_runs_total{outcome="success"} 1'
             )
             expect(firstExposition).toContain(
-                'herald_publication_worker_run_duration_seconds_bucket{le="0.5",outcome="success"} 1'
+                'postbot_publication_worker_run_duration_seconds_bucket{le="0.5",outcome="success"} 1'
             )
 
             metrics.observeWorkerRun({ outcome: 'failure', durationSeconds: 2 })
@@ -631,10 +631,10 @@ describe('Herald API', () => {
             expect(updatedResponse.status).toBe(200)
             const updatedExposition = await updatedResponse.text()
             expect(updatedExposition).toContain(
-                'herald_publication_worker_runs_total{outcome="failure"} 1'
+                'postbot_publication_worker_runs_total{outcome="failure"} 1'
             )
             expect(updatedExposition).toContain(
-                'herald_publication_worker_run_duration_seconds_bucket{le="5",outcome="failure"} 1'
+                'postbot_publication_worker_run_duration_seconds_bucket{le="5",outcome="failure"} 1'
             )
 
             const openApiResponse = await app.handle(new Request(`${baseURL}/openapi/json`))
@@ -679,7 +679,7 @@ describe('Herald API', () => {
             )
             expect(metadataResponse.status).toBe(200)
             expect(await metadataResponse.json()).toMatchObject({
-                client_id: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+                client_id: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
                 redirect_uris: [`${baseURL}/api/oauth/bluesky/callback`],
                 token_endpoint_auth_method: 'none',
                 dpop_bound_access_tokens: true,
@@ -695,7 +695,7 @@ describe('Herald API', () => {
 
     it('preserves Better Auth session cookies through the Elysia mount', async () => {
         const { app, database } = createFixture()
-        const email = 'elysia-auth-mount@herald.local'
+        const email = 'elysia-auth-mount@postbot.local'
 
         try {
             const cookie = await signUp(app, email)
@@ -716,7 +716,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'provider-applications@herald.local')
+            const cookie = await signUp(app, 'provider-applications@postbot.local')
             const createResponse = await jsonRequest(
                 app,
                 '/api/settings/provider-applications',
@@ -725,7 +725,7 @@ describe('Herald API', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         providerId: 'linkedin',
-                        name: 'Herald LinkedIn',
+                        name: 'Postbot LinkedIn',
                         clientId: 'linkedin-client-id',
                         clientSecret: 'linkedin-client-secret',
                     }),
@@ -790,7 +790,7 @@ describe('Herald API', () => {
             )
             expect(unauthenticatedResponse.status).toBe(401)
 
-            const cookie = await signUp(app, 'channel-profile-presets@herald.local')
+            const cookie = await signUp(app, 'channel-profile-presets@postbot.local')
             const response = await jsonRequest(app, '/api/channel-profile-presets', cookie)
             expect(response.status).toBe(200)
 
@@ -833,7 +833,7 @@ describe('Herald API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'provider-applications-loopback@herald.local')
+            const cookie = await signUp(app, 'provider-applications-loopback@postbot.local')
             const createResponse = await jsonRequest(
                 app,
                 '/api/settings/provider-applications',
@@ -842,7 +842,7 @@ describe('Herald API', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         providerId: 'bluesky',
-                        name: 'Herald Bluesky local',
+                        name: 'Postbot Bluesky local',
                         clientMetadataUrl: null,
                     }),
                 }
@@ -869,7 +869,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'runtime-oauth@herald.local')
+            const cookie = await signUp(app, 'runtime-oauth@postbot.local')
             const applicationResponse = await jsonRequest(
                 app,
                 '/api/settings/provider-applications',
@@ -1054,7 +1054,7 @@ describe('Herald API', () => {
         })
     })
 
-    it('publishes an OpenAPI inventory for the typed Herald routes', async () => {
+    it('publishes an OpenAPI inventory for the typed Postbot routes', async () => {
         const { app, database } = createFixture()
 
         try {
@@ -1280,9 +1280,9 @@ describe('Herald API', () => {
             ).toEqual([{ sessionCookie: [] }])
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
-                    bearerFormat: 'Herald API key',
+                    bearerFormat: 'Postbot API key',
                     description:
-                        'A user-owned Herald API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
+                        'A user-owned Postbot API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
                     scheme: 'bearer',
                     type: 'http',
                 },
@@ -1329,7 +1329,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'taxonomy-operator@herald.local')
+            const cookie = await signUp(app, 'taxonomy-operator@postbot.local')
             const categoryResponse = await jsonRequest(app, '/api/categories', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: '  Product   Updates ' }),
@@ -1698,7 +1698,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'analytics@herald.local')
+            const cookie = await signUp(app, 'analytics@postbot.local')
             const createProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Analytics project', timeZone: 'Europe/Paris' }),
@@ -1991,7 +1991,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const cookie = await signUp(app, 'realtime-operator@herald.local')
+            const cookie = await signUp(app, 'realtime-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Realtime project' }),
@@ -2105,7 +2105,7 @@ describe('Herald API', () => {
 
             const otherCookie = await signUpFixtureAdditionalUser(
                 app,
-                'other-realtime-operator@herald.local'
+                'other-realtime-operator@postbot.local'
             )
             const otherProjectResponse = await jsonRequest(app, '/api/projects', otherCookie, {
                 method: 'POST',
@@ -2145,7 +2145,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'timezone-operator@herald.local')
+            const cookie = await signUp(app, 'timezone-operator@postbot.local')
             const createResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -2201,7 +2201,7 @@ describe('Herald API', () => {
         })
 
         try {
-            const ownerCookie = await signUp(app, 'lifecycle-owner@herald.local')
+            const ownerCookie = await signUp(app, 'lifecycle-owner@postbot.local')
             const owner = database.$client
                 .query<{ readonly userId: string }, []>(
                     `select claimed_by_user_id as userId from instance_state where id = 'default'`
@@ -2241,7 +2241,7 @@ describe('Herald API', () => {
                 channel: { id: string }
             }
 
-            const memberEmail = 'lifecycle-member@herald.local'
+            const memberEmail = 'lifecycle-member@postbot.local'
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
             const member = database.$client
                 .query<{ readonly userId: string }, [string]>(
@@ -2418,7 +2418,7 @@ describe('Herald API', () => {
             )
             expect(removedMemberResponse.status).toBe(404)
 
-            const outsiderEmail = 'lifecycle-outsider@herald.local'
+            const outsiderEmail = 'lifecycle-outsider@postbot.local'
             const outsiderCookie = await signUpFixtureAdditionalUser(app, outsiderEmail)
             const outsiderUpdateResponse = await jsonRequest(
                 app,
@@ -2476,7 +2476,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'media-unavailable-operator@herald.local')
+            const cookie = await signUp(app, 'media-unavailable-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Media unavailable project' }),
@@ -2505,7 +2505,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'profile-operator@herald.local')
+            const cookie = await signUp(app, 'profile-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Profile API Project' }),
@@ -2547,8 +2547,8 @@ describe('Herald API', () => {
             }
             capabilities.revision = 'manual-message-v2'
             capabilities.textFields[0]!.maxLength = 100
-            profile.profileHash = 'sha256:herald-manual-message-v2'
-            profile.schemaHash = 'sha256:herald-manual-message-schema-v2'
+            profile.profileHash = 'sha256:postbot-manual-message-v2'
+            profile.schemaHash = 'sha256:postbot-manual-message-schema-v2'
 
             const draftResponse = await jsonRequest(
                 app,
@@ -2614,7 +2614,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'channel-lifecycle-operator@herald.local')
+            const cookie = await signUp(app, 'channel-lifecycle-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Channel lifecycle API project' }),
@@ -2747,7 +2747,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'custom-http-operator@herald.local')
+            const cookie = await signUp(app, 'custom-http-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Custom HTTP Project' }),
@@ -2803,7 +2803,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'custom-path-operator@herald.local')
+            const cookie = await signUp(app, 'custom-path-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Custom path project' }),
@@ -2870,7 +2870,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'api-key-operator@herald.local')
+            const cookie = await signUp(app, 'api-key-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Machine access project' }),
@@ -2897,7 +2897,7 @@ describe('Herald API', () => {
             }
             expect(createdBody.key).toMatchObject({
                 name: 'Release agent',
-                tokenPrefix: 'herald_pat_',
+                tokenPrefix: 'postbot_pat_',
                 projectAccess: [projectId],
             })
             expect(createdBody.token.length).toBeGreaterThan(40)
@@ -3007,13 +3007,13 @@ describe('Herald API', () => {
         }
     })
 
-    it('manages project members and invitations through the Herald access surface', async () => {
+    it('manages project members and invitations through the Postbot access surface', async () => {
         const { access, app, auth, database } = createFixture({
             allowAdditionalSignups: true,
         })
 
         try {
-            const ownerCookie = await signUp(app, 'project-access-owner@herald.local')
+            const ownerCookie = await signUp(app, 'project-access-owner@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Project access surface' }),
@@ -3043,14 +3043,14 @@ describe('Herald API', () => {
             expect(initialInvitationsResponse.status).toBe(200)
             expect(await initialInvitationsResponse.json()).toEqual({ invitations: [] })
 
-            const memberEmail = 'project-access-member@herald.local'
+            const memberEmail = 'project-access-member@postbot.local'
             const outsiderCookie = await signUpFixtureAdditionalUser(
                 app,
-                'project-access-outsider@herald.local'
+                'project-access-outsider@postbot.local'
             )
             const outsider = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('project-access-outsider@herald.local')
+                .get('project-access-outsider@postbot.local')
             const outsiderWorkspace = access.getDefaultWorkspace()
             expect(outsider).not.toBeNull()
             expect(outsiderWorkspace).not.toBeNull()
@@ -3132,7 +3132,7 @@ describe('Herald API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        email: 'another-project-member@herald.local',
+                        email: 'another-project-member@postbot.local',
                         role: 'viewer',
                     }),
                 }
@@ -3235,7 +3235,7 @@ describe('Herald API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        email: 'project-access-pending@herald.local',
+                        email: 'project-access-pending@postbot.local',
                         role: 'viewer',
                     }),
                 }
@@ -3310,22 +3310,22 @@ describe('Herald API', () => {
         const { access, app, auth, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const ownerCookie = await signUp(app, 'group-grant-owner@herald.local')
-            const memberCookie = await signUp(app, 'group-grant-member@herald.local')
+            const ownerCookie = await signUp(app, 'group-grant-owner@postbot.local')
+            const memberCookie = await signUp(app, 'group-grant-member@postbot.local')
             const workspaceAdminCookie = await signUp(
                 app,
-                'group-grant-workspace-admin@herald.local'
+                'group-grant-workspace-admin@postbot.local'
             )
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('group-grant-member@herald.local')
+                .get('group-grant-member@postbot.local')
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The group grant member was not created')
 
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
-            const editorsTeamId = `herald-workspace-team:${workspace.id}:editors`
+            const editorsTeamId = `postbot-workspace-team:${workspace.id}:editors`
             await auth.api.addTeamMember({
                 body: {
                     organizationId: workspace.organizationId,
@@ -3465,7 +3465,7 @@ describe('Herald API', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'workspace-flow-owner@herald.local')
+            const ownerCookie = await signUp(app, 'workspace-flow-owner@postbot.local')
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
@@ -3491,7 +3491,7 @@ describe('Herald API', () => {
             const teamBody = (await teamResponse.json()) as { team: { id: string; name: string } }
             expect(teamBody.team.name).toBe('Content team')
 
-            const targetEmail = 'workspace-flow-member@herald.local'
+            const targetEmail = 'workspace-flow-member@postbot.local'
             const invitationResponse = await jsonRequest(
                 app,
                 `/api/workspaces/${workspace.id}/invitations`,
@@ -3588,11 +3588,11 @@ describe('Herald API', () => {
         const { access, app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const ownerCookie = await signUp(app, 'group-visibility-owner@herald.local')
-            const memberCookie = await signUp(app, 'group-visibility-member@herald.local')
+            const ownerCookie = await signUp(app, 'group-visibility-owner@postbot.local')
+            const memberCookie = await signUp(app, 'group-visibility-member@postbot.local')
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('group-visibility-member@herald.local')
+                .get('group-visibility-member@postbot.local')
             const workspace = access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
@@ -3626,8 +3626,8 @@ describe('Herald API', () => {
                 project: { id: string }
             }
 
-            const editorsTeamId = `herald-workspace-team:${workspace.id}:editors`
-            const reviewersTeamId = `herald-workspace-team:${workspace.id}:reviewers`
+            const editorsTeamId = `postbot-workspace-team:${workspace.id}:editors`
+            const reviewersTeamId = `postbot-workspace-team:${workspace.id}:reviewers`
             const addMemberResponse = await jsonRequest(
                 app,
                 `/api/workspaces/${workspace.id}/teams/${editorsTeamId}/members`,
@@ -3753,11 +3753,11 @@ describe('Herald API', () => {
         }
     })
 
-    it('does not project legacy Better Auth organization invitations into Herald access', async () => {
+    it('does not project legacy Better Auth organization invitations into Postbot access', async () => {
         const { access, app, auth, database } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'organization-owner@herald.local')
+            const ownerCookie = await signUp(app, 'organization-owner@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Invitation bridge project' }),
@@ -3775,20 +3775,20 @@ describe('Herald API', () => {
                             .query<{ readonly id: string }, [string]>(
                                 'select id from user where email = ?1'
                             )
-                            .get('organization-owner@herald.local') ?? { id: '' }
+                            .get('organization-owner@postbot.local') ?? { id: '' }
                     ).id,
                 },
             })
 
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@herald.local',
+                    email: 'organization-member@postbot.local',
                     role: 'editor',
                     organizationId: legacyOrganization.id,
                 },
                 headers: new Headers({ cookie: ownerCookie }),
             })
-            const memberCookie = await signUp(app, 'organization-member@herald.local')
+            const memberCookie = await signUp(app, 'organization-member@postbot.local')
             const accepted = await auth.api.acceptInvitation({
                 body: { invitationId: invitation.id },
                 headers: new Headers({ cookie: memberCookie }),
@@ -3797,7 +3797,7 @@ describe('Herald API', () => {
             expect(accepted.member.role).toBe('editor')
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('organization-member@herald.local')
+                .get('organization-member@postbot.local')
             expect(member).not.toBeNull()
             expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
 
@@ -3836,7 +3836,7 @@ describe('Herald API', () => {
 
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
-                body: JSON.stringify({ name: 'Herald Launch' }),
+                body: JSON.stringify({ name: 'Postbot Launch' }),
             })
             expect(projectResponse.status).toBe(201)
             const projectBody = (await projectResponse.json()) as {
@@ -3876,7 +3876,7 @@ describe('Herald API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        title: 'Herald is ready',
+                        title: 'Postbot is ready',
                         sourceContent: {
                             body: {
                                 text: 'A source post for multiple destinations.',
@@ -4198,7 +4198,7 @@ describe('Herald API', () => {
                 publication: { id: string; postId: string; state: string }
             }
             expect(duplicateDraftBody).toMatchObject({
-                post: { title: 'Herald is ready' },
+                post: { title: 'Postbot is ready' },
                 publication: { state: 'draft' },
             })
             expect(duplicateDraftBody.publication.id).not.toBe(secondPublicationId)
@@ -4275,7 +4275,7 @@ describe('Herald API', () => {
             )
             expect(unauthenticatedResponse.status).toBe(401)
 
-            const cookie = await signUp(app, 'composer-recovery@herald.local')
+            const cookie = await signUp(app, 'composer-recovery@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Composer recovery project' }),
@@ -4375,7 +4375,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'bulk-scheduling-operator@herald.local')
+            const cookie = await signUp(app, 'bulk-scheduling-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Bulk scheduling project' }),
@@ -4541,7 +4541,7 @@ describe('Herald API', () => {
     it('creates an X channel through the API', async () => {
         const { app, database } = createFixture()
         try {
-            const cookie = await signUp(app, 'x-channel-operator@herald.local')
+            const cookie = await signUp(app, 'x-channel-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X channel project' }),
@@ -4628,7 +4628,7 @@ describe('Herald API', () => {
                     expect(request.headers.get('authorization')).toBe(
                         'Bearer linkedin-access-token'
                     )
-                    return Response.json({ sub: 'member-42', name: 'Herald Operator' })
+                    return Response.json({ sub: 'member-42', name: 'Postbot Operator' })
                 }
                 return new Response('not found', { status: 404 })
             },
@@ -4776,7 +4776,7 @@ describe('Herald API', () => {
             expect(listBody.connections).toHaveLength(1)
             expect(listBody.connections[0]).toMatchObject({
                 externalAccountId: 'member-42',
-                externalAccountName: 'Herald Operator',
+                externalAccountName: 'Postbot Operator',
                 kind: 'linkedin',
                 providerId: 'linkedin',
                 scopes: ['openid', 'profile', 'w_member_social'],
@@ -4847,7 +4847,7 @@ describe('Herald API', () => {
                     })
                 }
                 if (url.pathname === '/v2/userinfo') {
-                    return Response.json({ sub: 'member-42', name: 'Herald Operator' })
+                    return Response.json({ sub: 'member-42', name: 'Postbot Operator' })
                 }
                 if (url.pathname === '/rest/organizations/12345') {
                     expect(request.headers.get('authorization')).toBe(
@@ -4876,7 +4876,7 @@ describe('Herald API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'organization-operator@herald.local')
+            const cookie = await signUp(app, 'organization-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Organization Project' }),
@@ -5021,7 +5021,7 @@ describe('Herald API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'x-operator@herald.local')
+            const cookie = await signUp(app, 'x-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X Project' }),
@@ -5391,7 +5391,7 @@ describe('Herald API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'x-first-operator@herald.local')
+            const cookie = await signUp(app, 'x-first-operator@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X state project' }),
@@ -5445,7 +5445,7 @@ describe('Herald API', () => {
 
             const secondCookie = await signUpFixtureAdditionalUser(
                 app,
-                'x-second-operator@herald.local'
+                'x-second-operator@postbot.local'
             )
             const mismatchedResponse = await callback(
                 'authorization-code',
@@ -5517,7 +5517,7 @@ describe('Herald API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'reconciler@herald.local')
+            const cookie = await signUp(app, 'reconciler@postbot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Reconciliation Project' }),
@@ -5725,7 +5725,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         store: createInstallationEmailSettingsStore(
             settingsDatabase,
             createSecretCipher({
-                domain: 'herald.installation-email',
+                domain: 'postbot.installation-email',
                 keyId: 'test',
                 key: publisherEncryptionKey,
             })
@@ -5741,7 +5741,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         allowAdditionalSignups: true,
     })
     try {
-        const cookie = await signUp(app, 'smtp-admin@herald.local')
+        const cookie = await signUp(app, 'smtp-admin@postbot.local')
         const read = await jsonRequest(app, '/api/settings/email', cookie)
         expect(read.status).toBe(200)
         expect(await read.json()).toMatchObject({
@@ -5754,7 +5754,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
             host: 'smtp.example.test',
             port: 587,
             secure: false,
-            from: 'herald@example.test',
+            from: 'postbot@example.test',
             username: 'mailer',
             password: 'FAKE_SECRET_355',
         }
@@ -5767,7 +5767,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(
             (await jsonRequest(app, '/api/settings/email/test', cookie, { method: 'POST' })).status
         ).toBe(200)
-        expect(sent).toEqual(['smtp-admin@herald.local'])
+        expect(sent).toEqual(['smtp-admin@postbot.local'])
         const invalid = await jsonRequest(app, '/api/settings/email', cookie, {
             method: 'PUT',
             body: JSON.stringify({ ...input, host: 'smtp server' }),
@@ -5798,9 +5798,11 @@ it('restricts SMTP settings to human instance administrators and never returns c
             )
             expect(response.status).toBe(403)
         }
-        const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@herald.local')
+        const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@postbot.local')
         const members = access.listInstanceMemberships()
-        const memberId = members.find(member => member.email === 'smtp-member@herald.local')!.userId
+        const memberId = members.find(
+            member => member.email === 'smtp-member@postbot.local'
+        )!.userId
         const demotion = await jsonRequest(app, `/api/access/members/${memberId}`, cookie, {
             method: 'PATCH',
             body: JSON.stringify({ role: 'member' }),
@@ -5809,7 +5811,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(await demotion.json()).toMatchObject({ membership: { role: 'member' } })
         expect(
             access.isInstanceAdmin(
-                members.find(member => member.email === 'smtp-member@herald.local')!.userId
+                members.find(member => member.email === 'smtp-member@postbot.local')!.userId
             )
         ).toBe(false)
         expect((await jsonRequest(app, '/api/settings/email', memberCookie)).status).toBe(403)
@@ -5847,16 +5849,16 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
         allowAdditionalSignups: true,
     })
     try {
-        const admin = await signUp(app, 'recovery-admin@herald.local')
-        const member = await signUp(app, 'recovery-member@herald.local')
+        const admin = await signUp(app, 'recovery-admin@postbot.local')
+        const member = await signUp(app, 'recovery-member@postbot.local')
         const memberUser = database.$client
             .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-member@herald.local'"
+                "select id from user where email = 'recovery-member@postbot.local'"
             )
             .get()!
         const adminUser = database.$client
             .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-admin@herald.local'"
+                "select id from user where email = 'recovery-admin@postbot.local'"
             )
             .get()!
         await auth.api.setRole({
@@ -5955,10 +5957,10 @@ it('saves the standalone post source with revision guards and no destination cha
         const before = database.$client.query('select * from publication_working_drafts').all()
         const updated = await jsonRequest(app, url, cookie, { method: 'PATCH', body })
         expect(updated.status).toBe(200)
-        const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@herald.local')
+        const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@postbot.local')
         const viewer = database.$client
             .query<{ id: string }, [string]>('select id from user where email = ?1')
-            .get('source-viewer@herald.local')!
+            .get('source-viewer@postbot.local')!
         expect(
             access.grantProjectUserAccess({
                 projectId: project.id,
@@ -5972,7 +5974,7 @@ it('saves the standalone post source with revision guards and no destination cha
         )
         const outsiderCookie = await signUpFixtureAdditionalUser(
             app,
-            'source-outsider@herald.local'
+            'source-outsider@postbot.local'
         )
         expect(
             (await jsonRequest(app, url, outsiderCookie, { method: 'PATCH', body })).status

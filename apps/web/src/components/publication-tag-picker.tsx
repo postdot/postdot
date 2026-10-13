@@ -1,6 +1,6 @@
-import type { ProjectTag } from '@herald/client'
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import type { ProjectTag } from '@postbot/client'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -8,7 +8,7 @@ import {
     DropdownMenuGroup,
     DropdownMenuLabel,
     DropdownMenuTrigger,
-} from '@herald/ui/components/dropdown-menu'
+} from '@postbot/ui/components/dropdown-menu'
 import { TagIcon } from '@solar-icons/react/linear/tag'
 
 export interface PublicationTagPickerProps {

@@ -1,14 +1,14 @@
-# Herald design references
+# Postbot design references
 
 `DESIGN.md` at the repository root is the canonical, project-owned contract
-for Herald's visual and interaction direction. The examples in this directory
+for Postbot's visual and interaction direction. The examples in this directory
 are archived calibration evidence, not production routes, component specs, or
 copy to reproduce literally.
 
 ## Archived examples
 
 - [H-10 multi-surface holdout](examples/h-10-multisurface-holdout/) — the same
-  Herald identity across Calendar, Queue, and Compose.
+  Postbot identity across Calendar, Queue, and Compose.
 - [H-11 landing transfer holdout](examples/h-11-landing-holdout/) — the same
   identity transferred to two non-dashboard landing compositions.
 

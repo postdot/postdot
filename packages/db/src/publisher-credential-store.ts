@@ -7,9 +7,9 @@ import {
     type Project,
     type PublisherCredential,
     type PublisherCredentialState,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import {
     type EncryptedPublisherSecret,
     type PublisherCredentialCipher,
@@ -234,7 +234,7 @@ function envelopeFromRow(
 }
 
 export function createPublisherCredentialStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublisherCredentialStoreOptions
 ) {
     const client = database.$client

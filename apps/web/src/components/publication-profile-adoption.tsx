@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import { useEffect, useRef, useState } from 'react'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'

@@ -1,5 +1,5 @@
-import { DomainInvariantError } from '@herald/core'
-import type { AccessStore } from '@herald/db'
+import { DomainInvariantError } from '@postbot/core'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'

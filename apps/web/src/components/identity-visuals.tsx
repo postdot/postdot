@@ -1,8 +1,6 @@
 import { Avatar as DiceBearAvatar, Style } from '@dicebear/core'
 import lorelei from '@dicebear/styles/lorelei.json' with { type: 'json' }
 import shapes from '@dicebear/styles/shapes.json' with { type: 'json' }
-import { Avatar, AvatarFallback, AvatarImage } from '@herald/ui/components/avatar'
-import { cn } from '@herald/ui/lib/utils'
 import blueskyIcon from '@iconify-icons/logos/bluesky'
 import devIcon from '@iconify-icons/logos/dev-icon'
 import discordIcon from '@iconify-icons/logos/discord-icon'
@@ -10,6 +8,8 @@ import linkedinIcon from '@iconify-icons/logos/linkedin-icon'
 import mastodonIcon from '@iconify-icons/logos/mastodon-icon'
 import xIcon from '@iconify-icons/logos/x'
 import { Icon } from '@iconify/react'
+import { Avatar, AvatarFallback, AvatarImage } from '@postbot/ui/components/avatar'
+import { cn } from '@postbot/ui/lib/utils'
 import { useMemo, type HTMLAttributes } from 'react'
 
 import type { Channel } from '@/lib/api'

@@ -177,7 +177,7 @@ function buildHeaders(apiKey: string): Headers {
     const headers = new Headers()
     headers.set('accept', DEVTO_API_ACCEPT)
     headers.set('api-key', apiKey)
-    headers.set('user-agent', 'Herald/0.1')
+    headers.set('user-agent', 'Postbot/0.1')
     return headers
 }
 

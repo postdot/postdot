@@ -4,7 +4,7 @@ import { createLiveQueryCollection, eq, isNull } from '@tanstack/react-db'
 
 import { createDbRealtimeAdapter } from '@/lib/realtime-db'
 import {
-    createHeraldRealtimeDataSource,
+    createPostbotRealtimeDataSource,
     FixtureRealtimeEnvironment,
     selectAttentionGroups,
     selectQueue,
@@ -229,7 +229,7 @@ describe('TanStack DB prototype', () => {
 
 describe('project boundaries', () => {
     test('rejects data access outside the selected project', async () => {
-        const source = createHeraldRealtimeDataSource()
+        const source = createPostbotRealtimeDataSource()
         const guarded = createRealtimeDataSourceGuard(source, 'allowed-project')
 
         expect(() => guarded.listPublications('other-project')).toThrow('cross-project')

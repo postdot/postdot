@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ChannelProfileDefinition, MediaFamily } from '@herald/core'
+import type { ChannelProfileDefinition, MediaFamily } from '@postbot/core'
 import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
@@ -280,9 +280,9 @@ describe('manual workflow store', () => {
             })
 
             const createdProject = store.createProject({
-                name: 'Herald Launch',
+                name: 'Postbot Launch',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const manualChannel = store.createChannel({
                 projectId: createdProject.project.id,
@@ -301,7 +301,7 @@ describe('manual workflow store', () => {
             const createdPost = store.createPost({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
-                title: 'Herald is ready',
+                title: 'Postbot is ready',
                 sourceContent: sourceContent('A source post with channel-specific publications.'),
                 publications: [
                     {
@@ -339,7 +339,7 @@ describe('manual workflow store', () => {
                     body: 'Manual channel copy',
                     media: [],
                 },
-                postTitle: 'Herald is ready',
+                postTitle: 'Postbot is ready',
                 state: 'scheduled',
             })
 

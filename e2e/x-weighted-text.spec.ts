@@ -128,9 +128,9 @@ test('inserts emojis at the cursor and keeps destination changes separate', asyn
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill(`E2E X owner ${suffix}`)
-    await page.getByLabel('Email', { exact: true }).fill(`e2e-x-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-x-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-x-owner-password')
     await Promise.all([
         page.waitForResponse(

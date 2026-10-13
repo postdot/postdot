@@ -5,9 +5,9 @@ import * as React from 'react'
 
 import { emailStyles } from '../styles'
 import { formatInvitationExpiry, formatInvitationRole } from '../text'
-import { HeraldEmailLayout } from './HeraldEmailLayout'
+import { PostbotEmailLayout } from './PostbotEmailLayout'
 
-export interface HeraldOrganizationInvitationEmailInput {
+export interface PostbotOrganizationInvitationEmailInput {
     readonly email: string
     readonly role: string
     readonly organizationName: string
@@ -17,7 +17,7 @@ export interface HeraldOrganizationInvitationEmailInput {
 }
 
 const subject = (organizationName: string): string =>
-    `Invitation to join ${organizationName} on Herald`
+    `Invitation to join ${organizationName} on Postbot`
 
 export function OrganizationInvitationEmail({
     organizationName,
@@ -25,18 +25,18 @@ export function OrganizationInvitationEmail({
     role,
     expiresAt,
     invitationURL,
-}: HeraldOrganizationInvitationEmailInput) {
+}: PostbotOrganizationInvitationEmailInput) {
     const formattedRole = formatInvitationRole(role)
     const formattedExpiry = formatInvitationExpiry(expiresAt)
 
     return (
-        <HeraldEmailLayout
-            preview={`${inviterName} invited you to join ${organizationName} on Herald`}
+        <PostbotEmailLayout
+            preview={`${inviterName} invited you to join ${organizationName} on Postbot`}
             title={subject(organizationName)}>
             <Text style={emailStyles.text}>Hello,</Text>
             <Text style={emailStyles.text}>
                 <strong>{inviterName}</strong> invited you to join{' '}
-                <strong>{organizationName}</strong> on Herald as {formattedRole}.
+                <strong>{organizationName}</strong> on Postbot as {formattedRole}.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={invitationURL} style={emailStyles.button}>
@@ -53,16 +53,16 @@ export function OrganizationInvitationEmail({
             <Text style={emailStyles.mutedText}>
                 If you were not expecting this invitation, you can ignore this email.
             </Text>
-        </HeraldEmailLayout>
+        </PostbotEmailLayout>
     )
 }
 
 export { subject as organizationInvitationSubject }
 
-const previewProps: HeraldOrganizationInvitationEmailInput = {
+const previewProps: PostbotOrganizationInvitationEmailInput = {
     email: 'new.member@example.test',
     role: 'editor',
-    organizationName: 'Herald Studio',
+    organizationName: 'Postbot Studio',
     inviterName: 'Alex Martin',
     expiresAt: new Date('2026-09-18T12:00:00.000Z'),
     invitationURL: 'http://localhost:5173/invitations/preview?token=preview-token',

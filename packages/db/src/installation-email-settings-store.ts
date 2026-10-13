@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import { installationEmailSettings } from './domain-schema'
 import type { SecretCipher } from './encrypted-secret-crypto'
 
 const context = { recordId: 'default', purpose: ['smtp-configuration'] } as const
 
 export function createInstallationEmailSettingsStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     cipher: SecretCipher
 ) {
     return {

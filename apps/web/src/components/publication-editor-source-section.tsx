@@ -1,13 +1,13 @@
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { lazy, Suspense, useState } from 'react'
 

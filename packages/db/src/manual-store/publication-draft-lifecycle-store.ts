@@ -1,6 +1,6 @@
-import { DomainInvariantError, requireNonBlank, type Publication } from '@herald/core'
+import { DomainInvariantError, requireNonBlank, type Publication } from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { toActor } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -60,7 +60,7 @@ export type DuplicateDraftPublicationResult =
     | { readonly kind: 'not_draft' }
 
 export function createPublicationDraftLifecycleStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationDraftLifecycleStoreOptions
 ) {
     const client = database.$client

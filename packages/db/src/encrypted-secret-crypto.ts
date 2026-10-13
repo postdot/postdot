@@ -1,4 +1,4 @@
-import { requireNonBlank } from '@herald/core'
+import { requireNonBlank } from '@postbot/core'
 
 export const encryptedSecretEnvelopeVersion = 1 as const
 
@@ -43,6 +43,15 @@ export interface CreateSecretCipherOptions {
     readonly key: Uint8Array
 }
 
+// Authenticated-data bytes are a storage protocol, independent of the product name.
+// Keep these protocol identifiers stable so existing encrypted credentials remain readable.
+const domainProtocolIds: Readonly<Record<string, string>> = {
+    'postbot.publisher-secret': '686572616c642e7075626c69736865722d736563726574',
+    'postbot.notification-destination-secret':
+        '686572616c642e6e6f74696669636174696f6e2d64657374696e6174696f6e2d736563726574',
+    'postbot.provider-application': '686572616c642e70726f76696465722d6170706c69636174696f6e',
+    'postbot.installation-email': '686572616c642e696e7374616c6c6174696f6e2d656d61696c',
+}
 const encoder = new TextEncoder()
 const decoder = new TextDecoder('utf-8', { fatal: true })
 
@@ -58,7 +67,9 @@ function authenticatedData(domain: string, context: SecretCipherContext): Uint8A
     return webCryptoBytes(
         encoder.encode(
             JSON.stringify([
-                requireNonBlank(domain, 'domain'),
+                domainProtocolIds[domain]
+                    ? decoder.decode(Buffer.from(domainProtocolIds[domain], 'hex'))
+                    : requireNonBlank(domain, 'domain'),
                 encryptedSecretEnvelopeVersion,
                 requireNonBlank(context.recordId, 'recordId'),
                 ...purpose,

@@ -1,12 +1,12 @@
-import { Button, buttonVariants } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogTitle,
     DialogDescription,
     DialogFooter,
-} from '@herald/ui/components/dialog'
-import { X_MAX_WEIGHTED_POST_LENGTH } from '@herald/x/text'
+} from '@postbot/ui/components/dialog'
+import { X_MAX_WEIGHTED_POST_LENGTH } from '@postbot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
@@ -1728,7 +1728,7 @@ function publicationEditorHeading(editor: PublicationEditorState, sourceContent:
 }
 
 function createRecoveryKey(projectId: string, publicationId: string) {
-    return `herald:publication-editor:v${recoveryVersion}:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`
+    return `postbot:publication-editor:v${recoveryVersion}:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`
 }
 
 function readRecovery(key: string, timeZone: string): RecoveryBuffer | null {

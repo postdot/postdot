@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald already has one durable, project-scoped fact journal in `audit_events`.
+Postbot already has one durable, project-scoped fact journal in `audit_events`.
 The notification projection consumes that journal independently and advances its
 own cursor. The web client currently has no server transport for worker-generated
 changes, so `NotificationInbox` and project work views only discover changes when

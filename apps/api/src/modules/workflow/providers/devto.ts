@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionTarget } from '@herald/db'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     DEVTO_EXECUTION_CONTRACT_REVISION,
     DEVTO_MAX_IMAGES,
@@ -9,7 +9,7 @@ import {
     readDevtoTitleContent,
     type DevtoFetcher,
     type DevtoPublisher,
-} from '@herald/devto'
+} from '@postbot/devto'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'

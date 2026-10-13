@@ -9,7 +9,7 @@ import {
 
 describe('project time zones', () => {
     it('uses UTC when a project does not provide a timezone', () => {
-        const project = createProject({ id: 'project-1', name: 'Herald', now: 1_800_000_000_000 })
+        const project = createProject({ id: 'project-1', name: 'Postbot', now: 1_800_000_000_000 })
 
         expect(project.timeZone).toBe(defaultProjectTimeZone)
     })

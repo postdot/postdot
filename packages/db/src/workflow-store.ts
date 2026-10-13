@@ -11,12 +11,12 @@ import {
     type TargetContent,
     type ChannelProfileDefinition,
     type PublicationState,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from './client'
 import {
     automaticExecutionAuditActions,
@@ -98,7 +98,7 @@ const claimedJobColumns = `
     updated_at as updatedAt
 `
 
-export function createWorkflowStore(database: HeraldDatabase) {
+export function createWorkflowStore(database: PostbotDatabase) {
     const client = database.$client
     const createId = () => crypto.randomUUID()
     const profileCompiler = new ChannelProfileCompiler()
@@ -1198,7 +1198,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
             if (existing !== null) return existing.id
 
             const actorId = `system:${projectId}`
-            insertSystemActorStatement.run(actorId, projectId, 'Herald Worker', now)
+            insertSystemActorStatement.run(actorId, projectId, 'Postbot Worker', now)
 
             const inserted = loadSystemActorStatement.get(projectId)
             if (inserted === null) {

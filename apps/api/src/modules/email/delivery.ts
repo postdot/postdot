@@ -1,15 +1,15 @@
-import type { HeraldAuthEmailOptions, HeraldAuthRuntimeOptions } from '@herald/auth'
+import type { PostbotAuthEmailOptions, PostbotAuthRuntimeOptions } from '@postbot/auth'
 import {
-    renderHeraldEmailVerificationEmail,
-    renderHeraldOrganizationInvitationEmail,
-    renderHeraldPasswordResetEmail,
-    type HeraldRenderedEmail,
-} from '@herald/email'
+    renderPostbotEmailVerificationEmail,
+    renderPostbotOrganizationInvitationEmail,
+    renderPostbotPasswordResetEmail,
+    type PostbotRenderedEmail,
+} from '@postbot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
-export type HeraldEmailKind = 'organization_invitation' | 'email_verification' | 'password_reset'
+export type PostbotEmailKind = 'organization_invitation' | 'email_verification' | 'password_reset'
 
-export interface HeraldSmtpConfig {
+export interface PostbotSmtpConfig {
     readonly host: string
     readonly port: number
     readonly secure: boolean
@@ -18,26 +18,26 @@ export interface HeraldSmtpConfig {
     readonly password?: string
 }
 
-export interface HeraldEmailTransport {
+export interface PostbotEmailTransport {
     sendMail(message: SendMailOptions): Promise<unknown>
 }
 
-export interface HeraldEmailDeliveryOptions {
-    readonly smtp?: HeraldSmtpConfig
-    readonly getSmtp?: () => HeraldSmtpConfig | undefined
+export interface PostbotEmailDeliveryOptions {
+    readonly smtp?: PostbotSmtpConfig
+    readonly getSmtp?: () => PostbotSmtpConfig | undefined
     readonly webOrigin: string
-    readonly transport?: HeraldEmailTransport
-    readonly onDeliveryError?: (kind: HeraldEmailKind, error: unknown) => void
+    readonly transport?: PostbotEmailTransport
+    readonly onDeliveryError?: (kind: PostbotEmailKind, error: unknown) => void
 }
 
-export type HeraldConfiguredAuthEmailOptions = Pick<
-    HeraldAuthRuntimeOptions,
-    keyof HeraldAuthEmailOptions | 'organizationInvitationURL' | 'sendOrganizationInvitationEmail'
+export type PostbotConfiguredAuthEmailOptions = Pick<
+    PostbotAuthRuntimeOptions,
+    keyof PostbotAuthEmailOptions | 'organizationInvitationURL' | 'sendOrganizationInvitationEmail'
 >
 
-export function createHeraldAuthEmailDelivery(
-    options: HeraldEmailDeliveryOptions
-): HeraldConfiguredAuthEmailOptions {
+export function createPostbotAuthEmailDelivery(
+    options: PostbotEmailDeliveryOptions
+): PostbotConfiguredAuthEmailOptions {
     if (options.smtp === undefined && options.transport === undefined) return {}
 
     const transport =
@@ -56,7 +56,7 @@ export function createHeraldAuthEmailDelivery(
                   }),
         })
 
-    const send = (kind: HeraldEmailKind, createMessage: () => Promise<SendMailOptions>): void => {
+    const send = (kind: PostbotEmailKind, createMessage: () => Promise<SendMailOptions>): void => {
         if (options.getSmtp && !options.getSmtp()) return
         try {
             void createMessage()
@@ -97,7 +97,7 @@ export function createHeraldAuthEmailDelivery(
             send('organization_invitation', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderHeraldOrganizationInvitationEmail({
+                    await renderPostbotOrganizationInvitationEmail({
                         email: invitation.email,
                         role: invitation.role,
                         organizationName: invitation.organizationName,
@@ -112,7 +112,7 @@ export function createHeraldAuthEmailDelivery(
             send('email_verification', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderHeraldEmailVerificationEmail({
+                    await renderPostbotEmailVerificationEmail({
                         user: verification.user,
                         url: verification.url,
                     })
@@ -124,7 +124,7 @@ export function createHeraldAuthEmailDelivery(
             send('password_reset', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderHeraldPasswordResetEmail({
+                    await renderPostbotPasswordResetEmail({
                         user: reset.user,
                         url: reset.url,
                     })
@@ -134,7 +134,7 @@ export function createHeraldAuthEmailDelivery(
     }
 }
 
-function withFrom(from: string | undefined, email: HeraldRenderedEmail): SendMailOptions {
+function withFrom(from: string | undefined, email: PostbotRenderedEmail): SendMailOptions {
     return {
         to: email.to,
         ...(from === undefined ? {} : { from }),

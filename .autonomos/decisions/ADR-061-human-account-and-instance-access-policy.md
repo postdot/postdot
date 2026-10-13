@@ -22,7 +22,7 @@
 
 ## Context
 
-Herald currently authenticates people with Better Auth email/password sessions. Any
+Postbot currently authenticates people with Better Auth email/password sessions. Any
 authenticated human can sign up, and project access is inferred from a project-scoped
 human actor whose `subject_id` is the Better Auth user ID. A project creator therefore
 gets access, but there is no instance identity, administrator, membership lifecycle,
@@ -53,17 +53,17 @@ the first project.
 - The initial administrator is also an active instance member. The first project they
   create gives them the `owner` project role. A single-user installation can therefore
   remain entirely self-contained and need not configure team features.
-- Herald does not add a hosted identity provider or an environment bootstrap password.
+- Postbot does not add a hosted identity provider or an environment bootstrap password.
   An operator who controls the deployment can use the supported offline recovery
   command described below if the instance is locked out.
 
-The unclaimed/claimed state is Herald instance state, not a Better Auth option. Better
+The unclaimed/claimed state is Postbot instance state, not a Better Auth option. Better
 Auth remains responsible for password hashing, sessions, and email/password protocol
-handling; Herald decides whether a signup is eligible.
+handling; Postbot decides whether a signup is eligible.
 
 ### 2. Roles and authorization boundaries
 
-Herald has one instance boundary and many project boundaries. An instance role never
+Postbot has one instance boundary and many project boundaries. An instance role never
 implicitly grants access to project content, and a project role never grants access to
 instance configuration.
 
@@ -100,7 +100,7 @@ access is migrated to `owner` so the change does not silently remove current rig
 The effective authorization check for a human request is:
 
 1. resolve the Better Auth session;
-2. require an active Herald instance membership;
+2. require an active Postbot instance membership;
 3. for a project route, require an active project membership and the operation's
    minimum project role; or
 4. for an instance route, require `admin`.
@@ -119,10 +119,10 @@ administration without broadening ordinary project visibility.
 
 ### 3. Membership lifecycle
 
-Instance membership remains a small Herald extension because it describes access to
+Instance membership remains a small Postbot extension because it describes access to
 the self-hosted installation even when a user belongs to no project. For a project
 with a Better Auth organization bridge, the Better Auth `member` row is the authority
-for project access; Herald keeps a projection for actors and historical data. An
+for project access; Postbot keeps a projection for actors and historical data. An
 actor row alone never grants authorization.
 
 - An instance membership has an enabled/disabled lifecycle and an instance role.
@@ -153,8 +153,8 @@ actor row alone never grants authorization.
   `admin`; admin promotion is never granted by an ordinary project invitation.
 - A project owner may invite an existing or new person to that project as `editor` or
   `viewer` through Better Auth Organization. Accepting the invitation creates the
-  Better Auth member and synchronizes the recipient's Herald instance membership and
-  human actor projection; it never creates an instance admin. The Herald invitation
+  Better Auth member and synchronizes the recipient's Postbot instance membership and
+  human actor projection; it never creates an instance admin. The Postbot invitation
   route is reserved for instance invitations.
 - A Better Auth organization invitation is single-use and expires after seven days by
   default. Instance invitations remain single-use, revocable, and hash only their
@@ -164,7 +164,7 @@ actor row alone never grants authorization.
   new account is created or an existing account accepts the invitation. An already
   authenticated account cannot use a link addressed to another email.
 - Better Auth owns the organization invitation transaction and account/member
-  lifecycle. Its accepted-invitation hook projects the member into Herald. The
+  lifecycle. Its accepted-invitation hook projects the member into Postbot. The
   instance invitation transaction consumes its own hashed token and writes the
   instance membership directly. A failed transaction leaves the relevant invitation
   available.
@@ -178,17 +178,17 @@ actor row alone never grants authorization.
   account identifier and the target for invitations; it is not, by itself, proof that
   the operator controls a mailbox.
 - Email verification is optional for the local bootstrap and manual-link workflows.
-  When a mail transport is configured, Herald may require verification for normal
+  When a mail transport is configured, Postbot may require verification for normal
   invited-account acceptance and may expose password-reset and invitation email
   delivery. The exact verification requirement is an implementation checkpoint, not
   a reason to make SMTP mandatory for self-hosting.
 - Mail delivery is an optional deployment capability configured through environment
   variables (for example, an SMTP/relay URL and sender identity). If it is absent,
-  Herald must not claim that an invitation or reset email was sent; the UI and CLI
+  Postbot must not claim that an invitation or reset email was sent; the UI and CLI
   provide a copyable invitation link and the operator follows the documented offline
   password-recovery path.
 - Mail credentials are deployment secrets and are not business credentials stored in
-  Herald's settings tables. Herald stores invitation metadata and token digests, not
+  Postbot's settings tables. Postbot stores invitation metadata and token digests, not
   SMTP passwords or provider-account mail credentials.
 
 ### 6. Recovery and last-administrator safety
@@ -214,7 +214,7 @@ actor row alone never grants authorization.
   encryption root key alongside the database/media backup, consistent with the
   existing recovery guidance.
 
-### 7. Environment configuration versus Herald business credentials
+### 7. Environment configuration versus Postbot business credentials
 
 The following remain deployment/environment configuration:
 
@@ -225,17 +225,17 @@ The following remain deployment/environment configuration:
 - optional outbound-network policy; and
 - optional mail transport endpoint, sender identity, and mail credentials.
 
-The following are business or instance data stored by Herald, with secrets protected
+The following are business or instance data stored by Postbot, with secrets protected
 by their existing boundaries:
 
 - Better Auth users, password hashes, sessions, verification records, organization
   memberships/invitations, and organization-owned API keys;
-- Herald instance membership, the instance invitation records, actor projections,
+- Postbot instance membership, the instance invitation records, actor projections,
   and audit state;
 - runtime provider-application configurations and their encrypted client secrets
   (ADR-056);
 - project-owned encrypted publisher credentials and channel connections; and
-- organization-owned Better Auth API keys and their Herald actor bridge (ADR-030).
+- organization-owned Better Auth API keys and their Postbot actor bridge (ADR-030).
 
 An operator changing the environment changes deployment trust and cryptographic
 boundaries. It must not be required for ordinary team membership, project invitation,
@@ -249,7 +249,7 @@ which intentionally does not carry out a data migration or a compatibility windo
 
 Migration is additive and must not infer authorization from an actor after the new
 guards are enabled. Organization-backed project routes read Better Auth membership;
-the Herald rows created below are compatibility projections, not a second authority.
+the Postbot rows created below are compatibility projections, not a second authority.
 
 1. Add one instance-state row and membership/invitation tables. If Better Auth users
    already exist, mark them active instance members. The earliest user by
@@ -258,7 +258,7 @@ the Herald rows created below are compatibility projections, not a second author
    transfer-admin action immediately.
 2. Create one Better Auth organization for every project and store its id on the
    project. For every project human actor whose `subject_id` matches a user, create a
-   Better Auth member and a matching active Herald projection. Map each existing human
+   Better Auth member and a matching active Postbot projection. Map each existing human
    project actor to `owner` to preserve current project-wide human rights. Keep actor
    IDs, audit events, notification rows, publisher connections, and machine-token
    actors unchanged.
@@ -271,7 +271,7 @@ the Herald rows created below are compatibility projections, not a second author
    authorization guard is deployed.
 5. Existing project access tokens continue to authenticate and retain their project
    scope. New project keys use Better Auth's organization-owned API Key plugin and
-   retain a Herald `api-key:<id>` actor. Human key management is restricted to the
+   retain a Postbot `api-key:<id>` actor. Human key management is restricted to the
    project owner; legacy token rows and token actors remain untouched until retirement.
 6. Update notification recipient resolution to use active project memberships. Do not
    delete or rewrite existing inbox items during migration.
@@ -293,9 +293,9 @@ Rejected. It is convenient for local development but turns an exposed self-hoste
 instance into an open registration surface and cannot express instance versus project
 responsibility.
 
-### Keep all project membership in Herald-owned tables
+### Keep all project membership in Postbot-owned tables
 
-Rejected for migrated projects. Herald still owns instance membership, actors,
+Rejected for migrated projects. Postbot still owns instance membership, actors,
 notifications, and domain data, but Better Auth Organization is a better authority for
 project membership, invitations, and organization-owned API keys. ADR-063 records the
 implementation boundary and keeps a compatibility projection while legacy data is
@@ -372,7 +372,7 @@ Costs and risks:
    session invalidation on disable/remove.
 4. **Recovery and optional mail:** implement local password/admin recovery, optional
    mail transport, verification/reset/invitation templates, and backup/restore
-   documentation for environment secrets and Herald business data.
+   documentation for environment secrets and Postbot business data.
 5. **Hardening:** prove race-safe bootstrap, invitation replay/expiry/revocation,
    project isolation, last-admin protection, disabled-session behavior, token
    continuity, notification membership timing, migration idempotence, and redaction

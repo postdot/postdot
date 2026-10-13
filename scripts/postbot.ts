@@ -2,21 +2,21 @@ import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 
 import {
-    createHeraldClient,
-    type HeraldClient,
+    createPostbotClient,
+    type PostbotClient,
     type Post,
     type Publication,
     type MediaReservation,
     type MediaUploadPolicy,
     type MediaUrlImport,
-} from '@herald/client'
+} from '@postbot/client'
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-export interface HeraldCliEnvironment {
-    readonly HERALD_API_KEY?: string
-    readonly HERALD_SESSION_COOKIE?: string
-    readonly HERALD_URL?: string
+export interface PostbotCliEnvironment {
+    readonly POSTBOT_API_KEY?: string
+    readonly POSTBOT_SESSION_COOKIE?: string
+    readonly POSTBOT_URL?: string
 }
 
 interface CliDependencies {
@@ -49,7 +49,7 @@ export class CliError extends Error {
 
 export async function runCli(
     args: readonly string[] = Bun.argv.slice(2),
-    environment: HeraldCliEnvironment = Bun.env as HeraldCliEnvironment,
+    environment: PostbotCliEnvironment = Bun.env as PostbotCliEnvironment,
     dependencies: CliDependencies = {}
 ) {
     const output = dependencies.output ?? console.log
@@ -68,12 +68,12 @@ export async function runCli(
     const jsonOutput = args.includes('--json')
     const baseURL = (
         optionValue(args, '--base-url') ??
-        environment.HERALD_URL ??
+        environment.POSTBOT_URL ??
         'http://localhost:3000'
     ).replace(/\/$/, '')
-    const sessionCookie = optionValue(args, '--cookie') ?? environment.HERALD_SESSION_COOKIE
-    const apiKey = optionValue(args, '--token') ?? environment.HERALD_API_KEY
-    const client = createHeraldClient(baseURL, {
+    const sessionCookie = optionValue(args, '--cookie') ?? environment.POSTBOT_SESSION_COOKIE
+    const apiKey = optionValue(args, '--token') ?? environment.POSTBOT_API_KEY
+    const client = createPostbotClient(baseURL, {
         cookie: sessionCookie,
         fetcher,
         token: apiKey,
@@ -106,7 +106,7 @@ export async function runCli(
         if (!cookie) throw new CliError('Authentication succeeded without a session cookie')
         write(
             { cookie, user: body.user },
-            `Authenticated as ${body.user.email}. Export HERALD_SESSION_COOKIE='${cookie}'.`
+            `Authenticated as ${body.user.email}. Export POSTBOT_SESSION_COOKIE='${cookie}'.`
         )
         return
     }
@@ -490,7 +490,7 @@ function ensureMediaAccepted(result: MediaUrlImport) {
     throw error
 }
 
-type ProjectRoutes = ReturnType<HeraldClient['api']['projects']>
+type ProjectRoutes = ReturnType<PostbotClient['api']['projects']>
 type PublicationRoutes = ReturnType<ProjectRoutes['publications']>
 type CreatePostInput = Parameters<ProjectRoutes['posts']['post']>[0]
 type SaveDraftInput = Parameters<PublicationRoutes['draft']['patch']>[0]
@@ -691,10 +691,10 @@ function parseProjectIds(value: string | undefined): string[] | null {
 }
 
 function printCliHelp(output: (message: string) => void) {
-    output(`Herald CLI
+    output(`Postbot CLI
 
 Usage:
-  bun run herald <resource> <action> [options]
+  bun run postbot <resource> <action> [options]
 
 Resources:
   auth login                         Sign in and print a session cookie
@@ -730,22 +730,22 @@ Resources:
 Options:
   --timeout-ms <n>                    Per-request deadline (default: 30000)
   --json                             Print structured JSON
-  --base-url <url>                   Herald API URL (default: http://localhost:3000)
+  --base-url <url>                   Postbot API URL (default: http://localhost:3000)
   --cookie <value>                   Session cookie for authenticated requests
-  --token <value>                    Herald API key for machine requests
+  --token <value>                    Postbot API key for machine requests
   --projects <id,id,...>             Limit a new API key to selected projects
   --expires-at <epoch-ms>            Expiration for a new token
 
 Environment:
-  HERALD_URL
-  HERALD_SESSION_COOKIE
-  HERALD_API_KEY`)
+  POSTBOT_URL
+  POSTBOT_SESSION_COOKIE
+  POSTBOT_API_KEY`)
 }
 
 function requireAuthenticated(sessionCookie: string | undefined, apiKey: string | undefined) {
     if (!sessionCookie && !apiKey) {
         throw new CliError(
-            'Authentication required. Set HERALD_SESSION_COOKIE or HERALD_API_KEY, or pass --cookie or --token.'
+            'Authentication required. Set POSTBOT_SESSION_COOKIE or POSTBOT_API_KEY, or pass --cookie or --token.'
         )
     }
 }
@@ -753,7 +753,7 @@ function requireAuthenticated(sessionCookie: string | undefined, apiKey: string 
 function requireSession(sessionCookie: string | undefined) {
     if (!sessionCookie) {
         throw new CliError(
-            'This command requires a human session. Set HERALD_SESSION_COOKIE or pass --cookie <value>.'
+            'This command requires a human session. Set POSTBOT_SESSION_COOKIE or pass --cookie <value>.'
         )
     }
 }

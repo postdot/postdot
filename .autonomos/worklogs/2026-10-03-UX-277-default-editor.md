@@ -38,13 +38,13 @@ contrast in the dark-theme link error; use the existing foreground text and
 associate the error with its input. The focused link/accessibility journey passes.
 The final `bun run check` passed: 59 main browser journeys, two password-reset
 journeys and all 17 build tasks, alongside formatting, lint, spelling, types
-and unit checks. Log: `/tmp/herald-editor-default-complete-check.log`.
+and unit checks. Log: `/tmp/postbot-editor-default-complete-check.log`.
 
 ## Article images and animated media
 
 Tiptap Image displays images and FileHandler supplies paste/drop hooks; neither
 owns uploads, storage authorization, validation or media retention. The existing
-Herald upload pipeline remains authoritative. The current Unicode emoji picker
+Postbot upload pipeline remains authoritative. The current Unicode emoji picker
 already inserts text with undo support and does not need replacement simply because an
 upstream emoji node exists.
 

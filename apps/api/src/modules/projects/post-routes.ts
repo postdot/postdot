@@ -1,5 +1,5 @@
-import { sourceContentSchema } from '@herald/core'
-import type { AccessStore } from '@herald/db'
+import { sourceContentSchema } from '@postbot/core'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { apiKeyHasCapability } from './api-key-permissions'

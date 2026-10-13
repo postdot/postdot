@@ -4,7 +4,7 @@ import {
     ChannelProfileValidationError,
     type ChannelProfileDraftDefinition,
     createManualChannelProfile,
-} from '@herald/core'
+} from '@postbot/core'
 
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'

@@ -11,8 +11,8 @@
 
 ## Context
 
-Herald is a publication application. An API key is an external way for a
-person to use Herald from a CLI, MCP server, script, or another client; it is
+Postbot is a publication application. An API key is an external way for a
+person to use Postbot from a CLI, MCP server, script, or another client; it is
 not a deployment, CI/CD integration, or project-owned machine identity.
 
 The previous model attached a Better Auth API key to one project workspace
@@ -45,7 +45,7 @@ stops being available through the key. A selected scope can only narrow access;
 it cannot elevate the owner or preserve access after the owner loses it.
 
 The key's project scope is an authorization boundary, not an ownership
-boundary. Projects remain owned by their workspace and Herald's existing
+boundary. Projects remain owned by their workspace and Postbot's existing
 project roles continue to decide whether the authenticated user may read or
 modify a resource.
 
@@ -60,9 +60,9 @@ project. A limited key is authorized only when all three conditions hold:
 3. The key has the required action capability.
 
 The nullable Better Auth `apikey.permissions` field stores a limited key's
-capabilities. Herald maps each route to an explicit capability and checks it
+capabilities. Postbot maps each route to an explicit capability and checks it
 after authenticating the key; unknown routes fail closed. A null permission
-record deliberately means “no key-level action ceiling” in Herald, not that
+record deliberately means “no key-level action ceiling” in Postbot, not that
 Better Auth itself treats null as a wildcard. This preserves dynamic role
 inheritance for existing unrestricted keys without freezing a maximum action
 list at key-creation time.
@@ -101,7 +101,7 @@ owner, but it is not a way to bypass those session-only security boundaries.
 
 ### Compatibility
 
-Herald is still private and has no deployed data contract to preserve. The
+Postbot is still private and has no deployed data contract to preserve. The
 project-bound API routes, typed-client methods, CLI commands, actor store, and
 project API-key dashboard are removed rather than kept as compatibility
 facades. The development database baseline contains no project-token table.

@@ -14,23 +14,23 @@ current intended state instead of carrying a compatibility migration path.
 
 The generated Drizzle history now contains one baseline, `0000_jittery_maelstrom.sql`,
 with one matching snapshot and journal entry. The baseline includes Better Auth's
-user, organization, member, invitation, and API-key tables, Herald's instance
+user, organization, member, invitation, and API-key tables, Postbot's instance
 access and domain tables, a dedicated `instance_access_invitations` table, and the
 claimable instance seed row.
 
 Removed from the schema and runtime:
 
-- project-owned Herald membership rows;
+- project-owned Postbot membership rows;
 - the mixed project/instance invitation table;
-- the Herald project bearer-token table and store;
+- the Postbot project bearer-token table and store;
 - the retirement marker and maintenance commands;
 - project-access fallbacks that bypass Better Auth Organization membership or API
   keys.
 
 Better Auth Organization membership is now the project authorization authority.
-Better Auth Organization invitations handle project invitations, while the Herald
+Better Auth Organization invitations handle project invitations, while the Postbot
 access store owns only instance invitations. Better Auth API keys remain wrapped by
-Herald's project binding and actor-attribution boundary.
+Postbot's project binding and actor-attribution boundary.
 
 ## Verification
 
@@ -42,10 +42,10 @@ Herald's project binding and actor-attribution boundary.
   the instance starts claimable, the baseline is idempotent, foreign keys remain
   enabled, and exactly one migration is recorded.
 - No local database file was deleted or overwritten; any stale disposable database
-  must be moved aside explicitly before restarting Herald.
+  must be moved aside explicitly before restarting Postbot.
 
 ## Follow-up
 
-When Herald has a real deployed database, define and approve a separate production
+When Postbot has a real deployed database, define and approve a separate production
 upgrade and rollback strategy based on its actual data. That future concern is not
 part of this private development baseline.

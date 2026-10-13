@@ -4,33 +4,33 @@ import * as React from 'react'
 import {
     EmailVerificationEmail,
     emailVerificationSubject,
-    type HeraldAccountEmailInput,
+    type PostbotAccountEmailInput,
 } from './templates/EmailVerificationEmail'
 import {
     OrganizationInvitationEmail,
     organizationInvitationSubject,
-    type HeraldOrganizationInvitationEmailInput,
+    type PostbotOrganizationInvitationEmailInput,
 } from './templates/OrganizationInvitationEmail'
 import {
     PasswordResetEmail,
     passwordResetSubject,
-    type HeraldPasswordResetEmailInput,
+    type PostbotPasswordResetEmailInput,
 } from './templates/PasswordResetEmail'
 import {
     PublicationOutcomeEmail,
-    type HeraldPublicationOutcomeEmailInput,
+    type PostbotPublicationOutcomeEmailInput,
 } from './templates/PublicationOutcomeEmail'
 
-export interface HeraldRenderedEmail {
+export interface PostbotRenderedEmail {
     readonly to: string
     readonly subject: string
     readonly text: string
     readonly html: string
 }
 
-export async function renderHeraldOrganizationInvitationEmail(
-    input: HeraldOrganizationInvitationEmailInput
-): Promise<HeraldRenderedEmail> {
+export async function renderPostbotOrganizationInvitationEmail(
+    input: PostbotOrganizationInvitationEmailInput
+): Promise<PostbotRenderedEmail> {
     const html = await render(<OrganizationInvitationEmail {...input} />)
     const text = await render(<OrganizationInvitationEmail {...input} />, { plainText: true })
 
@@ -42,9 +42,9 @@ export async function renderHeraldOrganizationInvitationEmail(
     }
 }
 
-export async function renderHeraldEmailVerificationEmail(
-    input: HeraldAccountEmailInput
-): Promise<HeraldRenderedEmail> {
+export async function renderPostbotEmailVerificationEmail(
+    input: PostbotAccountEmailInput
+): Promise<PostbotRenderedEmail> {
     const html = await render(<EmailVerificationEmail {...input} />)
     const text = await render(<EmailVerificationEmail {...input} />, { plainText: true })
 
@@ -56,9 +56,9 @@ export async function renderHeraldEmailVerificationEmail(
     }
 }
 
-export async function renderHeraldPasswordResetEmail(
-    input: HeraldPasswordResetEmailInput
-): Promise<HeraldRenderedEmail> {
+export async function renderPostbotPasswordResetEmail(
+    input: PostbotPasswordResetEmailInput
+): Promise<PostbotRenderedEmail> {
     const html = await render(<PasswordResetEmail {...input} />)
     const text = await render(<PasswordResetEmail {...input} />, { plainText: true })
 
@@ -70,12 +70,12 @@ export async function renderHeraldPasswordResetEmail(
     }
 }
 
-export async function renderHeraldPublicationOutcomeEmail(
-    input: HeraldPublicationOutcomeEmailInput
-): Promise<HeraldRenderedEmail> {
+export async function renderPostbotPublicationOutcomeEmail(
+    input: PostbotPublicationOutcomeEmailInput
+): Promise<PostbotRenderedEmail> {
     return {
         to: input.email,
-        subject: `Herald — ${input.title}`,
+        subject: `Postbot — ${input.title}`,
         html: await render(<PublicationOutcomeEmail {...input} />),
         text: await render(<PublicationOutcomeEmail {...input} />, { plainText: true }),
     }

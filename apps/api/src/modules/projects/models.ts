@@ -3,14 +3,14 @@ import {
     publicationTagFilterMaximumIds,
     sourceContentSchema,
     taxonomyLabelMaximumLength,
-} from '@herald/core'
+} from '@postbot/core'
 import type {
     ChannelProfilePreset,
     ChannelProfileDefinition,
     Publication,
     PublicationApprovalRequest,
-} from '@herald/core'
-import type { ChannelProfileImpactAssessment } from '@herald/core'
+} from '@postbot/core'
+import type { ChannelProfileImpactAssessment } from '@postbot/core'
 import type {
     ChannelProfileActivationResult,
     ChannelProfileState,
@@ -21,7 +21,7 @@ import type {
     PublicationSummary,
     PublicationTargetRevision,
     PublicationWorkingDraft,
-} from '@herald/db'
+} from '@postbot/db'
 import {
     auditEvents,
     channels,
@@ -29,7 +29,7 @@ import {
     projects,
     publications,
     publicationApprovalRequests,
-} from '@herald/db/schema'
+} from '@postbot/db/schema'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'

@@ -3,13 +3,13 @@ import { join } from 'node:path'
 
 import { isSafeE2EDataDirectory } from './e2e-runtime'
 
-const dataDirectory = Bun.env.HERALD_E2E_DATA_DIRECTORY
+const dataDirectory = Bun.env.POSTBOT_E2E_DATA_DIRECTORY
 const databaseFile = Bun.env.DB_FILE_NAME
-const mediaDirectory = Bun.env.HERALD_MEDIA_DIRECTORY
+const mediaDirectory = Bun.env.POSTBOT_MEDIA_DIRECTORY
 
 if (
     !isSafeE2EDataDirectory(dataDirectory) ||
-    databaseFile !== join(dataDirectory, 'herald.sqlite') ||
+    databaseFile !== join(dataDirectory, 'postbot.sqlite') ||
     mediaDirectory !== join(dataDirectory, 'media')
 ) {
     throw new Error('The E2E API data directory is not safely configured')

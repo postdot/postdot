@@ -9,12 +9,12 @@ import {
     type DeliveryMode,
     type Publication,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
@@ -150,7 +150,7 @@ export interface PublicationPromotionStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationPromotionStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationPromotionStoreOptions
 ) {
     const client = database.$client

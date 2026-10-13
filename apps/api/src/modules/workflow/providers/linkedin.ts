@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionTarget } from '@herald/db'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     createLinkedInImagePublisher,
     createLinkedInTextPublisher,
@@ -14,12 +14,12 @@ import {
     type LinkedInDestination,
     type LinkedInImagePublisher,
     type LinkedInTextPublisher,
-} from '@herald/linkedin'
+} from '@postbot/linkedin'
 import {
     refreshAccessToken,
     type OAuthAuthorizationServer,
     type OAuthClientAuthentication,
-} from '@herald/oauth'
+} from '@postbot/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { publishLinkedInVideo } from './linkedin-video'

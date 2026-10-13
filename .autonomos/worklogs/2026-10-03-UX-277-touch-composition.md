@@ -21,7 +21,7 @@ scope switching, rather than stripping or ignoring formatting. Composition text
 is committed exactly once and emoji insertion restores editor focus.
 
 Full `bun run check` passed: 64 main browser journeys, two password-reset
-journeys and 17 build tasks. Log: `/tmp/herald-touch-check.log`.
+journeys and 17 build tasks. Log: `/tmp/postbot-touch-check.log`.
 
 ## Files and continuation
 

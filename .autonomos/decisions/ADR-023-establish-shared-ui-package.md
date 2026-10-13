@@ -5,7 +5,7 @@
 
 ## Context
 
-Herald currently has Tailwind tokens, the global stylesheet, and the first
+Postbot currently has Tailwind tokens, the global stylesheet, and the first
 shadcn/Base UI primitive inside `apps/web`. A future website and documentation
 surface should reuse the same visual language, while application-specific
 composition must remain independent from shared primitives. Tailwind CSS v4
@@ -14,7 +14,7 @@ components live outside the application source tree.
 
 ## Decision
 
-Create the private workspace package `@herald/ui` under `packages/ui`.
+Create the private workspace package `@postbot/ui` under `packages/ui`.
 
 The package owns:
 
@@ -30,7 +30,7 @@ stylesheet must not contain paths to a particular application. Product-domain
 components, route composition, data fetching, and API clients remain in the
 consuming application or their relevant domain package.
 
-The web application imports shared components through `@herald/ui` public
+The web application imports shared components through `@postbot/ui` public
 subpaths and imports the shared stylesheet once from its local Tailwind entry
 point. The first migration moves the existing Button primitive and class
 utility into the package without changing their public behavior.
@@ -44,16 +44,16 @@ utility into the package without changing their public behavior.
    this splits ownership of the design system and creates a second boundary to
    coordinate.
 3. Build a fully generic publishable component library immediately: this adds
-   packaging and compatibility constraints before Herald has more than one
+   packaging and compatibility constraints before Postbot has more than one
    consuming surface.
 
 ## Consequences
 
 - Shared UI code has a durable ownership boundary and can be consumed by future
-  Herald applications.
+  Postbot applications.
 - Tailwind source discovery is explicit and remains local to each consumer.
 - The workspace gains a small React package and a package-local component test
   gate.
 - Generic UI remains separate from product behavior; components are still
-  allowed to be intentionally Herald-specific rather than prematurely
+  allowed to be intentionally Postbot-specific rather than prematurely
   general-purpose.

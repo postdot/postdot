@@ -1,4 +1,4 @@
-import { Toaster } from '@herald/ui/components/toast'
+import { Toaster } from '@postbot/ui/components/toast'
 import { SolarProvider } from '@solar-icons/react'
 import { createRootRoute, Outlet, type ErrorComponentProps } from '@tanstack/react-router'
 

@@ -1,6 +1,6 @@
-import { Button } from '@herald/ui/components/button'
-import { Input } from '@herald/ui/components/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
+import { Button } from '@postbot/ui/components/button'
+import { Input } from '@postbot/ui/components/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@postbot/ui/components/popover'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
 import { Extension } from '@tiptap/core'
@@ -87,7 +87,7 @@ export function ConfiguredPublicationEditor({
                             if (
                                 !transaction.docChanged ||
                                 maxLength === undefined ||
-                                transaction.getMeta('heraldExternalContent')
+                                transaction.getMeta('postbotExternalContent')
                             )
                                 return true
                             const length = (doc: typeof transaction.doc) =>
@@ -150,7 +150,7 @@ export function ConfiguredPublicationEditor({
         editor
             .chain()
             .command(({ tr }) => {
-                tr.setMeta('heraldExternalContent', true)
+                tr.setMeta('postbotExternalContent', true)
                 return true
             })
             .setContent(codec && !raw ? codec.parse(value) : plainDocument(value), {

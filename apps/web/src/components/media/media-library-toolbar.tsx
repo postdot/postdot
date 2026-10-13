@@ -1,20 +1,20 @@
-import { Button } from '@herald/ui/components/button'
-import { ButtonGroup } from '@herald/ui/components/button-group'
-import { Input } from '@herald/ui/components/input'
-import { Kbd } from '@herald/ui/components/kbd'
+import { Button } from '@postbot/ui/components/button'
+import { ButtonGroup } from '@postbot/ui/components/button-group'
+import { Input } from '@postbot/ui/components/input'
+import { Kbd } from '@postbot/ui/components/kbd'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@herald/ui/components/tooltip'
+} from '@postbot/ui/components/tooltip'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'

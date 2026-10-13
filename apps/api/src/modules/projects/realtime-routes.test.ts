@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { parseEventJournalCursor, type EventJournalEntry } from '@herald/db'
+import { parseEventJournalCursor, type EventJournalEntry } from '@postbot/db'
 
 import {
     createProjectEventStream,

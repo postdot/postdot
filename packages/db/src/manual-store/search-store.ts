@@ -1,4 +1,4 @@
-import type { HeraldDatabase } from '../client'
+import type { PostbotDatabase } from '../client'
 
 export interface SearchResult {
     readonly kind: 'post' | 'channel' | 'project' | 'media'
@@ -11,7 +11,7 @@ export interface SearchResult {
 }
 
 /** Callers supply the live authorized project set, never historical actors. */
-export function createSearchStore(database: HeraldDatabase) {
+export function createSearchStore(database: PostbotDatabase) {
     return {
         search(projectIds: readonly string[], query: string): SearchResult[] {
             if (projectIds.length === 0 || query.trim().length < 2) return []

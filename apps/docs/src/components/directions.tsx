@@ -12,7 +12,7 @@ import '@fontsource-variable/space-grotesk'
 import './directions.css'
 import './prism-system.css'
 
-import { HeraldLogo } from './brand'
+import { PostbotLogo } from './brand'
 const labels = { prism: 'Prism', studio: 'Studio', signal: 'Signal' }
 const image = (style: Style) => `/design/${style === 'studio' ? 'studio' : 'glass'}.webp`
 const channels = ['Source', 'Bluesky', 'LinkedIn', 'Manual']
@@ -26,8 +26,8 @@ const copy = [
 function Brand() {
     return (
         <Link href="/" className="d-brand">
-            <HeraldLogo />
-            Herald
+            <PostbotLogo />
+            Postbot
         </Link>
     )
 }
@@ -69,7 +69,7 @@ function Buttons({ studio = false }: { studio?: boolean }) {
     return (
         <div className="d-actions">
             <Link className="d-button" href="/docs/installation/">
-                Start with Herald <span aria-hidden="true">↗</span>
+                Start with Postbot <span aria-hidden="true">↗</span>
             </Link>
             <a className="d-text-link" href="#workflow">
                 {studio ? 'Take a look around' : 'Explore the workflow'}
@@ -113,7 +113,7 @@ function Product({ style }: { style: Style }) {
             </div>
             <div className="d-workspace">
                 <aside className="d-product-rail">
-                    <HeraldLogo />
+                    <PostbotLogo />
                     <span className="is-active">Compose</span>
                     <span>Calendar</span>
                     <span>Media</span>
@@ -253,7 +253,7 @@ function SignalField() {
                 <circle cx="140" cy="280" r="6" fill="#ecb98a" />
                 <circle cx="448" cy="220" r="8" fill="#aaa8ff" />
             </svg>
-            <HeraldLogo />
+            <PostbotLogo />
             <span className="d-field-label field-one">Your source</span>
             <span className="d-field-label field-two">Every destination</span>
         </div>
@@ -347,7 +347,7 @@ function DocsEntry() {
                     <br />
                     to your next post.
                 </h2>
-                <p>A practical path into Herald.</p>
+                <p>A practical path into Postbot.</p>
                 <Link className="d-button" href="/docs/">
                     Open the docs <span aria-hidden="true">↗</span>
                 </Link>
@@ -454,7 +454,7 @@ export function Direction({ direction: style }: { direction: Style }) {
                         <div className="d-studio-scene">
                             <Campaign style={style} />
                             <div className="d-studio-note">
-                                <HeraldLogo />
+                                <PostbotLogo />
                                 <p>
                                     A new collection.
                                     <br />
@@ -537,13 +537,13 @@ export function Direction({ direction: style }: { direction: Style }) {
                 <Ownership style={style} />
                 <DocsEntry />
                 <section className="d-final">
-                    <HeraldLogo />
+                    <PostbotLogo />
                     <h2>
                         Give your next idea
                         <br />a place to go.
                     </h2>
                     <Link className="d-button" href="/docs/installation/">
-                        Start with Herald <span aria-hidden="true">↗</span>
+                        Start with Postbot <span aria-hidden="true">↗</span>
                     </Link>
                 </section>
             </main>
@@ -563,7 +563,7 @@ export function DirectionGallery() {
                 <h1>
                     Two directions
                     <br />
-                    to see Herald.
+                    to see Postbot.
                 </h1>
                 <p>Typography. Material. Rhythm. A complete direction for each.</p>
                 <div className="d-gallery-list">

@@ -19,7 +19,7 @@ export function createNotificationDestinationSecretCipher(
     options: CreateNotificationDestinationSecretCipherOptions
 ): NotificationDestinationSecretCipher {
     return createSecretCipher({
-        domain: 'herald.notification-destination-secret',
+        domain: 'postbot.notification-destination-secret',
         keyId: options.keyId,
         key: options.key,
     })

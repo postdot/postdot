@@ -101,7 +101,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
 
             expect(requestBody).toEqual({
                 externalId: 'provider-publication-124',
-                externalUrl: 'https://example.test/herald/recovery',
+                externalUrl: 'https://example.test/postbot/recovery',
                 resolution: 'published',
             })
             const publication = editorResponse?.editor.publication
@@ -132,7 +132,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(page.getByRole('button', { name: 'Mark as published', exact: true })).toBeVisible()
 
     await page.getByLabel('Provider publication ID').fill('provider-publication-124')
-    await page.getByLabel('Published URL (optional)').fill('https://example.test/herald/recovery')
+    await page.getByLabel('Published URL (optional)').fill('https://example.test/postbot/recovery')
     await page.getByRole('button', { name: 'Mark as published', exact: true }).click()
     await expect(page.getByRole('alert')).toHaveCount(0)
     expect(reconcileCalls).toBe(2)
@@ -141,9 +141,9 @@ test('resolves an ambiguous publication without retrying the provider', async ({
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-124 ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-124-recovery-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-124-recovery-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-124-recovery-password')
     await Promise.all([
         page.waitForResponse(

@@ -1,23 +1,23 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
-import { Textarea } from '@herald/ui/components/textarea'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+} from '@postbot/ui/components/select'
+import { Textarea } from '@postbot/ui/components/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'

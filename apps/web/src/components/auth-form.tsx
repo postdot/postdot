@@ -1,6 +1,6 @@
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { EyeClosedIcon } from '@solar-icons/react/linear/eye-closed'
 import { useEffect, useId, useState, type FormEvent } from 'react'
@@ -59,7 +59,7 @@ export function AuthForm({
     const emailId = `auth-email-${formId}`
     const passwordId = `auth-password-${formId}`
     const resolvedModeToggleLabels = modeToggleLabels ?? {
-        signIn: m.auth_setup_herald(),
+        signIn: m.auth_setup_postbot(),
         signUp: m.auth_back_to_sign_in(),
     }
 

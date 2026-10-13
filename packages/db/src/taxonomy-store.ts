@@ -8,12 +8,12 @@ import {
     type Project,
     type ProjectCategory,
     type ProjectTag,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from './client'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
@@ -151,7 +151,7 @@ function sortTagIds(tags: ReadonlyMap<string, TaxonomyTagRow>, tagIds: readonly 
     })
 }
 
-export function createTaxonomyStore(database: HeraldDatabase, options: TaxonomyStoreOptions = {}) {
+export function createTaxonomyStore(database: PostbotDatabase, options: TaxonomyStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

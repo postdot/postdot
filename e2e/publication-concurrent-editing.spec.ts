@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
 import AxeBuilder from '@axe-core/playwright'
-import type { PublicationEditorState } from '@herald/client'
 import { expect, test, type Page } from '@playwright/test'
+import type { PublicationEditorState } from '@postbot/client'
 
 test('rebases a stale sibling draft without replacing destination text or attachments', async ({
     page,
@@ -124,7 +124,7 @@ test('recovers unsaved destination changes after another session saves a newer d
             .locator('[data-target-field="media"]')
             .getByRole('button', { name: 'Remove second.png', exact: true })
             .click()
-        const key = `herald:publication-editor:v3:${pair.id}:${pair.first}`
+        const key = `postbot:publication-editor:v3:${pair.id}:${pair.first}`
         await expect
             .poll(async () =>
                 other.evaluate(
@@ -191,7 +191,7 @@ test('recovers unsaved destination changes after another session saves a newer d
         await other.evaluate(
             ({ key, buffer }) => {
                 localStorage.setItem(key, JSON.stringify(buffer))
-                localStorage.setItem('herald-theme', 'light')
+                localStorage.setItem('postbot-theme', 'light')
             },
             {
                 key,
@@ -289,7 +289,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'
         )
-        const key = `herald:publication-editor:v3:${pair.id}:${pair.first}`
+        const key = `postbot:publication-editor:v3:${pair.id}:${pair.first}`
         await expect
             .poll(async () =>
                 other.evaluate(
@@ -600,9 +600,9 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
 async function createDraftPair(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Concurrent editor owner')
-    await page.getByLabel('Email', { exact: true }).fill(`concurrent-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`concurrent-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('concurrent-editor-password')
     await Promise.all([
         page.waitForResponse(

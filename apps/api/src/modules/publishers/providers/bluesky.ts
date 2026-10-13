@@ -1,4 +1,4 @@
-import type { PublisherConnectionPolicy } from '@herald/db'
+import type { PublisherConnectionPolicy } from '@postbot/db'
 
 export const blueskyPublisherConnectionPolicy: PublisherConnectionPolicy = {
     defaultDestination: credential => ({

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import { DomainInvariantError } from '@herald/core'
-import { MediaStoreError } from '@herald/media'
+import { DomainInvariantError } from '@postbot/core'
+import { MediaStoreError } from '@postbot/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
 import type { Logger } from 'pino'
 
@@ -11,7 +11,7 @@ export function createErrorHandler(logger?: Logger) {
     const loggedRequests = new WeakSet<Request>()
     const requestIds = new WeakMap<Request, string>()
 
-    const app = new Elysia({ name: 'herald-error-handler' })
+    const app = new Elysia({ name: 'postbot-error-handler' })
 
     app.request(({ request, set }) => {
         if (logger === undefined) return

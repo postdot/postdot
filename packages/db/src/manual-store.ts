@@ -15,9 +15,9 @@ import {
     type SourceContent,
     type TargetContent,
     type Timestamp,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { recordDatabaseCommitProject, type HeraldDatabase } from './client'
+import { recordDatabaseCommitProject, type PostbotDatabase } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
 import { parseProfile } from './manual-store/content-codec'
@@ -343,7 +343,7 @@ export interface AuditEvent {
     readonly createdAt: Timestamp
 }
 
-export function createManualStore(database: HeraldDatabase, options: ManualStoreOptions = {}) {
+export function createManualStore(database: PostbotDatabase, options: ManualStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

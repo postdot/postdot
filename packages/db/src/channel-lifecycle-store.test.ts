@@ -14,7 +14,7 @@ function createFixture() {
     const project = store.createProject({
         name: 'Channel lifecycle project',
         subjectId: 'user-1',
-        displayName: 'Herald Operator',
+        displayName: 'Postbot Operator',
     })
     const channel = store.createChannel({
         projectId: project.project.id,

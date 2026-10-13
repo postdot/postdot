@@ -1,5 +1,5 @@
-import type { NetworkControlledBinaryFetcher } from '@herald/custom-http'
-import type { MediaAssetStore, MediaUploadReservation } from '@herald/db'
+import type { NetworkControlledBinaryFetcher } from '@postbot/custom-http'
+import type { MediaAssetStore, MediaUploadReservation } from '@postbot/db'
 
 const MAX_MEDIA_URL_LENGTH = 2_048
 const DEFAULT_MAX_REDIRECTS = 3
@@ -183,7 +183,7 @@ async function fetchMediaUrl(
             signal: controller.signal,
             headers: {
                 accept: allowedContentTypes.join(', '),
-                'user-agent': 'Herald media importer',
+                'user-agent': 'Postbot media importer',
             },
         })
     } catch (error) {

@@ -3,8 +3,9 @@ export const providerAnalyticsContractVersion = 1 as const
 export const providerAnalyticsSubjectTypes = ['account', 'content'] as const
 export type ProviderAnalyticsSubjectType = (typeof providerAnalyticsSubjectTypes)[number]
 
-export const providerAnalyticsHeraldEntityTypes = ['channel', 'publication'] as const
-export type ProviderAnalyticsHeraldEntityType = (typeof providerAnalyticsHeraldEntityTypes)[number]
+export const providerAnalyticsPostbotEntityTypes = ['channel', 'publication'] as const
+export type ProviderAnalyticsPostbotEntityType =
+    (typeof providerAnalyticsPostbotEntityTypes)[number]
 
 export const providerAnalyticsAvailabilityStates = [
     'measured',
@@ -33,8 +34,8 @@ export interface ProviderAnalyticsObservation {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly heraldEntityType: ProviderAnalyticsHeraldEntityType | null
-    readonly heraldEntityId: string | null
+    readonly postbotEntityType: ProviderAnalyticsPostbotEntityType | null
+    readonly postbotEntityId: string | null
     readonly metricName: string
     readonly value: number | null
     readonly unit: string

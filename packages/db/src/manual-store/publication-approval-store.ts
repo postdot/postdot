@@ -3,13 +3,13 @@ import {
     requireNonBlank,
     requireTimestamp,
     type PublicationApprovalRequest,
-} from '@herald/core'
-import type { Publication } from '@herald/core'
+} from '@postbot/core'
+import type { Publication } from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import type { ActorRow } from './rows'
@@ -95,7 +95,7 @@ function toApprovalRequest(row: ApprovalRequestDbRow): PublicationApprovalReques
 }
 
 export function createPublicationApprovalStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationApprovalStoreOptions
 ) {
     const client = database.$client

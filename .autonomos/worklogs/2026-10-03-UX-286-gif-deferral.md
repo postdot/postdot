@@ -12,7 +12,7 @@ substitute for the requested catalog.
 ## Conclusions retained
 
 - Branding and provider-specific presentation requirements are manageable costs,
-  but must be assessed alongside Herald accessibility and interface conventions.
+  but must be assessed alongside Postbot accessibility and interface conventions.
 - GIPHY beta limits attach to an API key, not independently to every browser.
   Multiple people sharing one instance key share its allowance. Do not promise
   per-browser quotas or guaranteed free production access for either provider.
@@ -20,7 +20,7 @@ substitute for the requested catalog.
   the administrator through the UI, with settings stored in the database rather
   than requiring environment variables. Direct-client keys remain visible to
   the client; database storage does not make such a key server-only.
-- Standard provider terms do not establish authorization for Herald retaining
+- Standard provider terms do not establish authorization for Postbot retaining
   selections, retrieving bytes later on the server and uploading them to social
   destinations. This is an unresolved contract fit, not a finding that every
   external publication is categorically illegal. Cache permission alone may not

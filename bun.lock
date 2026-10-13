@@ -3,9 +3,9 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "herald",
+      "name": "postbot",
       "dependencies": {
-        "@herald/client": "workspace:*",
+        "@postbot/client": "workspace:*",
       },
       "devDependencies": {
         "@autonomos/cli": "^0.6.0",
@@ -28,24 +28,24 @@
       },
     },
     "apps/api": {
-      "name": "@herald/api",
+      "name": "@postbot/api",
       "dependencies": {
         "@atproto/api": "0.22.0",
         "@elysia/static": "2.0.0-beta.2",
         "@elysiajs/openapi": "2.0.0-exp.0",
-        "@herald/auth": "workspace:*",
-        "@herald/bluesky": "workspace:*",
-        "@herald/core": "workspace:*",
-        "@herald/custom-http": "workspace:*",
-        "@herald/db": "workspace:*",
-        "@herald/devto": "workspace:*",
-        "@herald/discord": "workspace:*",
-        "@herald/email": "workspace:*",
-        "@herald/linkedin": "workspace:*",
-        "@herald/mastodon": "workspace:*",
-        "@herald/media": "workspace:*",
-        "@herald/oauth": "workspace:*",
-        "@herald/x": "workspace:*",
+        "@postbot/auth": "workspace:*",
+        "@postbot/bluesky": "workspace:*",
+        "@postbot/core": "workspace:*",
+        "@postbot/custom-http": "workspace:*",
+        "@postbot/db": "workspace:*",
+        "@postbot/devto": "workspace:*",
+        "@postbot/discord": "workspace:*",
+        "@postbot/email": "workspace:*",
+        "@postbot/linkedin": "workspace:*",
+        "@postbot/mastodon": "workspace:*",
+        "@postbot/media": "workspace:*",
+        "@postbot/oauth": "workspace:*",
+        "@postbot/x": "workspace:*",
         "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.3",
@@ -65,12 +65,13 @@
       },
     },
     "apps/docs": {
-      "name": "@herald/docs",
+      "name": "@postbot/docs",
       "dependencies": {
         "@fontsource-variable/bricolage-grotesque": "^5.3.0",
         "@fontsource-variable/manrope": "^5.3.0",
         "@fontsource-variable/recursive": "5.3.0",
         "@fontsource-variable/space-grotesk": "^5.3.0",
+        "@postbot/ui": "workspace:*",
         "fumadocs-core": "16.17.1",
         "fumadocs-mdx": "15.4.7",
         "fumadocs-ui": "npm:@fumadocs/base-ui@16.17.1",
@@ -89,19 +90,19 @@
       },
     },
     "apps/web": {
-      "name": "@herald/web",
+      "name": "@postbot/web",
       "dependencies": {
         "@base-ui/react": "1.8.0",
         "@date-fns/tz": "1.5.0",
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
-        "@herald/client": "workspace:*",
-        "@herald/core": "workspace:*",
-        "@herald/ui": "workspace:*",
-        "@herald/x": "workspace:*",
         "@iconify-icons/flag": "2.0.0",
         "@iconify-icons/logos": "2.0.2",
         "@iconify/react": "6.0.2",
+        "@postbot/client": "workspace:*",
+        "@postbot/core": "workspace:*",
+        "@postbot/ui": "workspace:*",
+        "@postbot/x": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@tanstack/hotkeys": "0.10.1",
         "@tanstack/query-db-collection": "^1.3.1",
@@ -150,11 +151,11 @@
       },
     },
     "packages/auth": {
-      "name": "@herald/auth",
+      "name": "@postbot/auth",
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/api-key": "1.7.7",
-        "@herald/db": "workspace:*",
+        "@postbot/db": "workspace:*",
         "better-auth": "1.7.7",
       },
       "devDependencies": {
@@ -164,7 +165,7 @@
       },
     },
     "packages/bluesky": {
-      "name": "@herald/bluesky",
+      "name": "@postbot/bluesky",
       "version": "0.0.0",
       "dependencies": {
         "@atproto/api": "0.22.0",
@@ -172,7 +173,7 @@
         "@atproto/jwk-webcrypto": "0.3.4",
         "@atproto/oauth-client": "0.8.8",
         "@atproto/oauth-types": "0.7.7",
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -181,22 +182,22 @@
       },
     },
     "packages/client": {
-      "name": "@herald/client",
+      "name": "@postbot/client",
       "version": "0.0.0",
       "dependencies": {
         "@elysiajs/eden": "1.4.9",
       },
       "devDependencies": {
-        "@herald/api": "workspace:*",
-        "@herald/auth": "workspace:*",
-        "@herald/db": "workspace:*",
+        "@postbot/api": "workspace:*",
+        "@postbot/auth": "workspace:*",
+        "@postbot/db": "workspace:*",
         "@tala-tools/tsconfig": "0.1.0",
         "@types/bun": "1.4.2",
         "typescript": "7.0.2",
       },
     },
     "packages/core": {
-      "name": "@herald/core",
+      "name": "@postbot/core",
       "version": "0.0.0",
       "dependencies": {
         "typebox": "1.3.34",
@@ -208,10 +209,10 @@
       },
     },
     "packages/custom-http": {
-      "name": "@herald/custom-http",
+      "name": "@postbot/custom-http",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -220,11 +221,11 @@
       },
     },
     "packages/db": {
-      "name": "@herald/db",
+      "name": "@postbot/db",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
-        "@herald/media": "workspace:*",
+        "@postbot/core": "workspace:*",
+        "@postbot/media": "workspace:*",
         "drizzle-orm": "0.45.3",
         "mp4box": "2.4.1",
       },
@@ -237,10 +238,10 @@
       },
     },
     "packages/devto": {
-      "name": "@herald/devto",
+      "name": "@postbot/devto",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -249,10 +250,10 @@
       },
     },
     "packages/discord": {
-      "name": "@herald/discord",
+      "name": "@postbot/discord",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -261,10 +262,10 @@
       },
     },
     "packages/email": {
-      "name": "@herald/email",
+      "name": "@postbot/email",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/ui": "workspace:*",
+        "@postbot/ui": "workspace:*",
         "@react-email/body": "0.3.0",
         "@react-email/button": "0.2.1",
         "@react-email/container": "0.0.16",
@@ -291,10 +292,10 @@
       },
     },
     "packages/linkedin": {
-      "name": "@herald/linkedin",
+      "name": "@postbot/linkedin",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -303,10 +304,10 @@
       },
     },
     "packages/mastodon": {
-      "name": "@herald/mastodon",
+      "name": "@postbot/mastodon",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -315,7 +316,7 @@
       },
     },
     "packages/media": {
-      "name": "@herald/media",
+      "name": "@postbot/media",
       "version": "0.0.0",
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -324,7 +325,7 @@
       },
     },
     "packages/oauth": {
-      "name": "@herald/oauth",
+      "name": "@postbot/oauth",
       "version": "0.0.0",
       "dependencies": {
         "oauth4webapi": "3.8.8",
@@ -336,7 +337,7 @@
       },
     },
     "packages/ui": {
-      "name": "@herald/ui",
+      "name": "@postbot/ui",
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "1.8.0",
@@ -372,10 +373,10 @@
       },
     },
     "packages/x": {
-      "name": "@herald/x",
+      "name": "@postbot/x",
       "version": "0.0.0",
       "dependencies": {
-        "@herald/core": "workspace:*",
+        "@postbot/core": "workspace:*",
         "twitter-text": "3.1.0",
       },
       "devDependencies": {
@@ -827,42 +828,6 @@
 
     "@fumari/image-size": ["@fumari/image-size@0.1.1", "", {}, "sha512-iaiV2wyzJ4mW358NX4CX3yGit+WjKYzpaQ+rldK9BjL/5jFpeV6ruWnZVq7MEyMn3Gd0DLi8g/79NZAAQaGscw=="],
 
-    "@herald/api": ["@herald/api@workspace:apps/api"],
-
-    "@herald/auth": ["@herald/auth@workspace:packages/auth"],
-
-    "@herald/bluesky": ["@herald/bluesky@workspace:packages/bluesky"],
-
-    "@herald/client": ["@herald/client@workspace:packages/client"],
-
-    "@herald/core": ["@herald/core@workspace:packages/core"],
-
-    "@herald/custom-http": ["@herald/custom-http@workspace:packages/custom-http"],
-
-    "@herald/db": ["@herald/db@workspace:packages/db"],
-
-    "@herald/devto": ["@herald/devto@workspace:packages/devto"],
-
-    "@herald/discord": ["@herald/discord@workspace:packages/discord"],
-
-    "@herald/docs": ["@herald/docs@workspace:apps/docs"],
-
-    "@herald/email": ["@herald/email@workspace:packages/email"],
-
-    "@herald/linkedin": ["@herald/linkedin@workspace:packages/linkedin"],
-
-    "@herald/mastodon": ["@herald/mastodon@workspace:packages/mastodon"],
-
-    "@herald/media": ["@herald/media@workspace:packages/media"],
-
-    "@herald/oauth": ["@herald/oauth@workspace:packages/oauth"],
-
-    "@herald/ui": ["@herald/ui@workspace:packages/ui"],
-
-    "@herald/web": ["@herald/web@workspace:apps/web"],
-
-    "@herald/x": ["@herald/x@workspace:packages/x"],
-
     "@hono/node-server": ["@hono/node-server@2.1.3", "", { "peerDependencies": { "hono": "^4" } }, "sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw=="],
 
     "@iconify-icons/flag": ["@iconify-icons/flag@2.0.0", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-mb/5FbjoRjMkjJ80N0OD13fPbtcoiUmn7Qa9WXJay12gotYFPlDbx0RRXZJagzv3FXqJtii1a+yEEYiLiDpqYw=="],
@@ -1226,6 +1191,42 @@
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
+
+    "@postbot/api": ["@postbot/api@workspace:apps/api"],
+
+    "@postbot/auth": ["@postbot/auth@workspace:packages/auth"],
+
+    "@postbot/bluesky": ["@postbot/bluesky@workspace:packages/bluesky"],
+
+    "@postbot/client": ["@postbot/client@workspace:packages/client"],
+
+    "@postbot/core": ["@postbot/core@workspace:packages/core"],
+
+    "@postbot/custom-http": ["@postbot/custom-http@workspace:packages/custom-http"],
+
+    "@postbot/db": ["@postbot/db@workspace:packages/db"],
+
+    "@postbot/devto": ["@postbot/devto@workspace:packages/devto"],
+
+    "@postbot/discord": ["@postbot/discord@workspace:packages/discord"],
+
+    "@postbot/docs": ["@postbot/docs@workspace:apps/docs"],
+
+    "@postbot/email": ["@postbot/email@workspace:packages/email"],
+
+    "@postbot/linkedin": ["@postbot/linkedin@workspace:packages/linkedin"],
+
+    "@postbot/mastodon": ["@postbot/mastodon@workspace:packages/mastodon"],
+
+    "@postbot/media": ["@postbot/media@workspace:packages/media"],
+
+    "@postbot/oauth": ["@postbot/oauth@workspace:packages/oauth"],
+
+    "@postbot/ui": ["@postbot/ui@workspace:packages/ui"],
+
+    "@postbot/web": ["@postbot/web@workspace:apps/web"],
+
+    "@postbot/x": ["@postbot/x@workspace:packages/x"],
 
     "@prometheus-io/client": ["@prometheus-io/client@0.16.1", "", { "dependencies": { "@opentelemetry/api": "^1.4.0", "tdigest": "^0.1.1" } }, "sha512-XkFPsGFGoSs/UMg/vh0QLDpanl/tsrOV5PLHdpGe8Ho+ir/Llhytr15j6y8ZwLrpIGzK9gTVVpIalA6C4UjUZw=="],
 

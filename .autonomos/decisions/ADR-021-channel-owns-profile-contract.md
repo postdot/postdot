@@ -16,7 +16,7 @@ the destination shape. That makes it impossible to validate or snapshot a target
 before automation is connected, and it conflates destination identity with the
 mechanism used to deliver a publication.
 
-Herald must also support manual publications on channels that have an available
+Postbot must also support manual publications on channels that have an available
 publisher, automatic publications only when a compatible publisher is connected,
 and custom channels whose schema is materialized at creation time.
 

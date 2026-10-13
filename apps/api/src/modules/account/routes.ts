@@ -1,14 +1,14 @@
-import type { HeraldAuth } from '@herald/auth'
-import { AvatarValidationError, avatarMaxBytes, type UserAvatarStore } from '@herald/db'
+import type { PostbotAuth } from '@postbot/auth'
+import { AvatarValidationError, avatarMaxBytes, type UserAvatarStore } from '@postbot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
 export function createAccountRoutes(
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     avatars: UserAvatarStore | undefined,
     allowedOrigins: readonly string[] = []
 ) {
-    return new Elysia({ name: 'herald-personal-account', prefix: '/api/account' })
+    return new Elysia({ name: 'postbot-personal-account', prefix: '/api/account' })
         .derive(async ({ request }) => {
             const headers = new Headers()
             headers.set('cookie', request.headers.get('cookie') ?? '')

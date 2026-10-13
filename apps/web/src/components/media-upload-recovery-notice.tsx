@@ -1,7 +1,7 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 
-import type { HeraldMediaUppyFile } from '@/lib/herald-media-upload'
+import type { PostbotMediaUppyFile } from '@/lib/postbot-media-upload'
 import * as m from '@/paraglide/messages.js'
 
 export function MediaUploadRecoveryNotice({
@@ -12,7 +12,7 @@ export function MediaUploadRecoveryNotice({
     onResume,
     pending,
 }: {
-    readonly files: readonly HeraldMediaUppyFile[]
+    readonly files: readonly PostbotMediaUppyFile[]
     readonly missingFileCount: number
     readonly onDismiss: () => void
     readonly onReselectMissing: () => void

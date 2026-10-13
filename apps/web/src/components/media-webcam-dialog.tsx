@@ -1,5 +1,5 @@
-import { Alert, AlertDescription } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -7,7 +7,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
+} from '@postbot/ui/components/dialog'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { useEffect, useRef, useState } from 'react'
 

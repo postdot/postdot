@@ -13,5 +13,5 @@ const body = source
 await mkdir(new URL('../content/docs/', import.meta.url), { recursive: true })
 await writeFile(
     new URL('../content/docs/installation.mdx', import.meta.url),
-    `---\ntitle: Installation\ndescription: Run Herald on your own infrastructure.\n---\n${body}`
+    `---\ntitle: Installation\ndescription: Run Postbot on your own infrastructure.\n---\n${body}`
 )

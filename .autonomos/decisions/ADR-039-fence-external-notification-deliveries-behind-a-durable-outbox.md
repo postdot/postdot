@@ -7,14 +7,14 @@
 
 ## Context
 
-Herald's fact journal and in-app inbox are durable, but an external notification is a
+Postbot's fact journal and in-app inbox are durable, but an external notification is a
 separate effect with its own ownership, policy, latency, retry, and ambiguity. In-app
 preferences must not determine whether an independently enabled Ntfy, Telegram, email,
 or webhook destination receives an outcome.
 
 The initial Ntfy candidate uses an HTTP JSON publish API with optional bearer
 authentication. Its response can identify a created message, but the provider does not
-offer a general request-idempotency guarantee for arbitrary retries. Herald must
+offer a general request-idempotency guarantee for arbitrary retries. Postbot must
 therefore retain the same pre-effect and post-effect distinction used for publication.
 
 ## Decision
@@ -45,7 +45,7 @@ ambiguous. Only failures that explicitly guarantee no external effect may be ret
 Permanent and ambiguous outcomes require explicit later policy rather than automatic
 redispatch.
 
-The generic external-effect executor in `@herald/core` is reused by publication and
+The generic external-effect executor in `@postbot/core` is reused by publication and
 notification workers. Transport packages implement a narrow effect contract and cannot
 write publication or journal state directly.
 
@@ -61,7 +61,7 @@ write publication or journal state directly.
   notification replacement/deletion semantics and is not documented as a general
   exactly-once request key.
 - Cascade-delete a destination with its delivery history: rejected because a running
-  external effect could be deleted before Herald classifies its outcome. Destinations
+  external effect could be deleted before Postbot classifies its outcome. Destinations
   are disabled first; hard deletion requires an explicit retention policy.
 
 ## Consequences

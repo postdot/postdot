@@ -4,11 +4,11 @@
 
 The owner approved direct external image URL insertion for articles. Preserve the
 single-process deployment and private media storage. Public image hosting by
-Herald remains an optional future capability with its own explicit activation,
+Postbot remains an optional future capability with its own explicit activation,
 access and retention contract; this change does not implement it or supersede
 ADR-022.
 
-The existing media URL importer downloads bytes into Herald's storage and does
+The existing media URL importer downloads bytes into Postbot's storage and does
 not retain the source URL. Filtering that library cannot provide external article
 references. Keep its behavior for social attachments, separately from article
 image insertion. Do not infer source addresses for previously imported assets.
@@ -48,7 +48,7 @@ invalid address rejection. Seven focused browser journeys passed, including API 
 compatibility, recovery, image replacement, undo, accessibility and responsive
 captures. The full `bun run check` passed: formatting, lint, spelling, type checks,
 unit tests, 60 main browser journeys, two password-reset scenarios and all 17
-build tasks. Log: `/tmp/herald-external-article-images-check.log`.
+build tasks. Log: `/tmp/postbot-external-article-images-check.log`.
 
 ## Follow-up
 

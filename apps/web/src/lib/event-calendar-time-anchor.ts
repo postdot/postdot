@@ -54,7 +54,7 @@ interface InitialTimeGridAnchorOptions {
 
 /**
  * Choose the first visible time slot without inventing a universal working
- * day. Empty ranges use the configured start (00:00 in Herald); populated
+ * day. Empty ranges use the configured start (00:00 in Postbot); populated
  * ranges keep a small amount of temporal context before their first event.
  */
 function getInitialTimeGridAnchor({

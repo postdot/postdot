@@ -177,9 +177,9 @@ test('distinguishes repeated platforms and creates a channel without leaving the
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-124 ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-124-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-124-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-124-password')
     await Promise.all([
         page.waitForResponse(
@@ -309,7 +309,7 @@ test('keeps connection errors and retries in each form without losing entered de
                     kind: 'declarative_http',
                     contractId: 'custom-webhook',
                     revision: 'v1',
-                    mode: 'herald_webhook',
+                    mode: 'postbot_webhook',
                 },
             },
             name: 'HTTP',

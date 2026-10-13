@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import {
     X_EXECUTION_CONTRACT_REVISION,
@@ -16,8 +16,8 @@ import {
 export const xChannelProfile: ChannelProfileDefinition = {
     id: X_PROVIDER,
     version: 2,
-    profileHash: 'sha256:herald-x-post-v2',
-    schemaHash: 'sha256:herald-x-post-schema-v2',
+    profileHash: 'sha256:postbot-x-post-v2',
+    schemaHash: 'sha256:postbot-x-post-schema-v2',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

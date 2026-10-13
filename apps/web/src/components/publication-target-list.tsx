@@ -1,14 +1,14 @@
-import { Button } from '@herald/ui/components/button'
-import { Field as UiField, FieldLabel } from '@herald/ui/components/field'
+import { Button } from '@postbot/ui/components/button'
+import { Field as UiField, FieldLabel } from '@postbot/ui/components/field'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
-import { cn } from '@herald/ui/lib/utils'
+} from '@postbot/ui/components/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+import { cn } from '@postbot/ui/lib/utils'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { LayersMinimalisticIcon } from '@solar-icons/react/linear/layers-minimalistic'
 import { Link } from '@tanstack/react-router'

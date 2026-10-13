@@ -9,7 +9,7 @@ observation scripts and this record.
 WEB-312 and WEB-314 recorded "the Vite dev proxy breaks event streams", with
 `502` and `socket hang up` in the Vite log. The proxy is the messenger. The
 cause is upstream of it: **Bun's HTTP server closes any connection that has been
-idle for 10 seconds, and Herald's SSE heartbeat interval is 15 seconds.** A
+idle for 10 seconds, and Postbot's SSE heartbeat interval is 15 seconds.** A
 quiet stream is therefore always torn down before the first heartbeat can be
 written. The proxy only changes how the failure is *seen*.
 
@@ -19,10 +19,10 @@ Three scripts, each self-contained and each using its own data directory and
 operating-system-assigned loopback ports. No shared path is touched.
 
 ```bash
-# 1. Runtime in isolation: no Elysia, no Herald module, no product code.
+# 1. Runtime in isolation: no Elysia, no Postbot module, no product code.
 bun scripts/sse-runtime-idle-probe.ts
 
-# 2. Herald API origin versus Vite dev origin, timestamped chunk arrivals.
+# 2. Postbot API origin versus Vite dev origin, timestamped chunk arrivals.
 bash scripts/sse-proxy-repro.sh chunks 40
 
 # 3. Same runtimes, but a real mutation happens after the quiet period.
@@ -47,7 +47,7 @@ Bun names the mechanism in its own warning. The documentation agrees: `idleTimeo
 defaults to 10 seconds, applies *while a response is being streamed*, and tells
 browsers and `fetch` clients to expect a connection reset.
 
-### 2. Herald reproduces it, with the heartbeat interval as the trigger
+### 2. Postbot reproduces it, with the heartbeat interval as the trigger
 
 `apps/api/src/modules/projects/realtime-routes.ts:110` sets
 `heartbeatIntervalMs: 15_000`, which is already longer than the runtime's idle

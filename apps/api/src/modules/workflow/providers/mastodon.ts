@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionTarget } from '@herald/db'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     MASTODON_EXECUTION_CONTRACT_REVISION,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -13,8 +13,8 @@ import {
     type MastodonFetcher,
     type MastodonPublisher,
     type MastodonPublishOutcome,
-} from '@herald/mastodon'
-import { clientSecretPost, refreshAccessToken, type OAuthAuthorizationServer } from '@herald/oauth'
+} from '@postbot/mastodon'
+import { clientSecretPost, refreshAccessToken, type OAuthAuthorizationServer } from '@postbot/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { prepareMastodonVideo } from './mastodon-video'

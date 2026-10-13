@@ -4,7 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'nod
 import { chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
-import type { MediaStore } from '@herald/media'
+import type { MediaStore } from '@postbot/media'
 
 import { createRecoveryHold } from './recovery-hold'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
@@ -88,13 +88,13 @@ export function backupDatabase(sourceFilename: string, destinationFilename: stri
     const database = openReadOnlyDatabase(sourcePath)
     try {
         assertHealthy(database, sourcePath)
-        assertHeraldDatabase(database, sourcePath)
+        assertPostbotDatabase(database, sourcePath)
         database.query('VACUUM INTO ?').run(destinationPath)
 
         const backup = openReadOnlyDatabase(destinationPath)
         try {
             assertHealthy(backup, destinationPath)
-            assertHeraldDatabase(backup, destinationPath)
+            assertPostbotDatabase(backup, destinationPath)
         } finally {
             backup.close()
         }
@@ -127,7 +127,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
     const backup = openReadOnlyDatabase(sourcePath)
     try {
         assertHealthy(backup, sourcePath)
-        assertHeraldDatabase(backup, sourcePath)
+        assertPostbotDatabase(backup, sourcePath)
     } finally {
         backup.close()
     }
@@ -139,7 +139,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
         const restored = openReadOnlyDatabase(temporaryPath)
         try {
             assertHealthy(restored, temporaryPath)
-            assertHeraldDatabase(restored, temporaryPath)
+            assertPostbotDatabase(restored, temporaryPath)
         } finally {
             restored.close()
         }
@@ -186,7 +186,7 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
         let avatars: readonly MediaBackupAvatar[]
         try {
             assertHealthy(snapshot, databasePath)
-            assertHeraldDatabase(snapshot, databasePath)
+            assertPostbotDatabase(snapshot, databasePath)
             representations = snapshotMediaRepresentations(snapshot, options.mediaStore)
             avatars = snapshotAvatars(snapshot, options.mediaStore)
         } finally {
@@ -306,7 +306,7 @@ async function restoreWithMediaWithoutRuntimeLock(
     const bundleDatabase = openReadOnlyDatabase(bundleDatabasePath)
     try {
         assertHealthy(bundleDatabase, bundleDatabasePath)
-        assertHeraldDatabase(bundleDatabase, bundleDatabasePath)
+        assertPostbotDatabase(bundleDatabase, bundleDatabasePath)
         assertBackupDatabaseMediaMatches(bundleDatabase, manifest, options.mediaStore)
         const expectedAvatars = snapshotAvatars(bundleDatabase, options.mediaStore)
         const actualAvatars = manifest.avatars ?? []
@@ -358,7 +358,7 @@ async function restoreWithMediaWithoutRuntimeLock(
         const restored = openReadOnlyDatabase(temporaryPath)
         try {
             assertHealthy(restored, temporaryPath)
-            assertHeraldDatabase(restored, temporaryPath)
+            assertPostbotDatabase(restored, temporaryPath)
         } finally {
             restored.close()
         }
@@ -847,7 +847,7 @@ function assertHealthy(database: Database, filename: string) {
     }
 }
 
-function assertHeraldDatabase(database: Database, filename: string) {
+function assertPostbotDatabase(database: Database, filename: string) {
     const migrationsTable = database
         .query<{ name: string }, []>(
             `SELECT name
@@ -857,7 +857,7 @@ function assertHeraldDatabase(database: Database, filename: string) {
         .get()
 
     if (!migrationsTable) {
-        throw new Error(`The SQLite file is not a Herald database: ${filename}`)
+        throw new Error(`The SQLite file is not a Postbot database: ${filename}`)
     }
 }
 

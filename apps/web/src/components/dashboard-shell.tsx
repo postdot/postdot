@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { SidebarInset, SidebarProvider } from '@herald/ui/components/sidebar'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { SidebarInset, SidebarProvider } from '@postbot/ui/components/sidebar'
 import { useLocation } from '@tanstack/react-router'
 import { useEffect, useRef, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 
@@ -74,7 +74,7 @@ export function DashboardShell({
 
     return (
         <SidebarProvider
-            className="herald-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
+            className="postbot-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
             style={{ '--sidebar-width-icon': '2rem' } as CSSProperties}>
             <DashboardSidebar
                 activeSection={activeSection}

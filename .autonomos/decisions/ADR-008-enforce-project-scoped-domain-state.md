@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald must support several projects without tenant isolation and must never connect a
+Postbot must support several projects without tenant isolation and must never connect a
 post, channel, publication, actor, publisher, or job across project boundaries. The
 domain also needs publication and execution state without combining independent
 concepts or prematurely implementing the crash-recovery semantics owned by
@@ -27,7 +27,7 @@ rules, but would hide central invariants in procedural database behavior.
   distinct concepts. A publisher belongs to exactly one channel, and a channel has
   at most one publisher. No `ManualPublisher` exists.
 - Actors are project-scoped attribution identities. Their kind identifies a human,
-  agent, API token, or Herald system action without coupling the core model to Better
+  agent, API token, or Postbot system action without coupling the core model to Better
   Auth tables.
 - Publications use `draft`, `scheduled`, `ready`, `publishing`, `published`,
   `failed`, `ambiguous`, and `cancelled`. Jobs independently use `pending`,

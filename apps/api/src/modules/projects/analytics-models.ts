@@ -1,4 +1,4 @@
-import type { ProjectAnalytics } from '@herald/db'
+import type { ProjectAnalytics } from '@postbot/db'
 import { Type } from 'typebox'
 
 const publicationStateSchema = Type.Union([

@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@herald/media'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { closeDatabase, createDatabase } from './client'
 import { previewFixturePng } from './image-preview-fixture'
@@ -73,7 +73,7 @@ async function withFixture<T>(
     }) => Promise<T>,
     options: MediaFixtureOptions = {}
 ): Promise<T> {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-media-assets-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-media-assets-'))
     const database = createDatabase(':memory:')
     runMigrations(database)
     const project = seedProject(database, 'media')
@@ -455,7 +455,7 @@ describe('project media lifecycle', () => {
                 projectId,
                 subjectId,
                 originalFilename: 'cover.png',
-                defaultAccessibilityText: 'Herald cover',
+                defaultAccessibilityText: 'Postbot cover',
                 expectedSize: bytes.byteLength,
                 contentType: 'text/plain',
             })

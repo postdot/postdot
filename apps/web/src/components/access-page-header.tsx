@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Link, useSearch } from '@tanstack/react-router'
 import type { ReactNode } from 'react'

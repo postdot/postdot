@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button, buttonVariants } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button, buttonVariants } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Input } from '@herald/ui/components/input'
-import { cn } from '@herald/ui/lib/utils'
-import { parseXPostText } from '@herald/x/text'
+} from '@postbot/ui/components/dialog'
+import { Input } from '@postbot/ui/components/input'
+import { cn } from '@postbot/ui/lib/utils'
+import { parseXPostText } from '@postbot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'

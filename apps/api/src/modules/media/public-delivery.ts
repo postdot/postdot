@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const mediaDeliveryTokenVersion = 1
-const mediaDeliveryAudience = 'herald-media'
+const mediaDeliveryAudience = 'postbot-media'
 const maximumTokenLength = 2_048
 const maximumIdentifierLength = 255
 

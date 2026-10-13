@@ -15,7 +15,7 @@ claim that a public distribution is ready.
 
 Imports from `node:*` are compatibility APIs available in Bun, not evidence of a
 separate Node process. The Bun base image also supplies a command named `node`
-that delegates to Bun. The production image entrypoint is `bun /app/herald.js`.
+that delegates to Bun. The production image entrypoint is `bun /app/postbot.js`.
 Vite and workspace dependencies remain in the build stage; the final stage copies
 only the server bundle, migrations and static dashboard into the Bun slim image.
 

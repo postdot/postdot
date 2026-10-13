@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useNavigate } from '@tanstack/react-router'

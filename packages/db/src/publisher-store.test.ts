@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
@@ -85,7 +85,7 @@ async function createFixture() {
     const project = manualStore.createProject({
         name: 'Publisher Project',
         subjectId: 'user-1',
-        displayName: 'Herald Operator',
+        displayName: 'Postbot Operator',
     })
     const channel = manualStore.createChannel({
         projectId: project.project.id,
@@ -113,7 +113,7 @@ async function createCredential(
         connectedByActorId: input.connectedByActorId ?? fixture.project.actor.id,
         providerId: input.providerId ?? 'linkedin',
         externalAccountId: input.externalAccountId ?? 'member-42',
-        externalAccountName: 'Herald Operator',
+        externalAccountName: 'Postbot Operator',
         scopes: input.scopes ?? ['openid', 'profile', 'w_member_social'],
         accessToken: `${input.id ?? 'credential'}-access-token`,
         refreshToken: `${input.id ?? 'credential'}-refresh-token`,
@@ -173,7 +173,7 @@ describe('publisher connection store', () => {
                 destination: {
                     type: 'member',
                     id: 'member-42',
-                    name: 'Herald Operator',
+                    name: 'Postbot Operator',
                 },
             })
             expect(result.connection).not.toHaveProperty('accessToken')
@@ -280,7 +280,7 @@ describe('publisher connection store', () => {
             const otherProject = fixture.manualStore.createProject({
                 name: 'Other Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const otherChannel = fixture.manualStore.createChannel({
                 projectId: otherProject.project.id,

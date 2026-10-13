@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald targets individuals and small teams with low write concurrency and a modest
+Postbot targets individuals and small teams with low write concurrency and a modest
 number of asynchronous publication requests. Distributed coordination would add
 memory, services, deployment complexity, and failure modes before the product has a
 demonstrated scaling need.
@@ -31,6 +31,6 @@ Elysia API, built dashboard assets, scheduler, worker, and SQLite access.
 
 - Self-hosting requires one application process and one data volume.
 - In-memory scheduling state is allowed, but essential state must be reconstructible.
-- Two simultaneous Herald instances are unsupported until a separate decision adds
+- Two simultaneous Postbot instances are unsupported until a separate decision adds
   coordination semantics.
 - A measured singleton limitation may justify revisiting the topology later.

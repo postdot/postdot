@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@herald/auth'
+import { createAuth } from '@postbot/auth'
 import {
     closeDatabase,
     createAccessStore,
@@ -11,14 +11,14 @@ import {
     createMediaAssetStore,
     createManualStore,
     runMigrations,
-} from '@herald/db'
-import { createLocalMediaStore } from '@herald/media'
+} from '@postbot/db'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -40,7 +40,7 @@ function createFixture() {
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         bluesky: {
-            clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -90,16 +90,16 @@ describe('global dashboard search', () => {
     it('searches each post once, respects scope and live access, and treats wildcards literally', async () => {
         const { access, app, database, mediaRoot } = createFixture()
         try {
-            const ownerCookie = await signUp(app, 'search-owner@herald.local')
-            const readerCookie = await signUp(app, 'search-reader@herald.local')
+            const ownerCookie = await signUp(app, 'search-owner@postbot.local')
+            const readerCookie = await signUp(app, 'search-reader@postbot.local')
             const ownerId = database.$client
                 .query<{ id: string }, []>(
-                    "select id from user where email = 'search-owner@herald.local'"
+                    "select id from user where email = 'search-owner@postbot.local'"
                 )
                 .get()!.id
             const readerId = database.$client
                 .query<{ id: string }, []>(
-                    "select id from user where email = 'search-reader@herald.local'"
+                    "select id from user where email = 'search-reader@postbot.local'"
                 )
                 .get()!.id
             const store = createManualStore(database)

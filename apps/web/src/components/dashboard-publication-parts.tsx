@@ -1,18 +1,18 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@herald/ui/components/dropdown-menu'
+} from '@postbot/ui/components/dropdown-menu'
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@herald/ui/components/tooltip'
-import { cn } from '@herald/ui/lib/utils'
+} from '@postbot/ui/components/tooltip'
+import { cn } from '@postbot/ui/lib/utils'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'

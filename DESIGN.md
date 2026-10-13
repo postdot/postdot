@@ -1,4 +1,4 @@
-# Design direction — Herald
+# Design direction — Postbot
 
 Status: accepted
 Scope: product-wide visual direction for the authenticated app and future
@@ -57,7 +57,7 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
 - Platform and input: browser SPA with pointer, keyboard, and narrow-screen
   use. The authenticated app is an operational workspace, not a centered
   marketing canvas.
-- Known constraints: React/TanStack Router/Vite, Tailwind and `@herald/ui`,
+- Known constraints: React/TanStack Router/Vite, Tailwind and `@postbot/ui`,
   Base UI, Recursive Variable, Solar Icons Linear, native-first motion policy,
   English product copy, and the existing `Post` / `Publication` and `Channel`
   boundaries.
@@ -66,7 +66,7 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
 
 ## Direction thesis
 
-- Thesis: Herald is a quiet dispatch desk where one source becomes several
+- Thesis: Postbot is a quiet dispatch desk where one source becomes several
   accountable publications, so the interface should make routing, state, and
   the next human decision visible without becoming a control-room stereotype.
 - Emotional register: attentive, technical, calm, and deliberate; never
@@ -210,13 +210,13 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   width before the channel label truncates. Collapsed icon mode overrides that
   reservation so the icon control remains centered in the rail.
 - Component source versus visual system: shadcn/Base UI supplies accessible
-  behavior and composable primitives; it is not Herald's visual default. The
+  behavior and composable primitives; it is not Postbot's visual default. The
   shared UI package owns the final radius, surface, typography, control, and
   shadow tokens. Consuming pages should express product hierarchy rather than
   repeatedly undoing generic component styles with local overrides.
-- Brand mark: the owner-supplied Herald bird is the shared product mark. Its
-  source belongs in `@herald/ui` under `src/assets/brand`, while the reusable
-  inline `HeraldLogo` component uses `currentColor` so the mark follows the
+- Brand mark: the owner-supplied Postbot bird is the shared product mark. Its
+  source belongs in `@postbot/ui` under `src/assets/brand`, while the reusable
+  inline `PostbotLogo` component uses `currentColor` so the mark follows the
   surrounding theme and surface. Brand placements must not fall back to an
   invented lettermark. In the app rail, the mark is standalone and uses the
   semantic brand color; a filled container is not part of the default chrome
@@ -277,7 +277,7 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
 - Component rules: promote primitives only when a pattern recurs across
   surfaces. Cards, pills, badges, dividers, tables, and panels are semantic
   tools, not universal grammar. Product composition stays in the consuming
-  surface; shared primitives belong in `@herald/ui` only when their role is
+  surface; shared primitives belong in `@postbot/ui` only when their role is
   stable.
 - Shared-foundation implementation checklist: a new or materially changed
   shared primitive must preserve a visible or programmatic name, keyboard
@@ -324,7 +324,7 @@ composition while retaining Cobalt as a signal, neutral foundations, and the
 source-to-destinations mental model as its product-specific anchor.
 
 Transactional email is a compact public-surface adaptation of the same system:
-the Herald mark and Recursive Variable remain recognizable, while Ash and the
+the Postbot mark and Recursive Variable remain recognizable, while Ash and the
 near-flat raised surface provide the quiet canvas and Cobalt is reserved for the
 mark and primary action. It deliberately avoids a decorative dark banner,
 oversized depth, and rounded notice cards. Email clients that do not support the
@@ -355,7 +355,7 @@ building it; the current app contract must not silently decide those choices.
 
 ## Anti-default tests
 
-- Subject-swap test: replacing Herald with an unrelated SaaS dashboard should
+- Subject-swap test: replacing Postbot with an unrelated SaaS dashboard should
   make the source-to-destinations composition feel wrong.
 - Necessity test: every border, shadow, card, label treatment, metric, and
   effect must clarify content, hierarchy, state, continuity, or interaction.
@@ -416,7 +416,7 @@ building it; the current app contract must not silently decide those choices.
   surface palette accepted as the neutral refinement; 2026-09-02 — Recursive
   Variable as the owner-selected type family, Solar Icons Linear as the shared
   icon weight, and reserved sidebar badge space to prevent channel labels from
-  overlapping their status; 2026-09-02 — the owner-supplied Herald bird mark
+  overlapping their status; 2026-09-02 — the owner-supplied Postbot bird mark
   accepted as the product logo, with an inline current-color implementation for
   themed application surfaces and standalone app-rail treatment; 2026-09-11
   — the transactional email adaptation accepted as a compact brand surface
@@ -429,9 +429,9 @@ building it; the current app contract must not silently decide those choices.
 - Scenarios: disposable H-06 through H-11 records in the Autonomos DESIGN-02
   worklog; future production records belong in `.autonomos/worklogs/`.
 - Baseline: the pre-direction Tailwind dashboard and the H-09 linework
-  comparison, using the same Herald fixture and wide viewport.
+  comparison, using the same Postbot fixture and wide viewport.
 - Current candidate: this contract plus Cobalt, neutral surface-led roles,
-  Recursive Variable, Solar Icons Linear, the Herald bird mark, and task-
+  Recursive Variable, Solar Icons Linear, the Postbot bird mark, and task-
   dependent composition.
 - Observable rubric: product category is clear; source/publication relation is
   visible; each surface has one primary task; shared identity survives layout

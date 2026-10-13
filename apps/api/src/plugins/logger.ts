@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { Elysia } from 'elysia'
 import pino, { type DestinationStream, type Logger } from 'pino'
 
-import type { HeraldLoggingConfig } from '../config'
+import type { PostbotLoggingConfig } from '../config'
 
 const levelNames: Record<number, string> = {
     10: 'TRACE',
@@ -21,15 +21,15 @@ interface LogRecord {
     readonly [key: string]: unknown
 }
 
-export function createRequestLogger(options: HeraldLoggingConfig | undefined, logger?: Logger) {
+export function createRequestLogger(options: PostbotLoggingConfig | undefined, logger?: Logger) {
     if (options?.enabled !== true) {
-        return new Elysia({ name: 'herald-request-logger-disabled' })
+        return new Elysia({ name: 'postbot-request-logger-disabled' })
     }
 
-    const requestLogger = logger ?? createHeraldLogger(options)
+    const requestLogger = logger ?? createPostbotLogger(options)
 
     const requestStartTimes = new WeakMap<Request, number>()
-    return new Elysia({ name: 'herald-request-logger' })
+    return new Elysia({ name: 'postbot-request-logger' })
         .decorate('log', requestLogger)
         .request(({ request }) => {
             requestStartTimes.set(request, performance.now())
@@ -63,11 +63,11 @@ export function createRequestLogger(options: HeraldLoggingConfig | undefined, lo
         .as('global')
 }
 
-export function createHeraldLogger(options: HeraldLoggingConfig): Logger {
+export function createPostbotLogger(options: PostbotLoggingConfig): Logger {
     const loggerOptions = {
         base: null,
         level: options.level,
-        name: 'herald-api',
+        name: 'postbot-api',
         timestamp: pino.stdTimeFunctions.isoTime,
     }
 

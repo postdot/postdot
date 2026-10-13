@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald's first notification implementation made the in-app inbox look like a
+Postbot's first notification implementation made the in-app inbox look like a
 project resource. That made the bell disappear from the useful global state and
 made entering instance settings discard the user's selected project. A signed-in
 person owns one notification inbox even when publication outcomes are attributed

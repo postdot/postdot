@@ -1,8 +1,8 @@
 {
-    "name": "@herald/media",
+    "name": "@postbot/media",
     "version": "0.0.0",
     "private": true,
-    "description": "Bun-native media object storage for Herald",
+    "description": "Bun-native media object storage for Postbot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,

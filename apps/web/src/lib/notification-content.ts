@@ -14,7 +14,7 @@ const templates = [
     {
         kind: 'publication_published',
         title: 'Publication delivered',
-        body: 'Herald confirmed that the publication was delivered.',
+        body: 'Postbot confirmed that the publication was delivered.',
         titleMessage: m.notification_delivered_title,
         bodyMessage: null,
     },
@@ -28,7 +28,7 @@ const templates = [
     {
         kind: 'publication_ambiguous',
         title: 'Publication outcome unknown',
-        body: 'Herald could not confirm whether the publication was delivered.',
+        body: 'Postbot could not confirm whether the publication was delivered.',
         titleMessage: m.notification_uncertain_title,
         bodyMessage: m.notification_uncertain_body,
     },

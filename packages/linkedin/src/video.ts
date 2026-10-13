@@ -1,5 +1,5 @@
 // cspell:words licdn
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 import {
     LINKEDIN_API_BASE_URL,

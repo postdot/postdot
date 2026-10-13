@@ -1,11 +1,11 @@
-import { Field, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 
 import type { ProviderApplication } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'

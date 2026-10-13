@@ -1,7 +1,7 @@
 # ADR-026 — Deliver One LinkedIn Member Image per Publication
 
 - Status: accepted
-- Scope: LinkedIn member publication delivery with one Herald-managed image
+- Scope: LinkedIn member publication delivery with one Postbot-managed image
 - Provenance: [PUB-10](../TASKS.md), LinkedIn Images API and Posts API review on 2026-08-31
 - Related decisions: [ADR-011](ADR-011-select-linkedin-member-text-publisher.md),
   [ADR-019](ADR-019-separate-media-assets-representations-and-deliveries.md),
@@ -10,9 +10,9 @@
 
 ## Context
 
-The LinkedIn member publisher already supports text posts. Herald now needs to
+The LinkedIn member publisher already supports text posts. Postbot now needs to
 deliver a verified project image without weakening the immutable execution
-revision or treating a provider asset as part of the reusable Herald media asset.
+revision or treating a provider asset as part of the reusable Postbot media asset.
 
 LinkedIn's current Images API uses a multi-step flow: initialize an upload for the
 member owner, transfer the bytes to the returned upload URL, and reference the
@@ -47,7 +47,7 @@ sequence:
 resource. A process can therefore reuse a confirmed uploaded image when a later
 final post attempt is retried. If the transfer outcome is ambiguous, the delivery
 remains visible as ambiguous and retains the provider image URN when one is known;
-Herald never starts another upload blindly from that state.
+Postbot never starts another upload blindly from that state.
 
 The adapter does not poll `GET /rest/images` in this slice. The successful upload
 response and the final Posts API response are the available provider signals under
@@ -76,7 +76,7 @@ precise. Rejected because it conflicts with the existing media delivery model.
 ### Store the LinkedIn image URN on `MediaAsset`
 
 An image URN belongs to a provider account and a particular execution, not to a
-reusable Herald asset. Storing it on the asset would allow an image to be reused
+reusable Postbot asset. Storing it on the asset would allow an image to be reused
 under the wrong member connection. Rejected by the media boundary in ADR-019.
 
 ## Consequences

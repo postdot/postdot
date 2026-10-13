@@ -4,11 +4,11 @@ import type {
     DeclarativeHttpMultipartMediaPart,
     DeclarativeHttpValueExpression,
     ExternalEffectOutcome,
-} from '@herald/core'
+} from '@postbot/core'
 
 export const CUSTOM_HTTP_PUBLISHER_KIND = 'custom_http' as const
-export const HERALD_WEBHOOK_VERSION = '1' as const
-export const HERALD_WEBHOOK_EVENT = 'publication.delivery' as const
+export const POSTBOT_WEBHOOK_VERSION = '1' as const
+export const POSTBOT_WEBHOOK_EVENT = 'publication.delivery' as const
 
 export const customHttpLimits = {
     minimumSecretBytes: 32,

@@ -33,5 +33,5 @@
 ## Boundary
 
 This closes the bounded shell and responsive accessibility sprint. It does not
-freeze Herald's visual identity or prevent future evidence-driven work under
+freeze Postbot's visual identity or prevent future evidence-driven work under
 `ISSUE-063`, `ISSUE-064`, and `ISSUE-065`.

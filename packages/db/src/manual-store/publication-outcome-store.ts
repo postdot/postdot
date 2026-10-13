@@ -4,9 +4,9 @@ import {
     requireTimestamp,
     transitionPublication,
     type Publication,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {
     DueManualPublication,
     PublishManualPublicationInput,
@@ -38,7 +38,7 @@ export interface PublicationOutcomeStoreOptions {
 }
 
 export function createPublicationOutcomeStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationOutcomeStoreOptions
 ) {
     const client = database.$client

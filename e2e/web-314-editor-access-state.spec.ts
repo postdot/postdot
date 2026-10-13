@@ -14,7 +14,7 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-editor-${suffix}@herald.local`
+    const editorEmail = `e2e-314-editor-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -150,7 +150,7 @@ test('a late draft response is quarantined instead of applied', async ({ page })
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-late-${suffix}@herald.local`
+    const editorEmail = `e2e-314-late-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -316,7 +316,7 @@ test('a technical error retries once and confirms into a concurrent conflict', a
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-conflict-${suffix}@herald.local`
+    const editorEmail = `e2e-314-conflict-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -482,7 +482,7 @@ async function countRecoveryBuffers(page: Page) {
     return page.evaluate(
         () =>
             Object.keys(window.localStorage).filter(key =>
-                key.startsWith('herald:publication-editor:')
+                key.startsWith('postbot:publication-editor:')
             ).length
     )
 }
@@ -665,7 +665,7 @@ async function driveEditorReread(input: {
 async function readRecoveryBufferText(page: Page) {
     return page.evaluate(() => {
         const key = Object.keys(window.localStorage).find(candidate =>
-            candidate.startsWith('herald:publication-editor:')
+            candidate.startsWith('postbot:publication-editor:')
         )
         return key === undefined ? '' : (window.localStorage.getItem(key) ?? '')
     })
@@ -753,7 +753,7 @@ async function acceptProjectInvitation(
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-314-owner-${suffix}@herald.local`
+    const email = `e2e-314-owner-${suffix}@postbot.local`
 
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)
@@ -800,7 +800,7 @@ test('defers the editor reread after confirmation and starts nothing first', asy
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-deferred-${suffix}@herald.local`
+    const editorEmail = `e2e-314-deferred-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -924,7 +924,7 @@ test('a failing reread stays suspended with explicit resume', async ({ page }) =
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-suspended-${suffix}@herald.local`
+    const editorEmail = `e2e-314-suspended-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()
@@ -1042,7 +1042,7 @@ test('close refusals before the next render still verify once', async ({ page })
     const owner = await createAccountAndProject(page, suffix)
     const publication = await createPublication(page, owner.projectId, suffix)
 
-    const editorEmail = `e2e-314-once-${suffix}@herald.local`
+    const editorEmail = `e2e-314-once-${suffix}@postbot.local`
     const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
 
     const browser = page.context().browser()

@@ -4,9 +4,9 @@ import {
     requireNonBlank,
     type Publication,
     type PublicationTagFilter,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from '../client'
+import type { PostbotDatabase } from '../client'
 import type {
     PublicationEditorState,
     PublicationSummary,
@@ -105,7 +105,7 @@ export interface PublicationReadStoreHandle {
 }
 
 export function createPublicationReadStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationReadStoreOptions
 ): PublicationReadStoreHandle {
     const client = database.$client

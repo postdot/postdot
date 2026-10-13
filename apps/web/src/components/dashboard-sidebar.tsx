@@ -1,4 +1,4 @@
-import { HeraldLogo } from '@herald/ui/components/herald-logo'
+import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
 import {
     Sidebar,
     SidebarContent,
@@ -10,7 +10,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-} from '@herald/ui/components/sidebar'
+} from '@postbot/ui/components/sidebar'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -120,14 +120,14 @@ export function DashboardSidebar({
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <HeraldLogo className="size-7" />
+                            <PostbotLogo className="size-7" />
                         </Link>
                     ) : isSettingsShell || selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <HeraldLogo className="size-7" />
+                            <PostbotLogo className="size-7" />
                         </Link>
                     ) : (
                         <Link
@@ -135,11 +135,11 @@ export function DashboardSidebar({
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <HeraldLogo className="size-7" />
+                            <PostbotLogo className="size-7" />
                         </Link>
                     )}
                     <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-                        <p className="truncate text-sm font-semibold">Herald</p>
+                        <p className="truncate text-sm font-semibold">Postbot</p>
                     </div>
                 </div>
 

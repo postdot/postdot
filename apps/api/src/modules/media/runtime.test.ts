@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ReconcileMediaResult } from '@herald/db'
+import type { ReconcileMediaResult } from '@postbot/db'
 
 import { createMediaReconciliationRuntime } from './runtime'
 

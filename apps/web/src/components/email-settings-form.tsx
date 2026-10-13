@@ -1,7 +1,7 @@
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
-import { Switch } from '@herald/ui/components/switch'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
+import { Switch } from '@postbot/ui/components/switch'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 

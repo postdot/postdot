@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
@@ -203,7 +203,7 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
                 onSubmit={handleSubmit}
                 pending={pending}
                 showSetupAction
-                title={m.auth_join_herald()}
+                title={m.auth_join_postbot()}
             />
         </AuthShell>
     )

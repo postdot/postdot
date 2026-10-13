@@ -1,10 +1,10 @@
-# Herald — critical foundation audit
+# Postbot — critical foundation audit
 
 Date: 11 September 2026. Final reference: `main`, commit `60bbb319` (`merge: consolidate local work into main`). Diagnostic report only; no fix, normative decision, or backlog change was made.
 
 ## Verdict
 
-**Herald has solid technical foundations, but integration consistency does not yet make every contract reliable.** The recommendation is to keep the architecture and spend the next sessions consolidating it before adding another functional expansion.
+**Postbot has solid technical foundations, but integration consistency does not yet make every contract reliable.** The recommendation is to keep the architecture and spend the next sessions consolidating it before adding another functional expansion.
 
 The Post / Publication model, Channel / Publisher separation, immutable revisions, transactional journal, and explicit recognition of ambiguous external outcomes address real product problems. The monolith with SQLite fits the intended deployment. Nothing in this audit justifies a rewrite, an immediate PostgreSQL migration, an external workflow engine, or microservices.
 
@@ -27,7 +27,7 @@ However, recent features do not always extend the existing guarantees. Roles are
 | H-03 | P1 | The publication list is limited to 100 without usable pagination | 101 stored rows, 100 returned, no cursor in the response |
 | H-04 | P2 | Notification catch-up stops after ten batches and can remain incomplete | Runtime requesting twelve batches: ten executed, state `started` |
 | H-05 | P2 | Taxonomy events are excluded from SSE delivery | Real `publication.tags_replaced` event transformed to `null` |
-| H-06 | P2 | The `clean` command deletes migrations tracked by Git | `@herald/db` script: `rimraf dist .turbo drizzle` |
+| H-06 | P2 | The `clean` command deletes migrations tracked by Git | `@postbot/db` script: `rimraf dist .turbo drizzle` |
 | H-07 | P2 | Script and CLI tests are not part of `bun run check` | Turbo graph contains workspaces only; eight additional tests run separately |
 
 P1 means the issue should be fixed before relying on the affected function in shared or supported use. P2 identifies a real defect with a narrower trigger or impact. No P0 was demonstrated. Preserving a database while displaying it incompletely is not the same as losing its data.

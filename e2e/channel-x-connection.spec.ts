@@ -6,7 +6,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     test.setTimeout(90_000)
 
     const suffix = randomUUID().slice(0, 8)
-    const apiPort = process.env.HERALD_E2E_API_PORT
+    const apiPort = process.env.POSTBOT_E2E_API_PORT
     if (apiPort === undefined) throw new Error('The isolated E2E API port is not configured')
     const apiOrigin = `http://127.0.0.1:${apiPort}`
     const callbackUri = `${apiOrigin}/api/oauth/x/callback`
@@ -49,7 +49,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
                 membership: {
                     id: `e2e-membership-${suffix}`,
                     userId: `e2e-admin-${suffix}`,
-                    email: `e2e-x-${suffix}@herald.local`,
+                    email: `e2e-x-${suffix}@postbot.local`,
                     name: `E2E X ${suffix}`,
                     role: 'admin',
                     state: 'enabled',
@@ -253,7 +253,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.goto('/setup')
     if (page.url().endsWith('/setup')) {
         await page.getByLabel('Name', { exact: true }).fill(`E2E X admin ${suffix}`)
-        await page.getByLabel('Email', { exact: true }).fill(`e2e-x-${suffix}@herald.local`)
+        await page.getByLabel('Email', { exact: true }).fill(`e2e-x-${suffix}@postbot.local`)
         await page.getByLabel('Password', { exact: true }).fill('e2e-x-connection-password')
         await Promise.all([
             page.waitForResponse(
@@ -276,7 +276,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     } else {
         const accountResponse = await page.request.post('/api/auth/sign-up/email', {
             data: {
-                email: `e2e-x-${suffix}@herald.local`,
+                email: `e2e-x-${suffix}@postbot.local`,
                 name: `E2E X admin ${suffix}`,
                 password: 'e2e-x-connection-password',
             },

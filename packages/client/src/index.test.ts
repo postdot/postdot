@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createApp, createPublisherRuntime } from '@herald/api'
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import { createApp, createPublisherRuntime } from '@postbot/api'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createDatabase, runMigrations } from '@postbot/db'
 
-import { createHeraldClient } from './index'
+import { createPostbotClient } from './index'
 
-describe('Herald client', () => {
+describe('Postbot client', () => {
     it('exposes the typed project route tree', () => {
-        const client = createHeraldClient('http://localhost:3000', {
-            cookie: 'herald_session=test',
+        const client = createPostbotClient('http://localhost:3000', {
+            cookie: 'postbot_session=test',
         })
 
         expect(client.api.projects.get).toBeFunction()
@@ -77,7 +77,7 @@ describe('Herald client', () => {
         const app = createApp({
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
-                secret: 'herald-test-secret-with-at-least-32-characters',
+                secret: 'postbot-test-secret-with-at-least-32-characters',
             }),
             database,
             publisher,
@@ -92,8 +92,8 @@ describe('Herald client', () => {
                         origin: 'http://localhost:3000',
                     },
                     body: JSON.stringify({
-                        email: 'client@herald.local',
-                        name: 'Herald Client',
+                        email: 'client@postbot.local',
+                        name: 'Postbot Client',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -101,7 +101,7 @@ describe('Herald client', () => {
             const cookie = signUpResponse.headers.get('set-cookie')?.split(';', 1)[0]
             expect(cookie).toBeDefined()
 
-            const client = createHeraldClient('http://localhost:3000', {
+            const client = createPostbotClient('http://localhost:3000', {
                 cookie,
                 fetcher: (input, init) => {
                     const url =
@@ -128,7 +128,7 @@ describe('Herald client', () => {
             expect(createdToken.error).toBeNull()
             const token = (createdToken.data as { token: string }).token
 
-            const machineClient = createHeraldClient('http://localhost:3000', {
+            const machineClient = createPostbotClient('http://localhost:3000', {
                 token,
                 fetcher: (input, init) => {
                     const url =
@@ -162,8 +162,8 @@ describe('Herald client', () => {
 
     it('sends a user API key through the typed client', async () => {
         let authorization: string | null = null
-        const client = createHeraldClient('http://localhost:3000', {
-            token: 'herald_pat_test-token',
+        const client = createPostbotClient('http://localhost:3000', {
+            token: 'postbot_pat_test-token',
             fetcher: async (input, init) => {
                 const request =
                     typeof input === 'string'
@@ -179,6 +179,6 @@ describe('Herald client', () => {
         const response = await client.api.projects.get()
 
         expect(response.error).toBeNull()
-        expect(authorization === 'Bearer herald_pat_test-token').toBe(true)
+        expect(authorization === 'Bearer postbot_pat_test-token').toBe(true)
     })
 })

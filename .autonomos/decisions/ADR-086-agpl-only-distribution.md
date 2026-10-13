@@ -1,4 +1,4 @@
-# ADR-086 — AGPL-3.0-only for Herald
+# ADR-086 — AGPL-3.0-only for Postbot
 
 - Status: accepted
 - Scope: Original project code and public release preparation
@@ -7,7 +7,7 @@
 
 ## Decision
 
-License original Herald code under AGPL-3.0-only, without an additional proprietary
+License original Postbot code under AGPL-3.0-only, without an additional proprietary
 edition or commercial license at this stage. Preserve third-party licenses and
 notices. Keep the repository private until communication, installation and release
 preparation are ready and the owner explicitly authorizes public opening.

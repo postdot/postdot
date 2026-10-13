@@ -417,7 +417,7 @@ describe('report determinism', () => {
 
 describe('change collection', () => {
     test('committed, staged, unstaged, and untracked paths are all considered', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-e2e-affected-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-e2e-affected-'))
 
         const run = (arguments_: readonly string[]): string => {
             const result = Bun.spawnSync(['git', ...arguments_], { cwd: directory })
@@ -500,7 +500,7 @@ describe('change collection', () => {
 
 describe('spec inventory', () => {
     test('the repository inventory lists every spec file it can select', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-e2e-inventory-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-e2e-inventory-'))
 
         try {
             const specs = listSpecFiles(join(import.meta.dir, '..', 'e2e'))

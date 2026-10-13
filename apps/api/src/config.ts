@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
-import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@herald/custom-http'
+import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@postbot/custom-http'
 import type { LevelWithSilent } from 'pino'
 
 import {
@@ -12,7 +12,7 @@ import {
 import { mediaPublicDeliveryLimits } from './modules/media/public-delivery'
 
 export const defaultDatabaseFileName = fileURLToPath(
-    new URL('../../../herald.sqlite', import.meta.url)
+    new URL('../../../postbot.sqlite', import.meta.url)
 )
 const defaultMigrationsDirectory = fileURLToPath(
     new URL('../../../packages/db/drizzle', import.meta.url)
@@ -25,33 +25,33 @@ const examplePublisherEncryptionKey = 'replace-with-64-hex-characters'
 
 const mediaEnvironmentDefinitions = {
     DB_FILE_NAME: env.string({ defaultValue: defaultDatabaseFileName }),
-    HERALD_MEDIA_STORE: env.enum(['local', 's3'], { defaultValue: 'local' }),
-    HERALD_MEDIA_DIRECTORY: env.string({ defaultValue: defaultMediaDirectory, minLength: 1 }),
-    HERALD_MEDIA_STORE_ID: env.string({ defaultValue: 'local-default', minLength: 1 }),
-    HERALD_MEDIA_MAX_OBJECT_BYTES: env.integer({
+    POSTBOT_MEDIA_STORE: env.enum(['local', 's3'], { defaultValue: 'local' }),
+    POSTBOT_MEDIA_DIRECTORY: env.string({ defaultValue: defaultMediaDirectory, minLength: 1 }),
+    POSTBOT_MEDIA_STORE_ID: env.string({ defaultValue: 'local-default', minLength: 1 }),
+    POSTBOT_MEDIA_MAX_OBJECT_BYTES: env.integer({
         defaultValue: 100_000_000,
         minimum: 1,
     }),
-    HERALD_MEDIA_UPLOAD_TTL_MS: env.integer({
+    POSTBOT_MEDIA_UPLOAD_TTL_MS: env.integer({
         defaultValue: 15 * 60 * 1_000,
         minimum: 1,
     }),
-    HERALD_MEDIA_DELETION_GRACE_MS: env.integer({
+    POSTBOT_MEDIA_DELETION_GRACE_MS: env.integer({
         defaultValue: 24 * 60 * 60 * 1_000,
         minimum: 0,
     }),
-    HERALD_MEDIA_PUBLIC_URL_TTL_MS: env.integer({
+    POSTBOT_MEDIA_PUBLIC_URL_TTL_MS: env.integer({
         defaultValue: mediaPublicDeliveryLimits.defaultLifetimeMs,
         minimum: 60 * 1_000,
         maximum: mediaPublicDeliveryLimits.maximumLifetimeMs,
     }),
-    HERALD_MEDIA_S3_BUCKET: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_REGION: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_ENDPOINT: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_ACCESS_KEY_ID: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_SECRET_ACCESS_KEY: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_SESSION_TOKEN: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_S3_PREFIX: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_BUCKET: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_REGION: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_ENDPOINT: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_ACCESS_KEY_ID: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_SESSION_TOKEN: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_S3_PREFIX: env.optionalString({ minLength: 1 }),
 } as const
 
 const environmentDefinitions = {
@@ -59,8 +59,8 @@ const environmentDefinitions = {
         defaultValue: 'development',
     }),
     PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
-    HERALD_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
-    HERALD_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
+    POSTBOT_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
+    POSTBOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
     ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
         defaultValue: values => {
@@ -73,28 +73,28 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
-    HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
+    POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
         defaultValue: false,
     }),
-    HERALD_EMAIL_SMTP_HOST: env.optionalString({ minLength: 1 }),
-    HERALD_EMAIL_SMTP_PORT: env.optionalInteger({ minimum: 1, maximum: 65_535 }),
-    HERALD_EMAIL_SMTP_SECURE: env.boolean({ defaultValue: false }),
-    HERALD_EMAIL_SMTP_USERNAME: env.optionalString({ minLength: 1 }),
-    HERALD_EMAIL_SMTP_PASSWORD: env.optionalString({ minLength: 1 }),
-    HERALD_EMAIL_FROM: env.optionalString({ minLength: 1 }),
-    HERALD_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
-    HERALD_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
-    HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
+    POSTBOT_EMAIL_SMTP_HOST: env.optionalString({ minLength: 1 }),
+    POSTBOT_EMAIL_SMTP_PORT: env.optionalInteger({ minimum: 1, maximum: 65_535 }),
+    POSTBOT_EMAIL_SMTP_SECURE: env.boolean({ defaultValue: false }),
+    POSTBOT_EMAIL_SMTP_USERNAME: env.optionalString({ minLength: 1 }),
+    POSTBOT_EMAIL_SMTP_PASSWORD: env.optionalString({ minLength: 1 }),
+    POSTBOT_EMAIL_FROM: env.optionalString({ minLength: 1 }),
+    POSTBOT_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
+    POSTBOT_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
+    POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
     BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
     X_CLIENT_ID: env.optionalString({ minLength: 1 }),
     X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
-    HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
-    HERALD_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
-    HERALD_METRICS_ENABLED: env.boolean({ defaultValue: false }),
-    HERALD_METRICS_TOKEN: env.optionalString(),
+    POSTBOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
+    POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
+    POSTBOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
+    POSTBOT_METRICS_TOKEN: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'error' : 'info'),
     }),
@@ -103,16 +103,16 @@ const environmentDefinitions = {
     }),
 } as const
 
-type HeraldEnvironment = InferEnvironment<typeof environmentDefinitions>
+type PostbotEnvironment = InferEnvironment<typeof environmentDefinitions>
 
-export interface HeraldLoggingConfig {
+export interface PostbotLoggingConfig {
     readonly enabled: boolean
     readonly level: LevelWithSilent
     readonly pretty: boolean
 }
 
-export interface HeraldConfig {
-    readonly environment: HeraldEnvironment['NODE_ENV']
+export interface PostbotConfig {
+    readonly environment: PostbotEnvironment['NODE_ENV']
     readonly server: {
         readonly port: number
     }
@@ -182,22 +182,22 @@ export interface HeraldConfig {
         readonly origin: string
         readonly assetsDirectory: string
     }
-    readonly logging: HeraldLoggingConfig
+    readonly logging: PostbotLoggingConfig
 }
 
-export interface HeraldMaintenanceConfig {
+export interface PostbotMaintenanceConfig {
     readonly databaseFileName: string
-    readonly media: HeraldConfig['media']
+    readonly media: PostbotConfig['media']
 }
 
-type HeraldMediaEnvironment = Omit<
+type PostbotMediaEnvironment = Omit<
     InferEnvironment<typeof mediaEnvironmentDefinitions>,
     'DB_FILE_NAME'
 >
 
-export function createHeraldMaintenanceConfig(
+export function createPostbotMaintenanceConfig(
     source: EnvironmentSource = Bun.env
-): HeraldMaintenanceConfig {
+): PostbotMaintenanceConfig {
     const environment = createEnvironment(mediaEnvironmentDefinitions, source)
     return {
         databaseFileName: environment.DB_FILE_NAME,
@@ -205,13 +205,13 @@ export function createHeraldMaintenanceConfig(
     }
 }
 
-export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldConfig {
+export function createPostbotConfig(source: EnvironmentSource = Bun.env): PostbotConfig {
     const environment = createEnvironment(environmentDefinitions, source)
-    if (environment.HERALD_METRICS_ENABLED && environment.HERALD_METRICS_TOKEN === undefined) {
-        throw new Error('HERALD_METRICS_TOKEN is required when HERALD_METRICS_ENABLED=true')
+    if (environment.POSTBOT_METRICS_ENABLED && environment.POSTBOT_METRICS_TOKEN === undefined) {
+        throw new Error('POSTBOT_METRICS_TOKEN is required when POSTBOT_METRICS_ENABLED=true')
     }
-    if (environment.HERALD_METRICS_ENABLED && environment.HERALD_METRICS_TOKEN!.length < 32) {
-        throw new Error('HERALD_METRICS_TOKEN must contain at least 32 characters')
+    if (environment.POSTBOT_METRICS_ENABLED && environment.POSTBOT_METRICS_TOKEN!.length < 32) {
+        throw new Error('POSTBOT_METRICS_TOKEN must contain at least 32 characters')
     }
     const hasLinkedInClientId = environment.LINKEDIN_CLIENT_ID !== undefined
     const hasLinkedInClientSecret = environment.LINKEDIN_CLIENT_SECRET !== undefined
@@ -263,13 +263,13 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
                   }
               })()
     const outboundPrivateDestinations = parsePrivateDestinationRules(
-        environment.HERALD_OUTBOUND_PRIVATE_DESTINATIONS,
-        'HERALD_OUTBOUND_PRIVATE_DESTINATIONS'
+        environment.POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS,
+        'POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS'
     )
     const email = createEmailConfig(environment)
-    if (environment.HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION && email === undefined) {
+    if (environment.POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION && email === undefined) {
         throw new Error(
-            'HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION requires a configured email transport'
+            'POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION requires a configured email transport'
         )
     }
 
@@ -280,20 +280,20 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         },
         database: {
             fileName: environment.DB_FILE_NAME,
-            migrationsDirectory: environment.HERALD_MIGRATIONS_DIR,
+            migrationsDirectory: environment.POSTBOT_MIGRATIONS_DIR,
         },
         media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
             requireEmailVerificationOnInvitation:
-                environment.HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
+                environment.POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
         },
         ...(email === undefined ? {} : { email }),
         security: {
-            mediaPublicUrlSecret: environment.HERALD_MEDIA_PUBLIC_URL_SECRET,
-            publisherEncryptionKey: environment.HERALD_PUBLISHER_ENCRYPTION_KEY,
-            publisherEncryptionKeyId: environment.HERALD_PUBLISHER_ENCRYPTION_KEY_ID,
+            mediaPublicUrlSecret: environment.POSTBOT_MEDIA_PUBLIC_URL_SECRET,
+            publisherEncryptionKey: environment.POSTBOT_PUBLISHER_ENCRYPTION_KEY,
+            publisherEncryptionKeyId: environment.POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID,
         },
         publishers: {
             ...(linkedin === undefined ? {} : { linkedin }),
@@ -304,57 +304,57 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             privateDestinations: outboundPrivateDestinations,
         },
         web: {
-            origin: environment.HERALD_WEB_ORIGIN,
-            assetsDirectory: environment.HERALD_WEB_ASSETS_DIR,
+            origin: environment.POSTBOT_WEB_ORIGIN,
+            assetsDirectory: environment.POSTBOT_WEB_ASSETS_DIR,
         },
         logging: {
             enabled: environment.LOG_LEVEL !== 'silent',
             level: environment.LOG_LEVEL,
             pretty: environment.LOG_PRETTY,
         },
-        ...(environment.HERALD_METRICS_ENABLED
-            ? { metrics: { bearerToken: environment.HERALD_METRICS_TOKEN! } }
+        ...(environment.POSTBOT_METRICS_ENABLED
+            ? { metrics: { bearerToken: environment.POSTBOT_METRICS_TOKEN! } }
             : {}),
     }
 }
 
-function createMediaConfig(environment: HeraldMediaEnvironment): HeraldConfig['media'] {
+function createMediaConfig(environment: PostbotMediaEnvironment): PostbotConfig['media'] {
     const mediaS3Values = {
-        bucket: environment.HERALD_MEDIA_S3_BUCKET,
-        region: environment.HERALD_MEDIA_S3_REGION,
-        endpoint: environment.HERALD_MEDIA_S3_ENDPOINT,
-        accessKeyId: environment.HERALD_MEDIA_S3_ACCESS_KEY_ID,
-        secretAccessKey: environment.HERALD_MEDIA_S3_SECRET_ACCESS_KEY,
-        sessionToken: environment.HERALD_MEDIA_S3_SESSION_TOKEN,
-        prefix: environment.HERALD_MEDIA_S3_PREFIX,
+        bucket: environment.POSTBOT_MEDIA_S3_BUCKET,
+        region: environment.POSTBOT_MEDIA_S3_REGION,
+        endpoint: environment.POSTBOT_MEDIA_S3_ENDPOINT,
+        accessKeyId: environment.POSTBOT_MEDIA_S3_ACCESS_KEY_ID,
+        secretAccessKey: environment.POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY,
+        sessionToken: environment.POSTBOT_MEDIA_S3_SESSION_TOKEN,
+        prefix: environment.POSTBOT_MEDIA_S3_PREFIX,
     }
 
-    if (environment.HERALD_MEDIA_STORE === 's3') {
+    if (environment.POSTBOT_MEDIA_STORE === 's3') {
         if (
             mediaS3Values.bucket === undefined ||
             mediaS3Values.accessKeyId === undefined ||
             mediaS3Values.secretAccessKey === undefined
         ) {
             throw new Error(
-                'HERALD_MEDIA_S3_BUCKET, HERALD_MEDIA_S3_ACCESS_KEY_ID, and HERALD_MEDIA_S3_SECRET_ACCESS_KEY are required when HERALD_MEDIA_STORE=s3'
+                'POSTBOT_MEDIA_S3_BUCKET, POSTBOT_MEDIA_S3_ACCESS_KEY_ID, and POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY are required when POSTBOT_MEDIA_STORE=s3'
             )
         }
         if (mediaS3Values.region === undefined && mediaS3Values.endpoint === undefined) {
             throw new Error(
-                'HERALD_MEDIA_S3_REGION or HERALD_MEDIA_S3_ENDPOINT is required when HERALD_MEDIA_STORE=s3'
+                'POSTBOT_MEDIA_S3_REGION or POSTBOT_MEDIA_S3_ENDPOINT is required when POSTBOT_MEDIA_STORE=s3'
             )
         }
     }
 
     return {
-        driver: environment.HERALD_MEDIA_STORE,
-        directory: environment.HERALD_MEDIA_DIRECTORY,
-        storeId: environment.HERALD_MEDIA_STORE_ID,
-        maxObjectBytes: environment.HERALD_MEDIA_MAX_OBJECT_BYTES,
-        uploadIntentTtlMs: environment.HERALD_MEDIA_UPLOAD_TTL_MS,
-        deletionGracePeriodMs: environment.HERALD_MEDIA_DELETION_GRACE_MS,
-        publicUrlLifetimeMs: environment.HERALD_MEDIA_PUBLIC_URL_TTL_MS,
-        ...(environment.HERALD_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
+        driver: environment.POSTBOT_MEDIA_STORE,
+        directory: environment.POSTBOT_MEDIA_DIRECTORY,
+        storeId: environment.POSTBOT_MEDIA_STORE_ID,
+        maxObjectBytes: environment.POSTBOT_MEDIA_MAX_OBJECT_BYTES,
+        uploadIntentTtlMs: environment.POSTBOT_MEDIA_UPLOAD_TTL_MS,
+        deletionGracePeriodMs: environment.POSTBOT_MEDIA_DELETION_GRACE_MS,
+        publicUrlLifetimeMs: environment.POSTBOT_MEDIA_PUBLIC_URL_TTL_MS,
+        ...(environment.POSTBOT_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
             ? {
                   s3: {
                       bucket: mediaS3Values.bucket,
@@ -378,44 +378,44 @@ function createMediaConfig(environment: HeraldMediaEnvironment): HeraldConfig['m
     }
 }
 
-function createEmailConfig(environment: HeraldEnvironment): HeraldConfig['email'] | undefined {
+function createEmailConfig(environment: PostbotEnvironment): PostbotConfig['email'] | undefined {
     const hasEmailConfiguration =
-        environment.HERALD_EMAIL_SMTP_HOST !== undefined ||
-        environment.HERALD_EMAIL_SMTP_PORT !== undefined ||
-        environment.HERALD_EMAIL_SMTP_SECURE ||
-        environment.HERALD_EMAIL_SMTP_USERNAME !== undefined ||
-        environment.HERALD_EMAIL_SMTP_PASSWORD !== undefined ||
-        environment.HERALD_EMAIL_FROM !== undefined
+        environment.POSTBOT_EMAIL_SMTP_HOST !== undefined ||
+        environment.POSTBOT_EMAIL_SMTP_PORT !== undefined ||
+        environment.POSTBOT_EMAIL_SMTP_SECURE ||
+        environment.POSTBOT_EMAIL_SMTP_USERNAME !== undefined ||
+        environment.POSTBOT_EMAIL_SMTP_PASSWORD !== undefined ||
+        environment.POSTBOT_EMAIL_FROM !== undefined
 
     if (!hasEmailConfiguration) return undefined
 
-    if (environment.HERALD_EMAIL_SMTP_HOST === undefined) {
+    if (environment.POSTBOT_EMAIL_SMTP_HOST === undefined) {
         throw new Error(
-            'HERALD_EMAIL_SMTP_HOST is required when email transport configuration is present'
+            'POSTBOT_EMAIL_SMTP_HOST is required when email transport configuration is present'
         )
     }
-    if (environment.HERALD_EMAIL_FROM === undefined) {
-        throw new Error('HERALD_EMAIL_FROM is required when SMTP email delivery is enabled')
+    if (environment.POSTBOT_EMAIL_FROM === undefined) {
+        throw new Error('POSTBOT_EMAIL_FROM is required when SMTP email delivery is enabled')
     }
 
-    const hasUsername = environment.HERALD_EMAIL_SMTP_USERNAME !== undefined
-    const hasPassword = environment.HERALD_EMAIL_SMTP_PASSWORD !== undefined
+    const hasUsername = environment.POSTBOT_EMAIL_SMTP_USERNAME !== undefined
+    const hasPassword = environment.POSTBOT_EMAIL_SMTP_PASSWORD !== undefined
     if (hasUsername !== hasPassword) {
         throw new Error(
-            'HERALD_EMAIL_SMTP_USERNAME and HERALD_EMAIL_SMTP_PASSWORD must be set together'
+            'POSTBOT_EMAIL_SMTP_USERNAME and POSTBOT_EMAIL_SMTP_PASSWORD must be set together'
         )
     }
 
     return {
         smtp: {
-            host: environment.HERALD_EMAIL_SMTP_HOST,
-            port: environment.HERALD_EMAIL_SMTP_PORT ?? 587,
-            secure: environment.HERALD_EMAIL_SMTP_SECURE,
-            from: environment.HERALD_EMAIL_FROM,
+            host: environment.POSTBOT_EMAIL_SMTP_HOST,
+            port: environment.POSTBOT_EMAIL_SMTP_PORT ?? 587,
+            secure: environment.POSTBOT_EMAIL_SMTP_SECURE,
+            from: environment.POSTBOT_EMAIL_FROM,
             ...(hasUsername
                 ? {
-                      username: environment.HERALD_EMAIL_SMTP_USERNAME!,
-                      password: environment.HERALD_EMAIL_SMTP_PASSWORD!,
+                      username: environment.POSTBOT_EMAIL_SMTP_USERNAME!,
+                      password: environment.POSTBOT_EMAIL_SMTP_PASSWORD!,
                   }
                 : {}),
         },

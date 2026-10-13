@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'

@@ -1,6 +1,6 @@
 # UX-248 — Preview Calibration Review (Diagnostic, No Implementation)
 
-- Base: `c7beed91a` (recorded via `git rev-parse HEAD | tee .git/herald-mission-base`).
+- Base: `c7beed91a` (recorded via `git rev-parse HEAD | tee .git/postbot-mission-base`).
 - Status: diagnostic complete; no product change.
 - Current decisions distinguished from abandoned ones: compact two-column
   galleries (112 px cells, single image bounded, normal page flow, no internal
@@ -33,12 +33,12 @@
   (latest touching commit `1a0db34`, 2026-10-02): two images side by side in
   a 2:1 container; three with the first spanning the left column and the
   other two stacked right; four in a two-column 3:2 grid (more shown with an
-  overflow badge, which Herald never needs because validation caps at four).
+  overflow badge, which Postbot never needs because validation caps at four).
 - Mastodon publication surface (not universal limits):
   `POST /api/v1/statuses` accepts `status` text plus `media_ids[]` —
   https://docs.joinmastodon.org/methods/statuses/ — with no fixed length in
   the endpoint itself. Character and attachment counts are
-  instance-configurable; Herald's `MASTODON_DEFAULT_MAX_CHARACTERS = 500`
+  instance-configurable; Postbot's `MASTODON_DEFAULT_MAX_CHARACTERS = 500`
   correctly models the default, not a universal instance limit.
 - Mastodon gallery convention (not constraint): `Item`/`MediaGallery` in
   `app/javascript/mastodon/components/media_gallery.jsx` —
@@ -46,14 +46,14 @@
   (latest touching commit `0ed49dd`, 2026-10-01): attachments rendered in
   array order, 3:2 global aspect, spanning first item for three, equal cells
   for four, small gap; focal points, placeholder blur, and sensitive handling are
-  outside Herald's calibrated scope.
+  outside Postbot's calibrated scope.
 - X: standard post 280 characters, up to 4 media items —
   https://help.x.com/en/using-x/how-to-post (official Help Center).
 - Discord message limit (2,000) and Markdown formatting guide —
   https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline.
 - DEV.to article capabilities — https://dev.to/p/editor_guide (via the
   earlier worklog; not re-fetched here).
-- Herald's own contracts match the constraint sources above (X weighted
+- Postbot's own contracts match the constraint sources above (X weighted
   280 + 4 images, Bluesky 300 graphemes + 4, Mastodon default 500 + 4,
   Discord 2000 + 10, DEV.to title/body limits). No pixel-exact reproduction
   is claimed anywhere.
@@ -172,7 +172,7 @@ secondary per instruction and are not listed as corrections.
   at both widths. Simultaneous additions and other platforms remain unverified.
 - Official limit sources are first-party for X Help, Discord support, the
   Bluesky lexicons, the Mastodon API docs, and the app/gallery code files
-  above; the DEV.to editor guide is via the earlier worklog. Herald's
+  above; the DEV.to editor guide is via the earlier worklog. Postbot's
   contracts are the operative boundary regardless.
 - No provider publishing was performed; transmission fidelity (facets,
   markdown-to-post conversion) is outside preview calibration.

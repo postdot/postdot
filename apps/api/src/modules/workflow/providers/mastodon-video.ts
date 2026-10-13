@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import { MASTODON_MAX_VIDEO_BYTES, type MastodonPublisher } from '@herald/mastodon'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import { MASTODON_MAX_VIDEO_BYTES, type MastodonPublisher } from '@postbot/mastodon'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

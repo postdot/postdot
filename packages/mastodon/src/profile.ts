@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import {
     MASTODON_DEFAULT_MAX_CHARACTERS,
@@ -16,8 +16,8 @@ import {
 export const mastodonImageChannelProfile: ChannelProfileDefinition = {
     id: MASTODON_PROVIDER,
     version: 1,
-    profileHash: 'sha256:herald-mastodon-status-v1',
-    schemaHash: 'sha256:herald-mastodon-status-schema-v1',
+    profileHash: 'sha256:postbot-mastodon-status-v1',
+    schemaHash: 'sha256:postbot-mastodon-status-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -95,8 +95,8 @@ export const mastodonImageChannelProfile: ChannelProfileDefinition = {
 export const mastodonChannelProfile: ChannelProfileDefinition = {
     ...mastodonImageChannelProfile,
     version: 2,
-    profileHash: 'sha256:herald-mastodon-status-v2',
-    schemaHash: 'sha256:herald-mastodon-status-schema-v2',
+    profileHash: 'sha256:postbot-mastodon-status-v2',
+    schemaHash: 'sha256:postbot-mastodon-status-schema-v2',
     capabilities: {
         ...mastodonImageChannelProfile.capabilities,
         revision: 'mastodon-status-v2',

@@ -36,7 +36,7 @@ export interface PublicationRecoveryInput {
 }
 
 export function publicationRecoveryKey(projectId: string) {
-    return `herald:publication-composer:v${recoveryVersion}:${encodeURIComponent(projectId)}`
+    return `postbot:publication-composer:v${recoveryVersion}:${encodeURIComponent(projectId)}`
 }
 
 export function hasRecoverablePublicationContent(

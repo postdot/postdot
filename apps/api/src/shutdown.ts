@@ -111,8 +111,8 @@ export function createShutdownHandler(
 function defaultShutdownLog(message: string, details?: string): void {
     console.error(
         details === undefined
-            ? `[herald-shutdown] ${message}`
-            : `[herald-shutdown] ${message} ${details}`
+            ? `[postbot-shutdown] ${message}`
+            : `[postbot-shutdown] ${message} ${details}`
     )
 }
 

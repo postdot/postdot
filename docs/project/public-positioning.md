@@ -1,4 +1,4 @@
-# Herald public positioning — proposal
+# Postbot public positioning — proposal
 
 Status: proposed; review with the owner before publishing website or launch copy.
 This document describes the implemented product direction, not a feature promise.
@@ -7,7 +7,7 @@ This document describes the implemented product direction, not a feature promise
 
 **Prepare once. Publish on your terms.**
 
-Herald is an open-source, self-hosted publishing workspace. Prepare one source
+Postbot is an open-source, self-hosted publishing workspace. Prepare one source
 post, adapt it for each destination, and follow scheduled and manual publications
 from the same place.
 
@@ -26,14 +26,14 @@ retried. A dashboard and machine-facing API/CLI serve the same project workflows
 1. Compose one post and adapt it for several destinations.
 2. Schedule a connected destination while tracking a manual destination.
 3. Inspect an outcome, handle a failure or resolve an uncertain result.
-4. Run Herald on your own infrastructure with local or S3-compatible media storage.
+4. Run Postbot on your own infrastructure with local or S3-compatible media storage.
 
 Use isolated demonstration data and accurately identify manual versus automated
 behavior. Do not expose personal accounts, real tokens or private project content.
 
 ## Claims we can support
 
-- AGPL-3.0-only for original Herald code, with third-party licenses retained.
+- AGPL-3.0-only for original Postbot code, with third-party licenses retained.
 - One Bun server process with SQLite; the production dashboard is served by that
   process, without a separate Vite server.
 - Shared source editing and explicit per-destination adaptations.

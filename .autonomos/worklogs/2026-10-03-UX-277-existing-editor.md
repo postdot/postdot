@@ -42,8 +42,8 @@ Five focused journeys passed, with responsive accessibility checks at 1280,
 publication host, without changing the new-composition workspace.
 
 Full `bun run check` passed: 58 main browser journeys, two password-reset
-journeys, all format/lint/type/unit checks and 17 successful build tasks. Logs: `/tmp/herald-277-browser.log`,
-`/tmp/herald-277-check.log`.
+journeys, all format/lint/type/unit checks and 17 successful build tasks. Logs: `/tmp/postbot-277-browser.log`,
+`/tmp/postbot-277-check.log`.
 
 ## Remaining work
 

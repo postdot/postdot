@@ -7,10 +7,10 @@ import {
     createExponentialRetryPolicy,
     NextEventScheduler,
     processNextWorkflowEvent,
-} from '@herald/core'
+} from '@postbot/core'
 import { eq } from 'drizzle-orm'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
@@ -30,7 +30,7 @@ import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
 
-function executionAuditEvents(database: HeraldDatabase, publicationId: string) {
+function executionAuditEvents(database: PostbotDatabase, publicationId: string) {
     return database
         .select()
         .from(auditEvents)
@@ -39,11 +39,11 @@ function executionAuditEvents(database: HeraldDatabase, publicationId: string) {
         .filter(event => event.action.startsWith('publication.execution.'))
 }
 
-function executionAuditActions(database: HeraldDatabase, publicationId: string) {
+function executionAuditActions(database: PostbotDatabase, publicationId: string) {
     return executionAuditEvents(database, publicationId).map(event => event.action)
 }
 
-function executionAuditMetadata(database: HeraldDatabase, publicationId: string) {
+function executionAuditMetadata(database: PostbotDatabase, publicationId: string) {
     return executionAuditEvents(database, publicationId).map(event =>
         JSON.parse(event.metadataJson!)
     )
@@ -77,7 +77,7 @@ const testProfile = {
     execution: { kind: 'built_in' as const, contractId: 'test', revision: 'v1' },
 }
 
-function seedDueJob(database: HeraldDatabase, suffix = 'one') {
+function seedDueJob(database: PostbotDatabase, suffix = 'one') {
     const projectId = `project-${suffix}`
     const humanActorId = `human-${suffix}`
     const systemActorId = `system-${suffix}`
@@ -1021,10 +1021,10 @@ describe('workflow store', () => {
     })
 
     it('prevents two database connections from claiming the same job', () => {
-        const directory = mkdtempSync(join(tmpdir(), 'herald-workflow-'))
-        const filename = join(directory, 'herald.sqlite')
+        const directory = mkdtempSync(join(tmpdir(), 'postbot-workflow-'))
+        const filename = join(directory, 'postbot.sqlite')
         const firstDatabase = createDatabase(filename)
-        let secondDatabase: HeraldDatabase | undefined
+        let secondDatabase: PostbotDatabase | undefined
 
         try {
             runMigrations(firstDatabase)
@@ -1054,11 +1054,11 @@ describe('workflow store', () => {
     })
 
     it('reconstructs the next event after the database is reopened', () => {
-        const directory = mkdtempSync(join(tmpdir(), 'herald-restart-'))
-        const filename = join(directory, 'herald.sqlite')
+        const directory = mkdtempSync(join(tmpdir(), 'postbot-restart-'))
+        const filename = join(directory, 'postbot.sqlite')
         const firstDatabase = createDatabase(filename)
         let firstDatabaseOpen = true
-        let reopenedDatabase: HeraldDatabase | undefined
+        let reopenedDatabase: PostbotDatabase | undefined
 
         try {
             runMigrations(firstDatabase)

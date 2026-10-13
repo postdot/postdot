@@ -13,7 +13,7 @@
 
 ## Intent
 
-Herald is developed continuously. There is no planned V1 or MVP release boundary
+Postbot is developed continuously. There is no planned V1 or MVP release boundary
 that justifies deliberately temporary domain models, storage seams, capability
 contracts, or client behavior.
 
@@ -24,7 +24,7 @@ to make an early demonstration smaller.
 
 ## Product direction
 
-Herald is a lightweight, self-hosted multichannel publication orchestrator. It keeps
+Postbot is a lightweight, self-hosted multichannel publication orchestrator. It keeps
 automated and manual destinations in one source of truth and supports humans,
 scripts, and agents through product-owned interfaces.
 
@@ -46,7 +46,7 @@ to remain coherent with the established domain and storage boundaries.
 - The default deployment remains a small self-hosted monolith with one Bun process,
   API, dashboard, scheduler, worker, and SQLite database.
 - Media storage must be backend-neutral at its application boundary. Local storage
-  and Bun's S3-compatible client are implementations of the same Herald contract,
+  and Bun's S3-compatible client are implementations of the same Postbot contract,
   not two successive generations of the media model.
 - Each provider or channel module owns the destination-specific capability
   knowledge it needs. Shared code defines the capability protocol and validation
@@ -54,7 +54,7 @@ to remain coherent with the established domain and storage boundaries.
 - `Post`, `Publication`, `Channel`, and optional `Publisher` retain their distinct
   responsibilities. A manual channel remains a normal channel without a publisher.
 - Better Auth remains limited to the current email/password application-authentication
-  strategy. Publisher authorization remains a project-owned Herald concern.
+  strategy. Publisher authorization remains a project-owned Postbot concern.
 - Strict formatting, linting, typechecking, unit tests, integration tests, and
   relevant end-to-end or provider smoke tests remain part of the development gate.
 - Redis, Temporal, Elasticsearch, microservices, horizontal scaling, and a

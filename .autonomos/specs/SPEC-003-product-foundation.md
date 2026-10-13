@@ -1,4 +1,4 @@
-# SPEC-003 — Herald Product Foundation
+# SPEC-003 — Postbot Product Foundation
 
 - Status: accepted
 - Scope: Product identity, domain boundaries, client surfaces, and operating guardrails
@@ -9,12 +9,12 @@
 
 ## Intent
 
-Herald is a lightweight, self-hosted multichannel publication orchestrator. It keeps
+Postbot is a lightweight, self-hosted multichannel publication orchestrator. It keeps
 automatic and manual destinations in one source of truth and can be controlled by
 humans, scripts, and external agents without becoming a content-generation suite.
 
 The central product hypothesis is that a destination must exist independently of
-Herald's ability to publish there automatically.
+Postbot's ability to publish there automatically.
 
 ## Product requirements
 
@@ -60,7 +60,7 @@ state are independent dimensions rather than combined status strings.
   implementation.
 - Additional client surfaces must reuse the existing API and must not introduce a
   second domain model.
-- Embedded generative AI is outside Herald; external agents remain first-class
+- Embedded generative AI is outside Postbot; external agents remain first-class
   clients.
 
 ## Deployment requirements

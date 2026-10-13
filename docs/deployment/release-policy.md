@@ -6,7 +6,7 @@ installation. The repository and image visibility remain unchanged.
 
 ## Recommended first distribution
 
-- Registry: GitHub Container Registry, `ghcr.io/saoudi-h/herald`.
+- Registry: GitHub Container Registry, `ghcr.io/saoudi-h/postbot`.
 - First public version: `v0.1.0-alpha.1`, with image tag `0.1.0-alpha.1`.
 - Target platforms: `linux/amd64` and `linux/arm64`, advertised only after each
   passes production container acceptance. A build alone is not support evidence.
@@ -92,7 +92,7 @@ Publication and multi-platform manifest assembly remain separate work.
 For local checks against an already-built image:
 
 ```bash
-HERALD_CONTAINER_TEST_IMAGE=herald:local bun run test:container:recovery
+POSTBOT_CONTAINER_TEST_IMAGE=postbot:local bun run test:container:recovery
 ```
 
 The supplied image must exist locally. The harness creates isolated disposable

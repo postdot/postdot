@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@herald/media'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 import { closeDatabase, createDatabase } from './client'
@@ -16,9 +16,9 @@ import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 describe('SQLite backup and restore', () => {
     it('creates a consistent backup and restores it atomically', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-db-recovery-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
-        const backupPath = join(directory, 'backups', 'herald.sqlite')
+        const backupPath = join(directory, 'backups', 'postbot.sqlite')
         const restoredPath = join(directory, 'restored.sqlite')
 
         try {
@@ -50,7 +50,7 @@ describe('SQLite backup and restore', () => {
     })
 
     it('rejects overwriting an existing backup and using the same path', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-db-recovery-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
         const backupPath = join(directory, 'backup.sqlite')
 
@@ -73,8 +73,8 @@ describe('SQLite backup and restore', () => {
         }
     })
 
-    it('refuses restore while the Herald runtime owns the database boundary', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-db-recovery-'))
+    it('refuses restore while the Postbot runtime owns the database boundary', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
         const restoredPath = join(directory, 'restored.sqlite')
 
@@ -96,9 +96,9 @@ describe('SQLite backup and restore', () => {
     })
 
     it('backs up and restores database rows together with verified media bytes', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-media-backup-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-media-backup-'))
         const sourcePath = join(directory, 'source.sqlite')
-        const bundlePath = join(directory, 'backups', 'herald.bundle')
+        const bundlePath = join(directory, 'backups', 'postbot.bundle')
         const restoredPath = join(directory, 'restored.sqlite')
         const sourceMediaPath = join(directory, 'source-media')
         const restoredMediaPath = join(directory, 'restored-media')

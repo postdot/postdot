@@ -18,7 +18,7 @@ does not prevent a hostname from resolving to loopback, private, link-local, or
 cloud metadata addresses, and using the platform `fetch` directly would leave a
 DNS-rebinding window between validation and connection.
 
-Herald already has a tested egress authorizer and a Node requester for bounded
+Postbot already has a tested egress authorizer and a Node requester for bounded
 custom HTTP delivery. Duplicating that policy in every provider would create
 multiple security boundaries with different behavior. The policy is operator
 owned; a project user must not be able to opt a destination into private network
@@ -26,7 +26,7 @@ access through a channel or publisher payload.
 
 ## Decision
 
-- Reuse the existing custom HTTP egress implementation as Herald's shared
+- Reuse the existing custom HTTP egress implementation as Postbot's shared
   operator-controlled outbound network boundary. Add a provider-neutral fetcher
   adapter to that package rather than introducing a second resolver/requester
   stack or a speculative network service.
@@ -41,7 +41,7 @@ access through a channel or publisher payload.
   the request does not follow redirects. The original hostname remains the TLS
   SNI and HTTP `Host` value, so certificate and virtual-host routing still work.
 - The operator policy is configured once by the process through
-  `HERALD_OUTBOUND_PRIVATE_DESTINATIONS`. It applies to custom HTTP and
+  `POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS`. It applies to custom HTTP and
   per-instance built-in providers; provider code does not read environment
   variables or make authorization decisions.
 - Mastodon receives the controlled fetcher in both OAuth connection routes and
@@ -60,7 +60,7 @@ Rejected because it does not expose the resolved address pinning needed to close
 the DNS-rebinding gap, and it would bypass the existing private-destination
 policy.
 
-### Copy the policy into `@herald/mastodon`
+### Copy the policy into `@postbot/mastodon`
 
 Rejected because every future per-instance provider would need another security
 implementation and the policies could drift. Mastodon remains testable through
@@ -74,7 +74,7 @@ trusted. Operators can allow an exact local destination explicitly.
 
 ### Introduce a separate network package immediately
 
-Deferred. The existing `@herald/custom-http` boundary already owns the hardened
+Deferred. The existing `@postbot/custom-http` boundary already owns the hardened
 resolver and Node requester, and the new provider-neutral adapter is small. A
 separate package becomes justified only if the shared boundary needs independent
 runtime consumers or lifecycle that cannot remain coherent here.

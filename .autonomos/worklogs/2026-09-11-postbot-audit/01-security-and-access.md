@@ -4,7 +4,7 @@ Reference: `main@60bbb319`. The two defects below were reproduced with fictional
 
 ## H-01 — P1 — The viewer role does not prevent every write
 
-**Expected contract.** [ADR-061](/home/hakim/projects/herald/.autonomos/decisions/ADR-061-human-account-and-instance-access-policy.md:83) defines a viewer as a read-only project member. The same contract permits operational writes for an editor and reserves access management for the owner.
+**Expected contract.** [ADR-061](./.autonomos/decisions/ADR-061-human-account-and-instance-access-policy.md:83) defines a viewer as a read-only project member. The same contract permits operational writes for an editor and reserves access management for the owner.
 
 **Observed behavior.** After creating a non-administrator user and adding that user as a project viewer:
 
@@ -14,7 +14,7 @@ Reference: `main@60bbb319`. The two defects below were reproduced with fictional
 
 The account has the project `viewer` role. Fixture-specific administrator privileges were removed before the reproduction.
 
-**Cause.** [Route composition](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:94) calls `canAccessProject` without a minimum role. [The access store](/home/hakim/projects/herald/packages/db/src/access-store.ts:904) therefore accepts `viewer`. [Channel creation](/home/hakim/projects/herald/apps/api/src/modules/projects/channel-routes.ts:66) delegates directly to the store. [The store](/home/hakim/projects/herald/packages/db/src/manual-store/project-channel-store.ts:338) checks for a project and actor, but not the role. [Actor loading](/home/hakim/projects/herald/packages/db/src/manual-store.ts:260) supports attribution and is not current write authorization.
+**Cause.** [Route composition](./apps/api/src/modules/projects/index.ts:94) calls `canAccessProject` without a minimum role. [The access store](./packages/db/src/access-store.ts:904) therefore accepts `viewer`. [Channel creation](./apps/api/src/modules/projects/channel-routes.ts:66) delegates directly to the store. [The store](./packages/db/src/manual-store/project-channel-store.ts:338) checks for a project and actor, but not the role. [Actor loading](./packages/db/src/manual-store.ts:260) supports attribution and is not current write authorization.
 
 **Impact.** A read-only invited user can change project content. The protection on the member-management page or timezone route does not protect the other routes. Other mutations using this model require a systematic review; this audit did not execute every mutation or publish to an external service as a viewer.
 
@@ -26,7 +26,7 @@ The account has the project `viewer` role. Fixture-specific administrator privil
 
 **Reproduction.** A viewer opens `/api/projects/:id/events`. The owner removes that member. A new channel read returns 404, proving that current membership was revoked. The owner then creates a channel; the reader on the old connection still receives a `channel.created` event.
 
-**Cause.** [The SSE route](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:156) checks access when opening. [The stream loop](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:336) checks request cancellation and then rereads the project journal; it has no way to revalidate the session or membership. Revocation does not automatically abort the connection's `Request.signal`.
+**Cause.** [The SSE route](./apps/api/src/modules/projects/realtime-routes.ts:156) checks access when opening. [The stream loop](./apps/api/src/modules/projects/realtime-routes.ts:336) checks request cancellation and then rereads the project journal; it has no way to revalidate the session or membership. Revocation does not automatically abort the connection's `Request.signal`.
 
 **Precise impact.** The stream contains identifiers, event types, subjects, and timestamps. Its `payload` is empty: the reproduction demonstrates metadata and activity leakage, not post text or token leakage. The connection can remain open after the permission that authorized it disappears.
 
@@ -36,11 +36,11 @@ The user stream recalculates visible projects during reads, which is a real addi
 
 ## Protections to preserve
 
-- Better Auth owns human identities and Organization membership; Herald keeps its instance rules and domain attribution.
-- [Project keys](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:59) are checked and bound to an organization and project. The macro rejects the wrong project; key-management routes require a human owner.
-- [Reserved Better Auth mutations](/home/hakim/projects/herald/packages/auth/src/index.ts:66) are blocked on the public HTTP mount so the affected operations go through Herald routes. This list requires a compatibility check whenever plugins evolve.
-- Provider secrets are separate from Herald login accounts and encrypted at rest; the connection belongs to the project.
-- [HTTP egress](/home/hakim/projects/herald/packages/custom-http/src/egress.ts:76) classifies resolved addresses, applies the private-address policy, and rejects infrastructure metadata. [The transport](/home/hakim/projects/herald/packages/custom-http/src/node-requester.ts:40) uses the selected address. This is a concrete boundary, stronger than string-only URL validation.
+- Better Auth owns human identities and Organization membership; Postbot keeps its instance rules and domain attribution.
+- [Project keys](./apps/api/src/modules/projects/index.ts:59) are checked and bound to an organization and project. The macro rejects the wrong project; key-management routes require a human owner.
+- [Reserved Better Auth mutations](./packages/auth/src/index.ts:66) are blocked on the public HTTP mount so the affected operations go through Postbot routes. This list requires a compatibility check whenever plugins evolve.
+- Provider secrets are separate from Postbot login accounts and encrypted at rest; the connection belongs to the project.
+- [HTTP egress](./packages/custom-http/src/egress.ts:76) classifies resolved addresses, applies the private-address policy, and rejects infrastructure metadata. [The transport](./packages/custom-http/src/node-requester.ts:40) uses the selected address. This is a concrete boundary, stronger than string-only URL validation.
 - Schema and media contracts are bounded; they do not permit persisted script execution.
 
 These protections do not compensate for H-01 and H-02, but they justify targeted boundary fixes rather than rebuilding all security.
@@ -49,4 +49,4 @@ These protections do not compensate for H-01 and H-02, but they justify targeted
 
 This audit does not conclude that there are no vulnerabilities, vulnerable dependencies, or authentication flaws. Email verification, administration, invitation, and plugin journeys expose a substantial surface. A later review should use a permission and lifecycle matrix with precise dependency versions.
 
-The [official Better Auth session documentation](https://better-auth.com/docs/concepts/session-management) was used to distinguish session validity, expiration, and revocation. H-01 and H-02 are based on Herald and local reproductions, not on an assumption about a Better Auth defect.
+The [official Better Auth session documentation](https://better-auth.com/docs/concepts/session-management) was used to distinguish session validity, expiration, and revocation. H-01 and H-02 are based on Postbot and local reproductions, not on an assumption about a Better Auth defect.

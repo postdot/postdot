@@ -23,8 +23,8 @@ export async function verifyProductionDashboard(
     }
 
     const html = await shellResponse.text()
-    if (!/<title>\s*Herald\s*<\/title>/i.test(html) || !/id=["']root["']/i.test(html)) {
-        throw new Error('Dashboard shell is missing the Herald title or application root')
+    if (!/<title>\s*Postbot\s*<\/title>/i.test(html) || !/id=["']root["']/i.test(html)) {
+        throw new Error('Dashboard shell is missing the Postbot title or application root')
     }
 
     const assetUrls = Array.from(html.matchAll(/(?:src|href)=["']([^"']+)["']/gi))

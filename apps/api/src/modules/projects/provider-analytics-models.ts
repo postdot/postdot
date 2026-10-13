@@ -1,5 +1,5 @@
-import type { ProviderAnalyticsObservation } from '@herald/core'
-import type { ProviderAnalyticsObservationPage } from '@herald/db'
+import type { ProviderAnalyticsObservation } from '@postbot/core'
+import type { ProviderAnalyticsObservationPage } from '@postbot/db'
 import { Type } from 'typebox'
 
 import type { BlueskyAnalyticsCollectionResponse } from './bluesky-analytics-service'
@@ -45,8 +45,8 @@ export const providerAnalyticsObservationSchema = Type.Unsafe<ProviderAnalyticsO
         providerSubjectId: Type.String({ minLength: 1 }),
         providerSubjectLabel: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
         providerContentRevisionId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-        heraldEntityType: Type.Union([providerAnalyticsEntityTypeSchema, Type.Null()]),
-        heraldEntityId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+        postbotEntityType: Type.Union([providerAnalyticsEntityTypeSchema, Type.Null()]),
+        postbotEntityId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
         metricName: Type.String({ minLength: 1 }),
         value: Type.Union([Type.Number({ minimum: 0 }), Type.Null()]),
         unit: Type.String({ minLength: 1 }),
@@ -64,7 +64,7 @@ export const providerAnalyticsObservationSchema = Type.Unsafe<ProviderAnalyticsO
 export const providerAnalyticsQuery = Type.Object({
     subjectType: Type.Optional(providerAnalyticsSubjectTypeSchema),
     providerSubjectId: Type.Optional(Type.String({ minLength: 1 })),
-    heraldEntityId: Type.Optional(Type.String({ minLength: 1 })),
+    postbotEntityId: Type.Optional(Type.String({ minLength: 1 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
 })
 
@@ -94,7 +94,7 @@ export const providerAnalyticsObservationPageSchema = Type.Unsafe<ProviderAnalyt
 const blueskyAnalyticsCoverageGapSchema = Type.Object({
     subjectType: providerAnalyticsSubjectTypeSchema,
     providerSubjectId: Type.String({ minLength: 1 }),
-    heraldEntityId: Type.String({ minLength: 1 }),
+    postbotEntityId: Type.String({ minLength: 1 }),
     metricNames: Type.Array(Type.String({ minLength: 1 })),
     availability: Type.Union([
         Type.Literal('not_reported'),

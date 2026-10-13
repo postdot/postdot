@@ -1,6 +1,6 @@
-import { heraldUserApiKeyConfigId, type HeraldAuth } from '@herald/auth'
-import type { BlueskyFetcher } from '@herald/bluesky'
-import type { NotificationEmailStore } from '@herald/db'
+import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postbot/auth'
+import type { BlueskyFetcher } from '@postbot/bluesky'
+import type { NotificationEmailStore } from '@postbot/db'
 import type {
     AnalyticsStore,
     AccessStore,
@@ -9,9 +9,9 @@ import type {
     NotificationStore,
     ProviderAnalyticsStore,
     TaxonomyStore,
-} from '@herald/db'
-import type { DevtoFetcher } from '@herald/devto'
-import type { DiscordFetcher } from '@herald/discord'
+} from '@postbot/db'
+import type { DevtoFetcher } from '@postbot/devto'
+import type { DiscordFetcher } from '@postbot/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
@@ -56,7 +56,7 @@ function isProjectAccessPath(projectId: string, requestPath: string): boolean {
 }
 
 export interface ProjectModuleOptions {
-    readonly auth: HeraldAuth
+    readonly auth: PostbotAuth
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
     readonly media?: MediaAssetStore
@@ -88,20 +88,20 @@ export interface ProjectModuleOptions {
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         authenticateBetterAuthProjectApiKey: async token => {
-            if (!token.startsWith('herald_pat_')) return null
+            if (!token.startsWith('postbot_pat_')) return null
 
             try {
                 const userVerified = await options.auth.api.verifyApiKey({
-                    body: { configId: heraldUserApiKeyConfigId, key: token },
+                    body: { configId: postbotUserApiKeyConfigId, key: token },
                 })
                 if (userVerified.valid && userVerified.key !== null) {
                     const metadata = readUserApiKeyMetadata(userVerified.key.metadata)
                     if (metadata !== null) {
                         return {
                             projectIds:
-                                metadata.heraldProjectAccess === 'all'
+                                metadata.postbotProjectAccess === 'all'
                                     ? null
-                                    : (metadata.heraldProjectIds ?? []),
+                                    : (metadata.postbotProjectIds ?? []),
                             ownerUserId: userVerified.key.referenceId,
                             displayName: `API key: ${userVerified.key.name ?? userVerified.key.id}`,
                             permissions: userVerified.key.permissions,

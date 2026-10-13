@@ -4945,15 +4945,15 @@
                     "notNull": false,
                     "autoincrement": false
                 },
-                "herald_entity_type": {
-                    "name": "herald_entity_type",
+                "postbot_entity_type": {
+                    "name": "postbot_entity_type",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": false,
                     "autoincrement": false
                 },
-                "herald_entity_id": {
-                    "name": "herald_entity_id",
+                "postbot_entity_id": {
+                    "name": "postbot_entity_id",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": false,
@@ -5070,8 +5070,8 @@
                     "name": "provider_analytics_observations_project_entity_idx",
                     "columns": [
                         "project_id",
-                        "herald_entity_type",
-                        "herald_entity_id",
+                        "postbot_entity_type",
+                        "postbot_entity_id",
                         "fetched_at"
                     ],
                     "isUnique": false
@@ -5109,7 +5109,7 @@
                 },
                 "provider_analytics_observations_entity_pair_valid": {
                     "name": "provider_analytics_observations_entity_pair_valid",
-                    "value": "(\"provider_analytics_observations\".\"herald_entity_type\" is null and \"provider_analytics_observations\".\"herald_entity_id\" is null)\n                or (\"provider_analytics_observations\".\"herald_entity_type\" is not null\n                    and \"provider_analytics_observations\".\"herald_entity_id\" is not null\n                    and length(trim(\"provider_analytics_observations\".\"herald_entity_id\")) > 0)"
+                    "value": "(\"provider_analytics_observations\".\"postbot_entity_type\" is null and \"provider_analytics_observations\".\"postbot_entity_id\" is null)\n                or (\"provider_analytics_observations\".\"postbot_entity_type\" is not null\n                    and \"provider_analytics_observations\".\"postbot_entity_id\" is not null\n                    and length(trim(\"provider_analytics_observations\".\"postbot_entity_id\")) > 0)"
                 },
                 "provider_analytics_observations_metric_nonblank": {
                     "name": "provider_analytics_observations_metric_nonblank",
@@ -5145,7 +5145,7 @@
                 },
                 "provider_analytics_observations_enum_valid": {
                     "name": "provider_analytics_observations_enum_valid",
-                    "value": "\"provider_analytics_observations\".\"subject_type\" in ('account', 'content')\n                and (\"provider_analytics_observations\".\"herald_entity_type\" is null or \"provider_analytics_observations\".\"herald_entity_type\" in ('channel', 'publication'))\n                and \"provider_analytics_observations\".\"availability\" in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'partial_response', 'not_configured', 'not_authorized', 'not_supported')\n                and \"provider_analytics_observations\".\"freshness\" in ('fresh', 'stale', 'unknown')"
+                    "value": "\"provider_analytics_observations\".\"subject_type\" in ('account', 'content')\n                and (\"provider_analytics_observations\".\"postbot_entity_type\" is null or \"provider_analytics_observations\".\"postbot_entity_type\" in ('channel', 'publication'))\n                and \"provider_analytics_observations\".\"availability\" in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'partial_response', 'not_configured', 'not_authorized', 'not_supported')\n                and \"provider_analytics_observations\".\"freshness\" in ('fresh', 'stale', 'unknown')"
                 }
             }
         },

@@ -1,14 +1,14 @@
-import { Button } from '@herald/ui/components/button'
+import flagFr from '@iconify-icons/flag/fr-4x3'
+import flagGb from '@iconify-icons/flag/gb-4x3'
+import { Icon } from '@iconify/react'
+import { Button } from '@postbot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@herald/ui/components/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
-import flagFr from '@iconify-icons/flag/fr-4x3'
-import flagGb from '@iconify-icons/flag/gb-4x3'
-import { Icon } from '@iconify/react'
+} from '@postbot/ui/components/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'

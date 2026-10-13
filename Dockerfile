@@ -1,5 +1,5 @@
 # cspell:words ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
-# Isolated from application sources so normal Herald builds reuse this layer.
+# Isolated from application sources so normal Postbot builds reuse this layer.
 FROM oven/bun:1.4.2-slim AS poster
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential xz-utils curl ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -42,9 +42,9 @@ RUN HUSKY=0 bun install --frozen-lockfile
 
 COPY . .
 
-RUN bunx --no-install turbo run build --filter=@herald/api --filter=@herald/web
+RUN bunx --no-install turbo run build --filter=@postbot/api --filter=@postbot/web
 RUN mkdir -p /out/migrations /out/public
-RUN cp apps/api/dist/index.js /out/herald.js
+RUN cp apps/api/dist/index.js /out/postbot.js
 RUN cp -R packages/db/drizzle/. /out/migrations/
 RUN cp -R apps/web/dist/. /out/public/
 
@@ -52,11 +52,11 @@ FROM oven/bun:1.4.2-slim
 
 WORKDIR /app
 
-COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/herald-poster
+COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/postbot-poster
 COPY --from=poster /src/ffmpeg-9.0.2/COPYING.LGPLv2.1 ./licenses/FFmpeg.LICENSE
 COPY --from=build --chown=bun:bun /app/LICENSE ./LICENSE
 COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
-COPY --from=build --chown=bun:bun /out/herald.js ./herald.js
+COPY --from=build --chown=bun:bun /out/postbot.js ./postbot.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
 COPY --from=build --chown=bun:bun /app/docs/licenses/ ./licenses/
@@ -65,9 +65,9 @@ RUN mkdir -p /data && chown bun:bun /data
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_FILE_NAME=/data/herald.sqlite
-ENV HERALD_MIGRATIONS_DIR=/app/migrations
-ENV HERALD_WEB_ASSETS_DIR=/app/public
+ENV DB_FILE_NAME=/data/postbot.sqlite
+ENV POSTBOT_MIGRATIONS_DIR=/app/migrations
+ENV POSTBOT_WEB_ASSETS_DIR=/app/public
 
 USER bun
 
@@ -78,4 +78,4 @@ EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD ["bun", "-e", "if (!(await fetch('http://127.0.0.1:3000/health')).ok) process.exit(1)"]
 
-ENTRYPOINT ["bun", "/app/herald.js"]
+ENTRYPOINT ["bun", "/app/postbot.js"]

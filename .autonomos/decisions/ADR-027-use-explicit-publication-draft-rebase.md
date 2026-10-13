@@ -23,7 +23,7 @@ promotion or external execution.
 
 ## Decision
 
-Herald uses explicit per-publication draft rebasing:
+Postbot uses explicit per-publication draft rebasing:
 
 1. Every publication working draft stores the validated source snapshot associated
    with its `sourceRevision`.
@@ -53,7 +53,7 @@ semantics.
 - **Silent sibling propagation:** minimizes code but can overwrite deliberate
   channel-specific edits and violates zero-loss authoring.
 - **Discard the sibling draft:** protects consistency by losing user work and is
-  incompatible with Herald's recovery goal.
+  incompatible with Postbot's recovery goal.
 - **Automatic regeneration based on heuristics:** may reduce repetitive work but
   requires tracking whether target changes were intentional and risks hiding a
   semantic change behind a convenience action.

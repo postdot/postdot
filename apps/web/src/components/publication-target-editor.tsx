@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Textarea } from '@herald/ui/components/textarea'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Textarea } from '@postbot/ui/components/textarea'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { useEffect, useMemo, useState } from 'react'
 

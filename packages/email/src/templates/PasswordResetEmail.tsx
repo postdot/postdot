@@ -4,9 +4,9 @@ import { Text } from '@react-email/text'
 import * as React from 'react'
 
 import { emailStyles } from '../styles'
-import { HeraldEmailLayout } from './HeraldEmailLayout'
+import { PostbotEmailLayout } from './PostbotEmailLayout'
 
-export interface HeraldPasswordResetEmailInput {
+export interface PostbotPasswordResetEmailInput {
     readonly user: {
         readonly email: string
         readonly name: string
@@ -14,16 +14,16 @@ export interface HeraldPasswordResetEmailInput {
     readonly url: string
 }
 
-export const passwordResetSubject = 'Reset your Herald password'
+export const passwordResetSubject = 'Reset your Postbot password'
 
-export function PasswordResetEmail({ user, url }: HeraldPasswordResetEmailInput) {
+export function PasswordResetEmail({ user, url }: PostbotPasswordResetEmailInput) {
     return (
-        <HeraldEmailLayout
-            preview="A password reset was requested for your Herald account."
+        <PostbotEmailLayout
+            preview="A password reset was requested for your Postbot account."
             title={passwordResetSubject}>
             <Text style={emailStyles.text}>Hello {user.name},</Text>
             <Text style={emailStyles.text}>
-                A password reset was requested for your Herald account.
+                A password reset was requested for your Postbot account.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={url} style={emailStyles.button}>
@@ -40,11 +40,11 @@ export function PasswordResetEmail({ user, url }: HeraldPasswordResetEmailInput)
                 This link expires after one hour. If you did not request this, you can ignore this
                 email.
             </Text>
-        </HeraldEmailLayout>
+        </PostbotEmailLayout>
     )
 }
 
-const previewProps: HeraldPasswordResetEmailInput = {
+const previewProps: PostbotPasswordResetEmailInput = {
     user: {
         email: 'preview@example.test',
         name: 'Alex Martin',

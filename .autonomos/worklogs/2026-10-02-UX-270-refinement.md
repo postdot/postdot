@@ -32,7 +32,7 @@ were expanded.
 
 Final full `bun run check` passed: format, lint/spelling, types, localization,
 unit checks, 48 main browser scenarios, two password-reset scenarios and all
-17 build tasks. Final log: `/tmp/herald-ux270-settings-final-check.log`.
+17 build tasks. Final log: `/tmp/postbot-ux270-settings-final-check.log`.
 
 Focused native OAuth, installation access and API-key journeys passed. Rendered
 and Axe checks cover light/dark at 1280, 820 and 390 pixels, including the issued

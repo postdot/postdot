@@ -1,8 +1,8 @@
 {
-    "name": "@herald/bluesky",
+    "name": "@postbot/bluesky",
     "version": "0.0.0",
     "private": true,
-    "description": "Bluesky and AT Protocol publishing adapter for Herald",
+    "description": "Bluesky and AT Protocol publishing adapter for Postbot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -25,7 +25,7 @@
         "@atproto/jwk-webcrypto": "0.3.4",
         "@atproto/oauth-client": "0.8.8",
         "@atproto/oauth-types": "0.7.7",
-        "@herald/core": "workspace:*"
+        "@postbot/core": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

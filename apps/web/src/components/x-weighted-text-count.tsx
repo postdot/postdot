@@ -1,4 +1,4 @@
-import { X_MAX_WEIGHTED_POST_LENGTH, type XWeightedTextResult } from '@herald/x/text'
+import { X_MAX_WEIGHTED_POST_LENGTH, type XWeightedTextResult } from '@postbot/x/text'
 
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'

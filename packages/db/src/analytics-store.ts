@@ -7,9 +7,9 @@ import {
     requireTimestamp,
     type DeliveryMode,
     type PublicationState,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 
 const analyticsContractVersion = 1
 const supportedEventVersion = 1
@@ -453,7 +453,7 @@ interface HistoricalAccumulator {
 }
 
 export function createAnalyticsStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: AnalyticsStoreOptions = {}
 ) {
     const client = database.$client

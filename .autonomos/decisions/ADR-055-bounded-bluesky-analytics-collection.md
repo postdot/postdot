@@ -53,7 +53,7 @@ or storing the raw response.
 The provider timestamp is an index/source timestamp, not a guarantee that all
 counters were measured at that instant. It is stored as `observedAt` when
 valid, while `freshness` remains `unknown` because Bluesky supplies no
-freshness SLO for these counters. `fetchedAt` is Herald's UTC timestamp at the
+freshness SLO for these counters. `fetchedAt` is Postbot's UTC timestamp at the
 start of the collection and is the idempotency snapshot boundary.
 
 Missing optional counter fields remain `not_reported` with a null value. A
@@ -81,7 +81,7 @@ envelope is per explicit invocation, not a materialized projection or a
 background collection record. Persisted rows retain the per-metric gaps, and
 the GET route reads those rows without calling Bluesky.
 
-### Herald publication identity
+### Postbot publication identity
 
 `publications.external_id` already stores the provider post identifier returned
 by a successful publisher outcome. For a Bluesky publication this is the

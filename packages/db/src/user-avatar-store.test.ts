@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@herald/media'
+import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postbot/media'
 
 import { backupWithMedia, restoreWithMedia } from './backup'
 import { createDatabase, closeDatabase } from './client'
@@ -20,7 +20,7 @@ const bytes = Uint8Array.from(
 function addUser(database: ReturnType<typeof createDatabase>, id: string) {
     database.$client
         .query('INSERT INTO user (id, name, email) VALUES (?, ?, ?)')
-        .run(id, id, `${id}@herald.local`)
+        .run(id, id, `${id}@postbot.local`)
 }
 
 describe('personal avatar storage', () => {
@@ -69,7 +69,7 @@ describe('personal avatar storage', () => {
         const storage = createS3MediaStore({
             storeId: 'avatar-s3-test',
             client: { file } as unknown as Bun.S3Client,
-            prefix: 'herald-test',
+            prefix: 'postbot-test',
             maxObjectBytes: 6 * 1024 * 1024,
         })
         const database = createDatabase(':memory:')
@@ -91,7 +91,7 @@ describe('personal avatar storage', () => {
     })
 
     it('retries retired-image cleanup without changing another person and honors backup fences', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-avatar-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-avatar-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         addUser(database, 'owner')
@@ -158,7 +158,7 @@ describe('personal avatar storage', () => {
     })
 
     it('includes personal images in verified backup and restore bundles', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-avatar-backup-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-avatar-backup-'))
         const sourceFile = join(directory, 'source.sqlite')
         const database = createDatabase(sourceFile)
         runMigrations(database)

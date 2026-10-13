@@ -1,23 +1,23 @@
-import type { NextEventScheduler } from '@herald/core'
+import type { NextEventScheduler } from '@postbot/core'
 import { Counter, Gauge, Histogram, Registry } from '@prometheus-io/client'
 
 import type { PublicationWorkerRunObservation } from '../workflow/worker'
 
 const schedulerStates = ['idle', 'started', 'running', 'stopped', 'failed'] as const
 
-export interface HeraldMetrics {
+export interface PostbotMetrics {
     readonly registry: Registry
     bindScheduler(scheduler: Pick<NextEventScheduler, 'state'>): void
     observeWorkerRun(observation: PublicationWorkerRunObservation): void
 }
 
-export function createHeraldMetrics(): HeraldMetrics {
+export function createPostbotMetrics(): PostbotMetrics {
     const registry = new Registry()
     let previousCpuUsage = { user: 0, system: 0 }
 
     new Counter<'mode'>({
-        name: 'herald_process_cpu_seconds_total',
-        help: 'The cumulative CPU time used by this Herald process in seconds.',
+        name: 'postbot_process_cpu_seconds_total',
+        help: 'The cumulative CPU time used by this Postbot process in seconds.',
         labelNames: ['mode'],
         registers: [registry],
         collect() {
@@ -30,8 +30,8 @@ export function createHeraldMetrics(): HeraldMetrics {
         },
     })
     new Gauge<'type'>({
-        name: 'herald_process_memory_bytes',
-        help: 'The current memory usage of this Herald process in bytes.',
+        name: 'postbot_process_memory_bytes',
+        help: 'The current memory usage of this Postbot process in bytes.',
         labelNames: ['type'],
         registers: [registry],
         collect() {
@@ -44,8 +44,8 @@ export function createHeraldMetrics(): HeraldMetrics {
         },
     })
     new Gauge({
-        name: 'herald_process_uptime_seconds',
-        help: 'The time this Herald process has been running in seconds.',
+        name: 'postbot_process_uptime_seconds',
+        help: 'The time this Postbot process has been running in seconds.',
         registers: [registry],
         collect() {
             this.set(process.uptime())
@@ -54,7 +54,7 @@ export function createHeraldMetrics(): HeraldMetrics {
 
     let scheduler: Pick<NextEventScheduler, 'state'> | undefined
     new Gauge<'state'>({
-        name: 'herald_publication_scheduler_state',
+        name: 'postbot_publication_scheduler_state',
         help: 'The current publication scheduler state, represented by a one-hot state label.',
         labelNames: ['state'],
         registers: [registry],
@@ -65,13 +65,13 @@ export function createHeraldMetrics(): HeraldMetrics {
         },
     })
     const workerRuns = new Counter<'outcome'>({
-        name: 'herald_publication_worker_runs_total',
+        name: 'postbot_publication_worker_runs_total',
         help: 'The number of completed publication worker runs by outcome.',
         labelNames: ['outcome'],
         registers: [registry],
     })
     const workerRunDuration = new Histogram<'outcome'>({
-        name: 'herald_publication_worker_run_duration_seconds',
+        name: 'postbot_publication_worker_run_duration_seconds',
         help: 'The duration of completed publication worker runs in seconds.',
         labelNames: ['outcome'],
         buckets: [0.01, 0.05, 0.1, 0.5, 1, 5, 15, 60],

@@ -17,9 +17,9 @@ const channels: ChannelListItem[] = [
 const connections: PublisherConnection[] = [
     createConnection({
         channelId: 'active',
-        destination: { type: 'member', id: 'member-1', name: 'Herald team' },
+        destination: { type: 'member', id: 'member-1', name: 'Postbot team' },
         externalAccountId: 'member-1',
-        externalAccountName: 'Herald team',
+        externalAccountName: 'Postbot team',
         kind: 'linkedin',
         providerId: 'linkedin',
         state: 'active',

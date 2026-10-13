@@ -7,39 +7,39 @@ import {
     createBlueskyClientMetadata,
     type BlueskyPublishOutcome,
     type BlueskyPublisher,
-} from '@herald/bluesky'
-import type { ChannelProfileDefinition, ExternalEffectOutcome } from '@herald/core'
+} from '@postbot/bluesky'
+import type { ChannelProfileDefinition, ExternalEffectOutcome } from '@postbot/core'
 import type {
     PublisherConnectionDestination,
     PublisherExecutionMedia,
     PublisherExecutionTarget,
-} from '@herald/db'
+} from '@postbot/db'
 import {
     DEVTO_PROVIDER,
     devtoChannelProfile,
     type DevtoPublishOutcome,
     type DevtoPublisher,
-} from '@herald/devto'
+} from '@postbot/devto'
 import {
     DISCORD_PROVIDER,
     discordChannelProfile,
     type DiscordPublishOutcome,
     type DiscordPublisher,
-} from '@herald/discord'
+} from '@postbot/discord'
 import {
     linkedinChannelProfile,
     type LinkedInImagePublisher,
     type LinkedInMediaUploadOutcome,
     type LinkedInPublishOutcome,
     type LinkedInTextPublisher,
-} from '@herald/linkedin'
+} from '@postbot/linkedin'
 import {
     MASTODON_PROVIDER,
     mastodonChannelProfile,
     type MastodonPublishOutcome,
     type MastodonPublisher,
-} from '@herald/mastodon'
-import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@herald/x'
+} from '@postbot/mastodon'
+import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@postbot/x'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
 import { createDevtoProviderAdapter } from './devto'
@@ -57,7 +57,7 @@ import { createXProviderAdapter } from './x'
 
 const now = 1_800_000_000_000
 const credentialSecret = 'conformance-secret-that-must-not-become-domain-data'
-const blueskyDid = 'did:plc:herald-conformance'
+const blueskyDid = 'did:plc:postbot-conformance'
 const blueskySession = JSON.stringify({
     tokenSet: {
         sub: blueskyDid,
@@ -69,10 +69,10 @@ const blueskySession = JSON.stringify({
 
 const blueskyOAuth: NonNullable<BlueskyProviderAdapterOptions['oauth']> = {
     clientMetadata: createBlueskyClientMetadata({
-        clientId: 'https://herald.test/oauth/bluesky/client-metadata.json',
-        clientName: 'Herald conformance test',
-        clientUri: 'https://herald.test',
-        redirectUri: 'https://herald.test/api/oauth/bluesky/callback',
+        clientId: 'https://postbot.test/oauth/bluesky/client-metadata.json',
+        clientName: 'Postbot conformance test',
+        clientUri: 'https://postbot.test',
+        redirectUri: 'https://postbot.test/api/oauth/bluesky/callback',
     }),
     handleResolver: 'https://bsky.social',
 }
@@ -83,7 +83,7 @@ const outcomes = [
         type: 'retryable_failure',
         effectOccurred: false,
         code: 'rate_limited',
-        errorMessage: 'The provider asked Herald to retry later',
+        errorMessage: 'The provider asked Postbot to retry later',
     },
     {
         type: 'permanent_failure',
@@ -267,7 +267,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 async getBotUser() {
                     return {
                         kind: 'success',
-                        value: { id: '987654321098765432', username: 'Herald' },
+                        value: { id: '987654321098765432', username: 'Postbot' },
                     }
                 },
                 async getChannel() {
@@ -288,8 +288,8 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         name: 'DEV.to',
         providerId: DEVTO_PROVIDER,
         profile: devtoChannelProfile,
-        content: { title: 'A Herald article', body_markdown: 'A conformance article', media: [] },
-        destination: { type: 'account', id: '42', name: 'Herald' },
+        content: { title: 'A Postbot article', body_markdown: 'A conformance article', media: [] },
+        destination: { type: 'account', id: '42', name: 'Postbot' },
         externalAccountId: '42',
         providerSession: null,
         endpointUrl: null,
@@ -298,7 +298,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 async getMe() {
                     return {
                         kind: 'success',
-                        value: { id: '42', username: 'herald', name: 'Herald' },
+                        value: { id: '42', username: 'postbot', name: 'Postbot' },
                     }
                 },
                 async getArticleAnalytics() {

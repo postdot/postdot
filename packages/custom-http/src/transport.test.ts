@@ -32,7 +32,7 @@ function createInput(
 ): CustomHttpDeliveryInput {
     return {
         execution,
-        content: { body: 'Hello from Herald', slug: 'hello', media: [] },
+        content: { body: 'Hello from Postbot', slug: 'hello', media: [] },
         context,
         media: [],
         connection: {
@@ -81,7 +81,7 @@ function createRequester(
 }
 
 describe('custom HTTP transport', () => {
-    test('delivers a versioned signed Herald webhook without internal storage details', async () => {
+    test('delivers a versioned signed Postbot webhook without internal storage details', async () => {
         const { requester, requests } = createRequester()
         const deliveredAt = 1_756_000_001_234
         const transport = createCustomHttpTransport({
@@ -96,7 +96,7 @@ describe('custom HTTP transport', () => {
                     kind: 'declarative_http',
                     contractId: 'custom-webhook',
                     revision: '1',
-                    mode: 'herald_webhook',
+                    mode: 'postbot_webhook',
                 },
                 {
                     content: { body: 'Hello', media: [] },
@@ -133,8 +133,8 @@ describe('custom HTTP transport', () => {
             .update(`${timestamp}.${body}`)
             .digest('hex')
         expect(request.method).toBe('POST')
-        expect(request.headers['x-herald-signature']).toBe(`sha256=${expectedSignature}`)
-        expect(request.headers['x-herald-timestamp']).toBe(timestamp)
+        expect(request.headers['x-postbot-signature']).toBe(`sha256=${expectedSignature}`)
+        expect(request.headers['x-postbot-timestamp']).toBe(timestamp)
         expect(JSON.parse(body)).toEqual(
             expect.objectContaining({
                 event: 'publication.delivery',
@@ -180,7 +180,7 @@ describe('custom HTTP transport', () => {
                             delivery: { kind: 'context', pointer: '/deliveryId' },
                         },
                         headers: {
-                            'x-client': { kind: 'literal', value: 'herald-test' },
+                            'x-client': { kind: 'literal', value: 'postbot-test' },
                         },
                         body: {
                             kind: 'json',
@@ -225,7 +225,7 @@ describe('custom HTTP transport', () => {
         )
         expect(request.headers['x-idempotency-key']).toBe('delivery-1')
         expect(JSON.parse(await readBody(request))).toEqual({
-            text: 'Hello from Herald',
+            text: 'Hello from Postbot',
             publication: 'publication-1',
             mediaUrls: ['https://cdn.example.test/media-1'],
         })

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 
-import { ChannelProfileCompiler, adaptSourceContentToProfile } from '@herald/core'
+import { ChannelProfileCompiler, adaptSourceContentToProfile } from '@postbot/core'
 
 import { devtoChannelProfile } from './profile'
 
 describe('DEV.to channel profile', () => {
-    it('maps a Herald headline and body to a publishable article target', () => {
+    it('maps a Postbot headline and body to a publishable article target', () => {
         const target = adaptSourceContentToProfile(
             {
-                headline: 'A Herald article',
+                headline: 'A Postbot article',
                 body: { text: '# Hello DEV.to', format: 'markdown' },
                 media: [],
             },
@@ -16,7 +16,7 @@ describe('DEV.to channel profile', () => {
         )
 
         expect(target).toEqual({
-            title: 'A Herald article',
+            title: 'A Postbot article',
             body_markdown: '# Hello DEV.to',
             media: [],
         })

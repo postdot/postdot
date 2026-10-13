@@ -1,4 +1,4 @@
-# SPEC-006 — Herald web UX and information architecture sprint
+# SPEC-006 — Postbot web UX and information architecture sprint
 
 - Status: draft
 - Scope: authenticated web application information architecture, interaction
@@ -15,7 +15,7 @@
 
 ## Intent
 
-Herald should hide operational complexity through ordering, progressive
+Postbot should hide operational complexity through ordering, progressive
 disclosure, and clear relationships rather than removing capabilities or
 explaining every capability at once. The authenticated application should feel
 like a calm dispatch desk: the source, its destinations, their states, and the
@@ -34,16 +34,16 @@ not become a landing-page or branding exercise.
 - Complexity is organized and progressively disclosed. Required state,
   recovery guidance, accessibility names, and destructive-action consequences
   must never be hidden merely to make a screen look simpler.
-- The source-to-publications relationship is Herald's product anchor. Overview,
+- The source-to-publications relationship is Postbot's product anchor. Overview,
   Compose, Calendar, Queue, Channels, and Media may use different compositions,
   but they must preserve that mental model and avoid competing as duplicate
   publication creators.
 - Empty, loading, partial, failed, and populated states are part of the
   experience contract. A route must teach its own first useful action when no
   data exists.
-- shadcn/Base UI supplies accessible behavior and composable code, not Herald's
+- shadcn/Base UI supplies accessible behavior and composable code, not Postbot's
   final visual identity. Shared tokens and primitives should be rewritten or
-  extended at the root when the default grammar conflicts with Herald; pages
+  extended at the root when the default grammar conflicts with Postbot; pages
   must not accumulate local CSS that repeatedly undoes generic defaults.
 - Icons, logos, imagery, grouping, and spatial hierarchy may carry meaning that
   would otherwise require prose. They supplement copy; they do not replace

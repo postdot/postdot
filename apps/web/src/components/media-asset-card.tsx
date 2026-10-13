@@ -1,13 +1,13 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@herald/ui/components/dropdown-menu'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dropdown-menu'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { DownloadMinimalisticIcon } from '@solar-icons/react/linear/download-minimalistic'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
@@ -565,7 +565,7 @@ export function MediaPreview({
             item =>
                 item.kind === 'derived' &&
                 item.state === 'ready' &&
-                item.processorId === 'herald-image-preview' &&
+                item.processorId === 'postbot-image-preview' &&
                 item.recipeJson !== null &&
                 JSON.parse(item.recipeJson).variant ===
                     (variant === 'original' ? 'preview' : variant)
@@ -612,7 +612,7 @@ export function MediaPreview({
             item =>
                 item.kind === 'derived' &&
                 item.state === 'ready' &&
-                item.processorId === 'herald-image-preview' &&
+                item.processorId === 'postbot-image-preview' &&
                 item.recipeJson !== null &&
                 JSON.parse(item.recipeJson).variant === variant
         )

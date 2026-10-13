@@ -1,21 +1,21 @@
-import { Button } from '@herald/ui/components/button'
-import { ButtonGroup } from '@herald/ui/components/button-group'
+import { Button } from '@postbot/ui/components/button'
+import { ButtonGroup } from '@postbot/ui/components/button-group'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Kbd } from '@herald/ui/components/kbd'
-import { Textarea } from '@herald/ui/components/textarea'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Kbd } from '@postbot/ui/components/kbd'
+import { Textarea } from '@postbot/ui/components/textarea'
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@herald/ui/components/tooltip'
+} from '@postbot/ui/components/tooltip'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/linear/close'

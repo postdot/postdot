@@ -25,7 +25,7 @@ able to resolve the credential version captured when the delivery was projected.
 
 ## Decision
 
-Herald stores notification destination secrets in a dedicated versioned table. Each
+Postbot stores notification destination secrets in a dedicated versioned table. Each
 secret row contains only a versioned AES-256-GCM envelope, its key identifier, the
 destination reference, the transport identifier used as authenticated context, and
 timestamps. The deployment encryption key is injected into an explicit cipher
@@ -73,7 +73,7 @@ transport, provider credential, or management API is introduced by NOTIFY-82.
 - Losing the deployment encryption key makes notification credentials unrecoverable,
   just as it does publisher credentials. Backup and restore procedures must handle
   that key separately.
-- A compromised Herald process can still access plaintext while executing a transport;
+- A compromised Postbot process can still access plaintext while executing a transport;
   at-rest encryption does not replace process isolation.
 - A real adapter remains gated on this boundary and must never log, return, or place
   plaintext secret material in public configuration, delivery history, or errors.

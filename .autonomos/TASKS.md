@@ -7,12 +7,12 @@
 
 ## 🚀 Active Sprint
 
-- [x] **[INIT-01]** Bootstrap Herald's Bun/Turborepo monorepo and Autonomos protocol `Priority: 🔵` `Complexity: S`
+- [x] **[INIT-01]** Bootstrap Postbot's Bun/Turborepo monorepo and Autonomos protocol `Priority: 🔵` `Complexity: S`
 - [x] **[FOUND-02]** Align the foundation with Elysia 2 beta, React 19, TanStack Router, and English Git workflow `Priority: 🔵` `Complexity: M`
 - [x] **[FOUND-03]** Add Drizzle, Better Auth, Tailwind, shadcn Base UI, and Solar Icons foundations `Priority: 🔵` `Complexity: M`
 - [x] **[PLAN-04]** Define the V1 scope, delivery loops, quality gates, and SQLite-first storage posture `Priority: 🔴` `Complexity: M`
 - [x] **[META-11]** Keep the IDE workspace synchronized with monorepo apps and packages `Priority: 🔵` `Complexity: S`
-- [x] **[GOV-12]** Accept Herald's V1 specifications and foundational decisions `Priority: 🔴` `Complexity: S`
+- [x] **[GOV-12]** Accept Postbot's V1 specifications and foundational decisions `Priority: 🔴` `Complexity: S`
 - [x] **[FOUND-13]** Add Elysia 2 request logging and declarative environment configuration `Priority: 🔵` `Complexity: M`
 - [x] **[GOV-14]** Remove private context from repository artifacts and history `Priority: 🔴` `Complexity: L`
 - [x] **[CRED-15]** Define a project-owned publisher credential and OAuth boundary `Priority: 🔴` `Complexity: M`
@@ -38,14 +38,14 @@
 
 - [x] **[QUAL-05]** Replace placeholder checks with a real test gate and record the first footprint baseline `Priority: 🔴` `Complexity: M`
 - [x] **[DOMAIN-06]** Define and persist the executable Project, Channel, Post, Publication, Publisher, Job, and Actor model `Priority: 🔴` `Complexity: L`
-- [x] **[MEDIA-22]** Implement the Herald MediaStore contract with local and Bun S3 adapters `Priority: 🔴` `Complexity: L`
+- [x] **[MEDIA-22]** Implement the Postbot MediaStore contract with local and Bun S3 adapters `Priority: 🔴` `Complexity: L`
 - [x] **[MEDIA-23]** Implement project media upload, inspection, representation, and cleanup lifecycles `Priority: 🔴` `Complexity: L`
 - [x] **[MEDIA-24]** Integrate revision media, provider delivery state, and complete media-aware backup and restore `Priority: 🔴` `Complexity: L`
 - [x] **[CHANNEL-25]** Persist and activate versioned custom channel profiles with impact assessment `Priority: 🔴` `Complexity: L`
 - [x] **[CHANNEL-26]** Implement signed webhooks, mapped HTTP delivery, and restricted network egress `Priority: 🔴` `Complexity: XL`
 - [x] **[MEDIA-28]** Add signed public media delivery URLs for custom HTTP URL mappings `Priority: 🟠` `Complexity: L`
 - [x] **[EDITOR-27]** Implement zero-loss publication editing with capability feedback and explicit target promotion `Priority: 🟠` `Complexity: XL`
-- [x] **[DESIGN-29]** Establish the shared Herald UI package with Base UI components and Tailwind tokens `Priority: 🟠` `Complexity: L`
+- [x] **[DESIGN-29]** Establish the shared Postbot UI package with Base UI components and Tailwind tokens `Priority: 🟠` `Complexity: L`
 - [x] **[DESIGN-30]** Define and adopt the motion policy before adding an animation runtime `Priority: 🟠` `Complexity: M`
 - [x] **[WORK-07]** Prove restart-safe scheduling, execution, retry, cancellation, and ambiguous-outcome semantics `Priority: 🔴` `Complexity: XL`
 - [x] **[WORK-07A]** Prove atomic job claims and the durable external-effect boundary `Priority: 🔴` `Complexity: L`
@@ -64,7 +64,7 @@
 - [x] **[QUAL-38]** Repair the documented Bun coverage command `Priority: 🟠` `Complexity: S`
 - [x] **[DESIGN-31]** Harden authenticated dashboard navigation and narrow-screen header behavior `Priority: 🟠` `Complexity: S`
 - [x] **[DESIGN-32]** Record the owner-accepted product-wide design direction and calibration evidence `Priority: 🟠` `Complexity: M`
-- [x] **[DESIGN-33]** Archive Autonomos design holdouts as Herald reference examples without changing production UI `Priority: 🟠` `Complexity: S`
+- [x] **[DESIGN-33]** Archive Autonomos design holdouts as Postbot reference examples without changing production UI `Priority: 🟠` `Complexity: S`
 - [x] **[META-34]** Refresh Autonomos and adopt the project design workflow `Priority: 🟠` `Complexity: M`
 - [x] **[DESIGN-35]** Implement the first authenticated app-shell design slice `Priority: 🟠` `Complexity: L`
 - [x] **[DOMAIN-39]** Define the multi-destination authoring and source-conflict recovery contract `Priority: 🔴` `Complexity: XL`
@@ -83,7 +83,7 @@
 - [x] **[AUDIT-37]** Reconcile independent architecture audits against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-51]** Make the web project context URL-authoritative `Priority: 🔴` `Complexity: M`
 - [x] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
-- [x] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M` — retired by owner as no longer relevant to current Herald work; this closure is not a claim that the Codex control-plane limitation was fixed. See [META-228 worklog](worklogs/2026-09-26-META-228.md).
+- [x] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M` — retired by owner as no longer relevant to current Postbot work; this closure is not a claim that the Codex control-plane limitation was fixed. See [META-228 worklog](worklogs/2026-09-26-META-228.md).
 - [x] **[WEB-63]** Restrict web entry points to the authenticated application and authentication surfaces `Priority: 🟠` `Complexity: S`
 - [x] **[AUDIT-64]** Reconcile the second independent product audit against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[QUAL-65]** Add regression coverage for verified audit boundaries `Priority: 🔴` `Complexity: M`
@@ -105,8 +105,8 @@
 - [x] **[CHANNEL-75]** Add the first Bluesky built-in channel vertical slice after the provider boundary `Priority: 🔴` `Complexity: XL`
 - [x] **[CHANNEL-77]** Expose the Bluesky connection flow through the supported web client `Priority: 🔴` `Complexity: M`
 - [x] **[CHANNEL-78]** Make the Bluesky OAuth connection flow compatible with PAR state handling `Priority: 🔴` `Complexity: S`
-- [x] **[WEB-76]** Define and implement Herald's web client information architecture and UX system `Priority: 🔴` `Complexity: XL`
-- [x] **[EVENT-79]** Define and implement Herald's durable domain-event journal `Priority: 🔴` `Complexity: L`
+- [x] **[WEB-76]** Define and implement Postbot's web client information architecture and UX system `Priority: 🔴` `Complexity: XL`
+- [x] **[EVENT-79]** Define and implement Postbot's durable domain-event journal `Priority: 🔴` `Complexity: L`
 - [x] **[NOTIFY-80]** Implement the persistent project notification inbox and authenticated API `Priority: 🔴` `Complexity: L`
 - [x] **[NOTIFY-81]** Build the transport-neutral external notification delivery outbox `Priority: 🔴` `Complexity: L`
 - [x] **[NOTIFY-82]** Add the encrypted secret boundary required by external notification transports `Priority: 🔴` `Complexity: M`
@@ -155,7 +155,7 @@ surface and operational copy-density work.
 - [x] **[WEB-117]** Consolidate independent UX/UI audit evidence and establish the sprint baseline `Priority: 🔴` `Complexity: M`
 - [x] **[WEB-118]** Decide the primary job, hierarchy, and first action of each authenticated route `Priority: 🔴` `Complexity: XL`
 - [x] **[WEB-119]** Define empty, loading, populated, partial, failed, and recovery contracts for the web workflows `Priority: 🟠` `Complexity: L`
-- [x] **[DESIGN-120]** Make Herald's progressive-disclosure and shadcn/Base UI foundation explicit `Priority: 🟠` `Complexity: L`
+- [x] **[DESIGN-120]** Make Postbot's progressive-disclosure and shadcn/Base UI foundation explicit `Priority: 🟠` `Complexity: L`
 - [x] **[DESIGN-121]** Harden the authenticated shell, global/project navigation, and reduced-sidebar accessibility `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-122]** Implement the accepted route information architecture and differentiated empty states `Priority: 🔴` `Complexity: XL`
 - [x] **[WEB-123]** Apply the verified responsive, keyboard, labeling, and localization corrections `Priority: 🟠` `Complexity: L`
@@ -178,17 +178,17 @@ surface and operational copy-density work.
 
 ## 🔐 Access implementation follow-up
 
-- [x] **[ACCESS-131]** Implement instance bootstrap, membership authority, invitation persistence, and authorization cutover `Priority: 🔴` `Complexity: XL` — Better Auth Admin/Organization/API Key plugins now own the applicable lifecycle; instance membership and Herald actor projections remain explicit extensions, with dedicated instance invitation storage.
-- [x] **[ACCESS-132]** Add access administration surfaces, invitation acceptance, and browser validation `Priority: 🟠` `Complexity: XL` — guarded Herald access routes, organization invitation acceptance, user-owned API-key routes with bounded project scope, expiry UX, and focused API/browser regression coverage are in place.
-- [x] **[ACCESS-133]** Reassess and cut over project access to Better Auth `Priority: 🟠` `Complexity: XL` — Herald has no deployed data to reconcile; the clean development baseline removes the obsolete project-membership, project-invitation, bearer-token, compatibility-marker, and compatibility-store paths. Better Auth Organization members/invitations/API keys are the only project access authority.
+- [x] **[ACCESS-131]** Implement instance bootstrap, membership authority, invitation persistence, and authorization cutover `Priority: 🔴` `Complexity: XL` — Better Auth Admin/Organization/API Key plugins now own the applicable lifecycle; instance membership and Postbot actor projections remain explicit extensions, with dedicated instance invitation storage.
+- [x] **[ACCESS-132]** Add access administration surfaces, invitation acceptance, and browser validation `Priority: 🟠` `Complexity: XL` — guarded Postbot access routes, organization invitation acceptance, user-owned API-key routes with bounded project scope, expiry UX, and focused API/browser regression coverage are in place.
+- [x] **[ACCESS-133]** Reassess and cut over project access to Better Auth `Priority: 🟠` `Complexity: XL` — Postbot has no deployed data to reconcile; the clean development baseline removes the obsolete project-membership, project-invitation, bearer-token, compatibility-marker, and compatibility-store paths. Better Auth Organization members/invitations/API keys are the only project access authority.
 - [x] **[ACCESS-134]** Add project-member administration UI backed by Better Auth Organization when collaborative project management is exposed in the dashboard `Priority: 🟠` `Complexity: L` — project members, owner invitations with copyable links, invitation acceptance, editor/viewer role changes, and removal are exposed through the dashboard with API and browser coverage; API-key management remains in user configuration.
 - [x] **[ACCESS-135]** Remove obsolete project-access storage and regenerate the development migration baseline `Priority: 🟠` `Complexity: L` — the dedicated instance invitation table, Better Auth project membership/invitation/API-key records, and a single generated Drizzle baseline now define the clean development schema. No retention window or legacy database upgrade path is required for this private, data-disposable application.
 
 ## ✉️ Invitation delivery follow-up
 
 - [x] **[ACCESS-136]** Complete the Better Auth invitation lifecycle with one-active-invitation rotation, expiry visibility, and deployment-conditioned email hooks `Priority: 🟠` `Complexity: M` — re-inviting cancels pending duplicates, the explicit resend action rotates the invitation ID, expired invitations can be resent, and local deployments keep copyable links without pretending an email was sent.
-- [x] **[ACCESS-137]** Integrate an actual invitation and account-verification mail transport after choosing the deployment transport and templates `Priority: 🟠` `Complexity: M` — SMTP delivery is now optional and deployment-configured through Nodemailer, with Herald templates for project invitations, signup verification, and password reset. Local/manual-link mode remains the default; invitation links preserve project context through login.
-- [x] **[ACCESS-138]** Extract transactional email templates into a dedicated React Email package and add a disposable Mailpit development relay `Priority: 🟠` `Complexity: M` — template rendering is independent from API transport, HTML and plain-text alternatives are covered by package tests, all three preview entrypoints render with safe fixture data and the shared Herald brand system, the local visual preview command starts successfully, and the loopback SMTP setup is documented and verified through Mailpit.
+- [x] **[ACCESS-137]** Integrate an actual invitation and account-verification mail transport after choosing the deployment transport and templates `Priority: 🟠` `Complexity: M` — SMTP delivery is now optional and deployment-configured through Nodemailer, with Postbot templates for project invitations, signup verification, and password reset. Local/manual-link mode remains the default; invitation links preserve project context through login.
+- [x] **[ACCESS-138]** Extract transactional email templates into a dedicated React Email package and add a disposable Mailpit development relay `Priority: 🟠` `Complexity: M` — template rendering is independent from API transport, HTML and plain-text alternatives are covered by package tests, all three preview entrypoints render with safe fixture data and the shared Postbot brand system, the local visual preview command starts successfully, and the loopback SMTP setup is documented and verified through Mailpit.
 
 ## 🧪 Runtime isolation follow-up
 
@@ -196,7 +196,7 @@ surface and operational copy-density work.
 
 ## 🔒 Recovery quiescence follow-up
 
-- [x] **[OPS-140]** Enforce fail-closed runtime quiescence before database and media restore `Priority: 🔴` `Complexity: M` — the API runtime and restore paths now acquire one database-specific sidecar lock, graceful shutdown releases it, restore fails before validation or writes while Herald is active, and forced-stop markers require explicit operator verification.
+- [x] **[OPS-140]** Enforce fail-closed runtime quiescence before database and media restore `Priority: 🔴` `Complexity: M` — the API runtime and restore paths now acquire one database-specific sidecar lock, graceful shutdown releases it, restore fails before validation or writes while Postbot is active, and forced-stop markers require explicit operator verification.
 
 ## 🔐 Custom HTTP authentication follow-up
 
@@ -208,7 +208,7 @@ surface and operational copy-density work.
 
 ## 🧱 Foundation consolidation after the 2026-09-11 audit
 
-The independent foundation audit is recorded in `worklogs/2026-09-11-herald-audit/`.
+The independent foundation audit is recorded in `worklogs/2026-09-11-postbot-audit/`.
 The following tasks are intentionally linked to separate accepted issues so that
 each correction retains its evidence and its own completion contract. The practical
 sequence starts with low-risk hygiene, then closes the access boundary, then fixes
@@ -249,7 +249,7 @@ the central project reads and projection/realtime reliability.
 
 ## 🧭 Calendar interaction and operational UX follow-up
 
-- [x] **[DESIGN-154]** Establish the Herald operational UX review skill and remove redundant contextual-surface affordances `Priority: 🔴` `Complexity: M` — [ISSUE-079]; reusable hierarchy, one-fact/one-marker, and one-dismissal rules are recorded in the project skill and applied to the calendar publication preview.
+- [x] **[DESIGN-154]** Establish the Postbot operational UX review skill and remove redundant contextual-surface affordances `Priority: 🔴` `Complexity: M` — [ISSUE-079]; reusable hierarchy, one-fact/one-marker, and one-dismissal rules are recorded in the project skill and applied to the calendar publication preview.
 - [x] **[WEB-155]** Separate calendar inspection from publication creation and make date overflow directly inspectable `Priority: 🔴` `Complexity: M` — [ISSUE-080]; day backgrounds and overflow expand the selected cell and its week row in the calendar, five publications remain visible before overflow, add controls create, event clicks preview, and the full publication path remains explicit without leaving the calendar unexpectedly.
 - [x] **[WEB-156]** Recompose the calendar for narrow widths and compare month versus agenda reading modes `Priority: 🟠` `Complexity: L` — [ISSUE-080]; the ReUI calendar is now the default project overview, defaults to a readable agenda below 48rem, keeps month view at wide and tablet widths, offers an intentional horizontally scrollable month view on narrow screens, and preserves dense-day context through view changes and preview dismissal. The previous implementation remains available explicitly with `?calendar=legacy` during review.
 
@@ -319,11 +319,11 @@ the central project reads and projection/realtime reliability.
 
 ## 🎞️ Media system and editor exploration
 
-- [x] **[MEDIA-179]** Prototype a Herald-owned media workspace and standalone image editor `Priority: 🟠` `Complexity: L` — [ISSUE-101]; keep upload orchestration separate from Herald presentation, add a reusable viewer/editor proof with crop/zoom/rotation and non-destructive output, validate ordered attachments and accessible alternatives, compare Uppy core/headless with a React-oriented editor, measure the browser cost, and document the production boundary before changing the publication authoring flow. Implemented with a Herald-owned viewer/editor using `react-easy-crop`, verified new-asset output, native drag ordering with keyboard-visible arrow fallbacks, lazy loading, and localized light/dark browser coverage; production packaging and provider-specific transforms remain a deliberate follow-up.
+- [x] **[MEDIA-179]** Prototype a Postbot-owned media workspace and standalone image editor `Priority: 🟠` `Complexity: L` — [ISSUE-101]; keep upload orchestration separate from Postbot presentation, add a reusable viewer/editor proof with crop/zoom/rotation and non-destructive output, validate ordered attachments and accessible alternatives, compare Uppy core/headless with a React-oriented editor, measure the browser cost, and document the production boundary before changing the publication authoring flow. Implemented with a Postbot-owned viewer/editor using `react-easy-crop`, verified new-asset output, native drag ordering with keyboard-visible arrow fallbacks, lazy loading, and localized light/dark browser coverage; production packaging and provider-specific transforms remain a deliberate follow-up.
 
 ## 🎞️ Media library and headless intake boundary
 
-- [x] **[MEDIA-180]** Make the Media route a first-class library and introduce a headless Uppy intake boundary `Priority: 🟠` `Complexity: M` — [ISSUE-102]; keep publication attachment selection separate from library management, route file input and drop handling through Uppy Core/React headless hooks, preserve Herald's reserve/upload/finalize verification lifecycle, and cover ready/pending/failed uploads plus the Media route in localized browser tests. Implemented with a testable Herald adapter, explicit manage mode without selection toggles, a direct New publication action, and no Uppy Dashboard or CSS adoption. The existing Herald-owned image editor remains intact; Uppy Image Editor, cancellation/progress/resumability, and generic media package extraction are separate follow-ups.
+- [x] **[MEDIA-180]** Make the Media route a first-class library and introduce a headless Uppy intake boundary `Priority: 🟠` `Complexity: M` — [ISSUE-102]; keep publication attachment selection separate from library management, route file input and drop handling through Uppy Core/React headless hooks, preserve Postbot's reserve/upload/finalize verification lifecycle, and cover ready/pending/failed uploads plus the Media route in localized browser tests. Implemented with a testable Postbot adapter, explicit manage mode without selection toggles, a direct New publication action, and no Uppy Dashboard or CSS adoption. The existing Postbot-owned image editor remains intact; Uppy Image Editor, cancellation/progress/resumability, and generic media package extraction are separate follow-ups.
 
 ## 🌐 External media sources
 
@@ -337,7 +337,7 @@ the central project reads and projection/realtime reliability.
 
 ## 🔎 External audit reconciliation
 
-- [x] **[AUDIT-166]** Reconcile the external Herald audit and enforce English repository artifacts `Priority: 🔴` `Complexity: XL` — confirm each reported process, security, reliability, web, operations, and documentation finding against current source; apply safe corrections in evidence order, add a repository-language gate that excludes only translation catalogs and generated localization output, and record unresolved integration or governance decisions without deleting user work.
+- [x] **[AUDIT-166]** Reconcile the external Postbot audit and enforce English repository artifacts `Priority: 🔴` `Complexity: XL` — confirm each reported process, security, reliability, web, operations, and documentation finding against current source; apply safe corrections in evidence order, add a repository-language gate that excludes only translation catalogs and generated localization output, and record unresolved integration or governance decisions without deleting user work.
 
 ## 🔎 Issue-driven external audit reconciliation
 
@@ -348,11 +348,11 @@ the central project reads and projection/realtime reliability.
 - [x] **[OPS-193]** Align local, CI, and release quality gates with their intended scope `Priority: 🟠` `Complexity: S` — verify the fast pre-commit path and complete CI path against the current root scripts, then record the relationship as current evidence. — [ISSUE-108]
 - [x] **[OPS-195]** Reconcile current issue, task, and worklog identity `Priority: 🟠` `Complexity: M` — verify protocol status, current task links, and historical worklog preservation without rewriting prior evidence. — [ISSUE-109]
 - [x] **[AUDIT-196]** Revalidate the historical H-01 through H-07 closure boundaries `Priority: 🟠` `Complexity: M` — compare each historical claim with current source, tests, and accepted records, then classify it as current, corrected, not reproduced, or historical-only. — [ISSUE-110]
-- [x] **[SECURITY-197]** Confirm the current publisher encryption key lifecycle `Priority: 🔴` `Complexity: XL` — [ISSUE-111]; ADR-012 and the implementation already define one deployment-owned key, separately backed up, with key/version identifiers in encrypted envelopes. Herald does not currently support key rotation or re-encryption. If the key is lost or replaced, existing publisher credentials cannot be decrypted and those social accounts must be connected again. Closed as confirmation of the accepted current contract; automated rotation remains future work if a concrete deployment need arises.
+- [x] **[SECURITY-197]** Confirm the current publisher encryption key lifecycle `Priority: 🔴` `Complexity: XL` — [ISSUE-111]; ADR-012 and the implementation already define one deployment-owned key, separately backed up, with key/version identifiers in encrypted envelopes. Postbot does not currently support key rotation or re-encryption. If the key is lost or replaced, existing publisher credentials cannot be decrypted and those social accounts must be connected again. Closed as confirmation of the accepted current contract; automated rotation remains future work if a concrete deployment need arises.
 - [x] **[SECURITY-198]** Verify authorization coverage across route families `Priority: 🔴` `Complexity: L` — inspect the shared authentication macro, project role checks, API-key scope, publisher routes, analytics routes, and existing boundary tests; record the current result without adding speculative guards. — [ISSUE-112]
 - [x] **[REALTIME-194]** Revoke user notification streams after session or project-access loss `Priority: 🔴` `Complexity: M` — re-evaluate the user’s visible project set during the long-lived stream, emit a terminal access-revoked control event when it becomes empty, close the browser source, and cover the server/client contracts without exposing notification payloads. — [ISSUE-113]
 - [x] **[NOTIFY-199]** Record the external notification transport boundary `Priority: 🟠` `Complexity: S` — [ISSUE-114]; the owner explicitly defers real Ntfy, Telegram, and provider adapters for now, without permanently excluding them. Keep the transport-neutral store and recording-transport tests; revisit when a concrete destination is requested.
-- [x] **[NOTIFY-200]** Confirm transactional email failure handling `Priority: 🟠` `Complexity: L` — [ISSUE-115]; ADR-066 already decides the current behavior: SMTP is optional, email sends do not hold up the request, failures are logged, and Herald does not retry failed messages. Local/manual-link operation remains available. Closed as confirmation of the accepted current contract; durable retries remain future work if a deployment needs a delivery guarantee.
+- [x] **[NOTIFY-200]** Confirm transactional email failure handling `Priority: 🟠` `Complexity: L` — [ISSUE-115]; ADR-066 already decides the current behavior: SMTP is optional, email sends do not hold up the request, failures are logged, and Postbot does not retry failed messages. Local/manual-link operation remains available. Closed as confirmation of the accepted current contract; durable retries remain future work if a deployment needs a delivery guarantee.
 - [x] **[WORKFLOW-201]** Close the worker fairness and deployment-topology audit `Priority: 🟠` `Complexity: M` — [ISSUE-116]; one process/worker remains the supported boundary (ADR-003); OPS-150 and OPS-151 verify shutdown/restart, fairness, claims, retries, cancellation, and ambiguous outcomes. Metrics remain under OPS-207; no multi-process policy or coordination is implied.
 - [x] **[WEB-203]** Verify Queue and Calendar failure-state boundaries `Priority: 🟠` `Complexity: M` — confirm each route suppresses stale or unrelated publication data on query failure and exposes the shared retryable error state. — [ISSUE-118]
 - [x] **[WEB-204]** Extract the first bounded component-debt seam `Priority: 🔵` `Complexity: L` — split media-library management rendering from `MediaAttachmentPicker` orchestration without preserving an obsolete internal API, keep attachment selection and upload/dialog lifecycles explicit, and validate the existing workflow with targeted browser evidence. — [ISSUE-119] Evidence: `MediaLibraryManagementSurface` now owns management-mode toolbar, bulk actions, collection states, pagination, and drop hint rendering; the parent retains upload, attachment, and dialog orchestration.
@@ -364,7 +364,7 @@ the central project reads and projection/realtime reliability.
 
 ## Local development reliability
 
-- [x] **[OPS-211]** Restore authenticated local app loading and unblock the media Trash pull request `Priority: 🟠` `Complexity: M` — identify why the Vite proxy returns a non-Herald response for authentication, restore the local API without changing user data, add the permanent-delete route to the OpenAPI inventory test, and merge PR #198 only after all required checks pass. Evidence: PR #198 merged as `d8b96ed9`; CI `Verify` passed after merge. Local API and Vite now use ports 3002 and 5173.
+- [x] **[OPS-211]** Restore authenticated local app loading and unblock the media Trash pull request `Priority: 🟠` `Complexity: M` — identify why the Vite proxy returns a non-Postbot response for authentication, restore the local API without changing user data, add the permanent-delete route to the OpenAPI inventory test, and merge PR #198 only after all required checks pass. Evidence: PR #198 merged as `d8b96ed9`; CI `Verify` passed after merge. Local API and Vite now use ports 3002 and 5173.
 
 ## Prometheus scrape hardening
 
@@ -400,21 +400,21 @@ the central project reads and projection/realtime reliability.
 
 ## Event journal retention policy
 
-- [x] **[ANALYTICS-229]** Recommend whether Herald should change project-lifetime event retention `Priority: 🟠` `Complexity: M` — [ISSUE-135]; compare the accepted project-lifetime policy with bounded deletion and archival, trace impacts on audit history, analytics, notifications, media lifecycle, and realtime cursors, and return an evidence-based recommendation. No deletion or policy change is justified now. Evidence: [ANALYTICS-229 worklog](worklogs/2026-09-26-ANALYTICS-229.md).
+- [x] **[ANALYTICS-229]** Recommend whether Postbot should change project-lifetime event retention `Priority: 🟠` `Complexity: M` — [ISSUE-135]; compare the accepted project-lifetime policy with bounded deletion and archival, trace impacts on audit history, analytics, notifications, media lifecycle, and realtime cursors, and return an evidence-based recommendation. No deletion or policy change is justified now. Evidence: [ANALYTICS-229 worklog](worklogs/2026-09-26-ANALYTICS-229.md).
 - [x] **[ANALYTICS-230]** Record the owner-approved access boundary for operational analytics `Priority: 🟠` `Complexity: S` — [ISSUE-135]; verify that authenticated project actors, including API keys scoped to that project, can read the aggregate-only report without an editor-only check; record the owner's choice to retain this boundary and close the current analytics policy review without changing application behavior. Evidence: [ANALYTICS-230 worklog](worklogs/2026-09-26-ANALYTICS-230.md).
 
 ## Post-sprint competitor capability study
 
-- [x] **[PRODUCT-231]** Complete a source-backed capability comparison with Postiz, Mixpost, and OpenPost `Priority: 🟠` `Complexity: L` — [ISSUE-136]; compare public product positioning, official documentation, and current upstream source against Herald; distinguish verified, partial, absent, and unknown capabilities with dated authoritative links; identify material edition limits and recommendations without inferring absence from missing documentation or committing Herald to feature parity. Evidence: [PRODUCT-231 worklog](worklogs/2026-09-27-PRODUCT-231.md).
+- [x] **[PRODUCT-231]** Complete a source-backed capability comparison with Postiz, Mixpost, and OpenPost `Priority: 🟠` `Complexity: L` — [ISSUE-136]; compare public product positioning, official documentation, and current upstream source against Postbot; distinguish verified, partial, absent, and unknown capabilities with dated authoritative links; identify material edition limits and recommendations without inferring absence from missing documentation or committing Postbot to feature parity. Evidence: [PRODUCT-231 worklog](worklogs/2026-09-27-PRODUCT-231.md).
 
 ## Local main integration
 
 - [x] **[META-232]** Adopt owner-directed local verification and direct-main integration `Priority: 🟠` `Complexity: S` — record the temporary workflow change, integrate the already-reviewed branch into local `main`, run the full `bun run check` gate locally, and retire the superseded open PR without publishing to the remote. Evidence: [META-232 worklog](worklogs/2026-09-26-META-232.md).
-- [x] **[ANALYTICS-233]** Define the first useful publication-performance analytics workflow `Priority: 🟠` `Complexity: L` — [ISSUE-137]; verified metrics and read/access constraints across Herald's six publishing integrations, inspected the existing Bluesky observation slice and local data-growth shape, compared per-publication and project-level experiences plus explicit/manual and scheduled collection, and recorded a source-backed product recommendation with bounded implementation follow-ups. Discovery only: no UI, collectors, credentials/scopes, schedules, or retention behavior were changed. Evidence: [ANALYTICS-233 worklog](worklogs/2026-09-27-ANALYTICS-233.md).
+- [x] **[ANALYTICS-233]** Define the first useful publication-performance analytics workflow `Priority: 🟠` `Complexity: L` — [ISSUE-137]; verified metrics and read/access constraints across Postbot's six publishing integrations, inspected the existing Bluesky observation slice and local data-growth shape, compared per-publication and project-level experiences plus explicit/manual and scheduled collection, and recorded a source-backed product recommendation with bounded implementation follow-ups. Discovery only: no UI, collectors, credentials/scopes, schedules, or retention behavior were changed. Evidence: [ANALYTICS-233 worklog](worklogs/2026-09-27-ANALYTICS-233.md).
 
 ## Provider-backed publication performance
 
-- [x] **[ANALYTICS-234]** Add bounded Forem publication-analytics collection to the provider observation boundary `Priority: 🟠` `Complexity: L` — [ISSUE-138]; use the existing project-owned DEV.to credential to collect lifetime totals only for known Herald publications, preserve provider availability/freshness semantics, and expose a project-authorized read/explicit-refresh API. Forem's date-range history is deferred: the existing store retains every fetch indefinitely, so persisting up to 180 daily points per manual refresh would multiply growth without an accepted lifecycle strategy. No scheduled synchronization, raw provider payload retention, or observation-retention change. Evidence: [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md).
+- [x] **[ANALYTICS-234]** Add bounded Forem publication-analytics collection to the provider observation boundary `Priority: 🟠` `Complexity: L` — [ISSUE-138]; use the existing project-owned DEV.to credential to collect lifetime totals only for known Postbot publications, preserve provider availability/freshness semantics, and expose a project-authorized read/explicit-refresh API. Forem's date-range history is deferred: the existing store retains every fetch indefinitely, so persisting up to 180 daily points per manual refresh would multiply growth without an accepted lifecycle strategy. No scheduled synchronization, raw provider payload retention, or observation-retention change. Evidence: [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md).
 - [x] **[ANALYTICS-235]** Build the project Performances experience over cached Forem and Bluesky observations `Priority: 🟠` `Complexity: L` — [ISSUE-138]; add project navigation and a concise, localized per-destination view with provider-native measures, clear freshness/unsupported states, and explicit refresh controls; page reads must never call providers. Cover the route with deterministic accessibility and navigation browser tests; verify collection and cache-only reads at the authenticated API integration boundary. Evidence: [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
 
 ## User-owned API-key action limits
@@ -475,7 +475,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[UX-265]** Preserve shell edge parity and calendar title readability `Priority: 🟠` `Complexity: M` — owner feedback: use the same structural page contour in both themes and prevent calendar date titles collapsing into vertical character stacks at intermediate widths. Sweep month/week views with expanded/collapsed navigation before continuing UX-243 responsive review.
 
-- [x] **[UX-266]** Localize calendar date titles and period labels `Priority: 🔵` `Complexity: M` — continuation of responsive review: French month names retain US date order in week/day labels. Use locale-native formatting at the Herald composition boundary, preserve project timezone and exclusive range ends, and validate cross-month/year labels and intermediate widths after owner dependency updates. Completed with the full root gate; [worklog](worklogs/2026-10-01-UX-266.md).
+- [x] **[UX-266]** Localize calendar date titles and period labels `Priority: 🔵` `Complexity: M` — continuation of responsive review: French month names retain US date order in week/day labels. Use locale-native formatting at the Postbot composition boundary, preserve project timezone and exclusive range ends, and validate cross-month/year labels and intermediate widths after owner dependency updates. Completed with the full root gate; [worklog](worklogs/2026-10-01-UX-266.md).
 
 - [x] **[UX-267]** Review Configuration scopes and preserve navigation context `Priority: 🟠` `Complexity: M` — owner-reported project loss, empty-selector geometry and excessive drawer contrast; preserve context without changing authorization scope, unify contextual surface composition, verify navigation and inventory personal-account/settings follow-ups.
 
@@ -498,7 +498,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[UX-279]** Assess animated media delivery and GIF picker options `Priority: 🔵` `Complexity: M` — Follow-up split from UX-278. Verify per-destination animated-media acceptance, storage/delivery behavior, maintained picker primitives and provider licensing/privacy requirements. Assessment complete: destination and catalog constraints recorded in [worklog](worklogs/2026-10-03-UX-279-animated-media-assessment.md). Animated attachment implementation is proposed under UX-283; no external service selected.
 
-- [x] **[UX-280]** Add external article images to the configured editor `Priority: 🔵` `Complexity: M` — Owner approved direct external URL insertion, separate from media URL imports that download private copies. Markdown, destination isolation, recovery and compact remote previews are implemented and validated by the full gate (60 main browser journeys plus two password-reset scenarios). [Evidence](worklogs/2026-10-03-UX-280-external-article-images.md). Optional Herald public image hosting is deferred and requires a separate lifecycle contract. [Previous boundary](worklogs/2026-10-03-UX-277-default-editor.md).
+- [x] **[UX-280]** Add external article images to the configured editor `Priority: 🔵` `Complexity: M` — Owner approved direct external URL insertion, separate from media URL imports that download private copies. Markdown, destination isolation, recovery and compact remote previews are implemented and validated by the full gate (60 main browser journeys plus two password-reset scenarios). [Evidence](worklogs/2026-10-03-UX-280-external-article-images.md). Optional Postbot public image hosting is deferred and requires a separate lifecycle contract. [Previous boundary](worklogs/2026-10-03-UX-277-default-editor.md).
 
 - [x] **[UX-281]** Unify editor actions, tooltips and emoji surfaces `Priority: 🔵` `Complexity: M` — Group attachments with contextual toolbar actions, distinguish attachments from external images, remove native action titles and editor focus rings, share input styling and reserve emoji loading geometry. Scope switching, keyboard access, undo, loading geometry and narrow layouts validated. Full gate passed with 61 main browser journeys plus two password-reset scenarios. [Evidence](worklogs/2026-10-03-UX-281-editor-actions.md).
 
@@ -506,7 +506,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [ ] **[UX-283]** Specify and implement animated attachments for supported destinations `Priority: 🔵` `Complexity: L` — Deferred optional follow-up to UX-279: owner prioritizes basic publishing and editor reliability over animated-media extras. No local-GIF substitute or GIF editor is authorized by the catalog deferral. Reconsider only after core workflows are ready; define GIF inspection limits and destination delivery contracts before implementation. [Owner conclusion](worklogs/2026-10-03-UX-286-gif-deferral.md).
 
-- [x] **[UX-284]** Compare external GIF catalogs for self-hosted Herald `Priority: 🔵` `Complexity: M` — Owner requested catalog assessment before animated-import implementation. Compare maintained providers, production access/cost, rights and attribution, query privacy, caching/media mirroring restrictions and per-instance credentials. Assessment complete: standard catalog policies require approval for Herald storage and scheduled uploads; Tenor excluded. No provider integrated. [Comparison and approval questions](worklogs/2026-10-03-UX-284-gif-catalogs.md).
+- [x] **[UX-284]** Compare external GIF catalogs for self-hosted Postbot `Priority: 🔵` `Complexity: M` — Owner requested catalog assessment before animated-import implementation. Compare maintained providers, production access/cost, rights and attribution, query privacy, caching/media mirroring restrictions and per-instance credentials. Assessment complete: standard catalog policies require approval for Postbot storage and scheduled uploads; Tenor excluded. No provider integrated. [Comparison and approval questions](worklogs/2026-10-03-UX-284-gif-catalogs.md).
 
 - [x] **[UX-285]** Make draft attention and media limits actionable `Priority: 🟠` `Complexity: S` — Live queue review found review-required drafts visually indistinguishable from compatible drafts; field-local media schema limits still use generic wording. Implemented the existing review state and exact item limits without adding counters or changing validation/filter semantics. Full gate passed with 63 main browser journeys and two password-reset journeys. [Evidence](worklogs/2026-10-03-UX-285-draft-attention.md).
 
@@ -574,7 +574,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[DOCS-301]** Establish a coherent self-hosting installation guide `Priority: 🟠` `Complexity: M` — After OPS-300, consolidate the existing Docker/backup instructions into a first-user journey and a production Compose example: initial setup, persistent data, deployment secrets, optional services, health, backups, updates and rollback limits. Verified fresh local-storage Compose startup, first administrator/project, session and data after restart, complete backup/copy, graceful stop, restore and recovery hold. SMTP/S3/provider connectivity and released upgrades are explicitly outside this local verification. [Guide](../docs/deployment/self-hosting.md). [Scope](../docs/deployment/runtime-and-distribution.md).
 
-- [/] **[PROJECT-302]** Choose Herald distribution license and notices `Priority: 🟠` `Complexity: M` — AGPL-3.0-only accepted and formalized (ADR-086). Original-code declarations and contribution terms implemented; direct dependency inventory recorded. Available production dependency notices packaged (354/357 versions), font and copied-symbol texts retained; portrait source recovered and empty-state SVG attribution confirmed (CC BY 4.0, ravi kumar). Remaining before public distribution: three upstream notice/provenance gaps and release-bundle review, base-image/FFmpeg obligations and source-delivery mechanism. No public opening or commercial edition authorized. [Scope](../docs/deployment/runtime-and-distribution.md).
+- [/] **[PROJECT-302]** Choose Postbot distribution license and notices `Priority: 🟠` `Complexity: M` — AGPL-3.0-only accepted and formalized (ADR-086). Original-code declarations and contribution terms implemented; direct dependency inventory recorded. Available production dependency notices packaged (354/357 versions), font and copied-symbol texts retained; portrait source recovered and empty-state SVG attribution confirmed (CC BY 4.0, ravi kumar). Remaining before public distribution: three upstream notice/provenance gaps and release-bundle review, base-image/FFmpeg obligations and source-delivery mechanism. No public opening or commercial edition authorized. [Scope](../docs/deployment/runtime-and-distribution.md).
 
 - [/] **[RELEASE-303]** Define versioned image publication and upgrade acceptance `Priority: 🟠` `Complexity: L` — After shutdown, installation and licensing decisions, establish release tags/changelog, registry/image naming and supported architectures. Verify upgrade and recovery from a previous release before publishing. External publication requires explicit owner authorization. GHCR, alpha version and AMD64/ARM64 policy accepted; manual candidate workflow and local AMD64 acceptance delivered. ARM64, remote workflow execution and publication remain pending. [Proposal](../docs/deployment/release-policy.md). [Scope](../docs/deployment/runtime-and-distribution.md).
 
@@ -661,7 +661,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[PROVIDER-358]** Publish native MP4 videos on Discord `Priority: 🟠` `Complexity: M` — Owner accepted the follow-up to PROVIDER-357. Reuse inspected MP4 assets, private playback and the existing Bot message transport. Preserve message-v1, introduce message-v2 with one exclusive video and the existing 10 MiB portable attachment ceiling, required description and 3-second to 30-minute duration. No new credential mechanism, conversion, service or real-provider publication. [Delivery](worklogs/2026-10-08-PROVIDER-358.md).
 
-- [x] **[PROVIDER-359]** Validate a real Discord MP4 publication in a dedicated test server `Priority: 🟠` `Complexity: M` — Dedicated server and minimally privileged Bot installed with owner confirmation, connection established through Herald and one native MP4 delivered successfully. Discord playback reached four seconds with no decoder error. No production code changed. [Evidence](worklogs/2026-10-08-PROVIDER-359.md).
+- [x] **[PROVIDER-359]** Validate a real Discord MP4 publication in a dedicated test server `Priority: 🟠` `Complexity: M` — Dedicated server and minimally privileged Bot installed with owner confirmation, connection established through Postbot and one native MP4 delivered successfully. Discord playback reached four seconds with no decoder error. No production code changed. [Evidence](worklogs/2026-10-08-PROVIDER-359.md).
 
 - [x] **[UX-360]** Make required video descriptions editable through normal authoring controls `Priority: 🟠` `Complexity: M` — Real Discord validation exposed an imported video without accessibility text and no visible description control in the composer or publication editor. Diagnose default-description propagation and provide a normal UI repair path while preserving explicit destination overrides and required validation. Delivered compact video description fields and independent label IDs, with composer/editor persistence and mobile evidence. [Finding](worklogs/2026-10-08-PROVIDER-359.md). [Delivery](worklogs/2026-10-09-UX-360.md).
 
@@ -706,7 +706,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[CONTENT-382]** Follow a shared post across its Queue destinations `Priority: 🟠` `Complexity: M` — Delivered owner-approved publication-order and By post views, URL persistence, filtered result counts and one post link per group. Individual selection, filters, pagination and lifecycle actions retain their scope. Mixed-state, narrow/wide and existing French project presentation reviewed; complete gate green (111 standard browser scenarios, four Mailpit scenarios, unit/static and 17 builds). [Evidence](worklogs/2026-10-10-CONTENT-382.md). Fully validated: `d5846e35fc78c29fd8be36442e7c778c974adf8e` (`validated/full`).
 
-- [x] **[CONTENT-383]** Search Herald from the dashboard header `Priority: 🟠` `Complexity: L` — Owner-approved global Command palette: pages/settings, accessible projects, channels and shared source posts. Server-backed bounded content search, existing live access and typed Eden transport; keyboard and responsive presentation. Navigation only, no publication actions or separate service. Delivered and fully validated: `645189a7e0810ee99e0782380627a0ff96a2256c` (`validated/full`); 112 standard browser scenarios, four email scenarios, unit/static gates and 17 builds. [Evidence](worklogs/2026-10-10-CONTENT-383.md).
+- [x] **[CONTENT-383]** Search Postbot from the dashboard header `Priority: 🟠` `Complexity: L` — Owner-approved global Command palette: pages/settings, accessible projects, channels and shared source posts. Server-backed bounded content search, existing live access and typed Eden transport; keyboard and responsive presentation. Navigation only, no publication actions or separate service. Delivered and fully validated: `645189a7e0810ee99e0782380627a0ff96a2256c` (`validated/full`); 112 standard browser scenarios, four email scenarios, unit/static gates and 17 builds. [Evidence](worklogs/2026-10-10-CONTENT-383.md).
 
 - [x] **[CONTENT-384]** Find media through global search `Priority: 🟡` `Complexity: M` — Implemented filename/accessibility search for ready media and existing information-dialog links, preserving current project access and consistent result rows. No media processing or publication actions.
 
@@ -738,3 +738,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-398]** Apply the owner-calibrated visual foundations to the existing application `Priority: 🟠` `Complexity: M` — Shared typography, neutral surfaces, three-pixel corners, neutral primary actions and close field focus; preserve layouts and product behavior.
 
 - [x] **[DESIGN-399]** Restore adjacent surface and selection distinction `Priority: 🟠` `Complexity: S` — Neutral shell elevation, explicit selected-control fill and dedicated calendar cell edges, preserving layout.
+
+- [x] **[BRAND-400]** Adopt Postbot naming and theme-aware owner mark `Priority: 🟠` `Complexity: M` — Rename project-owned identifiers, packages, configuration and tracked records; preserve SVG opacity and layouts, no new motion.

@@ -1,4 +1,4 @@
-import { cn } from '@herald/ui/lib/utils'
+import { cn } from '@postbot/ui/lib/utils'
 import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
 import { EarthIcon } from '@solar-icons/react/linear/earth'
 import { HeartIcon } from '@solar-icons/react/linear/heart'

@@ -1,12 +1,12 @@
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 import type { Dispatch, SetStateAction } from 'react'
 
 import type { ProviderApplicationFormState } from '@/components/provider-application-form'

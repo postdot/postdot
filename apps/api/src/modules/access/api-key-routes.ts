@@ -1,12 +1,16 @@
-import { heraldUserApiKeyConfigId, type HeraldApiKeyRecord, type HeraldAuth } from '@herald/auth'
-import type { AccessStore } from '@herald/db'
+import {
+    postbotUserApiKeyConfigId,
+    type PostbotApiKeyRecord,
+    type PostbotAuth,
+} from '@postbot/auth'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
 import {
     capabilitiesForPermissions,
     permissionsForCapabilities,
-    type HeraldApiKeyCapability,
+    type PostbotApiKeyCapability,
 } from '../projects/api-key-permissions'
 
 const errorResponse = Type.Object({
@@ -77,66 +81,66 @@ const createdUserApiKeySchema = Type.Object({
 })
 
 export interface UserApiKeyMetadata {
-    readonly heraldApiKeyVersion: 2
-    readonly heraldProjectAccess: 'all' | 'selected'
-    readonly heraldProjectIds?: readonly string[]
+    readonly postbotApiKeyVersion: 2
+    readonly postbotProjectAccess: 'all' | 'selected'
+    readonly postbotProjectIds?: readonly string[]
 }
 
 export function readUserApiKeyMetadata(value: unknown): UserApiKeyMetadata | null {
     if (typeof value !== 'object' || value === null) return null
     const metadata = value as {
-        readonly heraldApiKeyVersion?: unknown
-        readonly heraldProjectAccess?: unknown
-        readonly heraldProjectIds?: unknown
+        readonly postbotApiKeyVersion?: unknown
+        readonly postbotProjectAccess?: unknown
+        readonly postbotProjectIds?: unknown
     }
-    if (metadata.heraldApiKeyVersion !== 2) return null
-    if (metadata.heraldProjectAccess === 'all') {
+    if (metadata.postbotApiKeyVersion !== 2) return null
+    if (metadata.postbotProjectAccess === 'all') {
         return {
-            heraldApiKeyVersion: 2,
-            heraldProjectAccess: 'all',
+            postbotApiKeyVersion: 2,
+            postbotProjectAccess: 'all',
         }
     }
     if (
-        metadata.heraldProjectAccess !== 'selected' ||
-        !Array.isArray(metadata.heraldProjectIds) ||
-        metadata.heraldProjectIds.length === 0 ||
-        metadata.heraldProjectIds.some(
+        metadata.postbotProjectAccess !== 'selected' ||
+        !Array.isArray(metadata.postbotProjectIds) ||
+        metadata.postbotProjectIds.length === 0 ||
+        metadata.postbotProjectIds.some(
             projectId => typeof projectId !== 'string' || projectId.length === 0
         )
     ) {
         return null
     }
     return {
-        heraldApiKeyVersion: 2,
-        heraldProjectAccess: 'selected',
-        heraldProjectIds: [...new Set(metadata.heraldProjectIds as string[])],
+        postbotApiKeyVersion: 2,
+        postbotProjectAccess: 'selected',
+        postbotProjectIds: [...new Set(metadata.postbotProjectIds as string[])],
     }
 }
 
 function metadataForProjectAccess(projectIds: readonly string[] | null): UserApiKeyMetadata {
     if (projectIds === null) {
         return {
-            heraldApiKeyVersion: 2,
-            heraldProjectAccess: 'all',
+            postbotApiKeyVersion: 2,
+            postbotProjectAccess: 'all',
         }
     }
     return {
-        heraldApiKeyVersion: 2,
-        heraldProjectAccess: 'selected',
-        heraldProjectIds: [...new Set(projectIds)],
+        postbotApiKeyVersion: 2,
+        postbotProjectAccess: 'selected',
+        postbotProjectIds: [...new Set(projectIds)],
     }
 }
 
 function projectAccessFromMetadata(metadata: unknown): 'all' | string[] {
     const parsed = readUserApiKeyMetadata(metadata)
-    return parsed?.heraldProjectAccess === 'all' ? 'all' : [...(parsed?.heraldProjectIds ?? [])]
+    return parsed?.postbotProjectAccess === 'all' ? 'all' : [...(parsed?.postbotProjectIds ?? [])]
 }
 
-function toUserApiKey(key: HeraldApiKeyRecord) {
+function toUserApiKey(key: PostbotApiKeyRecord) {
     return {
         id: key.id,
         name: key.name ?? 'Unnamed API key',
-        tokenPrefix: key.prefix ?? 'herald_pat_',
+        tokenPrefix: key.prefix ?? 'postbot_pat_',
         projectAccess: projectAccessFromMetadata(key.metadata),
         actionAccess: capabilitiesForPermissions(key.permissions),
         expiresAt: key.expiresAt?.getTime() ?? null,
@@ -179,7 +183,7 @@ function generatedUserApiKeyName() {
     const adjective =
         apiKeyNameAdjectives[Number.parseInt(entropy.slice(0, 8), 16) % apiKeyNameAdjectives.length]
     const noun = apiKeyNameNouns[Number.parseInt(entropy.slice(8, 16), 16) % apiKeyNameNouns.length]
-    return `Herald ${adjective} ${noun} ${entropy.slice(-6).toUpperCase()}`
+    return `Postbot ${adjective} ${noun} ${entropy.slice(-6).toUpperCase()}`
 }
 
 function invalidProjectAccessResponse() {
@@ -211,7 +215,7 @@ function projectIdsForRequest(
 
 export function registerUserApiKeyRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     access: AccessStore,
     now: () => number = Date.now
 ) {
@@ -242,7 +246,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     })
                 }
                 const listed = await auth.api.listApiKeys({
-                    query: { configId: heraldUserApiKeyConfigId },
+                    query: { configId: postbotUserApiKeyConfigId },
                     headers: request.headers,
                 })
                 return {
@@ -265,7 +269,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'createUserApiKey',
-                    summary: 'Create a user-owned Herald API key',
+                    summary: 'Create a user-owned Postbot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -292,7 +296,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 const created = await auth.api.createApiKey({
                     body: {
-                        configId: heraldUserApiKeyConfigId,
+                        configId: postbotUserApiKeyConfigId,
                         name: body.name?.trim() || generatedUserApiKeyName(),
                         userId: user.id,
                         metadata: metadataForProjectAccess(projectIds),
@@ -300,7 +304,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                             ? {}
                             : {
                                   permissions: permissionsForCapabilities(
-                                      body.actionAccess as readonly HeraldApiKeyCapability[]
+                                      body.actionAccess as readonly PostbotApiKeyCapability[]
                                   ),
                               }),
                         ...(expiresIn === undefined ? {} : { expiresIn }),
@@ -324,7 +328,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'updateUserApiKey',
-                    summary: 'Update a user-owned Herald API key',
+                    summary: 'Update a user-owned Postbot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -355,7 +359,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     })
                 }
                 const existing = await auth.api.listApiKeys({
-                    query: { configId: heraldUserApiKeyConfigId },
+                    query: { configId: postbotUserApiKeyConfigId },
                     headers: request.headers,
                 })
                 const current = existing.apiKeys.find(key => key.id === params.keyId)
@@ -366,7 +370,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 const updated = await auth.api.updateApiKey({
                     body: {
-                        configId: heraldUserApiKeyConfigId,
+                        configId: postbotUserApiKeyConfigId,
                         keyId: params.keyId,
                         userId: user.id,
                         ...(body.name === undefined ? {} : { name: body.name }),
@@ -380,7 +384,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                                       body.actionAccess === null
                                           ? null
                                           : permissionsForCapabilities(
-                                                body.actionAccess as readonly HeraldApiKeyCapability[]
+                                                body.actionAccess as readonly PostbotApiKeyCapability[]
                                             ),
                               }),
                         ...(body.expiresAt === undefined ? {} : { expiresIn }),
@@ -402,7 +406,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'deleteUserApiKey',
-                    summary: 'Delete a user-owned Herald API key',
+                    summary: 'Delete a user-owned Postbot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -418,7 +422,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 try {
                     await auth.api.deleteApiKey({
-                        body: { configId: heraldUserApiKeyConfigId, keyId: params.keyId },
+                        body: { configId: postbotUserApiKeyConfigId, keyId: params.keyId },
                         headers: request.headers,
                     })
                 } catch {

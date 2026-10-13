@@ -5,7 +5,7 @@
 
 ## Context
 
-Herald's web surface currently uses small CSS transitions for interaction
+Postbot's web surface currently uses small CSS transitions for interaction
 feedback. GSAP was identified as a possible future tool, but no concrete
 interaction currently requires an animation runtime. A runtime would add
 dependency weight and another abstraction to the browser bundle, while motion
@@ -13,7 +13,7 @@ must remain accessible and must not obscure workflow state.
 
 ## Decision
 
-Herald adopts a native-first motion policy:
+Postbot adopts a native-first motion policy:
 
 1. Essential state and feedback must remain understandable without motion.
 2. Use CSS transitions for local state changes, limited to color, opacity,
@@ -48,7 +48,7 @@ own the semantics and must not use motion as their only status channel.
 ## Consequences
 
 - The current application needs no animation runtime dependency.
-- Motion decisions are consistent across future Herald web surfaces.
+- Motion decisions are consistent across future Postbot web surfaces.
 - Reduced-motion support is part of the shared UI foundation rather than a
   reminder repeated in each component.
 - A future runtime remains possible, but it must earn its dependency through a

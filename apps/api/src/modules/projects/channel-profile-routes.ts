@@ -1,5 +1,5 @@
-import { ChannelProfileValidationError } from '@herald/core'
-import type { AccessStore } from '@herald/db'
+import { ChannelProfileValidationError } from '@postbot/core'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'

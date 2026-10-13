@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { DomainInvariantError } from '@herald/core'
+import { DomainInvariantError } from '@postbot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import {

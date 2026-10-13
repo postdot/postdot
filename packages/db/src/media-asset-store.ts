@@ -18,10 +18,10 @@ import {
     type MediaUploadPolicy,
     type MediaUploadIntent,
     type PublicationState,
-} from '@herald/core'
-import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@herald/media'
+} from '@postbot/core'
+import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postbot/media'
 
-import { createDatabaseTransaction, type HeraldDatabase } from './client'
+import { createDatabaseTransaction, type PostbotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import {
     generateImagePreviews,
@@ -473,7 +473,7 @@ const intentColumns = `
 `
 
 export function createMediaAssetStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     mediaStore: MediaStore,
     options: MediaAssetStoreOptions = {}
 ) {
@@ -1657,7 +1657,7 @@ export function createMediaAssetStore(
                     .query(`insert into media_representations
                     (id, project_id, asset_id, kind, source_representation_id, state, store_id,
                      object_key, processor_id, processor_version, recipe_json, failure_code, failure_message, created_at, updated_at)
-                    values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'herald-video-poster', '1', '{}',
+                    values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'postbot-video-poster', '1', '{}',
                     'poster_generation_failed', 'Video preview unavailable', ?, ?)`)
                     .run(
                         crypto.randomUUID(),
@@ -1670,7 +1670,7 @@ export function createMediaAssetStore(
                         timestamp
                     )
             }
-            console.error('[herald-media] Preview generation failed')
+            console.error('[postbot-media] Preview generation failed')
             return false
         } finally {
             previewGeneration.delete(assetId)
@@ -1821,7 +1821,7 @@ export function createMediaAssetStore(
                 try {
                     options.onVideoReady?.(projectId, ready.asset.id)
                 } catch {
-                    console.error('[herald-media] Poster wakeup failed')
+                    console.error('[postbot-media] Poster wakeup failed')
                 }
             }
             if (ready === null) return { kind: 'not_found' }
@@ -1897,9 +1897,9 @@ export function createMediaAssetStore(
                 and exists (select 1 from media_representations r where r.asset_id = a.id
                     and r.kind = 'original' and r.state = 'ready' and r.family = 'video')
                 and not exists (select 1 from media_representations r where r.asset_id = a.id
-                    and r.processor_id = 'herald-video-poster' and r.processor_version = '1' and r.state = 'failed')
+                    and r.processor_id = 'postbot-video-poster' and r.processor_version = '1' and r.state = 'failed')
                 and (select count(distinct json_extract(r.recipe_json, '$.variant')) from media_representations r
-                    where r.asset_id = a.id and r.processor_id = 'herald-image-preview'
+                    where r.asset_id = a.id and r.processor_id = 'postbot-image-preview'
                     and r.processor_version = '1' and r.state = 'ready') < 2
             `)
                 .all()
@@ -2875,7 +2875,7 @@ function isActivePublicationState(state: PublicationState | null): boolean {
 }
 
 function hasMediaReference(
-    database: HeraldDatabase['$client'],
+    database: PostbotDatabase['$client'],
     projectId: string,
     assetId: string
 ): boolean {

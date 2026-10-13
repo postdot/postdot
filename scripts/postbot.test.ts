@@ -3,13 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, join } from 'node:path'
 
-import { runCli } from './herald'
+import { runCli } from './postbot'
 
 function requestFromInput(input: string | URL | Request, init?: RequestInit) {
     return input instanceof Request ? new Request(input, init) : new Request(String(input), init)
 }
 
-describe('Herald CLI', () => {
+describe('Postbot CLI', () => {
     it('documents user API keys and machine authentication', async () => {
         const output: string[] = []
 
@@ -25,22 +25,22 @@ describe('Herald CLI', () => {
         const output: string[] = []
 
         await runCli(
-            ['projects', 'list', '--token', 'herald_pat_machine-secret'],
+            ['projects', 'list', '--token', 'postbot_pat_machine-secret'],
             {},
             {
                 fetcher: async (input, init) => {
                     requests.push(requestFromInput(input, init))
-                    return Response.json({ projects: [{ id: 'project-1', name: 'Herald' }] })
+                    return Response.json({ projects: [{ id: 'project-1', name: 'Postbot' }] })
                 },
                 output: message => output.push(message),
             }
         )
 
         expect(requests[0]?.headers.get('authorization')).toEqual(
-            'Bearer herald_pat_machine-secret'
+            'Bearer postbot_pat_machine-secret'
         )
         expect(requests[0]?.headers.get('cookie')).toBeNull()
-        expect(output).toEqual(['project-1\tHerald'])
+        expect(output).toEqual(['project-1\tPostbot'])
     })
 
     it('creates a user-owned API key with a selected project scope', async () => {
@@ -49,7 +49,7 @@ describe('Herald CLI', () => {
 
         await runCli(
             ['api-keys', 'create', '--name', 'MCP server', '--projects', 'project-1,project-2'],
-            { HERALD_SESSION_COOKIE: 'better-auth.session_token=session' },
+            { POSTBOT_SESSION_COOKIE: 'better-auth.session_token=session' },
             {
                 fetcher: async (input, init) => {
                     request = requestFromInput(input, init)
@@ -57,13 +57,13 @@ describe('Herald CLI', () => {
                         key: {
                             id: 'key-1',
                             name: 'MCP server',
-                            tokenPrefix: 'herald_pat_abc',
+                            tokenPrefix: 'postbot_pat_abc',
                             projectAccess: ['project-1', 'project-2'],
                             expiresAt: null,
                             createdAt: 1_800_000_000_000,
                             updatedAt: 1_800_000_000_000,
                         },
-                        token: 'herald_pat_secret',
+                        token: 'postbot_pat_secret',
                     })
                 },
                 output: message => output.push(message),
@@ -78,7 +78,7 @@ describe('Herald CLI', () => {
             name: 'MCP server',
             projectIds: ['project-1', 'project-2'],
         })
-        expect(output[0]).toContain('herald_pat_secret')
+        expect(output[0]).toContain('postbot_pat_secret')
     })
 })
 
@@ -89,8 +89,8 @@ describe('machine publication workflow', () => {
         const { createAuth } = await import('../packages/auth/src/index')
         const { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } =
             await import('../packages/db/src/index')
-        const { createHeraldClient } = await import('@herald/client')
-        const root = await mkdtemp(join(tmpdir(), 'herald-cli-media-'))
+        const { createPostbotClient } = await import('@postbot/client')
+        const root = await mkdtemp(join(tmpdir(), 'postbot-cli-media-'))
         const { createLocalMediaStore } = await import('../packages/media/src/index')
         const { createMediaUrlImporter } = await import('../apps/api/src/modules/media/url-import')
         const png = Buffer.from(
@@ -128,7 +128,7 @@ describe('machine publication workflow', () => {
             publisher,
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
-                secret: 'herald-cli-test-secret-at-least-32-characters',
+                secret: 'postbot-cli-test-secret-at-least-32-characters',
             }),
         })
         const server = Bun.serve({
@@ -145,7 +145,7 @@ describe('machine publication workflow', () => {
                         origin: 'http://localhost:3000',
                     },
                     body: JSON.stringify({
-                        email: 'cli@herald.local',
+                        email: 'cli@postbot.local',
                         name: 'CLI test',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -153,7 +153,7 @@ describe('machine publication workflow', () => {
             )
             expect(signup.status).toBe(200)
             const cookie = signup.headers.get('set-cookie')?.split(';', 1)[0]
-            const client = createHeraldClient(server.url.href, { cookie })
+            const client = createPostbotClient(server.url.href, { cookie })
             const created = await client.api.projects.post({ name: 'CLI workflow' })
             expect(created.error).toBeNull()
             const { project } = created.data as { project: { id: string } }
@@ -173,7 +173,7 @@ describe('machine publication workflow', () => {
                 const child = Bun.spawn(
                     [
                         process.execPath,
-                        'scripts/herald.ts',
+                        'scripts/postbot.ts',
                         ...args,
                         '--project',
                         project.id,
@@ -183,9 +183,9 @@ describe('machine publication workflow', () => {
                         cwd: resolve(import.meta.dir, '..'),
                         env: {
                             ...Bun.env,
-                            HERALD_URL: server.url.href,
-                            HERALD_API_KEY: token,
-                            HERALD_SESSION_COOKIE: '',
+                            POSTBOT_URL: server.url.href,
+                            POSTBOT_API_KEY: token,
+                            POSTBOT_SESSION_COOKIE: '',
                         },
                         stdin: input === undefined ? 'ignore' : new Blob([JSON.stringify(input)]),
                         stdout: 'pipe',
@@ -398,7 +398,7 @@ describe('machine publication workflow', () => {
                 publicationId,
             ])
             expect(JSON.parse(cancelled.stdout).editor.publication.state).toBe('cancelled')
-            const machineClient = createHeraldClient(server.url.href, { token })
+            const machineClient = createPostbotClient(server.url.href, { token })
             const sourceRead = await machineClient.api
                 .projects({ projectId: project.id })
                 .posts({ postId: createdPost.post.id })
@@ -450,7 +450,7 @@ describe('machine publication workflow', () => {
                 actionAccess: ['project:read'],
             })
             expect(readKey.error).toBeNull()
-            const reader = createHeraldClient(server.url.href, {
+            const reader = createPostbotClient(server.url.href, {
                 token: (readKey.data as { token: string }).token,
             })
             expect(
@@ -505,7 +505,7 @@ describe('machine publication workflow', () => {
             await expect(
                 runCli(
                     ['posts', 'create', '--project', 'p', '--input', '-'],
-                    { HERALD_API_KEY: 'fake' },
+                    { POSTBOT_API_KEY: 'fake' },
                     {
                         readInput: async () => input,
                         fetcher: async () => {
@@ -526,7 +526,7 @@ describe('CLI lifecycle transport', () => {
         const output: string[] = []
         await runCli(
             ['publications', 'retry', '--project', 'p', '--publication', 'pub', '--json'],
-            { HERALD_API_KEY: 'fake' },
+            { POSTBOT_API_KEY: 'fake' },
             {
                 fetcher: async (input, init) => {
                     const request = requestFromInput(input, init)
@@ -547,7 +547,7 @@ describe('CLI lifecycle transport', () => {
         await expect(
             runCli(
                 ['publications', 'retry', '--project', 'p', '--publication', 'pub'],
-                { HERALD_API_KEY: 'fake' },
+                { POSTBOT_API_KEY: 'fake' },
                 {
                     fetcher: async () => {
                         requests++
@@ -566,7 +566,7 @@ describe('CLI pending media', () => {
         const output: string[] = []
         await runCli(
             ['media', 'finalize', '--project', 'p', '--intent', 'intent', '--json'],
-            { HERALD_API_KEY: 'fake' },
+            { POSTBOT_API_KEY: 'fake' },
             {
                 fetcher: async () => {
                     requests++
@@ -591,7 +591,7 @@ describe('CLI pending media', () => {
 
 describe('CLI interrupted media transfer', () => {
     it('retains the reservation and never repeats the transfer or finalizes it', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'herald-cli-transfer-'))
+        const root = await mkdtemp(join(tmpdir(), 'postbot-cli-transfer-'))
         const path = join(root, 'image.png')
         await Bun.write(path, new Uint8Array([1, 2, 3]))
         const requests: string[] = []
@@ -599,7 +599,7 @@ describe('CLI interrupted media transfer', () => {
             await expect(
                 runCli(
                     ['media', 'upload', '--project', 'p', '--file', path],
-                    { HERALD_API_KEY: 'fake' },
+                    { POSTBOT_API_KEY: 'fake' },
                     {
                         fetcher: async (input, init) => {
                             const request = requestFromInput(input, init)

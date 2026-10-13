@@ -1,9 +1,9 @@
-import type { createInstallationEmailSettingsStore } from '@herald/db'
+import type { createInstallationEmailSettingsStore } from '@postbot/db'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 import { Type, type Static } from 'typebox'
 import { Value } from 'typebox/value'
 
-import type { HeraldSmtpConfig } from './delivery'
+import type { PostbotSmtpConfig } from './delivery'
 
 const smtpFields = {
     host: Type.String({ minLength: 1, maxLength: 253, pattern: '^[^\\s/:]+$' }),
@@ -40,10 +40,10 @@ const storedSchema = Type.Object({
 
 export async function createEmailSettingsService(options: {
     store: ReturnType<typeof createInstallationEmailSettingsStore>
-    initial?: HeraldSmtpConfig
+    initial?: PostbotSmtpConfig
     onChange?: () => void
     deliveryAllowed?: () => boolean
-    createTransport?: (smtp: HeraldSmtpConfig) => {
+    createTransport?: (smtp: PostbotSmtpConfig) => {
         sendMail(message: SendMailOptions): Promise<unknown>
     }
 }) {
@@ -56,7 +56,7 @@ export async function createEmailSettingsService(options: {
         stored = decoded
     }
     const configured = () => stored?.smtp ?? options.initial
-    const current = (): HeraldSmtpConfig | undefined =>
+    const current = (): PostbotSmtpConfig | undefined =>
         stored?.enabled === false ? undefined : configured()
     const view = (): EmailSettingsResponse => {
         const smtp = configured()
@@ -124,8 +124,8 @@ export async function createEmailSettingsService(options: {
         async test(email: string) {
             await sendMail({
                 to: email,
-                subject: 'Herald — SMTP test',
-                text: 'Herald successfully submitted this test email to your SMTP server.',
+                subject: 'Postbot — SMTP test',
+                text: 'Postbot successfully submitted this test email to your SMTP server.',
             })
             return { accepted: true as const }
         },

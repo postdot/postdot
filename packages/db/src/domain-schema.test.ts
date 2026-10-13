@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createManualChannelProfile } from '@herald/core'
+import { createManualChannelProfile } from '@postbot/core'
 import { eq } from 'drizzle-orm'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
@@ -22,7 +22,7 @@ import {
     publishers,
 } from './schema'
 
-function seedProject(database: HeraldDatabase, suffix: string) {
+function seedProject(database: PostbotDatabase, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
     const channelId = `channel-${suffix}`
@@ -334,7 +334,7 @@ describe('domain schema', () => {
                 channelId: fixture.channelId,
                 providerId: 'linkedin',
                 connectedByActorId: fixture.actorId,
-                callbackUri: 'https://herald.example.com/api/oauth/linkedin/callback',
+                callbackUri: 'https://postbot.example.com/api/oauth/linkedin/callback',
                 scopes: [],
                 returnPath: '/projects/one',
                 stateDigest: Buffer.alloc(32, 1),

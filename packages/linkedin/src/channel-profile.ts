@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import { LINKEDIN_MAX_IMAGES, LINKEDIN_PROVIDER } from './contract'
 
@@ -10,8 +10,8 @@ export const LINKEDIN_EXECUTION_CONTRACT_REVISION = 'member-post-v4'
 export const linkedinChannelProfile: ChannelProfileDefinition = {
     id: LINKEDIN_PROVIDER,
     version: 4,
-    profileHash: 'sha256:herald-linkedin-member-post-v4',
-    schemaHash: 'sha256:herald-linkedin-member-post-schema-v3',
+    profileHash: 'sha256:postbot-linkedin-member-post-v4',
+    schemaHash: 'sha256:postbot-linkedin-member-post-schema-v3',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

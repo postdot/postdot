@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 

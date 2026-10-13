@@ -24,7 +24,7 @@ function createFixture() {
     const project = manualStore.createProject({
         name: 'Credential Project',
         subjectId: 'user-1',
-        displayName: 'Herald Operator',
+        displayName: 'Postbot Operator',
     })
     const cipher = createPublisherCredentialCipher({
         keyId: 'primary',
@@ -41,8 +41,8 @@ function createFixture() {
 
 describe('publisher credential store', () => {
     it('never writes plaintext token bytes to the SQLite file', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-credentials-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-credentials-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const database = createDatabase(databasePath)
         let databaseClosed = false
 
@@ -52,7 +52,7 @@ describe('publisher credential store', () => {
             const project = manualStore.createProject({
                 name: 'Credential File',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const store = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({
@@ -99,7 +99,7 @@ describe('publisher credential store', () => {
                 connectedByActorId: fixture.project.actor.id,
                 providerId: 'linkedin',
                 externalAccountId: 'member-1',
-                externalAccountName: 'Herald Operator',
+                externalAccountName: 'Postbot Operator',
                 scopes: ['w_member_social', 'openid'],
                 accessToken: 'access-token-plaintext',
                 refreshToken: 'refresh-token-plaintext',

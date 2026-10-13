@@ -1,20 +1,20 @@
 import { randomUUID } from 'node:crypto'
 
-import type { MediaReference } from '@herald/client'
 import { expect, test, type Page, type Route } from '@playwright/test'
+import type { MediaReference } from '@postbot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 
-const e2eApiPort = process.env.HERALD_E2E_API_PORT
+const e2eApiPort = process.env.POSTBOT_E2E_API_PORT
 if (e2eApiPort === undefined) {
-    throw new Error('HERALD_E2E_API_PORT must be set by the Playwright E2E runtime')
+    throw new Error('POSTBOT_E2E_API_PORT must be set by the Playwright E2E runtime')
 }
 const e2eApiOrigin = `http://127.0.0.1:${e2eApiPort}`
 
-const mediaFilename = 'herald-e2e-pixel.png'
-const editedMediaFilename = 'herald-e2e-pixel-edited.png'
-const secondMediaFilename = 'herald-e2e-second-pixel.png'
-const pickerMediaFilename = 'herald-e2e-picker-pixel.png'
+const mediaFilename = 'postbot-e2e-pixel.png'
+const editedMediaFilename = 'postbot-e2e-pixel-edited.png'
+const secondMediaFilename = 'postbot-e2e-second-pixel.png'
+const pickerMediaFilename = 'postbot-e2e-picker-pixel.png'
 const mediaBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64'
@@ -94,9 +94,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
-    await page.getByLabel('Email').fill(`e2e-33-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-33-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-33-password')
     await Promise.all([
         page.waitForResponse(
@@ -107,13 +107,13 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.goto('/dashboard?projectId=none')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
     await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
-    const dashboardLogo = page.locator('a[aria-label="Herald workspace"] svg')
+    const dashboardLogo = page.locator('a[aria-label="Postbot workspace"] svg')
     await expect(dashboardLogo).toBeVisible()
     await page.goto('/dashboard?projectId=none')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
     await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 189 189')
     await expect(dashboardLogo.locator('[fill="currentColor"]')).toHaveCount(5)
-    await expect(page.locator('a[aria-label="Herald workspace"]')).toHaveCSS(
+    await expect(page.locator('a[aria-label="Postbot workspace"]')).toHaveCSS(
         'background-color',
         'rgba(0, 0, 0, 0)'
     )
@@ -138,7 +138,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
-    await expect(page.getByText(`e2e-33-${suffix}@herald.local`, { exact: true })).toBeVisible()
+    await expect(page.getByText(`e2e-33-${suffix}@postbot.local`, { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -289,7 +289,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         page.getByRole('heading', { name: `API key created for ${tokenName}` })
     ).toBeVisible()
     const tokenSecret = await page.locator('code').innerText()
-    expect(tokenSecret).toMatch(/^herald_pat_[A-Za-z0-9]+$/)
+    expect(tokenSecret).toMatch(/^postbot_pat_[A-Za-z0-9]+$/)
     await expect(
         page.getByText('Copy this key now. It will not be shown again.', { exact: true })
     ).toBeVisible()
@@ -540,7 +540,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
-    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
+    const droppedMediaFilename = `postbot-e2e-dropped-${suffix}.png`
 
     let releaseLibrary!: () => void
     const heldLibrary = new Promise<void>(resolve => {
@@ -558,7 +558,10 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(libraryLoading).toBeVisible()
     await expect(libraryLoading).toHaveText('')
     await expect(libraryLoading.locator('[data-slot="skeleton"]')).toHaveCount(18)
-    await page.screenshot({ path: '/tmp/herald-media-library-loading.png', animations: 'disabled' })
+    await page.screenshot({
+        path: '/tmp/postbot-media-library-loading.png',
+        animations: 'disabled',
+    })
     releaseLibrary()
     await page.unrouteAll({ behavior: 'wait' })
     await expect(libraryLoading).not.toBeVisible()
@@ -876,7 +879,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const mediaInformationDialog = page.locator('[data-media-info-dialog="true"]')
     await expect(mediaInformationDialog).toBeVisible()
     await page.screenshot({
-        path: '/tmp/herald-media-information-dark.png',
+        path: '/tmp/postbot-media-information-dark.png',
         animations: 'disabled',
     })
     await expect(mediaInformationDialog.getByText('File details', { exact: true })).toBeVisible()
@@ -1196,7 +1199,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         throw new Error('The URL import flow requires at least one media fixture')
     }
 
-    const urlImport = 'https://example.com/herald-e2e-url.png'
+    const urlImport = 'https://example.com/postbot-e2e-url.png'
     let requestedUrl: string | undefined
     const urlImportRoute = async (route: Route) => {
         const body = route.request().postDataJSON() as { url?: unknown }
@@ -1704,12 +1707,12 @@ test('persists mixed and media-only publications through the dashboard', async (
 })
 
 async function createAccountAndProject(page: Page, suffix: string, projectName?: string) {
-    const email = `e2e-33-${suffix}@herald.local`
+    const email = `e2e-33-${suffix}@postbot.local`
     const resolvedProjectName = projectName ?? `E2E-33 Project ${suffix}`
 
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill('e2e-33-password')

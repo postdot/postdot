@@ -1,8 +1,8 @@
 {
-    "name": "@herald/discord",
+    "name": "@postbot/discord",
     "version": "0.0.0",
     "private": true,
-    "description": "Discord publishing adapter for Herald",
+    "description": "Discord publishing adapter for Postbot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -20,7 +20,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@herald/core": "workspace:*"
+        "@postbot/core": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

@@ -17,7 +17,7 @@ and client metadata, authorization code with PKCE, pushed authorization requests
 verification that the returned DID is consistent with the authorization server and
 the account's PDS.
 
-The current `@herald/oauth` package intentionally provides focused authorization
+The current `@postbot/oauth` package intentionally provides focused authorization
 code mechanics for providers with explicit metadata and does not implement this
 distributed AT Protocol profile. The current project-owned credential model also
 does not yet describe DPoP key material, the discovered authorization/resource
@@ -26,7 +26,7 @@ session.
 
 The official AT Protocol documentation lists the maintained OAuth SDKs and states
 that they handle DPoP, token refresh, and session management. The Node wrapper is
-not a suitable direct dependency for Herald: an isolated Bun 1.4 proof with
+not a suitable direct dependency for Postbot: an isolated Bun 1.4 proof with
 `@atproto/oauth-client-node@0.5.4` reached the package's Node-only SSRF guard and
 failed before a client could be constructed. The portable
 `@atproto/oauth-client@0.8.4` core client was then constructed successfully under
@@ -40,12 +40,12 @@ References:
 
 ## Decision
 
-Herald will use the official portable `@atproto/oauth-client` core inside a
+Postbot will use the official portable `@atproto/oauth-client` core inside a
 provider-owned Bluesky adapter, with `@atproto/jwk-webcrypto` (or the equivalent
 official Web Crypto implementation required by the installed SDK version) as the
 Bun runtime key implementation. The adapter will translate the SDK's state and
-session lifecycle into Herald-owned project-scoped encrypted stores. The generic
-`@herald/oauth` package remains unchanged, and Better Auth remains unrelated to
+session lifecycle into Postbot-owned project-scoped encrypted stores. The generic
+`@postbot/oauth` package remains unchanged, and Better Auth remains unrelated to
 publisher connections.
 
 The adapter must not move project ownership, connection lifecycle, or provider
@@ -64,23 +64,23 @@ implementation must demonstrate:
 
 ### Deployment profiles
 
-Herald does not make DNS or HTTPS a global application requirement. A local
+Postbot does not make DNS or HTTPS a global application requirement. A local
 runtime-managed Bluesky application may use the AT Protocol loopback profile:
 the client identifier is the special `http://localhost` value and the redirect
-uses a loopback IP literal. Because Herald's session cookie is host-bound, the
+uses a loopback IP literal. Because Postbot's session cookie is host-bound, the
 API, dashboard, and callback configuration must consistently use `127.0.0.1`
 (or consistently `[::1]`). No tunnel or public metadata document is used.
 
 A deployed web application uses the discoverable web profile. It requires a
 stable HTTPS client metadata URL and an exact publicly reachable HTTPS callback.
-The Herald API serves the metadata document itself; a reverse proxy may provide
-reachability but is not a Herald runtime dependency. The provider application
+The Postbot API serves the metadata document itself; a reverse proxy may provide
+reachability but is not a Postbot runtime dependency. The provider application
 settings and deployment guide expose these as two explicit, provider-specific
 profiles rather than inferring a global requirement.
 
 ## Alternatives considered
 
-### Extend `@herald/oauth` with a generic AT Protocol profile
+### Extend `@postbot/oauth` with a generic AT Protocol profile
 
 This would keep dependencies centralized, but it would substantially expand a
 focused package with discovery, client metadata, PAR, DPoP, nonce handling, DID/PDS
@@ -91,11 +91,11 @@ It is not the default direction.
 ### Use the official portable AT Protocol SDK inside a provider adapter
 
 This keeps AT Protocol truth in the provider module and allows the maintained SDK
-to own protocol details. The portable core is compatible with Bun once Herald
+to own protocol details. The portable core is compatible with Bun once Postbot
 supplies the runtime key, randomness, and digest primitives. The Node wrapper is
 not used because its current Node-only fetch/SSRF guard is incompatible with our
 runtime. The decision adds a dependency and requires an explicit persistence bridge
-for Herald's worker lifecycle.
+for Postbot's worker lifecycle.
 
 ### Use Bluesky app passwords as the primary connection flow
 

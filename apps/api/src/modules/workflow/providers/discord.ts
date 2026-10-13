@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionTarget } from '@herald/db'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     DISCORD_EXECUTION_CONTRACT_REVISION,
     DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -11,7 +11,7 @@ import {
     isDiscordChannelId,
     readDiscordTextContent,
     type DiscordPublisher,
-} from '@herald/discord'
+} from '@postbot/discord'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

@@ -169,9 +169,9 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
-    await page.screenshot({ path: '/tmp/herald-content382-narrow.png', fullPage: true })
+    await page.screenshot({ path: '/tmp/postbot-content382-narrow.png', fullPage: true })
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.screenshot({ path: '/tmp/herald-content382-wide.png', fullPage: true })
+    await page.screenshot({ path: '/tmp/postbot-content382-wide.png', fullPage: true })
     await view.click()
     await page.getByRole('option', { name: 'Publication order', exact: true }).click()
     await expect(groups).toHaveCount(0)
@@ -296,9 +296,9 @@ function publicationFixture(input: {
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E queue bulk ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-queue-bulk-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-queue-bulk-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-queue-bulk-password')
     await Promise.all([
         page.waitForResponse(

@@ -7,7 +7,7 @@ import {
     type TargetContent,
     type TargetMediaReference,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
 import type { MediaAssetStore } from '../media-asset-store'
 import { isRecord } from './content-codec'

@@ -10,7 +10,7 @@
 
 ## Context
 
-Herald shares authorization-code mechanics across publisher adapters, but an
+Postbot shares authorization-code mechanics across publisher adapters, but an
 OAuth provider's documented web and native flows do not necessarily have the
 same request requirements. The shared implementation originally sent PKCE
 parameters by default. The configured LinkedIn application accepted the

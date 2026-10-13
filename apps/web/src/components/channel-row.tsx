@@ -1,13 +1,13 @@
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@herald/ui/components/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+} from '@postbot/ui/components/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'

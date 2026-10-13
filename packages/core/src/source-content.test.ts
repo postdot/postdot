@@ -6,7 +6,7 @@ describe('source content', () => {
     test('accepts the shared semantic vocabulary without rewriting it', () => {
         const content = {
             body: { text: '  Durable release notes  ', format: 'markdown' as const },
-            headline: 'Herald update',
+            headline: 'Postbot update',
             language: 'fr-FR',
             media: [{ assetId: 'asset-1', accessibilityText: 'Release dashboard' }],
         }

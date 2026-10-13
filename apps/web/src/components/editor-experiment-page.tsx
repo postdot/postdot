@@ -1,5 +1,5 @@
-import { Button } from '@herald/ui/components/button'
-import { Textarea } from '@herald/ui/components/textarea'
+import { Button } from '@postbot/ui/components/button'
+import { Textarea } from '@postbot/ui/components/textarea'
 import { useState } from 'react'
 
 import { ConfiguredPublicationEditor } from '@/components/configured-publication-editor'
@@ -12,7 +12,7 @@ const samples: Record<EditorProfile, string> = {
     discord: '**Hello** 👋\n\n__Underline__ and ||spoiler||',
     article: '## Hello 👋\n\n- First\n- Second\n\n> A quotation\n\n```js\nconst answer = 42\n```',
 }
-const storageKey = 'herald-editor-experiment-v1'
+const storageKey = 'postbot-editor-experiment-v1'
 
 function profileName(profile: EditorProfile) {
     return profile === 'plain' ? m.editor_lab_plain() : profile === 'discord' ? 'Discord' : 'DEV.to'

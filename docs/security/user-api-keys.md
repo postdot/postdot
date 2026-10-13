@@ -1,11 +1,11 @@
 # User-Owned API Keys
 
-API keys are user-owned credentials for external Herald clients. A key is not a
+API keys are user-owned credentials for external Postbot clients. A key is not a
 separate user or integration identity; it authenticates as its owner.
 
 ## Effective access
 
-For a project operation, Herald requires all applicable boundaries to allow it:
+For a project operation, Postbot requires all applicable boundaries to allow it:
 
 - the owner currently has the required project role;
 - the project is included in the key's project scope;
@@ -14,7 +14,7 @@ For a project operation, Herald requires all applicable boundaries to allow it:
 Keys without an action limit inherit the owner's current project actions. This
 also applies to existing keys whose Better Auth permission record is null.
 Limited keys use Better Auth's native `apikey.permissions` storage field, but
-Herald explicitly authorizes each route. In this Herald policy, null means “no
+Postbot explicitly authorizes each route. In this Postbot policy, null means “no
 key-level action limit”; it does not rely on Better Auth treating null as a
 wildcard. Unknown routes are denied to API keys until they receive an explicit
 capability mapping.
@@ -70,7 +70,7 @@ when a publication is created with `scheduledAt` or a draft is promoted.
 Send the one-time secret as a bearer token:
 
 ```http
-Authorization: Bearer herald_pat_…
+Authorization: Bearer postbot_pat_…
 ```
 
 The key's project scope and action limit can be changed from Settings → API

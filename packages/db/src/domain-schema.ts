@@ -10,7 +10,7 @@ import {
     notificationKinds,
     notificationSeverities,
     providerAnalyticsAvailabilityStates,
-    providerAnalyticsHeraldEntityTypes,
+    providerAnalyticsPostbotEntityTypes,
     providerAnalyticsFreshnessStates,
     providerAnalyticsSubjectTypes,
     providerMediaDeliveryStates,
@@ -23,7 +23,7 @@ import {
     type ChannelProfileDefinition,
     type CustomHttpAuthentication,
     type SourceContent,
-} from '@herald/core'
+} from '@postbot/core'
 import { sql } from 'drizzle-orm'
 import {
     check,
@@ -96,7 +96,7 @@ export const projectCategories = sqliteTable(
 )
 
 /**
- * Herald's user-facing workspace boundary. Better Auth owns the organization
+ * Postbot's user-facing workspace boundary. Better Auth owns the organization
  * and member rows referenced here; this projection gives the domain model a
  * stable name for the boundary without making projects organizations.
  */
@@ -138,7 +138,7 @@ export const projects = sqliteTable(
 )
 
 /**
- * Direct Herald project access. Better Auth owns identity and workspace
+ * Direct Postbot project access. Better Auth owns identity and workspace
  * membership; this table owns the project-specific role for an individual.
  */
 export const projectUserGrants = sqliteTable(
@@ -216,7 +216,7 @@ export const actors = sqliteTable(
 )
 
 /**
- * Herald owns the instance boundary separately from Better Auth identity.
+ * Postbot owns the instance boundary separately from Better Auth identity.
  * There is exactly one row per database, seeded by the access migration.
  */
 export const instanceState = sqliteTable(
@@ -270,10 +270,10 @@ export const instanceMemberships = sqliteTable(
 )
 
 /**
- * Instance invitations are Herald-owned because the instance itself is not a
+ * Instance invitations are Postbot-owned because the instance itself is not a
  * Better Auth organization. Project invitations use Better Auth workspace
  * invitations with custom project fields and therefore have no duplicate
- * Herald invitation table.
+ * Postbot invitation table.
  */
 export const instanceAccessInvitations = sqliteTable(
     'instance_access_invitations',
@@ -1476,10 +1476,10 @@ export const providerAnalyticsObservations = sqliteTable(
         providerSubjectId: text('provider_subject_id').notNull(),
         providerSubjectLabel: text('provider_subject_label'),
         providerContentRevisionId: text('provider_content_revision_id'),
-        heraldEntityType: text('herald_entity_type', {
-            enum: providerAnalyticsHeraldEntityTypes,
+        postbotEntityType: text('postbot_entity_type', {
+            enum: providerAnalyticsPostbotEntityTypes,
         }),
-        heraldEntityId: text('herald_entity_id'),
+        postbotEntityId: text('postbot_entity_id'),
         metricName: text('metric_name').notNull(),
         value: real('value'),
         unit: text('unit').notNull(),
@@ -1516,8 +1516,8 @@ export const providerAnalyticsObservations = sqliteTable(
         ),
         index('provider_analytics_observations_project_entity_idx').on(
             table.projectId,
-            table.heraldEntityType,
-            table.heraldEntityId,
+            table.postbotEntityType,
+            table.postbotEntityId,
             table.fetchedAt
         ),
         check(
@@ -1538,10 +1538,10 @@ export const providerAnalyticsObservations = sqliteTable(
         ),
         check(
             'provider_analytics_observations_entity_pair_valid',
-            sql`(${table.heraldEntityType} is null and ${table.heraldEntityId} is null)
-                or (${table.heraldEntityType} is not null
-                    and ${table.heraldEntityId} is not null
-                    and length(trim(${table.heraldEntityId})) > 0)`
+            sql`(${table.postbotEntityType} is null and ${table.postbotEntityId} is null)
+                or (${table.postbotEntityType} is not null
+                    and ${table.postbotEntityId} is not null
+                    and length(trim(${table.postbotEntityId})) > 0)`
         ),
         check(
             'provider_analytics_observations_metric_nonblank',
@@ -1584,7 +1584,7 @@ export const providerAnalyticsObservations = sqliteTable(
         check(
             'provider_analytics_observations_enum_valid',
             sql`${table.subjectType} in ('account', 'content')
-                and (${table.heraldEntityType} is null or ${table.heraldEntityType} in ('channel', 'publication'))
+                and (${table.postbotEntityType} is null or ${table.postbotEntityType} in ('channel', 'publication'))
                 and ${table.availability} in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'partial_response', 'not_configured', 'not_authorized', 'not_supported')
                 and ${table.freshness} in ('fresh', 'stale', 'unknown')`
         ),

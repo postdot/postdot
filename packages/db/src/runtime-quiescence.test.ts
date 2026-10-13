@@ -10,8 +10,8 @@ const isRoot = typeof process.geteuid === 'function' && process.geteuid() === 0
 
 describe('runtime quiescence lock', () => {
     it('allows one owner and blocks concurrent server, restore, or recovery owners', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
 
         try {
             const serverLock = acquireRuntimeQuiescenceLock(databasePath, 'server')
@@ -42,8 +42,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('does not reclaim a stale marker automatically', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const lockPath = `${databasePath}.runtime.lock`
 
         try {
@@ -75,8 +75,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('reports a successful release and removes the marker', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
 
         try {
             const serverLock = acquireRuntimeQuiescenceLock(databasePath, 'server')
@@ -89,8 +89,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('reports success when the marker is already gone', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
 
         try {
             const serverLock = acquireRuntimeQuiescenceLock(databasePath, 'server')
@@ -103,8 +103,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('does not remove a foreign marker and reports it as retained', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const lockPath = `${databasePath}.runtime.lock`
 
         try {
@@ -122,8 +122,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('keeps reporting a retained marker on repeated calls without retrying removal', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const lockPath = `${databasePath}.runtime.lock`
         const foreignMarker = JSON.stringify({
             version: 1,
@@ -144,8 +144,8 @@ describe('runtime quiescence lock', () => {
     })
 
     it('does not remove an unreadable marker and reports it as retained', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const lockPath = `${databasePath}.runtime.lock`
 
         try {
@@ -162,8 +162,8 @@ describe('runtime quiescence lock', () => {
     // Root bypasses directory permissions, so the denial below only applies to
     // ordinary operator and CI users.
     it.if(!isRoot)('reports a retained marker when the directory denies removal', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
-        const databasePath = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-runtime-lock-'))
+        const databasePath = join(directory, 'postbot.sqlite')
         const lockPath = `${databasePath}.runtime.lock`
 
         try {

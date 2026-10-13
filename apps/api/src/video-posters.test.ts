@@ -3,7 +3,7 @@ import { mkdtemp, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@herald/media'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-posters'
 
@@ -63,7 +63,7 @@ describe('video poster background runtime', () => {
 })
 
 it('optional decoder absence and cancellation never require the original to change', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'herald-poster-test-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postbot-poster-test-'))
     try {
         const store = createLocalMediaStore({
             storeId: 'poster-test',

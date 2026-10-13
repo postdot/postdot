@@ -2,7 +2,7 @@
 
 # Backup and restoration boundary
 
-Herald provides application-aware database and media backup/restore primitives.
+Postbot provides application-aware database and media backup/restore primitives.
 The administrator owns scheduling, retention, off-machine storage, protection of
 backup material and recovery exercises. No built-in periodic backup or continuous
 replication is promised.
@@ -54,7 +54,7 @@ not imply minute-level recovery. PostgreSQL point-in-time recovery combines a
 base backup with a continuous WAL archive. SQLite's ordinary WAL file is recycled;
 retaining that live file is not equivalent to continuous recovery. Tools such as
 Litestream implement a separate SQLite replication and recovery mechanism.
-Herald does not currently integrate or certify such a deployment.
+Postbot does not currently integrate or certify such a deployment.
 
 Database recovery does not restore deleted external objects. Any database-history
 strategy needs corresponding media retention or version history if old references
@@ -78,7 +78,7 @@ SQLite, before replacing the database. The marker is outside the snapshot and
 survives ordinary restarts. A new restore changes its acknowledgement token.
 An invalid marker prevents startup instead of silently enabling delivery.
 
-While held, Herald permits inspection and email/password login but rejects HTTP
+While held, Postbot permits inspection and email/password login but rejects HTTP
 mutations with `503 recovery_hold`, except the administrator's explicit resume.
 OAuth callbacks and account verification are suspended too. The publication
 worker, external email delivery runtime and media cleanup runtime are not started;
@@ -101,15 +101,15 @@ runtime lock; do not delete it to bypass acknowledgement. Preserve its restricte
 permissions and do not expose it through the web server. An unchanged ordinary
 installation without a marker starts normally.
 
-### Restores performed outside Herald
+### Restores performed outside Postbot
 
 An external SQLite restore cannot be detected reliably from its database content.
-Before starting Herald on an externally restored database, enter the hold through
+Before starting Postbot on an externally restored database, enter the hold through
 the maintenance command, with the server stopped:
 
 ```sh
-bun apps/api/src/index.ts recovery hold --database /absolute/path/herald.sqlite
-bun apps/api/src/index.ts recovery status --database /absolute/path/herald.sqlite
+bun apps/api/src/index.ts recovery hold --database /absolute/path/postbot.sqlite
+bun apps/api/src/index.ts recovery status --database /absolute/path/postbot.sqlite
 ```
 
 In a production image, pass the same arguments to its normal server entrypoint
@@ -119,7 +119,7 @@ If restored accounts are inaccessible, the machine administrator can acknowledge
 offline with the server stopped:
 
 ```sh
-bun apps/api/src/index.ts recovery resume --confirm --database /absolute/path/herald.sqlite
+bun apps/api/src/index.ts recovery resume --confirm --database /absolute/path/postbot.sqlite
 ```
 
 Offline entry and acknowledgement acquire the runtime lock and refuse an active

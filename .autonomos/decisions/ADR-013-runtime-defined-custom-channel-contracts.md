@@ -8,10 +8,10 @@
 
 ## Context
 
-Herald's primary purpose is publication management for social and adjacent
+Postbot's primary purpose is publication management for social and adjacent
 publishing platforms. The built-in provider set cannot cover every regional,
 niche, private, or project-specific destination. A custom channel must therefore
-be able to represent a destination whose content shape is not known when Herald is
+be able to represent a destination whose content shape is not known when Postbot is
 built.
 
 Presets remain useful as creation accelerators, but a closed preset catalogue would
@@ -21,7 +21,7 @@ testing, and reproducibility unsafe.
 
 ## Decision
 
-Herald supports custom channels with a complete runtime-defined target-content
+Postbot supports custom channels with a complete runtime-defined target-content
 schema. Built-in providers and custom channels use the same persisted target-content
 and capability protocol:
 
@@ -60,7 +60,7 @@ working connection.
 
 ## Consequences
 
-- Custom destinations can be created without shipping a new Herald release.
+- Custom destinations can be created without shipping a new Postbot release.
 - Built-in provider code retains strong static typing and can implement complex
   protocols without weakening the custom-channel boundary.
 - Runtime validation and request mapping require explicit size, depth, reference,

@@ -1,5 +1,5 @@
-import type { HeraldAuth } from '@herald/auth'
-import { projectNotificationTemplate } from '@herald/core'
+import type { PostbotAuth } from '@postbot/auth'
+import { projectNotificationTemplate } from '@postbot/core'
 import {
     eventJournalCursorSequence,
     parseEventJournalCursor,
@@ -8,7 +8,7 @@ import {
     type EventJournalStore,
     type NotificationStore,
     type AccessStore,
-} from '@herald/db'
+} from '@postbot/db'
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'
@@ -148,7 +148,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
     journal: EventJournalStore,
     notifications: NotificationStore,
     access: AccessStore,
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     projectChanges?: RealtimeHub,
     userChanges?: UserRealtimeHub
 ) {

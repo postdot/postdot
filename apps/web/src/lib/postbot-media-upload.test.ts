@@ -6,18 +6,18 @@ import type {
     MediaReference,
     MediaReservation,
     MediaUpload,
-} from '@herald/client'
+} from '@postbot/client'
 
-import {
-    completeHeraldMediaUpload,
-    createHeraldMediaUploadController,
-    createOrderedUploadResults,
-    uploadHeraldMediaFile,
-    type HeraldMediaUploadClient,
-} from './herald-media-upload'
 import { MediaVerificationError } from './media-errors'
+import {
+    completePostbotMediaUpload,
+    createPostbotMediaUploadController,
+    createOrderedUploadResults,
+    uploadPostbotMediaFile,
+    type PostbotMediaUploadClient,
+} from './postbot-media-upload'
 
-describe('Herald media upload orchestration', () => {
+describe('Postbot media upload orchestration', () => {
     it('keeps the reserve, raw upload, and ready finalization sequence', async () => {
         const media = createMedia('asset-ready')
         const reservation = createReservation(media)
@@ -37,7 +37,7 @@ describe('Herald media upload orchestration', () => {
             },
         })
 
-        const result = await uploadHeraldMediaFile(
+        const result = await uploadPostbotMediaFile(
             client,
             'project-1',
             {
@@ -67,7 +67,7 @@ describe('Herald media upload orchestration', () => {
         })
 
         await expect(
-            completeHeraldMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
+            completePostbotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
         ).resolves.toBe(media)
         expect(reads).toBe(1)
     })
@@ -83,7 +83,7 @@ describe('Herald media upload orchestration', () => {
         })
 
         await expect(
-            completeHeraldMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
+            completePostbotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
         ).rejects.toBeInstanceOf(MediaVerificationError)
     })
 
@@ -93,7 +93,7 @@ describe('Herald media upload orchestration', () => {
         const client = createClient({
             finalizeMediaUpload: async () => ({ status: 'ready', media }) as MediaFinalize,
         })
-        const controller = createHeraldMediaUploadController(
+        const controller = createPostbotMediaUploadController(
             'project-1',
             client,
             async () => undefined
@@ -118,7 +118,7 @@ describe('Herald media upload orchestration', () => {
     })
 
     it('enforces the server-provided policy through Uppy restrictions', () => {
-        const controller = createHeraldMediaUploadController('project-1', createClient())
+        const controller = createPostbotMediaUploadController('project-1', createClient())
         const failures: string[] = []
         controller.uppy.on('restriction-failed', file => {
             failures.push(file?.name ?? 'batch')
@@ -154,7 +154,7 @@ describe('Herald media upload orchestration', () => {
     })
 })
 
-function createClient(overrides: Partial<HeraldMediaUploadClient> = {}): HeraldMediaUploadClient {
+function createClient(overrides: Partial<PostbotMediaUploadClient> = {}): PostbotMediaUploadClient {
     const media = createMedia('asset-default')
     const reservation = createReservation(media)
     return {

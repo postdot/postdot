@@ -8,18 +8,18 @@
 
 ## Context
 
-Herald must preserve web editing work with zero data loss. A user may edit a
+Postbot must preserve web editing work with zero data loss. A user may edit a
 publication shortly before its scheduled time, including while a worker is about to
 claim or execute it. Treating the latest auto-saved editor state as the payload to
 send would allow an intermediate, invalid, or not-yet-reviewed state to cross the
 external-effect boundary.
 
-Retries and ambiguous outcomes also require Herald to know exactly which content and
+Retries and ambiguous outcomes also require Postbot to know exactly which content and
 media references were used by the original attempt.
 
 ## Decision
 
-Herald separates the mutable auto-saved draft from the target revision selected for
+Postbot separates the mutable auto-saved draft from the target revision selected for
 delivery:
 
 - the web editor persists a debounced working draft that survives navigation,
@@ -39,7 +39,7 @@ delivery:
   commits before the claim may be selected, while an update after the claim becomes
   a new draft and does not alter the running execution.
 
-Herald does not automatically suspend a publication merely because its editor is
+Postbot does not automatically suspend a publication merely because its editor is
 open. An explicit pause or reschedule operation may be added when the product needs
 that workflow.
 

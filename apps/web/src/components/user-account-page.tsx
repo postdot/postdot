@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogClose,
@@ -8,9 +8,9 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { EyeIcon } from '@solar-icons/react/linear/eye'

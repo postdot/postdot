@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChannelProfileDefinition } from '@herald/core'
-import { createLocalMediaStore } from '@herald/media'
+import type { ChannelProfileDefinition } from '@postbot/core'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { backupWithMedia, restoreWithMedia } from '../backup'
 import { closeDatabase, createDatabase } from '../client'
@@ -195,7 +195,7 @@ describe('explicit draft profile adoption', () => {
         }
     })
     test('retains snapshot-only media and restores adoption history with a complete backup', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'herald-adoption-'))
+        const root = await mkdtemp(join(tmpdir(), 'postbot-adoption-'))
         const filename = join(root, 'source.sqlite')
         const { database, store, input } = fixture(filename)
         let closed = false

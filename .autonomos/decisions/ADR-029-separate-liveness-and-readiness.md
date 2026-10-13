@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald runs its HTTP API, durable publication worker, and media reconciliation
+Postbot runs its HTTP API, durable publication worker, and media reconciliation
 maintenance in one process. The existing `/health` endpoint always returns
 `status: ok`, so it cannot distinguish an answering HTTP process from a process
 whose scheduler has entered its terminal `failed` state. Media reconciliation

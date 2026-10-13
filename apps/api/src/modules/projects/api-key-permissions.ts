@@ -1,4 +1,4 @@
-export const heraldApiKeyCapabilities = [
+export const postbotApiKeyCapabilities = [
     'project:read',
     'publication:manage',
     'publication:dispatch',
@@ -8,12 +8,12 @@ export const heraldApiKeyCapabilities = [
     'media:permanently_delete',
 ] as const
 
-export type HeraldApiKeyCapability = (typeof heraldApiKeyCapabilities)[number]
-export type HeraldApiKeyPermissions = Record<string, readonly string[]> | null
+export type PostbotApiKeyCapability = (typeof postbotApiKeyCapabilities)[number]
+export type PostbotApiKeyPermissions = Record<string, readonly string[]> | null
 
 export function apiKeyHasCapability(
-    permissions: HeraldApiKeyPermissions,
-    capability: HeraldApiKeyCapability
+    permissions: PostbotApiKeyPermissions,
+    capability: PostbotApiKeyCapability
 ): boolean {
     if (permissions === null) return true
 
@@ -21,7 +21,7 @@ export function apiKeyHasCapability(
     return permissions[resource]?.includes(action) ?? false
 }
 
-const capabilityStatements: Record<HeraldApiKeyCapability, readonly [string, string]> = {
+const capabilityStatements: Record<PostbotApiKeyCapability, readonly [string, string]> = {
     'project:read': ['project', 'read'],
     'publication:manage': ['publication', 'manage'],
     'publication:dispatch': ['publication', 'dispatch'],
@@ -32,11 +32,11 @@ const capabilityStatements: Record<HeraldApiKeyCapability, readonly [string, str
 }
 
 export function permissionsForCapabilities(
-    capabilities: readonly HeraldApiKeyCapability[]
+    capabilities: readonly PostbotApiKeyCapability[]
 ): Record<string, string[]>
 export function permissionsForCapabilities(capabilities: null): null
 export function permissionsForCapabilities(
-    capabilities: readonly HeraldApiKeyCapability[] | null
+    capabilities: readonly PostbotApiKeyCapability[] | null
 ): Record<string, string[]> | null {
     if (capabilities === null) return null
 
@@ -51,11 +51,11 @@ export function permissionsForCapabilities(
 }
 
 export function capabilitiesForPermissions(
-    permissions: HeraldApiKeyPermissions
-): 'all' | HeraldApiKeyCapability[] {
+    permissions: PostbotApiKeyPermissions
+): 'all' | PostbotApiKeyCapability[] {
     if (permissions === null) return 'all'
 
-    return heraldApiKeyCapabilities.filter(capability => {
+    return postbotApiKeyCapabilities.filter(capability => {
         const [resource, action] = capabilityStatements[capability]
         return permissions[resource]?.includes(action) ?? false
     })
@@ -292,7 +292,7 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
 export function canApiKeyAccessRequest(
     method: string,
     requestPath: string,
-    permissions: HeraldApiKeyPermissions
+    permissions: PostbotApiKeyPermissions
 ): boolean {
     const required = requiredApiKeyCapability(method, requestPath)
     if (required === null) return false

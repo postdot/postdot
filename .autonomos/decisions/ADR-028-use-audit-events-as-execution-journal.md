@@ -13,7 +13,7 @@ attempt-specific fields, so an operator cannot reconstruct what happened before
 the current state. The database already has project-scoped, attributable
 `audit_events` records and the existing manual publication workflows use them.
 
-Herald must preserve its lightweight SQLite-first design. Adding a second
+Postbot must preserve its lightweight SQLite-first design. Adding a second
 history subsystem would duplicate a durable event surface before the product has
 evidence that the generic audit record is insufficient.
 

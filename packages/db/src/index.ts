@@ -9,7 +9,7 @@ export type {
     DatabaseCommitErrorHandler,
     DatabaseCommitObserver,
     DatabaseTransaction,
-    HeraldDatabase,
+    PostbotDatabase,
 } from './client'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 export { recoverLocalAccountPassword } from './local-account-recovery'

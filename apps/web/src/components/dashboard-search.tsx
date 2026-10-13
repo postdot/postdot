@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Command,
     CommandDialog,
@@ -7,11 +7,11 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '@herald/ui/components/command'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@herald/ui/components/empty'
-import { Kbd } from '@herald/ui/components/kbd'
-import { Switch } from '@herald/ui/components/switch'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+} from '@postbot/ui/components/command'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@postbot/ui/components/empty'
+import { Kbd } from '@postbot/ui/components/kbd'
+import { Switch } from '@postbot/ui/components/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -339,7 +339,7 @@ export function DashboardSearch({
                                 }>
                                 <MagnifierIcon
                                     aria-hidden="true"
-                                    className="size-9 text-muted-foreground motion-safe:animate-[herald-search-scan_1.4s_ease-in-out_infinite]"
+                                    className="size-9 text-muted-foreground motion-safe:animate-[postbot-search-scan_1.4s_ease-in-out_infinite]"
                                 />
                             </div>
                         )}

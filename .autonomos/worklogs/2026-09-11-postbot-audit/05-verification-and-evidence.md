@@ -26,7 +26,7 @@ Better Auth and React skills were used as review guides. Local source and depend
 
 A browser run before branch cleanup produced 15 passes and one failure waiting for the “Project invitation” title. The new run on main passed. No single cause was established; the observation is not classified as a stable main product defect.
 
-Temporary raw work logs lived under `/tmp/herald-audit-…-20260911.log`. Useful results are transcribed here so the report remains readable after temporary cleanup.
+Temporary raw work logs lived under `/tmp/postbot-audit-…-20260911.log`. Useful results are transcribed here so the report remains readable after temporary cleanup.
 
 ## Evidence levels
 
@@ -49,7 +49,7 @@ projection needing 12 batches: {"processed":10,"state":"started"}
 taxonomy mapped to SSE: null
 ```
 
-The 422 returned by an early version of the post probe came from an incorrect request body in that probe. It was corrected against the actual schema before the final 201 reproduction; the 422 was not a Herald defect.
+The 422 returned by an early version of the post probe came from an incorrect request body in that probe. It was corrected against the actual schema before the final 201 reproduction; the 422 was not a Postbot defect.
 
 The fixture creates an administrator and a second user, then explicitly removes the second user's administrator privileges added by the test mode. That user becomes a project viewer. No real identity, key, or external destination is used.
 
@@ -58,13 +58,13 @@ The fixture creates an administrator and a second user, then explicitly removes 
 Temporary diagnostic code, not installed in the application and not added to repository suites. It runs with Bun; absolute paths refer to the audited checkout. Business writes occur only in `:memory:`. It does not start the worker or a network server.
 
 ```typescript
-import { createAuth } from '/home/hakim/projects/herald/packages/auth/src/index.ts'
-import { createDatabase, closeDatabase, runMigrations, createAccessStore, setDatabaseCommitObserver } from '/home/hakim/projects/herald/packages/db/src/index.ts'
-import { createApp } from '/home/hakim/projects/herald/apps/api/src/app.ts'
-import { createPublisherRuntime } from '/home/hakim/projects/herald/apps/api/src/modules/publishers/runtime.ts'
-import { createProjectRealtimeRuntime } from '/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-runtime.ts'
-import { createNotificationProjectionRuntime } from '/home/hakim/projects/herald/apps/api/src/modules/notifications/runtime.ts'
-import { toProjectRealtimeEvent } from '/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts'
+import { createAuth } from './packages/auth/src/index.ts'
+import { createDatabase, closeDatabase, runMigrations, createAccessStore, setDatabaseCommitObserver } from './packages/db/src/index.ts'
+import { createApp } from './apps/api/src/app.ts'
+import { createPublisherRuntime } from './apps/api/src/modules/publishers/runtime.ts'
+import { createProjectRealtimeRuntime } from './apps/api/src/modules/projects/realtime-runtime.ts'
+import { createNotificationProjectionRuntime } from './apps/api/src/modules/notifications/runtime.ts'
+import { toProjectRealtimeEvent } from './apps/api/src/modules/projects/realtime-routes.ts'
 const db = createDatabase(':memory:'); runMigrations(db)
 const access = createAccessStore(db)
 const baseURL = 'http://localhost:3000'
@@ -111,13 +111,13 @@ console.log('taxonomy mapped to SSE:',toProjectRealtimeEvent({id:'test',cursor:'
 A shared local clone created under an audit-specific temporary directory was inspected before and after adding a comment to core in that copy. Hashes changed as follows:
 
 ```text
-@herald/core#test cbf97bfbc3bd01b8 -> b4f92e8955dc2ca6
-@herald/api#test  77633eef0b88b25f -> 3b484ab4d84da50b
-@herald/db#test   7b67bb473c646eca -> 7db3937547b6b84c
+@postbot/core#test cbf97bfbc3bd01b8 -> b4f92e8955dc2ca6
+@postbot/api#test  77633eef0b88b25f -> 3b484ab4d84da50b
+@postbot/db#test   7b67bb473c646eca -> 7db3937547b6b84c
 globalCacheInputs.hashOfInternalDependencies : changed
 ```
 
-The test invalidates the original hypothesis that downstream cache entries are necessarily stale without `dependsOn`. The absence of that option is not enough to diagnose a bug in Herald's exact topology.
+The test invalidates the original hypothesis that downstream cache entries are necessarily stale without `dependsOn`. The absence of that option is not enough to diagnose a bug in Postbot's exact topology.
 
 ## Not verified
 

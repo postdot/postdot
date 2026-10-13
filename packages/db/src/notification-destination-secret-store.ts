@@ -1,6 +1,6 @@
-import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@herald/core'
+import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import type { NotificationDestinationSecretCipher } from './notification-destination-secret-crypto'
 
 type NotificationDestinationSecretState = 'active' | 'retired'
@@ -80,7 +80,7 @@ export interface NotificationDestinationSecretStoreOptions {
 }
 
 export function createNotificationDestinationSecretStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: NotificationDestinationSecretStoreOptions
 ) {
     const client = database.$client

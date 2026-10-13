@@ -9,7 +9,7 @@
 - Applied `bun-base.json` to the root scripts, API, authentication, core, and
   database configurations.
 - Applied `bun-react-library.json` to the Bun-powered React web application.
-- Kept `bun-next.json` unused because Herald is a Vite SPA and has no Next.js
+- Kept `bun-next.json` unused because Postbot is a Vite SPA and has no Next.js
   application.
 
 ## Key Decision and Why

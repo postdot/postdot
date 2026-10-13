@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChannelProfileDefinition } from '@herald/core'
-import { createLocalMediaStore } from '@herald/media'
+import type { ChannelProfileDefinition } from '@postbot/core'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { closeDatabase, createDatabase } from './client'
 import { previewFixturePng } from './image-preview-fixture'
@@ -78,7 +78,7 @@ const profile: ChannelProfileDefinition = {
 
 describe('provider media delivery store', () => {
     it('pins revision media before the effect boundary and persists delivery retries', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-provider-media-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-provider-media-'))
         const database = createDatabase(':memory:')
         const mediaStore = createLocalMediaStore({
             storeId: 'local-default',

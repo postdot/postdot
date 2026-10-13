@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldDescription, FieldError, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
-import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@herald/x/text'
+} from '@postbot/ui/components/select'
+import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@postbot/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'

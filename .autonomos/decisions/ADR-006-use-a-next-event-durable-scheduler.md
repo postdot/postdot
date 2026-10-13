@@ -19,7 +19,7 @@ one timer for the next due event. Recompute and replace that timer when planning
 changes and reconstruct it from durable state at startup.
 
 External writes must distinguish retryable failure from an ambiguous outcome where
-the provider may have succeeded before Herald persisted the result.
+the provider may have succeeded before Postbot persisted the result.
 
 ## Alternatives considered
 

@@ -6,7 +6,7 @@ Task: UX-259
 
 ## Evidence boundary
 
-The development services were restarted after a machine reboot. API /ready reports all four checks healthy; Vite responds HTTP 200 at port 5173. Browser access to the existing Herald URL was explicitly rejected by the browser security policy. No alternate browser, raw browser protocol, or other browser automation was used to bypass that decision. This report must not be represented as a fresh visual walkthrough. It combines current source inspection with previously documented review evidence. Desktop/mobile rendering, live populated state and interactions still need direct verification.
+The development services were restarted after a machine reboot. API /ready reports all four checks healthy; Vite responds HTTP 200 at port 5173. Browser access to the existing Postbot URL was explicitly rejected by the browser security policy. No alternate browser, raw browser protocol, or other browser automation was used to bypass that decision. This report must not be represented as a fresh visual walkthrough. It combines current source inspection with previously documented review evidence. Desktop/mobile rendering, live populated state and interactions still need direct verification.
 
 ## Inventory
 

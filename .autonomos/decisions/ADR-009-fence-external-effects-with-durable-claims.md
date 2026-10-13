@@ -11,10 +11,10 @@
 
 SQLite can atomically claim due work, but it cannot participate in a transaction
 with an external publisher. A process can crash after a provider accepted a
-publication and before Herald persisted success. Retrying that operation blindly can
+publication and before Postbot persisted success. Retrying that operation blindly can
 create a duplicate.
 
-The supported deployment remains one Herald process and one worker. Claims and
+The supported deployment remains one Postbot process and one worker. Claims and
 leases are therefore recovery and fencing mechanisms, not a promise of horizontal
 worker scaling.
 
@@ -54,7 +54,7 @@ worker scaling.
 - Use an outbox transaction: useful for internal message delivery, but cannot make a
   third-party HTTP side effect atomic with SQLite.
 - Add Redis, Temporal, or a distributed lease service: solves a deployment model
-  Herald does not support and violates the accepted footprint boundary.
+  Postbot does not support and violates the accepted footprint boundary.
 
 ## Consequences
 

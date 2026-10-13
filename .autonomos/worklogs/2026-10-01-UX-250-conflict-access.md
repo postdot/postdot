@@ -8,7 +8,7 @@ Changes: incoming source conflicts now use the existing localized revision-speci
 
 Files: publication-editor.tsx, publication-editor-status.tsx and publication-detail-actions.spec.ts. The existing simulated mobile source-conflict journey now asserts the specific warning, absence of the misleading latest-server message, the alert role, and focus transfer after the explicit resolution action. Existing lifecycle and media assertions remain intact.
 
-Full validation passed with exit zero using the bundled Node 24 runtime; evidence: /tmp/herald-ux250-conflict-access-check.log. Development API/web remain active on 3002/5173; validation uses isolated fixtures and ports. Previously refused live-browser access was not bypassed.
+Full validation passed with exit zero using the bundled Node 24 runtime; evidence: /tmp/postbot-ux250-conflict-access-check.log. Development API/web remain active on 3002/5173; validation uses isolated fixtures and ports. Previously refused live-browser access was not bypassed.
 
 Remaining: UX-250 remains in progress for connected destination customization and preservation of separate local recovery/current edit copies before replacement. This pass improves conflict discoverability without redefining storage or revision ownership. No AGENT.md update: accepted hierarchy and explicit interaction intent already cover it.
 

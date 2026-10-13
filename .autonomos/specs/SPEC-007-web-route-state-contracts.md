@@ -1,4 +1,4 @@
-# SPEC-007 — Herald web route state contracts
+# SPEC-007 — Postbot web route state contracts
 
 - Status: accepted
 - Scope: authenticated web shell and project route states

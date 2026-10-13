@@ -19,7 +19,7 @@ function hasValidBearerToken(request: Request, expectedToken: string) {
 }
 
 export function createMetricsRoutes(options?: MetricsRouteOptions) {
-    const routes = new Elysia({ name: 'herald-metrics' })
+    const routes = new Elysia({ name: 'postbot-metrics' })
     if (options === undefined) return routes
 
     return routes.get(
@@ -50,7 +50,7 @@ export function createMetricsRoutes(options?: MetricsRouteOptions) {
             if (!hasValidBearerToken(request, options.bearerToken)) {
                 return new Response(null, {
                     status: 401,
-                    headers: { 'www-authenticate': 'Bearer realm="Herald metrics"' },
+                    headers: { 'www-authenticate': 'Bearer realm="Postbot metrics"' },
                 })
             }
 

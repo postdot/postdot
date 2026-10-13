@@ -24,7 +24,7 @@ test('an owner can invite, update, and remove project members', async ({ page })
     expect(memberContext).toBeDefined()
     if (memberContext === undefined) throw new Error('The member browser context was not created')
     const memberPage = await memberContext.newPage()
-    const memberEmail = `e2e-134-member-${suffix}@herald.local`
+    const memberEmail = `e2e-134-member-${suffix}@postbot.local`
 
     try {
         await page.getByLabel('Email', { exact: true }).fill(memberEmail)
@@ -108,7 +108,7 @@ test('an owner can invite, update, and remove project members', async ({ page })
 })
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-134-owner-${suffix}@herald.local`
+    const email = `e2e-134-owner-${suffix}@postbot.local`
 
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)

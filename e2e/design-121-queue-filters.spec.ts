@@ -78,9 +78,9 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-121 filters ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-121-filters-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-121-filters-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-121-filters-password')
     await Promise.all([
         page.waitForResponse(

@@ -8,7 +8,7 @@ Changes: healthy customization disclosures no longer show a permanent compatibil
 
 Files: publication-editor-target-section.tsx, publication-target-editor.tsx and publication-detail-actions.spec.ts. The existing scheduled-detail journey checks the absence of the redundant healthy label and keyboard opening/closing of customization without losing the structured editor. Existing media and raw-payload persistence checks remain unchanged.
 
-Final full validation passed with exit zero using bundled Node 24; evidence: /tmp/herald-ux250-customization-final-check.log. Development API/web remain running. Visual coverage remains isolated fixture evidence under the previously reported live-browser access refusal.
+Final full validation passed with exit zero using bundled Node 24; evidence: /tmp/postbot-ux250-customization-final-check.log. Development API/web remain running. Visual coverage remains isolated fixture evidence under the previously reported live-browser access refusal.
 
 Remaining: UX-250 remains in progress for recovery replacement safety and additional connected destination states. Preserve the old local recovery copy separately from current edits before introducing replacement confirmation. No AGENT.md update is needed: accepted quiet-state, surface and progressive disclosure rules already cover this pass.
 

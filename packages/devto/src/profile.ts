@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition } from '@postbot/core'
 
 import {
     DEVTO_EXECUTION_CONTRACT_REVISION,
@@ -11,8 +11,8 @@ import {
 export const devtoChannelProfile: ChannelProfileDefinition = {
     id: DEVTO_PROVIDER,
     version: 1,
-    profileHash: 'sha256:herald-devto-article-v1',
-    schemaHash: 'sha256:herald-devto-article-schema-v1',
+    profileHash: 'sha256:postbot-devto-article-v1',
+    schemaHash: 'sha256:postbot-devto-article-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

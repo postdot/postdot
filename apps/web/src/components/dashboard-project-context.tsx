@@ -11,19 +11,19 @@ import {
     ComboboxPositioner,
     ComboboxTrigger,
     ComboboxValue,
-} from '@herald/ui/components/combobox'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Kbd } from '@herald/ui/components/kbd'
+} from '@postbot/ui/components/combobox'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Kbd } from '@postbot/ui/components/kbd'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
-import { useSidebar } from '@herald/ui/components/sidebar'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
-import { cn } from '@herald/ui/lib/utils'
+} from '@postbot/ui/components/select'
+import { useSidebar } from '@postbot/ui/components/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+import { cn } from '@postbot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'

@@ -1,6 +1,6 @@
-import type { MediaImportSource } from '@herald/client'
-import { Alert, AlertDescription } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import type { MediaImportSource } from '@postbot/client'
+import { Alert, AlertDescription } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -8,8 +8,8 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dialog'
+import { Input } from '@postbot/ui/components/input'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { LinkIcon } from '@solar-icons/react/linear/link'

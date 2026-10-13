@@ -7,7 +7,7 @@
 
 ## Context
 
-Herald now has an optional SMTP boundary, but its invitation, verification, and
+Postbot now has an optional SMTP boundary, but its invitation, verification, and
 password-reset bodies were still assembled inside the API transport module. That
 made template design, HTML/text parity, and visual review depend on an API
 implementation detail. Local development also had no inbox-like relay for
@@ -15,7 +15,7 @@ checking the complete submission path without using a real mailbox.
 
 ## Decision
 
-The monorepo owns transactional messages in the private `@herald/email` package.
+The monorepo owns transactional messages in the private `@postbot/email` package.
 Each template is a React Email component with a default export for the local
 preview server. Those preview entrypoints wrap the strict, typed components with
 safe, non-production fixture data so the preview server can render them without
@@ -24,7 +24,7 @@ subject, HTML body, and plain-text alternative. User-provided values are passed
 through JSX so React Email performs the escaping; deployment origins and
 credentials remain outside the package.
 
-The shared layout reuses the owner-supplied `HeraldLogo` from `@herald/ui` and
+The shared layout reuses the owner-supplied `PostbotLogo` from `@postbot/ui` and
 adapts the accepted Graphite/Ash/Cobalt visual system to email-safe inline
 styles. It declares the accepted Recursive Variable family through
 `@react-email/font`, with a pinned public webfont URL as progressive enhancement
@@ -46,7 +46,7 @@ the official `axllent/mailpit:v1.27` image. Mailpit listens on loopback port
 `1025` for SMTP and `8025` for its web inbox. The compose file is not referenced
 by the production Dockerfile or runtime; deployments continue to select their
 own SMTP relay through environment configuration. Host ports can be overridden
-with `HERALD_MAILPIT_SMTP_PORT` and `HERALD_MAILPIT_UI_PORT` when another local
+with `POSTBOT_MAILPIT_SMTP_PORT` and `POSTBOT_MAILPIT_UI_PORT` when another local
 service already uses the defaults.
 
 The API keeps ownership of delivery policy, Nodemailer configuration, logging,
@@ -71,7 +71,7 @@ database, queue, retry, or provider-specific state.
   plain-text alternative.
 - Mailpit makes invitation and account-flow checks observable without external
   coordination; captured messages are disposable local development data.
-- The package currently uses English copy and a small Herald visual system.
+- The package currently uses English copy and a small Postbot visual system.
   Localization, branded assets, durable delivery attempts, and inbox/retry
   policy remain separate decisions.
 - Operators must start Mailpit and configure the API's ignored `.env` file to
@@ -79,7 +79,7 @@ database, queue, retry, or provider-specific state.
 
 ## Verification
 
-`@herald/email` unit tests render all three messages and assert HTML escaping,
+`@postbot/email` unit tests render all three messages and assert HTML escaping,
 action URLs, subjects, and plain-text alternatives, including the three
 no-props preview entrypoints and the shared logo/font identity markers. The
 package build is importable, and its preview server starts on port `3001` with

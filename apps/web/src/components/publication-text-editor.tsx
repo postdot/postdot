@@ -1,7 +1,7 @@
-import { Button } from '@herald/ui/components/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
-import { Textarea } from '@herald/ui/components/textarea'
-import { cn } from '@herald/ui/lib/utils'
+import { Button } from '@postbot/ui/components/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@postbot/ui/components/popover'
+import { Textarea } from '@postbot/ui/components/textarea'
+import { cn } from '@postbot/ui/lib/utils'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
 import { lazy, Suspense, useRef, useState, type ComponentProps } from 'react'
 

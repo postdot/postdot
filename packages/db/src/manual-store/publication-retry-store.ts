@@ -5,9 +5,9 @@ import {
     transitionJob,
     transitionPublication,
     type Job,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -50,7 +50,7 @@ export interface PublicationRetryStoreOptions {
 }
 
 export function createPublicationRetryStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationRetryStoreOptions
 ) {
     const client = database.$client

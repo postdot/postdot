@@ -6,12 +6,12 @@
 - Related decisions: [ADR-008](ADR-008-enforce-project-scoped-domain-state.md), [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md), [ADR-063](ADR-063-adopt-better-auth-access-plugins.md), [ADR-064](ADR-064-clean-development-access-baseline.md)
 - Superseded by: [ADR-063](ADR-063-adopt-better-auth-access-plugins.md) for the
   Better Auth key contract, and [ADR-064](ADR-064-clean-development-access-baseline.md)
-  for removal of the discarded Herald-owned token contract, and [ADR-075](ADR-075-user-owned-api-keys.md)
+  for removal of the discarded Postbot-owned token contract, and [ADR-075](ADR-075-user-owned-api-keys.md)
   for the final user-owned key model
 
 ## Context
 
-Herald's human application authentication is deliberately limited to Better Auth
+Postbot's human application authentication is deliberately limited to Better Auth
 email/password sessions. The REST API is also a first-class surface for scripts,
 CI, and external agents, but the current implementation accepts only a human
 session cookie and attributes every project operation through a human actor.
@@ -19,7 +19,7 @@ session cookie and attributes every project operation through a human actor.
 The domain already distinguishes project-scoped actors of kind `api_token` from
 human, agent, and system actors. The initial product direction supported trusted
 humans and machines on a self-hosted instance. The later collaboration decision maps
-each Herald project to a Better Auth Organization so membership, invitations, and
+each Postbot project to a Better Auth Organization so membership, invitations, and
 organization-owned API keys can share one project boundary.
 
 ## Decision
@@ -43,7 +43,7 @@ organization-owned API keys can share one project boundary.
 ### Token contract
 
 - A new project key is a high-entropy opaque Better Auth API Key with the
-  `herald_pat_` prefix, organization reference, project metadata, and a 180-day
+  `postbot_pat_` prefix, organization reference, project metadata, and a 180-day
   default expiry. The plugin owns hashing, expiry, cleanup, and durable deletion.
 - Invalid, expired, deleted, or revoked tokens produce the same generic unauthorized
   response.
@@ -56,11 +56,11 @@ organization-owned API keys can share one project boundary.
 - Each token has a project-scoped `api_token` actor. Operations authenticated by
   the token resolve through that actor, so audit and domain attribution identify
   the machine credential rather than impersonating the human who created it.
-- Better Auth owns new key records; Herald keeps a project-scoped `api_token` actor
+- Better Auth owns new key records; Postbot keeps a project-scoped `api_token` actor
   bridge so operations still have durable machine attribution. Neither key system
   owns publisher credentials.
 - Deleting a new key prevents future authentication and removes the key record; the
-  Herald actor remains available for historical attribution. Deleting a project
+  Postbot actor remains available for historical attribution. Deleting a project
   cascades its organization-owned API keys and actor-owned domain state, while the
   project-to-organization foreign key prevents an orphan organization.
 

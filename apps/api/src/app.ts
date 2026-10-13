@@ -1,8 +1,8 @@
 import { openapi } from '@elysiajs/openapi'
-import type { HeraldAuth } from '@herald/auth'
-import type { BlueskyFetcher } from '@herald/bluesky'
-import { ChannelProfileCompiler } from '@herald/core'
-import type { NotificationEmailStore } from '@herald/db'
+import type { PostbotAuth } from '@postbot/auth'
+import type { BlueskyFetcher } from '@postbot/bluesky'
+import { ChannelProfileCompiler } from '@postbot/core'
+import type { NotificationEmailStore } from '@postbot/db'
 import {
     createManualStore,
     createAnalyticsStore,
@@ -11,7 +11,7 @@ import {
     createProviderAnalyticsStore,
     createAccessStore,
     createTaxonomyStore,
-    type HeraldDatabase,
+    type PostbotDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
     type NotificationStore,
@@ -20,15 +20,15 @@ import {
     type ProviderAnalyticsStore,
     type TaxonomyStore,
     type UserAvatarStore,
-} from '@herald/db'
-import type { DevtoFetcher } from '@herald/devto'
-import type { DiscordFetcher } from '@herald/discord'
-import { xChannelProfileValidationAdapter } from '@herald/x'
+} from '@postbot/db'
+import type { DevtoFetcher } from '@postbot/devto'
+import type { DiscordFetcher } from '@postbot/discord'
+import { xChannelProfileValidationAdapter } from '@postbot/x'
 import type { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
-import type { HeraldLoggingConfig } from './config'
+import type { PostbotLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
 import { createAccountRoutes } from './modules/account/routes'
 import type { EmailSettingsService } from './modules/email/settings'
@@ -43,12 +43,12 @@ import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-route
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
-import { createHeraldLogger, createRequestLogger } from './plugins/logger'
+import { createPostbotLogger, createRequestLogger } from './plugins/logger'
 import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
-export interface HeraldAppOptions {
-    readonly auth: HeraldAuth
-    readonly database: HeraldDatabase
+export interface PostbotAppOptions {
+    readonly auth: PostbotAuth
+    readonly database: PostbotDatabase
     readonly publisher: PublisherRuntime
     readonly avatars?: UserAvatarStore
     readonly accountOrigins?: readonly string[]
@@ -56,7 +56,7 @@ export interface HeraldAppOptions {
     readonly mediaUrlImporter?: MediaUrlImporter
     readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
-    readonly logging?: HeraldLoggingConfig
+    readonly logging?: PostbotLoggingConfig
     readonly metrics?: {
         readonly registry: Registry
         readonly bearerToken: string
@@ -67,7 +67,7 @@ export interface HeraldAppOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
-    /** The shared Herald instance access store. */
+    /** The shared Postbot instance access store. */
     readonly access?: AccessStore
     readonly recovery?: RecoveryService
     readonly emailSettings?: EmailSettingsService
@@ -116,7 +116,7 @@ function createDomainApp({
     userChanges,
     discordFetcher,
     devtoFetcher,
-}: HeraldAppOptions) {
+}: PostbotAppOptions) {
     const accessStore = access ?? createAccessStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
@@ -130,9 +130,9 @@ function createDomainApp({
     })
     const publicMediaRoutes =
         media === undefined || mediaPublicDelivery === undefined
-            ? new Elysia({ name: 'herald-public-media-disabled' })
+            ? new Elysia({ name: 'postbot-public-media-disabled' })
             : createPublicMediaRoutes(media, mediaPublicDelivery)
-    const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
+    const logger = logging?.enabled === true ? createPostbotLogger(logging) : undefined
     const notificationStore = notifications ?? createNotificationStore(database)
     const analyticsStore = analytics ?? createAnalyticsStore(database)
     const providerAnalyticsStore = providerAnalytics ?? createProviderAnalyticsStore(database)
@@ -144,7 +144,7 @@ function createDomainApp({
         })
     const eventJournal = createEventJournalStore(database)
 
-    return new Elysia({ name: 'herald-api' })
+    return new Elysia({ name: 'postbot-api' })
         .request(({ request }) => {
             if (recovery?.held() && recoveryBlocksRequest(request))
                 return Response.json(
@@ -152,7 +152,7 @@ function createDomainApp({
                         error: {
                             code: 'recovery_hold',
                             message:
-                                'Herald is in recovery mode; an administrator must authorize resumption',
+                                'Postbot is in recovery mode; an administrator must authorize resumption',
                         },
                     },
                     { status: 503 }
@@ -171,19 +171,19 @@ function createDomainApp({
             openapi({
                 documentation: {
                     info: {
-                        title: 'Herald API',
+                        title: 'Postbot API',
                         version: '0.1.0',
                         description:
-                            'The HTTP API for the lightweight, self-hosted Herald publication orchestrator.',
+                            'The HTTP API for the lightweight, self-hosted Postbot publication orchestrator.',
                     },
                     components: {
                         securitySchemes: {
                             bearerAuth: {
                                 type: 'http',
                                 scheme: 'bearer',
-                                bearerFormat: 'Herald API key',
+                                bearerFormat: 'Postbot API key',
                                 description:
-                                    'A user-owned Herald API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
+                                    'A user-owned Postbot API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
                             },
                             sessionCookie: {
                                 type: 'apiKey',
@@ -200,7 +200,7 @@ function createDomainApp({
                                           scheme: 'bearer',
                                           bearerFormat: 'monitoring token',
                                           description:
-                                              'A dedicated monitoring token configured with HERALD_METRICS_TOKEN. It is separate from Herald user API keys.',
+                                              'A dedicated monitoring token configured with POSTBOT_METRICS_TOKEN. It is separate from Postbot user API keys.',
                                       },
                                   }),
                         },
@@ -280,11 +280,11 @@ function createDomainApp({
 }
 
 /**
- * The Eden contract intentionally covers the typed Herald API routes only.
+ * The Eden contract intentionally covers the typed Postbot API routes only.
  * Better Auth's mounted handler is dynamically routed and would otherwise
  * make `/api` ambiguous in Eden's generated path tree.
  */
-export type HeraldApp = ReturnType<typeof createDomainApp>
+export type PostbotApp = ReturnType<typeof createDomainApp>
 
 export function createApp({
     auth,
@@ -316,7 +316,7 @@ export function createApp({
     userChanges,
     discordFetcher,
     devtoFetcher,
-}: HeraldAppOptions) {
+}: PostbotAppOptions) {
     return createDomainApp({
         auth,
         database,

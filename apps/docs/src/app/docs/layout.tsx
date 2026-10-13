@@ -1,7 +1,7 @@
 import { DocsLayout } from 'fumadocs-ui/layouts/docs'
 import type { ReactNode } from 'react'
 
-import { HeraldLogo } from '@/components/brand'
+import { PostbotLogo } from '@/components/brand'
 import { source } from '@/lib/source'
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -11,8 +11,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             nav={{
                 title: (
                     <span className="brand">
-                        <HeraldLogo className="brand-mark" />
-                        Herald
+                        <PostbotLogo className="brand-mark" />
+                        Postbot
                     </span>
                 ),
             }}

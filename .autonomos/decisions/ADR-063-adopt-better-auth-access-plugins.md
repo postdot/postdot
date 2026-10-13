@@ -8,19 +8,19 @@
 
 ## Historical decision
 
-Herald adopted Better Auth Admin for global user administration, Organization for
+Postbot adopted Better Auth Admin for global user administration, Organization for
 project membership and invitations, and API Key for organization-backed project
-keys. Herald retained an instance membership boundary and actor projections because
+keys. Postbot retained an instance membership boundary and actor projections because
 those have domain meaning outside Better Auth.
 
 The implementation originally described a compatibility period for the previous
-Herald-owned project membership, invitation, and bearer-token records. That period
-was never required by a deployed Herald installation: the application is private,
+Postbot-owned project membership, invitation, and bearer-token records. That period
+was never required by a deployed Postbot installation: the application is private,
 unused, and has no development database data to preserve.
 
 ## Current status
 
 ADR-064 keeps the Better Auth plugin ownership decision and removes the hypothetical
 compatibility boundary. The old project-access tables, store, marker, and runtime
-fallbacks are absent from the clean development baseline. The dedicated Herald
+fallbacks are absent from the clean development baseline. The dedicated Postbot
 instance invitation table and actor projection remain intentional extensions.

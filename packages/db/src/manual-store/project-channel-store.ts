@@ -14,12 +14,12 @@ import {
     type Channel,
     type ChannelProfileDefinition,
     type Project,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from '../client'
 import { invalidProfileError, parseProfile } from './content-codec'
 import { toChannel, toProject } from './project-channel-mappers'
@@ -66,7 +66,7 @@ export interface ProjectChannelStoreOptions {
 }
 
 export function createProjectChannelStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ProjectChannelStoreOptions
 ) {
     const client = database.$client
@@ -293,7 +293,7 @@ export function createProjectChannelStore(
                 project,
                 kind: 'system',
                 subjectId: null,
-                displayName: 'Herald Worker',
+                displayName: 'Postbot Worker',
                 now: timestamp,
             })
 

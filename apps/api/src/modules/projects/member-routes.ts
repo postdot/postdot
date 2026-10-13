@@ -1,10 +1,10 @@
-import type { HeraldAuth, HeraldOrganizationInvitation } from '@herald/auth'
-import type { AccessProjectMembership, AccessStore } from '@herald/db'
+import type { PostbotAuth, PostbotOrganizationInvitation } from '@postbot/auth'
+import type { AccessProjectMembership, AccessStore } from '@postbot/db'
 
 import {
     sessionSecurity,
     type AuthenticatedElysia,
-    type HeraldAuthenticationMethod,
+    type PostbotAuthenticationMethod,
 } from '../../plugins/auth'
 import {
     createProjectInvitationBody,
@@ -99,7 +99,7 @@ function getProjectWorkspace(projectId: string, access: AccessStore) {
 function canManageProject(
     projectId: string,
     access: AccessStore,
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string
 ): boolean {
     return authMethod === 'session' && access.canAccessProject(projectId, userId, 'owner')
@@ -108,7 +108,7 @@ function canManageProject(
 function canManageProjectInvitations(
     projectId: string,
     access: AccessStore,
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string
 ): boolean {
     const workspace = getProjectWorkspace(projectId, access)
@@ -122,7 +122,7 @@ function canManageProjectInvitations(
 function canViewProjectAccess(
     projectId: string,
     access: AccessStore,
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string
 ): boolean {
     if (authMethod !== 'session') return false
@@ -166,7 +166,7 @@ function toProjectMember(member: AccessProjectMembership) {
     }
 }
 
-function toProjectInvitation(invitation: HeraldOrganizationInvitation) {
+function toProjectInvitation(invitation: PostbotOrganizationInvitation) {
     return {
         id: invitation.id,
         email: invitation.email,
@@ -180,7 +180,7 @@ function toProjectInvitation(invitation: HeraldOrganizationInvitation) {
 }
 
 async function listWorkspaceInvitations(
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     workspaceOrganizationId: string,
     headers: Headers
 ) {
@@ -198,7 +198,7 @@ function findProjectMember(access: AccessStore, projectId: string, memberId: str
 
 export function registerProjectMemberRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     access: AccessStore
 ) {
     return app

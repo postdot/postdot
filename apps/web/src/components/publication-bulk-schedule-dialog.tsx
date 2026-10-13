@@ -1,12 +1,12 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { useEffect, useState } from 'react'
 

@@ -4,7 +4,7 @@ This package owns Discord-specific protocol knowledge: Bot token authentication,
 channel snowflakes, message payloads, attachment uploads, and provider error
 classification.
 
-- Keep the package independent from Elysia, the database, Better Auth, and Herald
+- Keep the package independent from Elysia, the database, Better Auth, and Postbot
   persistence.
 - Inject fetchers and timing boundaries in tests; never use a real Discord
   application, Bot token, guild, or channel from the test suite.

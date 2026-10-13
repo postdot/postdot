@@ -2,7 +2,7 @@
 
 - Status: superseded
 - Date: 2026-09-07
-- Scope: Herald API event streaming and in-app notification projection
+- Scope: Postbot API event streaming and in-app notification projection
 - Provenance: ISSUE-050, REALTIME-104
 - Related decisions: ADR-047, ADR-048
 - Superseded by: ADR-050
@@ -17,7 +17,7 @@ notification projection had necessarily consumed the source event; the
 projection's periodic five-second loop could therefore leave the inbox stale
 after the client had already finished its bounded refetches.
 
-Herald remains a single Bun process with SQLite as its durable source of truth.
+Postbot remains a single Bun process with SQLite as its durable source of truth.
 The event stream must remain reconnectable and must not trust an in-memory
 signal as the only record of a change.
 
@@ -51,7 +51,7 @@ write paths have a common post-commit boundary.
   crashes and cannot recover a signal that was emitted before a subscriber was
   attached.
 - Add Redis, another broker, or a database-specific notification service:
-  useful for a genuinely multi-process deployment, but outside Herald's
+  useful for a genuinely multi-process deployment, but outside Postbot's
   current monolith and introduces a second delivery system before a need is
   demonstrated.
 - Replace SSE with WebSocket: changes the transport without solving durable

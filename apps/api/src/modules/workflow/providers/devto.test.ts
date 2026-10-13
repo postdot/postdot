@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@herald/db'
-import type { DevtoPublishOutcome, DevtoPublisher } from '@herald/devto'
-import { devtoChannelProfile } from '@herald/devto'
+import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postbot/db'
+import type { DevtoPublishOutcome, DevtoPublisher } from '@postbot/devto'
+import { devtoChannelProfile } from '@postbot/devto'
 
 import { createDevtoProviderAdapter } from './devto'
 import type {
@@ -26,7 +26,7 @@ function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): Publis
         mediaReferenceCount: 0,
         profile: devtoChannelProfile,
         content: {
-            title: 'Herald release notes',
+            title: 'Postbot release notes',
             body_markdown: '# A calmer publishing workflow',
             media: [],
         },
@@ -36,7 +36,7 @@ function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): Publis
         kind: 'devto',
         credentialId: 'credential-devto',
         externalAccountId: '42',
-        destination: { type: 'account', id: '42', name: 'Herald' },
+        destination: { type: 'account', id: '42', name: 'Postbot' },
         providerId: 'devto',
         credentialState: 'active',
         credentialExpiresAt: null,
@@ -95,7 +95,7 @@ function createMedia(): PublisherExecutionMedia {
         position: 0,
         contentPath: '/media/0',
         role: null,
-        accessibilityText: 'A Herald release notes image',
+        accessibilityText: 'A Postbot release notes image',
         originalFilename: 'release-notes.png',
         contentType: 'image/png',
         family: 'image',
@@ -136,7 +136,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'herald', name: 'Herald' },
+                    value: { id: '42', username: 'postbot', name: 'Postbot' },
                 }
             },
             async getArticleAnalytics() {
@@ -155,14 +155,14 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Herald release notes',
+                    title: 'Postbot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },
                 media: [media],
                 mediaReferenceCount: 1,
             }),
-            async () => 'https://media.example/herald/signed-image'
+            async () => 'https://media.example/postbot/signed-image'
         )
 
         await expect(adapter.execute(input)).resolves.toEqual({
@@ -171,9 +171,9 @@ describe('DEV.to provider adapter', () => {
         })
         expect(publishedInput).toEqual({
             apiKey: API_KEY,
-            title: 'Herald release notes',
+            title: 'Postbot release notes',
             bodyMarkdown: '# A calmer publishing workflow',
-            mainImageUrl: 'https://media.example/herald/signed-image',
+            mainImageUrl: 'https://media.example/postbot/signed-image',
         })
     })
 
@@ -182,7 +182,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'herald', name: 'Herald' },
+                    value: { id: '42', username: 'postbot', name: 'Postbot' },
                 }
             },
             async getArticleAnalytics() {
@@ -215,7 +215,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'herald', name: 'Herald' },
+                    value: { id: '42', username: 'postbot', name: 'Postbot' },
                 }
             },
             async getArticleAnalytics() {
@@ -234,14 +234,14 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Herald release notes',
+                    title: 'Postbot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },
                 media: [{ ...media, contentType: 'image/gif' }],
                 mediaReferenceCount: 1,
             }),
-            async () => 'https://media.example/herald/signed-image'
+            async () => 'https://media.example/postbot/signed-image'
         )
 
         await expect(unsupported.adapter.execute(unsupported.input)).resolves.toMatchObject({
@@ -253,7 +253,7 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Herald release notes',
+                    title: 'Postbot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },

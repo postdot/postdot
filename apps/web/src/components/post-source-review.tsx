@@ -1,5 +1,5 @@
-import { Button } from '@herald/ui/components/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@herald/ui/components/dialog'
+import { Button } from '@postbot/ui/components/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@postbot/ui/components/dialog'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 

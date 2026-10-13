@@ -1,5 +1,5 @@
-import type { UserNotification } from '@herald/core'
-import type { NotificationStore, NotificationEmailStore } from '@herald/db'
+import type { UserNotification } from '@postbot/core'
+import type { NotificationStore, NotificationEmailStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'

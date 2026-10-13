@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald values a small operational footprint, strong development velocity, and a
+Postbot values a small operational footprint, strong development velocity, and a
 shared language across the API, domain packages, tooling, and web application. Go
 and Rust can produce smaller native services, but would reduce reuse and delivery
 speed for the current team.

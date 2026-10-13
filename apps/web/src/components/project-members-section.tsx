@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogClose,
@@ -9,16 +9,16 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { UserCrossRoundedIcon } from '@solar-icons/react/linear/user-cross-rounded'

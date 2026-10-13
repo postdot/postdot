@@ -10,7 +10,7 @@
 
 ## Run
 
-The disposable local Herald runtime was started with a fresh SQLite database and
+The disposable local Postbot runtime was started with a fresh SQLite database and
 media directory. A real Bluesky account authorized the local loopback client
 through the provider's authorization screen. The requested grant was:
 
@@ -20,7 +20,7 @@ through the provider's authorization screen. The requested grant was:
 
 The connected Bluesky destination was restored in the test project and an
 automatic text publication was scheduled shortly in the future. The worker
-published it successfully; the Herald queue reported `Published`, the durable
+published it successfully; the Postbot queue reported `Published`, the durable
 job reported `succeeded`, and Bluesky exposed the resulting post at:
 
 <https://bsky.app/profile/did:plc:vy2bicc4yrwuy7kbrzlezyjp/post/3mvafvjquos2p>
@@ -58,4 +58,4 @@ post was an explicitly approved smoke-test side effect.
 
 Repeat real-provider validation only as an operator-approved disposable smoke
 test. Keep provider permission requirements documented per provider; do not turn
-this Bluesky grant into a global DNS/HTTPS or OAuth requirement for Herald.
+this Bluesky grant into a global DNS/HTTPS or OAuth requirement for Postbot.

@@ -1,5 +1,5 @@
-import { mediaImportSourceDefinitions } from '@herald/core'
-import type { AccessStore, MediaAssetStore } from '@herald/db'
+import { mediaImportSourceDefinitions } from '@postbot/core'
+import type { AccessStore, MediaAssetStore } from '@postbot/db'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type, type Static } from 'typebox'
 
@@ -784,7 +784,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                         item =>
                             query.variant !== undefined &&
                             item.kind === 'derived' &&
-                            item.processorId === 'herald-image-preview' &&
+                            item.processorId === 'postbot-image-preview' &&
                             item.processorVersion === '1' &&
                             ['ready', 'deletion_requested'].includes(item.state) &&
                             item.recipeJson !== null &&

@@ -1,11 +1,11 @@
-import type { HeraldAuth } from '@herald/auth'
-import type { AccessStore } from '@herald/db'
+import type { PostbotAuth } from '@postbot/auth'
+import type { AccessStore } from '@postbot/db'
 import { Type } from 'typebox'
 
 import {
     sessionSecurity,
     type AuthenticatedElysia,
-    type HeraldAuthenticationMethod,
+    type PostbotAuthenticationMethod,
 } from '../../plugins/auth'
 
 const errorResponse = Type.Object({
@@ -108,7 +108,7 @@ const adminSyncFailedResponse = () => ({
 })
 
 function isInstanceAdmin(
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string,
     access: AccessStore
 ): boolean {
@@ -118,7 +118,7 @@ function isInstanceAdmin(
 export function registerAccessRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     access: AccessStore,
-    auth: HeraldAuth
+    auth: PostbotAuth
 ) {
     return app
         .get(
@@ -246,7 +246,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         await auth.api.banUser({
                             body: {
                                 userId: params.userId,
-                                banReason: 'Disabled by a Herald instance administrator',
+                                banReason: 'Disabled by a Postbot instance administrator',
                             },
                             headers: request.headers,
                         })
@@ -257,7 +257,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         })
                     }
                 } catch {
-                    // The custom table was updated first so it could enforce Herald's
+                    // The custom table was updated first so it could enforce Postbot's
                     // last-admin and self-protection invariants. Compensate both
                     // projections if Better Auth rejects the subsequent sync.
                     if (
@@ -284,7 +284,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                             await auth.api.banUser({
                                 body: {
                                     userId: params.userId,
-                                    banReason: 'Disabled by a Herald instance administrator',
+                                    banReason: 'Disabled by a Postbot instance administrator',
                                 },
                                 headers: request.headers,
                             })
@@ -438,7 +438,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                 }
 
                 // Better Auth handles project invitations separately. This route
-                // accepts only Herald instance invitations.
+                // accepts only Postbot instance invitations.
                 const result = access.acceptInvitation({
                     token: body.token,
                     userId: user.id,

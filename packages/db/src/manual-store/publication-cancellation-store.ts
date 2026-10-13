@@ -4,9 +4,9 @@ import {
     requireTimestamp,
     transitionPublication,
     type Publication,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { CancelPublicationsInput } from '../manual-store'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -41,7 +41,7 @@ export interface PublicationCancellationStoreOptions {
 }
 
 export function createPublicationCancellationStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationCancellationStoreOptions
 ) {
     const client = database.$client

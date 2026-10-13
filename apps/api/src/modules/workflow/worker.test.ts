@@ -9,13 +9,13 @@ import {
     readBlueskyVideoBlob,
     type BlueskyPublisher,
     type BlueskyVideoService,
-} from '@herald/bluesky'
+} from '@postbot/bluesky'
 import type {
     ChannelProfileDefinition,
     DeclarativeHttpExecutionContract,
     SchedulerTimers,
-} from '@herald/core'
-import { createCustomHttpTransport } from '@herald/custom-http'
+} from '@postbot/core'
+import { createCustomHttpTransport } from '@postbot/custom-http'
 import {
     closeDatabase,
     createDatabase,
@@ -27,26 +27,26 @@ import {
     createPublisherStore,
     createProviderMediaDeliveryStore,
     runMigrations,
-} from '@herald/db'
-import { auditEvents, providerMediaDeliveries, publications } from '@herald/db/schema'
+} from '@postbot/db'
+import { auditEvents, providerMediaDeliveries, publications } from '@postbot/db/schema'
 import {
     createDiscordPublisher,
     discordChannelProfile,
     discordImageChannelProfile,
-} from '@herald/discord'
+} from '@postbot/discord'
 import {
     createLinkedInImagePublisher,
     createLinkedInVideoPublisher,
     createLinkedInTextPublisher,
     linkedinChannelProfile,
-} from '@herald/linkedin'
+} from '@postbot/linkedin'
 import {
     createMastodonPublisher,
     mastodonChannelProfile,
     mastodonImageChannelProfile,
-} from '@herald/mastodon'
-import { createLocalMediaStore } from '@herald/media'
-import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
+} from '@postbot/mastodon'
+import { createLocalMediaStore } from '@postbot/media'
+import { clientSecretPost, type OAuthAuthorizationServer } from '@postbot/oauth'
 import { eq } from 'drizzle-orm'
 
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
@@ -96,7 +96,7 @@ const customWebhookProfile: ChannelProfileDefinition = {
         kind: 'declarative_http',
         contractId: 'custom-webhook',
         revision: '1',
-        mode: 'herald_webhook',
+        mode: 'postbot_webhook',
     },
 }
 
@@ -276,7 +276,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'LinkedIn Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -509,7 +509,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Retry Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -681,7 +681,7 @@ describe('publication worker', () => {
                 const project = manualStore.createProject({
                     name,
                     subjectId: 'user-1',
-                    displayName: 'Herald Operator',
+                    displayName: 'Postbot Operator',
                 })
                 const channel = manualStore.createChannel({
                     projectId: project.project.id,
@@ -804,7 +804,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Worker Clock Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -900,7 +900,7 @@ describe('publication worker', () => {
     ] as const)(
         'uploads %i LinkedIn images with durable %s handling',
         async (imageCount, failureMode) => {
-            const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-image-'))
+            const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-linkedin-image-'))
             const database = createDatabase(':memory:')
 
             try {
@@ -930,13 +930,13 @@ describe('publication worker', () => {
                 const project = manualStore.createProject({
                     name: 'LinkedIn Image Worker Project',
                     subjectId: 'user-1',
-                    displayName: 'Herald Operator',
+                    displayName: 'Postbot Operator',
                 })
                 const profile = JSON.parse(JSON.stringify(linkedinChannelProfile))
                 if (imageCount === 1) {
                     profile.version = 2
-                    profile.profileHash = 'sha256:herald-linkedin-member-post-v2'
-                    profile.schemaHash = 'sha256:herald-linkedin-member-post-schema-v2'
+                    profile.profileHash = 'sha256:postbot-linkedin-member-post-v2'
+                    profile.schemaHash = 'sha256:postbot-linkedin-member-post-schema-v2'
                     profile.execution.revision = 'member-post-v2'
                     profile.capabilities.revision = 'linkedin-member-post-v2'
                     profile.contentSchema.properties.media.maxItems = 1
@@ -980,7 +980,7 @@ describe('publication worker', () => {
                         projectId: project.project.id,
                         subjectId: 'user-1',
                         originalFilename: `announcement-${index}.png`,
-                        defaultAccessibilityText: `Herald image ${index}`,
+                        defaultAccessibilityText: `Postbot image ${index}`,
                         expectedSize: bytes.byteLength,
                         contentType: 'image/png',
                     })
@@ -1124,11 +1124,11 @@ describe('publication worker', () => {
                 expect(last?.input).toBe('https://linkedin.test/rest/posts')
                 const expectedImages =
                     imageCount === 1
-                        ? [{ id: 'urn:li:image:worker-1', altText: 'Herald image 0' }]
+                        ? [{ id: 'urn:li:image:worker-1', altText: 'Postbot image 0' }]
                         : [
-                              { id: 'urn:li:image:worker-1', altText: 'Herald image 0' },
-                              { id: 'urn:li:image:worker-3', altText: 'Herald image 1' },
-                              { id: 'urn:li:image:worker-4', altText: 'Herald image 2' },
+                              { id: 'urn:li:image:worker-1', altText: 'Postbot image 0' },
+                              { id: 'urn:li:image:worker-3', altText: 'Postbot image 1' },
+                              { id: 'urn:li:image:worker-4', altText: 'Postbot image 2' },
                           ]
                 expect(JSON.parse(String(last?.init?.body))).toMatchObject({
                     author: 'urn:li:person:member-42',
@@ -1173,7 +1173,7 @@ describe('publication worker', () => {
             port: 0,
             async fetch(request) {
                 receivedBody = await request.text()
-                receivedSignature = request.headers.get('x-herald-signature')
+                receivedSignature = request.headers.get('x-postbot-signature')
                 return Response.json({ accepted: true }, { status: 201 })
             },
         })
@@ -1194,7 +1194,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -1349,7 +1349,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Worker Scheduler Sandbox Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -1564,7 +1564,7 @@ describe('publication worker', () => {
     })
 
     it('delivers signed public media URLs through a mapped custom HTTP channel', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-public-media-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-public-media-'))
         let receivedBody: string | null = null
         const receiver = Bun.serve({
             port: 0,
@@ -1605,7 +1605,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Mapped Public Media Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const bytes = createPng()
             const reservation = media.reserveUpload({
@@ -1681,7 +1681,7 @@ describe('publication worker', () => {
             expect(post).not.toBeNull()
 
             const publicDelivery = createMediaPublicDelivery({
-                baseURL: 'https://herald.example.test',
+                baseURL: 'https://postbot.example.test',
                 signingSecret: 'media-public-delivery-secret-with-at-least-32-bytes',
                 lifetimeMs: 60_000,
                 now: () => now,
@@ -1719,7 +1719,7 @@ describe('publication worker', () => {
             expect(receivedBody).not.toBeNull()
             const deliveredUrl = publicUrl
             if (deliveredUrl === null) throw new Error('The custom HTTP media URL was not created')
-            expect(deliveredUrl).toStartWith('https://herald.example.test/api/media/public/')
+            expect(deliveredUrl).toStartWith('https://postbot.example.test/api/media/public/')
             const body = JSON.parse(receivedBody ?? '{}') as {
                 commentary: string
                 media: string[]
@@ -1749,7 +1749,7 @@ describe('publication worker', () => {
     })
 
     it('rejects changed custom HTTP media bytes before making a request', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-custom-media-checksum-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-custom-media-checksum-'))
         const database = createDatabase(':memory:')
 
         try {
@@ -1776,7 +1776,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Checksum Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const bytes = createPng()
             const reservation = media.reserveUpload({
@@ -1927,7 +1927,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Refresh Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
+                displayName: 'Postbot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -2098,7 +2098,7 @@ function readPublicationState(
 }
 
 it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-video-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-linkedin-video-'))
     const database = createDatabase(':memory:')
     let clock = now
     try {
@@ -2338,7 +2338,7 @@ for (const scenario of [
     'timeout',
 ] as const) {
     it(`executes native Mastodon video with durable ${scenario} handling`, async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-mastodon-video-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-mastodon-video-'))
         const database = createDatabase(':memory:')
         let clock = now
         try {
@@ -2574,7 +2574,7 @@ for (const scenario of [
 
 for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
     it(`executes native Discord video with durable ${scenario} handling`, async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-discord-video-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-discord-video-'))
         const database = createDatabase(':memory:')
         let clock = now
         try {
@@ -2769,7 +2769,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
 }
 
 it('resumes a durable Bluesky video job without uploading again', async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-bluesky-video-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-bluesky-video-'))
     const database = createDatabase(':memory:')
     let clock = now
     try {
@@ -2931,9 +2931,9 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         const adapter = createBlueskyProviderAdapter({
             oauth: {
                 clientMetadata: {
-                    client_id: 'https://herald.example.com/oauth/client-metadata.json',
-                    client_name: 'Herald',
-                    redirect_uris: ['https://herald.example.com/callback'],
+                    client_id: 'https://postbot.example.com/oauth/client-metadata.json',
+                    client_name: 'Postbot',
+                    redirect_uris: ['https://postbot.example.com/callback'],
                     grant_types: ['authorization_code', 'refresh_token'],
                     response_types: ['code'],
                     token_endpoint_auth_method: 'none',

@@ -22,7 +22,7 @@ labels: bug
 ## Environment
 
 - Bun version:
-- Herald revision:
+- Postbot revision:
 - Operating system:
 
 ## Additional Context

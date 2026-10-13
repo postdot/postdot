@@ -1,5 +1,5 @@
 {
-    "name": "herald",
+    "name": "postbot",
     "private": true,
     "description": "Lightweight, self-hosted multichannel publication orchestrator",
     "license": "AGPL-3.0-only",
@@ -35,10 +35,10 @@
         "prepare": "husky",
         "storybook": "bun run --cwd packages/ui storybook",
         "autonomos": "autonomos",
-        "herald": "bun run scripts/herald.ts"
+        "postbot": "bun run scripts/postbot.ts"
     },
     "dependencies": {
-        "@herald/client": "workspace:*"
+        "@postbot/client": "workspace:*"
     },
     "devDependencies": {
         "@autonomos/cli": "^0.6.0",

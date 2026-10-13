@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogClose,
@@ -6,7 +6,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
+} from '@postbot/ui/components/dialog'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { LinkIcon } from '@solar-icons/react/linear/link'

@@ -6,13 +6,13 @@ test('searches across projects, opens source posts and keeps failures inside the
     page,
 }) => {
     const suffix = randomUUID().slice(0, 8)
-    await page.addInitScript(() => localStorage.setItem('herald-theme', 'dark'))
+    await page.addInitScript(() => localStorage.setItem('postbot-theme', 'dark'))
     await page.goto('/')
     const signup = await page.request.post('/api/auth/sign-up/email', {
         headers: { origin: new URL(page.url()).origin },
         data: {
             name: 'Search operator',
-            email: `search-${suffix}@herald.local`,
+            email: `search-${suffix}@postbot.local`,
             password: 'search-test-password',
         },
     })
@@ -48,9 +48,9 @@ test('searches across projects, opens source posts and keeps failures inside the
     const mediaName = `search-photo-${suffix}.png`
     const mediaId = await createMediaAsset(page, projectId, mediaName)
     await page.goto(`/dashboard/projects/${projectId}/overview`)
-    await page.getByRole('button', { name: 'Search Herald', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Search Herald', exact: true })
-    const input = dialog.getByRole('combobox', { name: 'Search Herald', exact: true })
+    await page.getByRole('button', { name: 'Search Postbot', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Search Postbot', exact: true })
+    const input = dialog.getByRole('combobox', { name: 'Search Postbot', exact: true })
     await expect(input).toHaveAttribute('placeholder', 'Search…')
     await expect(dialog.getByText(/Navigate/)).toBeVisible()
     let releaseSearch!: () => void
@@ -70,7 +70,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     expect(
         Math.abs(loaderBox!.y + loaderBox!.height / 2 - (listBox!.y + listBox!.height / 2))
     ).toBeLessThan(8)
-    await page.screenshot({ path: '/tmp/herald-search-loading.png' })
+    await page.screenshot({ path: '/tmp/postbot-search-loading.png' })
     releaseSearch()
     await page.unrouteAll({ behavior: 'wait' })
     await expect(dialog.getByRole('option', { name: new RegExp('searchable post') })).toHaveCount(2)
@@ -83,10 +83,10 @@ test('searches across projects, opens source posts and keeps failures inside the
     await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
     expect((await input.boundingBox())?.y).toBe(initialGeometry?.y)
     expect((await dialog.boundingBox())?.height).toBe(initialPanel?.height)
-    await page.screenshot({ path: '/tmp/herald-search-empty.png' })
+    await page.screenshot({ path: '/tmp/postbot-search-empty.png' })
     await input.fill('constellation')
     await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
-    await page.screenshot({ path: '/tmp/herald-search-wide.png' })
+    await page.screenshot({ path: '/tmp/postbot-search-wide.png' })
     const darkSurface = await dialog.evaluate(element => getComputedStyle(element).backgroundColor)
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
@@ -96,7 +96,7 @@ test('searches across projects, opens source posts and keeps failures inside the
         .poll(() => dialog.evaluate(element => getComputedStyle(element).backgroundColor))
         .not.toBe(darkSurface)
     await expect(dialog.getByRole('option', { name: /searchable post/ })).toHaveCount(1)
-    await page.screenshot({ path: '/tmp/herald-search-light.png' })
+    await page.screenshot({ path: '/tmp/postbot-search-light.png' })
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
     await page.keyboard.press('Control+k')
@@ -105,7 +105,7 @@ test('searches across projects, opens source posts and keeps failures inside the
     await expect
         .poll(() => dialog.evaluate(element => element.getBoundingClientRect().width))
         .toBeLessThan(359)
-    await page.screenshot({ path: '/tmp/herald-search-narrow.png' })
+    await page.screenshot({ path: '/tmp/postbot-search-narrow.png' })
     await input.focus()
     await input.press('ArrowDown')
     await input.press('Enter')
@@ -154,7 +154,7 @@ test('searches across projects, opens source posts and keeps failures inside the
         await expect(
             information.getByRole('heading', { name: mediaName, exact: true })
         ).toBeVisible()
-        await page.screenshot({ path: '/tmp/herald-search-media.png' })
+        await page.screenshot({ path: '/tmp/postbot-search-media.png' })
         await page.keyboard.press('Escape')
         await expect(information).not.toBeVisible()
         await expect(page).toHaveURL(new RegExp('/media$'))

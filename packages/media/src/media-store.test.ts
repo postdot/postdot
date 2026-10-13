@@ -16,7 +16,7 @@ const fixtures: readonly StoreFixture[] = [
     {
         name: 'local media store',
         async create() {
-            const directory = await mkdtemp(join('/tmp', 'herald-media-store-'))
+            const directory = await mkdtemp(join('/tmp', 'postbot-media-store-'))
             return {
                 store: createLocalMediaStore({
                     storeId: 'local-test',
@@ -35,7 +35,7 @@ const fixtures: readonly StoreFixture[] = [
                 store: createS3MediaStore({
                     storeId: 's3-test',
                     client: backend as unknown as Bun.S3Client,
-                    prefix: 'herald-media',
+                    prefix: 'postbot-media',
                     maxObjectBytes: 8,
                 }),
                 dispose: async () => {},
@@ -164,7 +164,7 @@ describe('media store options', () => {
         expect(() =>
             createLocalMediaStore({
                 storeId: 'invalid',
-                rootDirectory: '/tmp/herald-media-invalid',
+                rootDirectory: '/tmp/postbot-media-invalid',
                 maxObjectBytes: 0,
             })
         ).toThrow()
@@ -172,7 +172,7 @@ describe('media store options', () => {
         await expect(
             createLocalMediaStore({
                 storeId: 'invalid',
-                rootDirectory: '/tmp/herald-media-invalid',
+                rootDirectory: '/tmp/postbot-media-invalid',
                 maxObjectBytes: 8,
             }).put('assets/file', byteStream([1]), { contentType: ' ' })
         ).rejects.toMatchObject({ code: 'invalid_content_type' })

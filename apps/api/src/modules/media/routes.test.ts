@@ -3,9 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@herald/db'
-import { createLocalMediaStore, type MediaStore } from '@herald/media'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postbot/db'
+import { createLocalMediaStore, type MediaStore } from '@postbot/media'
 
 import { previewFixturePng } from '../../../../../packages/db/src/image-preview-fixture'
 import { createApp } from '../../app'
@@ -13,8 +13,8 @@ import { createPublisherRuntime } from '../publishers/runtime'
 import { createMediaPublicDelivery } from './public-delivery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
-const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
+const mediaPublicUrlSecret = 'postbot-media-public-url-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -27,7 +27,7 @@ async function signUp(app: ReturnType<typeof createApp>): Promise<string> {
                 origin: baseURL,
             },
             body: JSON.stringify({
-                email: 'media-operator@herald.local',
+                email: 'media-operator@postbot.local',
                 name: 'Media Operator',
                 password: 'correct-horse-battery-staple',
             }),
@@ -59,7 +59,7 @@ async function jsonRequest(
 
 describe('media HTTP routes', () => {
     it('executes the authenticated upload, inspection, listing, and deletion flow', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-api-media-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-api-media-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const publisher = createPublisherRuntime(database, {
@@ -176,7 +176,7 @@ describe('media HTTP routes', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         originalFilename: 'cover.png',
-                        defaultAccessibilityText: 'Herald cover',
+                        defaultAccessibilityText: 'Postbot cover',
                         expectedSize: bytes.byteLength,
                         contentType: 'text/plain',
                     }),
@@ -593,7 +593,7 @@ describe('media HTTP routes', () => {
     })
 
     it('publishes media routes in the OpenAPI inventory when the media service is enabled', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-api-media-openapi-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-api-media-openapi-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const publisher = createPublisherRuntime(database, {

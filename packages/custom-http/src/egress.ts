@@ -148,7 +148,7 @@ export function createCustomHttpEndpointAuthorizer(options: CustomHttpEgressOpti
 
 export function parsePrivateDestinationRules(
     value: string | undefined,
-    variableName = 'HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS'
+    variableName = 'POSTBOT_CUSTOM_HTTP_PRIVATE_DESTINATIONS'
 ): readonly PrivateDestinationRule[] {
     if (value === undefined || value.trim().length === 0) return []
 

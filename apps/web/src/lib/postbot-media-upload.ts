@@ -1,23 +1,23 @@
-import type { MediaFinalize, MediaReference, MediaReservation, MediaUpload } from '@herald/client'
-import { defaultMediaUploadContentTypes } from '@herald/core'
+import type { MediaFinalize, MediaReference, MediaReservation, MediaUpload } from '@postbot/client'
+import { defaultMediaUploadContentTypes } from '@postbot/core'
 import Uppy, { type Meta, type UppyFile } from '@uppy/core'
 import GoldenRetriever from '@uppy/golden-retriever'
 
 import { MediaVerificationError } from '@/lib/media-errors'
 
-export type HeraldMediaUppyFile = UppyFile<Meta, Record<string, never>>
+export type PostbotMediaUppyFile = UppyFile<Meta, Record<string, never>>
 
-export interface HeraldMediaUploadPolicy {
+export interface PostbotMediaUploadPolicy {
     readonly allowedContentTypes: readonly string[]
     readonly maxFileSize: number | null
 }
 
-export const defaultHeraldMediaUploadPolicy: HeraldMediaUploadPolicy = {
+export const defaultPostbotMediaUploadPolicy: PostbotMediaUploadPolicy = {
     allowedContentTypes: defaultMediaUploadContentTypes,
     maxFileSize: null,
 }
 
-export interface HeraldMediaUploadClient {
+export interface PostbotMediaUploadClient {
     reserveMediaUpload: (
         projectId: string,
         input: {
@@ -34,31 +34,31 @@ export interface HeraldMediaUploadClient {
     getMedia: (projectId: string, assetId: string) => Promise<MediaReference>
 }
 
-export interface HeraldMediaUploadController {
+export interface PostbotMediaUploadController {
     readonly uppy: Uppy<Meta, Record<string, never>>
     readonly mediaByFileId: ReadonlyMap<string, MediaReference>
     readonly errorsByFileId: ReadonlyMap<string, unknown>
-    readonly policy: HeraldMediaUploadPolicy
-    readonly setUploadPolicy: (policy: HeraldMediaUploadPolicy) => void
+    readonly policy: PostbotMediaUploadPolicy
+    readonly setUploadPolicy: (policy: PostbotMediaUploadPolicy) => void
 }
 
-export interface HeraldMediaUploadOptions {
+export interface PostbotMediaUploadOptions {
     readonly id?: string
     readonly recoveryExpires?: number
 }
 
-export function createHeraldMediaUploadController(
+export function createPostbotMediaUploadController(
     projectId: string,
-    client: HeraldMediaUploadClient,
+    client: PostbotMediaUploadClient,
     waitForVerification: (milliseconds: number) => Promise<void> = delay,
-    initialPolicy: HeraldMediaUploadPolicy = defaultHeraldMediaUploadPolicy,
-    options: HeraldMediaUploadOptions = {}
-): HeraldMediaUploadController {
+    initialPolicy: PostbotMediaUploadPolicy = defaultPostbotMediaUploadPolicy,
+    options: PostbotMediaUploadOptions = {}
+): PostbotMediaUploadController {
     const mediaByFileId = new Map<string, MediaReference>()
     const errorsByFileId = new Map<string, unknown>()
     let uploadPolicy = normalizeUploadPolicy(initialPolicy)
     const uppy = new Uppy<Meta, Record<string, never>>({
-        id: options.id ?? `herald-media-${projectId}`,
+        id: options.id ?? `postbot-media-${projectId}`,
         autoProceed: false,
         allowMultipleUploadBatches: true,
         restrictions: toUppyRestrictions(uploadPolicy),
@@ -72,7 +72,7 @@ export function createHeraldMediaUploadController(
                 errorsByFileId.set(fileId, error)
                 if (file !== undefined) {
                     uppy.emit('upload-error', file, {
-                        name: 'HeraldMediaUploadError',
+                        name: 'PostbotMediaUploadError',
                         message: error.message,
                     })
                 }
@@ -80,7 +80,7 @@ export function createHeraldMediaUploadController(
             }
 
             try {
-                const media = await uploadHeraldMediaFile(
+                const media = await uploadPostbotMediaFile(
                     client,
                     projectId,
                     {
@@ -105,7 +105,7 @@ export function createHeraldMediaUploadController(
             } catch (error) {
                 errorsByFileId.set(fileId, error)
                 uppy.emit('upload-error', file, {
-                    name: 'HeraldMediaUploadError',
+                    name: 'PostbotMediaUploadError',
                     message: error instanceof Error ? error.message : String(error),
                 })
             }
@@ -132,7 +132,7 @@ export function createHeraldMediaUploadController(
     }
 }
 
-function normalizeUploadPolicy(policy: HeraldMediaUploadPolicy): HeraldMediaUploadPolicy {
+function normalizeUploadPolicy(policy: PostbotMediaUploadPolicy): PostbotMediaUploadPolicy {
     const allowedContentTypes = [
         ...new Set(
             policy.allowedContentTypes
@@ -154,15 +154,15 @@ function normalizeUploadPolicy(policy: HeraldMediaUploadPolicy): HeraldMediaUplo
     return { allowedContentTypes, maxFileSize: policy.maxFileSize }
 }
 
-function toUppyRestrictions(policy: HeraldMediaUploadPolicy) {
+function toUppyRestrictions(policy: PostbotMediaUploadPolicy) {
     return {
         allowedFileTypes: [...policy.allowedContentTypes],
         maxFileSize: policy.maxFileSize,
     }
 }
 
-export async function uploadHeraldMediaFile(
-    client: HeraldMediaUploadClient,
+export async function uploadPostbotMediaFile(
+    client: PostbotMediaUploadClient,
     projectId: string,
     input: {
         readonly data: Blob
@@ -178,11 +178,11 @@ export async function uploadHeraldMediaFile(
         contentType: input.contentType,
     })
     await client.uploadMedia(projectId, reservation.intent.id, input.data)
-    return completeHeraldMediaUpload(client, projectId, reservation.intent.id, waitForVerification)
+    return completePostbotMediaUpload(client, projectId, reservation.intent.id, waitForVerification)
 }
 
-export async function completeHeraldMediaUpload(
-    client: HeraldMediaUploadClient,
+export async function completePostbotMediaUpload(
+    client: PostbotMediaUploadClient,
     projectId: string,
     intentId: string,
     waitForVerification: (milliseconds: number) => Promise<void> = delay

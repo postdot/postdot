@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald schedules publications as exact instants, but people author schedules in
+Postbot schedules publications as exact instants, but people author schedules in
 civil time. A civil time such as “09:00” is incomplete without a timezone. The
 current web editor and calendar use the browser timezone implicitly, which is
 consistent on one device but gives different wall-clock interpretations to
@@ -46,7 +46,7 @@ business timezone without manually converting every schedule.
 
 ### Resolving a schedule
 
-- When a human schedules a one-time publication, Herald resolves the entered local
+- When a human schedules a one-time publication, Postbot resolves the entered local
   date-time using the project's IANA timezone and persists the resulting exact
   instant.
 - A human-oriented API operation may accept a local date-time together with an
@@ -64,7 +64,7 @@ business timezone without manually converting every schedule.
 - A local time that does not exist in the selected IANA timezone is rejected and must
   be corrected by the operator.
 - A local time that occurs twice is rejected unless the request supplies an explicit
-  offset or disambiguation choice. Herald must not silently guess which occurrence
+  offset or disambiguation choice. Postbot must not silently guess which occurrence
   the operator intended.
 
 ### Recurrence boundary

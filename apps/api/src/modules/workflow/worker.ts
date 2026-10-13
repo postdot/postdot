@@ -6,22 +6,22 @@ import {
     type Job,
     type RetryPolicy,
     type SchedulerTimers,
-} from '@herald/core'
+} from '@postbot/core'
 import {
     CUSTOM_HTTP_PUBLISHER_KIND,
     createCustomHttpTransport,
     type CustomHttpMediaDescriptor,
     type CustomHttpTransport,
-} from '@herald/custom-http'
+} from '@postbot/custom-http'
 import {
     createWorkflowStore,
     createProviderMediaDeliveryStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
-    type HeraldDatabase,
+    type PostbotDatabase,
     type MediaAssetStore,
     type PublisherExecutionTarget,
-} from '@herald/db'
+} from '@postbot/db'
 
 import { permanentFailure, retryableFailure } from './outcomes'
 import { cancelMediaStream, verifyPinnedMediaContent } from './providers/media-integrity'
@@ -41,7 +41,7 @@ export interface PublicationWorkerRunObservation {
 }
 
 export interface PublicationWorkerOptions {
-    readonly database: HeraldDatabase
+    readonly database: PostbotDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
     readonly media?: MediaAssetStore
@@ -331,7 +331,7 @@ async function performCustomHttpEffect(
 }
 
 function defaultWorkerErrorHandler(error: unknown): void {
-    console.error('[herald-worker] scheduler failed', error)
+    console.error('[postbot-worker] scheduler failed', error)
 }
 
 export type { PublisherExecutionTarget }

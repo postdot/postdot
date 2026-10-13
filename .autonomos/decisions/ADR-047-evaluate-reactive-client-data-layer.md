@@ -9,13 +9,13 @@
 
 ## Context
 
-Herald already has a durable server event journal and a notification projection,
+Postbot already has a durable server event journal and a notification projection,
 but the web client does not yet have a central contract for receiving relevant
 project changes. Queue and inbox data can therefore remain stale after a worker
 outcome or an action in another browser session.
 
 The immediate question is not which library can render a reactive demo. It is
-which client boundary fits Herald's current API shape, project authorization
+which client boundary fits Postbot's current API shape, project authorization
 model, projection delay, reconnect needs, and future SSE transport without
 forcing a DashboardContext rewrite or a second source of truth.
 
@@ -49,14 +49,14 @@ the transaction rolls back when the fixture write fails.
 
 TanStack DB is therefore evaluated as a local reactive/read-model layer, not as
 the transport or source of truth. Its QueryCollection still reads the existing
-Herald-shaped endpoints.
+Postbot-shaped endpoints.
 
 ### Option C — Combine Query and DB in production
 
 This remains technically viable: Query can own server freshness while DB owns
 normalized collections and live derivations. The prototype demonstrates this
 bridge, but adopting both globally would add a second lifecycle and mutation
-model before Herald has a production push contract or enough cross-screen
+model before Postbot has a production push contract or enough cross-screen
 normalized views to justify it.
 
 ## Prototype contract and fixture
@@ -121,20 +121,20 @@ write scenario.
 
 ## Recommendation
 
-Adopt **TanStack Query as Herald's initial reactive client boundary** and keep a
+Adopt **TanStack Query as Postbot's initial reactive client boundary** and keep a
 small event coordinator responsible for project scoping, event-id
 deduplication, projection-aware retries, and reconnect refreshes.
 
 Do **not** retain TanStack DB in the production web client for now. The DB
 prototype proves that live joins and optimistic local transactions work, but the
-current Herald surface has two server lists, simple selectors, and no real
+current Postbot surface has two server lists, simple selectors, and no real
 client push transport yet. The additional collection lifecycle and bundle
 surface do not currently buy enough value over explicit Query data plus pure
 selectors. The Query path is also easier for future agents to trace against the
 existing API and to debug when projection or authorization failures occur.
 
 This is a recommendation for the current client boundary, not a rejection of
-TanStack DB in perpetuity. Re-evaluate it if Herald gains several normalized
+TanStack DB in perpetuity. Re-evaluate it if Postbot gains several normalized
 entities shared by queue, calendar, inbox, and other screens, or if the product
 requires many local joins and optimistic workflows that would otherwise be
 duplicated across selectors.

@@ -1,4 +1,4 @@
-import type { AccessStore, ProviderAnalyticsStore } from '@herald/db'
+import type { AccessStore, ProviderAnalyticsStore } from '@postbot/db'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import type { BlueskyAnalyticsService } from './bluesky-analytics-service'
@@ -49,7 +49,7 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     provider: 'bluesky',
                     subjectType: query.subjectType,
                     providerSubjectId: query.providerSubjectId,
-                    heraldEntityId: query.heraldEntityId,
+                    postbotEntityId: query.postbotEntityId,
                     limit: query.limit,
                 })
                 return result === null
@@ -129,7 +129,7 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     provider: 'devto',
                     subjectType: query.subjectType,
                     providerSubjectId: query.providerSubjectId,
-                    heraldEntityId: query.heraldEntityId,
+                    postbotEntityId: query.postbotEntityId,
                     limit: query.limit,
                 })
                 return result === null

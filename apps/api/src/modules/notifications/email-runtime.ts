@@ -3,18 +3,18 @@ import {
     createExponentialRetryPolicy,
     processNextExternalEffect,
     type ExternalEffectOutcome,
-} from '@herald/core'
-import type { NotificationEmailStore } from '@herald/db'
-import { renderHeraldPublicationOutcomeEmail } from '@herald/email'
+} from '@postbot/core'
+import type { NotificationEmailStore } from '@postbot/db'
+import { renderPostbotPublicationOutcomeEmail } from '@postbot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
-import type { HeraldSmtpConfig } from '../email/delivery'
+import type { PostbotSmtpConfig } from '../email/delivery'
 import { createNotificationProjectionRuntime } from './runtime'
 
 export function createNotificationEmailRuntime(options: {
     store: NotificationEmailStore
-    smtp?: HeraldSmtpConfig
-    getSmtp?: () => HeraldSmtpConfig | undefined
+    smtp?: PostbotSmtpConfig
+    getSmtp?: () => PostbotSmtpConfig | undefined
     webOrigin: string
     transport?: { sendMail(message: SendMailOptions): Promise<unknown> }
 }) {
@@ -37,7 +37,7 @@ export function createNotificationEmailRuntime(options: {
     const scheduler = new NextEventScheduler({
         getNextEventAt: () =>
             getSmtp() === undefined ? null : store.deliveries.getNextAttemptAt(),
-        onError: () => console.error('[herald-notification-email] delivery scheduler failed'),
+        onError: () => console.error('[postbot-notification-email] delivery scheduler failed'),
         async processDueEvents() {
             for (let count = 0; count < 100; count++) {
                 if (getSmtp() === undefined) break
@@ -73,7 +73,7 @@ export function createNotificationEmailRuntime(options: {
                             options.webOrigin
                         )
                         try {
-                            const message = await renderHeraldPublicationOutcomeEmail({
+                            const message = await renderPostbotPublicationOutcomeEmail({
                                 email,
                                 title: delivery.title,
                                 body: delivery.body,
@@ -109,7 +109,7 @@ export function createNotificationEmailRuntime(options: {
                 return result
             },
         },
-        { onError: () => console.error('[herald-notification-email] projection failed') }
+        { onError: () => console.error('[postbot-notification-email] projection failed') }
     )
     return {
         start() {

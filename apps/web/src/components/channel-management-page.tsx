@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button, buttonVariants } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button, buttonVariants } from '@postbot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'

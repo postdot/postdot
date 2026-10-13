@@ -33,7 +33,7 @@ describe('DEV.to API key validation', () => {
 describe('DEV.to publisher', () => {
     it('verifies the account with the Forem API v1 headers', async () => {
         const fixture = createFetcher([
-            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
         ])
         const publisher = createDevtoPublisher({
             baseUrl: 'https://devto.test',
@@ -42,13 +42,13 @@ describe('DEV.to publisher', () => {
 
         await expect(publisher.getMe(API_KEY)).resolves.toEqual({
             kind: 'success',
-            value: { id: '42', username: 'herald', name: 'Herald' },
+            value: { id: '42', username: 'postbot', name: 'Postbot' },
         })
         expect(fixture.calls[0]?.input).toBe('https://devto.test/api/users/me')
         const headers = new Headers(fixture.calls[0]?.init?.headers)
         expect(headers.get('accept')).toBe('application/vnd.forem.api-v1+json')
         expect(headers.get('api-key')).toBe(API_KEY)
-        expect(headers.get('user-agent')).toBe('Herald/0.1')
+        expect(headers.get('user-agent')).toBe('Postbot/0.1')
     })
 
     it('publishes a live Markdown article and maps the returned URL', async () => {
@@ -57,30 +57,30 @@ describe('DEV.to publisher', () => {
             baseUrl: 'https://devto.test',
             fetcher: async (input, init) => {
                 request = { input: input.toString(), init }
-                return jsonResponse({ id: 123, url: 'https://dev.to/herald/article' }, 201)
+                return jsonResponse({ id: 123, url: 'https://dev.to/postbot/article' }, 201)
             },
         })
 
         const outcome = await publisher.publishArticle({
             apiKey: API_KEY,
-            title: 'A Herald article',
+            title: 'A Postbot article',
             bodyMarkdown: '# Hello DEV.to',
-            mainImageUrl: 'https://media.herald.test/article.png',
+            mainImageUrl: 'https://media.postbot.test/article.png',
         })
 
         expect(outcome).toEqual({
             type: 'published',
             externalId: '123',
-            externalUrl: 'https://dev.to/herald/article',
+            externalUrl: 'https://dev.to/postbot/article',
         })
         expect(request?.input).toBe('https://devto.test/api/articles')
         expect(request?.init?.method).toBe('POST')
         expect(JSON.parse(String(request?.init?.body))).toEqual({
             article: {
-                title: 'A Herald article',
+                title: 'A Postbot article',
                 body_markdown: '# Hello DEV.to',
                 published: true,
-                main_image: 'https://media.herald.test/article.png',
+                main_image: 'https://media.postbot.test/article.png',
             },
         })
         expect(JSON.stringify(outcome)).not.toContain(API_KEY)
@@ -150,7 +150,7 @@ describe('DEV.to publisher', () => {
 
         const outcome = await publisher.publishArticle({
             apiKey: API_KEY,
-            title: 'A Herald article',
+            title: 'A Postbot article',
             bodyMarkdown: 'Body',
         })
 
@@ -170,7 +170,7 @@ describe('DEV.to publisher', () => {
         await expect(
             publisher.publishArticle({
                 apiKey: API_KEY,
-                title: 'A Herald article',
+                title: 'A Postbot article',
                 bodyMarkdown: 'Body',
             })
         ).resolves.toMatchObject({ type: 'ambiguous', code: 'provider_failure' })

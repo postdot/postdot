@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { createRecoveryHold, readRecoveryHold, releaseRecoveryHold } from './recovery-hold'
 
 test('persists a recovery hold across database replacement and requires its current acknowledgement', () => {
-    const root = mkdtempSync(join(tmpdir(), 'herald-recovery-'))
+    const root = mkdtempSync(join(tmpdir(), 'postbot-recovery-'))
     const filename = join(root, 'database.sqlite')
     try {
         expect(readRecoveryHold(filename)).toBeNull()
@@ -27,7 +27,7 @@ test('persists a recovery hold across database replacement and requires its curr
 })
 
 test('fails closed on damaged or unreadable marker content', () => {
-    const root = mkdtempSync(join(tmpdir(), 'herald-recovery-'))
+    const root = mkdtempSync(join(tmpdir(), 'postbot-recovery-'))
     const filename = join(root, 'database.sqlite')
     try {
         const marker = `${filename}.recovery.json`

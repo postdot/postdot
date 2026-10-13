@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald's web client is a Vite-powered SPA using React and TanStack Router. Its
+Postbot's web client is a Vite-powered SPA using React and TanStack Router. Its
 interface currently contains English copy directly in components, with no
 locale preference, catalog boundary, fallback contract, or shared language
 switching behavior. The product is intended for a broad audience, so adding
@@ -18,12 +18,12 @@ extraction expensive and inconsistent.
 The API already exposes stable machine-readable error codes and parameters.
 Those codes are the client translation boundary; the server must not become the
 source of translated web copy. The language of a publication is also a domain
-property and must not be inferred from or coupled to the language of Herald's
+property and must not be inferred from or coupled to the language of Postbot's
 interface.
 
 ## Decision
 
-Herald uses Paraglide JS, configured through inlang, as the web localization
+Postbot uses Paraglide JS, configured through inlang, as the web localization
 foundation.
 
 - The initial interface locales are `en` and `fr`; English is the base locale.
@@ -54,9 +54,9 @@ foundation.
 
 ## Language boundaries
 
-Herald distinguishes three different language concerns:
+Postbot distinguishes three different language concerns:
 
-1. **Herald interface language.** This is the current Paraglide/inlang scope.
+1. **Postbot interface language.** This is the current Paraglide/inlang scope.
    It covers labels, actions, help text, validation copy, accessibility labels,
    and other UI-owned messages in the web client.
 2. **Server/API user-facing messages.** The API remains locale-neutral for now:
@@ -66,7 +66,7 @@ Herald distinguishes three different language concerns:
    Server-owned channels such as email or future rendered documents require a
    separate decision and must not silently introduce a second UI catalog.
 3. **Publication content.** Titles, bodies, media descriptions, and provider
-   payloads are authored by the user in whatever language they choose. Herald
+   payloads are authored by the user in whatever language they choose. Postbot
    does not translate content, infer a publication language, or create
    multilingual variants automatically. A future multilingual-publication
    feature would need explicit source-variant, scheduling, and target semantics.
@@ -77,7 +77,7 @@ Herald distinguishes three different language concerns:
 
 React i18next is a mature runtime solution with a broad ecosystem, provider
 integration, and lazy translation backends. It remains a credible alternative
-if Herald later needs a large runtime-managed catalog or a more extensive
+if Postbot later needs a large runtime-managed catalog or a more extensive
 plugin ecosystem. It was not selected for this foundation because its runtime
 instance and string-key conventions provide less compile-time and tree-shaking
 guidance for this small Vite SPA.
@@ -87,14 +87,14 @@ guidance for this small Vite SPA.
 FormatJS provides strong ICU MessageFormat and `Intl`-based formatting
 primitives. It remains a credible choice if complex locale-aware formatting
 becomes the dominant requirement. It was not selected as the first boundary
-because it introduces a runtime provider/formatter model before Herald has
+because it introduces a runtime provider/formatter model before Postbot has
 established its catalog and product-copy conventions.
 
 ### Hand-written dictionaries
 
 A local dictionary helper would have the smallest immediate dependency surface,
 but it would leave extraction, message validation, formatting, and agent/tooling
-conventions to Herald. That is acceptable for a throwaway prototype, not for a
+conventions to Postbot. That is acceptable for a throwaway prototype, not for a
 long-lived product whose UI copy will grow across several clients.
 
 ### Elysia i18n middleware or API-side translation

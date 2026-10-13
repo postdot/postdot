@@ -1,21 +1,21 @@
 ---
-name: 'herald'
+name: 'postbot'
 type: 'project'
 status: 'active'
 ---
 
-# AGENT CONTEXT: Herald
+# AGENT CONTEXT: Postbot
 
 ## 🧠 Context & Objectives
 
-Herald is a lightweight, self-hosted orchestrator for multichannel publications.
+Postbot is a lightweight, self-hosted orchestrator for multichannel publications.
 It provides one source of truth for automated and manual destinations. It does not
 replace project-specific communications repositories or act as an embedded AI
 content generator.
 
 - **License review scope (owner direction, 2026-10-11):** Preserve upstream declarations and available notices with minimal attribution. Do not pursue exhaustive transitive-license investigations during product work; keep unresolved release facts recorded without adding user-facing reading requirements.
 
-- **Licensing:** Original Herald code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
+- **Licensing:** Original Postbot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
 
 ## ⚙️ Workflow & Preferences
 
@@ -51,7 +51,7 @@ content generator.
 - **Protocol:** Follow `.autonomos/PROTOCOL.md` and the installed harness workflows. Keep task state in `.autonomos/TASKS.md` and session evidence in `.autonomos/worklogs/`.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
-- **IDE workspace:** Update `herald.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
+- **IDE workspace:** Update `postbot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
 - **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
 - **Repository hygiene:** Treat user conversations, personal context, and one-off analysis as private by default. Track only durable, implementation-relevant, public-ready guidance. Comparative research is allowed only when it is deliberately scoped to a repository artifact.
 
@@ -81,7 +81,7 @@ content generator.
 
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
-- **Authentication boundary:** Better Auth authenticates people into Herald and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
+- **Authentication boundary:** Better Auth authenticates people into Postbot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Channel connections and their credentials belong to a project. The actor who connects one is audit attribution, not its owner; actor departure or account deletion does not revoke the project connection.
 
 ## 📁 Key Directories

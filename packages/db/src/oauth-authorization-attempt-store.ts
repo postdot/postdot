@@ -1,6 +1,6 @@
-import { requireNonBlank, requireTimestamp } from '@herald/core'
+import { requireNonBlank, requireTimestamp } from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import type {
     EncryptedPublisherSecret,
     PublisherCredentialCipher,
@@ -267,7 +267,7 @@ function providerStateEnvelope(row: AuthorizationAttemptRow): EncryptedPublisher
 }
 
 export function createAuthorizationAttemptStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: AuthorizationAttemptStoreOptions
 ) {
     const client = database.$client

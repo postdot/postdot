@@ -1,4 +1,4 @@
-import { HeraldLogo } from '@herald/ui/components/herald-logo'
+import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
 import { Body } from '@react-email/body'
 import { Container } from '@react-email/container'
 import { Font } from '@react-email/font'
@@ -12,13 +12,13 @@ import * as React from 'react'
 
 import { emailStyles } from '../styles'
 
-export interface HeraldEmailLayoutProps {
+export interface PostbotEmailLayoutProps {
     readonly preview: string
     readonly title: string
     readonly children: React.ReactNode
 }
 
-export function HeraldEmailLayout({ preview, title, children }: HeraldEmailLayoutProps) {
+export function PostbotEmailLayout({ preview, title, children }: PostbotEmailLayoutProps) {
     return (
         <Html lang="en">
             <Head>
@@ -41,15 +41,15 @@ export function HeraldEmailLayout({ preview, title, children }: HeraldEmailLayou
                                 <tbody>
                                     <tr>
                                         <td style={emailStyles.brandLogoCell}>
-                                            <HeraldLogo
-                                                aria-label="Herald"
+                                            <PostbotLogo
+                                                aria-label="Postbot"
                                                 height="30"
                                                 style={{ color: '#426bce', display: 'block' }}
                                                 width="30"
                                             />
                                         </td>
                                         <td style={emailStyles.brandWordmarkCell}>
-                                            <Text style={emailStyles.brandWordmark}>Herald</Text>
+                                            <Text style={emailStyles.brandWordmark}>Postbot</Text>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -60,7 +60,7 @@ export function HeraldEmailLayout({ preview, title, children }: HeraldEmailLayou
                             {children}
                         </Section>
                     </Section>
-                    <Text style={emailStyles.footer}>Herald · Publication manager</Text>
+                    <Text style={emailStyles.footer}>Postbot · Publication manager</Text>
                 </Container>
             </Body>
         </Html>

@@ -14,16 +14,16 @@
 
 ## Context
 
-Herald has two distinct authorization boundaries:
+Postbot has two distinct authorization boundaries:
 
 1. application authentication identifies people and establishes sessions for access
-   to Herald;
-2. publisher credentials authorize Herald to act against an external destination.
+   to Postbot;
+2. publisher credentials authorize Postbot to act against an external destination.
 
 The first LinkedIn implementation used Better Auth accounts for both boundaries.
 That implementation can complete an OAuth flow, encrypt tokens, and refresh tokens
 for a trusted server caller, but its account model remains owned by a Better Auth
-user. Herald publisher connections are project-owned resources with different
+user. Postbot publisher connections are project-owned resources with different
 membership, deletion, transfer, revocation, audit, and background-execution
 semantics.
 
@@ -35,18 +35,18 @@ of Better Auth account rows and therefore would not resolve this mismatch.
 
 OAuth protocol code is security-sensitive and should not be implemented ad hoc when
 a focused, standards-oriented primitive is available. The dependency must not own
-Herald storage, users, projects, sessions, or publisher lifecycle state.
+Postbot storage, users, projects, sessions, or publisher lifecycle state.
 
 ## Decision
 
 ### Separate the boundaries
 
-- Better Auth is responsible only for authenticating people into Herald and managing
+- Better Auth is responsible only for authenticating people into Postbot and managing
   their application sessions. Its V1 strategy is email/password only: no OAuth or
   social provider is configured through Better Auth. Any future application login
   strategy requires a separate explicit decision and does not expand Better Auth's
   responsibility into publisher credentials.
-- Herald owns publisher credentials and authorization attempts as project-scoped
+- Postbot owns publisher credentials and authorization attempts as project-scoped
   domain resources.
 - `connectedByActorId` is audit attribution, not a reference to a Better Auth account
   that mechanically owns token storage. Actor departure or application-user deletion
@@ -63,7 +63,7 @@ Herald storage, users, projects, sessions, or publisher lifecycle state.
   callback URL are deployment configuration. They remain explicit environment
   configuration because changing them changes the deployed OAuth application.
 - Access tokens, refresh tokens, granted scopes, external account identity,
-  expiration, and connection health are dynamic product data stored by Herald.
+  expiration, and connection health are dynamic product data stored by Postbot.
 - API keys and other non-OAuth credentials must not be forced into OAuth or
   application-identity records. Their exact storage model remains deferred until a
   concrete publisher requires it.
@@ -109,7 +109,7 @@ These requirements follow the current OAuth security best current practice, whic
 recommends PKCE for confidential clients and requires explicit CSRF and authorization
 server mix-up defenses.
 
-### Encrypt publisher secrets under a Herald-owned key
+### Encrypt publisher secrets under a Postbot-owned key
 
 - Encrypt access tokens, refresh tokens, and temporary PKCE verifiers with Bun's
   Web Crypto AES-256-GCM implementation.
@@ -123,7 +123,7 @@ server mix-up defenses.
   errors, or test snapshots.
 
 Encryption protects a copied database or backup. It does not protect credentials
-from a compromised Herald process that holds the decryption key.
+from a compromised Postbot process that holds the decryption key.
 
 ### Make connection health explicit
 
@@ -147,19 +147,19 @@ its publisher credentials without deleting an application user.
 
 ### Keep publisher ownership project-scoped
 
-A connected external destination belongs to its Herald project, including when an
+A connected external destination belongs to its Postbot project, including when an
 authenticated project member completed the provider authorization flow. The actor is
 recorded for audit but does not retain personal ownership of the resulting local
 connection.
 
-- Removing the actor from the project or deleting their Herald account leaves the
+- Removing the actor from the project or deleting their Postbot account leaves the
   connection usable by the project.
 - An authorized project member may explicitly disconnect or reconnect it.
 - Provider revocation, durable authorization failure, or project deletion removes
   its usability according to the credential lifecycle above.
 - No foreign key from publisher credentials to Better Auth users or accounts may
   infer ownership or cascade credential deletion.
-- External providers may impose their own authorization validity rules. Herald
+- External providers may impose their own authorization validity rules. Postbot
   reflects those rules as connection health without changing local project ownership.
 
 ## Alternatives considered
@@ -174,14 +174,14 @@ technically capable.
 
 ### Implement token requests directly with `fetch`
 
-This has no dependency cost, but Herald would own more security-critical protocol
+This has no dependency cost, but Postbot would own more security-critical protocol
 validation and provider error parsing than necessary. Rejected while a focused,
 zero-dependency implementation of the current security practices exists.
 
 ### Use `openid-client`
 
 `openid-client` 6.8.7 supports Bun and provides a higher-level OAuth and OpenID
-Connect API. It depends on `oauth4webapi` and `jose`. Herald does not need its OIDC
+Connect API. It depends on `oauth4webapi` and `jose`. Postbot does not need its OIDC
 identity and discovery convenience for the publisher boundary, so the additional
 surface and dependency are not justified for V1.
 
@@ -202,7 +202,7 @@ viable new foundation.
 
 A provider SDK may remain useful inside one publisher adapter, but it cannot own the
 cross-provider credential lifecycle. The available LinkedIn client also brings an
-Axios-based HTTP stack that duplicates Herald's existing focused publisher adapter.
+Axios-based HTTP stack that duplicates Postbot's existing focused publisher adapter.
 
 ## Evidence
 
@@ -235,7 +235,7 @@ Sources:
 - Application user rows no longer mechanically own or cascade-delete publisher
   secrets; actor departure does not affect project-owned connection availability.
 - Workers resolve credentials without impersonating or retaining a human session.
-- OAuth security primitives are delegated without outsourcing Herald's domain or
+- OAuth security primitives are delegated without outsourcing Postbot's domain or
   storage model.
 - Non-OAuth credentials remain free to adopt an evidence-backed lifecycle without
   artificial Better Auth account rows.
@@ -243,7 +243,7 @@ Sources:
 
 ### Costs and risks
 
-- Herald must own encrypted storage, authorization-attempt persistence, key
+- Postbot must own encrypted storage, authorization-attempt persistence, key
   operations, connection health, and provider-specific OAuth metadata.
 - Losing the deployment encryption key makes stored publisher credentials
   unrecoverable. Backup and restore procedures must cover the key separately without

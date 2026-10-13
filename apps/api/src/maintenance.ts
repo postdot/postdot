@@ -12,8 +12,8 @@ import {
     backupWithMedia,
     restoreDatabase,
     restoreWithMedia,
-} from '@herald/db'
-import type { MediaStore } from '@herald/media'
+} from '@postbot/db'
+import type { MediaStore } from '@postbot/media'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
@@ -64,7 +64,7 @@ export async function runMaintenanceCommand(
         } finally {
             released = lock.release()
             if (!released)
-                console.error('[herald-maintenance] media preview runtime lock was retained')
+                console.error('[postbot-maintenance] media preview runtime lock was retained')
         }
         if (!released) throw new Error('Media preview runtime lock was retained')
         return true
@@ -94,12 +94,12 @@ export async function runMaintenanceCommand(
             } else {
                 createRecoveryHold(databaseFilename, 'external_restore')
                 console.log(
-                    'Recovery hold enabled. Start Herald to inspect and resume from administration.'
+                    'Recovery hold enabled. Start Postbot to inspect and resume from administration.'
                 )
             }
         } finally {
             released = lock.release()
-            if (!released) console.error('[herald-maintenance] recovery runtime lock was retained')
+            if (!released) console.error('[postbot-maintenance] recovery runtime lock was retained')
         }
         if (!released) throw new Error('Recovery runtime lock was retained')
         return true

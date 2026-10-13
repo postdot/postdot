@@ -8,9 +8,9 @@ import {
     type ChannelProfileDefinition,
     type PublicationReviewState,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {
     PublicationWorkingDraft,
     RebasePublicationDraftInput,
@@ -42,7 +42,7 @@ export interface PublicationAuthoringStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationAuthoringStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationAuthoringStoreOptions
 ) {
     const client = database.$client

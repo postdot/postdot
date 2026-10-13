@@ -1,4 +1,4 @@
-import { readRecoveryHold, releaseRecoveryHold, type RecoveryHold } from '@herald/db'
+import { readRecoveryHold, releaseRecoveryHold, type RecoveryHold } from '@postbot/db'
 
 export interface RecoveryService {
     held(): boolean

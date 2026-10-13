@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald already treats a channel as a project-owned publication destination,
+Postbot already treats a channel as a project-owned publication destination,
 separate from its optional publisher connection and from the versioned profile
 that describes its content contract. The web channel-management surface needs
 explicit rename, archive, restore, and delete behavior, but the current schema

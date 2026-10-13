@@ -7,9 +7,9 @@ import {
     requireTimestamp,
     type NotificationKind,
     type UserNotification,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const projectionName = 'in-app-notifications-v1'
@@ -100,7 +100,7 @@ export interface NotificationStoreOptions {
 }
 
 export function createNotificationStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: NotificationStoreOptions = {}
 ) {
     const client = database.$client

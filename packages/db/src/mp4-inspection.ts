@@ -1,5 +1,5 @@
 // cspell:words isom trak ftyp moov mdat moof stsz mdia minf stbl edts dinf udta mvex
-import type { MediaInspection, MediaInspectionLimits } from '@herald/core'
+import type { MediaInspection, MediaInspectionLimits } from '@postbot/core'
 import { createFile, type MP4BoxBuffer } from 'mp4box'
 
 /** Feed metadata only: neither video payloads nor an entire file are buffered. */

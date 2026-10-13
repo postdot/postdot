@@ -4,9 +4,9 @@ import {
     type ChannelProfileDefinition,
     type ChannelProfileImpactAssessment,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from '../client'
+import type { PostbotDatabase } from '../client'
 import type {
     ChannelProfileState,
     ChannelProfileVersion,
@@ -64,7 +64,7 @@ export interface ChannelProfileReadStoreHandle {
 }
 
 export function createChannelProfileReadStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ChannelProfileReadStoreOptions
 ): ChannelProfileReadStoreHandle {
     const loadDraftProfileStatement = database.$client.query<

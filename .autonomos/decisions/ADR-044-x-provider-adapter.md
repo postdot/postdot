@@ -11,7 +11,7 @@ X (formerly Twitter) is a centralized multichannel publication platform. X API v
 OAuth 2.0 with PKCE (RFC 7636) for user-context authorization and Bearer tokens for creating
 tweets and uploading media.
 
-Herald requires an explicit built-in execution contract for X that integrates cleanly into
+Postbot requires an explicit built-in execution contract for X that integrates cleanly into
 its existing project-owned publisher credential boundary, durable media checkpoints, and
 strict external-outcome classification without leaking secrets, adding universal abstractions,
 or depending on Better Auth.
@@ -28,7 +28,7 @@ or depending on Better Auth.
   `tweet.write`, `users.read`, `offline.access`, and `media.write`.
 - The callback validates the PKCE verifier, exchanges the authorization code, retrieves the
   authenticated user's profile via `GET https://api.x.com/2/users/me`, and persists the
-  encrypted access token, refresh token, and token expiration in Herald's project-owned
+  encrypted access token, refresh token, and token expiration in Postbot's project-owned
   `PublisherCredentialStore`.
 - The channel destination is typed as `{ type: 'account', id: string, name: string | null }`,
   where `id` is the numeric X user ID and `name` is `@${username}`.
@@ -43,13 +43,13 @@ or depending on Better Auth.
 - Media support allows up to 4 images (JPEG, PNG) up to 5MB each. The current image-only
   scope uses the documented v2 multipart upload on `https://api.x.com`: `POST /2/media/upload`
   with `media` and `media_category: tweet_image`, followed by the optional alt-text
-  attachment via `POST /2/media/metadata` before tweet creation. Herald's existing
+  attachment via `POST /2/media/metadata` before tweet creation. Postbot's existing
   `MediaStore` and `ProviderMediaDeliveryPort` reserve the delivery and record durable
   remote media checkpoints before tweet creation. Chunked upload remains a future provider
   capability for media types that require it; deprecated v1.1 `upload.twitter.com` endpoints
   are never used.
 - Uploaded media checkpoints are reused across attempts and restarts only while both the
-  provider-reported `expires_after_secs` deadline (when present) and Herald's conservative
+  provider-reported `expires_after_secs` deadline (when present) and Postbot's conservative
   20-hour horizon (`X_UPLOADED_MEDIA_REUSE_TTL_MS`) remain valid. Older or expired
   checkpoints require explicit reconciliation instead of risking a stale identifier; a
   provider rejection of media identifiers at tweet creation surfaces as permanent
@@ -73,11 +73,11 @@ or depending on Better Auth.
 - **OAuth 1.0a User Context:** rejected because OAuth 1.0a requires request tokens and HMAC-SHA1
   signatures, whereas X API v2 standardizes on OAuth 2.0 with PKCE and token refresh.
 - **Store tokens in user account:** rejected because credentials belong to a project channel in
-  Herald, not to an individual human user.
+  Postbot, not to an individual human user.
 - **Rely on Better Auth for external OAuth:** rejected because Better Auth is strictly for
-  authenticating users into Herald.
+  authenticating users into Postbot.
 - **Legacy v1.1 media upload (`upload.twitter.com/1.1/...`):** rejected because X documents
-  those endpoints as deprecated. Herald uses the v2 API on the same `api.x.com` host and
+  those endpoints as deprecated. Postbot uses the v2 API on the same `api.x.com` host and
   `media.write` scope as tweet creation.
 - **v2 chunked upload for the current image scope:** deferred because the documented simple
   upload accepts the supported JPEG/PNG payloads directly. Chunked INIT/APPEND/FINALIZE can
@@ -88,8 +88,8 @@ or depending on Better Auth.
 
 ## Consequences
 
-- Herald can publish posts and images directly to X channels with atomic credential management
-  and restart-safe media checkpoints bounded by both provider expiry and Herald's safety horizon.
+- Postbot can publish posts and images directly to X channels with atomic credential management
+  and restart-safe media checkpoints bounded by both provider expiry and Postbot's safety horizon.
 - The shared BuiltInProviderAdapter contract registers `x` with contract `x@post-v1`.
 - The shared conformance test suite covers X alongside LinkedIn, Bluesky, Mastodon, and
   Discord, plus X-specific refresh, checkpoint, expiry, and retry coverage.

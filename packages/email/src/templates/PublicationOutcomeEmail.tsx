@@ -3,18 +3,18 @@ import { Text } from '@react-email/text'
 import * as React from 'react'
 
 import { emailStyles } from '../styles'
-import { HeraldEmailLayout } from './HeraldEmailLayout'
+import { PostbotEmailLayout } from './PostbotEmailLayout'
 
-export interface HeraldPublicationOutcomeEmailInput {
+export interface PostbotPublicationOutcomeEmailInput {
     readonly email: string
     readonly title: string
     readonly body: string
     readonly url: string
 }
 
-export function PublicationOutcomeEmail({ title, body, url }: HeraldPublicationOutcomeEmailInput) {
+export function PublicationOutcomeEmail({ title, body, url }: PostbotPublicationOutcomeEmailInput) {
     return (
-        <HeraldEmailLayout preview={title} title={title}>
+        <PostbotEmailLayout preview={title} title={title}>
             <Text style={emailStyles.text}>{body}</Text>
             <Text style={emailStyles.action}>
                 <Button href={url} style={emailStyles.button}>
@@ -22,9 +22,9 @@ export function PublicationOutcomeEmail({ title, body, url }: HeraldPublicationO
                 </Button>
             </Text>
             <Text style={emailStyles.notice}>
-                You enabled outcome emails for this project. Manage them in Herald notification
+                You enabled outcome emails for this project. Manage them in Postbot notification
                 preferences.
             </Text>
-        </HeraldEmailLayout>
+        </PostbotEmailLayout>
     )
 }

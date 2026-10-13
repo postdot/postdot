@@ -1,5 +1,5 @@
-import type { PublisherConnectionPolicy } from '@herald/db'
-import { normalizeMastodonInstanceOrigin } from '@herald/mastodon'
+import type { PublisherConnectionPolicy } from '@postbot/db'
+import { normalizeMastodonInstanceOrigin } from '@postbot/mastodon'
 
 export const mastodonPublisherConnectionPolicy: PublisherConnectionPolicy = {
     endpointUrlRequired: true,

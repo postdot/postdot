@@ -6,8 +6,8 @@ import './globals.css'
 import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
-    title: { default: 'Herald', template: '%s | Herald' },
-    description: 'One source, publications for every destination. Self-hosted with Herald.',
+    title: { default: 'Postbot', template: '%s | Postbot' },
+    description: 'One source, publications for every destination. Self-hosted with Postbot.',
     robots: { index: false, follow: false },
 }
 

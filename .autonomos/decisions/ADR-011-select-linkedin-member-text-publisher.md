@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald needs one production-relevant automatic publisher to validate the complete
+Postbot needs one production-relevant automatic publisher to validate the complete
 scheduled publication path. The product context identifies LinkedIn as the first
 automatic destination in the intended workflow, while X and unsupported
 destinations remain valid manual or custom channels.
@@ -75,7 +75,7 @@ capabilities remain separate evidence-backed changes and must not change
 Mastodon's status API is technically attractive for a first adapter: it supports a
 granular `write:statuses` scope and an `Idempotency-Key` retained by the server for
 up to one hour. It still requires instance discovery and per-instance OAuth, and it
-does not validate the LinkedIn-centered workflow that Herald is intended to replace.
+does not validate the LinkedIn-centered workflow that Postbot is intended to replace.
 It remains a strong second-provider candidate if real usage needs it.
 
 ### Bluesky first
@@ -151,7 +151,7 @@ LinkedIn member application:
 
 - the OAuth callback persisted a project-owned LinkedIn connection;
 - the scheduler and worker delivered one real text post through the Posts API;
-- Herald persisted the provider result and marked the job as succeeded;
+- Postbot persisted the provider result and marked the job as succeeded;
 - the exact provider post was deleted through LinkedIn's idempotent delete
   operation, which returned HTTP `204`;
 - `bun run check` and the production footprint measurement passed after the live

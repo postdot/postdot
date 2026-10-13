@@ -1,4 +1,4 @@
-import type { AccessStore } from '@herald/db'
+import type { AccessStore } from '@postbot/db'
 import { Type, type Static } from 'typebox'
 
 import { errorResponse } from './models'
@@ -42,7 +42,7 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                 422: errorResponse,
             },
             detail: {
-                operationId: 'searchHerald',
+                operationId: 'searchPostbot',
                 summary: 'Search current source posts, channels, media and accessible projects',
                 tags: ['Search'],
             },

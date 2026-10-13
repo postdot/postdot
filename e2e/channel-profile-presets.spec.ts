@@ -411,7 +411,7 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     ).not.toContain(long.id)
 })
 
-test('edits profile constraints repeatedly while Herald owns technical metadata', async ({
+test('edits profile constraints repeatedly while Postbot owns technical metadata', async ({
     page,
 }, info) => {
     const suffix = randomUUID().slice(0, 8)
@@ -461,7 +461,7 @@ test('edits profile constraints repeatedly while Herald owns technical metadata'
     await json.fill(JSON.stringify({ ...editable, id: 'unwanted-identity' }, null, 2))
     await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(dialog.getByRole('alert')).toContainText(
-        'Identity, origin, version and fingerprints are managed by Herald.'
+        'Identity, origin, version and fingerprints are managed by Postbot.'
     )
     expect((await (await page.request.get(`${url}/profile`)).json()).draft).toEqual(saved)
     await json.fill(JSON.stringify(editable, null, 2))
@@ -483,9 +483,9 @@ test('edits profile constraints repeatedly while Herald owns technical metadata'
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-142 ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-142-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-142-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-142-password')
     await Promise.all([
         page.waitForResponse(

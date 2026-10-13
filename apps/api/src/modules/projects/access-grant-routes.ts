@@ -1,9 +1,9 @@
-import type { AccessProjectRole, AccessStore } from '@herald/db'
+import type { AccessProjectRole, AccessStore } from '@postbot/db'
 
 import {
     sessionSecurity,
     type AuthenticatedElysia,
-    type HeraldAuthenticationMethod,
+    type PostbotAuthenticationMethod,
 } from '../../plugins/auth'
 import {
     errorResponse,
@@ -57,7 +57,7 @@ function projectExists(projectId: string, access: AccessStore): boolean {
 function canManageProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string
 ): boolean {
     if (authMethod !== 'session') return false
@@ -70,7 +70,7 @@ function canManageProjectGrants(
 function canViewProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: HeraldAuthenticationMethod,
+    authMethod: PostbotAuthenticationMethod,
     userId: string
 ): boolean {
     if (authMethod !== 'session') return false
@@ -131,7 +131,7 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                 },
                 detail: {
                     operationId: 'createProjectUserGrant',
-                    summary: 'Grant a Herald user access to a project',
+                    summary: 'Grant a Postbot user access to a project',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },

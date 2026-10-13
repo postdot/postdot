@@ -7,10 +7,10 @@
 
 ## Outcome
 
-Herald now has an optional SMTP adapter backed by Nodemailer. The API creates it
+Postbot now has an optional SMTP adapter backed by Nodemailer. The API creates it
 only when SMTP configuration is present and injects typed Better Auth callbacks for
 Organization invitations, account verification, and password reset. The templates
-provide both text and escaped HTML bodies and use the configured `HERALD_EMAIL_FROM`
+provide both text and escaped HTML bodies and use the configured `POSTBOT_EMAIL_FROM`
 sender.
 
 Invitation links include the Better Auth invitation ID and the project associated
@@ -20,7 +20,7 @@ the recipient returns to the access screen instead of being dropped at the defau
 dashboard.
 
 The existing link-only workflow is unchanged when SMTP is absent. Enabling
-`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` without a configured transport is
+`POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` without a configured transport is
 rejected at startup. Mail submission is best-effort and non-blocking; transport
 failures are logged by message kind, and no durable outbox or retry policy is
 claimed.

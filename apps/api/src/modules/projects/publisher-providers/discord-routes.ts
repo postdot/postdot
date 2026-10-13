@@ -1,4 +1,4 @@
-import type { AccessStore } from '@herald/db'
+import type { AccessStore } from '@postbot/db'
 import {
     DISCORD_PROVIDER,
     DISCORD_TEXT_CHANNEL_TYPES,
@@ -6,7 +6,7 @@ import {
     normalizeDiscordBotToken,
     normalizeDiscordChannelId,
     type DiscordFetcher,
-} from '@herald/discord'
+} from '@postbot/discord'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

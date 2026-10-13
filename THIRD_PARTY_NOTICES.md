@@ -1,8 +1,8 @@
 # Third-party licenses and release checks
 
-Original Herald material: Copyright (c) 2026 Hakim Saoudi.
+Original Postbot material: Copyright (c) 2026 Hakim Saoudi.
 
-Herald's AGPL-3.0-only declaration applies to original project material, not to
+Postbot's AGPL-3.0-only declaration applies to original project material, not to
 third-party components. Their licenses and copyright notices remain applicable.
 This inventory is a preparation record, not a certificate of distribution compliance.
 
@@ -18,7 +18,7 @@ This inventory is a preparation record, not a certificate of distribution compli
 | Recursive variable font                 | OFL-1.1                                        | `docs/licenses/Recursive.LICENSE`; copied into the runtime image                      |
 | DiceBear Lorelei and Shapes definitions | CC0-1.0                                        | License/creator/source metadata inside the installed JSON definitions                 |
 
-DiceBear's aggregate styles package includes other licenses. Herald imports only
+DiceBear's aggregate styles package includes other licenses. Postbot imports only
 Lorelei and Shapes; do not treat the entire catalog as CC0. The installed package
 code and definition licenses must be considered separately.
 
@@ -145,12 +145,12 @@ license texts or a transitive dependency review.
 - Preserve the empty-state illustration attribution, source and CC BY 4.0 text
   in the release, including any later modifications. The portrait source URL is
   recovered above; non-copyright rights remain outside this inventory.
-- Supply source corresponding to the released Herald executable, including build
+- Supply source corresponding to the released Postbot executable, including build
   scripts, and a source-access mechanism appropriate to AGPL obligations. Agree on
   the public source location before implementing links in the application.
 - Preserve the FFmpeg source/build information and fulfill the separate LGPL
   distribution obligations; a current upstream download URL is not a permanent
-  source-availability guarantee maintained by Herald.
+  source-availability guarantee maintained by Postbot.
 - Review the Bun base image and its system component notices separately from the
   JavaScript inventory. No all-platform or all-component clearance is claimed.
 

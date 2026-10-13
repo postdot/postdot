@@ -46,9 +46,9 @@ describe('Mastodon publisher', () => {
             jsonResponse({ client_id: 'client-id', client_secret: 'client-secret' }),
             jsonResponse({
                 id: 'account-1',
-                acct: 'herald@example.social',
-                username: 'herald',
-                display_name: 'Herald',
+                acct: 'postbot@example.social',
+                username: 'postbot',
+                display_name: 'Postbot',
             }),
         ])
         const publisher = createMastodonPublisher({
@@ -58,10 +58,10 @@ describe('Mastodon publisher', () => {
 
         await expect(
             publisher.registerApplication({
-                clientName: 'Herald',
-                redirectUri: 'https://herald.example/api/oauth/mastodon/callback',
+                clientName: 'Postbot',
+                redirectUri: 'https://postbot.example/api/oauth/mastodon/callback',
                 scopes: ['read:accounts', 'write:media'],
-                website: 'https://herald.example',
+                website: 'https://postbot.example',
             })
         ).resolves.toEqual({
             kind: 'success',
@@ -71,9 +71,9 @@ describe('Mastodon publisher', () => {
             kind: 'success',
             value: {
                 id: 'account-1',
-                acct: 'herald@example.social',
-                username: 'herald',
-                displayName: 'Herald',
+                acct: 'postbot@example.social',
+                username: 'postbot',
+                displayName: 'Postbot',
             },
         })
 
@@ -98,7 +98,7 @@ describe('Mastodon publisher', () => {
         const fixture = createFetcher([
             jsonResponse({ id: 'media-1', type: 'image', url: null }, 202),
             jsonResponse({ id: 'media-1', type: 'image', url: 'https://cdn.example/media-1' }),
-            jsonResponse({ id: 'status-1', url: 'https://example.social/@herald/1' }),
+            jsonResponse({ id: 'status-1', url: 'https://example.social/@postbot/1' }),
         ])
         const publisher = createMastodonPublisher({
             baseUrl: 'https://example.social',
@@ -138,7 +138,7 @@ describe('Mastodon publisher', () => {
         ).resolves.toEqual({
             type: 'published',
             externalId: 'status-1',
-            externalUrl: 'https://example.social/@herald/1',
+            externalUrl: 'https://example.social/@postbot/1',
         })
 
         const upload = fixture.calls[0]

@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@postbot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
@@ -46,15 +46,18 @@ type MetricKey = (typeof providerMetrics)[AnalyticsProvider][number]['key']
 function groupLatestObservations(observations: readonly ProviderAnalyticsItem[]) {
     const grouped = new Map<string, Map<string, ProviderAnalyticsItem>>()
     for (const observation of observations) {
-        if (observation.heraldEntityType !== 'publication' || observation.heraldEntityId === null) {
+        if (
+            observation.postbotEntityType !== 'publication' ||
+            observation.postbotEntityId === null
+        ) {
             continue
         }
-        const publicationMetrics = grouped.get(observation.heraldEntityId) ?? new Map()
+        const publicationMetrics = grouped.get(observation.postbotEntityId) ?? new Map()
         const current = publicationMetrics.get(observation.metricName)
         if (current === undefined || observation.fetchedAt > current.fetchedAt) {
             publicationMetrics.set(observation.metricName, observation)
         }
-        grouped.set(observation.heraldEntityId, publicationMetrics)
+        grouped.set(observation.postbotEntityId, publicationMetrics)
     }
     return grouped
 }

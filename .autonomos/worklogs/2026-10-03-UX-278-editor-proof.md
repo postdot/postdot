@@ -67,7 +67,7 @@ stale-lock reclamation was introduced; OPS-271 remains separate.
 
 Full `bun run check` passed: formatting, lint/spelling, types/localization,
 unit/script tests, 56 browser journeys, two password-reset journeys and 17 build
-tasks. Log: `/tmp/herald-ux278-check.log`. Focused evidence: five codec tests and three
+tasks. Log: `/tmp/postbot-ux278-check.log`. Focused evidence: five codec tests and three
 browser journeys passed, including independent sessions, unchanged-string snapshot
 restore, constrained paste/keyboard behavior, protected source syntax, rich editing,
 emoji undo and Axe at 1280, 820 and 390 pixels in both themes. Screenshots are in

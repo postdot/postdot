@@ -4,9 +4,9 @@ import {
     requireNonBlank,
     requireTimestamp,
     type ProviderMediaDeliveryState,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 
 export interface ProviderMediaDelivery {
     readonly id: string
@@ -95,7 +95,7 @@ const deliveryColumns = `
 `
 
 export function createProviderMediaDeliveryStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: { readonly now?: () => number; readonly createId?: () => string } = {}
 ) {
     const client = database.$client

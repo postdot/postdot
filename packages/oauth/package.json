@@ -1,8 +1,8 @@
 {
-    "name": "@herald/oauth",
+    "name": "@postbot/oauth",
     "version": "0.0.0",
     "private": true,
-    "description": "OAuth protocol mechanics for Herald publisher connections",
+    "description": "OAuth protocol mechanics for Postbot publisher connections",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,

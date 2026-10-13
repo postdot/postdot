@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald's custom HTTP connection stores one origin-only endpoint so project-owned
+Postbot's custom HTTP connection stores one origin-only endpoint so project-owned
 configuration cannot expand the network authority granted to the instance. The
 mapped execution contract already constructs a bounded path beneath that origin,
 but its path expressions previously could not consume the encrypted connection
@@ -39,7 +39,7 @@ The custom HTTP contract adds a `path` authentication kind and a dedicated
 - the secret is not available to query, header, body, webhook-envelope, profile
   content, or arbitrary expression evaluation; extracted response identifiers and
   URLs containing the raw or encoded credential are rejected before persistence;
-- Herald's built-in transport redacts both the raw and encoded secret from
+- Postbot's built-in transport redacts both the raw and encoded secret from
   diagnostics. The receiver and any infrastructure in front of it can still see
   the URL, so operators must treat path authentication as appropriate only for
   receivers whose access-log and proxy policy accepts that exposure.

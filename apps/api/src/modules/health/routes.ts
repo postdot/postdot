@@ -1,5 +1,5 @@
-import type { SchedulerState } from '@herald/core'
-import type { HeraldDatabase } from '@herald/db'
+import type { SchedulerState } from '@postbot/core'
+import type { PostbotDatabase } from '@postbot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
@@ -52,12 +52,12 @@ type HealthRuntime = {
 }
 
 export interface HealthRoutesOptions {
-    readonly database: HeraldDatabase
+    readonly database: PostbotDatabase
     readonly runtime?: HealthRuntime
 }
 
 export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
-    return new Elysia({ name: 'herald-health' })
+    return new Elysia({ name: 'postbot-health' })
         .get(
             '/health',
             {
@@ -110,7 +110,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
         )
 }
 
-function readDatabaseStatus(database: HeraldDatabase): 'ok' | 'failed' {
+function readDatabaseStatus(database: PostbotDatabase): 'ok' | 'failed' {
     try {
         database.$client.query('select 1').get()
         return 'ok'

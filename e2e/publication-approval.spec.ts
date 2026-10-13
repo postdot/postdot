@@ -139,7 +139,7 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)
     await page.getByLabel('Name', { exact: true }).fill(`E2E approval ${suffix}`)
-    await page.getByLabel('Email', { exact: true }).fill(`e2e-approval-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-approval-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-approval-owner-password')
     await Promise.all([
         page.waitForResponse(

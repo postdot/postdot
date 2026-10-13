@@ -5,8 +5,8 @@ import {
     EmptyHeader,
     EmptyMedia,
     EmptyTitle,
-} from '@herald/ui/components/empty'
-import { cn } from '@herald/ui/lib/utils'
+} from '@postbot/ui/components/empty'
+import { cn } from '@postbot/ui/lib/utils'
 import type { ComponentProps, ReactNode } from 'react'
 
 import accessDark from '@/assets/empty-states/access-dark.svg'

@@ -5,7 +5,7 @@
 
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
-import { cn } from '@herald/ui/lib/utils'
+import { cn } from '@postbot/ui/lib/utils'
 import { addDays, type Locale } from 'date-fns'
 import {
     createContext,

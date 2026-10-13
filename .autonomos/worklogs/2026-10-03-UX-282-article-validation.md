@@ -34,7 +34,7 @@ correcting an invalid DEV.to title and removing the field error after save.
 
 Full `bun run check` exited 0: formatting, spelling/lint, types, all unit tests,
 62 main browser scenarios, two password-reset scenarios and 17 build tasks.
-Log: `/tmp/herald-article-validation-check.log`. Inspected 1280-wide validation
+Log: `/tmp/postbot-article-validation-check.log`. Inspected 1280-wide validation
 capture and 390-wide existing-editor capture; Axe checks included both widths.
 
 Shared API/web services were found stopped during the review and restarted in

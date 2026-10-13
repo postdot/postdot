@@ -3,14 +3,14 @@
 Status: holdout
 Scenario version: 2026-09-01
 Surface: public landing page / marketing surface
-Reader: a technical self-hoster or small team evaluating Herald
-Reader job: understand what Herald keeps together, why the Post/Publication
+Reader: a technical self-hoster or small team evaluating Postbot
+Reader job: understand what Postbot keeps together, why the Post/Publication
 distinction matters, and whether to open the workspace
 
 ## Frozen inputs
 
-- Prompt/request: transfer the accepted H-10 Herald identity to a landing page without reusing the dashboard shell
-- Product truth: Herald is a self-hosted multichannel publication orchestrator; one Post fans out to destination-specific Publications connected to Channels; delivery can be automatic or manual
+- Prompt/request: transfer the accepted H-10 Postbot identity to a landing page without reusing the dashboard shell
+- Product truth: Postbot is a self-hosted multichannel publication orchestrator; one Post fans out to destination-specific Publications connected to Channels; delivery can be automatic or manual
 - Content fixture: source post “One source of truth for every destination.”; four destinations with queued, needs-media, draft, and published states
 - Viewport/device: 1280 × 900, pointer; narrow companion checks at 768 × 900 and 375 × 900
 - Contract under test: H-10 accepted direction — Cobalt instrument, neutral surface-led grammar, source-to-publications signature
@@ -25,7 +25,7 @@ distinction matters, and whether to open the workspace
 
 Hard gates:
 
-- [x] The reader can identify Herald's product category and first action without the lab controls.
+- [x] The reader can identify Postbot's product category and first action without the lab controls.
 - [x] The landing composition does not reproduce the authenticated dashboard shell.
 - [x] The source-to-publications relationship is visible with real product vocabulary.
 - [x] The rendered page is checked at wide, tablet, and narrow widths without horizontal overflow.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { DomainInvariantError } from '@herald/core'
+import { DomainInvariantError } from '@postbot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
@@ -18,7 +18,7 @@ function createFixture() {
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
     const project = manual.createProject({
-        name: 'Herald',
+        name: 'Postbot',
         subjectId: 'human-1',
         displayName: 'First human',
     })
@@ -354,7 +354,7 @@ describe('notification store', () => {
                     kind, severity, subject_type, subject_id, title, body, created_at
                 ) values ('global-notification', null, 'human-1', null, 'system-update-1',
                     'publication_ambiguous', 'warning', 'system', 'system-update-1',
-                    'Herald update available', 'A new Herald update is available.', ?1)`,
+                    'Postbot update available', 'A new Postbot update is available.', ?1)`,
                 [eventTime + 2]
             )
 

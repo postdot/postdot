@@ -1,5 +1,5 @@
 import { treaty, type Treaty } from '@elysiajs/eden'
-import type { HeraldApp } from '@herald/api'
+import type { PostbotApp } from '@postbot/api'
 import type {
     AuditEventResponse,
     ChannelResponse,
@@ -46,26 +46,26 @@ import type {
     ProviderAnalyticsObservation,
     ProjectCategoryResponse,
     ProjectTagResponse,
-} from '@herald/api'
+} from '@postbot/api'
 
-type HeraldFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+type PostbotFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-export interface HeraldClientOptions {
+export interface PostbotClientOptions {
     readonly cookie?: string
     readonly headers?: ConstructorParameters<typeof Headers>[0]
     readonly token?: string
-    readonly fetcher?: HeraldFetcher
+    readonly fetcher?: PostbotFetcher
 }
 
-export function createHeraldClient(
+export function createPostbotClient(
     baseURL: string,
-    options: HeraldClientOptions = {}
-): Treaty.Create<HeraldApp> {
+    options: PostbotClientOptions = {}
+): Treaty.Create<PostbotApp> {
     const headers = new Headers(options.headers)
     if (options.cookie !== undefined) headers.set('cookie', options.cookie)
     if (options.token !== undefined) headers.set('authorization', `Bearer ${options.token}`)
 
-    return treaty<HeraldApp>(baseURL, {
+    return treaty<PostbotApp>(baseURL, {
         fetch: {
             credentials: 'same-origin',
         },
@@ -74,7 +74,7 @@ export function createHeraldClient(
     })
 }
 
-export type HeraldClient = ReturnType<typeof createHeraldClient>
+export type PostbotClient = ReturnType<typeof createPostbotClient>
 
 export type Project = ProjectResponse
 export type ProjectCategory = ProjectCategoryResponse
@@ -123,6 +123,6 @@ export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse
 
 export type EmailAlertPreference = EmailAlertPreferenceResponse
 
-export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@herald/api'
+export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@postbot/api'
 
-export type { SearchResponse } from '@herald/api'
+export type { SearchResponse } from '@postbot/api'

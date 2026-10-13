@@ -3,14 +3,14 @@
 - Status: complete
 - Date: 2026-09-11
 - Scope: project members, invitations, and the project access dashboard
-- Related issue: [ISSUE-062](../ISSUES.md#issue-062-define-herald-human-account-instance-administration-and-invitation-policy)
+- Related issue: [ISSUE-062](../ISSUES.md#issue-062-define-postbot-human-account-instance-administration-and-invitation-policy)
 - Related decisions: [ADR-061](../decisions/ADR-061-human-account-and-instance-access-policy.md), [ADR-064](../decisions/ADR-064-clean-development-access-baseline.md)
 
 ## Outcome
 
-Herald now exposes collaborative project access without creating a second
+Postbot now exposes collaborative project access without creating a second
 membership or invitation authority. Better Auth Organization remains the source
-of truth; the Herald API projects its members and invitations into a deliberately
+of truth; the Postbot API projects its members and invitations into a deliberately
 small project-scoped contract, and the dashboard provides the human workflow.
 
 The project access page now supports:
@@ -26,7 +26,7 @@ The project access page now supports:
 The owner boundary is explicit. A project member can read the member list but
 cannot administer it. Owner memberships cannot be changed or removed through
 this first UI/API slice; ownership transfer is a separate policy decision.
-Invitation and membership mutations are exposed through guarded Herald routes,
+Invitation and membership mutations are exposed through guarded Postbot routes,
 while direct public Better Auth organization-admin mutations remain blocked.
 
 ## Verification

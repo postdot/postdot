@@ -46,14 +46,14 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await submitCreateKey(allProjectsDialog, page)
 
     const generatedKeyHeading = page.getByRole('heading', {
-        name: /^API key created for Herald [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/,
+        name: /^API key created for Postbot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/,
     })
     await expect(generatedKeyHeading).toBeVisible()
     const generatedName = (await generatedKeyHeading.textContent())?.replace(
         /^API key created for /,
         ''
     )
-    expect(generatedName).toMatch(/^Herald [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/)
+    expect(generatedName).toMatch(/^Postbot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/)
     await page.context().grantPermissions(['clipboard-write'])
     await page.getByRole('button', { name: 'Copy API key', exact: true }).click()
     const copiedToast = page.locator('[data-slot="toast"]')
@@ -180,7 +180,7 @@ async function createAccountAndProject(
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)
     await page.getByLabel('Name', { exact: true }).fill(`E2E-137 owner ${suffix}`)
-    await page.getByLabel('Email', { exact: true }).fill(`e2e-137-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-137-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-137-owner-password')
     await Promise.all([
         page.waitForResponse(

@@ -1,9 +1,14 @@
-import { DomainInvariantError, requireNonBlank, requireTimestamp, type Channel } from '@herald/core'
+import {
+    DomainInvariantError,
+    requireNonBlank,
+    requireTimestamp,
+    type Channel,
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from '../client'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ChannelRow } from './rows'
@@ -67,7 +72,7 @@ export interface ChannelLifecycleStoreOptions {
 }
 
 export function createChannelLifecycleStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ChannelLifecycleStoreOptions
 ) {
     const client = database.$client

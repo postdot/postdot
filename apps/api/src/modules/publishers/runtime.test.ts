@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
-import { BLUESKY_REQUIRED_SCOPES } from '@herald/bluesky'
-import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import { BLUESKY_REQUIRED_SCOPES } from '@postbot/bluesky'
+import { closeDatabase, createDatabase, runMigrations } from '@postbot/db'
 
 import { createPublisherRuntime } from './runtime'
 
@@ -13,7 +13,7 @@ function createUser(database: ReturnType<typeof createDatabase>) {
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
-        .run('user-1', 'Herald Operator', 'operator@herald.test', now)
+        .run('user-1', 'Postbot Operator', 'operator@postbot.test', now)
 }
 
 function createRuntime(

@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald needs durable media support across built-in and runtime-defined channels.
+Postbot needs durable media support across built-in and runtime-defined channels.
 Media can be reused by several publications, transformed for a destination, uploaded
 to a provider before the final publication effect, stored locally or in an
 S3-compatible service, and retained for exact retry or reconciliation. Treating an
@@ -23,7 +23,7 @@ reconciliation.
 
 ## Decision
 
-Herald separates four media concepts:
+Postbot separates four media concepts:
 
 1. `MediaAsset` is the reusable, project-owned logical asset. It owns lifecycle and
    user-facing metadata such as the original filename and default accessibility text.
@@ -39,7 +39,7 @@ Herald separates four media concepts:
 
 The recognized media families are `image`, `video`, `audio`, and `document`.
 Animation is image metadata. The database does not contain a permanent MIME allowlist.
-A Herald-owned format registry identifies verified formats and inspectors, while
+A Postbot-owned format registry identifies verified formats and inspectors, while
 each immutable channel profile declares the exact MIME, byte, count, dimension,
 duration, composition, and accessibility constraints that apply to its media fields.
 Filename extensions and client MIME declarations are hints only.
@@ -52,13 +52,13 @@ conversion overwrites an original.
 
 Working drafts may refer to a ready asset. Target promotion selects a compatible
 ready representation and persists the exact relation. If a required variant is not
-ready, Herald reports a pending processing requirement and does not promote the
+ready, Postbot reports a pending processing requirement and does not promote the
 target. Retries and reconciliation reuse the representation pinned by the execution
 revision rather than resolving a newer variant.
 
 ## Storage contract
 
-Herald owns a narrow `MediaStore` contract that:
+Postbot owns a narrow `MediaStore` contract that:
 
 - writes a bounded stream to an opaque key;
 - opens bounded complete or range reads;
@@ -78,8 +78,8 @@ choices interchangeable without changing publication records.
 
 S3 presigned uploads and downloads are optional infrastructure accelerations rather
 than required `MediaStore` semantics. Local bytes stream through authenticated
-Herald routes, or through the application-owned short-lived signed route when a
-destination requires a URL; S3/R2 uses the same Herald delivery authority rather
+Postbot routes, or through the application-owned short-lived signed route when a
+destination requires a URL; S3/R2 uses the same Postbot delivery authority rather
 than exposing a storage locator. Both paths use the same finalizer, and storage
 remains private by default.
 
@@ -89,7 +89,7 @@ Media creation uses an explicit intent and finalization workflow:
 
 1. reserve the project asset, original representation, object key, and expiring
    upload intent in SQLite;
-2. stream through Herald or upload to a short-lived S3 target;
+2. stream through Postbot or upload to a short-lived S3 target;
 3. independently stat and stream the stored bytes, enforce resource ceilings,
    compute SHA-256, detect the format, and inspect available metadata;
 4. mark the representation and asset ready in one transaction only after successful
@@ -124,14 +124,14 @@ existing configurable retention period and its 24-hour default.
 
 ## Backup and restore
 
-A complete Herald backup includes SQLite, a manifest of retained representations,
+A complete Postbot backup includes SQLite, a manifest of retained representations,
 their store identities, keys, byte sizes and checksums, and the corresponding object
 bytes from local or S3 storage. Garbage collection is fenced while the manifest
 snapshot is copied. Restore verifies bytes before restored assets become ready.
 
 The existing SQLite-only operation remains a database backup primitive. A deliberately
 requested metadata-only export may omit media bytes, but neither is described as a
-complete recoverable Herald backup after media storage is enabled.
+complete recoverable Postbot backup after media storage is enabled.
 
 ## Alternatives considered
 

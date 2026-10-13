@@ -1,4 +1,4 @@
-# SPEC-001 — Herald V1 Scope
+# SPEC-001 — Postbot V1 Scope
 
 - Status: superseded
 - Scope: V1 product boundary, validation scenarios, and stop criteria
@@ -12,7 +12,7 @@
 
 ## Intent
 
-This specification defines the cut line for Herald V1. A capability is not part of
+This specification defines the cut line for Postbot V1. A capability is not part of
 V1 unless it is listed as a Must Have or is required to complete one of the exit
 scenarios.
 
@@ -22,7 +22,7 @@ We believe a technical self-hoster or small team with both supported and unsuppo
 publication destinations can replace a split scheduler and manual tracker when every
 destination is modeled as a `Channel` and automation is an optional `Publisher`.
 
-The hypothesis is validated when one real project uses Herald as its only publication
+The hypothesis is validated when one real project uses Postbot as its only publication
 source of truth for four consecutive weeks, including at least one automatic channel
 and one manual custom channel.
 
@@ -127,7 +127,7 @@ Pause V1 and reassess the product hypothesis when any of these becomes true:
 - A correct restart-safe workflow requires infrastructure incompatible with the
   singleton product target.
 - Publisher integration and maintenance cost dominates the product value.
-- Herald is not providing a distinct user outcome for the intended workflow.
+- Postbot is not providing a distinct user outcome for the intended workflow.
 
 ## Risk register
 
@@ -157,7 +157,7 @@ Pause V1 and reassess the product hypothesis when any of these becomes true:
 
 ## SQLite-first storage requirement
 
-SQLite through Drizzle and `bun:sqlite` is the only supported V1 database. Herald
+SQLite through Drizzle and `bun:sqlite` is the only supported V1 database. Postbot
 does not add a universal database adapter, duplicate schemas, runtime dialect
 selection, or cross-database contract suite in anticipation of PostgreSQL.
 

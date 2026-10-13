@@ -3,9 +3,9 @@ import {
     type ChannelProfileDefinition,
     type ChannelProfileImpactAssessment,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from '../client'
+import type { PostbotDatabase } from '../client'
 import { invalidProfileError, parseJsonObject } from './content-codec'
 import type {
     ProfileImpactTargetRow,
@@ -38,7 +38,7 @@ export interface ChannelProfileImpactResult {
 }
 
 export function createChannelProfileImpactAssessor(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: ChannelProfileImpactAssessorOptions
 ) {
     const client = database.$client

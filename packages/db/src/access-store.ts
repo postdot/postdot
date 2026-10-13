@@ -1,8 +1,8 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-import { requireNonBlank } from '@herald/core'
+import { requireNonBlank } from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 
 export const accessInstanceId = 'default'
 export const defaultInvitationTtlMs = 7 * 24 * 60 * 60 * 1_000
@@ -111,7 +111,7 @@ export interface AccessProjectTeamGrant {
     readonly updatedAt: number
 }
 
-/** Instance invitations are the only invitation records owned by Herald. */
+/** Instance invitations are the only invitation records owned by Postbot. */
 export interface AccessInvitation {
     readonly id: string
     readonly targetEmail: string
@@ -414,7 +414,7 @@ function selectBestProjectMembership(
     }, null)
 }
 
-export function createAccessStore(database: HeraldDatabase, options: AccessStoreOptions = {}) {
+export function createAccessStore(database: PostbotDatabase, options: AccessStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? randomUUID
@@ -1196,7 +1196,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
     }): void => {
         const timestamp = now()
         upsertProjectUserGrantStatement.run(
-            `herald-project-user-grant:${input.projectId}:${input.userId}`,
+            `postbot-project-user-grant:${input.projectId}:${input.userId}`,
             input.projectId,
             input.userId,
             'viewer',
@@ -1242,7 +1242,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
     }): void => {
         const timestamp = now()
         insertWorkspaceMemberStatement.run(
-            `herald-workspace-member:${input.workspace.id}:${input.userId}`,
+            `postbot-workspace-member:${input.workspace.id}:${input.userId}`,
             input.workspace.organizationId,
             input.userId,
             input.role,
@@ -1250,7 +1250,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         )
         const viewerTeamId = defaultWorkspaceTeamId(input.workspace.id, 'Viewers')
         addWorkspaceTeamMemberStatement.run(
-            `herald-team-member:${viewerTeamId}:${input.userId}`,
+            `postbot-team-member:${viewerTeamId}:${input.userId}`,
             viewerTeamId,
             input.userId,
             timestamp
@@ -1268,13 +1268,13 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
     }
 
     const defaultWorkspaceTeamId = (workspaceId: string, name: string): string =>
-        `herald-workspace-team:${workspaceId}:${name.toLowerCase()}`
+        `postbot-workspace-team:${workspaceId}:${name.toLowerCase()}`
 
     const ensureDefaultWorkspaceInCurrentTransaction = (userId: string): AccessWorkspace => {
         const existing = loadDefaultWorkspaceStatement.get()
         if (existing !== null) {
             insertWorkspaceMemberStatement.run(
-                `herald-workspace-member:${existing.id}:${userId}`,
+                `postbot-workspace-member:${existing.id}:${userId}`,
                 existing.organizationId,
                 userId,
                 'owner',
@@ -1287,17 +1287,17 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         const workspaceId = createId()
         const organizationId = createId()
         const name = 'My workspace'
-        const slug = `herald-workspace-${workspaceId}`
+        const slug = `postbot-workspace-${workspaceId}`
         insertWorkspaceOrganizationStatement.run(
             organizationId,
             name,
             slug,
-            JSON.stringify({ heraldResource: 'workspace', heraldDefault: true }),
+            JSON.stringify({ postbotResource: 'workspace', postbotDefault: true }),
             timestamp
         )
         insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 1, timestamp)
         insertWorkspaceMemberStatement.run(
-            `herald-workspace-member:${workspaceId}:${userId}`,
+            `postbot-workspace-member:${workspaceId}:${userId}`,
             organizationId,
             userId,
             'owner',
@@ -1309,7 +1309,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
             if (teamName === 'Administrators') {
                 addWorkspaceTeamMemberStatement.run(
-                    `herald-team-member:${teamId}:${userId}`,
+                    `postbot-team-member:${teamId}:${userId}`,
                     teamId,
                     userId,
                     timestamp
@@ -1320,7 +1320,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
         setDefaultWorkspaceStatement.run(workspaceId, timestamp)
         const workspace = loadDefaultWorkspaceStatement.get()
-        if (workspace === null) throw new Error('The default Herald workspace was not persisted')
+        if (workspace === null) throw new Error('The default Postbot workspace was not persisted')
         return toWorkspace(workspace)
     }
 
@@ -1335,7 +1335,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
             insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 0, timestamp)
             insertWorkspaceMemberStatement.run(
-                `herald-workspace-member:${workspaceId}:${ownerUserId}`,
+                `postbot-workspace-member:${workspaceId}:${ownerUserId}`,
                 organizationId,
                 ownerUserId,
                 'owner',
@@ -1347,7 +1347,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                 insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
                 if (teamName === 'Administrators') {
                     addWorkspaceTeamMemberStatement.run(
-                        `herald-team-member:${teamId}:${ownerUserId}`,
+                        `postbot-team-member:${teamId}:${ownerUserId}`,
                         teamId,
                         ownerUserId,
                         timestamp
@@ -1358,7 +1358,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
             const workspace = loadWorkspaceStatement.get(workspaceId)
             if (workspace === null) {
-                throw new Error('The Herald workspace projection was not persisted')
+                throw new Error('The Postbot workspace projection was not persisted')
             }
             return toWorkspace(workspace)
         }
@@ -1394,7 +1394,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         ensureDefaultWorkspaceInCurrentTransaction(userId)
         const membership = loadInstanceMembershipStatement.get(userId)
         if (membership === null) {
-            throw new Error('The first account membership could not be read after claiming Herald')
+            throw new Error('The first account membership could not be read after claiming Postbot')
         }
         return { kind: 'claimed', membership: toInstanceMembership(membership) }
     }
@@ -1537,7 +1537,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
     return {
         getInstanceState(): AccessInstanceStateRecord {
             const row = loadInstanceStateStatement.get()
-            if (row === null) throw new Error('The Herald instance state row is missing')
+            if (row === null) throw new Error('The Postbot instance state row is missing')
             return toInstanceState(row)
         },
 
@@ -1744,7 +1744,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
             const timestamp = now()
             upsertProjectUserGrantStatement.run(
-                `herald-project-user-grant:${projectId}:${userId}`,
+                `postbot-project-user-grant:${projectId}:${userId}`,
                 projectId,
                 userId,
                 input.role,
@@ -1786,7 +1786,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
             const timestamp = now()
             upsertProjectTeamGrantStatement.run(
-                `herald-project-team-grant:${projectId}:${teamId}`,
+                `postbot-project-team-grant:${projectId}:${teamId}`,
                 projectId,
                 teamId,
                 input.role,
@@ -1871,7 +1871,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
 
             const timestamp = now()
             upsertProjectUserGrantStatement.run(
-                `herald-project-user-grant:${projectId}:${userId}`,
+                `postbot-project-user-grant:${projectId}:${userId}`,
                 projectId,
                 userId,
                 'owner',

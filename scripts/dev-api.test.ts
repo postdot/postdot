@@ -60,7 +60,7 @@ test('repeated subprocess restarts retain exclusive lock ownership until delayed
     const { mkdtemp, readFile, rm } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
     const { join } = await import('node:path')
-    const directory = await mkdtemp(join(tmpdir(), 'herald-restart-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postbot-restart-'))
     const database = join(directory, 'runtime.sqlite')
     const lockModule = join(import.meta.dir, '../packages/db/src/runtime-quiescence.ts')
     const children: ReturnType<typeof Bun.spawn>[] = []
@@ -109,7 +109,7 @@ test('launcher diagnoses unexpected API exit, restarts on edit and drains termin
     const { mkdir, mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
     const { join } = await import('node:path')
-    const root = await mkdtemp(join(tmpdir(), 'herald-launcher-'))
+    const root = await mkdtemp(join(tmpdir(), 'postbot-launcher-'))
     const api = join(root, 'apps/api')
     const database = join(root, 'runtime.sqlite')
     const lockModule = join(import.meta.dir, '../packages/db/src/runtime-quiescence.ts')
@@ -209,14 +209,14 @@ test('real API releases its runtime lock when terminal hangup reaches the child 
                 NODE_ENV: 'test',
                 PORT: String(resources.apiPort),
                 DB_FILE_NAME: resources.databaseFile,
-                HERALD_MEDIA_DIRECTORY: resources.mediaDirectory,
-                HERALD_MEDIA_STORE: 'local',
+                POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+                POSTBOT_MEDIA_STORE: 'local',
                 BETTER_AUTH_URL: resources.apiOrigin,
-                HERALD_WEB_ORIGIN: resources.webOrigin,
-                BETTER_AUTH_SECRET: 'herald-isolated-test-auth-secret-at-least-32-characters',
-                HERALD_MEDIA_PUBLIC_URL_SECRET:
-                    'herald-isolated-test-media-secret-at-least-32-characters',
-                HERALD_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+                POSTBOT_WEB_ORIGIN: resources.webOrigin,
+                BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
+                POSTBOT_MEDIA_PUBLIC_URL_SECRET:
+                    'postbot-isolated-test-media-secret-at-least-32-characters',
+                POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
                 LOG_LEVEL: 'silent',
             },
             stdout: 'ignore',

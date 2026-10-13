@@ -7,28 +7,28 @@
 
 ## Decision
 
-Herald uses SMTP as its deployment-level email transport. Nodemailer owns the
+Postbot uses SMTP as its deployment-level email transport. Nodemailer owns the
 protocol adapter in the API process, while Better Auth remains responsible for
 token generation, expiry, verification, password-reset, and Organization
-invitation records. Herald does not couple the access model to a vendor-specific
+invitation records. Postbot does not couple the access model to a vendor-specific
 mail API.
 
 Delivery is optional. The transport is enabled only when the deployment supplies
-`HERALD_EMAIL_SMTP_HOST` and `HERALD_EMAIL_FROM`, with port `587` by default,
-`HERALD_EMAIL_SMTP_SECURE` for TLS mode, and an optional username/password pair.
+`POSTBOT_EMAIL_SMTP_HOST` and `POSTBOT_EMAIL_FROM`, with port `587` by default,
+`POSTBOT_EMAIL_SMTP_SECURE` for TLS mode, and an optional username/password pair.
 Credentials are environment configuration only; no mail secret is stored in the
 repository or database. When SMTP is unset, the existing copyable invitation-link
 workflow remains the truthful local/manual-link profile.
 
 The configured callbacks cover three Better Auth events:
 
-- Organization invitations use a Herald URL containing the invitation ID and the
+- Organization invitations use a Postbot URL containing the invitation ID and the
   associated project ID, so the recipient can sign in or create the invited account
   and still return to the correct project access screen.
 - Email/password signup sends an account-verification message when SMTP is enabled.
 - Password-reset requests use the same deployment transport and a dedicated template.
 
-`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` remains opt-in and cannot be
+`POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` remains opt-in and cannot be
 enabled without a configured transport. This keeps the local profile usable while
 making a shared deployment’s verified-email requirement an explicit choice.
 
@@ -45,7 +45,7 @@ provider webhook in this slice. A future hosted/shared deployment that needs
 delivery guarantees must add those as a separate reliability decision rather than
 silently pretending SMTP submission is durable.
 
-Templates are small React Email components in the `@herald/email` package and
+Templates are small React Email components in the `@postbot/email` package and
 use English as the current server-side base language. The API maps Better Auth
 callbacks to rendered HTML/text messages and remains responsible for Nodemailer
 transport configuration. Localization and branded template management remain
@@ -68,5 +68,5 @@ Focused tests inject a fake transport and assert recipients, subjects, escaped
 HTML, invitation project context, account-verification and password-reset hooks,
 disabled no-mail behavior, and non-blocking failure reporting. Configuration tests
 cover optional SMTP, incomplete credentials, and the verified-invitation guard.
-Template tests live in `@herald/email`; local SMTP delivery is exercised through
+Template tests live in `@postbot/email`; local SMTP delivery is exercised through
 the Mailpit compose profile rather than a real external mailbox.

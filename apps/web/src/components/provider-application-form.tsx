@@ -1,12 +1,12 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Field,
     FieldContent,
     FieldGroup,
     FieldLabel,
     FieldTitle,
-} from '@herald/ui/components/field'
-import { Switch } from '@herald/ui/components/switch'
+} from '@postbot/ui/components/field'
+import { Switch } from '@postbot/ui/components/switch'
 import { type Dispatch, type FormEvent, type SetStateAction } from 'react'
 
 import { ProviderApplicationFormFields } from '@/components/provider-application-form-fields'

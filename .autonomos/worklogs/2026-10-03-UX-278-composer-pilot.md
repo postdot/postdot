@@ -57,8 +57,8 @@ API contract and retain the complete scenarios rather than weakening assertions.
 
 Five targeted browser journeys passed. Full `bun run check` passed: 58 main
 browser journeys, two password-reset journeys, all checks and 17 build tasks.
-Evidence log: `/tmp/herald-editor-pilot-check.log`. Focused log:
-`/tmp/herald-editor-integrated-browser.log`.
+Evidence log: `/tmp/postbot-editor-pilot-check.log`. Focused log:
+`/tmp/postbot-editor-integrated-browser.log`.
 
 ## Remaining work
 

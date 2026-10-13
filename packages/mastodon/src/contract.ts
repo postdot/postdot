@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 export const MASTODON_PROVIDER = 'mastodon' as const
 export const MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION = 'status-v1'

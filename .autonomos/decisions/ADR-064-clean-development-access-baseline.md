@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald is a private application that has not been used by the owner or by any
+Postbot is a private application that has not been used by the owner or by any
 external operator. The repository contains no development database file or
 deployed data that needs to survive an access-model change. The previous Better
 Auth adoption therefore carried project-membership, mixed invitation, bearer-token,
@@ -21,25 +21,25 @@ history describe discarded development models instead of the current product.
 
 ## Decision
 
-Herald adopts a clean-slate development boundary:
+Postbot adopts a clean-slate development boundary:
 
 - The Drizzle directory contains one generated baseline for the current schema.
   Future schema changes may add ordinary migrations from that baseline; the
   baseline is not an excuse to weaken migration checks or silently reset a database.
 - A local database whose schema conflicts with the committed history has no
   supported automatic upgrade path in this development phase. The migration runner
-  fails closed with an actionable message. An operator may stop Herald and move a
+  fails closed with an actionable message. An operator may stop Postbot and move a
   disposable local database aside explicitly; a database containing data that must
   be preserved requires a new, separately accepted production migration plan.
 - Better Auth Admin owns global user administration, Organization owns project
   membership and invitations, and the API Key plugin owns user-owned keys and
-  their expiry. Herald routes retain the project-scope and owner-attribution
+  their expiry. Postbot routes retain the project-scope and owner-attribution
   checks around that standard primitive.
-- Herald retains only access state with independent domain meaning: instance
+- Postbot retains only access state with independent domain meaning: instance
   bootstrap and membership, a dedicated instance-invitation table, and human or
   machine actor projections used by the domain and audit history.
 - The obsolete project-membership table, mixed project/instance invitation table,
-  Herald project bearer-token table, retirement marker, compatibility store, and
+  Postbot project bearer-token table, retirement marker, compatibility store, and
   runtime fallbacks are not part of the current schema or runtime.
 
 ## Consequences
@@ -48,7 +48,7 @@ The code and schema now express one project-access model instead of a current mo
 plus a hypothetical historical one. Fresh development databases are smaller and
 deterministic, and tests cannot accidentally pass by exercising retired access
 paths. Existing local test data is intentionally disposable and must be recreated
-when the baseline changes. If Herald later has a real deployed database, production
+when the baseline changes. If Postbot later has a real deployed database, production
 upgrade and rollback semantics will be designed from observed data in a new
 decision rather than inferred from this private development baseline.
 
@@ -56,10 +56,10 @@ decision rather than inferred from this private development baseline.
 
 - The generated migration directory contains exactly one SQL baseline and its
   matching snapshot.
-- A fresh database contains the current Better Auth and Herald tables, seeds a
+- A fresh database contains the current Better Auth and Postbot tables, seeds a
   claimable instance, and contains none of the removed access tables or marker.
 - Reapplying the baseline is idempotent, preserves foreign-key enforcement, and
   records one Drizzle migration.
 - Focused authentication, access, API-key, invitation, and project tests pass
-  without constructing a retired Herald project token or membership.
+  without constructing a retired Postbot project token or membership.
 - The full repository quality gate remains required before integration.

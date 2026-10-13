@@ -10,7 +10,7 @@
 
 An automatic custom channel needs to reach public publication APIs and may also need
 to reach an operator-owned blog on a private Docker or LAN network. An unrestricted
-endpoint would also let project-controlled configuration make the Herald process
+endpoint would also let project-controlled configuration make the Postbot process
 request loopback services, cloud metadata endpoints, or unrelated private services.
 This is a server-side request forgery boundary even when the default deployment is
 self-hosted, because project authority and host-network authority are not the same.
@@ -67,7 +67,7 @@ or network library is selected by this decision.
 ## Alternatives considered
 
 - **Unrestricted endpoints for trusted self-hosters:** smallest implementation, but
-  silently grants every project-level channel editor the Herald host's network
+  silently grants every project-level channel editor the Postbot host's network
   reachability.
 - **Public HTTPS only:** strong and simple, but excludes legitimate private blogs and
   Docker-network receivers.
@@ -79,7 +79,7 @@ or network library is selected by this decision.
 
 ## Consequences
 
-- A normal custom channel cannot use Herald to probe or call the host's private
+- A normal custom channel cannot use Postbot to probe or call the host's private
   network.
 - A self-hosting operator can deliberately authorize a private publication service
   without granting that power to every project member.

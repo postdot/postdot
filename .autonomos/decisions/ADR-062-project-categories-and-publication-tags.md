@@ -10,7 +10,7 @@
 
 ## Context
 
-Herald currently has a deliberately small domain boundary:
+Postbot currently has a deliberately small domain boundary:
 
 ```text
 Project -> Channels
@@ -26,7 +26,7 @@ time scanning, and Queue the job of lifecycle and human-action prioritization.
 
 The product needs lightweight metadata for two different questions:
 
-1. What kind of work is this project among the projects in one Herald instance?
+1. What kind of work is this project among the projects in one Postbot instance?
 2. Which destination publications should an operator find, group, or filter in
    the daily queue and calendar workflow?
 
@@ -52,7 +52,7 @@ metadata.
 
 ## Decision
 
-Herald will use two separate metadata concepts:
+Postbot will use two separate metadata concepts:
 
 - A project has zero or one optional primary category. A category answers what
   the project is principally for and is useful in cross-project navigation and
@@ -111,7 +111,7 @@ separated in the API even if the first UI exposes them close together.
 - Tags are scoped to a project. A publication may only reference tags from the
   same project, preserving the project-isolation rule used by all other domain
   state.
-- A publication may have any number of distinct tags, including zero. Herald
+- A publication may have any number of distinct tags, including zero. Postbot
   imposes no business quota on tag count or tags per project. The only required
   constraints are non-blank names, duplicate collapse, project ownership, and
   request/resource safety at the transport boundary.
@@ -129,7 +129,7 @@ separated in the API even if the first UI exposes them close together.
   maintenance, not a content revision. If future reporting needs the label as
   it appeared at publication time, it must store an assignment or event
   snapshot; it must not infer history from the current label.
-- Tags are internal Herald metadata. They are not automatically serialized into
+- Tags are internal Postbot metadata. They are not automatically serialized into
   target content, provider requests, external hashtags, media, notifications,
   or provider-owned engagement observations. A provider-specific mapping would
   require a separate accepted decision and explicit user action.
@@ -140,7 +140,7 @@ separated in the API even if the first UI exposes them close together.
 
 ### Ownership and authority
 
-The taxonomy data itself is owned by Herald, not by a publisher provider.
+The taxonomy data itself is owned by Postbot, not by a publisher provider.
 
 - Project category definitions are instance-scoped. Their create, rename,
   archive, and restore authority must use the accepted instance-administration
@@ -156,7 +156,7 @@ The taxonomy data itself is owned by Herald, not by a publisher provider.
   introduce a taxonomy-only role.
 - Every mutation must enforce the project/instance scope on the server. Client
   route context and tag IDs are not authorization evidence.
-- Definition mutations should be attributable to the acting Herald actor where
+- Definition mutations should be attributable to the acting Postbot actor where
   the existing audit boundary supports it. Tag assignment need not become an
   execution fact and must not expose credentials or provider data.
 
@@ -233,7 +233,7 @@ Taxonomy metadata does not expand the current analytics contract in V1.
   lifecycle labels are product copy and belong in the existing Paraglide
   catalogs. English and French must preserve the same meaning and action
   hierarchy.
-- User-authored category and tag labels are opaque data. Herald does not
+- User-authored category and tag labels are opaque data. Postbot does not
   translate, transliterate, or silently rewrite them per locale.
 - Locale-aware collation is presentation-only. It must not change normalized
   uniqueness or scope.
@@ -250,7 +250,7 @@ There is no existing taxonomy data to infer, so migration is additive and
 lossless:
 
 - Existing projects receive no guessed category. Existing posts and
-  publications receive no guessed tags. Herald must not infer labels from
+  publications receive no guessed tags. Postbot must not infer labels from
   project names, source text, channels, providers, or filenames.
 - The eventual schema should keep nullable category assignment and empty tag
   assignment as valid states. Introducing the tables/columns must not rewrite
@@ -308,7 +308,7 @@ visible in record detail and optional archived filters.
 
 ## Alternatives considered
 
-### A. One universal label system on every Herald object
+### A. One universal label system on every Postbot object
 
 This would make tags appear flexible, but it would blur project identity,
 source content, destination work, provider configuration, and execution facts.
@@ -348,7 +348,7 @@ there is a measured reporting need and a historical assignment contract.
 
 Positive:
 
-- The first taxonomy slice is small and follows Herald's existing object
+- The first taxonomy slice is small and follows Postbot's existing object
   boundaries: one project classification and publication-level operational
   metadata.
 - A source fan-out can retain destination-specific workflow labels without

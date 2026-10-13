@@ -4,7 +4,7 @@ This package owns DEV.to and Forem API protocol knowledge: API-key
 authentication, the authenticated-user response, article payloads, provider
 limits, and external outcome classification.
 
-- Keep the package independent from Elysia, the database, Better Auth, Herald
+- Keep the package independent from Elysia, the database, Better Auth, Postbot
   persistence, and the web application.
 - Inject fetchers and timing boundaries in tests; never use a real DEV.to API key
   or make a real provider request from the test suite.

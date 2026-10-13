@@ -1,5 +1,5 @@
 import { jsonToLex, BlobRef, type Agent } from '@atproto/api'
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 import { BLUESKY_MAX_VIDEO_BYTES, type BlueskyFetcher } from './contract'
 
@@ -93,7 +93,7 @@ export function createBlueskyVideoService(options: {
             try {
                 const url = new URL(`${VIDEO_ORIGIN}/xrpc/app.bsky.video.uploadVideo`)
                 url.searchParams.set('did', options.agent.did)
-                url.searchParams.set('name', 'herald-video.mp4')
+                url.searchParams.set('name', 'postbot-video.mp4')
                 const response = await fetcher(url, {
                     method: 'POST',
                     headers: {

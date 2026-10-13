@@ -2,14 +2,14 @@
 
 - Status: accepted
 - Date: 2026-09-07
-- Scope: Herald API database write boundary, SSE wakeups, and in-app notification projection
+- Scope: Postbot API database write boundary, SSE wakeups, and in-app notification projection
 - Provenance: ISSUE-050, REALTIME-105, product discussion
 - Related decisions: ADR-047, ADR-048, ADR-049
 - Supersedes: ADR-049 for the normal event-discovery path
 
 ## Context
 
-Herald is a single Bun process backed by SQLite. Its project changes and
+Postbot is a single Bun process backed by SQLite. Its project changes and
 notifications are durable facts, not ephemeral chat messages. A browser stream
 therefore needs a fast in-process signal for normal operation and a durable
 journal for replay after a reconnect or process restart.
@@ -22,7 +22,7 @@ already knows when it appends a fact.
 
 ## Decision
 
-Every Herald transaction that appends an `audit_events` fact uses the shared
+Every Postbot transaction that appends an `audit_events` fact uses the shared
 `createDatabaseTransaction` boundary. The event-writing code records the
 affected project id in the active transaction frame. When Bun returns from the
 transaction callback successfully, SQLite has committed the state and fact;
@@ -55,7 +55,7 @@ The durable journal remains the recovery boundary:
 
 The current deployment remains single-process. Writes made by an external
 process or an uninstrumented raw SQLite connection are outside this boundary
-and require a future cross-process signal if Herald ever supports them.
+and require a future cross-process signal if Postbot ever supports them.
 
 ## Alternatives considered
 
@@ -67,7 +67,7 @@ and require a future cross-process signal if Herald ever supports them.
   crashes and missed subscribers; rejected.
 - **SQLite triggers, WAL hooks, Redis, or WebSockets:** either do not provide a
   post-commit application boundary or add infrastructure and failure modes
-  that Herald does not currently need.
+  that Postbot does not currently need.
 
 ## Consequences
 

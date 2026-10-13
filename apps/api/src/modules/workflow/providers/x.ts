@@ -1,10 +1,10 @@
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionTarget } from '@herald/db'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     refreshAccessToken,
     type OAuthAuthorizationServer,
     type OAuthClientAuthentication,
-} from '@herald/oauth'
+} from '@postbot/oauth'
 import {
     X_EXECUTION_CONTRACT_REVISION,
     X_MAX_IMAGE_BYTES,
@@ -18,7 +18,7 @@ import {
     type XOperationFailure,
     type XPublishOutcome,
     type XPublisher,
-} from '@herald/x'
+} from '@postbot/x'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'
@@ -262,7 +262,7 @@ async function prepareXMedia(input: {
                 mediaIds.push(current.remoteMediaId)
                 continue
             }
-            // The provider expiry, when available, or Herald's conservative
+            // The provider expiry, when available, or Postbot's conservative
             // reuse horizon (see X_UPLOADED_MEDIA_REUSE_TTL_MS) has elapsed.
             // The provider effect is unknown, so this requires explicit
             // reconciliation instead of silently reusing a stale identifier.

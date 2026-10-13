@@ -10,7 +10,7 @@
 
 ## Context
 
-Herald has two durable kinds of information that are useful for analytics:
+Postbot has two durable kinds of information that are useful for analytics:
 
 - Current-state tables describe what is true now. `publications` owns the current
   publication lifecycle, delivery mode, schedule, and outcome. `jobs` owns the
@@ -39,7 +39,7 @@ aggregations, or UI.
 
 The word “analytics” currently hides two different ownership problems:
 
-1. Herald operational analytics must explain publication work that Herald created,
+1. Postbot operational analytics must explain publication work that Postbot created,
    scheduled, claimed, attempted, retried, completed, failed, or left ambiguous.
 2. Provider engagement analytics must report data such as likes, impressions,
    clicks, and reactions only when an individual provider exposes that data with
@@ -47,7 +47,7 @@ The word “analytics” currently hides two different ownership problems:
 
 Conflating these categories would make a successful HTTP delivery look like user
 engagement, turn a provider's missing metric into a misleading zero, and force
-provider-specific authorization and retention rules into Herald's provider-neutral
+provider-specific authorization and retention rules into Postbot's provider-neutral
 workflow model.
 
 ## Decision
@@ -55,7 +55,7 @@ workflow model.
 Adopt a query-time hybrid operational read model with a strict provider engagement
 boundary:
 
-- Use current Herald tables for current inventories and workload snapshots.
+- Use current Postbot tables for current inventories and workload snapshots.
 - Use the durable fact journal for historical lifecycle, execution, retry,
   recovery, and latency facts.
 - Keep the first operational implementation query-time and read-only. Do not add
@@ -69,7 +69,7 @@ boundary:
 
 The hybrid in this decision describes the sources of truth, not two competing
 histories. `publications` and `jobs` remain authoritative for current state;
-`audit_events` remains authoritative for historical Herald facts. A future
+`audit_events` remains authoritative for historical Postbot facts. A future
 analytics projection, if needed, is a cache derived from those sources and is not a
 new authority.
 
@@ -84,9 +84,9 @@ new authority.
 | Notifications | `notifications` and its projection cursor | Recipient-owned presentation state; never an analytics source |
 | Provider engagement | Future provider-owned observations/snapshots | External provider data with its own scope, freshness, authorization, retention, and aggregation semantics |
 
-### Herald operational analytics
+### Postbot operational analytics
 
-Operational analytics use only facts that Herald can prove. They must work for a
+Operational analytics use only facts that Postbot can prove. They must work for a
 manual channel with no publisher just as they work for an automatic channel.
 
 #### Publication metrics
@@ -143,7 +143,7 @@ may expire before the effect boundary and be recovered safely.
 | `execution.attempt_count` | Distinct attempts with a supported `publication.execution.effect_started` fact. A pre-boundary claim recovery is not an attempt. |
 | `execution.succeeded_count` | Distinct attempts with `publication.execution.succeeded`; counts definitive automatic publication success, not provider engagement. |
 | `execution.failed_count` | Distinct attempts with `publication.execution.failed`; this is terminal automatic failure only. It excludes `retry_scheduled` and ambiguity. |
-| `execution.retryable_count` | Distinct attempts with `publication.execution.retry_scheduled` where Herald durably requeued the job. It is the count of accepted retry scheduling, not an inference from a provider error string. |
+| `execution.retryable_count` | Distinct attempts with `publication.execution.retry_scheduled` where Postbot durably requeued the job. It is the count of accepted retry scheduling, not an inference from a provider error string. |
 | `execution.ambiguous_count` | Distinct attempts with either `publication.execution.ambiguous` or `publication.execution.ambiguity_recovered`. These paths are reported separately as direct ambiguity and post-boundary recovery, then may be shown as a total. |
 | `execution.claim_recovered_count` | Count of pre-effect lease recoveries. These are useful workload/reliability facts but are not external attempts. |
 | `execution.ambiguity_recovered_count` | Count of post-effect-boundary lease recoveries that moved the publication to `ambiguous`. They are not retryable. |
@@ -156,7 +156,7 @@ The current workload read model additionally exposes the facts needed to operate
 the queue: `manual_due_depth`, `ambiguous_reconciliation_depth`,
 `oldest_due_at`, `next_run_at`, and the split between future scheduled and overdue
 automatic work. These are snapshots at `observedAt`; they do not pretend to be a
-queue monitor across multiple Herald processes.
+queue monitor across multiple Postbot processes.
 
 #### Delivery latency and retry metrics
 
@@ -171,7 +171,7 @@ timestamps produce `null`/no sample, never a zero.
 - `execution.effect_duration_ms` measures the outcome occurrence minus
   `effect_started` for each attempt. It is reported for success, terminal
   failure, retry scheduling, and ambiguity. For ambiguity it means time until
-  Herald detected uncertainty, not time until the provider resolved it.
+  Postbot detected uncertainty, not time until the provider resolved it.
 - `publication.scheduled_to_outcome_ms` measures a publication's definitive
   outcome occurrence minus the schedule timestamp that led to that outcome. The
   schedule timestamp must come from a durable creation or promotion fact, not a
@@ -355,7 +355,7 @@ observation envelope with:
 The exact metric names, units, scope, polling/webhook behavior, pagination,
 authorization, and retention belong to the provider module. The neutral envelope
 only carries provenance and freshness; it does not turn `likes`, `impressions`,
-`clicks`, or `reactions` into a universal Herald metric vocabulary.
+`clicks`, or `reactions` into a universal Postbot metric vocabulary.
 
 An absent provider metric is represented as `not_supported`, `not_authorized`,
 `not_configured`, or another explicit availability state. It is never represented
@@ -367,7 +367,7 @@ not mutate publications, jobs, or the operational journal.
 
 The analytics read model follows the existing project access boundary:
 
-- A request is authorized through the project-scoped Herald actor/access-token
+- A request is authorized through the project-scoped Postbot actor/access-token
   relationship. Human, agent, and API-token subjects may read according to the
   existing route policy; a provider credential is not an analytics permission.
 - The project id is bound before any publication, job, channel, publisher, or
@@ -510,7 +510,7 @@ results before becoming the serving path.
 Notifications are recipient-owned and deliberately omit transient execution noise;
 they cannot answer operational questions. A third-party telemetry service would
 add privacy, availability, dependency, and self-hosting costs and still could not
-prove Herald's durable state. Both are rejected.
+prove Postbot's durable state. Both are rejected.
 
 ### Put provider engagement in the operational contract
 
@@ -524,7 +524,7 @@ freshness.
 
 ### Positive
 
-- Herald can answer useful operational questions without any provider analytics
+- Postbot can answer useful operational questions without any provider analytics
   API, including manual-channel work, queue pressure, retry behavior, and
   ambiguous outcomes.
 - Current state and historical facts retain their existing ownership and

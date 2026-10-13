@@ -14,8 +14,8 @@ import {
     setDatabaseCommitObserver,
     type EventJournalCursor,
     type EventJournalEntry,
-    type HeraldDatabase,
-} from '@herald/db'
+    type PostbotDatabase,
+} from '@postbot/db'
 
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'
@@ -26,13 +26,13 @@ const eventTime = 1_800_000_000_000
 const projectionTime = eventTime + 1_000
 const idleHeartbeatIntervalMs = 60_000
 
-function createFixture(database: HeraldDatabase) {
+function createFixture(database: PostbotDatabase) {
     let nextId = 0
     const createId = () => `realtime-106-${++nextId}`
     database.$client
         .query(
             `insert into user (id, name, email, email_verified, created_at, updated_at)
-             values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@herald.local', 0, ?1, ?1)`
+             values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@postbot.local', 0, ?1, ?1)`
         )
         .run(eventTime)
     database.$client
@@ -183,9 +183,9 @@ function createWaiterTracker() {
 }
 
 async function createTemporaryDatabase() {
-    const directory = await mkdtemp(join(tmpdir(), 'herald-realtime-106-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postbot-realtime-106-'))
     return {
-        filename: join(directory, 'herald.sqlite'),
+        filename: join(directory, 'postbot.sqlite'),
         async remove() {
             await rm(directory, { recursive: true, force: true })
         },
@@ -353,7 +353,7 @@ describe('REALTIME-106 realtime validation', () => {
 
     it('recovers journal replay and notification projection after reopening a temporary database', async () => {
         const temporary = await createTemporaryDatabase()
-        let database: HeraldDatabase | undefined
+        let database: PostbotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
             runMigrations(database)
@@ -410,7 +410,7 @@ describe('REALTIME-106 realtime validation', () => {
 
     it('keeps a temporary-database burst ordered, deduplicated, and bounded after subscriber cleanup', async () => {
         const temporary = await createTemporaryDatabase()
-        let database: HeraldDatabase | undefined
+        let database: PostbotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
             runMigrations(database)

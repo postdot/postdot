@@ -1,6 +1,6 @@
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldContent, FieldDescription, FieldTitle } from '@herald/ui/components/field'
-import { Switch } from '@herald/ui/components/switch'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@postbot/ui/components/field'
+import { Switch } from '@postbot/ui/components/switch'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 

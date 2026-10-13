@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import type { SendMailOptions } from 'nodemailer'
 
-import { createHeraldAuthEmailDelivery, type HeraldEmailTransport } from './delivery'
+import { createPostbotAuthEmailDelivery, type PostbotEmailTransport } from './delivery'
 
 async function waitForDelivery(condition: () => boolean): Promise<void> {
     for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -12,22 +12,22 @@ async function waitForDelivery(condition: () => boolean): Promise<void> {
     throw new Error('Timed out waiting for email delivery')
 }
 
-describe('Herald auth email delivery', () => {
+describe('Postbot auth email delivery', () => {
     it('renders invitation, verification, and reset emails through an injected transport', async () => {
         const sent: SendMailOptions[] = []
-        const transport: HeraldEmailTransport = {
+        const transport: PostbotEmailTransport = {
             sendMail: async message => {
                 sent.push(message)
             },
         }
-        const delivery = createHeraldAuthEmailDelivery({
+        const delivery = createPostbotAuthEmailDelivery({
             transport,
             webOrigin: 'https://app.example.test',
             smtp: {
                 host: 'smtp.example.test',
                 port: 587,
                 secure: true,
-                from: 'Herald <no-reply@example.test>',
+                from: 'Postbot <no-reply@example.test>',
             },
         })
         const invitationURL = delivery.organizationInvitationURL?.({
@@ -65,37 +65,37 @@ describe('Herald auth email delivery', () => {
         expect(delivery.sendEmailVerificationOnSignUp).toBe(true)
         expect(sent).toHaveLength(3)
         const invitationMessage = sent.find(
-            message => message.subject === 'Invitation to join Project <one> on Herald'
+            message => message.subject === 'Invitation to join Project <one> on Postbot'
         )
         const verificationMessage = sent.find(
-            message => message.subject === 'Verify your Herald email address'
+            message => message.subject === 'Verify your Postbot email address'
         )
-        const resetMessage = sent.find(message => message.subject === 'Reset your Herald password')
+        const resetMessage = sent.find(message => message.subject === 'Reset your Postbot password')
 
         expect(invitationMessage).toMatchObject({
-            from: 'Herald <no-reply@example.test>',
+            from: 'Postbot <no-reply@example.test>',
             to: 'member@example.test',
-            subject: 'Invitation to join Project <one> on Herald',
+            subject: 'Invitation to join Project <one> on Postbot',
         })
         expect(invitationMessage?.text).toContain(invitationURL)
         expect(invitationMessage?.html).toContain('Project &lt;one&gt;')
         expect(verificationMessage).toMatchObject({
-            subject: 'Verify your Herald email address',
+            subject: 'Verify your Postbot email address',
             to: 'member@example.test',
         })
         expect(resetMessage).toMatchObject({
-            subject: 'Reset your Herald password',
+            subject: 'Reset your Postbot password',
             to: 'member@example.test',
         })
     })
 
     it('stays disabled without a configured transport', () => {
-        expect(createHeraldAuthEmailDelivery({ webOrigin: 'http://localhost:5173' })).toEqual({})
+        expect(createPostbotAuthEmailDelivery({ webOrigin: 'http://localhost:5173' })).toEqual({})
     })
 
     it('reports transport failures without failing the auth request', async () => {
         const failures: string[] = []
-        const delivery = createHeraldAuthEmailDelivery({
+        const delivery = createPostbotAuthEmailDelivery({
             transport: {
                 sendMail: async () => {
                     throw new Error('SMTP unavailable')

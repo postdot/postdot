@@ -1,4 +1,4 @@
-import { cn } from '@herald/ui/lib/utils'
+import { cn } from '@postbot/ui/lib/utils'
 import type { ReactNode } from 'react'
 
 export function DashboardPageHeader({

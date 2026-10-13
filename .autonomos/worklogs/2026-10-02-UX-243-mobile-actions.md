@@ -29,7 +29,7 @@ follows actions at stacked widths; desktop editor/preview align on one row.
 Existing native media, lifecycle, recovery, keyboard and accessibility journeys
 remain intact. Full `bun run check` passed: format, lint/spelling, types/localization, unit
 checks, 48 main browser scenarios, two password-reset scenarios and all 17 build
-tasks. Log: `/tmp/herald-ux243-mobile-check.log`. Reviewed the isolated mobile
+tasks. Log: `/tmp/postbot-ux243-mobile-check.log`. Reviewed the isolated mobile
 failed-detail capture alongside the populated image-layout assertions. The live
 web process stopped during validation and was restarted; both services are active.
 

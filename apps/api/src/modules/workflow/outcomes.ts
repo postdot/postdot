@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 export function permanentFailure(
     errorMessage: string

@@ -5,7 +5,7 @@ export const { ThemeProvider, useTheme } = createThemes({
     defaultTheme: 'dark',
     attribute: 'class',
     storage: 'localStorage',
-    storageKey: 'herald-theme',
+    storageKey: 'postbot-theme',
     enableSystem: false,
     enableColorScheme: true,
     themeColor: {

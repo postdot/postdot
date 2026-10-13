@@ -24,7 +24,7 @@ function createFixture() {
     const project = manualStore.createProject({
         name: 'OAuth Project',
         subjectId: 'user-1',
-        displayName: 'Herald Operator',
+        displayName: 'Postbot Operator',
     })
     const channel = manualStore.createChannel({
         projectId: project.project.id,
@@ -67,7 +67,7 @@ async function createAttemptInput(fixture: ReturnType<typeof createFixture>, sta
         channelId: fixture.channel.id,
         connectedByActorId: fixture.project.actor.id,
         providerId: 'linkedin',
-        callbackUri: 'https://herald.example.com/api/oauth/linkedin/callback',
+        callbackUri: 'https://postbot.example.com/api/oauth/linkedin/callback',
         scopes: ['w_member_social', 'openid'],
         returnPath: `/projects/${fixture.project.project.id}/channels/${fixture.channel.id}`,
         stateDigest: await stateDigest(state),
@@ -269,7 +269,7 @@ describe('OAuth authorization attempt store', () => {
             for (const mismatch of [
                 { connectedByActorId: 'other-actor' },
                 { providerId: 'mastodon' },
-                { callbackUri: 'https://herald.example.com/api/oauth/other/callback' },
+                { callbackUri: 'https://postbot.example.com/api/oauth/other/callback' },
             ]) {
                 expect(
                     await fixture.store.consumeAuthorizationAttempt({

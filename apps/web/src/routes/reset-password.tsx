@@ -1,6 +1,6 @@
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useId, useState, type FormEvent } from 'react'
 

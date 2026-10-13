@@ -11,6 +11,7 @@ const surfaceTokens = [
     'surface-raised',
     'surface-overlay',
     'surface-sidebar',
+    'surface-selected',
 ] as const
 
 const surfaceStatePairs = [
@@ -43,9 +44,8 @@ describe('surface token contract', () => {
             const adjacentRoles = [
                 ['surface-canvas', 'surface-background'],
                 ['surface-background', 'surface-raised'],
-                ['surface-raised', 'surface-overlay'],
-                ['surface-background', 'surface-field'],
-                ['surface-background', 'surface-control'],
+                ['surface-background', 'surface-selected'],
+                ['surface-inset', 'surface-selected'],
                 ['surface-raised', 'surface-control'],
             ] as const
 
@@ -53,13 +53,7 @@ describe('surface token contract', () => {
                 const delta = Math.abs(
                     getToken(tokens, parent).lightness - getToken(tokens, child).lightness
                 )
-                const minimum =
-                    themeName === 'dark' &&
-                    (child === 'surface-background' ||
-                        child === 'surface-raised' ||
-                        child === 'surface-overlay')
-                        ? 0.05
-                        : minSurfaceLightnessDelta
+                const minimum = minSurfaceLightnessDelta
                 expect(
                     delta,
                     `${themeName}: ${parent} and ${child} are too close`
@@ -167,6 +161,25 @@ function getToken(tokens: Record<string, Oklch>, name: string) {
 }
 
 function parseToken(block: string, name: string): Oklch {
+    const hex = block.match(new RegExp(`--${escapeRegExp(name)}\\s*:\\s*#([0-9a-f]{6})`, 'i'))?.[1]
+    if (hex) {
+        const rgb = [0, 2, 4].map(index => {
+            const channel = parseInt(hex.slice(index, index + 2), 16) / 255
+            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+        })
+        const [r, g, b] = rgb as [number, number, number]
+        const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+        const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+        const t = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+        const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * t
+        const labB = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * t
+        return {
+            lightness: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * t,
+            chroma: Math.hypot(a, labB),
+            hue: (Math.atan2(labB, a) * 180) / Math.PI,
+        }
+    }
+
     const value = block.match(new RegExp(`--${escapeRegExp(name)}\\s*:\\s*oklch\\(([^)]+)\\)`))?.[1]
 
     if (!value) {

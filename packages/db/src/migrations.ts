@@ -2,12 +2,12 @@ import { fileURLToPath } from 'node:url'
 
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 
 export const defaultMigrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
 
 export function runMigrations(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     migrationsFolder = defaultMigrationsFolder
 ): void {
     const client = database.$client
@@ -27,7 +27,7 @@ export function runMigrations(
             if (!hasExistingSchemaObject(error)) throw error
 
             throw new Error(
-                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Herald and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
+                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Postbot and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
                 { cause: error }
             )
         }

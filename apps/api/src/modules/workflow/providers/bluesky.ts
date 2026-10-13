@@ -10,9 +10,9 @@ import {
     readBlueskySessionTokenSet,
     restoreBlueskySession,
     type BlueskyOAuthClientMetadata,
-} from '@herald/bluesky'
-import type { ExternalEffectOutcome } from '@herald/core'
-import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@herald/db'
+} from '@postbot/bluesky'
+import type { ExternalEffectOutcome } from '@postbot/core'
+import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postbot/db'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { publishBlueskyVideo } from './bluesky-video'

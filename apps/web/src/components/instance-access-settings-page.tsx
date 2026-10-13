@@ -1,16 +1,16 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
+} from '@postbot/ui/components/select'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
@@ -602,7 +602,7 @@ export function InstanceAccessSettingsPage({
                                                 <DialogHeader>
                                                     <DialogTitle>
                                                         {m.access_invite_to_scope({
-                                                            name: 'Herald',
+                                                            name: 'Postbot',
                                                         })}
                                                     </DialogTitle>
                                                 </DialogHeader>
@@ -614,7 +614,7 @@ export function InstanceAccessSettingsPage({
                                                 <form
                                                     className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
                                                     aria-label={m.access_invite_to_scope({
-                                                        name: 'Herald',
+                                                        name: 'Postbot',
                                                     })}
                                                     onSubmit={handleCreateInvitation}>
                                                     <Field className="min-w-0 flex-1 gap-1.5">

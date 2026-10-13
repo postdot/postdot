@@ -4,7 +4,7 @@ import {
     createExponentialRetryPolicy,
     DomainInvariantError,
     processNextExternalEffect,
-} from '@herald/core'
+} from '@postbot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { SecretCipherError } from './encrypted-secret-crypto'
@@ -29,7 +29,7 @@ function createFixture() {
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
     const project = manual.createProject({
-        name: 'Herald',
+        name: 'Postbot',
         subjectId: 'human-1',
         displayName: 'First human',
     })
@@ -71,7 +71,7 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
         subjectId: 'human-1',
         transportId: 'test',
         label: 'Test destination',
-        configuration: { topic: 'herald-test' },
+        configuration: { topic: 'postbot-test' },
     })
     if (destination === null) throw new Error('The notification destination is missing')
     for (const kind of [
@@ -126,7 +126,7 @@ describe('notification delivery store', () => {
             expect(recorded).toHaveLength(1)
             expect(recorded[0]).toMatchObject({
                 transportId: 'test',
-                configuration: { topic: 'herald-test' },
+                configuration: { topic: 'postbot-test' },
                 kind: 'publication_failed',
                 title: 'Publication failed',
             })
@@ -218,7 +218,7 @@ describe('notification delivery store', () => {
             )?.[0]
             if (firstDelivery === undefined) throw new Error('The first delivery is missing')
             expect(firstDelivery.secretVersion).toBe(1)
-            expect(firstDelivery.configuration).toEqual({ topic: 'herald-test' })
+            expect(firstDelivery.configuration).toEqual({ topic: 'postbot-test' })
 
             const firstClaim = fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
@@ -390,7 +390,7 @@ describe('notification delivery store', () => {
                 {
                     destinationId: destination.id,
                     transportId: 'test',
-                    configuration: { topic: 'herald-test' },
+                    configuration: { topic: 'postbot-test' },
                     kind: 'publication_failed',
                     state: 'pending',
                     attempts: 0,

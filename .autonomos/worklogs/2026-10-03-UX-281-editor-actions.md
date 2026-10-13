@@ -48,7 +48,7 @@ Responsive screenshots were inspected at 390 pixels for loading and loaded emoji
 states; existing editor journeys also capture 820 and 1280 pixels. The final
 `bun run check` passed: formatting, lint, spelling, type checks, unit tests,
 61 main browser journeys, two password-reset scenarios and all 17 build tasks.
-Log: `/tmp/herald-editor-actions-check.log`.
+Log: `/tmp/postbot-editor-actions-check.log`.
 
 ## Follow-up
 

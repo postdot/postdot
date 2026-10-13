@@ -1,20 +1,20 @@
-import type { HeraldApiKeyRecord, HeraldAuth } from '@herald/auth'
+import type { PostbotApiKeyRecord, PostbotAuth } from '@postbot/auth'
 import { Elysia } from 'elysia'
 
-type HeraldApiKeyPermissions = HeraldApiKeyRecord['permissions']
-export type HeraldAuthenticatedApiKeyPermissions = HeraldApiKeyPermissions
+type PostbotApiKeyPermissions = PostbotApiKeyRecord['permissions']
+export type PostbotAuthenticatedApiKeyPermissions = PostbotApiKeyPermissions
 
 interface UserApiKeyAuthentication {
     /** null means all projects currently available to the key owner. */
     readonly projectIds: readonly string[] | null
     readonly ownerUserId: string
     readonly displayName: string
-    readonly permissions: HeraldApiKeyPermissions
+    readonly permissions: PostbotApiKeyPermissions
 }
 
-export function createAuthRoutes(auth: Pick<HeraldAuth, 'handler'>) {
+export function createAuthRoutes(auth: Pick<PostbotAuth, 'handler'>) {
     return (
-        new Elysia({ name: 'herald-auth-routes' })
+        new Elysia({ name: 'postbot-auth-routes' })
             // A method-specific SPA fallback otherwise wins over the root ALL mount.
             .get('/api/auth/*', { parse: 'none', detail: { hide: true } }, ({ request }) =>
                 auth.handler(request)
@@ -30,7 +30,7 @@ export interface AuthenticatedElysiaOptions {
     readonly authorizeUserApiKeyRequest?: (
         method: string,
         requestPath: string,
-        permissions: HeraldApiKeyPermissions
+        permissions: PostbotApiKeyPermissions
     ) => boolean
     /**
      * Current project access for an authenticated caller. Session requests and
@@ -44,11 +44,11 @@ export interface AuthenticatedElysiaOptions {
     ) => boolean
 }
 
-type HeraldAuthSession = NonNullable<Awaited<ReturnType<HeraldAuth['api']['getSession']>>>
-export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'> & {
+type PostbotAuthSession = NonNullable<Awaited<ReturnType<PostbotAuth['api']['getSession']>>>
+export type PostbotAuthenticatedUser = Pick<PostbotAuthSession['user'], 'id' | 'name'> & {
     readonly email: string | null
 }
-export type HeraldAuthenticationMethod = 'session' | 'user_api_key'
+export type PostbotAuthenticationMethod = 'session' | 'user_api_key'
 
 function parseBearerToken(authorization: string): string | null {
     const match = /^Bearer\s+(\S+)$/i.exec(authorization)
@@ -62,7 +62,7 @@ export const sessionSecurity = [{ sessionCookie: [] }]
  * cannot model the runtime union between a Better Auth session and an API key
  * without collapsing downstream route schemas to `never`.
  */
-function createAuthenticatedElysiaContract(auth: HeraldAuth) {
+function createAuthenticatedElysiaContract(auth: PostbotAuth) {
     return new Elysia().macro({
         auth: {
             async derive({ request: { headers }, status }) {
@@ -82,10 +82,10 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                         name: session.user.name,
                         email: session.user.email,
                     },
-                    session: session.session as HeraldAuthSession['session'] | null,
-                    authMethod: 'session' as HeraldAuthenticationMethod,
+                    session: session.session as PostbotAuthSession['session'] | null,
+                    authMethod: 'session' as PostbotAuthenticationMethod,
                     apiKeyProjectIds: undefined as readonly string[] | null | undefined,
-                    apiKeyPermissions: undefined as HeraldApiKeyPermissions | undefined,
+                    apiKeyPermissions: undefined as PostbotApiKeyPermissions | undefined,
                 }
             },
         },
@@ -102,7 +102,7 @@ function readProjectIdFromRequest(requestUrl: string): string | null {
 type AuthenticatedElysiaBase = ReturnType<typeof createAuthenticatedElysiaContract>
 
 export function createAuthenticatedElysia(
-    auth: HeraldAuth,
+    auth: PostbotAuth,
     options: AuthenticatedElysiaOptions = {}
 ): AuthenticatedElysiaBase {
     const authenticated = new Elysia().macro({

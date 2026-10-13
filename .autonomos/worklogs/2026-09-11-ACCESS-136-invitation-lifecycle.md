@@ -8,7 +8,7 @@
 ## Outcome
 
 The Better Auth Organization configuration now cancels a previous pending
-invitation when the same address is invited again. Herald adds an owner-only
+invitation when the same address is invited again. Postbot adds an owner-only
 `POST /api/projects/:projectId/invitations/:invitationId/resend` action that
 cancels all pending invitations for the address before creating a new one. The
 returned invitation therefore has a fresh ID and invalidates the previous copied
@@ -23,7 +23,7 @@ not configured; ACCESS-137 adds the optional deployment transport described in
 `createAuth` now accepts an optional, typed invitation delivery callback and URL
 factory. A deployment can provide its own transport without coupling the auth
 package to a vendor. The verification gate is explicitly configurable through
-`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` and stays disabled by default.
+`POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION` and stays disabled by default.
 
 ## Verification
 

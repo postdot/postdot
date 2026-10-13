@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@herald/core'
+import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@postbot/core'
 
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
@@ -20,7 +20,7 @@ function customBase(): Record<string, unknown> {
         },
         fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
         capabilities: {
-            revision: 'herald-custom-v1',
+            revision: 'postbot-custom-v1',
             textFields: [
                 { bindingId: 'body', acceptedSourceFormats: ['plain_text'], maxLength: 1000 },
             ],
@@ -230,7 +230,7 @@ test('channel lists summarize the active execution without exposing its configur
                 kind: 'declarative_http',
                 contractId: 'custom-webhook',
                 revision: 'v1',
-                mode: 'herald_webhook',
+                mode: 'postbot_webhook',
             },
         } as unknown as ChannelProfileDefinition
         const draft = store.createChannelProfileDraft({
@@ -249,7 +249,7 @@ test('channel lists summarize the active execution without exposing its configur
         expect(activated).not.toBeNull()
         expect(current().profileVersionId).toBe(draft.id)
         expect(current().execution).toEqual({ kind: 'declarative_http' })
-        expect(JSON.stringify(current())).not.toContain('herald_webhook')
+        expect(JSON.stringify(current())).not.toContain('postbot_webhook')
         expect(JSON.stringify(current())).not.toContain('profileJson')
         const native = store.createChannel({
             ...input,

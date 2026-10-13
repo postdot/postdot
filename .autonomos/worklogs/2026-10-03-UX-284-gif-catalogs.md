@@ -1,6 +1,6 @@
 <!-- cspell:words KLIPY -->
 
-# UX-284 — External GIF catalogs for Herald
+# UX-284 — External GIF catalogs for Postbot
 
 ## Scope
 
@@ -14,19 +14,19 @@ contacts or catalog integration. Research is not a provider agreement.
 | --- | --- | --- | --- |
 | Tenor | Closed API | Google sunset it June 30, 2026 | Exclude |
 | GIPHY | Review and pricing discussion; beta is 100 calls/hour | Standard integration forbids caching media/URLs and proxying; direct client calls and branding required | Conditional, needs explicit authorization for scheduled cross-platform publishing |
-| KLIPY | Test key 100 calls/hour; request production approval | Standard integration forbids mirroring and server proxying; preserve delivery URLs/results; required branded search placeholder | Conditional, needs written approval for Herald's delivery workflow |
+| KLIPY | Test key 100 calls/hour; request production approval | Standard integration forbids mirroring and server proxying; preserve delivery URLs/results; required branded search placeholder | Conditional, needs written approval for Postbot's delivery workflow |
 
 KLIPY advertises optional ads and unlimited approved production calls. The public
-pages reviewed do not establish a guaranteed free contract for Herald's specific
+pages reviewed do not establish a guaranteed free contract for Postbot's specific
 self-hosted, scheduled, multi-platform use. Do not confuse unlimited request
 count with a guaranteed price or unrestricted redistribution license.
 
 ## Why this is more than an editor plugin
 
-Inference from provider requirements and Herald's delivery model: selecting a GIF
-is not enough. Herald normally stores media bytes, schedules delivery, and uploads
+Inference from provider requirements and Postbot's delivery model: selecting a GIF
+is not enough. Postbot normally stores media bytes, schedules delivery, and uploads
 bytes to a destination. The standard catalog policies conflict with retaining
-and later fetching selected assets through Herald. Saving only a URL is not a
+and later fetching selected assets through Postbot. Saving only a URL is not a
 universal workaround: even media-URL retention is constrained in GIPHY's docs,
 and links do not automatically become native media on social platforms.
 
@@ -45,11 +45,11 @@ framework-independent UI components and a fetch-only package. Its README states
 that the UI SDK sends analytics events; the fetch-only option does not include
 SDK analytics. Client requests still expose their normal network information.
 The package license does not override catalog/API terms. If GIPHY is approved,
-assess these primitives before building a picker from scratch; preserve Herald's
+assess these primitives before building a picker from scratch; preserve Postbot's
 shared input, tooltip and popover material rather than importing unrelated UI.
 
 The reviewed KLIPY repository and docs provide integration examples. They do not
-establish an equivalent production-ready React picker with Herald's keyboard,
+establish an equivalent production-ready React picker with Postbot's keyboard,
 focus, loading and reduced-motion requirements. Do not infer that none exists;
 that verification belongs after provider approval.
 
@@ -57,14 +57,14 @@ that verification belongs after provider approval.
 
 Do not choose a default provider or ship a decorative picker yet. KLIPY and GIPHY
 are credible candidates for a commercial/custom integration discussion, not
-currently approved drop-in dependencies for Herald's workflow.
+currently approved drop-in dependencies for Postbot's workflow.
 
 For either candidate, resolve these concrete questions before implementation:
 
-1. May Herald retain selected IDs/URLs and fetch/download assets at scheduled
+1. May Postbot retain selected IDs/URLs and fetch/download assets at scheduled
    publication time, then upload to LinkedIn, Discord, Mastodon, X or DEV.to?
 2. May private/self-hosted instances use per-instance credentials without a
-   publicly reachable Herald domain? Is each instance separately reviewed?
+   publicly reachable Postbot domain? Is each instance separately reviewed?
 3. What are production cost, quotas and optional-ad terms for this use?
 4. What attribution must survive in the picker and in destination publications?
 5. What retention, removal, rights and unavailable-media obligations apply?

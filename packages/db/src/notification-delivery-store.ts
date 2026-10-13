@@ -11,9 +11,9 @@ import {
     type ExpiredClaimRecovery,
     type NotificationKind,
     type PersistedEffectOutcome,
-} from '@herald/core'
+} from '@postbot/core'
 
-import type { HeraldDatabase } from './client'
+import type { PostbotDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const defaultProjectionName = 'external-notification-delivery-v1'
@@ -165,7 +165,7 @@ export interface NotificationDeliveryStoreOptions {
 }
 
 export function createNotificationDeliveryStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: NotificationDeliveryStoreOptions = {}
 ) {
     const client = database.$client

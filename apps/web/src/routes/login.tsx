@@ -93,7 +93,7 @@ function LoginPage() {
                 onSubmit={handleSubmit}
                 pending={pending}
                 showSetupAction={invitationFlow || setupStatus.setupAvailable}
-                title={invitationFlow && mode === 'sign-up' ? m.auth_join_herald() : undefined}
+                title={invitationFlow && mode === 'sign-up' ? m.auth_join_postbot() : undefined}
             />
         </AuthShell>
     )
@@ -103,9 +103,9 @@ function isOrganizationInvitationContinuation(value: string | undefined) {
     if (value === undefined) return false
 
     try {
-        const url = new URL(value, 'https://herald.invalid')
+        const url = new URL(value, 'https://postbot.invalid')
         return (
-            url.origin === 'https://herald.invalid' &&
+            url.origin === 'https://postbot.invalid' &&
             ((url.pathname === '/invite' && url.searchParams.has('invitationId')) ||
                 (url.pathname === '/dashboard/settings/access' &&
                     url.searchParams.has('organizationInvitation')))
@@ -124,8 +124,8 @@ function safeDashboardPath(value: string) {
     }
 
     try {
-        const url = new URL(value, 'https://herald.invalid')
-        return url.origin === 'https://herald.invalid' ? value : undefined
+        const url = new URL(value, 'https://postbot.invalid')
+        return url.origin === 'https://postbot.invalid' ? value : undefined
     } catch {
         return undefined
     }

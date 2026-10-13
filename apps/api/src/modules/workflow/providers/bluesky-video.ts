@@ -1,11 +1,11 @@
-import type { BlueskyPublisher, BlueskyVideoService } from '@herald/bluesky'
+import type { BlueskyPublisher, BlueskyVideoService } from '@postbot/bluesky'
 import {
     readBlueskyVideoBlob,
     BLUESKY_MAX_ALT_TEXT_LENGTH,
     BLUESKY_MAX_VIDEO_BYTES,
     BLUESKY_MAX_VIDEO_DURATION_MS,
-} from '@herald/bluesky'
-import type { ExternalEffectOutcome } from '@herald/core'
+} from '@postbot/bluesky'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

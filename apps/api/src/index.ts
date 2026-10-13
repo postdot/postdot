@@ -1,14 +1,14 @@
-import { createAuth } from '@herald/auth'
+import { createAuth } from '@postbot/auth'
 import {
     createCustomHttpTransport,
     createNetworkControlledBinaryFetcher,
     createNetworkControlledFetcher,
-} from '@herald/custom-http'
+} from '@postbot/custom-http'
 import {
     createNotificationEmailStore,
     createInstallationEmailSettingsStore,
     createSecretCipher,
-} from '@herald/db'
+} from '@postbot/db'
 import {
     closeDatabase,
     createDatabase,
@@ -19,17 +19,17 @@ import {
     acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
     runMigrations,
-} from '@herald/db'
-import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@herald/discord'
+} from '@postbot/db'
+import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postbot/discord'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
-} from '@herald/mastodon'
+} from '@postbot/mastodon'
 
 import { createApp } from './app'
-import { createHeraldConfig, createHeraldMaintenanceConfig, decodeHexKey } from './config'
+import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
-import { createHeraldAuthEmailDelivery } from './modules/email/delivery'
+import { createPostbotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
@@ -37,7 +37,7 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createMediaUrlImporter } from './modules/media/url-import'
-import { createHeraldMetrics } from './modules/metrics/metrics'
+import { createPostbotMetrics } from './modules/metrics/metrics'
 import { createNotificationEmailRuntime } from './modules/notifications/email-runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
@@ -58,7 +58,7 @@ import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-po
 
 export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
 export { createApp } from './app'
-export type { HeraldApp } from './app'
+export type { PostbotApp } from './app'
 export { createPublisherRuntime } from './modules/publishers/runtime'
 export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
@@ -104,8 +104,8 @@ export type {
 } from './modules/projects/models'
 export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
 export type { DevtoAnalyticsCollectionResponse } from './modules/projects/devto-analytics-service'
-export type { ProviderAnalyticsObservation } from '@herald/core'
-export type { ProviderAnalyticsObservationPage } from '@herald/db'
+export type { ProviderAnalyticsObservation } from '@postbot/core'
+export type { ProviderAnalyticsObservationPage } from '@postbot/db'
 export type {
     EmailAlertPreferenceResponse,
     NotificationInboxResponse,
@@ -113,7 +113,7 @@ export type {
     NotificationResponse,
 } from './modules/projects/notification-models'
 
-async function startServer(config = createHeraldConfig()) {
+async function startServer(config = createPostbotConfig()) {
     const runtimeLock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
     try {
         await startServerWithRuntimeLock(config, runtimeLock)
@@ -124,7 +124,7 @@ async function startServer(config = createHeraldConfig()) {
 }
 
 async function startServerWithRuntimeLock(
-    config: ReturnType<typeof createHeraldConfig>,
+    config: ReturnType<typeof createPostbotConfig>,
     runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock>
 ) {
     let resumeRuntimes: (() => void) | undefined
@@ -140,7 +140,7 @@ async function startServerWithRuntimeLock(
         store: createInstallationEmailSettingsStore(
             database,
             createSecretCipher({
-                domain: 'herald.installation-email',
+                domain: 'postbot.installation-email',
                 keyId: config.security.publisherEncryptionKeyId,
                 key: decodeHexKey(config.security.publisherEncryptionKey),
             })
@@ -161,12 +161,12 @@ async function startServerWithRuntimeLock(
             emailRuntime?.runProjects(projectIds)
         },
         resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
-        onError: error => console.error('[herald-realtime] post-commit wakeup failed', error),
+        onError: error => console.error('[postbot-realtime] post-commit wakeup failed', error),
     })
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
         database,
         projectIds => realtime.publish(projectIds),
-        error => console.error('[herald-realtime] post-commit observer failed', error)
+        error => console.error('[postbot-realtime] post-commit observer failed', error)
     )
     const objectStorage = createConfiguredMediaStore(config.media)
     const avatars = createUserAvatarStore(database, objectStorage)
@@ -198,16 +198,16 @@ async function startServerWithRuntimeLock(
             return result
         },
     })
-    const email = createHeraldAuthEmailDelivery({
+    const email = createPostbotAuthEmailDelivery({
         getSmtp: () => (recovery.held() ? undefined : emailSettings.current()),
         transport: emailSettings,
         webOrigin: config.web.origin,
         onDeliveryError: kind => {
-            console.error(`[herald-email] ${kind} delivery failed`)
+            console.error(`[postbot-email] ${kind} delivery failed`)
         },
     })
     const allowAdditionalSignups =
-        config.environment === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
+        config.environment === 'test' && Bun.env.POSTBOT_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
@@ -285,7 +285,7 @@ async function startServerWithRuntimeLock(
         }),
     ])
     const metricsConfiguration = config.metrics
-    const metrics = metricsConfiguration === undefined ? undefined : createHeraldMetrics()
+    const metrics = metricsConfiguration === undefined ? undefined : createPostbotMetrics()
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
@@ -356,7 +356,7 @@ async function startServerWithRuntimeLock(
     if (!recovery.held()) resumeRuntimes()
     notificationProjection.start()
     if (recovery.held())
-        console.warn('[herald-recovery] inspection only; resume from installation settings')
+        console.warn('[postbot-recovery] inspection only; resume from installation settings')
     app.listen(config.server.port)
     registerServingHandle(app.server)
 
@@ -390,7 +390,7 @@ if (import.meta.main) {
             await runMaintenanceCommand(args)
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Account recovery failed'
-            console.error(`[herald-maintenance] ${message}`)
+            console.error(`[postbot-maintenance] ${message}`)
             process.exitCode = 1
         }
     } else if (
@@ -399,7 +399,7 @@ if (import.meta.main) {
         args[0] === 'recovery' ||
         args[0] === 'media-previews'
     ) {
-        const config = createHeraldMaintenanceConfig()
+        const config = createPostbotMaintenanceConfig()
         await runMaintenanceCommand(args, {
             databaseFileName: config.databaseFileName,
             ...(args.includes('--media') || args[0] === 'media-previews'

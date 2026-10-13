@@ -8,7 +8,7 @@ Replaced the inline banner with the existing shared modal Dialog. It has the pre
 
 Files: new-publication-page.tsx, English/French message catalogs, and design-121-narrow-new-publication.spec.ts. The existing interrupted-composition journey asserts dialog role and accessible name, verifies Escape cannot bypass the decision, then restores at mobile width and discards a later composition. The old visible-background assertion was replaced because modal accessibility correctly hides its background. Form inert and content preservation assertions remain intact.
 
-Full validation passed with exit zero using bundled Node 24; evidence: /tmp/herald-recovery-dialog-final-check.log. Development services remain running. Live-browser access was previously refused; no workaround was attempted. No AGENT.md update: this implements the owner's explicit modal requirement with existing primitives.
+Full validation passed with exit zero using bundled Node 24; evidence: /tmp/postbot-recovery-dialog-final-check.log. Development services remain running. Live-browser access was previously refused; no workaround was attempted. No AGENT.md update: this implements the owner's explicit modal requirement with existing primitives.
 
 Remaining: separate recovery/current-edit preservation for existing publication detail and additional connected-destination states remain in UX-250. This pass does not silently change their storage contract.
 

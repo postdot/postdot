@@ -3,19 +3,19 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@herald/db'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@postbot/db'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const headers = { 'content-type': 'application/json', origin: baseURL }
 
 describe('local account recovery command', () => {
     it('resets an existing Better Auth password and rejects its previous password', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-local-account-recovery-'))
-        const databaseFilename = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-local-account-recovery-'))
+        const databaseFilename = join(directory, 'postbot.sqlite')
         const originalPassword = 'original-password-123'
         const recoveredPassword = 'recovered-password-456'
         const initialDatabase = createDatabase(databaseFilename)
@@ -32,7 +32,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@herald.local',
+                        email: 'recovery@postbot.local',
                         name: 'Recovery User',
                         password: originalPassword,
                     }),
@@ -45,7 +45,7 @@ describe('local account recovery command', () => {
 
         const promptAnswers = [
             databaseFilename,
-            'recovery@herald.local',
+            'recovery@postbot.local',
             recoveredPassword,
             recoveredPassword,
         ]
@@ -79,7 +79,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@herald.local',
+                        email: 'recovery@postbot.local',
                         password: originalPassword,
                     }),
                 })
@@ -89,7 +89,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@herald.local',
+                        email: 'recovery@postbot.local',
                         password: recoveredPassword,
                     }),
                 })
@@ -104,8 +104,8 @@ describe('local account recovery command', () => {
     })
 
     it('stops before requesting credentials when the database confirmation is wrong', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-local-account-recovery-'))
-        const databaseFilename = join(directory, 'herald.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-local-account-recovery-'))
+        const databaseFilename = join(directory, 'postbot.sqlite')
         const database = createDatabase(databaseFilename)
         runMigrations(database)
         closeDatabase(database)
@@ -151,7 +151,7 @@ describe('local account recovery command', () => {
                     'account',
                     'recover-password',
                     '--database',
-                    '/tmp/herald.sqlite',
+                    '/tmp/postbot.sqlite',
                     '--password',
                     'unsafe',
                 ],

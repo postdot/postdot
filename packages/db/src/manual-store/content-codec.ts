@@ -7,7 +7,7 @@ import {
     type SourceContent,
     type TargetContent,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value)

@@ -7,7 +7,7 @@ import type {
     PublicationReviewState,
     MediaRepresentation,
     TargetMediaReference,
-} from '@herald/core'
+} from '@postbot/core'
 
 export interface ProjectRow {
     readonly id: string

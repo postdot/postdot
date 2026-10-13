@@ -295,7 +295,7 @@ export function validateReturnPath(returnPath: string, allowedPrefixes: readonly
         throw new Error('returnPath must be a local application path')
     }
 
-    const base = new URL('https://herald.invalid')
+    const base = new URL('https://postbot.invalid')
     const parsed = new URL(returnPath, base)
     if (parsed.origin !== base.origin || parsed.hash.length > 0) {
         throw new Error('returnPath must be a local application path without a fragment')

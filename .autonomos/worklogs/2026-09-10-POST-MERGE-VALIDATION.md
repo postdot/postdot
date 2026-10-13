@@ -2,16 +2,16 @@
 
 ## Scope
 
-Read-only validation of the merged Herald `main` branch after the policy and
+Read-only validation of the merged Postbot `main` branch after the policy and
 Autonomos reconciliation PRs. No source, migration, Autonomos, or existing
 database files were modified by the validation.
 
 ## Evidence
 
 - Branch: `main`, commit `e0c7bf04`.
-- Command: `bun run test:e2e -- --output=/tmp/herald-validation-results`.
+- Command: `bun run test:e2e -- --output=/tmp/postbot-validation-results`.
 - Result: 12/12 tests passed in 31.6 seconds.
-- Disposable E2E database and media were created under `/tmp/herald-e2e-data`
+- Disposable E2E database and media were created under `/tmp/postbot-e2e-data`
   and removed during teardown.
 
 The matrix covered authentication, project creation and isolation, overview and

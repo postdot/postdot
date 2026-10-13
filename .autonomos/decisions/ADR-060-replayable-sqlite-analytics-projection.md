@@ -9,7 +9,7 @@
 
 ## Context
 
-Herald's operational analytics reader currently reconstructs historical metrics
+Postbot's operational analytics reader currently reconstructs historical metrics
 from `audit_events` at request time and reads current inventory from
 `publications` and `jobs`. ANALYTICS-111 established a useful but provisional
 interactive envelope: approximately 5,000 publications and 20,000 historical

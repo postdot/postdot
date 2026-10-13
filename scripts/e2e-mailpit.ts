@@ -7,10 +7,10 @@ export async function startE2EMailpit(
     environment: NodeJS.ProcessEnv = process.env
 ): Promise<() => Promise<void>> {
     if (!isSafeE2EDataDirectory(runtime.dataDirectory) || runtime.mailpit === undefined) {
-        throw new Error('Mailpit requires an isolated Herald E2E runtime directory')
+        throw new Error('Mailpit requires an isolated Postbot E2E runtime directory')
     }
 
-    const projectName = `herald-${basename(runtime.dataDirectory).toLowerCase()}`
+    const projectName = `postbot-${basename(runtime.dataDirectory).toLowerCase()}`
     const repositoryRoot = resolve(import.meta.dir, '..')
     const composePrefix = [
         'docker',
@@ -22,8 +22,8 @@ export async function startE2EMailpit(
     ]
     const composeEnvironment = {
         ...environment,
-        HERALD_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
-        HERALD_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
+        POSTBOT_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
+        POSTBOT_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
     }
 
     const shutdown = async () => {

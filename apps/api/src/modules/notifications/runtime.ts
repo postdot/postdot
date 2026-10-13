@@ -1,4 +1,4 @@
-import type { NotificationStore } from '@herald/db'
+import type { NotificationStore } from '@postbot/db'
 
 const maximumBatchesPerProject = 10
 const continuationDelayMs = 0
@@ -135,5 +135,5 @@ export function createNotificationProjectionRuntime(
 }
 
 function defaultNotificationProjectionErrorHandler(error: unknown): void {
-    console.error('[herald-notifications] projection failed', error)
+    console.error('[postbot-notifications] projection failed', error)
 }

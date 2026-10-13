@@ -25,7 +25,7 @@ the AVIF platform limitation. Unsupported input remains a separate question.
   npm 4.0.2, no declared runtime dependencies in the inspected manifest. Separate
   backends export supports Bun.Image and injected Sharp. Server handler adds
   source resolution, limits, admission control and HTTP handling. Its inspected
-  source accepts a filesystem root or allowed HTTP origins, not Herald's media
+  source accepts a filesystem root or allowed HTTP origins, not Postbot's media
   storage/authorization contract. No automatic backend fallback observed in
   backend.ts; callers select a backend. Candidate for a bounded experiment,
   not adopted solely from its README. Check published artifact against source.
@@ -33,7 +33,7 @@ the AVIF platform limitation. Unsupported input remains a separate question.
   option, conversions and responsive variants. Pulls its core and ORM and owns
   media persistence: an architectural replacement rather than a narrow codec.
 - @rakun-kit/core: broader application core with image backends but unrelated
-  dependencies (auth, QR, collaboration). Not a focused dependency for Herald.
+  dependencies (auth, QR, collaboration). Not a focused dependency for Postbot.
 - Unpic React: https://unpic.pics/img/react/ . Frontend responsive presentation
   and image URL integration, not a replacement for server image generation.
 
@@ -56,12 +56,12 @@ https://payloadcms.com/docs/upload/overview .
 
 IPX is the closest inspected standalone primitive: an embedded image optimizer
 with size/format URL modifiers and storage adapters. It does not require another
-service, but uses Sharp. It does not eliminate Herald's private storage,
+service, but uses Sharp. It does not eliminate Postbot's private storage,
 authorization or durable derivative lifecycle integration. Stable v3 reference:
 https://github.com/unjs/ipx/tree/v3 .
 
 For the media library, prefer Payload's stored-variant pattern over an arbitrary
-on-demand transformation endpoint. Herald already models derived representations
+on-demand transformation endpoint. Postbot already models derived representations
 and their source representation. Add a few named presets using that model,
 generate portable WebP with Bun.Image, and connect authenticated delivery and
 cleanup. Browser srcset/sizes can then select the appropriate variant. Preserve

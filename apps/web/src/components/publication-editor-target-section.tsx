@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Badge } from '@postbot/ui/components/badge'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'

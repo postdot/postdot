@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
 import {
     Combobox,
     ComboboxEmpty,
@@ -14,7 +14,7 @@ import {
     ComboboxPositioner,
     ComboboxTrigger,
     ComboboxValue,
-} from '@herald/ui/components/combobox'
+} from '@postbot/ui/components/combobox'
 import {
     Dialog,
     DialogClose,
@@ -23,17 +23,17 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@herald/ui/components/dialog'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+} from '@postbot/ui/components/dialog'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@herald/ui/components/select'
-import { toast } from '@herald/ui/components/toast'
+} from '@postbot/ui/components/select'
+import { toast } from '@postbot/ui/components/toast'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'

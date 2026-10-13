@@ -13,6 +13,6 @@ lifecycle actions, target customization or technical disclosures.
 
 File: publication-editor-source-section.tsx. Existing mixed-state journeys cover
 manual and failed detail rendering, both themes/locales, keyboard navigation and
-page overflow. Full root check passed with 44 main browser journeys, 2 password-reset journeys, unit checks, formatting, lint/spelling, types and production builds (/tmp/herald-ux264-full.log). Reviewed the updated French/dark 820-pixel manual-detail capture: the editable source now separates visibly from the page, with secondary controls still quiet. UX-250 remains open
+page overflow. Full root check passed with 44 main browser journeys, 2 password-reset journeys, unit checks, formatting, lint/spelling, types and production builds (/tmp/postbot-ux264-full.log). Reviewed the updated French/dark 820-pixel manual-detail capture: the editable source now separates visibly from the page, with secondary controls still quiet. UX-250 remains open
 for connected-destination and further lifecycle review; this scoped correction
 must not claim those remaining states complete.

@@ -7,7 +7,7 @@
 
 ## Context
 
-Herald records project facts in the versioned `audit_events` journal. Those facts
+Postbot records project facts in the versioned `audit_events` journal. Those facts
 describe what happened and who caused it, but they do not answer who should be
 notified, whether a recipient disabled a category, whether an item was read, or whether
 an external transport delivered it.
@@ -18,7 +18,7 @@ or machine attribution rather than notification recipients.
 
 ## Decision
 
-Herald projects an explicit allowlist of supported event names and versions into a
+Postbot projects an explicit allowlist of supported event names and versions into a
 separate persistent notification inbox. The event actor remains attribution only.
 Recipients are the project's currently authorized human actors when the projection
 processes the fact. This fail-closed rule avoids notifying removed identities and does
@@ -52,7 +52,7 @@ and retry policy. They must not call publication workflow code directly.
 - Notify the source event actor: rejected because workers and API tokens commonly cause
   events but are not human recipients.
 - Store recipients as Better Auth user foreign keys: rejected because project access is
-  a Herald domain concern and must remain independent from the authentication schema.
+  a Postbot domain concern and must remain independent from the authentication schema.
 - Dispatch transports directly from publication completion: rejected because provider
   latency and failure would enter the publication transaction and lose replay safety.
 

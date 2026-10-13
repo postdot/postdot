@@ -9,7 +9,7 @@ describe('notification content', () => {
         const notification = {
             kind: 'publication_published' as const,
             title: 'Publication delivered',
-            body: 'Herald confirmed that the publication was delivered.',
+            body: 'Postbot confirmed that the publication was delivered.',
         }
         expect(notificationContent(notification, 'fr')).toEqual({
             title: m.notification_delivered_title({}, { locale: 'fr' }),
@@ -28,7 +28,7 @@ describe('notification content', () => {
                 {
                     kind: 'publication_ambiguous',
                     title: 'Publication outcome unknown',
-                    body: 'Herald could not confirm whether the publication was delivered.',
+                    body: 'Postbot could not confirm whether the publication was delivered.',
                 },
                 'fr'
             )
@@ -84,7 +84,7 @@ describe('notification content', () => {
         const mismatched = {
             kind: 'publication_failed' as const,
             title: 'Publication delivered',
-            body: 'Herald confirmed that the publication was delivered.',
+            body: 'Postbot confirmed that the publication was delivered.',
         }
         expect(notificationContent(mismatched, 'fr')).toEqual({
             title: mismatched.title,

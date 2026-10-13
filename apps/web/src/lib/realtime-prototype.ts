@@ -259,7 +259,7 @@ export function toRealtimeNotification(notification: Notification): RealtimeNoti
     }
 }
 
-export function createHeraldRealtimeDataSource(): ProjectRealtimeDataSource {
+export function createPostbotRealtimeDataSource(): ProjectRealtimeDataSource {
     return {
         async listPublications(projectId) {
             const { api } = await import('@/lib/api')
@@ -591,7 +591,7 @@ function createFixturePublications(projectId: string, now: number): readonly Rea
             postId: `${projectId}-post-1`,
             channelId: `${projectId}-channel-linkedin`,
             channelName: 'LinkedIn',
-            postTitle: 'Herald launch notes',
+            postTitle: 'Postbot launch notes',
             state: 'scheduled',
             scheduledAt: now + 60 * 60 * 1_000,
             updatedAt: now,
@@ -602,7 +602,7 @@ function createFixturePublications(projectId: string, now: number): readonly Rea
             postId: `${projectId}-post-1`,
             channelId: `${projectId}-channel-manual`,
             channelName: 'Editorial review',
-            postTitle: 'Herald launch notes',
+            postTitle: 'Postbot launch notes',
             state: 'published',
             scheduledAt: null,
             updatedAt: now - 2_000,

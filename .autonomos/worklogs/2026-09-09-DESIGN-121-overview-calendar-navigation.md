@@ -9,7 +9,7 @@
 ## Owner feedback addressed
 
 The project overview was still a redundant metrics-and-recent-publications page
-next to the calendar. The owner clarified that Herald's primary project job is
+next to the calendar. The owner clarified that Postbot's primary project job is
 planning publications, so the calendar should be the first project view. The
 owner also clarified that the sidebar and fixed header belong to the same base
 canvas; only the active page should read as a raised surface. Finally, compact

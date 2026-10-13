@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald supports built-in channel profiles and bounded runtime-defined profile
+Postbot supports built-in channel profiles and bounded runtime-defined profile
 definitions. The server now owns channel lifecycle state, profile revisions,
 blockers, and audit events. The web application must expose those contracts
 without creating a client-side channel model or hiding a destructive operation

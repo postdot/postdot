@@ -1,4 +1,4 @@
-import { Textarea } from '@herald/ui/components/textarea'
+import { Textarea } from '@postbot/ui/components/textarea'
 import { SolarProvider } from '@solar-icons/react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
@@ -20,7 +20,7 @@ const channels: ChannelListItem[] = ['linkedin', 'bluesky', 'mastodon', 'x'].map
         profileId,
         execution: { kind: 'built_in', contractId: profileId },
         profileVersionId: profileId,
-        name: ['Herald', 'Studio', 'Community', 'News'][index]!,
+        name: ['Postbot', 'Studio', 'Community', 'News'][index]!,
         state: 'active',
         archivedAt: null,
         revision: 1,

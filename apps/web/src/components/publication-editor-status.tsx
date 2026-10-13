@@ -1,5 +1,5 @@
-import { Button } from '@herald/ui/components/button'
-import { cn } from '@herald/ui/lib/utils'
+import { Button } from '@postbot/ui/components/button'
+import { cn } from '@postbot/ui/lib/utils'
 import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 

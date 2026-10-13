@@ -7,7 +7,7 @@
 
 ## Context
 
-Herald already writes project-scoped `audit_events` in the same SQLite transaction as
+Postbot already writes project-scoped `audit_events` in the same SQLite transaction as
 the state transition they describe. Automatic execution uses those records as its
 append-only history under ADR-028. Notifications and operational analytics now create a
 concrete need for durable, versioned facts that another subsystem can consume after a
@@ -20,7 +20,7 @@ not require two physical logs containing the same facts.
 
 ## Decision
 
-Herald keeps `audit_events` as its single append-only fact journal. A record intended
+Postbot keeps `audit_events` as its single append-only fact journal. A record intended
 for durable consumption has an explicit positive schema version. Its existing action,
 project, actor, entity, metadata, and occurrence timestamp form the domain-event
 envelope; optional correlation and causation identifiers connect related work without
@@ -48,7 +48,7 @@ latency but are never the source of truth. Notification inbox records, delivery 
 records, and provider analytics snapshots use their own tables and lifecycle contracts;
 they do not mutate or acknowledge journal records.
 
-Herald is not event sourced. Projects, publications, jobs, channels, credentials, and
+Postbot is not event sourced. Projects, publications, jobs, channels, credentials, and
 other current-state tables remain authoritative. The journal supports provenance,
 recovery inspection, and bounded asynchronous projections only.
 

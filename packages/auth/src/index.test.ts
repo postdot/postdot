@@ -6,25 +6,25 @@ import {
     createDatabase,
     createManualStore,
     runMigrations,
-} from '@herald/db'
+} from '@postbot/db'
 import { verifyPassword } from 'better-auth/crypto'
 
 import {
     createAuth,
-    hashHeraldPassword,
-    heraldUserApiKeyConfigId,
-    heraldPasswordPolicy,
-    type HeraldAuthRuntimeOptions,
-    type HeraldAuthVerificationEmail,
-    type HeraldOrganizationInvitationEmail,
+    hashPostbotPassword,
+    postbotUserApiKeyConfigId,
+    postbotPasswordPolicy,
+    type PostbotAuthRuntimeOptions,
+    type PostbotAuthVerificationEmail,
+    type PostbotOrganizationInvitationEmail,
 } from './index'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 
 function createFixture(
     options: Pick<
-        HeraldAuthRuntimeOptions,
+        PostbotAuthRuntimeOptions,
         | 'allowAdditionalSignups'
         | 'organizationInvitationURL'
         | 'requireEmailVerificationOnInvitation'
@@ -57,10 +57,10 @@ function createFixture(
     }
 }
 
-describe('Herald authentication', () => {
+describe('Postbot authentication', () => {
     it('uses Better Auth password hashes for offline recovery', async () => {
         const password = 'recovered-password-123'
-        const hash = await hashHeraldPassword(password)
+        const hash = await hashPostbotPassword(password)
 
         expect(hash).not.toBe(password)
         expect(await verifyPassword({ hash, password })).toBe(true)
@@ -92,8 +92,8 @@ describe('Herald authentication', () => {
                         origin: baseURL,
                     },
                     body: JSON.stringify({
-                        email: 'operator@herald.local',
-                        name: 'Herald Operator',
+                        email: 'operator@postbot.local',
+                        name: 'Postbot Operator',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -105,8 +105,8 @@ describe('Herald authentication', () => {
                 user: { email: string; name: string }
             }
             expect(signUpBody.user).toMatchObject({
-                email: 'operator@herald.local',
-                name: 'Herald Operator',
+                email: 'operator@postbot.local',
+                name: 'Postbot Operator',
             })
 
             const sessionCookie = signUpResponse.headers.get('set-cookie')?.split(';', 1)[0]
@@ -124,7 +124,7 @@ describe('Herald authentication', () => {
             const sessionBody = (await sessionResponse.json()) as {
                 user: { email: string }
             }
-            expect(sessionBody.user.email).toBe('operator@herald.local')
+            expect(sessionBody.user.email).toBe('operator@postbot.local')
         } finally {
             closeDatabase(database)
         }
@@ -143,8 +143,8 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'owner@herald.local',
-                        name: 'Herald Owner',
+                        email: 'owner@postbot.local',
+                        name: 'Postbot Owner',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -191,7 +191,7 @@ describe('Herald authentication', () => {
                     },
                     body: JSON.stringify({
                         name: 'Unbound key must be rejected',
-                        organizationId: 'not-a-herald-project',
+                        organizationId: 'not-a-postbot-project',
                     }),
                 })
             )
@@ -205,9 +205,9 @@ describe('Herald authentication', () => {
                         cookie: sessionCookie ?? '',
                     },
                     body: JSON.stringify({
-                        email: 'bypass@herald.local',
+                        email: 'bypass@postbot.local',
                         role: 'viewer',
-                        organizationId: 'not-a-herald-project',
+                        organizationId: 'not-a-postbot-project',
                     }),
                 })
             )
@@ -216,26 +216,26 @@ describe('Herald authentication', () => {
             const createdKey = await auth.api.createApiKey({
                 body: {
                     name: 'CI key',
-                    configId: heraldUserApiKeyConfigId,
+                    configId: postbotUserApiKeyConfigId,
                     userId: signUpBody.user.id,
                     expiresIn: 24 * 60 * 60,
                     metadata: {
-                        heraldApiKeyVersion: 2,
-                        heraldProjectAccess: 'all',
+                        postbotApiKeyVersion: 2,
+                        postbotProjectAccess: 'all',
                     },
                 },
             })
-            expect(createdKey.key).toMatch(/^herald_pat_/)
+            expect(createdKey.key).toMatch(/^postbot_pat_/)
             expect(createdKey.expiresAt).toBeInstanceOf(Date)
 
             const verified = await auth.api.verifyApiKey({ body: { key: createdKey.key } })
             expect(verified).toMatchObject({
                 valid: true,
-                key: { configId: heraldUserApiKeyConfigId, referenceId: signUpBody.user.id },
+                key: { configId: postbotUserApiKeyConfigId, referenceId: signUpBody.user.id },
             })
 
             const listed = await auth.api.listApiKeys({
-                query: { configId: heraldUserApiKeyConfigId },
+                query: { configId: postbotUserApiKeyConfigId },
                 headers: new Headers({ cookie: sessionCookie ?? '' }),
             })
             expect(listed.total).toBe(1)
@@ -262,7 +262,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'organization-owner@herald.local',
+                        email: 'organization-owner@postbot.local',
                         name: 'Organization Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -281,7 +281,7 @@ describe('Herald authentication', () => {
             })
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@herald.local',
+                    email: 'organization-member@postbot.local',
                     role: 'editor',
                     organizationId: organization.id,
                 },
@@ -289,7 +289,7 @@ describe('Herald authentication', () => {
             })
 
             expect(invitation).toMatchObject({
-                email: 'organization-member@herald.local',
+                email: 'organization-member@postbot.local',
                 organizationId: organization.id,
                 role: 'editor',
                 status: 'pending',
@@ -298,7 +298,7 @@ describe('Herald authentication', () => {
 
             const reissuedInvitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@herald.local',
+                    email: 'organization-member@postbot.local',
                     role: 'editor',
                     organizationId: organization.id,
                 },
@@ -314,7 +314,7 @@ describe('Herald authentication', () => {
                     })
                 ).filter(
                     candidate =>
-                        candidate.email === 'organization-member@herald.local' &&
+                        candidate.email === 'organization-member@postbot.local' &&
                         candidate.status === 'pending'
                 )
             ).toEqual([expect.objectContaining({ id: reissuedInvitation.id })])
@@ -324,7 +324,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'organization-member@herald.local',
+                        email: 'organization-member@postbot.local',
                         name: 'Organization Member',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -347,7 +347,7 @@ describe('Herald authentication', () => {
     })
 
     it('forwards optional organization invitation delivery through a deployment hook', async () => {
-        const deliveries: HeraldOrganizationInvitationEmail[] = []
+        const deliveries: PostbotOrganizationInvitationEmail[] = []
         const { auth, database } = createFixture({
             organizationInvitationURL: ({ id, organizationId }) =>
                 `https://app.example.test/invitations/${id}?organizationId=${organizationId}`,
@@ -366,7 +366,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'invitation-sender@herald.local',
+                        email: 'invitation-sender@postbot.local',
                         name: 'Invitation Sender',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -385,7 +385,7 @@ describe('Herald authentication', () => {
             })
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'invitation-recipient@herald.local',
+                    email: 'invitation-recipient@postbot.local',
                     role: 'viewer',
                     organizationId: organization.id,
                 },
@@ -396,11 +396,11 @@ describe('Herald authentication', () => {
             expect(deliveries).toHaveLength(1)
             expect(deliveries[0]).toMatchObject({
                 id: invitation.id,
-                email: 'invitation-recipient@herald.local',
+                email: 'invitation-recipient@postbot.local',
                 organizationId: organization.id,
                 organizationName: 'Delivery Hook Project',
                 inviterId: owner.user.id,
-                inviterEmail: 'invitation-sender@herald.local',
+                inviterEmail: 'invitation-sender@postbot.local',
                 inviterName: 'Invitation Sender',
                 invitationURL: `https://app.example.test/invitations/${invitation.id}?organizationId=${organization.id}`,
             })
@@ -411,8 +411,8 @@ describe('Herald authentication', () => {
     })
 
     it('forwards account verification and password reset delivery through deployment hooks', async () => {
-        const verificationDeliveries: HeraldAuthVerificationEmail[] = []
-        const resetDeliveries: HeraldAuthVerificationEmail[] = []
+        const verificationDeliveries: PostbotAuthVerificationEmail[] = []
+        const resetDeliveries: PostbotAuthVerificationEmail[] = []
         const { auth, database } = createFixture({
             sendEmailVerificationOnSignUp: true,
             sendEmailVerification: delivery => {
@@ -433,7 +433,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'verification-recipient@herald.local',
+                        email: 'verification-recipient@postbot.local',
                         name: 'Verification Recipient',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -444,7 +444,7 @@ describe('Herald authentication', () => {
             expect(verificationDeliveries).toHaveLength(1)
             expect(verificationDeliveries[0]).toMatchObject({
                 user: {
-                    email: 'verification-recipient@herald.local',
+                    email: 'verification-recipient@postbot.local',
                     name: 'Verification Recipient',
                 },
             })
@@ -455,7 +455,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'verification-recipient@herald.local',
+                        email: 'verification-recipient@postbot.local',
                         redirectTo: 'https://app.example.test/reset-password',
                     }),
                 })
@@ -463,7 +463,7 @@ describe('Herald authentication', () => {
             expect(resetResponse.status).toBe(200)
             expect(resetDeliveries).toHaveLength(1)
             expect(resetDeliveries[0]).toMatchObject({
-                user: { email: 'verification-recipient@herald.local' },
+                user: { email: 'verification-recipient@postbot.local' },
             })
             expect(resetDeliveries[0]?.url).toContain('/api/auth/reset-password/')
             expect(signUp.user.id).toBeTruthy()
@@ -473,7 +473,7 @@ describe('Herald authentication', () => {
     })
 
     it('returns the same reset response for known and unknown email addresses', async () => {
-        const deliveries: HeraldAuthVerificationEmail[] = []
+        const deliveries: PostbotAuthVerificationEmail[] = []
         const { auth, database } = createFixture({
             sendPasswordResetEmail: delivery => {
                 deliveries.push(delivery)
@@ -490,7 +490,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'reset-owner@herald.local',
+                        email: 'reset-owner@postbot.local',
                         name: 'Reset Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -509,14 +509,14 @@ describe('Herald authentication', () => {
                         }),
                     })
                 )
-            const knownResponse = await requestReset('reset-owner@herald.local')
-            const unknownResponse = await requestReset('unknown-reset@herald.local')
+            const knownResponse = await requestReset('reset-owner@postbot.local')
+            const unknownResponse = await requestReset('unknown-reset@postbot.local')
 
             expect(knownResponse.status).toBe(200)
             expect(unknownResponse.status).toBe(200)
             expect(await knownResponse.json()).toEqual(await unknownResponse.json())
             expect(deliveries).toHaveLength(1)
-            expect(deliveries[0]?.user.email).toBe('reset-owner@herald.local')
+            expect(deliveries[0]?.user.email).toBe('reset-owner@postbot.local')
         } finally {
             closeDatabase(database)
         }
@@ -535,7 +535,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'offline-reset-owner@herald.local',
+                        email: 'offline-reset-owner@postbot.local',
                         name: 'Offline Reset Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -548,7 +548,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'offline-reset-owner@herald.local',
+                        email: 'offline-reset-owner@postbot.local',
                         redirectTo: `${baseURL}/reset-password`,
                     }),
                 })
@@ -561,7 +561,7 @@ describe('Herald authentication', () => {
         }
     })
 
-    it('turns a workspace project invitation into a Herald project grant', async () => {
+    it('turns a workspace project invitation into a Postbot project grant', async () => {
         const { access, auth, database, manualStore } = createFixture({
             allowAdditionalSignups: true,
         })
@@ -576,7 +576,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'workspace-invitation-owner@herald.local',
+                        email: 'workspace-invitation-owner@postbot.local',
                         name: 'Workspace Invitation Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -587,7 +587,7 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'workspace-invitation-member@herald.local',
+                        email: 'workspace-invitation-member@postbot.local',
                         name: 'Workspace Invitation Member',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -625,7 +625,7 @@ describe('Herald authentication', () => {
 
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'workspace-invitation-member@herald.local',
+                    email: 'workspace-invitation-member@postbot.local',
                     role: 'member',
                     organizationId: workspace.organizationId,
                     projectId: project.project.id,
@@ -651,7 +651,7 @@ describe('Herald authentication', () => {
                 body: { organizationId: workspace.organizationId },
                 headers: new Headers({ cookie: memberCookie }),
             })
-            // The Herald grant remains stored, but project access is scoped to
+            // The Postbot grant remains stored, but project access is scoped to
             // current workspace membership and therefore becomes unavailable.
             expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
         } finally {
@@ -673,8 +673,8 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'first@herald.local',
-                        name: 'First Herald Operator',
+                        email: 'first@postbot.local',
+                        name: 'First Postbot Operator',
                         password,
                     }),
                 })
@@ -686,8 +686,8 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'second@herald.local',
-                        name: 'Second Herald Operator',
+                        email: 'second@postbot.local',
+                        name: 'Second Postbot Operator',
                         password,
                     }),
                 })
@@ -702,14 +702,14 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'first@herald.local',
+                        email: 'first@postbot.local',
                         password,
                     }),
                 })
             )
             expect(signIn.status).toBe(200)
             expect(await signIn.json()).toMatchObject({
-                user: { email: 'first@herald.local' },
+                user: { email: 'first@postbot.local' },
             })
         } finally {
             closeDatabase(database)
@@ -723,10 +723,10 @@ describe('Herald authentication', () => {
         try {
             expect(configured.options.emailAndPassword?.enabled).toBe(true)
             expect(configured.options.emailAndPassword?.minPasswordLength).toBe(
-                heraldPasswordPolicy.minimumLength
+                postbotPasswordPolicy.minimumLength
             )
             expect(configured.options.emailAndPassword?.maxPasswordLength).toBe(
-                heraldPasswordPolicy.maximumLength
+                postbotPasswordPolicy.maximumLength
             )
             expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {

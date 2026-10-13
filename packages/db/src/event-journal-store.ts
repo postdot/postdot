@@ -4,12 +4,12 @@ import {
     requireNonBlank,
     type CreateDomainEventInput,
     type DomainEvent,
-} from '@herald/core'
+} from '@postbot/core'
 
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type HeraldDatabase,
+    type PostbotDatabase,
 } from './client'
 
 const cursorPrefix = 'event-sequence:'
@@ -67,7 +67,7 @@ interface EventJournalRow {
 }
 
 export function createEventJournalStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: EventJournalStoreOptions = {}
 ) {
     const client = database.$client

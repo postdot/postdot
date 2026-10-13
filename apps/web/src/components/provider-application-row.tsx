@@ -1,6 +1,6 @@
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
-import { DialogTrigger } from '@herald/ui/components/dialog'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
+import { DialogTrigger } from '@postbot/ui/components/dialog'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 
 import { type ProviderApplication, type ProviderApplicationProvider } from '@/lib/api'

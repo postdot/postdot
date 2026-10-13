@@ -4,9 +4,9 @@ import {
     requireTimestamp,
     reschedulePublication,
     type Publication,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { ReschedulePublicationsInput } from '../manual-store'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -43,7 +43,7 @@ export interface PublicationSchedulingStoreOptions {
 }
 
 export function createPublicationSchedulingStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationSchedulingStoreOptions
 ) {
     const client = database.$client

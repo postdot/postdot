@@ -16,7 +16,7 @@ data, while allowing every old target to execute can ignore a newly known provid
 transport, or security constraint.
 
 General JSON Schema compatibility is also not a sufficient decision mechanism. The
-important question is whether Herald's actual persisted content and execution
+important question is whether Postbot's actual persisted content and execution
 contract remain valid and supported.
 
 ## Decision
@@ -25,7 +25,7 @@ Every activated channel profile version is immutable. Editing creates a new prof
 draft. A preset is copied into that draft as a starting point and has no live
 authority over the resulting channel.
 
-Before activation, Herald evaluates the proposed profile against actual affected
+Before activation, Postbot evaluates the proposed profile against actual affected
 working drafts and pending targets. The preview reports:
 
 - content that passes or fails structural and module validation;
@@ -47,7 +47,7 @@ these rules:
 - a target that fails current constraints, lacks required media, or references a
   changed execution contract becomes `review_required` before the external-effect
   boundary and cannot be claimed by the scheduler;
-- migration is explicit and creates a new validated target revision. Herald never
+- migration is explicit and creates a new validated target revision. Postbot never
   guesses a destructive field conversion.
 
 Profile immutability and execution support are separate. A stored declarative custom
@@ -65,7 +65,7 @@ audit record cannot be physically deleted.
 - **Mutate the active profile in place:** smallest schema, but changes persisted
   meaning and destroys reproducible retries and history.
 - **Always execute scheduled targets under their old profile:** preserves snapshots,
-  but ignores incompatibilities Herald already knows before an external effect.
+  but ignores incompatibilities Postbot already knows before an external effect.
 - **Automatically migrate every compatible-looking target:** reduces review, but can
   silently change transport semantics and cannot safely infer destructive schema
   conversions.

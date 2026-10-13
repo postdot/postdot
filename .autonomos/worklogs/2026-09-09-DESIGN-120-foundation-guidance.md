@@ -13,7 +13,7 @@
 - Added an implementation checklist to the accepted `DESIGN.md` contract for
   shared primitive accessibility, long-label geometry, locale/theme support,
   and progressive disclosure.
-- Added the same operational guardrails to the `@herald/ui` agent guidance and
+- Added the same operational guardrails to the `@postbot/ui` agent guidance and
   package README so future agents see them at the component boundary.
 - Kept product meaning and explanatory copy in consuming pages rather than
   making shared primitives carry tutorial text.

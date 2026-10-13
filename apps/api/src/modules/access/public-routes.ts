@@ -1,4 +1,4 @@
-import type { AccessStore } from '@herald/db'
+import type { AccessStore } from '@postbot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
@@ -26,7 +26,7 @@ export function createPublicInstanceRoutes(
     access: AccessStore,
     options: { readonly allowAdditionalSignups?: boolean } = {}
 ) {
-    return new Elysia({ name: 'herald-public-instance' })
+    return new Elysia({ name: 'postbot-public-instance' })
         .get(
             '/api/instance/status',
             {

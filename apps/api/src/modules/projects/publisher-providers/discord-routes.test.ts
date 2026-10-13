@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@herald/db'
-import type { DiscordFetcher } from '@herald/discord'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
+import type { DiscordFetcher } from '@postbot/discord'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'herald-test-secret-with-at-least-32-characters'
+const secret = 'postbot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(7)
 const botToken = 'discord-test-bot-token-with-at-least-32-characters'
@@ -40,7 +40,7 @@ function createDiscordFetcher(responses: readonly Response[]): {
 }
 
 function botUserResponse(): Response {
-    return jsonResponse({ id: '987654321098765432', username: 'Herald' })
+    return jsonResponse({ id: '987654321098765432', username: 'Postbot' })
 }
 
 function channelResponse(type = 0): Response {
@@ -76,7 +76,7 @@ async function signUp(app: ReturnType<typeof createApp>, email: string) {
             headers: { 'content-type': 'application/json', origin: baseURL },
             body: JSON.stringify({
                 email,
-                name: 'Herald Operator',
+                name: 'Postbot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })
@@ -131,12 +131,12 @@ async function connectDiscord(
     app: ReturnType<typeof createApp>,
     cookie: string,
     projectId: string,
-    heraldChannelId: string,
+    postbotChannelId: string,
     body: unknown
 ) {
     return jsonRequest(
         app,
-        `/api/projects/${projectId}/channels/${heraldChannelId}/publisher/discord/connect`,
+        `/api/projects/${projectId}/channels/${postbotChannelId}/publisher/discord/connect`,
         cookie,
         { method: 'POST', body: JSON.stringify(body) }
     )
@@ -148,13 +148,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-operator@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-operator@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord project'
             )
-            const response = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const response = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -175,7 +175,7 @@ describe('Discord publisher connection routes', () => {
             expect(listed.status).toBe(200)
             expect(JSON.stringify(await listed.json())).not.toContain(botToken)
 
-            const duplicate = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const duplicate = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -193,13 +193,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-invalid-token@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-invalid-token@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord invalid token project'
             )
-            const response = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const response = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -223,13 +223,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database, publisher } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-reconnect@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-reconnect@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord reconnect project'
             )
-            const initial = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const initial = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -243,7 +243,7 @@ describe('Discord publisher connection routes', () => {
                 initialBody.connection.credentialId
             )
 
-            const reconnected = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const reconnected = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -268,13 +268,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-unknown-channel@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-unknown-channel@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord unknown channel project'
             )
-            const response = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const response = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -293,13 +293,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-voice-channel@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-voice-channel@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord voice channel project'
             )
-            const response = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const response = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })
@@ -318,13 +318,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-malformed-channel@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-malformed-channel@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord malformed channel project'
             )
-            const response = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+            const response = await connectDiscord(app, cookie, projectId, postbotChannelId, {
                 botToken,
                 channelId: 'not-a-snowflake',
             })
@@ -341,13 +341,13 @@ describe('Discord publisher connection routes', () => {
         const { app, database } = createFixture(discord.fetcher)
 
         try {
-            const cookie = await signUp(app, 'discord-auth-required@herald.local')
-            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+            const cookie = await signUp(app, 'discord-auth-required@postbot.local')
+            const { projectId, channelId: postbotChannelId } = await createDiscordChannel(
                 app,
                 cookie,
                 'Discord auth project'
             )
-            const response = await connectDiscord(app, '', projectId, heraldChannelId, {
+            const response = await connectDiscord(app, '', projectId, postbotChannelId, {
                 botToken,
                 channelId,
             })

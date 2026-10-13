@@ -4,14 +4,14 @@ import {
     createBlueskyAnalyticsReader,
     type BlueskyAnalyticsCoverage,
     type BlueskyFetcher,
-} from '@herald/bluesky'
+} from '@postbot/bluesky'
 import {
     providerAnalyticsContractVersion,
     requireNonBlank,
     requireTimestamp,
     type ProviderAnalyticsObservation,
-} from '@herald/core'
-import type { ProviderAnalyticsStore } from '@herald/db'
+} from '@postbot/core'
+import type { ProviderAnalyticsStore } from '@postbot/db'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 
@@ -89,11 +89,11 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
                 account: {
                     providerSubjectId: accountId,
                     providerSubjectLabel: accountLabel,
-                    heraldEntityId: channelId,
+                    postbotEntityId: channelId,
                 },
                 contents: knownContent.map(content => ({
                     providerSubjectId: content.providerSubjectId,
-                    heraldEntityId: content.heraldEntityId,
+                    postbotEntityId: content.postbotEntityId,
                 })),
                 fetchedAt,
             })

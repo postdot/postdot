@@ -13,7 +13,7 @@ API origin for every connection. Mastodon requires an OAuth application to be
 registered on the instance before a user authorizes it; the resulting client
 credentials and access token are instance-specific.
 
-Herald already stores project-owned publisher credentials and allows a publisher
+Postbot already stores project-owned publisher credentials and allows a publisher
 connection to retain an endpoint origin, but built-in providers currently reject
 endpoint settings. Treating Mastodon as a global environment configuration would
 make one deployment unable to connect accounts from multiple instances and would
@@ -26,7 +26,7 @@ force a restart whenever a project adds or changes a server.
 - The connection flow accepts one normalized Mastodon instance origin. HTTPS is
   required, with loopback HTTP allowed only for local development. Credentials,
   paths, queries, and fragments are rejected.
-- Herald registers its client on that instance, requests only the scopes required
+- Postbot registers its client on that instance, requests only the scopes required
   for the initial publishing flow (`read:accounts`, `write:statuses`, and
   `write:media`), and uses the OAuth authorization-code flow with S256 PKCE.
 - The normalized instance origin is stored in
@@ -36,10 +36,10 @@ force a restart whenever a project adds or changes a server.
 - The callback verifies the authorized account on the same instance before saving
   a project-owned credential and an account destination. The destination is the
   Mastodon account ID; the human-readable `acct` value is metadata only.
-- Herald remains the scheduler. It sends an ordinary Mastodon status at the
+- Postbot remains the scheduler. It sends an ordinary Mastodon status at the
   execution boundary and does not delegate scheduling to Mastodon's scheduled
   status API.
-- The initial built-in profile uses Herald's existing portable media boundary:
+- The initial built-in profile uses Postbot's existing portable media boundary:
   plain text plus up to four JPEG or PNG images with accessibility text. Instance
   limits remain provider truth and are checked by the adapter; synchronizing
   instance-specific limits into editor feedback is a later capability task, not a
@@ -51,7 +51,7 @@ force a restart whenever a project adds or changes a server.
 
 ## Alternatives considered
 
-- **Deployment-wide Mastodon credentials:** rejected because a Herald deployment
+- **Deployment-wide Mastodon credentials:** rejected because a Postbot deployment
   must connect accounts from different instances without environment changes.
 - **Treat the instance as a custom HTTP channel:** rejected because Mastodon's
   OAuth, account verification, media upload lifecycle, response classification,
@@ -62,12 +62,12 @@ force a restart whenever a project adds or changes a server.
 - **Store the Mastodon client secret in public connection settings:** rejected
   because connection metadata and immutable execution snapshots must never expose
   provider credentials.
-- **Delegate scheduling to Mastodon:** rejected because it would split Herald's
+- **Delegate scheduling to Mastodon:** rejected because it would split Postbot's
   durable schedule and outcome model across two schedulers.
 
 ## Consequences
 
-- A single Herald deployment can serve multiple Mastodon instances while
+- A single Postbot deployment can serve multiple Mastodon instances while
   retaining project ownership and the existing encrypted credential boundary.
 - The publisher store needs a provider policy that can validate and persist an
   endpoint origin for selected built-in providers without opening endpoint

@@ -72,7 +72,7 @@ A commit is a self-consistent checkpoint on a working branch. It requires:
   full `bun run build` when the selector reports a transversal path.
 
 The mission base is recorded before the first edit
-(`git rev-parse HEAD | tee .git/herald-mission-base`) and passed explicitly, so
+(`git rev-parse HEAD | tee .git/postbot-mission-base`) and passed explicitly, so
 the comparison is reproducible. Uncommitted work counts: the selector unions
 committed, staged, unstaged, and untracked paths.
 

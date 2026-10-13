@@ -1,6 +1,6 @@
 # Proposed follow-up for future sessions
 
-This document proposes an order of work; it accepts no new architecture and creates no task. Horizons describe maturity stages, not a schedule promise. [SPEC-005](/home/hakim/projects/herald/.autonomos/specs/SPEC-005-continuous-product-scope.md) remains the continuous-development frame; a V1 does not need to be invented to restore order.
+This document proposes an order of work; it accepts no new architecture and creates no task. Horizons describe maturity stages, not a schedule promise. [SPEC-005](./.autonomos/specs/SPEC-005-continuous-product-scope.md) remains the continuous-development frame; a V1 does not need to be invented to restore order.
 
 ## Near term — restore already-promised guarantees
 
@@ -31,7 +31,7 @@ Expected outcome: one real controlled scenario can be executed, interrupted, res
 
 **Providers.** Deepen support for used providers: expiration and rotation, scope changes, media, ambiguous responses, limits, and API compatibility. Keep common conformance, but do not confuse mock success with provider validation. Public trials remain deliberately authorized actions in their sessions.
 
-**Analytics.** Preserve separation between Herald behavior and external engagement. Require explicit provenance, freshness, and historical coverage. Build another projection only when cost or latency measurements justify it, reusing existing contracts instead of duplicating them.
+**Analytics.** Preserve separation between Postbot behavior and external engagement. Require explicit provenance, freshness, and historical coverage. Build another projection only when cost or latency measurements justify it, reusing existing contracts instead of duplicating them.
 
 **Capacity and architecture.** Measure database sizes, query time, maximum publication lag, memory, and contention at representative volumes. Consider project fairness or bounded concurrency before distributed infrastructure. SQLite remains defensible while measurements meet retained objectives.
 
@@ -39,7 +39,7 @@ Expected outcome: one real controlled scenario can be executed, interrupted, res
 
 ## Not recommended by current evidence
 
-- Rewriting Herald or replacing the stack to standardize style.
+- Rewriting Postbot or replacing the stack to standardize style.
 - Redis, Temporal, microservices, or multiple workers without prior measurement.
 - A universal repository/plugin layer that hides existing transactions.
 - More ADRs or tests without a precise behavior to protect.

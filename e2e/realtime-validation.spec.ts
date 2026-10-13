@@ -349,7 +349,7 @@ test('shows unread notification count before opening the inbox', async ({ page }
                             id: 'e2e-unread-publication',
                         },
                         title: 'Publication delivered',
-                        body: 'Herald confirmed that the publication was delivered.',
+                        body: 'Postbot confirmed that the publication was delivered.',
                         readAt: null,
                         archivedAt: null,
                         createdAt: Date.now(),
@@ -384,7 +384,7 @@ test('keeps operational labels localized without changing custom notification co
             'publication_published',
             'success',
             'Publication delivered',
-            'Herald confirmed that the publication was delivered.',
+            'Postbot confirmed that the publication was delivered.',
         ],
         [
             'publication_failed',
@@ -396,7 +396,7 @@ test('keeps operational labels localized without changing custom notification co
             'publication_ambiguous',
             'warning',
             'Publication outcome unknown',
-            'Herald could not confirm whether the publication was delivered.',
+            'Postbot could not confirm whether the publication was delivered.',
         ],
         [
             'publication_failed',
@@ -566,7 +566,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
         }
 
         const windowWithController = globalThis as typeof globalThis & {
-            __heraldTestEventSource?: Controller
+            __postbotTestEventSource?: Controller
         }
 
         class TestEventSource implements Controller {
@@ -578,7 +578,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
             constructor(url: string, init?: { readonly withCredentials?: boolean }) {
                 this.url = url
                 this.withCredentials = init?.withCredentials === true
-                windowWithController.__heraldTestEventSource = this
+                windowWithController.__postbotTestEventSource = this
             }
 
             addEventListener(type: string, listener: Listener): void {
@@ -589,7 +589,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
 
             close(): void {
                 this.closed = true
-                windowWithController.__heraldTestEventSource = undefined
+                windowWithController.__postbotTestEventSource = undefined
             }
 
             emit(type: string, data = ''): void {
@@ -598,7 +598,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
             }
         }
 
-        Object.defineProperty(windowWithController, '__heraldTestEventSource', {
+        Object.defineProperty(windowWithController, '__postbotTestEventSource', {
             configurable: true,
             writable: true,
             value: undefined,
@@ -614,9 +614,9 @@ async function installFakeEventSource(page: Page): Promise<void> {
 async function readEventSource(page: Page): Promise<TestEventSourceController | null> {
     return page.evaluate(() => {
         const windowWithController = globalThis as typeof globalThis & {
-            __heraldTestEventSource?: TestEventSourceController
+            __postbotTestEventSource?: TestEventSourceController
         }
-        return windowWithController.__heraldTestEventSource ?? null
+        return windowWithController.__postbotTestEventSource ?? null
     })
 }
 
@@ -624,9 +624,9 @@ async function emitEventSourceSignal(page: Page, type: string, data = ''): Promi
     await page.evaluate(
         ({ type: signalType, data: signalData }) => {
             const windowWithController = globalThis as typeof globalThis & {
-                __heraldTestEventSource?: TestEventSourceController
+                __postbotTestEventSource?: TestEventSourceController
             }
-            windowWithController.__heraldTestEventSource?.emit(signalType, signalData)
+            windowWithController.__postbotTestEventSource?.emit(signalType, signalData)
         },
         { type, data }
     )
@@ -812,9 +812,9 @@ test('opens notification subjects without acknowledgement and handles unavailabl
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E realtime ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-realtime-${suffix}@herald.local`)
+    await page.getByLabel('Email').fill(`e2e-realtime-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-realtime-password')
     await Promise.all([
         page.waitForResponse(

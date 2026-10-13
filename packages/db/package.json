@@ -1,8 +1,8 @@
 {
-    "name": "@herald/db",
+    "name": "@postbot/db",
     "version": "0.0.0",
     "private": true,
-    "description": "Drizzle ORM database access for Herald",
+    "description": "Drizzle ORM database access for Postbot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -23,8 +23,8 @@
         "test": "bun test"
     },
     "dependencies": {
-        "@herald/core": "workspace:*",
-        "@herald/media": "workspace:*",
+        "@postbot/core": "workspace:*",
+        "@postbot/media": "workspace:*",
         "drizzle-orm": "0.45.3",
         "mp4box": "2.4.1"
     },

@@ -1,4 +1,4 @@
-import type { PublicationEditorState } from '@herald/client'
+import type { PublicationEditorState } from '@postbot/client'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 

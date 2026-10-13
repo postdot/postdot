@@ -1,7 +1,7 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
+import { Button } from '@postbot/ui/components/button'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Input } from '@postbot/ui/components/input'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
@@ -39,14 +39,6 @@ import {
     type MediaReference,
 } from '@/lib/api'
 import { formatBytes } from '@/lib/format'
-import {
-    completeHeraldMediaUpload,
-    createHeraldMediaUploadController,
-    uploadHeraldMediaFile,
-    type HeraldMediaUploadController,
-    type HeraldMediaUppyFile,
-} from '@/lib/herald-media-upload'
-import { createOrderedUploadResults } from '@/lib/herald-media-upload'
 import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
 import {
@@ -54,6 +46,14 @@ import {
     type MediaLibraryViewMode,
     writeMediaLibraryViewMode,
 } from '@/lib/media-library-view'
+import {
+    completePostbotMediaUpload,
+    createPostbotMediaUploadController,
+    uploadPostbotMediaFile,
+    type PostbotMediaUploadController,
+    type PostbotMediaUppyFile,
+} from '@/lib/postbot-media-upload'
+import { createOrderedUploadResults } from '@/lib/postbot-media-upload'
 import { subscribeMediaPreviewUpdates } from '@/lib/project-realtime'
 import {
     mediaSelectionsEqual,
@@ -124,9 +124,9 @@ export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
 }
 
 function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
-    const recoveryId = `herald-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
+    const recoveryId = `postbot-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
     const [controller] = useState(() =>
-        createHeraldMediaUploadController(props.projectId, api, undefined, undefined, {
+        createPostbotMediaUploadController(props.projectId, api, undefined, undefined, {
             id: recoveryId,
         })
     )
@@ -161,7 +161,7 @@ function MediaAttachmentPickerView({
     variant = 'library',
     selectionMode = 'attach',
     controller,
-}: MediaAttachmentPickerProps & { readonly controller: HeraldMediaUploadController }) {
+}: MediaAttachmentPickerProps & { readonly controller: PostbotMediaUploadController }) {
     const { locale } = useLanguage()
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [restorableAssetIds, setRestorableAssetIds] = useState<Set<string>>(() => new Set())
@@ -244,7 +244,7 @@ function MediaAttachmentPickerView({
     const [recoveryActionPending, setRecoveryActionPending] = useState(false)
     const uppyFiles = useUppyState(
         controller.uppy,
-        state => Object.values(state.files) as HeraldMediaUppyFile[]
+        state => Object.values(state.files) as PostbotMediaUppyFile[]
     )
     const recoveredState = useUppyState(controller.uppy, state => state.recoveredState)
     const fileInputOptions = useMemo(() => ({ multiple: true }), [])
@@ -401,7 +401,7 @@ function MediaAttachmentPickerView({
     }, [projectId, sourcePickerOpen])
 
     useEffect(() => {
-        const handleRestrictionFailed = (file: HeraldMediaUppyFile | undefined) => {
+        const handleRestrictionFailed = (file: PostbotMediaUppyFile | undefined) => {
             const message = mediaRestrictionMessage(file, controller.policy, locale)
             const nextMessages = [...(pendingRestrictionErrorRef.current ?? []), message]
             pendingRestrictionErrorRef.current = nextMessages
@@ -580,7 +580,7 @@ function MediaAttachmentPickerView({
     }
 
     useEffect(() => {
-        const handleFilesAdded = (files: HeraldMediaUppyFile[]) => {
+        const handleFilesAdded = (files: PostbotMediaUppyFile[]) => {
             if (disabled || readOnly || savingEdited) {
                 controller.uppy.removeFiles(files.map(file => file.id))
                 return
@@ -1084,7 +1084,7 @@ function MediaAttachmentPickerView({
         setError(null)
         setSavingEdited(true)
         try {
-            const editedAsset = await uploadHeraldMediaFile(api, projectId, {
+            const editedAsset = await uploadPostbotMediaFile(api, projectId, {
                 data: file,
                 filename: file.name,
                 expectedSize: file.size,
@@ -1153,7 +1153,7 @@ function MediaAttachmentPickerView({
                 imported.status === 'ready'
                     ? imported.media
                     : imported.status === 'pending'
-                      ? await completeHeraldMediaUpload(api, projectId, imported.media.intent.id)
+                      ? await completePostbotMediaUpload(api, projectId, imported.media.intent.id)
                       : (() => {
                             throw new MediaVerificationError(imported.media)
                         })()
@@ -1997,8 +1997,8 @@ function mediaSelectionFor(asset: MediaReference): MediaSelection {
 }
 
 function mediaRestrictionMessage(
-    file: HeraldMediaUppyFile | undefined,
-    policy: HeraldMediaUploadController['policy'],
+    file: PostbotMediaUppyFile | undefined,
+    policy: PostbotMediaUploadController['policy'],
     locale: string
 ) {
     if (

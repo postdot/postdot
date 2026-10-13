@@ -1,4 +1,4 @@
-import { buttonVariants } from '@herald/ui/components/button'
+import { buttonVariants } from '@postbot/ui/components/button'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'

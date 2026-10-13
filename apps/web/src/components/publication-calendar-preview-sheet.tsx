@@ -1,4 +1,4 @@
-import { Button } from '@herald/ui/components/button'
+import { Button } from '@postbot/ui/components/button'
 import {
     Sheet,
     SheetClose,
@@ -6,7 +6,7 @@ import {
     SheetFooter,
     SheetHeader,
     SheetTitle,
-} from '@herald/ui/components/sheet'
+} from '@postbot/ui/components/sheet'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { LinkIcon } from '@solar-icons/react/linear/link'

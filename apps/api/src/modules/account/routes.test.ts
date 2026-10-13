@@ -3,9 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, createUserAvatarStore, runMigrations } from '@herald/db'
-import { createLocalMediaStore } from '@herald/media'
+import { createAuth } from '@postbot/auth'
+import { closeDatabase, createDatabase, createUserAvatarStore, runMigrations } from '@postbot/db'
+import { createLocalMediaStore } from '@postbot/media'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -20,7 +20,7 @@ const image = Uint8Array.from(
 
 describe('personal account HTTP boundary', () => {
     it('updates identity, isolates avatar ownership and revokes other password sessions', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'herald-account-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postbot-account-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const storage = createLocalMediaStore({
@@ -63,13 +63,13 @@ describe('personal account HTTP boundary', () => {
         try {
             const signUp = await request('/api/auth/sign-up/email', '', {
                 name: 'Account Operator',
-                email: 'account@herald.local',
+                email: 'account@postbot.local',
                 password: 'original-account-password',
             })
             expect(signUp.status).toBe(200)
             let cookie = cookieFrom(signUp)
             const second = await request('/api/auth/sign-in/email', '', {
-                email: 'account@herald.local',
+                email: 'account@postbot.local',
                 password: 'original-account-password',
             })
             const otherCookie = cookieFrom(second)

@@ -113,7 +113,7 @@ export function createProjectRealtimeRuntime(
         try {
             options.onError?.(error)
         } catch (reportingError) {
-            console.error('[herald-realtime] error handler failed', reportingError)
+            console.error('[postbot-realtime] error handler failed', reportingError)
         }
     }
 

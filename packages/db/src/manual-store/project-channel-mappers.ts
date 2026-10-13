@@ -1,4 +1,4 @@
-import type { Channel, Project } from '@herald/core'
+import type { Channel, Project } from '@postbot/core'
 
 import type { ChannelRow, ProjectRow } from './rows'
 

@@ -7,13 +7,13 @@
 
 ## Context
 
-Herald needs to publish long-form Markdown content to DEV.to while keeping the
+Postbot needs to publish long-form Markdown content to DEV.to while keeping the
 destination-specific protocol isolated from the shared publication model. DEV.to
 uses the Forem API v1 and authenticates API requests with a project-provided
 API key. Article creation accepts an article object containing a title,
 Markdown body, publication state, and an optional absolute main-image URL.
 
-The provider must fit Herald's existing project-owned credential boundary,
+The provider must fit Postbot's existing project-owned credential boundary,
 source/target content separation, public media delivery, and explicit external
 outcome classification. A connection must be verifiable without putting the
 API key in the response or associating the credential with the human who
@@ -23,19 +23,19 @@ performed the connection.
 
 - DEV.to is a first-class built-in provider identified by `devto`.
 - The DEV.to profile uses the versioned `article-v1` execution contract and
-  maps Herald's `headline` to `title`, `body.text` to `body_markdown`, and the
+  maps Postbot's `headline` to `title`, `body.text` to `body_markdown`, and the
   ordered source media list to a target `media` field.
 - The profile accepts plain text or Markdown source text. Plain text remains
   valid Markdown; no provider-specific syntax is introduced into the shared
   source model.
-- The current article slice supports zero or one JPEG/PNG main image. Herald
+- The current article slice supports zero or one JPEG/PNG main image. Postbot
   creates a short-lived signed public URL for that image and sends the URL as
-  `main_image`; DEV.to does not receive Herald's local path or storage
+  `main_image`; DEV.to does not receive Postbot's local path or storage
   credentials.
-- A connection uses a DEV.to API key supplied by the user. Herald verifies it
+- A connection uses a DEV.to API key supplied by the user. Postbot verifies it
   with `GET /api/users/me`, stores it encrypted in the project-owned publisher
   credential store, and records the DEV.to account as the channel destination.
-  Better Auth remains limited to authentication into Herald.
+  Better Auth remains limited to authentication into Postbot.
 - Organization publishing is not included in this slice. Adding it requires a
   deliberate destination ownership decision rather than silently treating an
   organization as a user account.
@@ -52,7 +52,7 @@ performed the connection.
 ## Alternatives considered
 
 - **Better Auth account/provider storage:** rejected because Better Auth
-  authenticates humans into Herald; DEV.to credentials belong to a project
+  authenticates humans into Postbot; DEV.to credentials belong to a project
   channel and must survive changes to the connecting actor.
 - **Generic declarative HTTP channel:** rejected for this built-in provider
   because a dedicated package can validate the article contract, isolate Forem
@@ -60,9 +60,9 @@ performed the connection.
 - **OAuth:** not used because the current DEV.to API v1 connection flow is
   API-key based.
 - **Local or permanent media URLs:** rejected because DEV.to must be able to
-  fetch the image without receiving Herald storage credentials; signed delivery
+  fetch the image without receiving Postbot storage credentials; signed delivery
   preserves the local-storage deployment option.
-- **DEV.to organization destinations in this slice:** deferred until Herald's
+- **DEV.to organization destinations in this slice:** deferred until Postbot's
   destination model explicitly represents ownership and organization-specific
   publishing semantics.
 

@@ -1,6 +1,6 @@
 import type { ValidationIssue } from './validation'
 
-export const declarativeHttpModes = ['herald_webhook', 'mapped_http'] as const
+export const declarativeHttpModes = ['postbot_webhook', 'mapped_http'] as const
 export const declarativeHttpMethods = ['POST', 'PUT', 'PATCH'] as const
 export const declarativeHttpContextPointers = [
     '/deliveryId',
@@ -130,7 +130,7 @@ export function isCustomHttpAuthentication(value: unknown): value is CustomHttpA
         value.headerName.length <= maximumHeaderNameLength &&
         httpTokenPattern.test(value.headerName) &&
         !forbiddenHeaderNames.has(value.headerName.toLowerCase()) &&
-        !value.headerName.toLowerCase().startsWith('x-herald-')
+        !value.headerName.toLowerCase().startsWith('x-postbot-')
     )
 }
 
@@ -200,12 +200,12 @@ export function validateDeclarativeHttpExecution(
         return issues
     }
 
-    if (execution.mode === 'herald_webhook') {
+    if (execution.mode === 'postbot_webhook') {
         if (execution.request !== undefined) {
             addIssue(
                 '/execution/request',
                 'execution.webhook_request_forbidden',
-                'A Herald webhook contract must not define a mapped request'
+                'A Postbot webhook contract must not define a mapped request'
             )
         }
         return issues
@@ -707,7 +707,7 @@ function validateHeaderName(
         value.length > maximumHeaderNameLength ||
         !httpTokenPattern.test(value) ||
         forbiddenHeaderNames.has(value.toLowerCase()) ||
-        value.toLowerCase().startsWith('x-herald-')
+        value.toLowerCase().startsWith('x-postbot-')
     ) {
         addIssue(path, 'mapping.header_invalid', 'HTTP header names are not allowed')
     }

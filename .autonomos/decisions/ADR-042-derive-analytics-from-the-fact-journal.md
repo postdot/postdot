@@ -7,12 +7,12 @@
 
 ## Context
 
-Herald already persists an append-only `audit_events` journal. It contains the
+Postbot already persists an append-only `audit_events` journal. It contains the
 publication lifecycle facts and the automatic execution facts needed to answer
 the first operational analytics questions. Notifications are already a
 separate projection of that journal and must not become the analytics source.
 
-Herald is still early enough that the volume and query shape do not justify a
+Postbot is still early enough that the volume and query shape do not justify a
 second event stream or a materialized analytics table. Adding one now would
 duplicate facts, introduce another projection cursor and rebuild policy, and
 make event semantics harder to evolve before the product has established which
@@ -58,7 +58,7 @@ as `manual`, not as a special analytics implementation.
   already durable publication and execution facts.
 - **A materialized analytics table immediately:** rejected until query volume or
   retention requirements demonstrate that on-demand projection is insufficient.
-- **Third-party telemetry:** rejected because Herald is self-hosted and the
+- **Third-party telemetry:** rejected because Postbot is self-hosted and the
   first analytics foundation must be local, privacy-preserving, and useful
   without another service.
 - **Analytics derived only from current publication rows:** rejected because it

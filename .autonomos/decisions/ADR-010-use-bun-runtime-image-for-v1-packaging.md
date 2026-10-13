@@ -1,4 +1,4 @@
-# ADR-010 — Use a Bun Runtime Image for Herald's Self-Hosted Container
+# ADR-010 — Use a Bun Runtime Image for Postbot's Self-Hosted Container
 
 - Status: proposed
 - Scope: Self-hosted production container and single-process distribution
@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald must be distributable as one process with its API, dashboard assets, SQLite
+Postbot must be distributable as one process with its API, dashboard assets, SQLite
 migrations, and persistent data volume. Bun can produce a compiled executable, but
 the current Elysia 2 OpenAPI integration resolves TypeBox's `typebox/type` module
 dynamically while compiling a route. A previous compiled-binary smoke test failed

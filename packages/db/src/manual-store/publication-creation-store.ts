@@ -15,9 +15,9 @@ import {
     type PublicationReviewState,
     type ProjectTag,
     type ValidationIssue,
-} from '@herald/core'
+} from '@postbot/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {
     AddPostDestinationsInput,
     CreatePostInput,
@@ -87,7 +87,7 @@ export interface PublicationCreationStoreOptions {
 }
 
 export function createPublicationCreationStore(
-    database: HeraldDatabase,
+    database: PostbotDatabase,
     options: PublicationCreationStoreOptions
 ) {
     const client = database.$client

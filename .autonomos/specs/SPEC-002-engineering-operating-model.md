@@ -9,7 +9,7 @@
 
 ## Intent
 
-Herald optimizes for durable progress: each change should complete the product and
+Postbot optimizes for durable progress: each change should complete the product and
 architectural boundary required for its outcome. Speed is useful only when `main`
 remains understandable,
 releasable, and cheap to operate.
@@ -149,7 +149,7 @@ kept with milestone evidence so numbers remain comparable.
 | API production artifact                      | Server dependency or bundling change   |                           target at or below 15 MiB |
 | Initial web JavaScript, gzip                 | Web dependency or routing change       |                          target at or below 180 KiB |
 | Compressed production OCI image              | Packaging or runtime dependency change |          target below 100 MiB; hard ceiling 150 MiB |
-| Runtime process and service count            | Deployment change                      | one Herald process, zero required external services |
+| Runtime process and service count            | Deployment change                      | one Postbot process, zero required external services |
 
 The budgets are provisional guardrails, not marketing claims. M0 records the first
 reproducible baseline; M5 validates the production image. A budget may change only

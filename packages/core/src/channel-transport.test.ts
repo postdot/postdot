@@ -67,12 +67,12 @@ describe('custom HTTP authentication binding', () => {
         ])
     })
 
-    test('does not allow path authentication for the Herald webhook mode', () => {
+    test('does not allow path authentication for the Postbot webhook mode', () => {
         const execution: DeclarativeHttpExecutionContract = {
             kind: 'declarative_http',
             contractId: 'custom-webhook',
             revision: '1',
-            mode: 'herald_webhook',
+            mode: 'postbot_webhook',
         }
 
         expect(validateCustomHttpAuthenticationBinding(execution, { kind: 'path' })).toEqual([

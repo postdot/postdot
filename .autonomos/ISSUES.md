@@ -4,7 +4,7 @@
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald is intended to run as one self-hosted process, but the current
+- Evidence: Postbot is intended to run as one self-hosted process, but the current
   repository has not yet proven the complete path from production build to a
   runnable application image with the dashboard, API, database migrations, health
   checks, backup, restore, and resource measurements.
@@ -45,7 +45,7 @@
   integration by making this existing boundary usable from the web editor.
 - Decision: [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
 
-## [ISSUE-004] Establish a reusable Herald design-system package
+## [ISSUE-004] Establish a reusable Postbot design-system package
 
 - Type: proposal
 - Status: resolved
@@ -59,7 +59,7 @@
   components, project-specific variants, icon conventions, and Tailwind integration,
   with a clear ownership boundary and no Radix UI dependency.
 - Tasks: DESIGN-29 (completed)
-- Resolution: The private `@herald/ui` workspace package now owns shared Tailwind
+- Resolution: The private `@postbot/ui` workspace package now owns shared Tailwind
   tokens, base styles, the Base UI Button primitive, and the class-composition
   utility. The web app consumes the package through public subpaths and keeps a
   thin local Tailwind entrypoint with explicit application and package source
@@ -80,7 +80,7 @@
   performance budget, and the evidence required before introducing GSAP or another
   animation dependency.
 - Tasks: DESIGN-30 (completed)
-- Resolution: Herald now follows a native-first motion policy recorded in
+- Resolution: Postbot now follows a native-first motion policy recorded in
   [ADR-024](decisions/ADR-024-adopt-a-native-first-motion-policy.md). The shared
   stylesheet honors reduced-motion preferences, existing transitions target
   bounded properties, and no animation runtime was added without a concrete
@@ -99,11 +99,11 @@
   ownership, deletion, transfer, revocation, and background-execution semantics.
   Keeping them coupled could make user or organization changes affect publication
   infrastructure and could force non-OAuth credentials into an identity model.
-- Desired outcome: Better Auth provides email/password authentication into Herald,
-  while Herald owns project-scoped publisher credentials and delegates only
+- Desired outcome: Better Auth provides email/password authentication into Postbot,
+  while Postbot owns project-scoped publisher credentials and delegates only
   well-defined OAuth protocol mechanics to an evidence-backed dependency.
 - Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09
-- Resolution: Better Auth now provides only Herald email/password sessions. Herald
+- Resolution: Better Auth now provides only Postbot email/password sessions. Postbot
   owns project-scoped encrypted publisher credentials and single-use authorization
   attempts, while provider modules supply explicit OAuth mechanics and the worker
   resolves credentials without a Better Auth account or session. The live LinkedIn
@@ -155,8 +155,8 @@
   tables and migration records that do not match the five migrations currently
   committed. Starting the API then fails with a low-level `table account already
 exists` error. At the same time, the Vite development proxy always targets port
-  `3000`, which is already used by another local project, so the Herald dashboard
-  sends API requests to the wrong server when Herald's API is unavailable.
+  `3000`, which is already used by another local project, so the Postbot dashboard
+  sends API requests to the wrong server when Postbot's API is unavailable.
 - Impact: A new contributor or operator cannot tell whether startup failed because
   of stale development data, a port collision, or a dashboard request failure.
   The resulting generic browser error obscures the actual integration boundary.
@@ -166,7 +166,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   migration safety.
 - Tasks: OPS-11 (completed)
 - Resolution: The Vite development API target is now validated and configurable
-  through `HERALD_API_ORIGIN`, while browser requests remain same-origin. The API
+  through `POSTBOT_API_ORIGIN`, while browser requests remain same-origin. The API
   keeps the default `3000` port, and alternate local ports are documented for both
   processes. Migration conflicts involving an existing schema object now fail
   closed with actionable context; no idempotent SQL or automatic reset was added.
@@ -178,7 +178,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Evidence: The API and persistence boundary accept an array of publication inputs
   for one source post, and the primary web composer now exposes repeatable target
   cards instead of a single publication form.
-- Impact: Before this slice, Herald's central promise of one source post feeding
+- Impact: Before this slice, Postbot's central promise of one source post feeding
   independently managed destinations could not be exercised through its primary
   authoring surface.
 - Desired outcome: A user can create and manage one source post with multiple
@@ -260,11 +260,11 @@ exists` error. At the same time, the Vite development proxy always targets port
   in `apps/api/src/index.ts`.
 - Impact: A running HTTP process can appear healthy while scheduled publications no
   longer execute, delaying detection of a broken deployment.
-- Desired outcome: Herald defines and exposes clear liveness and readiness
+- Desired outcome: Postbot defines and exposes clear liveness and readiness
   semantics that reflect the operational state relevant to serving requests and
   executing durable work.
 - Tasks: OPS-13 (completed)
-- Resolution: Herald now separates the public `/health` liveness endpoint from
+- Resolution: Postbot now separates the public `/health` liveness endpoint from
   the `/ready` readiness endpoint. Readiness probes SQLite and reports the
   publication scheduler and media reconciliation runtime states, returning 503
   while a required check is absent, stopped, or failed. Media maintenance now
@@ -285,20 +285,20 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Type: problem
 - Status: resolved
 - Evidence: The initial implementation exposed access through the creating user's
-  actor and a Herald-owned project-token model. `SPEC-002` lists project-scoped API
+  actor and a Postbot-owned project-token model. `SPEC-002` lists project-scoped API
   tokens in the operable milestone. The access reassessment showed that Better Auth's
   Admin, Organization, and API Key plugins cover the standard identity, membership,
-  invitation, expiry, and machine-key primitives needed by Herald.
-- Impact: Herald cannot yet provide a deliberate access model for trusted humans,
+  invitation, expiry, and machine-key primitives needed by Postbot.
+- Impact: Postbot cannot yet provide a deliberate access model for trusted humans,
   scripts, and agents before the instance is exposed beyond local development.
 - Desired outcome: The instance has an explicit bootstrap policy and project access
   model, including attributable machine access where required, without coupling
   project ownership or publisher credentials to Better Auth account rows.
 - Tasks: ACCESS-14 (completed)
 - Resolution: Better Auth now owns global user administration, project
-  membership/invitations, and user-owned API keys with bounded expiry. Herald keeps
+  membership/invitations, and user-owned API keys with bounded expiry. Postbot keeps
   the instance membership boundary, actor attribution, publisher credentials, and
-  the project-grant projection. New keys use `herald_pat_`, authenticate as their
+  the project-grant projection. New keys use `postbot_pat_`, authenticate as their
   creating user, and optionally narrow that user's current project access. API-key
   management is session-only; bearer keys cannot create, list, update, or revoke
   keys. Project-token routes, storage, and compatibility facades are removed from
@@ -409,7 +409,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Impact: Restoring database and media bytes without the deployment key makes stored
   publisher credentials unusable, even though the data archive itself is valid.
 - Desired outcome: The recovery runbook and its verification procedure make the
-  separately managed encryption key an explicit part of a complete Herald recovery
+  separately managed encryption key an explicit part of a complete Postbot recovery
   without placing the secret in the archive.
 - Tasks: OPS-16 (completed)
 - Resolution: The root recovery runbook now treats the publisher encryption key
@@ -422,7 +422,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald currently presents operational work through dashboard sections
+- Evidence: Postbot currently presents operational work through dashboard sections
   and publication lists. A calendar or timeline has not been designed, and the
   owner identified the need to rethink information hierarchy and scroll behavior
   before adding more incremental web surfaces.
@@ -448,7 +448,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   frontend code.
 - Impact: Future autonomous sessions may keep appending to convenient files and
   components until the product becomes difficult to reason about or safely evolve.
-- Desired outcome: Herald has lightweight, evidence-based structural review rules
+- Desired outcome: Postbot has lightweight, evidence-based structural review rules
   and a periodic codebase audit that favors cohesive responsibilities, explicit
   dependencies, reusable behavior, and testable boundaries without enforcing an
   arbitrary file-size quota.
@@ -470,25 +470,25 @@ exists` error. At the same time, the Vite development proxy always targets port
   destination and action-time approval.
 - Impact: Technical foundations can appear complete while the real publication
   manager still requires a parallel tracker or awkward manual workarounds.
-- Desired outcome: Herald periodically exercises and records the complete intended
+- Desired outcome: Postbot periodically exercises and records the complete intended
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
 - Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (completed), PUB-55 (completed), EVAL-57 (completed; repeat periodically)
 - EVAL-54 completed the automatic-provider stage with an operator-approved,
   organization-scoped LinkedIn smoke test. The provider acknowledged the text
-  publication, Herald persisted the successful job and publication outcome, and
+  publication, Postbot persisted the successful job and publication outcome, and
   the dashboard displayed the target as published. This issue remains open as
   a recurring validation practice rather than a one-time implementation task.
 - EVAL-57 completed the automatic image-provider stage with an operator-approved
-  disposable publication. The provider acknowledged the image delivery, Herald
+  disposable publication. The provider acknowledged the image delivery, Postbot
   persisted the successful media checkpoint and publication outcome, and the
   dashboard displayed the target as published. This remains a recurring
   validation practice rather than a release gate.
 - The 2026-09-11 validation completed the same controlled loop with the Bluesky
   provider: the local loopback OAuth flow was accepted on the real provider,
   the project-owned connection was restored, and an automatic text publication
-  was acknowledged by Bluesky and displayed as published in the Herald queue.
+  was acknowledged by Bluesky and displayed as published in the Postbot queue.
   The validation also corrected two provider-boundary defects found during the
   run: the OAuth grant now requests the granular repository/blob permissions
   required for publication, and a revoked credential is reactivated with the
@@ -504,7 +504,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   the only external account identity and uses it as the Posts API author. This
   makes a controlled validation publish to a company page impossible: the OAuth
   principal and the page that should publish are different LinkedIn entities.
-- Impact: Herald could publish to the wrong LinkedIn destination while the
+- Impact: Postbot could publish to the wrong LinkedIn destination while the
   connection appears healthy. Storing the page identity on the OAuth credential
   would also prevent one authorized member credential from safely serving several
   project channels or pages.
@@ -539,7 +539,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Resolution: FIX-58 now passes the workflow processing timestamp into provider
   media reservation, while direct store callers retain a validated wall-clock
   default. The skewed-clock regression test passed, and a subsequent approved
-  automatic image publication reached the provider successfully. Herald
+  automatic image publication reached the provider successfully. Postbot
   persisted the publication as published, the job as succeeded, and the media
   delivery as uploaded. The first failed attempt remains an explicit local
   ambiguous record and was not retried blindly.
@@ -548,7 +548,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald now has several independent implementation and review
+- Evidence: Postbot now has several independent implementation and review
   surfaces, while local development servers, SQLite and media paths, browser
   state, external provider credentials, the canonical checkout, and merge
   operations remain shared resources.
@@ -568,7 +568,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   implementation worker, a stale-base integration, an independent Sol-High
   review, a complete repository gate, and deterministic worktree and branch
   cleanup. The owner later retired the separate app-managed control investigation
-  as no longer relevant to current Herald work (ISSUE-029 / META-228); that scope
+  as no longer relevant to current Postbot work (ISSUE-029 / META-228); that scope
   decision does not claim the control-plane limitation was fixed.
 - Resolution: The root AGENT.md now assigns shared resources and integration to
   one orchestrator, requires explicit mission contracts and disjoint semantic
@@ -595,7 +595,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   invocation-specific loopback ports and output directory. Worker processes
   reuse the parent runtime through explicit environment propagation, while the
   API launcher and global teardown validate and remove only the generated run
-  root. The legacy `/tmp/herald-e2e-data` root is not accepted as a cleanup
+  root. The legacy `/tmp/postbot-e2e-data` root is not accepted as a cleanup
   target. Default development ports and data paths remain operator-owned and
   serialized; explicit E2E debug ports remain caller-reserved.
 - Verification: The isolated runtime unit tests pass, two concurrent realtime
@@ -614,7 +614,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   from the restored state, leaving an inconsistent runtime that is difficult to
   diagnose.
 - Desired outcome: Restore has an explicit fail-closed quiescence boundary and
-  a verified operator lifecycle for stopping, restoring, and restarting Herald.
+  a verified operator lifecycle for stopping, restoring, and restarting Postbot.
 - Tasks: OPS-140 (completed)
 - Related decision: [ADR-068](decisions/ADR-068-runtime-quiescence-sidecar-lock.md) (proposed)
 - Resolution: The API process acquires a database-specific `.runtime.lock`
@@ -623,7 +623,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   destination. Atomic exclusive creation prevents an active server and a
   restore from proceeding together. Graceful shutdown releases the marker;
   forced termination leaves it in place so a later startup or restore fails
-  closed until an operator verifies that no Herald process is using the database
+  closed until an operator verifies that no Postbot process is using the database
   and removes only that exact stale marker.
 - Verification: Runtime-lock unit tests cover exclusive ownership, stale-marker
   refusal, release, and in-memory rejection. Backup tests cover restore refusal
@@ -687,9 +687,9 @@ exists` error. At the same time, the Vite development proxy always targets port
   reported as technical `completed` while its report was marked interrupted.
   This proves neither operator visibility nor unambiguous cancellation.
 - Recheck (2026-09-05): the Codex app worktree creation route returned only a
-  preparation identifier (`clientThreadId`) for the Herald project. After
+  preparation identifier (`clientThreadId`) for the Postbot project. After
   approximately 50 seconds, no corresponding task appeared in the Codex task
-  list and no new Herald worktree appeared in `git worktree list`. The
+  list and no new Postbot worktree appeared in `git worktree list`. The
   preparation identifier could not be used to inspect, interrupt, or clean up
   the mission through the available control surface.
 - Impact: The orchestrator cannot safely promise that a delegated worktree task
@@ -702,7 +702,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Tasks: META-62 (retired; see META-228)
 - Related issues: ISSUE-024
 - Resolution (owner direction, 2026-09-26): The app-managed worktree control
-  investigation is no longer relevant to current Herald work and is retired to
+  investigation is no longer relevant to current Postbot work and is retired to
   stop it from distracting the project. This is a scope decision, not a claim
   that the Codex control-plane limitation was fixed. Preserve the experiments
   above as historical evidence; general delegation and worktree safeguards
@@ -713,7 +713,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Type: problem
 - Status: resolved
 - Evidence: The SPA still exposes a marketing-style `/` page and an `/about`
-  page with public navigation, even though Herald is currently being developed
+  page with public navigation, even though Postbot is currently being developed
   as an authenticated operational application. The accepted design direction
   keeps any landing or documentation surface future-facing and separate from
   the current app shell.
@@ -747,7 +747,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   placing sensitive URL material in the endpoint metadata. Broadly allowing
   path-bearing endpoints would also contradict the accepted secret and egress
   boundaries.
-- Desired outcome: Herald has a deliberate, bounded contract for receivers whose
+- Desired outcome: Postbot has a deliberate, bounded contract for receivers whose
   authentication or routing requires URL components, while preserving origin-only
   network authority, encrypted-secret handling, SSRF protections, redaction, and
   immutable execution semantics.
@@ -755,10 +755,10 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Related decisions: [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-069](decisions/ADR-069-custom-http-path-authentication.md)
 - Resolution: `SECURITY-141` adds an explicit `path` authentication binding for
   mapped HTTP profiles. A profile may declare exactly one dedicated
-  `{ "kind": "secret" }` path segment; Herald resolves it only from the
+  `{ "kind": "secret" }` path segment; Postbot resolves it only from the
   encrypted connection credential, encodes it as one URL component, and keeps
   the connection endpoint origin-only. Path authentication is rejected for
-  Herald webhooks, query/header/body mappings, and profiles without the exact
+  Postbot webhooks, query/header/body mappings, and profiles without the exact
   secret segment. The API, database connection boundary, transport, response
   schema, UI, and redaction tests now fail closed around this contract.
 
@@ -771,14 +771,14 @@ exists` error. At the same time, the Vite development proxy always targets port
   client accepts a user API key, the CLI supports ordinary bearer-authenticated
   operations and human-session key management, and the authenticated dashboard
   exposes the same user-key lifecycle.
-- Impact: Operators need one external credential representing their Herald account,
+- Impact: Operators need one external credential representing their Postbot account,
   with optional project narrowing, rather than a separate credential per project.
 - Desired outcome: Supported operator clients can create, display once, list, and
   revoke user-owned keys through the existing human-only management boundary,
   while ordinary project operations accept the bearer key and keep plaintext
   secrets out of logs and persistent state.
 - Tasks: ACCESS-68
-- Resolution: `@herald/client`, the supported CLI, and the authenticated web
+- Resolution: `@postbot/client`, the supported CLI, and the authenticated web
   application now cover user-key creation, one-time display, metadata listing,
   and revocation. Ordinary client and CLI project operations can send the user
   bearer key; key management deliberately uses a human session. A key can cover
@@ -802,7 +802,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   LinkedIn choices. The channel list does not provide channel rename, archival, or
   deletion actions, and custom profile authoring is not exposed as a complete web
   workflow.
-- Impact: The primary client does not represent the channel model that Herald
+- Impact: The primary client does not represent the channel model that Postbot
   already persists. Users cannot manage runtime-defined destinations or their
   lifecycle coherently from the application, and provider-specific workarounds
   would undermine the channel/profile boundary.
@@ -843,12 +843,12 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Type: question
 - Status: resolved
 - Evidence: The web editor renders and edits scheduled timestamps in the browser's
-  local timezone. Herald does not yet expose a project timezone policy or show the
+  local timezone. Postbot does not yet expose a project timezone policy or show the
   timezone used when a schedule is authored and displayed.
 - Impact: The same publication can appear at different local wall-clock times on
   different devices, and a future timezone choice cannot be added safely without
   deciding how existing timestamps and calendar boundaries are interpreted.
-- Desired outcome: Herald has an explicit scheduling-timezone contract covering
+- Desired outcome: Postbot has an explicit scheduling-timezone contract covering
   storage, authoring, calendar display, device changes, and migration of existing
   scheduled data before timezone-aware UI is implemented.
 - Tasks: TIME-70 (completed)
@@ -867,7 +867,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Evidence: The domain and API contracts already provide reusable validation,
   publication, project, channel, and audit operations, while the repository does
   not yet provide a first-class MCP server for those operations.
-- Impact: External agents cannot use Herald through a dedicated protocol surface
+- Impact: External agents cannot use Postbot through a dedicated protocol surface
   without building their own API integration and reproducing authentication and
   validation assumptions.
 - Desired outcome: A future MCP surface reuses the API/domain contracts, preserves
@@ -890,7 +890,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Impact: Creating a familiar custom destination can require repeating a profile
   definition, and future built-in coverage may duplicate capability knowledge
   without a deliberate preset boundary.
-- Desired outcome: Herald can offer editable, versioned starting profiles for
+- Desired outcome: Postbot can offer editable, versioned starting profiles for
   common channel families without making presets live authorities or restricting
   fully runtime-defined custom channels.
 - Tasks: CHANNEL-142 (completed)
@@ -961,7 +961,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Impact: Adding Bluesky directly would spread provider-specific authentication,
   destination, credential, and profile assumptions through generic application code.
   That would make provider behavior harder to test and would risk treating a provider's
-  account model as a universal Herald model.
+  account model as a universal Postbot model.
 - Desired outcome: Each built-in provider owns its identity, connection flow,
   destination rules, profile definition, credential requirements, and execution adapter
   behind explicit application ports. Shared code owns orchestration, project scope,
@@ -984,7 +984,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald currently has one production-relevant built-in provider. Bluesky
+- Evidence: Postbot currently has one production-relevant built-in provider. Bluesky
   exercises a materially different account and API model from LinkedIn, including
   repository/PDS identity and provider-specific authorization and media handling.
 - Impact: A second provider can reveal whether the shared channel profile, target
@@ -1010,7 +1010,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: The web application is the most visible Herald client, but its current
+- Evidence: The web application is the most visible Postbot client, but its current
   navigation, composition, calendar, queue, channel, and media surfaces were built
   incrementally while backend foundations were being established. The owner explicitly
   rejects a short visual or UX pass and wants the client judged by information
@@ -1069,20 +1069,20 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Type: enhancement
 - Status: resolved
 - Evidence: AT Protocol OAuth defines a local loopback client profile that does not
-  need a publicly fetchable client metadata document, while Herald's first Bluesky
+  need a publicly fetchable client metadata document, while Postbot's first Bluesky
   implementation required HTTPS metadata for every connection. That requirement was
   appropriate for the first public-web validation, but it forced local development
   through a tunnel and obscured the difference between Bluesky OAuth and providers
   with simpler token-based setup.
 - Impact: A global DNS/HTTPS requirement would add unnecessary self-hosting friction,
   while silently accepting a loopback callback on mixed `localhost`/`127.0.0.1`
-  origins would lose the host-bound Herald session cookie during the callback.
+  origins would lose the host-bound Postbot session cookie during the callback.
 - Desired outcome: Provider application settings expose an explicit Bluesky loopback
   mode and public HTTPS mode. Loopback mode creates the official AT Protocol native
   client metadata and uses a consistent loopback IP for the API, dashboard, and
   callback. Public mode keeps the stable HTTPS metadata and exact callback contract.
   Deployment documentation states provider-specific requirements without imposing
-  DNS/HTTPS on all Herald installations.
+  DNS/HTTPS on all Postbot installations.
 - Scope boundary: This does not add a proxy, a Bluesky client secret, or a second
   provider application system. It does not change public analytics, which remain
   independent of OAuth. Other providers retain their own callback and credential
@@ -1121,11 +1121,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CHANNEL-78
 - Related issue: ISSUE-041
 
-## [ISSUE-045] Define a durable domain-event contract without duplicating Herald's history
+## [ISSUE-045] Define a durable domain-event contract without duplicating Postbot's history
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald already commits project-scoped `audit_events` atomically with
+- Evidence: Postbot already commits project-scoped `audit_events` atomically with
   publication, channel, credential, and execution transitions. The notification and
   analytics inventory identified a need for versioned facts that durable projections
   can consume, but the current records have no explicit schema version, correlation
@@ -1140,7 +1140,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   a framework-independent domain-event envelope and a private ordered journal reader
   for durable projections. Audit remains the operator-facing view; notifications and
   external deliveries own separate projections, cursors, deduplication, and retries.
-- Scope boundary: Herald does not become event sourced. Existing current-state tables
+- Scope boundary: Postbot does not become event sourced. Existing current-state tables
   remain authoritative, the public audit API keeps its current semantics, and EVENT-79
   does not introduce notification preferences or an external transport.
 - Tasks: EVENT-79
@@ -1156,7 +1156,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald now exposes a durable, versioned project fact journal, but users
+- Evidence: Postbot now exposes a durable, versioned project fact journal, but users
   cannot yet receive or acknowledge actionable publication outcomes. Audit records do
   not contain recipients, preferences, presentation state, or delivery state and must
   not be repurposed as an inbox.
@@ -1174,7 +1174,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   source event actor as the recipient.
 - Tasks: NOTIFY-80
 - Related decisions: ADR-037, ADR-038
-- Resolution: Herald now projects a versioned allowlist of durable publication outcomes
+- Resolution: Postbot now projects a versioned allowlist of durable publication outcomes
   into project- and human-recipient-owned inbox items. Projection writes and cursor
   advancement are atomic, preferences suppress only future items, and read/archive
   operations remain idempotent and project-isolated. The authenticated API exposes
@@ -1185,7 +1185,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald now has a durable fact journal and recipient-owned in-app inbox, but
+- Evidence: Postbot now has a durable fact journal and recipient-owned in-app inbox, but
   no recoverable path can deliver selected outcomes to an external notification
   destination. Ntfy, Telegram, email, and webhook integrations would otherwise be
   tempted to call providers directly from publication or inbox code.
@@ -1203,7 +1203,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: NOTIFY-81
 - Related decisions: ADR-009, ADR-037, ADR-038, ADR-039
 
-- Resolution: Herald now persists project-human external destinations, explicit
+- Resolution: Postbot now persists project-human external destinations, explicit
   per-kind subscriptions, durable projection cursors, immutable delivery
   snapshots, atomic claims, lease recovery, and explicit retry/ambiguity
   semantics behind a reusable external-effect executor. No real transport,
@@ -1222,7 +1222,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Impact: A transport adapter introduced before a dedicated secret boundary could leak
   credentials through metadata reads, backups, logs, or delivery history.
 - Desired outcome: External notification destinations expose safe metadata and retain
-  provider credentials behind Herald's deployment-owned encrypted-secret boundary.
+  provider credentials behind Postbot's deployment-owned encrypted-secret boundary.
   Delivery snapshots must reference the secret envelope without copying plaintext into
   public configuration or transport-neutral history.
 - Scope boundary: This issue does not select a provider, credential format, or
@@ -1230,7 +1230,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   transport can be configured.
 - Tasks: NOTIFY-82
 - Related decisions: ADR-016, ADR-039, ADR-040
-- Resolution: Herald now stores versioned notification destination secret envelopes
+- Resolution: Postbot now stores versioned notification destination secret envelopes
   separately from public destination configuration. AES-256-GCM encryption is
   deployment-keyed and domain-separated from publisher credentials; projection stores
   only the secret row reference, and claimed delivery resolution checks project,
@@ -1247,7 +1247,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   fallback policy, or shared message-formatting boundary; locale-sensitive
   formatting is limited to scattered `Intl` calls and must not be confused with
   publication-content language metadata.
-- Impact: Herald cannot serve users who need another interface language, and
+- Impact: Postbot cannot serve users who need another interface language, and
   continuing to add copy without a localization boundary will make later
   extraction expensive, increase bundle risk, and make product text harder to
   maintain safely across clients.
@@ -1343,7 +1343,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: Herald needs a way to organize publications beyond their channel,
+- Evidence: Postbot needs a way to organize publications beyond their channel,
   schedule, and lifecycle state. Categories and tags have been identified as
   useful product concepts, but their ownership, semantics, and query behavior
   have not been defined.
@@ -1370,19 +1370,19 @@ channels` with a foreign-key constraint error even though a fresh empty database
   category-definition mutations retain the documented temporary human-session
   boundary until ACCESS-116 supplies the instance-admin authority.
 
-## [ISSUE-054] Define an analytics foundation without coupling Herald to provider dashboards
+## [ISSUE-054] Define an analytics foundation without coupling Postbot to provider dashboards
 
 - Type: proposal
 - Status: resolved
 - Evidence: The provider-neutral analytics foundation has been identified in
-  durable publication and execution events, but Herald does not yet have an
+  durable publication and execution events, but Postbot does not yet have an
   accepted read model, measurement vocabulary, retention policy, or explicit
   boundary for provider-supplied engagement data.
 - Impact: Implementing charts or provider-specific counters ad hoc could create
   incompatible APIs, double-count lifecycle events, confuse operational
   delivery metrics with external engagement, and make future analytics harder
   to test or reconcile.
-- Desired outcome: Define the first analytics contract from durable Herald
+- Desired outcome: Define the first analytics contract from durable Postbot
   facts, including metric names, dimensions, time semantics, aggregation and
   retention rules, project authorization, API/read-model shape, and the
   boundary for optional provider analytics. The design must remain useful
@@ -1412,7 +1412,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   without evidence from realistic journal sizes and workload shapes. Either
   mistake would make analytics harder to trust or add storage and rebuild
   complexity without a demonstrated need.
-- Desired outcome: Herald has a documented, repeatable way to distinguish
+- Desired outcome: Postbot has a documented, repeatable way to distinguish
   recoverable historical metadata gaps from facts that must remain unknown;
   representative project histories have measured query-time latency and memory
   behavior; and the project can decide, using those results, whether a
@@ -1437,8 +1437,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: proposal
 - Status: resolved
-- Evidence: The current Herald analytics contract measures operational facts
-  created by Herald: publication lifecycle, queue depth, attempts, retries,
+- Evidence: The current Postbot analytics contract measures operational facts
+  created by Postbot: publication lifecycle, queue depth, attempts, retries,
   failures, ambiguity, recovery, and latency. The competitor review shows a
   separate product meaning for analytics. Postiz exposes per-channel and
   per-post time series with platform-dependent metrics such as followers,
@@ -1453,7 +1453,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   the current provider-neutral operational response would mix two different
   sources of truth. Provider permissions, metric definitions, freshness,
   rate limits, billing, retention, and the identity of content published
-  outside Herald would become implicit and difficult to test. A generic
+  outside Postbot would become implicit and difficult to test. A generic
   `metric: number` model could also present incomparable values as if they
   were directly comparable.
 - Desired outcome: Define a provider-owned engagement analytics boundary that
@@ -1559,21 +1559,21 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: problem
 - Status: resolved
-- Evidence: Herald currently reads LinkedIn, X, and Bluesky OAuth application
+- Evidence: Postbot currently reads LinkedIn, X, and Bluesky OAuth application
   configuration from environment variables during API startup. A missing
   configuration causes the provider connection action to return unavailable,
   even though the user is trying to connect a normal business account or
   destination. The current project-owned credential and connection model already
   separates provider accounts from channels, but it does not yet separate the
   provider application used to authorize them.
-- Impact: Requiring an operator to edit `.env` and restart Herald for a new
+- Impact: Requiring an operator to edit `.env` and restart Postbot for a new
   provider application creates the same self-hosting friction we explicitly do
   not want to reproduce from Postiz. It also obscures the distinction between
   installation bootstrap secrets, OAuth application configuration, connected
   account credentials, and channel destinations. A one-provider or one-channel
   limit would prevent legitimate projects from managing several LinkedIn pages
   or accounts together.
-- Desired outcome: A running Herald instance can register and update one or more
+- Desired outcome: A running Postbot instance can register and update one or more
   provider application configurations through an authorized setup surface, then
   use them immediately for OAuth connections without an application restart.
   Provider accounts remain encrypted project-owned credentials, channels remain
@@ -1591,7 +1591,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   ADR-056
 - Resolution: Runtime-managed provider applications are now available through
   authenticated settings API routes and the web surface at
-  `/dashboard/settings/provider-applications`. Herald supports multiple
+  `/dashboard/settings/provider-applications`. Postbot supports multiple
   LinkedIn, Bluesky, and X application configurations per instance, encrypted
   client secrets, active/default state, and immediate OAuth resolution without
   an API restart. Existing environment-backed configuration remains a
@@ -1641,7 +1641,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   unit, E2E, and build gate; English and French catalogs both remain at 100%
   coverage.
 
-## [ISSUE-063] Recompose Herald's route information architecture and progressive disclosure
+## [ISSUE-063] Recompose Postbot's route information architecture and progressive disclosure
 
 - Type: problem
 - Status: accepted
@@ -1727,12 +1727,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 
-## [ISSUE-065] Make Herald's visual and content foundation operational beyond default shadcn grammar
+## [ISSUE-065] Make Postbot's visual and content foundation operational beyond default shadcn grammar
 
 - Type: proposal
 - Status: accepted
 - Evidence: The owner explicitly wants shadcn/Base UI to remain a source-code
-  foundation rather than Herald's visual identity. The independent audits found
+  foundation rather than Postbot's visual identity. The independent audits found
   that the current visual tokens are mostly coherent, but also identified
   inconsistent button geometry, repeated card/form grammar, redundant provider
   headings, copy density, and terminology that weakens the intended calm
@@ -1742,11 +1742,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   with page-level CSS will make the system harder to maintain and harder for
   agents to understand. Over-simplifying copy without a content rule could hide
   important recovery or state information.
-- Desired outcome: Define a small, explicit Herald foundation for surface
+- Desired outcome: Define a small, explicit Postbot foundation for surface
   roles, geometry, typography, control sizes, icon usage, borders, shadows,
   focus, empty states, and progressive-disclosure copy. The foundation must
   state when the shadcn/Base UI primitives are reused, rewritten, or promoted
-  into shared Herald primitives. It must support the current themes and locales
+  into shared Postbot primitives. It must support the current themes and locales
   while allowing the logo, colors, and provisional treatments to evolve from
   evidence.
 - Scope boundary: This does not freeze the current logo or palette, build a
@@ -1805,11 +1805,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 
-## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
+## [ISSUE-062] Define Postbot human account, instance administration, and invitation policy
 
 - Type: proposal
 - Status: accepted
-- Evidence: Herald currently supports local email/password account creation and
+- Evidence: Postbot currently supports local email/password account creation and
   human sessions, while project ownership initially belongs to the creating user.
   `ISSUE-013` and ADR-030 deliberately deferred memberships and invitations, but
   the first real local onboarding exposed the unanswered product questions around
@@ -1826,13 +1826,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   bootstrap/first-admin behavior, registration policy, human roles, project
   membership and invitations, email verification and password recovery, account
   deletion, and abuse/rate-limit boundaries. The decision must state which parts
-  are required before exposing Herald beyond a trusted local operator and must
+  are required before exposing Postbot beyond a trusted local operator and must
   preserve project-owned publisher credentials and machine-token attribution.
 - Scope boundary: The accepted access policy does not add organization billing,
   SSO, or user deletion/anonymization. It adopts
   Better Auth Admin, Organization, and API Key plugins for the applicable access
   lifecycle; project-member administration is now delivered by ACCESS-134, while
-  the UI deliberately remains a Herald surface over those Better Auth records.
+  the UI deliberately remains a Postbot surface over those Better Auth records.
   Invitation re-send rotation and the optional transport-neutral email hook are
   delivered by ACCESS-136. ACCESS-137 adds an optional SMTP transport and
   ACCESS-138 extracts React Email templates with a local Mailpit development
@@ -1848,7 +1848,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   and project membership are distinct. ADR-063 implements the access lifecycle with
   Better Auth Admin, Organization, and API Key plugins: each project has one
   organization, its member rows authorize project access, invitations expire after
-  seven days, and new project keys expire after 180 days by default. Herald retains
+  seven days, and new project keys expire after 180 days by default. Postbot retains
   instance membership and actor projections, while ACCESS-134 exposes the project
   member and invitation workflow through the dashboard. ACCESS-131 through
   ACCESS-138 are complete. ACCESS-219 adds localized web password-reset request
@@ -1865,16 +1865,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: problem
 - Status: resolved
-- Evidence: Herald is a private, unused development application with no database
+- Evidence: Postbot is a private, unused development application with no database
   file or deployed user data in the repository. The Better Auth cutover had
-  temporarily kept project-membership, mixed invitation, and Herald bearer-token
+  temporarily kept project-membership, mixed invitation, and Postbot bearer-token
   compatibility paths solely to support a hypothetical deployed upgrade.
 - Impact: Retaining those paths would make the development model harder to reason
   about, keep untested authorization branches alive, and force every future schema
   change to carry an unnecessary historical migration chain.
 - Desired outcome: The current codebase starts from one generated Drizzle baseline,
   uses Better Auth Organization members/invitations for project access and user-owned
-  API keys for external callers, and keeps only the Herald-owned instance boundary
+  API keys for external callers, and keeps only the Postbot-owned instance boundary
   and actor projection that have independent domain meaning.
 - Tasks: ACCESS-133, ACCESS-135
 - Related decisions: [ADR-064](decisions/ADR-064-clean-development-access-baseline.md)
@@ -1893,7 +1893,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   Better Auth `viewer` role receiving `201 Created` from both channel creation and
   post creation. The same fixture received `403` for the existing project timezone
   mutation, proving that the role is known but not enforced consistently. See the
-  [security audit](worklogs/2026-09-11-herald-audit/01-security-and-access.md).
+  [security audit](worklogs/2026-09-11-postbot-audit/01-security-and-access.md).
 - Impact: A principal explicitly granted read-only access can modify project
   content and potentially influence downstream publication work. The current
   route-level test coverage can therefore pass while the product-wide role contract
@@ -1921,7 +1921,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   membership, confirmed a new project read was rejected, and then observed a later
   `channel.created` event on the already-open stream. The stream currently checks
   access at connection time but does not revalidate the principal during its
-  lifetime. See the [security audit](worklogs/2026-09-11-herald-audit/01-security-and-access.md).
+  lifetime. See the [security audit](worklogs/2026-09-11-postbot-audit/01-security-and-access.md).
 - Impact: Revoked members can continue observing project identifiers, event types,
   subjects, and timestamps. The reproduction did not expose post text, tokens, or
   provider responses, but it violates the expected lifetime of a revoked project
@@ -1948,7 +1948,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   API returns only `{ publications }` and the web project context consumes that
   array as the complete data set for Queue and calendar views. The audit created 101
   stored publications and received 100 with no continuation metadata. See the
-  [reliability audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
+  [reliability audit](worklogs/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
 - Impact: Queue filters, counters, and the calendar can silently omit valid work.
   Ordering the bounded result before the calendar groups it can also hide future
   publications behind older history; the database rows themselves are not lost.
@@ -1974,7 +1974,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   runtime without a recovery interval, so a backlog larger than the bounded pass can
   remain unprojected until another signal or restart. The audit reproduced twelve
   required batches as ten processed with state `started`. See the [reliability
-  audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
+  audit](worklogs/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
 - Impact: The durable fact journal remains intact, but the user-global notification
   inbox can be stale or incomplete while readiness still reports the runtime as
   active. Recovery after interruption is therefore not guaranteed by the current
@@ -2000,7 +2000,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   `publication.tags_replaced` facts, but those event names are absent from both the
   server and browser realtime allowlists. The real `publication.tags_replaced`
   event is therefore converted to no client event. See the [client architecture
-  audit](worklogs/2026-09-11-herald-audit/03-architecture-client-and-quality.md).
+  audit](worklogs/2026-09-11-postbot-audit/03-architecture-client-and-quality.md).
 - Impact: Another tab or session can retain stale tags, filters, and publication
   data indefinitely because the project query uses an infinite stale time and relies
   on realtime invalidation or an explicit local action.
@@ -2025,7 +2025,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Evidence: `packages/db/package.json` defines `clean` as `rimraf dist .turbo drizzle`,
   while `drizzle` contains the committed migration SQL and metadata. The audit did
   not execute the destructive command against the repository, but the script and
-  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
+  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-postbot-audit/02-reliability-data-and-operations.md).
 - Impact: A normal cleanup can remove the source history required for a fresh
   startup or package build. Git can restore committed files, but a local migration
   that has not been committed is not recoverable through that path.
@@ -2047,7 +2047,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Evidence: `bun run check` reaches workspace tests through Turbo but does not run
   the eight tests under `scripts/`; those tests are only green when invoked
   separately with `bun test scripts`. The audit confirmed the omission in the Turbo
-  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-herald-audit/03-architecture-client-and-quality.md).
+  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-postbot-audit/03-architecture-client-and-quality.md).
 - Impact: Regressions in the CLI and runtime-isolation helpers can merge while the
   repository's advertised check remains green. This weakens confidence in the same
   orchestration paths used by local development and browser validation.
@@ -2181,7 +2181,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   follow-ups where applicable. ISSUE-052, ISSUE-058, ISSUE-062, ISSUE-063, and
   ISSUE-065 remain accepted because their records explicitly retain product,
   UX, account-lifecycle, or scale scope that is not fully implemented. ISSUE-029
-  was later declined by the owner as no longer relevant to current Herald work;
+  was later declined by the owner as no longer relevant to current Postbot work;
   this is not a claim that the platform limitation was fixed. ISSUE-021 and
   ISSUE-036 remain open; the MCP workstream is intentionally deferred by the
   owner.
@@ -2198,7 +2198,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   choices were identified during owner review as unnecessary labeling and
   duplicate controls rather than useful guidance.
 - Impact: The preview feels over-explained and less deliberate than the rest of
-  Herald. Repeated affordances compete with the actual publication content and
+  Postbot. Repeated affordances compete with the actual publication content and
   make the interface appear to need instruction for familiar interactions.
 - Desired outcome: Contextual surfaces lead with their invoked object, expose
   only state and actions that add information, use one representation per
@@ -2328,7 +2328,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   schedule, the first timed publications may begin much later in the day, so a
   deep viewport spends its first screenful on empty rows. A fixed `07:00`
   anchor would improve one schedule while imposing an arbitrary working-hours
-  convention on every Herald user.
+  convention on every Postbot user.
 - Impact: The first frame under-emphasizes the schedule's actual work and
   makes the useful content harder to discover, while a universal morning
   default would be surprising for users with different routines or overnight
@@ -2486,7 +2486,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   scanning.
 - Impact: Publications shown in a six-week frame can appear to belong to the
   wrong month, especially when a dense day or a selected date sits near a
-  boundary. A stronger fill or border would conflict with Herald's restrained
+  boundary. A stronger fill or border would conflict with Postbot's restrained
   surface grammar and could imply that those dates are unavailable.
 - Desired outcome: Outside-month cells remain fully interactive and readable,
   while a subtle theme-aware diagonal hatch distinguishes them from the
@@ -2886,7 +2886,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   provider-by-provider calibration. Illustrative figures remain preview-only
   and must not be presented as real analytics.
 
-## [ISSUE-101] Establish a Herald-owned media authoring and editing boundary
+## [ISSUE-101] Establish a Postbot-owned media authoring and editing boundary
 
 - Type: proposal
 - Status: resolved
@@ -2895,17 +2895,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
   application component. It has no reusable image viewer or editor, and its
   current order controls are a fallback rather than the intended dense media
   workflow. Uppy offers a mature upload core and a prebuilt image editor, but
-  its Dashboard is an opinionated surface that does not belong in Herald's
+  its Dashboard is an opinionated surface that does not belong in Postbot's
   visual system; the editor is documented primarily around that Dashboard.
   The project therefore needs an evidence-backed choice for the editor and the
   composition boundary, not a skin applied to a vendor dashboard.
 - Impact: Choosing an upload/editor stack without separating orchestration from
-  presentation could either force Herald to inherit a foreign UI or recreate
+  presentation could either force Postbot to inherit a foreign UI or recreate
   fragile upload, preview, crop, reorder, and recovery behavior inside the
   publication form. Editing an existing asset in place could also destroy a
   reusable original or make provider-specific variants impossible to introduce
   later.
-- Desired outcome: Prove a reusable, Herald-owned media workflow that supports
+- Desired outcome: Prove a reusable, Postbot-owned media workflow that supports
   the existing reserve/upload/finalize lifecycle, library selection, full-size
   preview, non-destructive image editing, dense ordered attachments, keyboard
   and pointer access, and light/dark responsive presentation. Compare a
@@ -2920,15 +2920,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
   the experiment.
 - Tasks: MEDIA-179
 - Related issues: ISSUE-003, ISSUE-007, ISSUE-099, ISSUE-100
-- Resolution: MEDIA-179 establishes the first Herald-owned boundary. The web
-  picker keeps API upload orchestration and uses a lazy Herald viewer/editor
+- Resolution: MEDIA-179 establishes the first Postbot-owned boundary. The web
+  picker keeps API upload orchestration and uses a lazy Postbot viewer/editor
   with `react-easy-crop` for crop, zoom, and rotation. Saving creates a new
   verified asset and replaces a selected source only after verification; native
   drag ordering has focus-visible/mobile arrow fallbacks. Uppy Dashboard is
   explicitly not adopted, and Uppy core/headless remains a future option only
   if upload orchestration needs exceed the current API lifecycle. The proven
   composition remains in `apps/web` until a second consumer justifies a
-  generic `@herald/media-ui` package.
+  generic `@postbot/media-ui` package.
 - Verification: The focused publication-media browser scenario and the full
   repository gate pass; the authenticated integrated browser was reviewed in
   light and dark themes. The production build splits the editor into a 41.48
@@ -2949,21 +2949,21 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Impact: Treating the library and attachment workflow as the same interaction
   makes the standalone Media page ambiguous and makes a future upload/editor
   evolution harder to isolate. Adopting a vendor UI wholesale would instead
-  make Herald inherit foreign surfaces and styling.
+  make Postbot inherit foreign surfaces and styling.
 - Desired outcome: The Media route manages reusable project-scoped verified
   assets with preview and editing actions, while publication contexts retain
   attachment selection. Uppy Core and React headless hooks should orchestrate
-  file intake, and a Herald adapter should preserve the existing
+  file intake, and a Postbot adapter should preserve the existing
   `reserve → raw upload → finalize/verify` contract and its error semantics.
 - Scope boundary: This slice does not adopt Uppy Dashboard or vendor CSS,
-  change the media API, migrate the current Herald-owned image editor, add
-  cancellation/resumability, or introduce a generic `@herald/media-ui`
+  change the media API, migrate the current Postbot-owned image editor, add
+  cancellation/resumability, or introduce a generic `@postbot/media-ui`
   package before a second API-independent consumer exists.
 - Tasks: MEDIA-180
 - Related issues: ISSUE-003, ISSUE-101, ISSUE-099, ISSUE-100
-- Resolution: MEDIA-180 adds a testable Herald upload adapter around Uppy Core,
+- Resolution: MEDIA-180 adds a testable Postbot upload adapter around Uppy Core,
   uses `@uppy/react`'s headless file-input, dropzone, context, and state hooks,
-  and keeps Herald responsible for reservation, raw transfer, verification
+  and keeps Postbot responsible for reservation, raw transfer, verification
   polling, and typed diagnostics. The Media route now runs in explicit manage
   mode: it has no publication-selection toggles, retains preview/edit/upload
   actions, and offers a direct New publication entry point. Publication
@@ -2974,7 +2974,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   full repository gate passes with localization coverage, 17 Playwright
   scenarios, and the production build. Uppy remains headless and the existing
   editor remains unchanged pending a dedicated editor proof.
-- Follow-up: Evaluate Uppy Image Editor as an isolated Herald dialog adapter,
+- Follow-up: Evaluate Uppy Image Editor as an isolated Postbot dialog adapter,
   then separately assess real progress, cancellation, retry, and resumability
   against the current API lifecycle before changing the editor or extracting a
   shared media package.
@@ -2987,9 +2987,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   selection and drag-and-drop only. Uppy documents remote sources such as
   Google Drive, Dropbox, OneDrive, Unsplash, and URL import as separate
   provider plugins; those integrations require Companion to authenticate with
-  the remote service and transfer the selected file. The current Herald API
+  the remote service and transfer the selected file. The current Postbot API
   has no Companion boundary or remote-source ownership model.
-- Impact: Adding source buttons without deciding which providers Herald
+- Impact: Adding source buttons without deciding which providers Postbot
   supports, where OAuth credentials live, and which service downloads the
   bytes would create misleading UI and an unreviewed security/deployment
   boundary. Installing the all-in-one remote-sources preset would also pull in
@@ -2997,7 +2997,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Desired outcome: Choose a deliberately small first set of external sources,
   define their authentication, privacy, network-egress, byte-transfer,
   failure, and self-hosting contracts, then expose them through a
-  Herald-owned source picker that feeds the same verified media lifecycle as
+  Postbot-owned source picker that feeds the same verified media lifecycle as
   local files.
 - Scope boundary: This investigation does not add Uppy Dashboard, enable a
   hosted Companion by default, store third-party OAuth tokens in the media
@@ -3008,7 +3008,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Acceptance: The supported-source list and deployment mode are explicit; each
   selected provider has a reviewed OAuth and transfer boundary; unsupported or
   unconfigured sources are absent from the UI; imported bytes enter the same
-  Herald reserve/upload/finalize/verification lifecycle; focused security,
+  Postbot reserve/upload/finalize/verification lifecycle; focused security,
   failure, and browser coverage exists before any source is enabled.
 - Resolution: The first supported set is local device selection, browser-owned
   webcam capture, and an explicitly configured server-side URL importer. URL
@@ -3100,11 +3100,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: OPS-192
 - Resolution: After the owner selected `main` as the integration baseline, 18
   clean worktrees whose HEADs were already ancestors of `main` were removed.
-  The missing `/tmp/herald-review-discord` worktree was pruned from Git's
+  The missing `/tmp/postbot-review-discord` worktree was pruned from Git's
   administrative metadata. Local branch refs were then evaluated against
   `main` and removed only when their work was integrated or superseded.
 - Current classification before the final cleanup pass: the detached
-  `/home/hakim/.codex/worktrees/7ae0/herald` and branch-backed
+  `/home/hakim/.codex/worktrees/7ae0/postbot` and branch-backed
   `/home/hakim/.codex/worktrees/taxonomy-130-backend` each contained one commit
   not reachable from `main`, while
   `/home/hakim/Documents/Codex/2026-09-02/in-app-browser-context-source-ambient`
@@ -3175,7 +3175,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: accepted
 - Evidence: The supplied audit reports one deployment-owned publisher encryption key without a demonstrated rotation or re-encryption lifecycle.
 - Impact: Key compromise, planned rotation, or secret-provider migration may require manual reconnection of every publisher or create recovery ambiguity.
-- Desired outcome: Herald has an accepted key lifecycle covering rotation, active-version selection, re-encryption, rollback, recovery, and operator evidence without exposing secret values.
+- Desired outcome: Postbot has an accepted key lifecycle covering rotation, active-version selection, re-encryption, rollback, recovery, and operator evidence without exposing secret values.
 - Tasks: SECURITY-197
 - Current classification: ADR-012 and the implementation already establish the
   current contract: one deployment-owned key, key/version identifiers in
@@ -3221,7 +3221,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Supported external notification destinations, ownership, transport, retry, ambiguity, and observability semantics are explicit and exercised end to end.
 - Tasks: NOTIFY-199
 - Current classification: The durable delivery store is real and tested, but no
-  external destination is part of the current Herald product contract. The owner
+  external destination is part of the current Postbot product contract. The owner
   explicitly deferred Ntfy, Telegram, and other real adapters for now, without
   ruling them out permanently. A recording in-memory transport verifies the
   delivery seam without network access; revisit real adapters when a concrete
@@ -3358,7 +3358,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   maintenance, and that configuration rejects the image defaults because the
   authentication, signed-media-URL, and publisher-encryption secrets are absent.
   This was reproduced with the production environment values declared by the
-  Dockerfile and `createHeraldConfig`; the commands therefore cannot run as
+  Dockerfile and `createPostbotConfig`; the commands therefore cannot run as
   documented. This finding reopens the operational recovery contract; it does
   not invalidate the historical implementation work below.
 - Desired outcome: Supported deployment modes state their network, secret, persistence, retention, upgrade, and restore responsibilities, and the documented backup/restore commands execute successfully against the production image with only the configuration each operation actually needs.
@@ -3394,7 +3394,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: `GET /metrics` is mounted on the same HTTP server as the public API
   and has no authentication. The deployment guide asks operators to restrict it,
   but the application does not enforce that boundary.
-- Impact: A public Herald deployment can expose process and publication-worker
+- Impact: A public Postbot deployment can expose process and publication-worker
   activity to unauthenticated callers, and the scrape handler can be repeatedly
   invoked from the public network.
 - Desired outcome: Operators can intentionally enable metrics and allow only
@@ -3429,7 +3429,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   release `3.1.0`. Its age alone is not a reason to fork or reimplement it: X's
   current developer documentation still recommends the library. Reassess
   ownership only if the package causes a concrete maintenance or compatibility
-  problem; if that happens, maintain only the functions Herald needs and test
+  problem; if that happens, maintain only the functions Postbot needs and test
   them against upstream conformance.
 - Dependency note: The release depends on legacy `core-js` 2 and `punycode`
   packages; npm reported no known advisories on 2026-09-25 and warns that
@@ -3467,13 +3467,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: accepted
 - Evidence: ADR-068 deliberately uses a database-specific sidecar marker and
   fails closed when it remains after forced termination. The operator must
-  establish that no Herald process is using the database and then remove that
+  establish that no Postbot process is using the database and then remove that
   exact marker manually before restarting.
 - Impact: A normal host crash or forced stop can turn the next startup into a
   manual recovery procedure, adding friction to the self-hosted operating
   model even though the marker correctly prevents concurrent restore.
 - Desired outcome: Runtime exclusion is released after process death while
-  restore remains unable to race an active Herald process. Recovery must not
+  restore remains unable to race an active Postbot process. Recovery must not
   depend on marker age or PID checks alone.
 - Tasks: OPS-217
 - Related issue: ISSUE-026
@@ -3521,7 +3521,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   the dashboard entry point or verify that its referenced assets are served by
   that image.
 - Impact: A healthy API and successful recovery test could still miss a broken
-  production static-asset path that prevents users from loading Herald.
+  production static-asset path that prevents users from loading Postbot.
 - Desired outcome: CI verifies the production image serves the dashboard shell
   and its built assets, in addition to the existing readiness and recovery
   checks.
@@ -3529,7 +3529,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related issue: ISSUE-123
 - Related task: OPS-213
 - Resolution (OPS-218, 2026-09-26): The existing production-image acceptance
-  command now fetches the root dashboard document, checks its Herald title and
+  command now fetches the root dashboard document, checks its Postbot title and
   application root, discovers its same-origin built asset references, and
   requests each one. It verifies successful responses, non-empty bodies, and
   JavaScript/CSS content types. The check runs against both the initial and
@@ -3546,7 +3546,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The API exposes the X authorization start/callback flow and the web
   API client exposes `startXPublisherConnection`, but the authenticated channel
   connection surface has no corresponding X connection action.
-- Impact: A supported built-in provider is not fully operable through Herald's
+- Impact: A supported built-in provider is not fully operable through Postbot's
   primary client, even though the provider and API path exist.
 - Desired outcome: A user can initiate, complete, cancel, and recover the X
   connection flow from the web client, with explicit provider-application
@@ -3572,7 +3572,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: question
 - Status: resolved
-- Evidence: Herald has a project-authorized operational analytics API and
+- Evidence: Postbot has a project-authorized operational analytics API and
   read-model implementation, but no authenticated web analytics route. The
   accepted foundation explicitly did not require a dashboard, so the missing
   page is not automatically a defect.
@@ -3585,7 +3585,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: ANALYTICS-223
 - Related issues: ISSUE-054, ISSUE-056
 - Related decision: ADR-051
-- Resolution (owner decision, 2026-09-26): Defer a web page for Herald's internal
+- Resolution (owner decision, 2026-09-26): Defer a web page for Postbot's internal
   delivery/execution analytics for now. This is not a permanent rejection of
   the page. The project-authorized API remains available while its purpose,
   persisted source data, overlap with instance telemetry, and access boundary
@@ -3642,7 +3642,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   implementation approval is not treated as ADR acceptance. Corrected ADR-010's
   obsolete release framing and runtime-version detail to match accepted
   continuous-development scope and the repository-pinned Bun runtime.
-- Owner clarification: The internal Herald operational-analytics UI deferral
+- Owner clarification: The internal Postbot operational-analytics UI deferral
   does not defer publication-performance analytics such as views and comments.
   The decision inventory and remaining ratification choices are recorded in the
   [META-225 worklog](worklogs/2026-09-26-META-225.md).
@@ -3670,7 +3670,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: question
 - Status: resolved
-- Evidence: Herald has both a process-level Prometheus scrape endpoint and a
+- Evidence: Postbot has both a process-level Prometheus scrape endpoint and a
   project-level operational analytics API. The latter computes aggregates on
   demand from current publication/job state and the durable `audit_events`
   journal; it does not persist query snapshots. That journal is also consumed
@@ -3712,7 +3712,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: proposal
 - Status: resolved
-- Evidence: The owner wants a broad, fresh comparison of Herald with Postiz,
+- Evidence: The owner wants a broad, fresh comparison of Postbot with Postiz,
   Mixpost, and OpenPost after the current sprint is complete. Existing
   competitor work under ISSUE-056 is limited to provider-engagement analytics
   and does not describe product-wide capability coverage. On 2026-09-27, the
@@ -3722,20 +3722,20 @@ posture` is an exact patch duplicate of `aa889111`, and
   product landscape risks missing foundational capabilities and makes it hard
   to distinguish important product gaps from optional competitor differences.
 - Desired outcome: Deliver a readable, grouped,
-  Herald-versus-Postiz-versus-Mixpost-versus-OpenPost matrix based on public
+  Postbot-versus-Postiz-versus-Mixpost-versus-OpenPost matrix based on public
   product messaging, official documentation, and current upstream source.
   Each cell must
   distinguish present, partial/limited, absent, and unverified behavior, note
   material edition or plan limits, and link dated authoritative evidence.
   Missing documentation must not be treated as proof of absence, and the report
-  must not imply that Herald should implement every competitor feature.
+  must not imply that Postbot should implement every competitor feature.
 - Tasks: PRODUCT-231
 - Related issues: ISSUE-056, ISSUE-132
 - Scope boundary: Research only. Begin after the active sprint is complete.
   The owner has authorized the full comparison without a separate row-set
   approval step. No feature implementation or parity commitment is authorized
   by this issue.
-- Resolution: Completed the grouped capability matrix across Herald, Postiz,
+- Resolution: Completed the grouped capability matrix across Postbot, Postiz,
   Mixpost, and OpenPost using public product messaging, official documentation,
   and pinned upstream source snapshots. The report distinguishes verified,
   partial/edition-gated, not-found, and unverified evidence; documents important
@@ -3748,11 +3748,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: proposal
 - Status: resolved
-- Evidence: The product comparison found that Herald distinguishes operational
+- Evidence: The product comparison found that Postbot distinguishes operational
   publication/execution reporting from provider-owned performance data, but the
   latter currently has only a bounded Bluesky API collector and no dashboard
   experience. The owner explicitly clarified that the desired analytics are
-  publication outcomes such as views and comments, not internal Herald
+  publication outcomes such as views and comments, not internal Postbot
   telemetry. Existing provider research covers six publishing integrations,
   but no product workflow, initial measure set, or collection policy has been
   accepted.
@@ -3773,7 +3773,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   authorize a dashboard, additional provider collectors, background polling,
   new OAuth scopes, retention changes, or changes to operational analytics.
 - Acceptance: The task will compare current supported-provider paths and
-  access barriers, inspect Herald's existing observation schema and collection
+  access barriers, inspect Postbot's existing observation schema and collection
   flow, compare viable user workflows and collection/storage policies, and
   record a source-backed recommendation plus explicit implementation follow-up
   boundaries. An unknown or approval-gated metric must not be presented as
@@ -3792,22 +3792,22 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: accepted proposal
 - Status: resolved
-- Evidence: The owner approved the ANALYTICS-233 recommendation on 2026-09-27. Herald already stores bounded Bluesky observations but has no user-facing performance workflow. Forem documents per-article lifetime totals for views, reactions, and comments, plus ranged historical data, using the existing connected API key.
-- Impact: Without a project-facing experience, users cannot assess the outcomes of publications they create in Herald. A generic analytics surface or cross-network totals would conflate provider-specific metrics with Herald's operational reporting and could misstate incomparable measures.
+- Evidence: The owner approved the ANALYTICS-233 recommendation on 2026-09-27. Postbot already stores bounded Bluesky observations but has no user-facing performance workflow. Forem documents per-article lifetime totals for views, reactions, and comments, plus ranged historical data, using the existing connected API key.
+- Impact: Without a project-facing experience, users cannot assess the outcomes of publications they create in Postbot. A generic analytics surface or cross-network totals would conflate provider-specific metrics with Postbot's operational reporting and could misstate incomparable measures.
 - Desired outcome: Let project members inspect provider-owned performance for published destinations, understand which measures each provider reports and when the data was fetched, and explicitly refresh supported data without making page reads call external providers. The first collection slice records Forem lifetime totals; provider-native date-range history is a later extension, not a prerequisite for displaying the requested views/reactions/comments.
 - Related issues: ISSUE-056, ISSUE-137
 - Related tasks: ANALYTICS-234, ANALYTICS-235
 - Related decisions: ADR-051, ADR-052, ADR-055
 - Accepted boundaries: Place Performances in the normal project work space, separate from operational analytics. Begin with Forem's article views/reactions/comments and the existing Bluesky observations. Preserve provider names and metric semantics; never invent missing values or cross-provider scores. Reads use stored observations; refresh is explicit and bounded. Do not add scheduled collection, new provider scopes, new services, or change the existing observation retention lifecycle in this issue.
 - Acceptance: Provider refresh is project/channel/publication-scoped and role-checked; only known published destination IDs are queried; API keys remain inside the provider boundary; raw responses and secrets are not persisted or returned; lifetime totals are represented as cumulative snapshots; provider errors and absent metrics remain explicit; the web surface presents cached values and freshness and offers explicit refresh; operational analytics remains unchanged. Forem date-range history is deferred because the current observation store retains every fetched snapshot indefinitely and the returned time-series would multiply writes per refresh; do not disguise this as a retention decision.
-- Resolution: Implemented DEV.to/Forem lifetime totals for known published Herald destinations, authenticated project-scoped API reads and editor-gated explicit collection, and a localized project Performances page that combines cached DEV.to and Bluesky measures per destination. Page reads do not call providers. No recurring collection, historical chart, new credential scope, or retention policy was added.
+- Resolution: Implemented DEV.to/Forem lifetime totals for known published Postbot destinations, authenticated project-scoped API reads and editor-gated explicit collection, and a localized project Performances page that combines cached DEV.to and Bluesky measures per destination. Page reads do not call providers. No recurring collection, historical chart, new credential scope, or retention policy was added.
 - Evidence: [ANALYTICS-233 workflow recommendation](worklogs/2026-09-27-ANALYTICS-233.md); [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md); [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
 
 ## [ISSUE-139] Separate publication preparation from approval and dispatch
 
 - Type: product requirement
 - Status: resolved
-- Evidence: Herald project access currently distinguishes `owner`, `editor`, and
+- Evidence: Postbot project access currently distinguishes `owner`, `editor`, and
   `viewer`. Publication mutations, including scheduling and recording manual
   publication, require the `editor` role; there is no per-publication approval
   state. The domain's `review_required` value means a destination needs a
@@ -3825,11 +3825,11 @@ posture` is an exact patch duplicate of `aa889111`, and
   documents human review in the agent client flow and explicitly says it does
   not add a separate server approval step before each allowed change ([OpenPost agent-assisted publishing](https://docs.openpo.st/usage/agent-assisted-publishing)).
 - Impact: A team that expects one member to draft and another to authorize an
-  external publication cannot enforce that separation in Herald today. Adding
+  external publication cannot enforce that separation in Postbot today. Adding
   it would affect the publication lifecycle and must apply consistently to the
   web app, REST API, current CLI, and any future client; it also requires clear
   rules for approval identity, edits after approval, and already scheduled work.
-  Competitor presence alone does not establish that Herald users need this
+  Competitor presence alone does not establish that Postbot users need this
   policy.
 - Desired outcome: Allow an external client with limited publication
   permissions to prepare a publication and propose a delivery time without
@@ -3840,7 +3840,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related decisions: ADR-074, ADR-075
 - Owner direction (2026-09-27): This is a real product need, especially for
   external agents that may prepare publications but must not be able to publish
-  or schedule them. Herald must not classify the external client as an AI
+  or schedule them. Postbot must not classify the external client as an AI
   agent; the boundary is expressed through generic user-owned API-key actions
   and an explicit approval workflow.
 - Accepted requirements:
@@ -3880,10 +3880,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: accepted proposal
 - Status: resolved
-- Evidence: Herald API keys are owned by a user and inherit that user's current
+- Evidence: Postbot API keys are owned by a user and inherit that user's current
   project roles, while the existing optional project subset further narrows
   access. The Better Auth API-key record already has a nullable native
-  `permissions` field, but Herald neither exposes nor enforces action-level
+  `permissions` field, but Postbot neither exposes nor enforces action-level
   limits. The owner approved an optional capability ceiling on 2026-09-27.
 - Impact: A copied key currently carries every project action available to its
   owner within its project scope. This is unnecessarily broad for external
@@ -3892,10 +3892,10 @@ posture` is an exact patch duplicate of `aa889111`, and
   owner's role is revoked.
 - Desired outcome: Let a user create and later edit a key that either inherits
   all of their current project actions or is explicitly limited to a small,
-  understandable set of Herald capabilities.
+  understandable set of Postbot capabilities.
 - Related issues: ISSUE-112
 - Related decisions: ADR-074, ADR-075
-- Accepted boundaries: A key remains user-owned and generic; Herald does not
+- Accepted boundaries: A key remains user-owned and generic; Postbot does not
   classify the external client as an AI agent. Effective access is the
   intersection of the user's current project role, the key's selected project
   scope, and its optional action ceiling. An unrestricted key continues to

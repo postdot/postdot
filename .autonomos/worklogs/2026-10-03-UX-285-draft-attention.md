@@ -25,7 +25,7 @@ visually distinct at 1280 and 390 pixels; Needs attention still selects only the
 same review-required draft. Inspected the 390-pixel capture. A missing JSX
 conditional branch was corrected before the successful isolated browser run.
 Full `bun run check` passed: 63 main browser journeys, two password-reset
-journeys and all 17 build tasks. Full log: `/tmp/herald-attention-check.log`.
+journeys and all 17 build tasks. Full log: `/tmp/postbot-attention-check.log`.
 
 ## Continuation
 

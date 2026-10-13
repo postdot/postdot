@@ -15,7 +15,7 @@ flattened onto the shared canvas.
 
 ## Changes
 
-- Remove the desktop inset padding from Herald's expanded sidebar container.
+- Remove the desktop inset padding from Postbot's expanded sidebar container.
 - Preserve the compact rail padding so icon buttons retain their intended
   eight-pixel inset and full-width hit area.
 - Add browser coverage for the expanded container's zero padding while keeping

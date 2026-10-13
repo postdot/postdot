@@ -1,4 +1,4 @@
-import type { ChannelExecutionContract, ExternalEffectOutcome } from '@herald/core'
+import type { ChannelExecutionContract, ExternalEffectOutcome } from '@postbot/core'
 import type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,
@@ -12,7 +12,7 @@ import type {
     ReserveProviderMediaDeliveryInput,
     RetryProviderMediaDeliveryInput,
     StartProviderMediaDeliveryInput,
-} from '@herald/db'
+} from '@postbot/db'
 
 export type BuiltInExecutionContract = Extract<
     ChannelExecutionContract,

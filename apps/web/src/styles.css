@@ -1,22 +1,22 @@
 @import 'tailwindcss';
-@import '@herald/ui/globals.css';
+@import '@postbot/ui/globals.css';
 
 @source './';
 @source '../../../packages/ui/src';
 
-.herald-scrollbar-none {
+.postbot-scrollbar-none {
     scrollbar-width: none;
 }
 
-.herald-scrollbar-none::-webkit-scrollbar {
+.postbot-scrollbar-none::-webkit-scrollbar {
     display: none;
 }
 
-html:has(.herald-dashboard) {
+html:has(.postbot-dashboard) {
     overflow: hidden;
 }
 
-body:has(.herald-dashboard) {
+body:has(.postbot-dashboard) {
     overflow: hidden;
 }
 
@@ -28,7 +28,7 @@ body:has(.herald-dashboard) {
     );
 }
 
-@keyframes herald-search-scan {
+@keyframes postbot-search-scan {
     0%,
     100% {
         transform: translateX(-4px) rotate(-8deg);

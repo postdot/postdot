@@ -9,10 +9,10 @@
 
 ## Context
 
-Herald is self-hosted and must keep the normal connection workflow inside the
+Postbot is self-hosted and must keep the normal connection workflow inside the
 running application. Environment variables are appropriate for deployment
 bootstrap and root secrets, but requiring an operator to edit `.env` and restart
-Herald whenever a user connects a new LinkedIn account or destination creates
+Postbot whenever a user connects a new LinkedIn account or destination creates
 avoidable operational friction.
 
 The distinction is important:
@@ -23,7 +23,7 @@ The distinction is important:
 - A publisher credential is the account authorization obtained after a member
   completes OAuth. It is project-owned, secret material, and may be used by one
   or more channel connections.
-- A channel connection binds a credential to a Herald channel and an external
+- A channel connection binds a credential to a Postbot channel and an external
   destination such as a LinkedIn organization page.
 
 The current database already models project-owned credentials and one publisher
@@ -35,14 +35,14 @@ that configuration from environment variables at startup.
 
 ## Decision
 
-Herald will introduce a runtime-managed provider application configuration
+Postbot will introduce a runtime-managed provider application configuration
 boundary.
 
 1. Deployment environment variables remain responsible for bootstrap concerns:
    database and media locations, listener and public origins, session secrets,
    and the publisher encryption root key. They are not the per-channel setup
    mechanism.
-2. Herald will persist provider application configurations as instance-owned
+2. Postbot will persist provider application configurations as instance-owned
    settings. Client secrets and other confidential fields are encrypted with the
    existing publisher-secret boundary; public identifiers and non-secret
    metadata are stored separately and redacted from ordinary responses and logs.
@@ -56,7 +56,7 @@ boundary.
    an API restart. Callback URLs remain deployment/provider concerns and are
    displayed as actionable setup information.
 5. Projects may contain multiple accounts, channels, and destinations for the
-   same provider. Herald will not impose a one-provider or one-channel limit.
+   same provider. Postbot will not impose a one-provider or one-channel limit.
    Provider-specific permissions, duplicate-destination rules, quotas, and
    unsupported destination types remain explicit adapter policies.
 6. The setup surface must expose truthful readiness states. A provider without
@@ -77,10 +77,10 @@ Rejected. It is simple for the process but couples ordinary product work to
 DevOps changes and restarts, and hides the distinction between installation and
 business data.
 
-### Ship one shared Herald OAuth application per provider
+### Ship one shared Postbot OAuth application per provider
 
 Rejected for the self-hosted product. It would centralize secrets and callbacks
-under Herald, weaken installation ownership, and fail for providers or
+under Postbot, weaken installation ownership, and fail for providers or
 organizations that require their own application approval.
 
 ### Store provider application secrets as plaintext database fields
@@ -100,7 +100,7 @@ organizational isolation.
 ### Positive
 
 - Users can connect additional accounts and destinations without restarting
-  Herald or editing deployment files.
+  Postbot or editing deployment files.
 - The product model supports the Vercel example: one project with several
   LinkedIn destinations, or several projects with one destination each.
 - OAuth token refresh remains attributable to the application that issued the
@@ -122,7 +122,7 @@ organizational isolation.
 ## Acceptance criteria for implementation
 
 - An authorized operator can create, update, disable, and select provider
-  application configurations while Herald is running.
+  application configurations while Postbot is running.
 - Client secrets never appear in API responses, logs, audit metadata, or browser
   storage, and encrypted values survive restart with the configured root key.
 - Two LinkedIn accounts and multiple LinkedIn destinations can coexist in one

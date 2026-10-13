@@ -8,7 +8,7 @@
 
 ## Context
 
-Herald's workflow worker owns durable claims, retries, and external-effect
+Postbot's workflow worker owns durable claims, retries, and external-effect
 completion. It also currently performs several LinkedIn-specific decisions: provider
 selection, credential refresh, destination validation, content extraction, image
 upload sequencing, and reconnect handling. LinkedIn already has typed publisher
@@ -48,7 +48,7 @@ An adapter owns provider-specific behavior:
   provider-specific diagnostic codes and permanent, retryable, or ambiguous
   classification.
 
-The adapter does not own Herald's database schema, project authorization, publisher
+The adapter does not own Postbot's database schema, project authorization, publisher
 credential encryption, publication state, job claims, or audit persistence.
 
 ### Generic worker responsibilities
@@ -69,7 +69,7 @@ does not replace the channel-owned profile contract.
 
 ### Credential boundary
 
-The adapter may receive a narrow resolver and token-rotation port. Herald continues
+The adapter may receive a narrow resolver and token-rotation port. Postbot continues
 to own project-scoped encrypted publisher credentials and their persistence. Better
 Auth remains limited to application email/password authentication and is not part of
 provider execution.
@@ -98,7 +98,7 @@ evidence requiring it.
 
 ### Move providers to separate processes or services
 
-This would add coordination, deployment, and failure modes and contradicts Herald's
+This would add coordination, deployment, and failure modes and contradicts Postbot's
 current single-process self-hosting posture. No measured need justifies it.
 
 ## Consequences

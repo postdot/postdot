@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@herald/core'
+import type { ExternalEffectOutcome } from '@postbot/core'
 
 export const LINKEDIN_PROVIDER = 'linkedin' as const
 export const LINKEDIN_API_BASE_URL = 'https://api.linkedin.com'

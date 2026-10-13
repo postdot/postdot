@@ -1,18 +1,18 @@
-import type { AccessStore, PublisherConnectionDestination } from '@herald/db'
+import type { AccessStore, PublisherConnectionDestination } from '@postbot/db'
 import {
     LINKEDIN_PROVIDER,
     LINKEDIN_MEMBER_REQUIRED_SCOPES,
     LINKEDIN_ORGANIZATION_REQUIRED_SCOPES,
     LinkedInOrganizationError,
     type LinkedInMemberProfile,
-} from '@herald/linkedin'
+} from '@postbot/linkedin'
 import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
     isAuthorizationDeniedError,
     validateAuthorizationResponse,
-} from '@herald/oauth'
+} from '@postbot/oauth'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

@@ -40,8 +40,8 @@ export function createManualChannelProfile(): ChannelProfileDefinition {
     return {
         id: 'manual-message',
         version: 1,
-        profileHash: 'sha256:herald-manual-message-v1',
-        schemaHash: 'sha256:herald-manual-message-schema-v1',
+        profileHash: 'sha256:postbot-manual-message-v1',
+        schemaHash: 'sha256:postbot-manual-message-schema-v1',
         origin: 'built_in',
         contentSchema: manualTargetContentSchema,
         fieldBindings: [

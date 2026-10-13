@@ -1,5 +1,5 @@
-import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import { Badge } from '@postbot/ui/components/badge'
+import { Button } from '@postbot/ui/components/button'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'

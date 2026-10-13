@@ -20,7 +20,7 @@ jobs:
                     - arch: arm64
                       runner: ubuntu-24.04-arm
         env:
-            HERALD_CONTAINER_TEST_IMAGE: herald:candidate
+            POSTBOT_CONTAINER_TEST_IMAGE: postbot:candidate
         steps:
             - name: Check out selected source
               uses: actions/checkout@v6.0.2
@@ -37,7 +37,7 @@ jobs:
 
             - name: Build candidate without publication
               run: |
-                  docker build --tag "$HERALD_CONTAINER_TEST_IMAGE" \
+                  docker build --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
                     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
                     --label "org.opencontainers.image.revision=$GITHUB_SHA" \
                     --label "org.opencontainers.image.licenses=AGPL-3.0-only" .
@@ -53,6 +53,6 @@ jobs:
                     echo '## Accepted container candidate'
                     echo "Source: $GITHUB_SHA"
                     echo "Platform: linux/$EXPECTED_ARCH"
-                    echo "Local image ID: $(docker image inspect --format '{{.Id}}' "$HERALD_CONTAINER_TEST_IMAGE")"
+                    echo "Local image ID: $(docker image inspect --format '{{.Id}}' "$POSTBOT_CONTAINER_TEST_IMAGE")"
                     echo 'Container acceptance passed. No image was pushed; this is not a published release or a complete integration validation.'
                   } >> "$GITHUB_STEP_SUMMARY"

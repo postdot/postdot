@@ -679,7 +679,7 @@ test('projects custom destination text and ordered media through active nested b
                 kind: 'declarative_http',
                 contractId: 'custom-webhook',
                 revision: 'v1',
-                mode: 'herald_webhook',
+                mode: 'postbot_webhook',
             }
         const response = await page.request.post(`/api/projects/${projectId}/channels`, {
             data: { name, profile },
@@ -962,9 +962,9 @@ async function createMediaAsset(page: Page, projectId: string, filename: string)
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
-    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Editor pilot owner')
-    await page.getByLabel('Email', { exact: true }).fill(`pilot-${suffix}@herald.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`pilot-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('editor-pilot-password')
     await Promise.all([
         page.waitForResponse(
@@ -1174,8 +1174,8 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     old.version = 2
     old.origin = 'custom'
     old.contentSchema.$schema = 'https://json-schema.org/draft/2020-12/schema'
-    old.profileHash = 'sha256:herald-linkedin-member-post-v2'
-    old.schemaHash = 'sha256:herald-linkedin-member-post-schema-v2'
+    old.profileHash = 'sha256:postbot-linkedin-member-post-v2'
+    old.schemaHash = 'sha256:postbot-linkedin-member-post-schema-v2'
     old.execution.revision = 'member-post-v2'
     old.capabilities.revision = 'linkedin-member-post-v2'
     old.contentSchema.properties.media.maxItems = 1

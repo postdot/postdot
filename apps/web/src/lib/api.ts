@@ -1,5 +1,5 @@
 import {
-    createHeraldClient,
+    createPostbotClient,
     type SearchResponse,
     type EmailSettings,
     type EmailSettingsInput,
@@ -40,17 +40,17 @@ import {
     type ProviderAnalyticsPage,
     type ProjectCategory,
     type ProjectTag,
-} from '@herald/client'
+} from '@postbot/client'
 
 import * as m from '@/paraglide/messages.js'
 
-export type { MediaImportSource } from '@herald/client'
+export type { MediaImportSource } from '@postbot/client'
 export type PublicationSummary = PublicationSummaryPage['publications'][number]
 export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
 
 import type { PublicationComposerDraftContent } from '@/lib/publication-recovery'
 
-const client = createHeraldClient(window.location.origin)
+const client = createPostbotClient(window.location.origin)
 
 export interface Session {
     readonly user: {
@@ -1272,7 +1272,7 @@ export const api = {
 
     async listBlueskyProviderAnalytics(
         projectId: string,
-        options: { limit?: number; providerSubjectId?: string; heraldEntityId?: string } = {}
+        options: { limit?: number; providerSubjectId?: string; postbotEntityId?: string } = {}
     ): Promise<ProviderAnalyticsPage> {
         return unwrap<ProviderAnalyticsPage>(
             await client.api.projects({ projectId }).analytics.provider.bluesky.get({
@@ -1283,7 +1283,7 @@ export const api = {
 
     async listDevtoProviderAnalytics(
         projectId: string,
-        options: { limit?: number; providerSubjectId?: string; heraldEntityId?: string } = {}
+        options: { limit?: number; providerSubjectId?: string; postbotEntityId?: string } = {}
     ): Promise<ProviderAnalyticsPage> {
         return unwrap<ProviderAnalyticsPage>(
             await client.api.projects({ projectId }).analytics.provider.devto.get({
@@ -1965,7 +1965,7 @@ export type {
     Notification,
     NotificationInbox,
     NotificationPreference,
-} from '@herald/client'
+} from '@postbot/client'
 
 export function formatApiError(error: unknown): string {
     if (!(error instanceof ApiError)) return m.api_request_failed()

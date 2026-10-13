@@ -1,5 +1,5 @@
-import { adaptSourceContentToProfile } from '@herald/core'
-import { toast } from '@herald/ui/components/toast'
+import { adaptSourceContentToProfile } from '@postbot/core'
+import { toast } from '@postbot/ui/components/toast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     createContext,
