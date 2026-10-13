@@ -545,7 +545,7 @@ function EventCalendarTimeGridAllDayCell<TData>({ day }: { readonly day: Date })
     return (
         <div
             className={[
-                'min-h-9 min-w-0 rounded-md bg-background p-1 shadow-field',
+                'min-h-9 min-w-0 rounded-md bg-background p-1 shadow-grid-cell',
                 isOff ? offClassName : '',
                 isToday ? 'bg-primary/5' : '',
                 isOutside ? 'opacity-60' : '',
@@ -683,7 +683,7 @@ function EventCalendarTimeGridSlot<TData>({
     return (
         <div
             className={[
-                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-sm p-1 shadow-field transition-colors hover:bg-muted/70',
+                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-sm p-1 shadow-grid-cell transition-colors hover:bg-muted/70',
                 (slot.startMinute / 60) % 2 === 1 ? 'bg-surface-field/35' : 'bg-background',
                 isOff ? offClassName : '',
                 isToday ? 'bg-primary/5' : '',

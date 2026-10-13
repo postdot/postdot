@@ -24,16 +24,18 @@
      * one of the themes. Keep this scale coherent when adding new components.
      */
     --surface-background: #f4f4f4;
-    --surface-canvas: #f4f4f4;
+    --surface-canvas: #eaeaea;
     --background: var(--surface-background);
     --foreground: #1c1c1c;
     --surface-raised: #ffffff;
     --surface-overlay: #ffffff;
-    --surface-inset: #f4f4f4;
+    --surface-inset: #ededed;
+    --surface-selected: #e4e4e4;
+    --grid-edge: #dedede;
     --surface-field: #f4f4f4;
     --surface-control: #f4f4f4;
     --surface-control-hover: #ededed;
-    --surface-sidebar: #f4f4f4;
+    --surface-sidebar: #eaeaea;
     --surface-sidebar-hover: #ededed;
     --surface-shadow: none;
     --shell-shadow: inset 0 0 0 1px #ededed;
@@ -89,6 +91,8 @@
     --color-surface-raised: var(--surface-raised);
     --color-surface-overlay: var(--surface-overlay);
     --color-surface-inset: var(--surface-inset);
+    --color-surface-selected: var(--surface-selected);
+    --shadow-grid-cell: inset 0 0 0 1px var(--grid-edge);
     --color-surface-field: var(--surface-field);
     --color-surface-control: var(--surface-control);
     --color-surface-control-hover: var(--surface-control-hover);
@@ -155,16 +159,18 @@
 .dark {
     /* Keep the global background and work canvas distinct in dark mode too. */
     --surface-background: #171717;
-    --surface-canvas: #171717;
+    --surface-canvas: #101010;
     --background: var(--surface-background);
     --foreground: #f4f4f4;
     --surface-raised: #202020;
     --surface-overlay: #202020;
-    --surface-inset: #171717;
+    --surface-inset: #252525;
+    --surface-selected: #323232;
+    --grid-edge: #303030;
     --surface-field: #171717;
     --surface-control: #202020;
     --surface-control-hover: #2e2e2e;
-    --surface-sidebar: #171717;
+    --surface-sidebar: #101010;
     --surface-sidebar-hover: #2e2e2e;
     --surface-shadow: none;
     --shell-shadow: inset 0 0 0 1px #2e2e2e;

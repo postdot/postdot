@@ -345,7 +345,7 @@ function MediaLibraryViewControls({
 
 function mediaLibraryViewButtonClass(active: boolean) {
     return active
-        ? 'bg-muted text-foreground shadow-none hover:bg-muted/80'
+        ? 'bg-surface-selected text-foreground shadow-none hover:bg-surface-selected'
         : 'text-muted-foreground shadow-none'
 }
 

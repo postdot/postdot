@@ -31,6 +31,12 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   their destructive indication.
 - Do not add motion without an explicitly discussed interaction. Existing motion
   is not redefined by this styling pass. No repository/product rename is implied.
+- Distinguish adjacent hosts: shell/sidebar #EAEAEA light / #101010 dark,
+  page #F4F4F4 / #171717, raised containers #FFFFFF / #202020. Equal role
+  values are acceptable only where no boundary or state depends on them.
+- Recessed/group backgrounds use #EDEDED / #252525; selected neutral controls
+  use #E4E4E4 / #323232. Calendar cells have dedicated one-pixel inset edges
+  (#DEDEDE / #303030), independent of field elevation or decorative shadows.
 - Preserve existing page composition and density. Private calibration layouts
   do not authorize rebuilding the application or changing product behavior.
 

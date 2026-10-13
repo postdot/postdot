@@ -299,7 +299,7 @@ export function PublicationCalendar({
                     monthBar: 'px-0.5',
                     monthBarOverlay: 'pt-8',
                     monthBody: 'gap-0.5',
-                    monthCell: '!border-0 rounded-sm bg-background shadow-field',
+                    monthCell: '!border-0 rounded-sm bg-background shadow-grid-cell',
                     monthCellContent: 'gap-0.5 px-1 pt-1 pb-1',
                     monthCellFooter: 'px-1 pt-1',
                     monthDayHeader: '!border-0 rounded-sm bg-muted/70 px-2 py-1.5',

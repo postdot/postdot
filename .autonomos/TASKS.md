@@ -736,3 +736,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[DESIGN-397]** Refine Prism across public, documentation and operational surfaces `Priority: 🟠` `Complexity: M` — Owner prefers Prism, excludes Signal; develop a shared candidate system and cross-surface study before applying an app-wide redesign.
 
 - [x] **[DESIGN-398]** Apply the owner-calibrated visual foundations to the existing application `Priority: 🟠` `Complexity: M` — Shared typography, neutral surfaces, three-pixel corners, neutral primary actions and close field focus; preserve layouts and product behavior.
+
+- [x] **[DESIGN-399]** Restore adjacent surface and selection distinction `Priority: 🟠` `Complexity: S` — Neutral shell elevation, explicit selected-control fill and dedicated calendar cell edges, preserving layout.
