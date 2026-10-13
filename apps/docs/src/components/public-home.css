@@ -143,109 +143,6 @@
     color: var(--home-muted);
     padding-top: 14px;
 }
-.home-workflow {
-    background: var(--home-card);
-    padding: 100px max(40px, calc((100vw - 1120px)/2));
-}
-.home-section-heading h2,
-.home-ownership h2,
-.home-start h2 {
-    font-size: 32px;
-    line-height: 1.2;
-    letter-spacing: -0.035em;
-    font-weight: 500;
-    margin: 0;
-}
-.home-steps {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 56px;
-    margin-top: 64px;
-}
-.home-step-number {
-    display: block;
-    font-size: 13px;
-    color: var(--home-blue);
-    margin-bottom: 24px;
-    font-variant-numeric: tabular-nums;
-}
-.home-steps h3 {
-    font-weight: 500;
-    font-size: 20px;
-    letter-spacing: -0.02em;
-    margin: 0 0 12px;
-}
-.home-steps p {
-    color: var(--home-muted);
-    margin: 0 0 24px;
-    max-width: 280px;
-}
-.home-steps a,
-.home-runtime > a {
-    font-size: 14px;
-    color: var(--home-blue);
-}
-.home-ownership {
-    max-width: 1200px;
-    padding: 100px 40px;
-    margin: auto;
-    display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 100px;
-    align-items: center;
-}
-.home-ownership p {
-    color: var(--home-muted);
-    margin: 24px 0;
-    max-width: 430px;
-}
-.home-runtime {
-    background: var(--home-card);
-    border: 1px solid var(--home-edge);
-    border-radius: 3px;
-    padding: 32px;
-}
-.home-runtime-brand {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-    font-size: 24px;
-    font-weight: 500;
-}
-.home-runtime-brand svg {
-    width: 56px;
-    height: 56px;
-}
-.home-runtime dl {
-    margin: 28px 0;
-    display: grid;
-    gap: 16px;
-    font-size: 14px;
-}
-.home-runtime dl > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 24px;
-}
-.home-runtime dt {
-    color: var(--home-muted);
-}
-.home-runtime dd {
-    margin: 0;
-    text-align: right;
-}
-.home-start {
-    background: var(--home-card);
-    padding: 64px max(40px, calc((100vw - 1120px)/2));
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 32px;
-}
-.home-start p {
-    margin: 14px 0 0;
-    color: var(--home-muted);
-}
 .home-footer {
     font-size: 12px;
     color: var(--home-muted);
@@ -503,4 +400,180 @@
     .home-footer-signature svg {
         margin-bottom: -16px;
     }
+}
+
+.home-client-section {
+    background: var(--home-card);
+    padding: 100px max(24px, calc((100vw - 1120px)/2));
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 64px;
+    align-items: center;
+}
+.home-client-heading h2 {
+    font-size: 40px;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    margin: 0 0 24px;
+}
+.home-client-heading a {
+    color: var(--home-blue);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+.home-client-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.public-home .home-client-selector button {
+    height: 40px;
+    padding: 8px 18px;
+    color: var(--home-muted);
+    background: transparent;
+    border-radius: 3px;
+}
+.public-home .home-client-selector button[aria-pressed='true'] {
+    background: var(--home-ink);
+    color: var(--home-card);
+}
+.home-client-future {
+    color: var(--home-muted);
+    font-size: 14px;
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.home-client-future > span {
+    font-size: 11px;
+    border: 1px solid var(--home-edge);
+    border-radius: 3px;
+    padding: 2px 6px;
+}
+.home-client-stage {
+    height: 440px;
+    border: 1px solid var(--home-edge);
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--home-bg);
+}
+.home-client-view {
+    height: 100%;
+}
+.home-client-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    font-size: 13px;
+    color: var(--home-muted);
+}
+.home-client-draft {
+    padding: 32px;
+}
+.home-client-caption {
+    font-size: 12px;
+    color: var(--home-muted);
+}
+.home-client-draft h3 {
+    font-size: 24px;
+    font-weight: 500;
+    margin: 16px 0 24px;
+    letter-spacing: -0.025em;
+}
+.home-client-draft p {
+    margin: 0 0 64px;
+}
+.home-client-destination {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    background: var(--home-card);
+    border-radius: 3px;
+    font-size: 14px;
+}
+.home-client-destination > span:last-child {
+    color: var(--home-muted);
+}
+.home-client-terminal {
+    height: 100%;
+    overflow: auto;
+    background: #171717;
+    color: #f4f4f4;
+}
+.home-client-terminal .home-client-bar {
+    color: #aaa;
+}
+.home-client-terminal pre {
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 12px 24px 24px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.home-client-terminal .home-client-command {
+    color: #94b5ff;
+}
+.home-client-filename {
+    color: #aaa;
+    font-size: 12px;
+    padding: 0 24px;
+}
+@media (max-width: 800px) {
+    .home-client-section {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        padding-block: 64px;
+    }
+    .home-client-heading h2 {
+        font-size: 32px;
+    }
+    .home-client-stage {
+        height: 440px;
+    }
+    .home-client-draft {
+        padding: 24px;
+    }
+}
+
+.home-demo-title,
+.home-demo-body {
+    display: block;
+    width: 100%;
+    background: transparent;
+    color: var(--home-ink);
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 8px;
+    margin-left: -8px;
+    font-family: inherit;
+}
+.home-demo-title {
+    font-size: 24px;
+    font-weight: 500;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    letter-spacing: -0.025em;
+}
+.home-demo-body {
+    font-size: 16px;
+    line-height: 1.6;
+    resize: none;
+    height: 100px;
+    margin-bottom: 24px;
+}
+.home-demo-title:hover,
+.home-demo-body:hover {
+    border-color: var(--home-edge);
+}
+.home-demo-title:focus,
+.home-demo-body:focus {
+    outline: none;
+    border-color: var(--home-blue);
 }

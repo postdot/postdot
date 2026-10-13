@@ -750,3 +750,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-404]** Refine the public header and visual theme control `Priority: 🟠` `Complexity: S` — Solar icons, reduced-motion-aware toggle, responsive header; existing marketing copy remains unapproved filler.
 
 - [x] **[SITE-405]** Give the product visual and footer stronger presence `Priority: 🟠` `Complexity: S` — Blue product frame, Motion reveal respecting reduced motion, large brand signature and owner mascot; no new messaging.
+
+- [x] **[SITE-406]** Replace filler with the owner-selected humans-and-agents demonstration `Priority: 🟠` `Complexity: S` — Editable example shared between Web and CLI input, MCP explicitly planned; proposed copy remains unpublished.

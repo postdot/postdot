@@ -3,6 +3,7 @@ import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
+import { PublicClients } from './public-clients'
 import { PublicProduct } from './public-product'
 import { PublicThemeToggle } from './public-theme-toggle'
 
@@ -63,93 +64,18 @@ export function PublicHome() {
                     </div>
                     <PublicProduct />
                 </section>
-                <section id="workflow" className="home-workflow">
-                    <div className="home-section-heading">
-                        <span className="home-eyebrow">From idea to publication</span>
+                <section id="workflow" className="home-client-section">
+                    <div className="home-client-heading">
                         <h2>
-                            Keep the source.
+                            For people.
                             <br />
-                            Give each destination its own voice.
+                            And their agents.
                         </h2>
-                    </div>
-                    <div className="home-steps">
-                        <article>
-                            <span className="home-step-number">01</span>
-                            <h3>Compose once</h3>
-                            <p>Text and media start in one shared post.</p>
-                            <Link href="/docs/concepts/">
-                                Posts and destinations{' '}
-                                <ArrowRightUpIcon size={16} aria-hidden="true" />
-                            </Link>
-                        </article>
-                        <article>
-                            <span className="home-step-number">02</span>
-                            <h3>Adapt where it matters</h3>
-                            <p>Each publication keeps its own content, format and date.</p>
-                            <Link href="/docs/first-publication/">
-                                Your first publication{' '}
-                                <ArrowRightUpIcon size={16} aria-hidden="true" />
-                            </Link>
-                        </article>
-                        <article>
-                            <span className="home-step-number">03</span>
-                            <h3>Follow the outcome</h3>
-                            <p>
-                                Schedule connected channels. Track manual work and handle failures.
-                            </p>
-                            <Link href="/docs/providers/">
-                                Provider connections{' '}
-                                <ArrowRightUpIcon size={16} aria-hidden="true" />
-                            </Link>
-                        </article>
-                    </div>
-                </section>
-                <section className="home-ownership">
-                    <div>
-                        <span className="home-eyebrow">Your workspace, your infrastructure</span>
-                        <h2>
-                            Built to be self-hosted.
-                            <br />
-                            Open by design.
-                        </h2>
-                        <p>
-                            A web workspace for people, an API and CLI for automation. The same
-                            posts and destinations, without a second source of truth.
-                        </p>
-                        <Action href="/docs/automation/" secondary>
-                            API and CLI
-                        </Action>
-                    </div>
-                    <div className="home-runtime">
-                        <div className="home-runtime-brand">
-                            <PostbotLogo />
-                            <span>Postbot</span>
-                        </div>
-                        <dl>
-                            <div>
-                                <dt>License</dt>
-                                <dd>AGPL-3.0-only</dd>
-                            </div>
-                            <div>
-                                <dt>Runtime</dt>
-                                <dd>Bun</dd>
-                            </div>
-                            <div>
-                                <dt>Storage</dt>
-                                <dd>SQLite · local or S3 media</dd>
-                            </div>
-                        </dl>
-                        <Link href="/docs/operations/">
-                            Backups and updates <ArrowRightUpIcon size={16} aria-hidden="true" />
+                        <Link href="/docs/automation/">
+                            API and CLI <ArrowRightUpIcon size={18} aria-hidden="true" />
                         </Link>
                     </div>
-                </section>
-                <section className="home-start">
-                    <div>
-                        <h2>Make room for your next post.</h2>
-                        <p>Start with the installation guide.</p>
-                    </div>
-                    <Action href="/docs/installation/">Set up Postbot</Action>
+                    <PublicClients />
                 </section>
             </main>
             <footer className="home-footer">
