@@ -742,3 +742,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[BRAND-400]** Adopt Postbot naming and theme-aware owner mark `Priority: 🟠` `Complexity: M` — Rename project-owned identifiers, packages, configuration and tracked records; preserve SVG opacity and layouts, no new motion.
 
 - [x] **[DESIGN-401]** Harmonize search and dialog surfaces and add the Postbot favicon `Priority: 🟠` `Complexity: S` — Existing layouts and behavior preserved.
+
+- [x] **[DESIGN-402]** Use neutral logo ink and align documentation foundations `Priority: 🟠` `Complexity: S` — Retain layouts; no new public direction or release claims.

@@ -119,14 +119,14 @@ export function DashboardSidebar({
                             to="/dashboard/projects/$projectId/overview"
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
                             <PostbotLogo className="size-7" />
                         </Link>
                     ) : isSettingsShell || selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
                             <PostbotLogo className="size-7" />
                         </Link>
                     ) : (
@@ -134,7 +134,7 @@ export function DashboardSidebar({
                             to="/dashboard/projects/$projectId/overview"
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
                             <PostbotLogo className="size-7" />
                         </Link>
                     )}

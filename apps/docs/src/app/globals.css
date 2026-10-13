@@ -2,28 +2,42 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+@font-face {
+    font-family: 'Host Grotesk';
+    src: url('../../../../packages/ui/src/assets/fonts/host-grotesk.ttf') format('truetype');
+    font-weight: 300 800;
+    font-style: normal;
+    font-display: swap;
+}
+
 @theme {
-    --font-sans: 'Recursive Variable', system-ui, sans-serif;
+    --font-sans: 'Host Grotesk', system-ui, sans-serif;
 }
 
 :root {
-    --color-fd-background: #f2f3f3;
-    --color-fd-foreground: #202124;
-    --color-fd-primary: #385ccf;
+    --color-fd-background: #f4f4f4;
+    --color-fd-foreground: #1c1c1c;
+    --color-fd-card: #ffffff;
+    --color-fd-popover: #ffffff;
+    --color-fd-muted: #ededed;
+    --color-fd-muted-foreground: #666666;
+    --color-fd-border: #ededed;
+    --color-fd-primary: #2457d6;
     --color-fd-primary-foreground: #fff;
 }
 .dark {
-    --color-fd-background: #171819;
-    --color-fd-foreground: #eeeff2;
-    --color-fd-card: #222427;
-    --color-fd-popover: #222427;
-    --color-fd-muted: #222427;
-    --color-fd-muted-foreground: #a5a8af;
-    --color-fd-primary: #8ca5ff;
-    --color-fd-primary-foreground: #171819;
+    --color-fd-background: #171717;
+    --color-fd-foreground: #f4f4f4;
+    --color-fd-border: #2e2e2e;
+    --color-fd-card: #202020;
+    --color-fd-popover: #202020;
+    --color-fd-muted: #202020;
+    --color-fd-muted-foreground: #aaaaaa;
+    --color-fd-primary: #94b5ff;
+    --color-fd-primary-foreground: #171717;
 }
 body {
-    font-family: 'Recursive Variable', system-ui, sans-serif;
+    font-family: 'Host Grotesk', system-ui, sans-serif;
     font-variation-settings:
         'MONO' 0,
         'CASL' 0;

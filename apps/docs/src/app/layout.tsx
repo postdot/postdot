@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import '@fontsource-variable/recursive'
 
 import './globals.css'
 import { Providers } from '@/components/providers'

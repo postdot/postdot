@@ -42,7 +42,7 @@ function BrandLockup({ inverse = false }: { readonly inverse?: boolean }) {
     return (
         <div className="flex items-center gap-3">
             <span
-                className={`flex size-9 items-center justify-center rounded-xl shadow-control ${inverse ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground'}`}>
+                className={`flex size-9 items-center justify-center rounded-xl shadow-control ${inverse ? 'text-primary-foreground' : 'text-foreground'}`}>
                 <PostbotLogo className="size-7" />
             </span>
             <span
@@ -59,7 +59,7 @@ function BrandArtwork() {
             <div className="absolute inset-5 rounded-[3rem] bg-primary-foreground/10 shadow-surface" />
             <div className="absolute top-0 right-2 size-32 rounded-[2rem] bg-primary-foreground/12 shadow-surface" />
             <div className="absolute bottom-3 left-1 size-28 rounded-[2rem] bg-state-queued/25 shadow-surface" />
-            <div className="absolute inset-16 flex rotate-[6deg] items-center justify-center rounded-[2.5rem] bg-primary-foreground text-primary shadow-overlay">
+            <div className="absolute inset-16 flex rotate-[6deg] items-center justify-center rounded-[2.5rem] bg-surface-raised text-foreground shadow-overlay">
                 <PostbotLogo className="size-36" />
             </div>
         </div>
