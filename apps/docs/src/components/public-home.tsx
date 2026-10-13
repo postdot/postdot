@@ -3,6 +3,7 @@ import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
+import { PublicProduct } from './public-product'
 import { PublicThemeToggle } from './public-theme-toggle'
 
 import './public-home.css'
@@ -60,24 +61,7 @@ export function PublicHome() {
                             </Action>
                         </div>
                     </div>
-                    <figure className="home-product">
-                        <img
-                            className="home-shot home-shot-light"
-                            src="/product/compose-light.webp"
-                            alt="Postbot composer with shared source content, destinations, preview and scheduling controls"
-                            width="1440"
-                            height="900"
-                            fetchPriority="high"
-                        />
-                        <img
-                            className="home-shot home-shot-dark"
-                            src="/product/compose-dark.webp"
-                            alt="Postbot composer in dark mode"
-                            width="1440"
-                            height="900"
-                            fetchPriority="high"
-                        />
-                    </figure>
+                    <PublicProduct />
                 </section>
                 <section id="workflow" className="home-workflow">
                     <div className="home-section-heading">
@@ -169,14 +153,19 @@ export function PublicHome() {
                 </section>
             </main>
             <footer className="home-footer">
-                <Link href="/" className="home-brand">
-                    <PostbotLogo className="home-logo" />
+                <div className="home-footer-top">
+                    <Link href="/" className="home-brand" aria-label="Postbot home">
+                        <PostbotLogo className="home-logo" />
+                        <span>Postbot</span>
+                    </Link>
+                    <Link href="/docs/">
+                        Documentation <ArrowRightUpIcon size={18} aria-hidden="true" />
+                    </Link>
+                </div>
+                <div className="home-footer-signature" aria-hidden="true">
                     <span>Postbot</span>
-                </Link>
-                <span>Self-hosted publication management</span>
-                <Link href="/docs/">
-                    Documentation <ArrowRightUpIcon size={16} aria-hidden="true" />
-                </Link>
+                    <PostbotLogo />
+                </div>
             </footer>
         </div>
     )
