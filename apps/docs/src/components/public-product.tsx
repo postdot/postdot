@@ -1,20 +1,8 @@
-'use client'
-
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
-import { useRef } from 'react'
-
 export function PublicProduct() {
-    const scene = useRef<HTMLElement>(null)
-    const reducedMotion = useReducedMotion()
-    const { scrollYProgress } = useScroll({ target: scene, offset: ['start end', 'center center'] })
-    const y = useTransform(scrollYProgress, [0, 1], [28, 0])
-    const rotateX = useTransform(scrollYProgress, [0, 1], [4, 0])
     return (
-        <figure ref={scene} className="home-product-scene">
+        <figure className="home-product-scene">
             <div className="home-product-ground" aria-hidden="true" />
-            <motion.div
-                className="home-product-window"
-                style={{ y: reducedMotion ? 0 : y, rotateX: reducedMotion ? 0 : rotateX }}>
+            <div className="home-product-window">
                 <img
                     className="home-shot home-shot-light"
                     src="/product/compose-light.webp"
@@ -31,7 +19,7 @@ export function PublicProduct() {
                     height="1000"
                     fetchPriority="high"
                 />
-            </motion.div>
+            </div>
         </figure>
     )
 }

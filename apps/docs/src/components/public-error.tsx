@@ -4,6 +4,7 @@ import { Button } from '@postbot/ui/components/button'
 import { motion, useReducedMotion } from 'motion/react'
 import Link from 'next/link'
 
+import { PostbotLogo } from './brand'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 
@@ -62,7 +63,10 @@ export function PublicError({
                         <circle cx="320" cy="162" r="7" />
                     </svg>
                     <div className="home-error-destination">
-                        <span>{notFound ? '404' : 'Oops.'}</span>
+                        <div className="home-error-status">
+                            <PostbotLogo className="home-error-mascot" />
+                            <span>{notFound ? '404' : 'Oops.'}</span>
+                        </div>
                         <small>{notFound ? 'Destination not found' : 'Page unavailable'}</small>
                     </div>
                 </div>

@@ -85,3 +85,13 @@ of every composition or marketing sentence. SITE-413 reuses the header, footer,
 neutral surfaces and routed material for public 404/error pages. SITE-414 proposes
 content/adoption improvements from sourced competitor research; it does not
 silently adopt a new positioning or feature roadmap.
+
+## SITE-416 correction
+
+The owner rejected the authored distribution motif and the navigation/product
+startup shifts. Use sourced pattern material with recorded provenance. The public
+frame must keep its footer at the viewport bottom on short pages, while allowing
+long pages to grow. Header and hero geometry must be stable before hydration;
+scroll feedback changes the header surface, not its dimensions. Do not restore
+the previous width/padding or hero parallax entrance. The ownership section remains
+parked until there is a concrete content/composition replacement.

@@ -7,7 +7,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@postbot/ui/components/dropdown-menu'
-import { motion, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
+import { useMotionValueEvent, useScroll } from 'motion/react'
 import Link from 'next/link'
 import { useState } from 'react'
 
@@ -23,20 +23,11 @@ const links = [
 
 export function PublicHeader() {
     const { scrollY } = useScroll()
-    const reducedMotion = useReducedMotion()
     const [raised, setRaised] = useState(false)
     useMotionValueEvent(scrollY, 'change', value => setRaised(value > 24))
     return (
-        <motion.header className="home-header-shell" data-raised={raised}>
-            <motion.div
-                className="home-header"
-                animate={{
-                    maxWidth: raised ? 1040 : 1240,
-                    paddingTop: raised ? 10 : 16,
-                    paddingBottom: raised ? 10 : 16,
-                    y: raised ? 10 : 0,
-                }}
-                transition={{ duration: reducedMotion ? 0 : 0.35, ease: [0.16, 1, 0.3, 1] }}>
+        <header className="home-header-shell" data-raised={raised}>
+            <div className="home-header">
                 <Link href="/" className="home-brand" aria-label="Postbot home">
                     <PostbotLogo className="home-logo" />
                     <PublicWordmark />
@@ -80,7 +71,7 @@ export function PublicHeader() {
                         </DropdownMenu>
                     </div>
                 </div>
-            </motion.div>
-        </motion.header>
+            </div>
+        </header>
     )
 }

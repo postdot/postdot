@@ -19,20 +19,20 @@ const providers = [
 export function PublicDestinations() {
     const reduced = useReducedMotion()
     return (
-        <div className="home-destinations">
-            <ul aria-label="Supported connected channels">
-                {providers.map((provider, index) => (
+        <section className="home-connections" aria-labelledby="home-connections-title">
+            <div className="home-connections-heading">
+                <h2 id="home-connections-title">
+                    Your next post.
+                    <br />
+                    On your networks.
+                </h2>
+                <Link href="/docs/providers/">Connection guides</Link>
+            </div>
+            <ul aria-label="Supported connected channels" className="home-connections-list">
+                {providers.map(provider => (
                     <motion.li
-                        initial={false}
-                        whileInView={{ y: 0 }}
-                        style={{ y: reduced ? 0 : 18 }}
-                        viewport={{ once: true }}
-                        transition={{
-                            duration: reduced ? 0 : 0.5,
-                            delay: reduced ? 0 : index * 0.045,
-                        }}
-                        whileHover={reduced ? undefined : { y: -5 }}
                         key={provider.name}
+                        whileHover={reduced ? undefined : { y: -3 }}
                         className={provider.name === 'X' ? 'home-provider-x' : undefined}>
                         <span className="home-provider-symbol">
                             <svg
@@ -46,14 +46,15 @@ export function PublicDestinations() {
                         <span>{provider.name}</span>
                     </motion.li>
                 ))}
-                <motion.li whileHover={reduced ? undefined : { y: -5 }}>
-                    <span className="home-dev-mark" aria-hidden="true">
-                        DEV
+                <motion.li whileHover={reduced ? undefined : { y: -3 }}>
+                    <span className="home-provider-symbol">
+                        <span className="home-dev-mark" aria-hidden="true">
+                            DEV
+                        </span>
                     </span>
                     <span>DEV.to</span>
                 </motion.li>
             </ul>
-            <Link href="/docs/providers/">Explore the connections</Link>
-        </div>
+        </section>
     )
 }
