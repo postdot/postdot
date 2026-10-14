@@ -112,3 +112,30 @@ Footer social placeholders must not invent project account URLs.
 React Bits Pro Silk Waves is a visual reference for one restrained blue material
 surface, not an installed asset. Its current license prohibits redistribution in
 open source repositories; do not copy it into the planned public source tree.
+
+## SITE-418 clarification: references are not templates
+
+The owner rejected the digit-scramble interaction: their sites were examples of
+ambition, not animations to transplant. Remove the interaction and its adapted
+component. The 404 typography remains a candidate, not a completed visual identity.
+
+React Bits' free catalogue is a visual research source, not a shopping list.
+Study movement, pacing and composition independently of its component source.
+No source extraction or paid implementation is necessary to learn from a visual
+idea. Do not impose Silk Waves as the predetermined solution.
+
+Research candidates (not implemented or accepted):
+
+- Scroll Expand: a media scene gains prominence as the reader enters it. For
+  Postbot, explore a continuous studio presentation rather than another tiled
+  material. Reserve geometry in HTML; scroll motion must not cause load shifts.
+- Accordion Gallery: visitors explore several views within a single composition.
+  Could connect a shared post to its network adaptations, using deliberate click
+  and keyboard controls rather than hover-only hidden content. Not a replacement
+  for every section, and source imagery must be distinct and legible.
+- Dot Field: feedback can come from the surface rather than moving entire cards.
+  The grid itself is not selected: the owner rejected banal repeating patterns.
+
+Next implementation priority: one authored scroll composition in the real product
+stage, maintaining neutral typography and initial layout stability. Do not add a
+stack of stock effects to compensate for weak content or composition.

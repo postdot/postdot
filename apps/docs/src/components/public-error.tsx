@@ -1,11 +1,8 @@
 'use client'
 
 import { Button } from '@postbot/ui/components/button'
-import { useReducedMotion } from 'motion/react'
 import Link from 'next/link'
-import { useCallback, useState } from 'react'
 
-import { TextScramble } from './motion/text-scramble'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 
@@ -18,26 +15,12 @@ export function PublicError({
     notFound?: boolean
     retry?: () => void
 }) {
-    const reduced = useReducedMotion()
-    const [scramble, setScramble] = useState(false)
-    const stopScramble = useCallback(() => setScramble(false), [])
     return (
         <div className="public-home home-error-page">
             <PublicHeader />
             <main className="home-error-main">
-                <div
-                    className="home-error-code"
-                    aria-hidden="true"
-                    onPointerEnter={() => {
-                        if (notFound && !reduced) setScramble(true)
-                    }}>
-                    {notFound ? (
-                        <TextScramble trigger={scramble} onComplete={stopScramble}>
-                            404
-                        </TextScramble>
-                    ) : (
-                        <span>Oops.</span>
-                    )}
+                <div className="home-error-code" aria-hidden="true">
+                    <span>{notFound ? '404' : 'Oops.'}</span>
                 </div>
                 <div className="home-error-copy">
                     <h1>{notFound ? "This page isn't here." : "This page couldn't load."}</h1>

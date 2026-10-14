@@ -16,9 +16,4 @@ The distribution pattern and subsequent crosshatch texture were rejected and
 removed. No tiled replacement is currently imposed. No AI-image-generated assets
 are used.
 
-The recovery status has an interaction-only TextScramble derived from
-[Motion Primitives](https://github.com/ibelick/motion-primitives/blob/main/components/core/text-scramble.tsx),
-whose upstream README declares MIT licensing. The adaptation limits the character
-set to digits, keeps SSR text visible, and cleans up the timer on unmount.
-
 The previous OPEN STUDIO poster and unused post-detail captures were removed.
