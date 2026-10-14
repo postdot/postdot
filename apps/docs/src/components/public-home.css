@@ -1649,3 +1649,47 @@
     mask-repeat: no-repeat;
     background: var(--home-blue);
 }
+
+/* A quiet brand roster, not a row of inert buttons. */
+.home-connections-list {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    gap: 20px;
+}
+.home-connections-list > li {
+    flex-direction: column;
+    min-height: 112px;
+    gap: 18px;
+    padding: 24px 8px;
+    background: transparent;
+    color: var(--home-muted);
+    font-size: 13px;
+    font-weight: 400;
+}
+.home-connections-list .home-provider-symbol {
+    width: 48px;
+    height: 40px;
+}
+.home-connections-list .home-provider-symbol svg {
+    width: 34px;
+    height: 34px;
+}
+.home-connections-list .home-provider-x .home-provider-symbol svg {
+    width: 28px;
+    height: 28px;
+}
+.home-connections-list .home-dev-mark {
+    width: 36px;
+    height: 28px;
+    font-size: 11px;
+}
+@media (max-width: 600px) {
+    .home-connections-list {
+        gap: 8px 16px;
+    }
+    .home-connections-list > li {
+        padding-block: 18px;
+    }
+}
