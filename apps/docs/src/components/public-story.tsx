@@ -26,91 +26,6 @@ function Scene({ children, className = '' }: { children: ReactNode; className?: 
     )
 }
 
-function PublishingModes() {
-    const [active, setActive] = useState('agent')
-    return (
-        <div className="home-publishing-modes">
-            {[
-                {
-                    id: 'agent',
-                    title: 'Let your agent prepare it.',
-                    description:
-                        'Give your agent access to create drafts. Open them in the studio before deciding what goes live.',
-                },
-                {
-                    id: 'studio',
-                    title: 'Make the final call in the studio.',
-                    description:
-                        'Write, review and schedule your posts in the web app. You can work here with or without an agent.',
-                },
-            ].map(mode => (
-                <section
-                    key={mode.id}
-                    className="home-publishing-mode"
-                    data-open={active === mode.id}>
-                    <h3>
-                        <Button
-                            variant="ghost"
-                            className="home-mode-toggle"
-                            aria-expanded={active === mode.id}
-                            aria-controls={`publishing-${mode.id}`}
-                            onClick={() => setActive(mode.id)}>
-                            <span>{mode.title}</span>
-                            <ArrowRightIcon size={22} aria-hidden="true" />
-                        </Button>
-                    </h3>
-                    <p>{mode.description}</p>
-                    <div id={`publishing-${mode.id}`} className="home-mode-demonstration">
-                        {mode.id === 'studio' ? (
-                            <>
-                                <img
-                                    className="home-shot-light"
-                                    src="/product/compose-light.webp"
-                                    alt="Actual Postbot composer with source, destination drafts and scheduling"
-                                    width="1440"
-                                    height="1000"
-                                    loading="lazy"
-                                />
-                                <img
-                                    className="home-shot-dark"
-                                    src="/product/compose-dark.webp"
-                                    alt="Actual Postbot composer with source, destination drafts and scheduling"
-                                    width="1440"
-                                    height="1000"
-                                    loading="lazy"
-                                />
-                            </>
-                        ) : (
-                            <div className="home-mode-command">
-                                <span>CLI</span>
-                                <pre>
-                                    <code>{commands[0]?.command}</code>
-                                </pre>
-                                <div>
-                                    <PostbotLogo />
-                                    <span>
-                                        Draft first.
-                                        <br />
-                                        Publish when you decide.
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <Link
-                        href={
-                            mode.id === 'agent' ? '/docs/automation/' : '/docs/first-publication/'
-                        }
-                        className="home-mode-guide">
-                        {mode.id === 'agent' ? 'Connect your agent' : 'Explore the studio'}
-                        <ArrowRightIcon size={17} aria-hidden="true" />
-                    </Link>
-                </section>
-            ))}
-        </div>
-    )
-}
-
 const commands = [
     {
         value: 'prepare',
@@ -295,16 +210,6 @@ function AgentCommands() {
 export function PublicStory() {
     return (
         <div className="home-product-story">
-            <section id="workflow" className="home-chapter home-workflow-chapter">
-                <div className="home-chapter-heading">
-                    <h2>
-                        Work in the studio.
-                        <br />
-                        Or with your agent.
-                    </h2>
-                </div>
-                <PublishingModes />
-            </section>
             <section id="planning" className="home-chapter home-planning-chapter">
                 <div className="home-chapter-heading home-heading-split">
                     <h2>

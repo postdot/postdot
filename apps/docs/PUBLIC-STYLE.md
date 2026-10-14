@@ -202,3 +202,12 @@ compact fixed-geometry navigation, one blue light plane moving with scroll behin
 the actual product image, and a large duotone footer wordmark. Logo size and geometry
 remain normal. No repeating texture or perpetual effect; reduced motion is static.
 This is an authored candidate, not a newly accepted brand rule.
+
+## SITE-423 owner rejection
+
+SITE-422's lighting, line and lower tone do not meet the intended animated-material
+brief. Removed. SITE-420's rejected publishing panels are now removed, not merely
+parked in code. Navigation targets the existing product scene. Footer duplicates
+are removed and metadata precedes the closing wordmark; its artistic treatment
+remains unresolved. Free React Bits Grainient (Tide preview inspected) is a concrete
+textured animation reference to assess, not approved or imported implementation.

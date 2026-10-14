@@ -6,15 +6,9 @@ export function PublicProduct() {
     const reduced = useReducedMotion()
     const { scrollY } = useScroll()
     const scale = useTransform(scrollY, [0, 480], [0.88, 1])
-    const lightPosition = useTransform(scrollY, [0, 700], ['-24%', '24%'])
     return (
         <figure className="home-product-scene">
-            <motion.div className="home-product-ground" aria-hidden="true">
-                <motion.div
-                    className="home-stage-light"
-                    style={{ x: reduced ? 0 : lightPosition }}
-                />
-            </motion.div>
+            <div className="home-product-ground" aria-hidden="true" />
             <motion.div className="home-product-window" style={{ scale: reduced ? 1 : scale }}>
                 <img
                     className="home-shot home-shot-light"

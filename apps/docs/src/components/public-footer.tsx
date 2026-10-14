@@ -12,12 +12,11 @@ export function PublicFooter() {
             <div className="home-footer-content">
                 <Link href="/" className="home-footer-mark" aria-label="Postbot home">
                     <PostbotLogo className="home-footer-logo" />
-                    <PublicWordmark />
                 </Link>
                 <nav aria-label="Documentation links" className="home-footer-nav">
                     <div>
                         <h2>Postbot</h2>
-                        <Link href="/#workflow">Workflow</Link>
+                        <Link href="/#product">Studio</Link>
                         <Link href="/#planning">Planning</Link>
                         <Link href="/#automation">For agents</Link>
                     </div>
@@ -71,12 +70,12 @@ export function PublicFooter() {
                 </nav>
             </div>
 
-            <div className="home-footer-signature" aria-hidden="true">
-                <PublicWordmark />
-            </div>
             <div className="home-footer-bottom">
                 <span>© 2026 Hakim Saoudi</span>
                 <span>Open source</span>
+            </div>
+            <div className="home-footer-signature" aria-hidden="true">
+                <PublicWordmark />
             </div>
         </footer>
     )

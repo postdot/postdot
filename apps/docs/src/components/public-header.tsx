@@ -16,7 +16,7 @@ import { PublicThemeToggle } from './public-theme-toggle'
 import { PublicWordmark } from './public-wordmark'
 
 const links = [
-    { href: '/#workflow', label: 'Workflow' },
+    { href: '/#product', label: 'Studio' },
     { href: '/#automation', label: 'For agents' },
     { href: '/docs/', label: 'Documentation' },
 ]
