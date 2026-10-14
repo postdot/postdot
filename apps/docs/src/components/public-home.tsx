@@ -3,9 +3,10 @@ import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
-import { PublicClients } from './public-clients'
 import { PublicProduct } from './public-product'
+import { PublicStory } from './public-story'
 import { PublicThemeToggle } from './public-theme-toggle'
+import { PublicWordmark } from './public-wordmark'
 
 import './public-home.css'
 
@@ -34,10 +35,10 @@ export function PublicHome() {
             <header className="home-header">
                 <Link href="/" className="home-brand" aria-label="Postbot home">
                     <PostbotLogo className="home-logo" />
-                    <span>Postbot</span>
+                    <PublicWordmark />
                 </Link>
                 <nav aria-label="Main navigation">
-                    <Link href="#workflow">How it works</Link>
+                    <Link href="#workflow">Product</Link>
                     <Link href="/docs/">Documentation</Link>
                 </nav>
                 <div className="home-header-actions">
@@ -46,7 +47,7 @@ export function PublicHome() {
                 </div>
             </header>
             <main>
-                <section className="home-hero">
+                <section id="product" className="home-hero">
                     <div className="home-intro">
                         <h1>
                             One post.
@@ -54,9 +55,9 @@ export function PublicHome() {
                             Every destination.
                         </h1>
                         <p>
-                            Prepare, adapt and schedule your publications.
-                            <br className="home-desktop-break" /> Keep the content and the workflow
-                            on your own infrastructure.
+                            Write your next post, or let an agent prepare it.
+                            <br className="home-desktop-break" /> Review, adapt and decide when it
+                            goes live.
                         </p>
                         <div className="home-actions">
                             <Action href="/docs/installation/">Self-host Postbot</Action>
@@ -67,24 +68,12 @@ export function PublicHome() {
                     </div>
                     <PublicProduct />
                 </section>
-                <section id="workflow" className="home-client-section">
-                    <div className="home-client-heading">
-                        <h2>
-                            For people.
-                            <br />
-                            And their agents.
-                        </h2>
-                        <Link href="/docs/automation/">
-                            API and CLI <ArrowRightUpIcon size={18} aria-hidden="true" />
-                        </Link>
-                    </div>
-                    <PublicClients />
-                </section>
+                <PublicStory />
             </main>
             <footer className="home-footer">
                 <div className="home-footer-content">
                     <Link href="/" className="home-footer-mark" aria-label="Postbot home">
-                        <PostbotLogo />
+                        <PublicWordmark />
                     </Link>
                     <nav aria-label="Documentation links" className="home-footer-nav">
                         <div>
@@ -101,12 +90,10 @@ export function PublicHome() {
                         </div>
                     </nav>
                 </div>
-                <div className="home-footer-signature" aria-hidden="true">
-                    Postbot
-                </div>
+
                 <div className="home-footer-bottom">
                     <span>© 2026 Hakim Saoudi</span>
-                    <span>AGPL-3.0-only</span>
+                    <span>Open source</span>
                     <Link href="#">
                         Back to top <ArrowRightUpIcon size={16} aria-hidden="true" />
                     </Link>

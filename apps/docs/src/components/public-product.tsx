@@ -3,8 +3,6 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { useRef } from 'react'
 
-import { PostbotLogo } from './brand'
-
 export function PublicProduct() {
     const scene = useRef<HTMLElement>(null)
     const reducedMotion = useReducedMotion()
@@ -14,9 +12,6 @@ export function PublicProduct() {
     return (
         <figure ref={scene} className="home-product-scene">
             <div className="home-product-ground" aria-hidden="true" />
-            <div className="home-product-mascot" aria-hidden="true">
-                <PostbotLogo />
-            </div>
             <motion.div
                 className="home-product-window"
                 style={{ y: reducedMotion ? 0 : y, rotateX: reducedMotion ? 0 : rotateX }}>

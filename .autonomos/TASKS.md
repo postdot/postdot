@@ -756,3 +756,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-407]** Refine header and footer composition `Priority: 🟠` `Complexity: S` — Separate navigation and actions, installation entry, full footer links and signature; leave the owner-rejected client section untouched.
 
 - [x] **[SITE-408]** Recompose the complete hero presentation and restart local services `Priority: 🟠` `Complexity: M` — Preserve hero copy, typography and real product capture; full-width product stage, owner mascot and coordinated scroll motion, with consolidated site styles.
+
+- [x] **[SITE-409]** Rebuild the public narrative and auxiliary pages `Priority: 🟠` `Complexity: M` — Owner-approved agents-first story, four distinct visual scenes, experimental split wordmark, single-icon theme action, Lenis, 404/error surfaces; remove rejected client section and large logo ornaments.
