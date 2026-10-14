@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PublicDestinations } from './public-destinations'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
+import { PublicMaterial } from './public-material'
 import { PublicProduct } from './public-product'
 import { PublicScrollControl } from './public-scroll-control'
 import { PublicStory } from './public-story'
@@ -35,6 +36,7 @@ export function PublicHome() {
             <PublicHeader />
             <main>
                 <section id="product" className="home-hero">
+                    <PublicMaterial />
                     <div className="home-intro">
                         <h1>
                             Social publishing.

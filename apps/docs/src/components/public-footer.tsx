@@ -4,11 +4,13 @@ import x from '@iconify-icons/logos/x'
 import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
+import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
 
 export function PublicFooter() {
     return (
         <footer className="home-footer">
+            <PublicMaterial footer />
             <div className="home-footer-content">
                 <Link href="/" className="home-footer-mark" aria-label="Postbot home">
                     <PostbotLogo className="home-footer-logo" />

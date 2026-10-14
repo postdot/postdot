@@ -754,9 +754,6 @@
         padding: 16px 16px 48px;
         perspective: none;
     }
-    .home-product-ground {
-        top: 72px;
-    }
     .home-chapter-heading {
         margin-bottom: 40px;
     }
@@ -962,14 +959,6 @@
 }
 
 /* Routed linework follows the publishing/distribution theme rather than generic noise. */
-.home-product-ground {
-    position: absolute;
-    inset: 128px 0 0;
-    z-index: -1;
-    background: #2457d6;
-
-    background-color: #2457d6;
-}
 
 .home-provider-symbol {
     height: 38px;
@@ -1505,10 +1494,6 @@
 .home-header nav a {
     transition: color 150ms;
 }
-.home-product-ground {
-    overflow: hidden;
-    background: #2457d6;
-}
 .home-footer {
     position: relative;
     overflow: hidden;
@@ -1549,4 +1534,45 @@
     .home-footer-bottom {
         margin-top: 28px;
     }
+}
+
+.home-footer {
+    background: linear-gradient(125deg, #102657, #2457d6 50%, #72a9ef);
+}
+.home-material {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    pointer-events: none;
+}
+.home-material[data-ready='true'] {
+    opacity: 1;
+}
+.home-footer > .home-material {
+    z-index: 0;
+}
+.home-footer-content,
+.home-footer-bottom,
+.home-footer-signature {
+    position: relative;
+    z-index: 1;
+}
+.home-footer-signature {
+    margin-bottom: -0.11em;
+}
+.home-footer-signature .home-wordmark > span:last-child {
+    opacity: 0.72;
+}
+.home-hero {
+    position: relative;
+    isolation: isolate;
+}
+.home-hero > .home-material {
+    z-index: -1;
+}
+.home-hero .home-intro {
+    position: relative;
+    z-index: 1;
 }

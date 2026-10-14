@@ -786,3 +786,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-422]** Unify the public opening and close with a compact frame and blue material `Priority: 🟠` `Complexity: S` — Stable compact header, scroll-driven light on the existing product stage, large duotone typographic footer signature without enlarging the logo; marketing chapters remain parked candidates.
 
 - [x] **[SITE-423]** Remove rejected panels and stage ornament, correct footer duplication `Priority: 🟠` `Complexity: S` — Remove SITE-420 chapter and SITE-422 faux lighting/edge planes; correct navigation anchors, end footer with one wordmark; inspect an actual textured animation reference. Artistic background/footer direction remains unresolved.
+
+- [x] **[SITE-424]** Integrate flowing textured blue material in hero and footer `Priority: 🟠` `Complexity: M` — Original shader inspired by inspected free Grainient preview, calm responsive text region, animated blue fields and fixed grain; visibility/reduced-motion handling and static fallback; no catalogue dependency or new marketing sections.

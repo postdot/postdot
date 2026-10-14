@@ -211,3 +211,12 @@ parked in code. Navigation targets the existing product scene. Footer duplicates
 are removed and metadata precedes the closing wordmark; its artistic treatment
 remains unresolved. Free React Bits Grainient (Tide preview inspected) is a concrete
 textured animation reference to assess, not approved or imported implementation.
+
+## SITE-424 integrated material candidate
+
+Owner authorized the next integration. Original blue-field shader with fixed film
+grain spans hero and footer; the inspected Grainient preview is visual inspiration,
+not copied code. Hero's quiet text region responds to actual intro height; footer
+keeps links over a darker field and ends on the duotone wordmark. Static fallback,
+reduced motion and offscreen pauses are required. Do not assume owner acceptance
+of exact palette, grain or movement from authorization to explore this treatment.
