@@ -193,3 +193,12 @@ one cohesive treatment of composition, visual material and transitions. Do not
 add another accordion, fake conversation, poster or paragraph to compensate for
 missing direction. A convincing product narrative and distinctive visual system
 are related but neither is a substitute for the other.
+
+## SITE-422 shared frame candidate
+
+Owner authorized a design-only pass on opening/header/footer. Existing copy stays
+provisional, and rejected marketing sections remain parked. Candidate treatment:
+compact fixed-geometry navigation, one blue light plane moving with scroll behind
+the actual product image, and a large duotone footer wordmark. Logo size and geometry
+remain normal. No repeating texture or perpetual effect; reduced motion is static.
+This is an authored candidate, not a newly accepted brand rule.

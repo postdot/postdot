@@ -782,3 +782,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-420]** Replace the unclear adaptation gallery with studio/agent publishing modes `Priority: 🟠` `Complexity: S` — Remove fictional poster gallery, detached changing text and redundant explanation blocks; put action, short purpose and real interface/CLI demonstration together, with visible expansion controls.
 
 - [x] **[SITE-421]** Preserve owner positioning and diagnose language delivery cost `Priority: 🟠` `Complexity: S` — Record monolith-first self-hosting motivation, audience/agent experience and roadmap boundaries; inspect current locale imports without changing implementation or marketing sections.
+
+- [x] **[SITE-422]** Unify the public opening and close with a compact frame and blue material `Priority: 🟠` `Complexity: S` — Stable compact header, scroll-driven light on the existing product stage, large duotone typographic footer signature without enlarging the logo; marketing chapters remain parked candidates.

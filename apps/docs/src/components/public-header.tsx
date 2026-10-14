@@ -9,7 +9,7 @@ import {
 } from '@postbot/ui/components/dropdown-menu'
 import { useMotionValueEvent, useScroll } from 'motion/react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
@@ -24,7 +24,8 @@ const links = [
 export function PublicHeader() {
     const { scrollY } = useScroll()
     const [raised, setRaised] = useState(false)
-    useMotionValueEvent(scrollY, 'change', value => setRaised(value > 24))
+    useEffect(() => setRaised(window.scrollY > 24), [])
+    useMotionValueEvent(scrollY, 'change', () => setRaised(window.scrollY > 24))
     return (
         <header className="home-header-shell" data-raised={raised}>
             <div className="home-header">

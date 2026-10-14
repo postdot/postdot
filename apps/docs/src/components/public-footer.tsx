@@ -71,6 +71,9 @@ export function PublicFooter() {
                 </nav>
             </div>
 
+            <div className="home-footer-signature" aria-hidden="true">
+                <PublicWordmark />
+            </div>
             <div className="home-footer-bottom">
                 <span>© 2026 Hakim Saoudi</span>
                 <span>Open source</span>
