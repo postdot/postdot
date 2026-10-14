@@ -1330,91 +1330,6 @@
     }
 }
 
-.home-connections {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 64px 40px 0;
-}
-.home-connections-heading {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 32px;
-}
-.home-connections-heading h2 {
-    font-size: 28px;
-    line-height: 1.25;
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    margin: 0;
-}
-.home-connections-heading a {
-    font-size: 14px;
-    text-underline-offset: 5px;
-    color: var(--home-muted);
-    text-decoration: underline;
-}
-.home-connections-list {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 1px;
-    padding: 0;
-    margin: 0;
-    list-style: none;
-    border-radius: 3px;
-    overflow: hidden;
-    background: var(--home-edge);
-    border: 1px solid var(--home-edge);
-}
-.home-connections-list > li {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    justify-content: center;
-    min-height: 104px;
-    padding: 24px 12px;
-    background: var(--home-card);
-    font-size: 14px;
-    font-weight: 500;
-}
-.home-connections-list .home-provider-symbol {
-    width: 32px;
-    height: 32px;
-}
-.home-connections-list .home-dev-mark {
-    width: 30px;
-    height: 24px;
-    font-size: 10px;
-}
-@media (max-width: 900px) {
-    .home-connections-list {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-@media (max-width: 600px) {
-    .home-connections {
-        padding: 48px 22px 0;
-    }
-    .home-connections-heading {
-        align-items: start;
-    }
-    .home-connections-heading h2 {
-        font-size: 24px;
-    }
-    .home-connections-heading a {
-        max-width: 100px;
-        text-align: right;
-        font-size: 12px;
-    }
-    .home-connections-list > li {
-        flex-direction: column;
-        gap: 12px;
-        min-height: 112px;
-    }
-}
-
 .home-error-code {
     color: var(--home-blue);
     font-size: clamp(160px, 23vw, 300px);
@@ -1650,77 +1565,100 @@
     background: var(--home-blue);
 }
 
-/* A continuous roster: stable tiles, one moving plane, soft clipped edges. */
+/* A compact integration rail belongs to the hero, not a separate chapter. */
+.home-hero .home-product-scene {
+    padding-bottom: 48px;
+}
+.home-connections {
+    background: var(--home-bg);
+    position: relative;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 20px 0 32px;
+}
+.home-connections-caption {
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--home-muted);
+}
 .home-connections-marquee {
+    background: var(--home-bg);
     overflow: hidden;
-    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-    padding-block: 12px;
+    border-block: 1px solid var(--home-edge);
+    mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
 }
 .home-connections-track {
     display: flex;
     width: max-content;
-    animation: network-drift 32s linear infinite;
+    animation: network-drift 48s linear infinite;
 }
 .home-connections-marquee[data-paused='true'] .home-connections-track,
-.home-connections-marquee:hover .home-connections-track {
+.home-connections-marquee:hover .home-connections-track,
+.home-connections-marquee:focus-within .home-connections-track {
     animation-play-state: paused;
+}
+.home-connections-marquee:focus-visible {
+    outline: 1px solid var(--home-blue);
+    outline-offset: 4px;
 }
 .home-connections-list {
     display: flex;
     flex: none;
-    gap: 48px;
-    padding-right: 48px;
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-    background: transparent;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 .home-connections-list > li {
-    width: 152px;
-    min-height: 160px;
-    padding: 18px 8px;
-    flex-direction: column;
-    gap: 20px;
-    background: transparent;
-    font-size: 16px;
-    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 180px;
+    min-height: 88px;
+    padding: 16px 20px;
+    border-right: 1px solid var(--home-edge);
 }
 .home-connections-list .home-provider-symbol {
-    width: 76px;
-    height: 76px;
-    background: var(--home-card);
-    border-radius: 18px;
-    box-shadow:
-        0 6px 18px rgb(0 0 0 / 6%),
-        0 1px 2px rgb(0 0 0 / 5%);
+    width: 28px;
+    height: 32px;
+    flex: none;
 }
 .home-connections-list .home-provider-symbol svg {
-    width: 38px;
-    height: 38px;
+    width: 26px;
+    height: 26px;
 }
 .home-connections-list .home-provider-x .home-provider-symbol svg {
-    width: 32px;
-    height: 32px;
+    width: 23px;
+    height: 23px;
 }
 .home-connections-list .home-dev-mark {
-    width: 40px;
-    height: 30px;
-    font-size: 12px;
+    width: 28px;
+    height: 22px;
+    font-size: 9px;
 }
-.home-connections-pause {
-    display: block;
-    margin: 8px 0 0 auto;
+.home-provider-name {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+.home-provider-name small {
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0;
     color: var(--home-muted);
-    font-size: 12px;
-    padding: 6px 10px;
-    border-radius: 3px;
 }
-.home-connections-pause:hover {
-    background: var(--home-card);
+.home-connections-list [data-upcoming='true'] .home-provider-symbol {
+    filter: grayscale(1);
+    opacity: 0.55;
 }
-.home-connections-pause:focus-visible {
-    outline: 2px solid var(--home-blue);
-    outline-offset: 2px;
+.home-connections-list [data-upcoming='true'] .home-provider-name {
+    color: var(--home-muted);
 }
 @keyframes network-drift {
     to {
@@ -1728,18 +1666,17 @@
     }
 }
 @media (max-width: 600px) {
-    .home-connections-list {
-        gap: 24px;
-        padding-right: 24px;
+    .home-connections {
+        padding-bottom: 20px;
     }
     .home-connections-list > li {
-        width: 112px;
-        min-height: 144px;
-        font-size: 14px;
+        width: 160px;
+        min-height: 80px;
+        padding: 14px 16px;
+        gap: 10px;
     }
-    .home-connections-list .home-provider-symbol {
-        width: 68px;
-        height: 68px;
+    .home-provider-name {
+        font-size: 16px;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1749,16 +1686,13 @@
     }
     .home-connections-list {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         width: 100%;
-        gap: 16px;
-        padding: 0;
     }
     .home-connections-list > li {
         width: auto;
     }
-    .home-connections-list[aria-hidden='true'],
-    .home-connections-pause {
+    .home-connections-list[aria-hidden='true'] {
         display: none;
     }
     .home-connections-marquee {

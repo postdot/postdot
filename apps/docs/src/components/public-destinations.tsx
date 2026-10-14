@@ -2,11 +2,14 @@
 
 import bluesky from '@iconify-icons/logos/bluesky'
 import discord from '@iconify-icons/logos/discord-icon'
+import facebook from '@iconify-icons/logos/facebook'
+import instagram from '@iconify-icons/logos/instagram-icon'
 import linkedin from '@iconify-icons/logos/linkedin-icon'
 import mastodon from '@iconify-icons/logos/mastodon-icon'
+import telegram from '@iconify-icons/logos/telegram'
 import x from '@iconify-icons/logos/x'
+import youtube from '@iconify-icons/logos/youtube-icon'
 import { useInView } from 'motion/react'
-import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 const providers = [
@@ -15,12 +18,15 @@ const providers = [
     { name: 'LinkedIn', icon: linkedin },
     { name: 'Mastodon', icon: mastodon },
     { name: 'X', icon: x },
+    { name: 'Telegram', icon: telegram, upcoming: true },
+    { name: 'Facebook', icon: facebook, upcoming: true },
+    { name: 'Instagram', icon: instagram, upcoming: true },
+    { name: 'YouTube', icon: youtube, upcoming: true },
 ]
 
 export function PublicDestinations() {
     const ref = useRef<HTMLDivElement>(null)
     const inView = useInView(ref)
-    const [paused, setPaused] = useState(false)
     const [visible, setVisible] = useState(true)
     useEffect(() => {
         const update = () => setVisible(!document.hidden)
@@ -29,19 +35,14 @@ export function PublicDestinations() {
         return () => document.removeEventListener('visibilitychange', update)
     }, [])
     return (
-        <section className="home-connections" aria-labelledby="home-connections-title">
-            <div className="home-connections-heading">
-                <h2 id="home-connections-title">
-                    Your next post.
-                    <br />
-                    On your networks.
-                </h2>
-                <Link href="/docs/providers/">Connection guides</Link>
-            </div>
+        <div className="home-connections" aria-label="Social network integrations">
+            <p className="home-connections-caption">Connect your networks.</p>
             <div
                 ref={ref}
                 className="home-connections-marquee"
-                data-paused={paused || !inView || !visible}>
+                data-paused={!inView || !visible}
+                tabIndex={0}
+                aria-label="Network integrations. Focus or hover to stop scrolling.">
                 <div className="home-connections-track">
                     {[0, 1].map(copy => (
                         <ul
@@ -52,6 +53,7 @@ export function PublicDestinations() {
                             {providers.map(provider => (
                                 <li
                                     key={provider.name}
+                                    data-upcoming={provider.upcoming || undefined}
                                     className={
                                         provider.name === 'X' ? 'home-provider-x' : undefined
                                     }>
@@ -64,7 +66,10 @@ export function PublicDestinations() {
                                             dangerouslySetInnerHTML={{ __html: provider.icon.body }}
                                         />
                                     </span>
-                                    <span>{provider.name}</span>
+                                    <span className="home-provider-name">
+                                        {provider.name}
+                                        {provider.upcoming && <small>Coming soon</small>}
+                                    </span>
                                 </li>
                             ))}
                             <li>
@@ -79,14 +84,6 @@ export function PublicDestinations() {
                     ))}
                 </div>
             </div>
-            <button
-                className="home-connections-pause"
-                type="button"
-                aria-pressed={paused}
-                onClick={() => setPaused(value => !value)}>
-                {paused ? 'Resume' : 'Pause'}
-                <span className="sr-only"> network animation</span>
-            </button>
-        </section>
+        </div>
     )
 }
