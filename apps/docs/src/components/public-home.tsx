@@ -1,10 +1,11 @@
 import { Button } from '@postbot/ui/components/button'
-import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
+import { PostbotLogo } from './brand'
 import { PublicDestinations } from './public-destinations'
 import { PublicHeader } from './public-header'
 import { PublicProduct } from './public-product'
+import { PublicScrollControl } from './public-scroll-control'
 import { PublicStory } from './public-story'
 import { PublicWordmark } from './public-wordmark'
 
@@ -60,6 +61,7 @@ export function PublicHome() {
             <footer className="home-footer">
                 <div className="home-footer-content">
                     <Link href="/" className="home-footer-mark" aria-label="Postbot home">
+                        <PostbotLogo className="home-footer-logo" />
                         <PublicWordmark />
                     </Link>
                     <nav aria-label="Documentation links" className="home-footer-nav">
@@ -81,11 +83,9 @@ export function PublicHome() {
                 <div className="home-footer-bottom">
                     <span>© 2026 Hakim Saoudi</span>
                     <span>Open source</span>
-                    <Link href="#">
-                        Back to top <ArrowRightUpIcon size={16} aria-hidden="true" />
-                    </Link>
                 </div>
             </footer>
+            <PublicScrollControl />
         </div>
     )
 }

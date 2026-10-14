@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400">
+<rect width="720" height="400" fill="#2457d6"/>
+<g fill="none" stroke="#6387e0" stroke-width="1"><path d="M-50 340C100 220 200 470 380 240S560 40 770 210"/><path d="M-50 310C100 190 200 440 380 210S560 10 770 180"/><path d="M-50 280C100 160 200 410 380 180S560-20 770 150"/></g>
+<g fill="#fff" font-family="Arial,sans-serif"><text x="40" y="54" font-size="17" letter-spacing="3">NORTHLINE / RIDE GUIDE</text><text x="40" y="122" font-size="45">Make time for outside.</text><text x="40" y="163" font-size="18">Saturday, 09:00 · New riders welcome</text><text x="40" y="347" font-size="23">32 km</text><text x="270" y="347" font-size="23">Coastal loop</text><text x="562" y="347" font-size="23">One coffee</text></g>
+<path d="M40 272L90 265 150 239 205 250 280 208 337 228 402 263 464 237 524 254 590 221 680 272" fill="none" stroke="#fff" stroke-width="3"/>
+<path d="M40 288H680" stroke="#94b5ff" stroke-width="1"/>
+</svg>

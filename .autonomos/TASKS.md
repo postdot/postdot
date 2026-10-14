@@ -762,3 +762,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-410]** Replace the short-block landing template with a complete product narrative `Priority: 🟠` `Complexity: M` — Autonomous owner-authorized pass; real interface imagery, long continuous chapters, accessible product previews, agent commands, mobile navigation and practical questions. No publication.
 
 - [ ] **[DEV-411]** Diagnose a development API restart that stalls during runtime drain `Priority: 🟡` `Complexity: S` — Observed during dependency changes in SITE-410; preserve fail-closed runtime locks and do not add automatic stale-marker recovery. API currently launched without the watcher for stable review.
+
+- [x] **[SITE-412]** Address the owner's complete homepage critique `Priority: 🟠` `Complexity: M` — Compact transforming header, routed visual material, normalized animated provider marks, concrete X/LinkedIn adaptations and fresh authentic captures; rebuilt agent/storage demonstrations, ten-question FAQ, footer symbol and reading-progress return control. Candidate design, not owner-approved messaging.

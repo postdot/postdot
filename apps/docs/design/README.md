@@ -1,12 +1,18 @@
-# Demonstration artwork
+# Demonstration assets
 
-`open-studio.html` is the editable source of the original event poster used by the
-public-site example project. It uses the shared Host Grotesk font and existing blue.
-Render at 1000 × 1200 after the font loads; the font path resolves when serving the
-repository root locally. The delivered WebP is `public/product/studio-poster.webp`.
-This is example event content, not Postbot's brand mark or a real event announcement.
+The composer, calendar and queue images in `public/product` are real web-app
+captures from an isolated runtime. The fictional **Northline · example** project
+uses X, LinkedIn and Bluesky channel profiles. Scheduled examples use manual
+execution: no provider credentials, connection states or remote outcomes are
+fabricated. No production database or owner media was accessed.
 
-The calendar, queue and post images in `public/product` come from the real web app
-in an isolated test runtime, with a fictional Studio project and manual channels.
-`*-detail-*` files are crops of those screenshots, not reconstructed interfaces.
-The full captures remain available in the public page's preview dialogs.
+The `*-detail-*` images crop those captures; full captures remain available in
+preview dialogs. The composer selects X and LinkedIn.
+
+`coastal-route.svg` and `ride-guide.svg` are original, editable example campaign
+artwork. They depict a fictional community cycling announcement, not an actual
+event. Their route and elevation drawings are illustrative, not navigation data.
+`distribution-pattern.svg` is original routed linework for the product stage and
+agent chapter. None of these assets was AI-image-generated.
+
+The previous OPEN STUDIO poster and unused post-detail captures were removed.

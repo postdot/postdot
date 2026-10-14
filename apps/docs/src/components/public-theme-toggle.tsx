@@ -11,11 +11,17 @@ import { MoonIcon } from '@solar-icons/react/linear/moon'
 import { SunIcon } from '@solar-icons/react/linear/sun'
 import { useTheme } from 'fumadocs-ui/provider/base'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useSyncExternalStore } from 'react'
+
+const subscribeToHydration = () => () => {}
+const hydrated = () => true
+const serverHydrated = () => false
 
 export function PublicThemeToggle() {
     const { theme, resolvedTheme, setTheme } = useTheme()
     const reducedMotion = useReducedMotion()
-    const dark = (resolvedTheme ?? theme ?? 'light') === 'dark'
+    const mounted = useSyncExternalStore(subscribeToHydration, hydrated, serverHydrated)
+    const dark = mounted && (resolvedTheme ?? theme ?? 'light') === 'dark'
     return (
         <TooltipProvider delay={400}>
             <Tooltip>

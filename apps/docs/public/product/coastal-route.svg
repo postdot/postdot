@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="540" viewBox="0 0 720 540">
+<rect width="720" height="540" fill="#dce8ef"/>
+<path d="M0 0H460C475 70 530 112 501 170S397 252 411 308 482 376 439 437 354 504 373 540H0Z" fill="#f0f0e8"/>
+<g fill="none" stroke="#cdd5cc" stroke-width="2"><path d="M-30 90C110 70 190 140 360 95S425 45 400-10"/><path d="M-30 120C110 100 190 170 360 125S455 65 430-10"/><path d="M-30 150C110 130 190 200 350 155S465 95 460-10"/><path d="M-30 420C80 360 175 470 284 430S313 305 410 274"/><path d="M-30 450C80 390 175 500 294 460S343 335 420 304"/><path d="M-30 480C80 420 175 530 314 490S363 365 430 334"/></g>
+<path d="M180 392C135 340 183 265 242 257S329 180 365 167 409 184 412 210 338 274 324 319 262 423 180 392Z" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round"/>
+<path d="M180 392C135 340 183 265 242 257S329 180 365 167 409 184 412 210 338 274 324 319 262 423 180 392Z" fill="none" stroke="#2457d6" stroke-width="6" stroke-linecap="round"/>
+<circle cx="180" cy="392" r="10" fill="#1c1c1c" stroke="white" stroke-width="4"/>
+<circle cx="365" cy="167" r="7" fill="#fff" stroke="#2457d6" stroke-width="4"/>
+<g font-family="Arial,sans-serif" fill="#1c1c1c"><text x="40" y="57" font-size="18" font-weight="700" letter-spacing="3">NORTHLINE</text><text x="40" y="98" font-size="30">Weekend on the coast.</text><text x="112" y="435" font-size="14">MEET HERE</text><text x="388" y="154" font-size="14">COFFEE STOP</text><text x="40" y="493" font-size="15">32 KM LOOP</text><text x="548" y="493" font-size="15">SAT · 09:00</text></g>
+</svg>

@@ -1,15 +1,17 @@
 'use client'
 
+import linkedin from '@iconify-icons/logos/linkedin-icon'
+import x from '@iconify-icons/logos/x'
 import { Button } from '@postbot/ui/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
 import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
+import { PostbotLogo } from './brand'
 import { PublicScreenshot } from './public-screenshot'
-import { PublicWordmark } from './public-wordmark'
 
 function Scene({ children, className = '' }: { children: ReactNode; className?: string }) {
     const reducedMotion = useReducedMotion()
@@ -67,9 +69,34 @@ const questions = [
         title: 'Where does Postbot run?',
         answer: 'On infrastructure you manage. The installation guide uses Docker Compose from a source checkout, with local media storage by default and optional S3-compatible storage.',
     },
+    {
+        title: 'Can I use my existing AI tools?',
+        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postbot does not require a particular model or AI subscription. A dedicated MCP server is not available yet.',
+    },
+    {
+        title: 'Will creating a draft publish it?',
+        answer: 'No. Draft creation and publication are separate actions. A destination must be explicitly promoted for delivery. Give agents only the actions they need when creating their API keys.',
+    },
+    {
+        title: 'Can each network have different content?',
+        answer: 'Yes. A post has shared source content and separate destination drafts. Text, media and scheduling can be adapted for each destination without changing a previous publication.',
+    },
+    {
+        title: 'Do I need developer accounts for the networks?',
+        answer: 'Some connections need provider application configuration or credentials. Requirements differ between networks, and a provider may apply its own access limits or charges. The connection guides explain what is needed.',
+    },
+    {
+        title: 'Can I keep images and videos in S3?',
+        answer: 'Yes. Postbot supports S3-compatible media storage as well as local storage. Display previews are separate from the original files used for publishing.',
+    },
+    {
+        title: 'Who handles backups?',
+        answer: 'You operate and back up your installation. The operations guide covers the database, media and configuration needed to restore a workspace. Postbot does not replace your infrastructure backup system.',
+    },
 ]
 
 function AgentCommands() {
+    const reduced = useReducedMotion()
     const [value, setValue] = useState('prepare')
     const [copied, setCopied] = useState(false)
     const [copyFailed, setCopyFailed] = useState(false)
@@ -111,6 +138,57 @@ function AgentCommands() {
             </div>
             {commands.map(command => (
                 <TabsContent key={command.value} value={command.value}>
+                    <div className="home-agent-demo">
+                        <div className="home-agent-request">
+                            <span>Your agent · illustrative request</span>
+                            <p>
+                                {command.value === 'prepare'
+                                    ? 'Prepare the weekend ride announcement for X and LinkedIn.'
+                                    : command.value === 'inspect'
+                                      ? 'Read the draft and its destinations before scheduling.'
+                                      : 'Schedule the reviewed revision for Saturday.'}
+                            </p>
+                            <div className="home-agent-step-track" aria-label="Example workflow">
+                                {commands.map((step, index) => (
+                                    <span
+                                        key={step.value}
+                                        data-current={step.value === command.value}>
+                                        {index + 1} <strong>{step.label}</strong>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        <motion.div
+                            key={command.value}
+                            className="home-agent-result"
+                            initial={{ opacity: reduced ? 1 : 0.6, y: reduced ? 0 : 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: reduced ? 0 : 0.25 }}>
+                            <div className="home-agent-result-title">
+                                <PostbotLogo />
+                                <span>Weekend on the coast</span>
+                            </div>
+                            <span className="home-agent-result-state">
+                                {command.value === 'prepare'
+                                    ? 'Draft created'
+                                    : command.value === 'inspect'
+                                      ? 'Revision 1 · draft'
+                                      : 'Revision 1 · scheduled'}
+                            </span>
+                            <p>Less traffic. More coastline. Our new weekend route is ready.</p>
+                            <div className="home-agent-destinations">
+                                <span>X</span>
+                                <span>LinkedIn</span>
+                            </div>
+                            <small>
+                                {command.value === 'prepare'
+                                    ? 'Nothing has been published.'
+                                    : command.value === 'inspect'
+                                      ? 'Content and execution state are read together.'
+                                      : 'An explicit action, not a side effect of drafting.'}
+                            </small>
+                        </motion.div>
+                    </div>
                     <pre>
                         <code>{command.command}</code>
                     </pre>
@@ -132,10 +210,6 @@ function AgentCommands() {
 }
 
 export function PublicStory() {
-    const poster = useRef<HTMLDivElement>(null)
-    const reducedMotion = useReducedMotion()
-    const { scrollYProgress } = useScroll({ target: poster, offset: ['start end', 'end start'] })
-    const rotate = useTransform(scrollYProgress, [0, 0.5, 1], [-4, 0, 2])
     return (
         <div className="home-product-story">
             <section id="workflow" className="home-chapter home-workflow-chapter">
@@ -150,8 +224,74 @@ export function PublicStory() {
                         each destination the content it needs, all in one workspace.
                     </p>
                 </div>
-                <Scene>
-                    <PublicScreenshot name="post" title="Post and destinations" />
+                <Scene className="home-social-spread">
+                    <div className="home-source-note">
+                        <span>Example source</span>
+                        <h3>
+                            A new route.
+                            <br />
+                            Two different conversations.
+                        </h3>
+                        <p>
+                            Northline is introducing a weekend ride. Keep the announcement short on
+                            X. Give the story more room on LinkedIn.
+                        </p>
+                    </div>
+                    <article className="home-social-post home-social-x">
+                        <div className="home-social-meta">
+                            <svg
+                                viewBox={`0 0 ${x.width} ${x.height}`}
+                                width="22"
+                                height="22"
+                                aria-hidden="true"
+                                dangerouslySetInnerHTML={{ __html: x.body }}
+                            />
+                            <span>
+                                Northline <small>Example · X</small>
+                            </span>
+                        </div>
+                        <p>
+                            Less traffic. More coastline. Our new 32 km weekend route is ready.
+                            Bring a friend — we roll out Saturday at 9.
+                        </p>
+                        <img
+                            src="/product/coastal-route.svg"
+                            alt="Illustrative coastal cycling route, with start and finish marked"
+                            width="720"
+                            height="540"
+                            loading="lazy"
+                        />
+                        <span className="home-social-count">A short announcement</span>
+                    </article>
+                    <article className="home-social-post home-social-linkedin">
+                        <div className="home-social-meta">
+                            <svg
+                                viewBox={`0 0 ${linkedin.width} ${linkedin.height}`}
+                                width="26"
+                                height="26"
+                                aria-hidden="true"
+                                dangerouslySetInnerHTML={{ __html: linkedin.body }}
+                            />
+                            <span>
+                                Northline <small>Example · LinkedIn</small>
+                            </span>
+                        </div>
+                        <p>Good routes make it easier to get outside together.</p>
+                        <p>
+                            We have been exploring a quieter stretch of coastline for our next
+                            community ride. The result: a 32 km loop, a coffee stop, and enough time
+                            to enjoy both.
+                        </p>
+                        <p>Join us on Saturday. New riders are welcome.</p>
+                        <img
+                            src="/product/ride-guide.svg"
+                            alt="Example ride guide showing distance, meeting time and route elevation"
+                            width="720"
+                            height="400"
+                            loading="lazy"
+                        />
+                        <span className="home-social-count">More context for the same story</span>
+                    </article>
                 </Scene>
                 <div className="home-workflow-notes">
                     <div>
@@ -164,44 +304,11 @@ export function PublicStory() {
                     <div>
                         <h3>A version for each destination.</h3>
                         <p>
-                            Adapt wording, media and dates independently. A community update does
-                            not have to be a copy of your newsletter.
+                            Adapt wording, media and dates independently. A short post on X does not
+                            have to be a copy of your LinkedIn update.
                         </p>
                     </div>
                 </div>
-                <Scene className="home-adaptation-spread">
-                    <motion.div
-                        ref={poster}
-                        className="home-adaptation-poster"
-                        style={{ rotate: reducedMotion ? 0 : rotate }}>
-                        <img
-                            src="/product/studio-poster.webp"
-                            alt="Example open-studio event poster"
-                            width={1000}
-                            height={1200}
-                            loading="lazy"
-                        />
-                    </motion.div>
-                    <div className="home-adaptation-writing">
-                        <span className="home-example-note">Example adaptations</span>
-                        <div>
-                            <span>Studio updates</span>
-                            <h3>The studio doors are open this Saturday.</h3>
-                            <p>
-                                Meet the makers, explore the collection and stay for a conversation.
-                            </p>
-                        </div>
-                        <div>
-                            <span>Community</span>
-                            <h3>Come by. Stay a while.</h3>
-                            <p>
-                                Open studio, Saturday 24 October.
-                                <br />
-                                We would love to see you.
-                            </p>
-                        </div>
-                    </div>
-                </Scene>
             </section>
             <section id="planning" className="home-chapter home-planning-chapter">
                 <div className="home-chapter-heading home-heading-split">
@@ -274,22 +381,32 @@ export function PublicStory() {
                         Install Postbot <ArrowRightIcon size={18} aria-hidden="true" />
                     </Link>
                 </div>
-                <Scene className="home-hosting-scene">
-                    <div className="home-hosting-clients">
-                        <span>Web app</span>
-                        <span>Your agents</span>
+                <Scene className="home-storage-scene">
+                    <div className="home-storage-title">
+                        <PostbotLogo />
+                        <span>Your workspace</span>
+                        <small>Self-hosted</small>
                     </div>
-                    <svg className="home-hosting-routes" viewBox="0 0 440 72" aria-hidden="true">
-                        <path d="M100 0v30q0 10 10 10h100q10 0 10 10v22M340 0v30q0 10-10 10H230q-10 0-10 10" />
-                    </svg>
-                    <div className="home-hosting-server">
-                        <PublicWordmark />
-                        <span>On your infrastructure</span>
+                    <div className="home-storage-files">
                         <div>
-                            <span>Posts</span>
-                            <span>Media</span>
-                            <span>Connections</span>
+                            <span>posts</span>
+                            <strong>Source &amp; adaptations</strong>
+                            <small>Shared content, destination drafts and revisions</small>
                         </div>
+                        <div>
+                            <span>media</span>
+                            <strong>Originals &amp; previews</strong>
+                            <small>Local storage or your S3-compatible bucket</small>
+                        </div>
+                        <div>
+                            <span>access</span>
+                            <strong>People &amp; agents</strong>
+                            <small>Project roles and scoped API keys</small>
+                        </div>
+                    </div>
+                    <div className="home-storage-bottom">
+                        <span>One server. Several ways to work.</span>
+                        <Link href="/docs/operations/">Read the operations guide</Link>
                     </div>
                 </Scene>
             </section>

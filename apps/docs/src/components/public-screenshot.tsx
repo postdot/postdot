@@ -16,12 +16,12 @@ export function PublicScreenshot({
     title,
     eager = false,
 }: {
-    name: 'post' | 'calendar' | 'queue'
+    name: 'calendar' | 'queue'
     title: string
     eager?: boolean
 }) {
     const lenis = useLenis()
-    const sizes = { post: [1130, 460], calendar: [1128, 720], queue: [1128, 700] } as const
+    const sizes = { calendar: [1128, 720], queue: [1128, 700] } as const
     const size = sizes[name]
     return (
         <Dialog
