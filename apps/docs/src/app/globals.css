@@ -38,9 +38,6 @@
 }
 body {
     font-family: 'Host Grotesk', system-ui, sans-serif;
-    font-variation-settings:
-        'MONO' 0,
-        'CASL' 0;
 }
 .brand {
     display: inline-flex;
