@@ -95,3 +95,20 @@ long pages to grow. Header and hero geometry must be stable before hydration;
 scroll feedback changes the header surface, not its dimensions. Do not restore
 the previous width/padding or hero parallax entrance. The ownership section remains
 parked until there is a concrete content/composition replacement.
+
+## SITE-417 owner corrections
+
+Theme symbols must match the initial document class before hydration. Keep both
+symbols in server HTML; only explicit interaction enables the symbol transition.
+Use the same theme provider and control in the public site and documentation.
+The return control starts absent and appears only after measuring real scroll.
+
+The owner rejected the repeating texture from SITE-416. Remove it instead of
+silently replacing it with another tiled pattern. Public recovery pages now use
+large status typography and direct recovery actions, inspired by the hierarchy
+of the owner's Tala and personal portfolio pages. They remain design candidates.
+Footer social placeholders must not invent project account URLs.
+
+React Bits Pro Silk Waves is a visual reference for one restrained blue material
+surface, not an installed asset. Its current license prohibits redistribution in
+open source repositories; do not copy it into the planned public source tree.

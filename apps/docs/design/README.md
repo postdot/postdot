@@ -12,10 +12,13 @@ preview dialogs. The composer selects X and LinkedIn.
 `coastal-route.svg` and `ride-guide.svg` are original, editable example campaign
 artwork. They depict a fictional community cycling announcement, not an actual
 event. Their route and elevation drawings are illustrative, not navigation data.
-The rejected original distribution pattern was removed. The blue stage and public
-recovery artwork use PatternCraft’s Crosshatch Art pattern with adapted colors.
-Source: https://github.com/megh-bari/pattern-craft/blob/main/src/data/patterns.ts.
-The MIT notice is retained in `patterncraft-LICENSE.txt`. No package or runtime
-dependency was added. None of these assets was AI-image-generated.
+The distribution pattern and subsequent crosshatch texture were rejected and
+removed. No tiled replacement is currently imposed. No AI-image-generated assets
+are used.
+
+The recovery status has an interaction-only TextScramble derived from
+[Motion Primitives](https://github.com/ibelick/motion-primitives/blob/main/components/core/text-scramble.tsx),
+whose upstream README declares MIT licensing. The adaptation limits the character
+set to digits, keeps SSR text visible, and cleans up the timer on unmount.
 
 The previous OPEN STUDIO poster and unused post-detail captures were removed.

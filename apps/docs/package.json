@@ -18,6 +18,7 @@
         "@iconify-icons/logos": "2.0.2",
         "@postbot/ui": "workspace:*",
         "@solar-icons/react": "2.3.2",
+        "@wrksz/themes": "1.1.0",
         "fumadocs-core": "16.17.1",
         "fumadocs-mdx": "15.4.7",
         "fumadocs-ui": "npm:@fumadocs/base-ui@16.17.1",

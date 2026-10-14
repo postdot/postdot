@@ -11,7 +11,7 @@ import {
     useScroll,
     useTransform,
 } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export function PublicScrollControl() {
     const { scrollY, scrollYProgress } = useScroll()
@@ -19,11 +19,16 @@ export function PublicScrollControl() {
     const reduced = useReducedMotion()
     const lenis = useLenis()
     const progress = useTransform(scrollYProgress, value => `${value * 100}%`)
-    useMotionValueEvent(scrollY, 'change', value => setVisible(value > 480))
+    useEffect(() => {
+        setVisible(window.scrollY > 480)
+    }, [])
+    useMotionValueEvent(scrollY, 'change', () => setVisible(window.scrollY > 480))
+    if (!visible) return null
     return (
         <motion.div
             className="home-scroll-control"
-            animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 12 }}
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduced ? 0 : 0.2 }}
             style={{ pointerEvents: visible ? 'auto' : 'none' }}>
             <Tooltip>

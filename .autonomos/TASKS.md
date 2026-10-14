@@ -772,3 +772,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [ ] **[SITE-415]** Build a concrete first-success documentation path `Priority: 🟠` `Complexity: M` — Proposed next task: verified real-network connection and agent-created draft visible in the studio, with explicit permissions and publication actions. Preserve the manual credential-free path as an alternative.
 
 - [x] **[SITE-416]** Correct public layout and refresh stability after owner review `Priority: 🟠` `Complexity: M` — Shared viewport-height frame and bottom footer, fixed navigation and hero geometry, recomposed connection panel, tighter FAQ, replacement of rejected invented pattern with attributed PatternCraft texture. Leave ownership-section content unchanged.
+
+- [x] **[SITE-417]** Correct initial theme/scroll widgets and refine public recovery surfaces `Priority: 🟠` `Complexity: S` — Use the owner's theme provider, CSS-selected SSR symbols and absent-by-default return control; stronger 404 typography, social footer, remove rejected texture; inspect paid animation references without importing restricted source.

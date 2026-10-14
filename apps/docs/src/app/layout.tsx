@@ -1,3 +1,4 @@
+import { ThemeProvider } from '@wrksz/themes/next'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
@@ -15,7 +16,15 @@ export default function Layout({ children }: { children: ReactNode }) {
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
-                <Providers>{children}</Providers>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="light"
+                    storage="localStorage"
+                    storageKey="theme"
+                    enableSystem
+                    disableTransitionOnChange="background-color 0s, color 0s">
+                    <Providers>{children}</Providers>
+                </ThemeProvider>
             </body>
         </html>
     )

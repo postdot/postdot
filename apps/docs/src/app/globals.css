@@ -51,3 +51,43 @@ body {
     width: 29px;
     height: 29px;
 }
+
+/* Both symbols are in SSR HTML. Pre-paint theme class selects the correct one. */
+.public-theme-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+}
+.public-theme-symbol {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.public-theme-light {
+    opacity: 1;
+    transform: rotate(0);
+}
+.public-theme-dark {
+    opacity: 0;
+    transform: rotate(-45deg);
+}
+.dark .public-theme-light {
+    opacity: 0;
+    transform: rotate(45deg);
+}
+.dark .public-theme-dark {
+    opacity: 1;
+    transform: rotate(0);
+}
+.public-theme-toggle[data-interacted='true'] .public-theme-symbol {
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    .public-theme-toggle[data-interacted='true'] .public-theme-symbol {
+        transition: none;
+    }
+}

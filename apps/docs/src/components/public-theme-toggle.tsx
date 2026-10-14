@@ -9,43 +9,36 @@ import {
 } from '@postbot/ui/components/tooltip'
 import { MoonIcon } from '@solar-icons/react/linear/moon'
 import { SunIcon } from '@solar-icons/react/linear/sun'
-import { useTheme } from 'fumadocs-ui/provider/base'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useSyncExternalStore } from 'react'
-
-const subscribeToHydration = () => () => {}
-const hydrated = () => true
-const serverHydrated = () => false
+import { useTheme } from '@wrksz/themes/client'
+import { useState } from 'react'
 
 export function PublicThemeToggle() {
-    const { theme, resolvedTheme, setTheme } = useTheme()
-    const reducedMotion = useReducedMotion()
-    const mounted = useSyncExternalStore(subscribeToHydration, hydrated, serverHydrated)
-    const dark = mounted && (resolvedTheme ?? theme ?? 'light') === 'dark'
+    const { setTheme } = useTheme()
+    const [interacted, setInteracted] = useState(false)
     return (
         <TooltipProvider delay={400}>
             <Tooltip>
                 <TooltipTrigger
-                    render={<Button variant="ghost" className="home-theme-toggle" />}
-                    aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-                    onClick={() => setTheme(dark ? 'light' : 'dark')}>
-                    <AnimatePresence initial={false} mode="wait">
-                        <motion.span
-                            key={dark ? 'sun' : 'moon'}
-                            initial={{ rotate: reducedMotion ? 0 : -70, opacity: 0 }}
-                            animate={{ rotate: 0, opacity: 1 }}
-                            exit={{ rotate: reducedMotion ? 0 : 70, opacity: 0 }}
-                            transition={{ duration: reducedMotion ? 0 : 0.16 }}>
-                            {dark ? (
-                                <SunIcon size={19} aria-hidden="true" />
-                            ) : (
-                                <MoonIcon size={19} aria-hidden="true" />
-                            )}
-                        </motion.span>
-                    </AnimatePresence>
+                    render={
+                        <Button variant="ghost" className="home-theme-toggle public-theme-toggle" />
+                    }
+                    aria-label="Switch theme"
+                    data-interacted={interacted}
+                    onClick={() => {
+                        setInteracted(true)
+                        setTheme(
+                            document.documentElement.classList.contains('dark') ? 'light' : 'dark'
+                        )
+                    }}>
+                    <span className="public-theme-symbol public-theme-light">
+                        <SunIcon size={19} aria-hidden="true" />
+                    </span>
+                    <span className="public-theme-symbol public-theme-dark">
+                        <MoonIcon size={19} aria-hidden="true" />
+                    </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="home-theme-tooltip">
-                    {dark ? 'Light theme' : 'Dark theme'}
+                    Switch theme
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
