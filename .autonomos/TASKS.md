@@ -796,3 +796,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-427]** Confine recovery-page animation to the 404 digits `Priority: 🟠` `Complexity: S` — Remove full-main material causing apparent footer bleed; font-derived SVG mask, theme-calibrated moving pigment inside digits, neutral recovery copy and unchanged footer.
 
 - [x] **[SITE-428]** Refine the network roster and investigate isometric production methods `Priority: 🟠` `Complexity: S` — Remove inert card/button affordances, normalize brand presentation; source-grounded Anatomy/Hairline comparison and proposed SVG-first illustration workflow, Blender optional, no premature scene or package integration.
+
+- [x] SITE-429 — Replace static network roster with a continuous, controllable marquee; review Vanta UI as a visual reference.

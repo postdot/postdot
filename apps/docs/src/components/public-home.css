@@ -1650,46 +1650,118 @@
     background: var(--home-blue);
 }
 
-/* A quiet brand roster, not a row of inert buttons. */
+/* A continuous roster: stable tiles, one moving plane, soft clipped edges. */
+.home-connections-marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    padding-block: 12px;
+}
+.home-connections-track {
+    display: flex;
+    width: max-content;
+    animation: network-drift 32s linear infinite;
+}
+.home-connections-marquee[data-paused='true'] .home-connections-track,
+.home-connections-marquee:hover .home-connections-track {
+    animation-play-state: paused;
+}
 .home-connections-list {
-    background: transparent;
-    border: none;
+    display: flex;
+    flex: none;
+    gap: 48px;
+    padding-right: 48px;
+    border: 0;
     border-radius: 0;
     overflow: visible;
-    gap: 20px;
+    background: transparent;
 }
 .home-connections-list > li {
+    width: 152px;
+    min-height: 160px;
+    padding: 18px 8px;
     flex-direction: column;
-    min-height: 112px;
-    gap: 18px;
-    padding: 24px 8px;
+    gap: 20px;
     background: transparent;
-    color: var(--home-muted);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: 16px;
+    font-weight: 500;
 }
 .home-connections-list .home-provider-symbol {
-    width: 48px;
-    height: 40px;
+    width: 76px;
+    height: 76px;
+    background: var(--home-card);
+    border-radius: 18px;
+    box-shadow:
+        0 6px 18px rgb(0 0 0 / 6%),
+        0 1px 2px rgb(0 0 0 / 5%);
 }
 .home-connections-list .home-provider-symbol svg {
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
 }
 .home-connections-list .home-provider-x .home-provider-symbol svg {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
 }
 .home-connections-list .home-dev-mark {
-    width: 36px;
-    height: 28px;
-    font-size: 11px;
+    width: 40px;
+    height: 30px;
+    font-size: 12px;
+}
+.home-connections-pause {
+    display: block;
+    margin: 8px 0 0 auto;
+    color: var(--home-muted);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 3px;
+}
+.home-connections-pause:hover {
+    background: var(--home-card);
+}
+.home-connections-pause:focus-visible {
+    outline: 2px solid var(--home-blue);
+    outline-offset: 2px;
+}
+@keyframes network-drift {
+    to {
+        transform: translateX(-50%);
+    }
 }
 @media (max-width: 600px) {
     .home-connections-list {
-        gap: 8px 16px;
+        gap: 24px;
+        padding-right: 24px;
     }
     .home-connections-list > li {
-        padding-block: 18px;
+        width: 112px;
+        min-height: 144px;
+        font-size: 14px;
+    }
+    .home-connections-list .home-provider-symbol {
+        width: 68px;
+        height: 68px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-connections-track {
+        animation: none;
+        width: 100%;
+    }
+    .home-connections-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
+        gap: 16px;
+        padding: 0;
+    }
+    .home-connections-list > li {
+        width: auto;
+    }
+    .home-connections-list[aria-hidden='true'],
+    .home-connections-pause {
+        display: none;
+    }
+    .home-connections-marquee {
+        mask-image: none;
     }
 }
