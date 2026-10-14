@@ -157,3 +157,39 @@ explanation blocks. The replacement keeps purpose and demonstration together in
 two explicit publishing-mode panels: agent preparation and studio review/work.
 No claim that changing text for different networks is a major differentiator.
 This remains candidate marketing; do not treat the new copy as owner approval.
+
+## Owner positioning clarification — 2026-10-14 (supersedes section candidates)
+
+SITE-420's replacement section was rejected. Pause section/content iteration until
+a deliberate editorial composition exists; neither its text nor SITE-419's gallery
+is approved. The owner considers the visual foundations clean but insufficiently
+distinctive, and wants continued design exploration rather than more filler.
+
+Postbot started as a lighter self-hosted alternative: one running service,
+SQLite-owned orchestration and local media, with S3-compatible storage optional.
+Keep an accessible first installation; do not require a distributed topology.
+A hosted service remains a possible future business, not a present commitment.
+
+Product scope to communicate deliberately: workspace/project organization, manual
+channels as well as provider delivery, studio access, French/English with future
+languages, REST API and CLI. Agent-facing experience should be natural-language
+conversation in the user's existing assistant, with MCP/skills planned, not a CLI
+terminal standing in for an end-user assistant. Mobile clients are also possible
+future work. Do not depict unshipped integrations as existing functionality.
+
+Audiences include entrepreneurs, community managers, business owners and artists,
+not just developers. Translate infrastructure advantages into installation and
+ownership benefits; keep stack specifics in technical material. No new arbitrary
+free-tier limits, paid edition or hosted offering is authorized by this discussion.
+
+Memory/CPU figures supplied in conversation are intended resource goals, not
+published requirements. High concurrent-user/daily-post capacity is a hypothesis
+until benchmarked. Do not publish competitor memory claims or feature comparisons
+without matched measurements and current evidence. Workspaces describe logical
+separation, not separate databases or guaranteed physical tenant isolation.
+
+Design continuation: retain accepted typography, neutral surfaces and blue. Seek
+one cohesive treatment of composition, visual material and transitions. Do not
+add another accordion, fake conversation, poster or paragraph to compensate for
+missing direction. A convincing product narrative and distinctive visual system
+are related but neither is a substitute for the other.

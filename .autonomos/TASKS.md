@@ -780,3 +780,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-419]** Integrate authored scroll expansion and destination gallery `Priority: 🟠` `Complexity: S` — Scroll-driven real studio visual and expanding source/X/LinkedIn exploration, existing Motion/Base UI, touch and keyboard selection, reduced-motion alternatives; no imported catalogue source.
 
 - [x] **[SITE-420]** Replace the unclear adaptation gallery with studio/agent publishing modes `Priority: 🟠` `Complexity: S` — Remove fictional poster gallery, detached changing text and redundant explanation blocks; put action, short purpose and real interface/CLI demonstration together, with visible expansion controls.
+
+- [x] **[SITE-421]** Preserve owner positioning and diagnose language delivery cost `Priority: 🟠` `Complexity: S` — Record monolith-first self-hosting motivation, audience/agent experience and roadmap boundaries; inspect current locale imports without changing implementation or marketing sections.
