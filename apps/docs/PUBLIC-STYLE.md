@@ -139,3 +139,12 @@ Research candidates (not implemented or accepted):
 Next implementation priority: one authored scroll composition in the real product
 stage, maintaining neutral typography and initial layout stability. Do not add a
 stack of stock effects to compensate for weak content or composition.
+
+## SITE-419 interaction candidate
+
+Owner authorized both principles. The hero product image expands on scroll while
+its physical layout remains reserved. The adaptation example is one explicit
+source/X/LinkedIn gallery; selected panels expand, titles remain visible, and
+keyboard/touch selection works without hover. Reduced motion removes expansion.
+These are authored using the existing Motion/Base UI stack, not imported effects.
+Keep the amount of movement and framing open to owner visual feedback.

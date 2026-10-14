@@ -776,3 +776,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-417]** Correct initial theme/scroll widgets and refine public recovery surfaces `Priority: 🟠` `Complexity: S` — Use the owner's theme provider, CSS-selected SSR symbols and absent-by-default return control; stronger 404 typography, social footer, remove rejected texture; inspect paid animation references without importing restricted source.
 
 - [x] **[SITE-418]** Remove transplanted recovery animation and study free visual references `Priority: 🟠` `Complexity: S` — Owner references communicate ambition, not reusable effects; inspect free React Bits composition/movement, no imported code or imposed shader selection.
+
+- [x] **[SITE-419]** Integrate authored scroll expansion and destination gallery `Priority: 🟠` `Complexity: S` — Scroll-driven real studio visual and expanding source/X/LinkedIn exploration, existing Motion/Base UI, touch and keyboard selection, reduced-motion alternatives; no imported catalogue source.

@@ -28,6 +28,50 @@ function Scene({ children, className = '' }: { children: ReactNode; className?: 
     )
 }
 
+const galleryViews = [
+    {
+        value: 'source',
+        label: 'Source',
+        image: '/product/coastal-route.svg',
+        caption: 'The shared story',
+    },
+    {
+        value: 'x',
+        label: 'X',
+        image: '/product/coastal-route.svg',
+        caption: 'A short announcement',
+    },
+    {
+        value: 'linkedin',
+        label: 'LinkedIn',
+        image: '/product/ride-guide.svg',
+        caption: 'Room for the story',
+    },
+]
+
+function DestinationGallery({ children }: { children: ReactNode }) {
+    return (
+        <Tabs defaultValue="x" className="home-destination-gallery">
+            <TabsList className="home-gallery-rail" aria-label="Post adaptations">
+                {galleryViews.map(view => (
+                    <TabsTrigger
+                        key={view.value}
+                        value={view.value}
+                        aria-label={view.label}
+                        className="home-gallery-choice">
+                        <img src={view.image} alt="" width="720" height="540" loading="lazy" />
+                        <span className="home-gallery-label">
+                            <strong>{view.label}</strong>
+                            <span>{view.caption}</span>
+                        </span>
+                    </TabsTrigger>
+                ))}
+            </TabsList>
+            <div className="home-gallery-detail">{children}</div>
+        </Tabs>
+    )
+}
+
 const commands = [
     {
         value: 'prepare',
@@ -224,75 +268,69 @@ export function PublicStory() {
                         each destination the content it needs, all in one workspace.
                     </p>
                 </div>
-                <Scene className="home-social-spread">
-                    <div className="home-source-note">
-                        <span>Example source</span>
-                        <h3>
-                            A new route.
-                            <br />
-                            Two different conversations.
-                        </h3>
-                        <p>
-                            Northline is introducing a weekend ride. Keep the announcement short on
-                            X. Give the story more room on LinkedIn.
-                        </p>
-                    </div>
-                    <article className="home-social-post home-social-x">
-                        <div className="home-social-meta">
-                            <svg
-                                viewBox={`0 0 ${x.width} ${x.height}`}
-                                width="22"
-                                height="22"
-                                aria-hidden="true"
-                                dangerouslySetInnerHTML={{ __html: x.body }}
-                            />
-                            <span>
-                                Northline <small>Example · X</small>
-                            </span>
+                <DestinationGallery>
+                    <TabsContent value="source">
+                        <div className="home-source-note">
+                            <span>Example source</span>
+                            <h3>
+                                A new route.
+                                <br />
+                                Two different conversations.
+                            </h3>
+                            <p>
+                                Northline is introducing a weekend ride. Keep the announcement short
+                                on X. Give the story more room on LinkedIn.
+                            </p>
                         </div>
-                        <p>
-                            Less traffic. More coastline. Our new 32 km weekend route is ready.
-                            Bring a friend — we roll out Saturday at 9.
-                        </p>
-                        <img
-                            src="/product/coastal-route.svg"
-                            alt="Illustrative coastal cycling route, with start and finish marked"
-                            width="720"
-                            height="540"
-                            loading="lazy"
-                        />
-                        <span className="home-social-count">A short announcement</span>
-                    </article>
-                    <article className="home-social-post home-social-linkedin">
-                        <div className="home-social-meta">
-                            <svg
-                                viewBox={`0 0 ${linkedin.width} ${linkedin.height}`}
-                                width="26"
-                                height="26"
-                                aria-hidden="true"
-                                dangerouslySetInnerHTML={{ __html: linkedin.body }}
-                            />
-                            <span>
-                                Northline <small>Example · LinkedIn</small>
+                    </TabsContent>
+                    <TabsContent value="x">
+                        <article className="home-social-post home-social-x">
+                            <div className="home-social-meta">
+                                <svg
+                                    viewBox={`0 0 ${x.width} ${x.height}`}
+                                    width="22"
+                                    height="22"
+                                    aria-hidden="true"
+                                    dangerouslySetInnerHTML={{ __html: x.body }}
+                                />
+                                <span>
+                                    Northline <small>Example · X</small>
+                                </span>
+                            </div>
+                            <p>
+                                Less traffic. More coastline. Our new 32 km weekend route is ready.
+                                Bring a friend — we roll out Saturday at 9.
+                            </p>
+                            <span className="home-social-count">A short announcement</span>
+                        </article>
+                    </TabsContent>
+                    <TabsContent value="linkedin">
+                        <article className="home-social-post home-social-linkedin">
+                            <div className="home-social-meta">
+                                <svg
+                                    viewBox={`0 0 ${linkedin.width} ${linkedin.height}`}
+                                    width="26"
+                                    height="26"
+                                    aria-hidden="true"
+                                    dangerouslySetInnerHTML={{ __html: linkedin.body }}
+                                />
+                                <span>
+                                    Northline <small>Example · LinkedIn</small>
+                                </span>
+                            </div>
+                            <p>Good routes make it easier to get outside together.</p>
+                            <p>
+                                We have been exploring a quieter stretch of coastline for our next
+                                community ride. The result: a 32 km loop, a coffee stop, and enough
+                                time to enjoy both.
+                            </p>
+                            <p>Join us on Saturday. New riders are welcome.</p>
+                            <span className="home-social-count">
+                                More context for the same story
                             </span>
-                        </div>
-                        <p>Good routes make it easier to get outside together.</p>
-                        <p>
-                            We have been exploring a quieter stretch of coastline for our next
-                            community ride. The result: a 32 km loop, a coffee stop, and enough time
-                            to enjoy both.
-                        </p>
-                        <p>Join us on Saturday. New riders are welcome.</p>
-                        <img
-                            src="/product/ride-guide.svg"
-                            alt="Example ride guide showing distance, meeting time and route elevation"
-                            width="720"
-                            height="400"
-                            loading="lazy"
-                        />
-                        <span className="home-social-count">More context for the same story</span>
-                    </article>
-                </Scene>
+                        </article>
+                    </TabsContent>
+                </DestinationGallery>
                 <div className="home-workflow-notes">
                     <div>
                         <h3>One source to come back to.</h3>
