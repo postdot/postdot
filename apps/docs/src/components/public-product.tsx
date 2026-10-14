@@ -1,33 +1,42 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { useRef } from 'react'
+
+import { PostbotLogo } from './brand'
 
 export function PublicProduct() {
+    const scene = useRef<HTMLElement>(null)
     const reducedMotion = useReducedMotion()
+    const { scrollYProgress } = useScroll({ target: scene, offset: ['start end', 'center center'] })
+    const y = useTransform(scrollYProgress, [0, 1], [28, 0])
+    const rotateX = useTransform(scrollYProgress, [0, 1], [4, 0])
     return (
-        <motion.figure
-            className="home-product"
-            initial={false}
-            whileInView={{ y: 0 }}
-            style={{ y: reducedMotion ? 0 : 24 }}
-            viewport={{ once: true, amount: 0.15 }}
-            transition={{ duration: reducedMotion ? 0 : 0.7, ease: [0.16, 1, 0.3, 1] }}>
-            <img
-                className="home-shot home-shot-light"
-                src="/product/compose-light.webp"
-                alt="Postbot composer with shared content, destinations and scheduling"
-                width="1440"
-                height="900"
-                fetchPriority="high"
-            />
-            <img
-                className="home-shot home-shot-dark"
-                src="/product/compose-dark.webp"
-                alt="Postbot composer in dark mode"
-                width="1440"
-                height="900"
-                fetchPriority="high"
-            />
-        </motion.figure>
+        <figure ref={scene} className="home-product-scene">
+            <div className="home-product-ground" aria-hidden="true" />
+            <div className="home-product-mascot" aria-hidden="true">
+                <PostbotLogo />
+            </div>
+            <motion.div
+                className="home-product-window"
+                style={{ y: reducedMotion ? 0 : y, rotateX: reducedMotion ? 0 : rotateX }}>
+                <img
+                    className="home-shot home-shot-light"
+                    src="/product/compose-light.webp"
+                    alt="Postbot composer with shared content, destinations and scheduling"
+                    width="1440"
+                    height="900"
+                    fetchPriority="high"
+                />
+                <img
+                    className="home-shot home-shot-dark"
+                    src="/product/compose-dark.webp"
+                    alt="Postbot composer in dark mode"
+                    width="1440"
+                    height="900"
+                    fetchPriority="high"
+                />
+            </motion.div>
+        </figure>
     )
 }

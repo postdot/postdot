@@ -19,54 +19,52 @@
     --home-edge: #2e2e2e;
     --home-blue: #94b5ff;
 }
-.home-header,
-.home-footer {
-    max-width: 1280px;
-    margin: auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 24px 40px;
+.public-home ::selection {
+    background: #2457d6;
+    color: #fff;
 }
 .home-brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    font-size: 22px;
+    gap: 12px;
+    font-size: 25px;
     font-weight: 600;
     letter-spacing: -0.04em;
 }
 .home-logo {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
+}
+.home-header {
+    margin: auto;
+    align-items: center;
 }
 .home-header nav {
     display: flex;
     align-items: center;
-    gap: 28px;
     font-size: 14px;
 }
-.home-header a:hover,
-.home-footer a:hover {
+.home-header nav a {
+    padding-block: 8px;
+    text-decoration: none;
+}
+.home-header nav a:hover {
     color: var(--home-blue);
+}
+.home-hero {
+    overflow: hidden;
 }
 .home-intro {
     text-align: center;
-    padding: 72px 24px 56px;
-}
-.home-eyebrow {
-    display: block;
-    font-size: 13px;
-    color: var(--home-muted);
-    margin-bottom: 20px;
+    padding: 72px 24px 32px;
 }
 .home-intro h1 {
     font-size: 56px;
     line-height: 1.08;
     font-weight: 500;
-    letter-spacing: -0.045em;
+    letter-spacing: -0.04em;
     margin: 0;
+    text-wrap: balance;
 }
 .home-intro p {
     font-size: 18px;
@@ -110,145 +108,6 @@
     outline: 2px solid var(--home-blue);
     outline-offset: 3px;
 }
-.home-alpha {
-    display: block;
-    font-size: 12px;
-    color: var(--home-muted);
-    margin-top: 18px;
-}
-.home-product {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 24px 68px;
-}
-.home-shot {
-    display: block;
-    width: 100%;
-    height: auto;
-    border: 1px solid var(--home-edge);
-    border-radius: 3px;
-}
-.home-shot-dark {
-    display: none;
-}
-.dark .home-shot-light {
-    display: none;
-}
-.dark .home-shot-dark {
-    display: block;
-}
-.home-product figcaption {
-    text-align: center;
-    font-size: 12px;
-    color: var(--home-muted);
-    padding-top: 14px;
-}
-.home-footer {
-    font-size: 12px;
-    color: var(--home-muted);
-    padding-block: 32px;
-}
-.home-footer .home-brand {
-    color: var(--home-ink);
-    font-size: 18px;
-}
-.home-footer .home-logo {
-    width: 26px;
-    height: 26px;
-}
-@media (max-width: 800px) {
-    .home-header,
-    .home-footer {
-        padding: 20px 24px;
-    }
-    .home-header nav {
-        gap: 16px;
-    }
-    .home-header nav > a:first-child {
-        display: none;
-    }
-    .home-intro {
-        padding-top: 56px;
-    }
-    .home-intro h1 {
-        font-size: 44px;
-    }
-    .home-steps {
-        gap: 28px;
-    }
-    .home-workflow {
-        padding: 72px 24px;
-    }
-    .home-ownership {
-        padding: 72px 24px;
-        gap: 40px;
-    }
-    .home-start {
-        padding: 48px 24px;
-    }
-    .home-footer > span {
-        display: none;
-    }
-}
-@media (max-width: 600px) {
-    .home-header nav {
-        gap: 12px;
-    }
-    .home-brand {
-        font-size: 20px;
-    }
-    .home-intro h1 {
-        font-size: 36px;
-    }
-    .home-intro p {
-        font-size: 16px;
-    }
-    .home-desktop-break {
-        display: none;
-    }
-    .home-intro {
-        padding: 48px 24px 40px;
-    }
-    .home-product {
-        padding: 0 16px 48px;
-    }
-    .home-actions {
-        gap: 8px;
-    }
-    .public-home .home-action {
-        padding-inline: 14px;
-    }
-    .home-steps,
-    .home-ownership {
-        grid-template-columns: 1fr;
-    }
-    .home-steps {
-        margin-top: 40px;
-        gap: 36px;
-    }
-    .home-step-number {
-        margin-bottom: 12px;
-    }
-    .home-section-heading h2,
-    .home-ownership h2,
-    .home-start h2 {
-        font-size: 28px;
-    }
-    .home-start {
-        align-items: start;
-        flex-direction: column;
-    }
-    .home-runtime {
-        padding: 24px;
-    }
-    .home-runtime dl > div {
-        gap: 12px;
-    }
-    .home-header nav [data-theme-toggle] {
-        display: none;
-    }
-}
-/* The theme control is a compact mechanical toggle, not another navigation link. */
 .public-home .home-theme-toggle {
     position: relative;
     display: inline-flex;
@@ -275,64 +134,95 @@
     background: var(--home-bg);
     box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
 }
-.home-header {
-    min-height: 96px;
-    padding-block: 24px;
+.home-product-scene {
+    position: relative;
+    margin: 0;
+    padding: 72px max(24px, calc((100vw - 1200px)/2)) 80px;
+    isolation: isolate;
+    perspective: 1600px;
 }
-.home-header .home-logo {
-    width: 40px;
-    height: 40px;
+.home-product-ground {
+    position: absolute;
+    inset: 160px 0 0;
+    z-index: -1;
+    background: #2457d6;
 }
-.home-header .home-brand {
-    font-size: 25px;
-    gap: 12px;
+.home-product-window {
+    overflow: hidden;
+    border-radius: 3px;
+    box-shadow: 0 28px 60px rgb(0 0 0 / 20%);
+    transform-origin: center bottom;
 }
-.home-header nav > a {
-    padding: 8px 0;
+.home-shot {
+    display: block;
+    width: 100%;
+    height: auto;
 }
-.home-header nav > a:hover {
-    text-decoration: underline;
-    text-underline-offset: 6px;
+.home-shot-dark {
+    display: none;
 }
-.home-steps a,
-.home-runtime > a,
-.home-footer > a:last-child {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.dark .home-shot-light {
+    display: none;
+}
+.dark .home-shot-dark {
+    display: block;
+}
+.home-product-mascot {
+    position: absolute;
+    top: 0;
+    right: max(64px, calc((100vw - 1100px)/2));
+    width: 112px;
+    height: 112px;
+    color: var(--home-ink);
+    z-index: 1;
+}
+.home-product-mascot svg {
+    width: 100%;
+    height: 100%;
+}
+@media (max-width: 800px) {
+    .home-intro {
+        padding-top: 48px;
+    }
+    .home-intro h1 {
+        font-size: 44px;
+    }
+    .home-product-scene {
+        padding-bottom: 48px;
+    }
 }
 @media (max-width: 600px) {
-    .home-header {
-        min-height: 80px;
-        padding: 16px 20px;
+    .home-intro {
+        padding: 40px 24px 24px;
     }
-    .home-header .home-brand {
-        font-size: 21px;
+    .home-intro h1 {
+        font-size: 36px;
+    }
+    .home-intro p {
+        font-size: 16px;
+    }
+    .home-desktop-break {
+        display: none;
+    }
+    .home-actions {
         gap: 8px;
     }
-    .home-header .home-logo {
-        width: 32px;
-        height: 32px;
+    .public-home .home-action {
+        padding-inline: 14px;
+    }
+    .home-product-scene {
+        padding: 48px 16px 32px;
+        perspective: none;
+    }
+    .home-product-ground {
+        top: 96px;
+    }
+    .home-product-mascot {
+        width: 72px;
+        height: 72px;
+        right: 32px;
     }
 }
-
-.home-hero {
-    overflow: hidden;
-}
-.home-intro h1 {
-    letter-spacing: -0.04em;
-}
-.home-product {
-    background: #2457d6;
-    padding: 36px 36px 0;
-    max-width: 1200px;
-    margin-bottom: 68px;
-    border-radius: 3px;
-}
-.home-product .home-shot {
-    border-bottom: 0;
-}
-
 .home-client-section {
     background: var(--home-card);
     padding: 100px max(24px, calc((100vw - 1120px)/2));
@@ -674,5 +564,11 @@
         width: 100%;
         margin-left: 0;
         margin-top: 8px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-product-window {
+        transform: none !important;
     }
 }
