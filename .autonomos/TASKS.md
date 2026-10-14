@@ -802,3 +802,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-430 — Recompose integrations as a compact hero rail with inline brand names and explicit future status.
 
 - [x] SITE-431 — Move network rail after the animated hero and remove opaque backgrounds.
+
+- [x] SITE-432 — Deliver standalone fixed-view isometric dispatch pilot in both themes; pending visual acceptance.
