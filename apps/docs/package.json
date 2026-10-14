@@ -11,7 +11,8 @@
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
         "typecheck": "bun run sync:content && tsc --noEmit",
-        "clean": "rimraf .next out .source .turbo"
+        "clean": "rimraf .next out .source .turbo",
+        "preview": "bun scripts/preview.ts"
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",
