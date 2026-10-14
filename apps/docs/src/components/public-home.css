@@ -1576,3 +1576,58 @@
     position: relative;
     z-index: 1;
 }
+
+.public-home {
+    --public-header-height: 72px;
+}
+.home-hero {
+    margin-top: calc(-1 * var(--public-header-height));
+    padding-top: var(--public-header-height);
+}
+.home-material-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+.home-hero > .home-material-layer,
+.home-error-main > .home-material-layer {
+    z-index: -1;
+}
+.home-footer > .home-material-layer {
+    z-index: 0;
+}
+.home-material-grain {
+    position: absolute;
+    inset: 0;
+    background: url('/material/grain.png') repeat;
+    background-size: 128px 128px;
+    mix-blend-mode: soft-light;
+    opacity: 0.09;
+}
+.home-hero .home-material-grain,
+.home-error-main .home-material-grain {
+    opacity: 0.055;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 25%), #000 70%);
+}
+.home-error-main {
+    position: relative;
+    isolation: isolate;
+}
+@media (max-width: 640px) {
+    .public-home {
+        --public-header-height: 64px;
+    }
+}
+.home-error-main {
+    max-width: none;
+    padding-inline: max(40px, calc((100% - 1200px) / 2 + 40px));
+}
+.home-error-main > .home-material-layer {
+    top: calc(-1 * var(--public-header-height));
+}
+@media (max-width: 600px) {
+    .home-error-main {
+        padding-inline: 22px;
+    }
+}

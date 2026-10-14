@@ -220,3 +220,12 @@ not copied code. Hero's quiet text region responds to actual intro height; foote
 keeps links over a darker field and ends on the duotone wordmark. Static fallback,
 reduced motion and offscreen pauses are required. Do not assume owner acceptance
 of exact palette, grain or movement from authorization to explore this treatment.
+
+## SITE-425 owner response and calibration
+
+Owner likes the flowing material; requested continuous header coverage and quieter
+consistent grain. Grain is now an original raster tile at a fixed CSS size,
+independent of shader drawing resolution, with lower progressive intensity. Hero
+background covers header space while content positions remain unchanged. Recovery
+pages reuse a quiet version with a full-width background and readable neutral
+copy area. Do not restore viewport-scaled grain or the hard uncovered top band.

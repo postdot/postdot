@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-// Original shader: flowing blue pigment and fixed film grain. No catalogue source.
+// Original flowing blue pigment; fixed grain is composited separately. No catalogue source.
 const vertex = `attribute vec2 position;
 void main(){gl_Position=vec4(position,0.0,1.0);}`
 const fragment = `precision highp float;
@@ -11,7 +11,6 @@ uniform float time;
 uniform float footer;
 uniform float dark;
 uniform float safe;
-float grain(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
 void main(){
  vec2 uv=gl_FragCoord.xy/size;
  float x=uv.x*2.2;
@@ -27,7 +26,6 @@ void main(){
  color=mix(color,vec3(.075,.19,.48),footer*smoothstep(.28,.95,uv.y)*.78);
  vec3 base=mix(vec3(.957),vec3(.09),dark);
  color=mix(color,base,(1.0-footer)*smoothstep(1.0-safe-.05,1.0-safe,uv.y)*.97);
- color+=(grain(gl_FragCoord.xy)-.5)*.065;
  gl_FragColor=vec4(color,1.0);
 }`
 
@@ -117,10 +115,18 @@ export function PublicMaterial({ footer = false }: { footer?: boolean }) {
             const ratio = Math.min(1, 1400 / Math.max(rect.width, 1))
             node.width = Math.max(1, Math.round(rect.width * ratio))
             node.height = Math.max(1, Math.round(rect.height * ratio))
-            const intro = node.parentElement?.querySelector<HTMLElement>('.home-intro')
+            const scene = node.closest<HTMLElement>('.home-hero, .home-error-main')
+            const intro = scene?.querySelector<HTMLElement>('.home-intro')
             gl.uniform1f(
                 safe,
-                intro ? Math.min(0.9, (intro.offsetHeight + 24) / Math.max(rect.height, 1)) : 0.4
+                intro
+                    ? Math.min(
+                          0.9,
+                          (intro.offsetTop + intro.offsetHeight + 24) / Math.max(rect.height, 1)
+                      )
+                    : scene?.classList.contains('home-error-main')
+                      ? 0.9
+                      : 0.4
             )
             gl.viewport(0, 0, node.width, node.height)
             draw()
@@ -154,5 +160,10 @@ export function PublicMaterial({ footer = false }: { footer?: boolean }) {
             shaders.forEach(shader => gl.deleteShader(shader))
         }
     }, [footer])
-    return <canvas ref={canvas} className="home-material" aria-hidden="true" />
+    return (
+        <div className="home-material-layer" aria-hidden="true">
+            <canvas ref={canvas} className="home-material" />
+            <div className="home-material-grain" />
+        </div>
+    )
 }

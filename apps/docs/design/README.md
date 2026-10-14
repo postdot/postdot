@@ -17,3 +17,8 @@ removed. No tiled replacement is currently imposed. No AI-image-generated assets
 are used.
 
 The previous OPEN STUDIO poster and unused post-detail captures were removed.
+
+`public/material/grain.png` is an original deterministic 128 px grayscale noise
+tile. It repeats at a fixed CSS size, independently of animated canvas resolution;
+opacity and masking calibrate its intensity. It is procedural texture, not an
+AI-generated image or copied catalogue asset.

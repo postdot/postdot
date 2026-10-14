@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
+import { PublicMaterial } from './public-material'
 
 import './public-home.css'
 
@@ -19,6 +20,7 @@ export function PublicError({
         <div className="public-home home-error-page">
             <PublicHeader />
             <main className="home-error-main">
+                <PublicMaterial />
                 <div className="home-error-code" aria-hidden="true">
                     <span>{notFound ? '404' : 'Oops.'}</span>
                 </div>

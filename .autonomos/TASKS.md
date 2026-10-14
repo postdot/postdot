@@ -788,3 +788,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-423]** Remove rejected panels and stage ornament, correct footer duplication `Priority: 🟠` `Complexity: S` — Remove SITE-420 chapter and SITE-422 faux lighting/edge planes; correct navigation anchors, end footer with one wordmark; inspect an actual textured animation reference. Artistic background/footer direction remains unresolved.
 
 - [x] **[SITE-424]** Integrate flowing textured blue material in hero and footer `Priority: 🟠` `Complexity: M` — Original shader inspired by inspected free Grainient preview, calm responsive text region, animated blue fields and fixed grain; visibility/reduced-motion handling and static fallback; no catalogue dependency or new marketing sections.
+
+- [x] **[SITE-425]** Calibrate grain and header coverage, extend recovery-page material `Priority: 🟠` `Complexity: S` — Fixed-size original grain tile separated from reduced-resolution shader, lower progressive intensity, continuous hero/header surface and quiet 404/error adaptation.
