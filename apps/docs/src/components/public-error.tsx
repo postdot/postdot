@@ -20,9 +20,14 @@ export function PublicError({
         <div className="public-home home-error-page">
             <PublicHeader />
             <main className="home-error-main">
-                <PublicMaterial />
                 <div className="home-error-code" aria-hidden="true">
-                    <span>{notFound ? '404' : 'Oops.'}</span>
+                    {notFound ? (
+                        <div className="home-error-digits">
+                            <PublicMaterial fullColor />
+                        </div>
+                    ) : (
+                        <span>Oops.</span>
+                    )}
                 </div>
                 <div className="home-error-copy">
                     <h1>{notFound ? "This page isn't here." : "This page couldn't load."}</h1>

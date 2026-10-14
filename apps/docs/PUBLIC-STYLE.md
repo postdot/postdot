@@ -236,3 +236,10 @@ The owner favors a small number of lasting refinements. Hero pigment and grain n
 resolve into the next neutral surface together; avoid hard blue cuts or generic
 entrance effects to signal section changes. Other compositions and provisional
 copy remain unchanged. This refinement is a candidate until owner review.
+
+## SITE-427 scoped recovery animation
+
+Owner prefers neutral recovery space with material visible within the 404 figures,
+not a full-main field appearing to leak above the footer. Remove that background.
+Use the current typeface's outlines as a mask; keep recovery copy/actions static,
+retain the independent footer and preserve a static-color fallback.

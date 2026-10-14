@@ -22,3 +22,7 @@ The previous OPEN STUDIO poster and unused post-detail captures were removed.
 tile. It repeats at a fixed CSS size, independently of animated canvas resolution;
 opacity and masking calibrate its intensity. It is procedural texture, not an
 AI-generated image or copied catalogue asset.
+
+`public/material/404-mask.svg` contains outlines extracted from the existing
+OFL-licensed Host Grotesk font at weight 600, with the current display tracking.
+It clips the original moving material to the figures without embedding a font.

@@ -792,3 +792,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-425]** Calibrate grain and header coverage, extend recovery-page material `Priority: 🟠` `Complexity: S` — Fixed-size original grain tile separated from reduced-resolution shader, lower progressive intensity, continuous hero/header surface and quiet 404/error adaptation.
 
 - [x] **[SITE-426]** Resolve hero pigment and grain into the following surface `Priority: 🟠` `Complexity: S` — One continuous exit transition in both themes, no entrance effects, new copy or changes to the deferred chapters.
+
+- [x] **[SITE-427]** Confine recovery-page animation to the 404 digits `Priority: 🟠` `Complexity: S` — Remove full-main material causing apparent footer bleed; font-derived SVG mask, theme-calibrated moving pigment inside digits, neutral recovery copy and unchanged footer.

@@ -12,6 +12,7 @@ uniform float footer;
 uniform float dark;
 uniform float safe;
 uniform float blendBottom;
+uniform float fullColor;
 void main(){
  vec2 uv=gl_FragCoord.xy/size;
  float x=uv.x*2.2;
@@ -21,12 +22,15 @@ void main(){
  vec3 deep=vec3(.025,.085,.24);
  vec3 blue=vec3(.10,.30,.78);
  vec3 pale=vec3(.67,.82,.98);
+ deep=mix(deep,mix(vec3(.05,.13,.35),vec3(.24,.41,.76),dark),fullColor);
+ blue=mix(blue,mix(vec3(.12,.30,.72),vec3(.25,.44,.86),dark),fullColor);
+ pale=mix(pale,mix(vec3(.25,.44,.86),pale,dark),fullColor);
  vec3 color=mix(deep,blue,smoothstep(.0,.55,ribbon));
  color=mix(color,pale,smoothstep(.58,1.0,ribbon)*(1.0-footer*.76));
  // Footer navigation sits on a darker field; the texture emerges towards its close.
  color=mix(color,vec3(.075,.19,.48),footer*smoothstep(.28,.95,uv.y)*.78);
  vec3 base=mix(vec3(.957),vec3(.09),dark);
- color=mix(color,base,(1.0-footer)*smoothstep(1.0-safe-.05,1.0-safe,uv.y)*.97);
+ color=mix(color,base,(1.0-footer)*(1.0-fullColor)*smoothstep(1.0-safe-.05,1.0-safe,uv.y)*.97);
  // Let pigment settle into the following page surface, without a hard cut.
  color=mix(color,base,blendBottom*(1.0-smoothstep(0.0,.16,uv.y)));
  gl_FragColor=vec4(color,1.0);
@@ -35,9 +39,11 @@ void main(){
 export function PublicMaterial({
     footer = false,
     blendBottom = false,
+    fullColor = false,
 }: {
     footer?: boolean
     blendBottom?: boolean
+    fullColor?: boolean
 }) {
     const canvas = useRef<HTMLCanvasElement>(null)
     useEffect(() => {
@@ -89,6 +95,7 @@ export function PublicMaterial({
         const time = gl.getUniformLocation(program, 'time')
         gl.uniform1f(gl.getUniformLocation(program, 'footer'), footer ? 1 : 0)
         gl.uniform1f(gl.getUniformLocation(program, 'blendBottom'), blendBottom ? 1 : 0)
+        gl.uniform1f(gl.getUniformLocation(program, 'fullColor'), fullColor ? 1 : 0)
         const dark = gl.getUniformLocation(program, 'dark')
         const safe = gl.getUniformLocation(program, 'safe')
         const preference = matchMedia('(prefers-reduced-motion: reduce)')
@@ -169,7 +176,7 @@ export function PublicMaterial({
             gl.deleteProgram(program)
             shaders.forEach(shader => gl.deleteShader(shader))
         }
-    }, [footer, blendBottom])
+    }, [footer, blendBottom, fullColor])
     return (
         <div className="home-material-layer" aria-hidden="true">
             <canvas ref={canvas} className="home-material" />
