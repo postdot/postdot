@@ -7,7 +7,7 @@ import { PublicScroll } from './public-scroll'
 
 export function Providers({ children }: { children: ReactNode }) {
     return (
-        <RootProvider theme={{ defaultTheme: 'dark' }} search={{ options: { type: 'static' } }}>
+        <RootProvider theme={{ defaultTheme: 'light' }} search={{ options: { type: 'static' } }}>
             <PublicScroll>{children}</PublicScroll>
         </RootProvider>
     )

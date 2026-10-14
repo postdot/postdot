@@ -3,9 +3,7 @@
 import { Button } from '@postbot/ui/components/button'
 import Link from 'next/link'
 
-import { PostbotLogo } from './brand'
-import { PublicThemeToggle } from './public-theme-toggle'
-import { PublicWordmark } from './public-wordmark'
+import { PublicHeader } from './public-header'
 
 import './public-home.css'
 
@@ -18,16 +16,10 @@ export function PublicError({
 }) {
     return (
         <div className="public-home home-error-page">
-            <header className="home-error-header">
-                <Link href="/" className="home-brand" aria-label="Postbot home">
-                    <PostbotLogo className="home-logo" />
-                    <PublicWordmark />
-                </Link>
-                <PublicThemeToggle />
-            </header>
+            <PublicHeader />
             <main className="home-error-main">
                 <span className="home-error-number" aria-hidden="true">
-                    {notFound ? '404' : 'Oops.'}
+                    {notFound ? '404' : 'Error'}
                 </span>
                 <h1>{notFound ? "This page isn't here." : "This page couldn't load."}</h1>
                 <p>

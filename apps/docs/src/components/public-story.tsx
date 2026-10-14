@@ -1,176 +1,312 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
+import { Button } from '@postbot/ui/components/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
+import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
+import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
+import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-function Reveal({ children, className }: { children: ReactNode; className?: string }) {
+import { PublicScreenshot } from './public-screenshot'
+import { PublicWordmark } from './public-wordmark'
+
+function Scene({ children, className = '' }: { children: ReactNode; className?: string }) {
     const reducedMotion = useReducedMotion()
     return (
         <motion.div
-            className={className}
+            className={`home-scene ${className}`}
             initial={false}
-            whileInView={{ y: 0, opacity: 1 }}
-            style={{ y: reducedMotion ? 0 : 24 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: reducedMotion ? 0 : 0.6, ease: [0.16, 1, 0.3, 1] }}>
+            whileInView={{ y: 0 }}
+            style={{ y: reducedMotion ? 0 : 32 }}
+            viewport={{ once: true, amount: 0.12 }}
+            transition={{ duration: reducedMotion ? 0 : 0.7, ease: [0.16, 1, 0.3, 1] }}>
             {children}
         </motion.div>
     )
 }
 
-export function PublicStory() {
+const commands = [
+    {
+        value: 'prepare',
+        label: 'Prepare',
+        command: 'bun run postbot posts create --project "$PROJECT_ID" --input post.json --json',
+        description: 'Create a source post and its destination drafts from a JSON file.',
+    },
+    {
+        value: 'inspect',
+        label: 'Inspect',
+        command:
+            'bun run postbot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json',
+        description: 'Read the source, destination draft and execution state before acting.',
+    },
+    {
+        value: 'schedule',
+        label: 'Schedule',
+        command:
+            'bun run postbot publications promote --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --expected-revision 1 --at "$EPOCH_MS" --json',
+        description:
+            'Promote the inspected revision for the chosen time, within the permissions you granted.',
+    },
+]
+
+const questions = [
+    {
+        title: 'Do I need an AI agent?',
+        answer: 'No. You can write, adapt and manage publications entirely in the web app. The CLI and REST API give your existing agents and scripts another way to work with the same posts.',
+    },
+    {
+        title: 'Does Postbot generate content?',
+        answer: 'Postbot does not contain a built-in AI writer. Your own agent can prepare content and create drafts through the CLI or API. You choose its access and what it is allowed to do.',
+    },
+    {
+        title: 'Which destinations can I connect?',
+        answer: 'Bluesky, Discord, LinkedIn, Mastodon, X and DEV.to, plus manual and custom HTTP destinations. Available content types and connection requirements vary by provider.',
+    },
+    {
+        title: 'Where does Postbot run?',
+        answer: 'On infrastructure you manage. The installation guide uses Docker Compose from a source checkout, with local media storage by default and optional S3-compatible storage.',
+    },
+]
+
+function AgentCommands() {
+    const [value, setValue] = useState('prepare')
+    const [copied, setCopied] = useState(false)
+    const [copyFailed, setCopyFailed] = useState(false)
+    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+    useEffect(() => () => clearTimeout(timer.current), [])
+    const active = commands.find(command => command.value === value) ?? commands[0]
+    async function copy() {
+        if (!active) return
+        try {
+            await navigator.clipboard.writeText(active.command)
+            setCopyFailed(false)
+            setCopied(true)
+            clearTimeout(timer.current)
+            timer.current = setTimeout(() => setCopied(false), 2000)
+        } catch {
+            setCopyFailed(true)
+            setCopied(false)
+        }
+    }
     return (
-        <>
-            <section id="workflow" className="home-story home-story-draft">
-                <div className="home-story-copy">
+        <Tabs
+            value={value}
+            onValueChange={next => {
+                setValue(String(next))
+                setCopied(false)
+            }}
+            className="home-agent-terminal">
+            <div className="home-agent-terminal-top">
+                <TabsList className="home-terminal-tabs">
+                    {commands.map(command => (
+                        <TabsTrigger key={command.value} value={command.value}>
+                            {command.label}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+                <Button variant="ghost" className="home-command-copy" onClick={copy}>
+                    {copied ? 'Copied' : 'Copy'}
+                </Button>
+            </div>
+            {commands.map(command => (
+                <TabsContent key={command.value} value={command.value}>
+                    <pre>
+                        <code>{command.command}</code>
+                    </pre>
+                    <p>{command.description}</p>
+                </TabsContent>
+            ))}
+            <div className="home-agent-terminal-bottom">
+                <span>CLI · source checkout</span>
+                <span aria-live="polite">
+                    {copied
+                        ? 'Command copied'
+                        : copyFailed
+                          ? 'Select the command to copy it manually'
+                          : 'Project roles and key permissions apply'}
+                </span>
+            </div>
+        </Tabs>
+    )
+}
+
+export function PublicStory() {
+    const poster = useRef<HTMLDivElement>(null)
+    const reducedMotion = useReducedMotion()
+    const { scrollYProgress } = useScroll({ target: poster, offset: ['start end', 'end start'] })
+    const rotate = useTransform(scrollYProgress, [0, 0.5, 1], [-4, 0, 2])
+    return (
+        <div className="home-product-story">
+            <section id="workflow" className="home-chapter home-workflow-chapter">
+                <div className="home-chapter-heading">
                     <h2>
-                        Your agent prepares.
+                        Start with a draft.
                         <br />
-                        You take it from there.
+                        Make it yours.
                     </h2>
                     <p>
-                        Give your agent access through the CLI or API. It can create a draft in the
-                        same workspace you use to review and publish.
+                        Write it yourself, or let your agent prepare it. Review the source and give
+                        each destination the content it needs, all in one workspace.
                     </p>
-                    <Link href="/docs/automation/">Work with agents</Link>
                 </div>
-                <Reveal className="home-draft-scene">
-                    <div className="home-story-command">
-                        <span>CLI</span>
-                        <code>
-                            bun run postbot posts create --project "$PROJECT_ID" --input post.json
-                        </code>
+                <Scene>
+                    <PublicScreenshot name="post" title="Post and destinations" />
+                </Scene>
+                <div className="home-workflow-notes">
+                    <div>
+                        <h3>One source to come back to.</h3>
+                        <p>
+                            Keep the shared text and media together. Updating them does not rewrite
+                            destination adaptations or past publications.
+                        </p>
                     </div>
-                    <article className="home-story-paper">
-                        <div className="home-paper-top">
-                            <span>Example draft</span>
-                            <span>Not published</span>
-                        </div>
-                        <h3>A new collection, ready for Friday.</h3>
+                    <div>
+                        <h3>A version for each destination.</h3>
                         <p>
-                            Made in small batches.
-                            <br />
-                            Designed for everyday use.
+                            Adapt wording, media and dates independently. A community update does
+                            not have to be a copy of your newsletter.
                         </p>
-                        <div className="home-paper-bottom">
-                            <span>Source post</span>
-                            <span>Ready to review</span>
-                        </div>
-                    </article>
-                </Reveal>
-            </section>
-            <section className="home-story-adapt">
-                <div className="home-story-heading">
-                    <h2>
-                        The idea stays.
-                        <br />
-                        The post can change.
-                    </h2>
-                    <p>
-                        Give each destination its own wording, media and date. Updating the source
-                        leaves your adaptations intact.
-                    </p>
+                    </div>
                 </div>
-                <div className="home-adaptation-scene">
-                    <Reveal className="home-adaptation-long">
-                        <div className="home-adaptation-label">
-                            Newsletter <span>Example adaptation</span>
+                <Scene className="home-adaptation-spread">
+                    <motion.div
+                        ref={poster}
+                        className="home-adaptation-poster"
+                        style={{ rotate: reducedMotion ? 0 : rotate }}>
+                        <img
+                            src="/product/studio-poster.webp"
+                            alt="Example open-studio event poster"
+                            width={1000}
+                            height={1200}
+                            loading="lazy"
+                        />
+                    </motion.div>
+                    <div className="home-adaptation-writing">
+                        <span className="home-example-note">Example adaptations</span>
+                        <div>
+                            <span>Studio updates</span>
+                            <h3>The studio doors are open this Saturday.</h3>
+                            <p>
+                                Meet the makers, explore the collection and stay for a conversation.
+                            </p>
                         </div>
-                        <h3>Meet the spring collection.</h3>
-                        <div className="home-editorial-art" aria-hidden="true">
-                            <span>spring</span>
-                            <span>collection</span>
-                        </div>
-                        <p>
-                            Small batches. Everyday pieces.
-                            <br />
-                            Take a closer look this Friday.
-                        </p>
-                    </Reveal>
-                    <Reveal className="home-adaptation-short">
-                        <div className="home-adaptation-label">
-                            Community <span>Example adaptation</span>
-                        </div>
-                        <h3>Friday. Something new.</h3>
-                        <p>
-                            The spring collection is nearly here.
-                            <br />
-                            Which piece are you waiting for?
-                        </p>
-                        <div className="home-community-art" aria-hidden="true">
-                            <span>
-                                See you
+                        <div>
+                            <span>Community</span>
+                            <h3>Come by. Stay a while.</h3>
+                            <p>
+                                Open studio, Saturday 24 October.
                                 <br />
-                                Friday.
-                            </span>
-                        </div>
-                    </Reveal>
-                </div>
-            </section>
-            <section className="home-story home-story-schedule">
-                <div className="home-story-copy">
-                    <h2>
-                        Make room for
-                        <br />
-                        what comes next.
-                    </h2>
-                    <p>
-                        Choose when each destination goes live. See what is scheduled, what was
-                        published and what needs your attention.
-                    </p>
-                    <Link href="/docs/first-publication/">Plan a publication</Link>
-                </div>
-                <Reveal className="home-week-scene">
-                    <div className="home-week-top">
-                        <span>Example week</span>
-                        <span>October</span>
-                    </div>
-                    <div
-                        className="home-week-scroll"
-                        role="region"
-                        aria-label="Example publication calendar"
-                        tabIndex={0}
-                        data-lenis-prevent>
-                        <div className="home-week-grid">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => (
-                                <div key={day} className="home-week-day">
-                                    <span>{day}</span>
-                                    <strong>{12 + index}</strong>
-                                    {index === 1 && (
-                                        <div className="home-week-post">
-                                            <span>Newsletter</span>
-                                            <strong>Spring collection</strong>
-                                            <small>Published</small>
-                                        </div>
-                                    )}
-                                    {index === 4 && (
-                                        <div className="home-week-post home-week-post-next">
-                                            <span>Community</span>
-                                            <strong>Friday launch</strong>
-                                            <small>Scheduled · 09:00</small>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                We would love to see you.
+                            </p>
                         </div>
                     </div>
-                </Reveal>
+                </Scene>
             </section>
-            <section className="home-open-source">
-                <Reveal>
+            <section id="planning" className="home-chapter home-planning-chapter">
+                <div className="home-chapter-heading home-heading-split">
                     <h2>
-                        Your workspace.
+                        See what is going out.
                         <br />
-                        On your server.
+                        And what still needs you.
                     </h2>
                     <p>
-                        Postbot is open source and self-hosted. Keep your posts, media and
-                        connections on infrastructure you manage.
+                        Plan across destinations, then follow each publication. Your calendar and
+                        queue show timing and state from the same workspace.
                     </p>
-                    <Link href="/docs/installation/">Install Postbot</Link>
-                </Reveal>
+                </div>
+                <Scene>
+                    <Tabs defaultValue="queue" className="home-planning-tabs">
+                        <TabsList className="home-view-tabs" aria-label="Product views">
+                            <TabsTrigger value="queue">Queue</TabsTrigger>
+                            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="calendar">
+                            <PublicScreenshot name="calendar" title="Publication calendar" />
+                        </TabsContent>
+                        <TabsContent value="queue">
+                            <PublicScreenshot name="queue" title="Publication queue" />
+                        </TabsContent>
+                    </Tabs>
+                </Scene>
+                <p className="home-scene-caption">
+                    The real Postbot interface, shown with an example project.
+                </p>
             </section>
-        </>
+            <section id="automation" className="home-automation-chapter">
+                <div className="home-automation-inner">
+                    <div className="home-chapter-heading home-heading-split">
+                        <h2>
+                            Your agents.
+                            <br />
+                            The same workspace.
+                        </h2>
+                        <p>
+                            Use the tools your agents already understand. Postbot exposes the
+                            publication workflow through its CLI and REST API, without handing them
+                            your provider credentials.
+                        </p>
+                    </div>
+                    <Scene>
+                        <AgentCommands />
+                    </Scene>
+                    <div className="home-agent-notes">
+                        <p>Prepare drafts. Inspect state. Schedule a reviewed revision.</p>
+                        <Link href="/docs/automation/">
+                            Explore the automation interface{' '}
+                            <ArrowRightIcon size={18} aria-hidden="true" />
+                        </Link>
+                    </div>
+                </div>
+            </section>
+            <section id="self-hosting" className="home-chapter home-ownership-chapter">
+                <div className="home-ownership-copy">
+                    <h2>
+                        Your posts belong
+                        <br />
+                        in your workspace.
+                    </h2>
+                    <p>
+                        Postbot is open source and self-hosted. Your posts, media and connections
+                        stay on infrastructure you manage.
+                    </p>
+                    <Link href="/docs/installation/" className="home-inline-action">
+                        Install Postbot <ArrowRightIcon size={18} aria-hidden="true" />
+                    </Link>
+                </div>
+                <Scene className="home-hosting-scene">
+                    <div className="home-hosting-clients">
+                        <span>Web app</span>
+                        <span>Your agents</span>
+                    </div>
+                    <svg className="home-hosting-routes" viewBox="0 0 440 72" aria-hidden="true">
+                        <path d="M100 0v30q0 10 10 10h100q10 0 10 10v22M340 0v30q0 10-10 10H230q-10 0-10 10" />
+                    </svg>
+                    <div className="home-hosting-server">
+                        <PublicWordmark />
+                        <span>On your infrastructure</span>
+                        <div>
+                            <span>Posts</span>
+                            <span>Media</span>
+                            <span>Connections</span>
+                        </div>
+                    </div>
+                </Scene>
+            </section>
+            <section className="home-chapter home-questions">
+                <h2>About running Postbot</h2>
+                <FAQ className="home-faq" multiple>
+                    {questions.map((question, index) => (
+                        <FAQItem
+                            key={question.title}
+                            title={question.title}
+                            value={String(index)}
+                            className="home-faq-item">
+                            {question.answer}
+                        </FAQItem>
+                    ))}
+                </FAQ>
+            </section>
+        </div>
     )
 }

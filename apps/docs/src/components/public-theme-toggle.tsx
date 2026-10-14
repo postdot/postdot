@@ -15,7 +15,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 export function PublicThemeToggle() {
     const { theme, resolvedTheme, setTheme } = useTheme()
     const reducedMotion = useReducedMotion()
-    const dark = (resolvedTheme ?? theme ?? 'dark') === 'dark'
+    const dark = (resolvedTheme ?? theme ?? 'light') === 'dark'
     return (
         <TooltipProvider delay={400}>
             <Tooltip>

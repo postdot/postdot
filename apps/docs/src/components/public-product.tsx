@@ -20,7 +20,7 @@ export function PublicProduct() {
                     src="/product/compose-light.webp"
                     alt="Postbot composer with shared content, destinations and scheduling"
                     width="1440"
-                    height="900"
+                    height="1000"
                     fetchPriority="high"
                 />
                 <img
@@ -28,7 +28,7 @@ export function PublicProduct() {
                     src="/product/compose-dark.webp"
                     alt="Postbot composer in dark mode"
                     width="1440"
-                    height="900"
+                    height="1000"
                     fetchPriority="high"
                 />
             </motion.div>

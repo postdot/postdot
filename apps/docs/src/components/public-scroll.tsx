@@ -12,7 +12,9 @@ export function PublicScroll({ children }: { children: ReactNode }) {
     const pathname = usePathname()
     if (reducedMotion || pathname.startsWith('/docs')) return children
     return (
-        <ReactLenis root options={{ autoRaf: true, anchors: true, allowNestedScroll: true }}>
+        <ReactLenis
+            root
+            options={{ autoRaf: true, anchors: { offset: -96 }, allowNestedScroll: true }}>
             {children}
         </ReactLenis>
     )

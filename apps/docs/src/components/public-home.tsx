@@ -2,10 +2,10 @@ import { Button } from '@postbot/ui/components/button'
 import { ArrowRightUpIcon } from '@solar-icons/react/linear/arrow-right-up'
 import Link from 'next/link'
 
-import { PostbotLogo } from './brand'
+import { PublicDestinations } from './public-destinations'
+import { PublicHeader } from './public-header'
 import { PublicProduct } from './public-product'
 import { PublicStory } from './public-story'
-import { PublicThemeToggle } from './public-theme-toggle'
 import { PublicWordmark } from './public-wordmark'
 
 import './public-home.css'
@@ -32,32 +32,18 @@ function Action({
 export function PublicHome() {
     return (
         <div className="public-home">
-            <header className="home-header">
-                <Link href="/" className="home-brand" aria-label="Postbot home">
-                    <PostbotLogo className="home-logo" />
-                    <PublicWordmark />
-                </Link>
-                <nav aria-label="Main navigation">
-                    <Link href="#workflow">Product</Link>
-                    <Link href="/docs/">Documentation</Link>
-                </nav>
-                <div className="home-header-actions">
-                    <PublicThemeToggle />
-                    <Action href="/docs/installation/">Install</Action>
-                </div>
-            </header>
+            <PublicHeader />
             <main>
                 <section id="product" className="home-hero">
                     <div className="home-intro">
                         <h1>
-                            One post.
+                            Social publishing.
                             <br />
-                            Every destination.
+                            For you and your agents.
                         </h1>
                         <p>
-                            Write your next post, or let an agent prepare it.
-                            <br className="home-desktop-break" /> Review, adapt and decide when it
-                            goes live.
+                            Write your next post, or let an agent prepare it. Review the content,
+                            adapt each destination and manage what goes live.
                         </p>
                         <div className="home-actions">
                             <Action href="/docs/installation/">Self-host Postbot</Action>
@@ -68,6 +54,7 @@ export function PublicHome() {
                     </div>
                     <PublicProduct />
                 </section>
+                <PublicDestinations />
                 <PublicStory />
             </main>
             <footer className="home-footer">
@@ -77,14 +64,14 @@ export function PublicHome() {
                     </Link>
                     <nav aria-label="Documentation links" className="home-footer-nav">
                         <div>
-                            <h2>Start</h2>
-                            <Link href="/docs/installation/">Installation</Link>
-                            <Link href="/docs/first-publication/">First publication</Link>
-                            <Link href="/docs/providers/">Connections</Link>
+                            <h2>Postbot</h2>
+                            <Link href="/#workflow">Workflow</Link>
+                            <Link href="/#planning">Planning</Link>
+                            <Link href="/#automation">For agents</Link>
                         </div>
                         <div>
-                            <h2>Build</h2>
-                            <Link href="/docs/concepts/">Concepts</Link>
+                            <h2>Guides</h2>
+                            <Link href="/docs/installation/">Installation</Link>
                             <Link href="/docs/automation/">API and CLI</Link>
                             <Link href="/docs/operations/">Operations</Link>
                         </div>

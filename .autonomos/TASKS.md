@@ -758,3 +758,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-408]** Recompose the complete hero presentation and restart local services `Priority: 🟠` `Complexity: M` — Preserve hero copy, typography and real product capture; full-width product stage, owner mascot and coordinated scroll motion, with consolidated site styles.
 
 - [x] **[SITE-409]** Rebuild the public narrative and auxiliary pages `Priority: 🟠` `Complexity: M` — Owner-approved agents-first story, four distinct visual scenes, experimental split wordmark, single-icon theme action, Lenis, 404/error surfaces; remove rejected client section and large logo ornaments.
+
+- [x] **[SITE-410]** Replace the short-block landing template with a complete product narrative `Priority: 🟠` `Complexity: M` — Autonomous owner-authorized pass; real interface imagery, long continuous chapters, accessible product previews, agent commands, mobile navigation and practical questions. No publication.
+
+- [ ] **[DEV-411]** Diagnose a development API restart that stalls during runtime drain `Priority: 🟡` `Complexity: S` — Observed during dependency changes in SITE-410; preserve fail-closed runtime locks and do not add automatic stale-marker recovery. API currently launched without the watcher for stable review.

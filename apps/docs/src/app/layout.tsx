@@ -6,7 +6,8 @@ import { Providers } from '@/components/providers'
 
 export const metadata: Metadata = {
     title: { default: 'Postbot', template: '%s | Postbot' },
-    description: 'One source, publications for every destination. Self-hosted with Postbot.',
+    description:
+        'Prepare, adapt and schedule social posts in your own workspace. Self-hosted publishing for people, agents and scripts.',
     robots: { index: false, follow: false },
 }
 
