@@ -1567,14 +1567,13 @@
 
 /* A compact integration rail belongs to the hero, not a separate chapter. */
 .home-hero .home-product-scene {
-    padding-bottom: 48px;
+    padding-bottom: 88px;
 }
 .home-connections {
-    background: var(--home-bg);
     position: relative;
     max-width: 1120px;
     margin: 0 auto;
-    padding: 20px 0 32px;
+    padding: 32px 0;
 }
 .home-connections-caption {
     margin: 0 0 20px;
@@ -1583,7 +1582,6 @@
     color: var(--home-muted);
 }
 .home-connections-marquee {
-    background: var(--home-bg);
     overflow: hidden;
     border-block: 1px solid var(--home-edge);
     mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);

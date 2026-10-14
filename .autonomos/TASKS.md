@@ -800,3 +800,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-429 — Replace static network roster with a continuous, controllable marquee; review Vanta UI as a visual reference.
 
 - [x] SITE-430 — Recompose integrations as a compact hero rail with inline brand names and explicit future status.
+
+- [x] SITE-431 — Move network rail after the animated hero and remove opaque backgrounds.

@@ -55,8 +55,8 @@ export function PublicHome() {
                         </div>
                     </div>
                     <PublicProduct />
-                    <PublicDestinations />
                 </section>
+                <PublicDestinations />
                 <PublicStory />
             </main>
             <PublicFooter />
