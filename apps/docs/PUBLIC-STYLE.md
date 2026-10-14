@@ -148,3 +148,12 @@ source/X/LinkedIn gallery; selected panels expand, titles remain visible, and
 keyboard/touch selection works without hover. Reduced motion removes expansion.
 These are authored using the existing Motion/Base UI stack, not imported effects.
 Keep the amount of movement and framing open to owner visual feedback.
+
+## SITE-420 supersedes the adaptation gallery
+
+Owner rejected SITE-419's choice of content, obscured click affordance, fictitious
+posters and detached changing copy. Remove that composition and its two redundant
+explanation blocks. The replacement keeps purpose and demonstration together in
+two explicit publishing-mode panels: agent preparation and studio review/work.
+No claim that changing text for different networks is a major differentiator.
+This remains candidate marketing; do not treat the new copy as owner approval.

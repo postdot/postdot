@@ -1,7 +1,5 @@
 'use client'
 
-import linkedin from '@iconify-icons/logos/linkedin-icon'
-import x from '@iconify-icons/logos/x'
 import { Button } from '@postbot/ui/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
 import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
@@ -28,47 +26,88 @@ function Scene({ children, className = '' }: { children: ReactNode; className?: 
     )
 }
 
-const galleryViews = [
-    {
-        value: 'source',
-        label: 'Source',
-        image: '/product/coastal-route.svg',
-        caption: 'The shared story',
-    },
-    {
-        value: 'x',
-        label: 'X',
-        image: '/product/coastal-route.svg',
-        caption: 'A short announcement',
-    },
-    {
-        value: 'linkedin',
-        label: 'LinkedIn',
-        image: '/product/ride-guide.svg',
-        caption: 'Room for the story',
-    },
-]
-
-function DestinationGallery({ children }: { children: ReactNode }) {
+function PublishingModes() {
+    const [active, setActive] = useState('agent')
     return (
-        <Tabs defaultValue="x" className="home-destination-gallery">
-            <TabsList className="home-gallery-rail" aria-label="Post adaptations">
-                {galleryViews.map(view => (
-                    <TabsTrigger
-                        key={view.value}
-                        value={view.value}
-                        aria-label={view.label}
-                        className="home-gallery-choice">
-                        <img src={view.image} alt="" width="720" height="540" loading="lazy" />
-                        <span className="home-gallery-label">
-                            <strong>{view.label}</strong>
-                            <span>{view.caption}</span>
-                        </span>
-                    </TabsTrigger>
-                ))}
-            </TabsList>
-            <div className="home-gallery-detail">{children}</div>
-        </Tabs>
+        <div className="home-publishing-modes">
+            {[
+                {
+                    id: 'agent',
+                    title: 'Let your agent prepare it.',
+                    description:
+                        'Give your agent access to create drafts. Open them in the studio before deciding what goes live.',
+                },
+                {
+                    id: 'studio',
+                    title: 'Make the final call in the studio.',
+                    description:
+                        'Write, review and schedule your posts in the web app. You can work here with or without an agent.',
+                },
+            ].map(mode => (
+                <section
+                    key={mode.id}
+                    className="home-publishing-mode"
+                    data-open={active === mode.id}>
+                    <h3>
+                        <Button
+                            variant="ghost"
+                            className="home-mode-toggle"
+                            aria-expanded={active === mode.id}
+                            aria-controls={`publishing-${mode.id}`}
+                            onClick={() => setActive(mode.id)}>
+                            <span>{mode.title}</span>
+                            <ArrowRightIcon size={22} aria-hidden="true" />
+                        </Button>
+                    </h3>
+                    <p>{mode.description}</p>
+                    <div id={`publishing-${mode.id}`} className="home-mode-demonstration">
+                        {mode.id === 'studio' ? (
+                            <>
+                                <img
+                                    className="home-shot-light"
+                                    src="/product/compose-light.webp"
+                                    alt="Actual Postbot composer with source, destination drafts and scheduling"
+                                    width="1440"
+                                    height="1000"
+                                    loading="lazy"
+                                />
+                                <img
+                                    className="home-shot-dark"
+                                    src="/product/compose-dark.webp"
+                                    alt="Actual Postbot composer with source, destination drafts and scheduling"
+                                    width="1440"
+                                    height="1000"
+                                    loading="lazy"
+                                />
+                            </>
+                        ) : (
+                            <div className="home-mode-command">
+                                <span>CLI</span>
+                                <pre>
+                                    <code>{commands[0]?.command}</code>
+                                </pre>
+                                <div>
+                                    <PostbotLogo />
+                                    <span>
+                                        Draft first.
+                                        <br />
+                                        Publish when you decide.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <Link
+                        href={
+                            mode.id === 'agent' ? '/docs/automation/' : '/docs/first-publication/'
+                        }
+                        className="home-mode-guide">
+                        {mode.id === 'agent' ? 'Connect your agent' : 'Explore the studio'}
+                        <ArrowRightIcon size={17} aria-hidden="true" />
+                    </Link>
+                </section>
+            ))}
+        </div>
     )
 }
 
@@ -259,94 +298,12 @@ export function PublicStory() {
             <section id="workflow" className="home-chapter home-workflow-chapter">
                 <div className="home-chapter-heading">
                     <h2>
-                        Start with a draft.
+                        Work in the studio.
                         <br />
-                        Make it yours.
+                        Or with your agent.
                     </h2>
-                    <p>
-                        Write it yourself, or let your agent prepare it. Review the source and give
-                        each destination the content it needs, all in one workspace.
-                    </p>
                 </div>
-                <DestinationGallery>
-                    <TabsContent value="source">
-                        <div className="home-source-note">
-                            <span>Example source</span>
-                            <h3>
-                                A new route.
-                                <br />
-                                Two different conversations.
-                            </h3>
-                            <p>
-                                Northline is introducing a weekend ride. Keep the announcement short
-                                on X. Give the story more room on LinkedIn.
-                            </p>
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="x">
-                        <article className="home-social-post home-social-x">
-                            <div className="home-social-meta">
-                                <svg
-                                    viewBox={`0 0 ${x.width} ${x.height}`}
-                                    width="22"
-                                    height="22"
-                                    aria-hidden="true"
-                                    dangerouslySetInnerHTML={{ __html: x.body }}
-                                />
-                                <span>
-                                    Northline <small>Example · X</small>
-                                </span>
-                            </div>
-                            <p>
-                                Less traffic. More coastline. Our new 32 km weekend route is ready.
-                                Bring a friend — we roll out Saturday at 9.
-                            </p>
-                            <span className="home-social-count">A short announcement</span>
-                        </article>
-                    </TabsContent>
-                    <TabsContent value="linkedin">
-                        <article className="home-social-post home-social-linkedin">
-                            <div className="home-social-meta">
-                                <svg
-                                    viewBox={`0 0 ${linkedin.width} ${linkedin.height}`}
-                                    width="26"
-                                    height="26"
-                                    aria-hidden="true"
-                                    dangerouslySetInnerHTML={{ __html: linkedin.body }}
-                                />
-                                <span>
-                                    Northline <small>Example · LinkedIn</small>
-                                </span>
-                            </div>
-                            <p>Good routes make it easier to get outside together.</p>
-                            <p>
-                                We have been exploring a quieter stretch of coastline for our next
-                                community ride. The result: a 32 km loop, a coffee stop, and enough
-                                time to enjoy both.
-                            </p>
-                            <p>Join us on Saturday. New riders are welcome.</p>
-                            <span className="home-social-count">
-                                More context for the same story
-                            </span>
-                        </article>
-                    </TabsContent>
-                </DestinationGallery>
-                <div className="home-workflow-notes">
-                    <div>
-                        <h3>One source to come back to.</h3>
-                        <p>
-                            Keep the shared text and media together. Updating them does not rewrite
-                            destination adaptations or past publications.
-                        </p>
-                    </div>
-                    <div>
-                        <h3>A version for each destination.</h3>
-                        <p>
-                            Adapt wording, media and dates independently. A short post on X does not
-                            have to be a copy of your LinkedIn update.
-                        </p>
-                    </div>
-                </div>
+                <PublishingModes />
             </section>
             <section id="planning" className="home-chapter home-planning-chapter">
                 <div className="home-chapter-heading home-heading-split">

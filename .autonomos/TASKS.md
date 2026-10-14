@@ -778,3 +778,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-418]** Remove transplanted recovery animation and study free visual references `Priority: 🟠` `Complexity: S` — Owner references communicate ambition, not reusable effects; inspect free React Bits composition/movement, no imported code or imposed shader selection.
 
 - [x] **[SITE-419]** Integrate authored scroll expansion and destination gallery `Priority: 🟠` `Complexity: S` — Scroll-driven real studio visual and expanding source/X/LinkedIn exploration, existing Motion/Base UI, touch and keyboard selection, reduced-motion alternatives; no imported catalogue source.
+
+- [x] **[SITE-420]** Replace the unclear adaptation gallery with studio/agent publishing modes `Priority: 🟠` `Complexity: S` — Remove fictional poster gallery, detached changing text and redundant explanation blocks; put action, short purpose and real interface/CLI demonstration together, with visible expansion controls.
