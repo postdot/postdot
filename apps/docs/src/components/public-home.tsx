@@ -36,7 +36,7 @@ export function PublicHome() {
             <PublicHeader />
             <main>
                 <section id="product" className="home-hero">
-                    <PublicMaterial />
+                    <PublicMaterial blendBottom />
                     <div className="home-intro">
                         <h1>
                             Social publishing.

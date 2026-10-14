@@ -229,3 +229,10 @@ independent of shader drawing resolution, with lower progressive intensity. Hero
 background covers header space while content positions remain unchanged. Recovery
 pages reuse a quiet version with a full-width background and readable neutral
 copy area. Do not restore viewport-scaled grain or the hard uncovered top band.
+
+## SITE-426 continuous hero exit
+
+The owner favors a small number of lasting refinements. Hero pigment and grain now
+resolve into the next neutral surface together; avoid hard blue cuts or generic
+entrance effects to signal section changes. Other compositions and provisional
+copy remain unchanged. This refinement is a candidate until owner review.

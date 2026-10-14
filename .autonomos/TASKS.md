@@ -790,3 +790,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-424]** Integrate flowing textured blue material in hero and footer `Priority: 🟠` `Complexity: M` — Original shader inspired by inspected free Grainient preview, calm responsive text region, animated blue fields and fixed grain; visibility/reduced-motion handling and static fallback; no catalogue dependency or new marketing sections.
 
 - [x] **[SITE-425]** Calibrate grain and header coverage, extend recovery-page material `Priority: 🟠` `Complexity: S` — Fixed-size original grain tile separated from reduced-resolution shader, lower progressive intensity, continuous hero/header surface and quiet 404/error adaptation.
+
+- [x] **[SITE-426]** Resolve hero pigment and grain into the following surface `Priority: 🟠` `Complexity: S` — One continuous exit transition in both themes, no entrance effects, new copy or changes to the deferred chapters.

@@ -1631,3 +1631,8 @@
         padding-inline: 22px;
     }
 }
+
+/* The pigment and its grain resolve together into the next neutral surface. */
+.home-hero .home-material-grain {
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 25%), #000 60%, #000 84%, transparent);
+}

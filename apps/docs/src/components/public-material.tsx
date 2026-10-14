@@ -11,6 +11,7 @@ uniform float time;
 uniform float footer;
 uniform float dark;
 uniform float safe;
+uniform float blendBottom;
 void main(){
  vec2 uv=gl_FragCoord.xy/size;
  float x=uv.x*2.2;
@@ -26,10 +27,18 @@ void main(){
  color=mix(color,vec3(.075,.19,.48),footer*smoothstep(.28,.95,uv.y)*.78);
  vec3 base=mix(vec3(.957),vec3(.09),dark);
  color=mix(color,base,(1.0-footer)*smoothstep(1.0-safe-.05,1.0-safe,uv.y)*.97);
+ // Let pigment settle into the following page surface, without a hard cut.
+ color=mix(color,base,blendBottom*(1.0-smoothstep(0.0,.16,uv.y)));
  gl_FragColor=vec4(color,1.0);
 }`
 
-export function PublicMaterial({ footer = false }: { footer?: boolean }) {
+export function PublicMaterial({
+    footer = false,
+    blendBottom = false,
+}: {
+    footer?: boolean
+    blendBottom?: boolean
+}) {
     const canvas = useRef<HTMLCanvasElement>(null)
     useEffect(() => {
         const node = canvas.current
@@ -79,6 +88,7 @@ export function PublicMaterial({ footer = false }: { footer?: boolean }) {
         const size = gl.getUniformLocation(program, 'size')
         const time = gl.getUniformLocation(program, 'time')
         gl.uniform1f(gl.getUniformLocation(program, 'footer'), footer ? 1 : 0)
+        gl.uniform1f(gl.getUniformLocation(program, 'blendBottom'), blendBottom ? 1 : 0)
         const dark = gl.getUniformLocation(program, 'dark')
         const safe = gl.getUniformLocation(program, 'safe')
         const preference = matchMedia('(prefers-reduced-motion: reduce)')
@@ -159,7 +169,7 @@ export function PublicMaterial({ footer = false }: { footer?: boolean }) {
             gl.deleteProgram(program)
             shaders.forEach(shader => gl.deleteShader(shader))
         }
-    }, [footer])
+    }, [footer, blendBottom])
     return (
         <div className="home-material-layer" aria-hidden="true">
             <canvas ref={canvas} className="home-material" />
