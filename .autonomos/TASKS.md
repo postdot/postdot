@@ -804,3 +804,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-431 — Move network rail after the animated hero and remove opaque backgrounds.
 
 - [x] SITE-432 — Deliver standalone fixed-view isometric dispatch pilot in both themes; pending visual acceptance.
+
+- [x] SITE-433 — Replace literal postal experiment with a modest one-source, three-destination SVG study.

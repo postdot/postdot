@@ -1,76 +1,218 @@
 <!doctype html>
 <html lang="en">
-    <meta charset="utf-8" /><meta
-        name="viewport"
-        content="width=device-width,initial-scale=1" /><title>Postbot — isometric pilot</title
-    ><style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Postbot — one post, multiple destinations</title>
+    <style>
         * {
             box-sizing: border-box;
         }
         body {
             margin: 0;
-            font: 16px/1.6 system-ui;
             background: #f4f4f4;
             color: #1c1c1c;
+            font:
+                16px/1.6 'Host Grotesk',
+                sans-serif;
         }
         header {
             padding: 32px 5vw;
         }
         h1 {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 500;
             margin: 0;
         }
-        p {
+        header p {
             font-size: 14px;
             color: #666;
             margin: 8px 0;
         }
-        .studies {
+        .views {
             display: grid;
             grid-template-columns: 1fr 1fr;
         }
-        .study {
-            min-height: 420px;
+        .view {
+            padding: 24px;
+            min-height: 380px;
             display: grid;
             place-items: center;
-            padding: 40px 20px;
+            --face: #fff;
+            --side: #e9e9e9;
+            --edge: #bcbcbc;
+            --ink: #777;
+            --blue: #2457d6;
+            --wash: #e8efff;
         }
-        .study.dark {
+        .dark {
             background: #171717;
+            --face: #202020;
+            --side: #1b1b1b;
+            --edge: #484848;
+            --ink: #aaa;
+            --blue: #94b5ff;
+            --wash: #26334e;
         }
-        .study img {
+        .view svg {
             width: 100%;
-            max-width: 660px;
+            max-width: 640px;
+            overflow: visible;
+        }
+        .face {
+            fill: var(--face);
+            stroke: var(--edge);
+            stroke-width: 0.7;
+            stroke-linejoin: round;
+        }
+        .side {
+            fill: var(--side);
+            stroke: var(--edge);
+            stroke-width: 0.7;
+            stroke-linejoin: round;
+        }
+        .rule {
+            stroke: var(--ink);
+            stroke-width: 2;
+            stroke-linecap: round;
+            opacity: 0.5;
+        }
+        .image {
+            fill: var(--wash);
+        }
+        .accent {
+            stroke: var(--blue);
+            fill: none;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .connector {
+            stroke: var(--edge);
+            stroke-width: 1;
+            fill: none;
+        }
+        .flow {
+            stroke: var(--blue);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 7 190;
+            animation: send 5s linear infinite;
+        }
+        .flow.second {
+            animation-delay: 0.35s;
+        }
+        .flow.third {
+            animation-delay: 0.7s;
+        }
+        .badge {
+            fill: var(--face);
+            stroke: var(--edge);
+            stroke-width: 0.7;
+        }
+        .brand {
+            fill: var(--blue);
+        }
+        .copy {
+            animation: receive 5s ease-in-out infinite;
+        }
+        .copy.second {
+            animation-delay: 0.35s;
+        }
+        .copy.third {
+            animation-delay: 0.7s;
         }
         footer {
             padding: 24px 5vw;
             font-size: 13px;
             color: #666;
         }
+        @keyframes send {
+            0%,
+            15% {
+                stroke-dashoffset: 190;
+                opacity: 0;
+            }
+            20% {
+                opacity: 1;
+            }
+            65% {
+                stroke-dashoffset: 0;
+                opacity: 1;
+            }
+            75%,
+            100% {
+                stroke-dashoffset: 0;
+                opacity: 0;
+            }
+        }
+        @keyframes receive {
+            0%,
+            45%,
+            100% {
+                opacity: 0.55;
+            }
+            65%,
+            85% {
+                opacity: 1;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .flow {
+                display: none;
+            }
+            .copy {
+                animation: none;
+            }
+        }
         @media (max-width: 800px) {
-            .studies {
+            .views {
                 grid-template-columns: 1fr;
             }
-            .study {
-                min-height: 280px;
-                padding: 24px 12px;
+            .view {
+                padding: 24px 8px;
+                min-height: 320px;
             }
         }
     </style>
     <header>
-        <h1>Preparation & dispatch</h1>
-        <p>Isometric pilot · fixed view · SVG · no animation</p>
+        <h1>Write once. Publish across your networks.</h1>
+        <p>Illustration study · one source, three destinations</p>
     </header>
-    <main class="studies">
-        <div class="study">
-            <img
-                src="dispatch-light.svg"
-                alt="Isometric paper trays, stamping press and outgoing envelope in light tones" />
-        </div>
-        <div class="study dark">
-            <img src="dispatch-dark.svg" alt="The same scene in dark tones" />
-        </div>
+    <main class="views">
+        <div class="view" id="light"></div>
+        <div class="view dark" id="dark"></div>
     </main>
-    <footer>Study for the illustration language. Not integrated into the homepage.</footer>
+    <footer>
+        SVG illustration with a fixed camera. Animation respects reduced motion. Not integrated into
+        the homepage.
+    </footer>
+    <script>
+        const geometry = `<svg viewBox="0 0 640 390" role="img" aria-label="One post branches into versions for X, LinkedIn and Bluesky">
+<defs>
+<g id="post"><path class="side" d="M0 0L126 63L126 70L0 7Z M126 63L204 24L204 31L126 70Z"/><path class="face" d="M0 0L78 -39L204 24L126 63Z"/><g transform="matrix(.866 .433 -.866 .433 78 -30)"><rect class="image" x="0" y="0" width="120" height="45" rx="2"/><path class="accent" d="M10 31L32 15L55 29L79 9L109 28"/><path class="rule" d="M0 58H114 M0 68H94 M0 78H70"/></g></g>
+</defs>
+<!-- Parallel card edges share one projection. Routes occupy the space between cards. -->
+<path class="connector" d="M238 186L292 213L357 118 M238 186L292 213L357 197 M238 186L292 213L357 276"/>
+<path class="flow" pathLength="190" d="M238 186L292 213L357 118"/><path class="flow second" pathLength="190" d="M238 186L292 213L357 197"/><path class="flow third" pathLength="190" d="M238 186L292 213L357 276"/>
+<g transform="translate(34 162)"><use href="#post"/><circle class="badge" cx="44" cy="-28" r="12"/><path class="accent" d="M39 -28H49 M44 -33V-23"/></g>
+<g transform="translate(357 118)"><use href="#post" class="copy"/><circle class="badge" cx="44" cy="-28" r="13"/><path d="M39 -34L49 -22M49 -34L39 -22" fill="none" stroke="var(--ink)" stroke-width="1.6"/></g>
+<g transform="translate(357 197)"><use href="#post" class="copy second"/><rect class="brand" x="32" y="-40" width="24" height="24" rx="2"/><text x="44" y="-23" text-anchor="middle" fill="var(--face)" font-family="Arial,sans-serif" font-size="17" font-weight="700">in</text></g>
+<g transform="translate(357 276)"><use href="#post" class="copy third"/><circle class="badge" cx="44" cy="-28" r="13"/><g transform="translate(35 -36) scale(.0703)"><path fill="var(--blue)" d="M55.491 15.172c29.35 22.035 60.917 66.712 72.509 90.686c11.592-23.974 43.159-68.651 72.509-90.686C221.686-.727 256-13.028 256 26.116c0 7.818-4.482 65.674-7.111 75.068c-9.138 32.654-42.436 40.983-72.057 35.942c51.775 8.812 64.946 38 36.501 67.187c-54.021 55.433-77.644-13.908-83.696-31.676c-1.11-3.257-1.63-4.78-1.637-3.485c-.008-1.296-.527.228-1.637 3.485c-6.052 17.768-29.675 87.11-83.696 31.676c-28.445-29.187-15.274-58.375 36.5-67.187c-29.62 5.041-62.918-3.288-72.056-35.942C4.482 91.79 0 33.934 0 26.116C0-13.028 34.314-.727 55.491 15.172"/></g></g>
+</svg>`
+        for (const id of ['light', 'dark'])
+            document.getElementById(id).innerHTML = geometry
+                .replaceAll('id="post"', `id="post-${id}"`)
+                .replaceAll('href="#post"', `href="#post-${id}"`)
+        const observer = new IntersectionObserver(entries => {
+            for (const entry of entries)
+                for (const el of entry.target.querySelectorAll('.flow,.copy'))
+                    el.style.animationPlayState =
+                        entry.isIntersecting && !document.hidden ? 'running' : 'paused'
+        })
+        for (const view of document.querySelectorAll('.view')) observer.observe(view)
+        document.addEventListener('visibilitychange', () => {
+            for (const el of document.querySelectorAll('.flow,.copy'))
+                el.style.animationPlayState = document.hidden ? 'paused' : 'running'
+        })
+    </script>
 </html>
