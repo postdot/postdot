@@ -11,9 +11,17 @@ Connect an account from its channel. Some providers require an application, scop
 or account eligibility; others use a token. Postbot account login is separate from
 these publisher connections.
 
-OAuth providers need a reachable deployment and correct callback configuration.
-Bluesky has additional public client-metadata requirements, so an ordinary local
-installation is not sufficient for its OAuth connection.
+OAuth providers need callback configuration that matches their authorization flow.
+Bluesky supports two deployment modes:
+
+- **Local loopback:** the browser and API run on the same machine. Use the same
+  loopback host consistently and leave the client metadata URL empty. No public
+  metadata document or tunnel is required.
+- **Public HTTPS:** remote browser access uses a stable HTTPS client metadata URL
+  and a reachable callback that matches the deployed origin.
+
+Other providers have their own application and callback requirements. A local
+Bluesky connection does not imply that every provider supports the same setup.
 
 Keep tokens on the server. Do not place provider credentials in shared post content
 or commit them to the repository. A successful connection confirms authorization,

@@ -1,13 +1,12 @@
 import { Button } from '@postbot/ui/components/button'
 import Link from 'next/link'
 
-import { PostbotLogo } from './brand'
 import { PublicDestinations } from './public-destinations'
+import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { PublicProduct } from './public-product'
 import { PublicScrollControl } from './public-scroll-control'
 import { PublicStory } from './public-story'
-import { PublicWordmark } from './public-wordmark'
 
 import './public-home.css'
 
@@ -58,33 +57,7 @@ export function PublicHome() {
                 <PublicDestinations />
                 <PublicStory />
             </main>
-            <footer className="home-footer">
-                <div className="home-footer-content">
-                    <Link href="/" className="home-footer-mark" aria-label="Postbot home">
-                        <PostbotLogo className="home-footer-logo" />
-                        <PublicWordmark />
-                    </Link>
-                    <nav aria-label="Documentation links" className="home-footer-nav">
-                        <div>
-                            <h2>Postbot</h2>
-                            <Link href="/#workflow">Workflow</Link>
-                            <Link href="/#planning">Planning</Link>
-                            <Link href="/#automation">For agents</Link>
-                        </div>
-                        <div>
-                            <h2>Guides</h2>
-                            <Link href="/docs/installation/">Installation</Link>
-                            <Link href="/docs/automation/">API and CLI</Link>
-                            <Link href="/docs/operations/">Operations</Link>
-                        </div>
-                    </nav>
-                </div>
-
-                <div className="home-footer-bottom">
-                    <span>© 2026 Hakim Saoudi</span>
-                    <span>Open source</span>
-                </div>
-            </footer>
+            <PublicFooter />
             <PublicScrollControl />
         </div>
     )

@@ -573,33 +573,123 @@
     height: auto;
 }
 .home-error-page {
-    min-height: 100vh;
+    min-height: 100dvh;
 }
 .home-error-main {
-    max-width: 640px;
+    max-width: 1200px;
     margin: auto;
-    padding: 96px 24px;
-    text-align: center;
+    min-height: min(720px, calc(100dvh - 78px));
+    padding: 88px 40px 112px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 80px;
 }
-.home-error-number {
-    display: block;
-    color: var(--home-blue);
-    font-size: 112px;
+.home-error-copy h1 {
+    font-size: 48px;
     font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.04em;
-    margin-bottom: 32px;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    max-width: 440px;
+    text-wrap: balance;
 }
-.home-error-main h1 {
-    font-size: 32px;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-}
-.home-error-main p {
-    margin: 24px auto;
+.home-error-copy p {
     color: var(--home-muted);
-    max-width: 420px;
+    max-width: 430px;
+    margin: 28px 0 32px;
+}
+.home-error-copy .home-actions {
+    justify-content: flex-start;
+}
+.home-error-docs {
+    display: inline-block;
+    font-size: 14px;
+    color: var(--home-muted);
+    margin-top: 28px;
+    text-decoration: underline;
+    text-underline-offset: 5px;
+}
+.home-error-art {
+    position: relative;
+    aspect-ratio: 6 / 5;
+    background: #2457d6 url('/product/distribution-pattern.svg') center / 760px 460px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.home-error-route {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.home-error-route path {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+}
+.home-error-route .home-error-route-track {
+    stroke: #94b5ff;
+    stroke-width: 1;
+}
+.home-error-route circle {
+    fill: #2457d6;
+    stroke: #fff;
+    stroke-width: 2;
+}
+.home-error-destination {
+    position: absolute;
+    left: 48%;
+    top: 45%;
+    color: white;
+}
+.home-error-destination > span {
+    display: block;
+    font-size: 72px;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+}
+.home-error-destination small {
+    display: block;
+    font-size: 13px;
+    margin-top: 12px;
+    color: #d8e3ff;
+}
+@media (max-width: 800px) {
+    .home-error-main {
+        gap: 32px;
+        padding: 64px 24px 80px;
+    }
+    .home-error-copy h1 {
+        font-size: 36px;
+    }
+    .home-error-destination > span {
+        font-size: 52px;
+    }
+    .home-error-destination {
+        left: 40%;
+    }
+}
+@media (max-width: 600px) {
+    .home-error-main {
+        grid-template-columns: 1fr;
+        gap: 48px;
+        padding: 56px 22px 72px;
+    }
+    .home-error-art {
+        aspect-ratio: 6 / 4;
+    }
+    .home-error-copy h1 {
+        max-width: 320px;
+    }
+    .home-error-destination {
+        left: 50%;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-error-route path {
+        animation: none;
+    }
 }
 @media (max-width: 1000px) {
     .home-header {

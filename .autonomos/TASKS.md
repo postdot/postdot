@@ -764,3 +764,9 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [ ] **[DEV-411]** Diagnose a development API restart that stalls during runtime drain `Priority: 🟡` `Complexity: S` — Observed during dependency changes in SITE-410; preserve fail-closed runtime locks and do not add automatic stale-marker recovery. API currently launched without the watcher for stable review.
 
 - [x] **[SITE-412]** Address the owner's complete homepage critique `Priority: 🟠` `Complexity: M` — Compact transforming header, routed visual material, normalized animated provider marks, concrete X/LinkedIn adaptations and fresh authentic captures; rebuilt agent/storage demonstrations, ten-question FAQ, footer symbol and reading-progress return control. Candidate design, not owner-approved messaging.
+
+- [x] **[SITE-413]** Extend the homepage vocabulary to public recovery pages `Priority: 🟠` `Complexity: S` — Shared header/footer, routed graphic, distinct missing-page and load-failure messages, real recovery links and retry callback; static export and targeted visual review.
+
+- [x] **[SITE-414]** Review competitor marketing and adoption paths `Priority: 🟠` `Complexity: M` — Official Postiz, Mixpost and OpenPost pages; sourced comparison, proposed site/docs/studio priorities, no unsupported integration claims. Correct the outdated local Bluesky OAuth statement.
+
+- [ ] **[SITE-415]** Build a concrete first-success documentation path `Priority: 🟠` `Complexity: M` — Proposed next task: verified real-network connection and agent-created draft visible in the studio, with explicit permissions and publication actions. Preserve the manual credential-free path as an alternative.

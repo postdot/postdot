@@ -76,3 +76,12 @@ infrastructure topology. The FAQ covers access, drafting, provider setup, storag
 and administrator backups. A persistent close-corner return control indicates
 reading progress. Keep reduced motion and keyboard access working. These changes
 remain an unpublished design candidate pending the owner's visual review.
+
+## Owner response after SITE-412
+
+The owner considers this direction a stronger foundation and wants later
+section-by-section detail improvements. Preserve it. This is not blanket approval
+of every composition or marketing sentence. SITE-413 reuses the header, footer,
+neutral surfaces and routed material for public 404/error pages. SITE-414 proposes
+content/adoption improvements from sourced competitor research; it does not
+silently adopt a new positioning or feature roadmap.
