@@ -1,28 +1,53 @@
 ---
 title: Self-hosting
-description: Install Postbot, keep your data and maintain your instance.
+description: Install your instance, preserve its data and plan maintenance.
 ---
 
 Postbot runs the API, Studio, scheduler and publication worker in one Bun process.
-SQLite stores application state. Media can stay on the local disk or use an
-S3-compatible store; a separate database or queue service is not required for the
-default installation.
+The default Docker Compose setup uses SQLite and local media storage, with no
+separate database or queue service to operate.
 
-## Install
+## Choose your starting point
 
-The [Docker Compose guide](/docs/installation/) builds from a source checkout,
-generates the required secrets and starts one container with persistent storage.
-Public registry images are not published yet.
+<Cards>
+    <Card title="Install Postbot" href="/docs/installation/#first-installation">
+        Build from a source checkout, configure secrets and start your first instance with Docker
+        Compose.
+    </Card>
+    <Card title="Back up or update an instance" href="/docs/operations/">
+        Check what to preserve, prepare for an upgrade and understand recovery after restoring a
+        backup.
+    </Card>
+</Cards>
 
-A local installation and a public HTTPS installation have different provider
-connection requirements. Check [provider connections](/docs/providers/) before
-configuring account authorization.
+<Callout title="Source checkout required">
+    Public registry images are not published yet. The installation guide builds the image locally
+    from the checkout; it does not require pulling a released Postbot image.
+</Callout>
 
-## Operate
+## Know what to preserve
 
-[Backups and updates](/docs/operations/) covers the data and secrets to preserve,
-controlled restoration and ordinary maintenance. Keep backup copies outside the
-machine running Postbot.
+The default Compose setup keeps application data in a persistent volume. Deployment
+secrets need separate protection.
 
-[Media storage](/docs/media/) explains originals and previews. Deployment-specific
-local and S3 configuration belongs in the installation guide.
+| Item               | What it contains                                                 |
+| ------------------ | ---------------------------------------------------------------- |
+| SQLite database    | Application state, including projects and publication records    |
+| Media storage      | Uploaded originals, derived previews and avatars                 |
+| Deployment secrets | Authentication, media-link signing and publisher encryption keys |
+
+Keep backup copies outside the machine running Postbot. For commands and recovery
+precautions, see [backup and restoration](/docs/installation/#backup-and-restoration).
+
+## Adapt the installation
+
+- **Public HTTPS access:** set the instance origin and reverse proxy before
+  connecting accounts. [Provider connections](/docs/providers/) explains the
+  authorization requirements for local and public deployments.
+- **Email or S3-compatible media storage:** follow
+  [optional email and S3](/docs/installation/#optional-email-and-s3).
+  Changing the storage setting does not migrate existing media.
+
+Once the instance is ready, follow [your first publication](/docs/first-publication/)
+to try Studio. For routine commands, use
+[persistent data and ordinary operation](/docs/installation/#persistent-data-and-ordinary-operation).
