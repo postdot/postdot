@@ -1,25 +1,89 @@
 ---
 title: Authentication
-description: API-key access and operations that require a human session.
+description: Choose API-key access, understand its limits and identify session-only operations.
 ---
 
-Send a user-owned API key as a bearer token:
+Use a Postbot API key for a script, agent or integration. Studio authenticates
+people through a session. Both methods remain subject to the server's access
+checks; an API key does not replace the project permissions of its owner.
+
+## Use an API key
+
+Create a key in Studio under **Settings**, then **API keys**. Select the projects
+and actions the integration needs. Copy the secret when it is shown and keep it
+in your tool's secret configuration or environment.
+
+Send it in the authorization header:
 
 ```http
 Authorization: Bearer YOUR_POSTBOT_API_KEY
 ```
 
-Create and manage keys from **Settings → API keys** in Studio. A key's effective
-access depends on the owner's current role, the selected projects and its action
-limits. Removing the owner's access also removes the key's access to that project.
+Replace the placeholder with the secret. Do not commit a real key or include it
+in a shared prompt. You can change the limits or revoke the key from Studio.
 
-For draft preparation, limit the key to `project:read` and `publication:manage`.
-Scheduling and delivery actions require `publication:dispatch`. Media management
-has its own action limits; do not expand a key just to silence an authorization
-error without checking what the integration needs.
+### Choose action limits
 
-Built-in publisher OAuth, access administration and API-key management require a
-human session. They cannot be performed just by supplying an API key. A schema's
-presence in OpenAPI is not an authorization grant.
+For a draft-only integration, select `project:read` and `publication:manage`.
+Leave `publication:dispatch` out to prevent scheduling and delivery actions.
 
-For a complete example, follow the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review).
+| Action                     | What the integration can request                                             |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `project:read`             | Read supported project resources, including channels and publications        |
+| `publication:manage`       | Create and edit drafts                                                       |
+| `publication:dispatch`     | Schedule publications and request delivery actions                           |
+| `channel:manage`           | Manage supported channel configuration operations                            |
+| `media:manage`             | Import, upload and manage media, including deletion requests and restoration |
+| `media:permanently_delete` | Request permanent deletion of eligible trashed media                         |
+| `analytics:refresh`        | Request a refresh of supported provider analytics                            |
+
+These limits allow requests; the server still checks project roles, resource state
+and operation-specific requirements. For example, media deletion remains subject
+to reference and retention checks.
+
+A key's effective access combines its project selection, action limits and the
+owner's current access. If the owner loses access to a project, the key loses it
+too. Selecting all actions does not grant administrator rights or access to
+session-only routes.
+
+Follow the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review)
+for a complete example with limited permissions.
+
+## Operations that require a session
+
+API-key management, access administration and built-in provider account
+connections require a human session. Complete these through Studio; an API key
+cannot perform them even if it has all available actions.
+
+Provider credentials are separate from Postbot API keys. A Bluesky authorization
+or a Discord bot token connects a publishing destination; it does not authenticate
+a script to the Postbot API. See [provider connections](/docs/providers/) for those
+workflows.
+
+## Read authentication in the reference
+
+The generated reference names the authentication schemes `bearerAuth` and
+`sessionCookie`. Read the operation's security declaration before choosing a
+credential.
+
+| Security declaration            | Meaning                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `bearerAuth` or `sessionCookie` | Either a Postbot API key or a session can authenticate; authorization checks still apply                       |
+| `sessionCookie` only            | A human session is required; an API key is insufficient                                                        |
+| Empty security requirements     | The operation does not require these authentication schemes; it may still validate signed URLs or other inputs |
+
+An operation can inherit the schema's default security or declare its own.
+`bearerAuth` and `sessionCookie` are alternatives in the default declaration, not
+two credentials you must send together. An operation appearing in the reference
+is not a grant of access.
+
+## If a request is refused
+
+- **401:** check that the credential is present and valid. A key may have expired
+  or been revoked.
+- **403:** check the operation's authentication method, the key's project and
+  action limits, and the owner's current project role. Session requests can also
+  fail origin checks.
+
+Use the error code and message returned by the server to narrow the cause. Avoid
+adding permissions until you know which requirement the request failed.

@@ -879,3 +879,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-469 — Structure the canonical installation guide with native generated steps and clearer operational headings while preserving commands.
 
 - [x] SITE-470 — Clarify the Development entry and turn the existing draft-only CLI walkthrough into a bounded sequence.
+
+- [x] SITE-471 — Explain API authentication choices, effective key access and generated security declarations.
