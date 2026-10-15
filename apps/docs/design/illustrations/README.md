@@ -1,6 +1,6 @@
 # Illustration pilot
 
-Live study: `/illustrations/`. The homepage placement was withdrawn: the owner accepted basic usability, not the visual standard.
+Live study: `/illustrations/`. The refined SITE-438 study was explicitly authorized for homepage integration in SITE-439.
 
 The active pilot uses the vendored Hairline kernel for its fixed camera, rounded
 solids and shared animation scheduler. `scene.js` is the single geometry model:
@@ -55,3 +55,11 @@ reset fades without drawing the text backwards. Logos use 24 viewBox units;
 small-screen strokes use non-scaling widths. Build fixed geometry and cache route
 lengths once per mount, updating only animation state on frames. Homepage
 reintegration is a separate review, not implied by this refinement.
+
+## Homepage approval
+
+SITE-439 integrates the refined distribution figure after the network rail. The
+component palette and mobile line treatment match the study. The motion starts
+at the complete reading state (4200 ms) to match the server frame, avoiding a
+complete-to-empty flash when the renderer loads. Other illustrations and the
+whole homepage visual direction are not implicitly approved by this placement.

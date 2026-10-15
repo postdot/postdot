@@ -58,7 +58,8 @@ export function mountFigure(stage) {
             line.style.strokeDasharray = '1'
         })
     })
-    let elapsed = 0
+    // Match the complete server frame before beginning the next transfer cycle.
+    let elapsed = 4200
     function draw(spread, clock) {
         targets.forEach((nodes, i) => {
             const transfer = transferAt(clock, i)

@@ -2,6 +2,7 @@ import { Button } from '@postbot/ui/components/button'
 import Link from 'next/link'
 
 import { PublicDestinations } from './public-destinations'
+import { PublicDistribution } from './public-distribution'
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { PublicMaterial } from './public-material'
@@ -57,6 +58,7 @@ export function PublicHome() {
                     <PublicProduct />
                 </section>
                 <PublicDestinations />
+                <PublicDistribution />
                 <PublicStory />
             </main>
             <PublicFooter />
