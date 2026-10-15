@@ -866,3 +866,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-462 — Apply the writing guidance to the first-publication lesson, Bluesky connection guide and post concepts explanation.
 
 - [x] SITE-463 — Use native Fumadocs presentation for example prompts and delivery notes, and record component selection guidance.
+
+- [x] SITE-464 — Present the first-publication guide as native steps and add navigation landmarks.
+- [/] SITE-465 — Export static Markdown and LLM indexes with native documentation page actions.

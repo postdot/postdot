@@ -3,5 +3,6 @@
     "description": "Build clients, integrations and contributions.",
     "root": true,
     "pages": ["development", "(clients)", "(architecture)"],
-    "pagesIndex": "development"
+    "pagesIndex": "development",
+    "icon": "code"
 }

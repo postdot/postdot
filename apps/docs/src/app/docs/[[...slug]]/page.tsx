@@ -1,4 +1,5 @@
 import { docs } from 'fumadocs-mdx:collections/server'
+import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { DocsPage } from 'fumadocs-ui/layouts/notebook/page'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page'
@@ -24,6 +25,8 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
                 <Content
                     components={{
                         ...defaultMdxComponents,
+                        Step,
+                        Steps,
                         OpenAPIPage: props => <OpenAPIPage {...preloaded} {...props} />,
                     }}
                 />

@@ -2,5 +2,6 @@
     "title": "API reference",
     "description": "HTTP contracts and authentication.",
     "root": true,
-    "pages": ["index", "authentication", "...(generated)"]
+    "pages": ["index", "authentication", "...(generated)"],
+    "icon": "document"
 }

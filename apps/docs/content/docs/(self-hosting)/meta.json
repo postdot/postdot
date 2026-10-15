@@ -3,5 +3,6 @@
     "description": "Install and operate your own instance.",
     "root": true,
     "pages": ["self-hosting", "(deployment)", "(operations)"],
-    "pagesIndex": "self-hosting"
+    "pagesIndex": "self-hosting",
+    "icon": "server"
 }
