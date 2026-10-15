@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "bun run sync:content && bun run --bun next dev --port 5174",
-        "build": "bun run sync:content && bun run --bun next build",
+        "build": "bun run sync:content && bun run --bun next build && bun run check:links",
         "sync:content": "bun scripts/sync-content.ts && bun run sync:openapi && fumadocs-mdx",
         "lint": "oxlint --deny-warnings .",
         "format": "oxfmt --check .",
@@ -13,7 +13,8 @@
         "typecheck": "bun run sync:content && tsc --noEmit",
         "clean": "rimraf .next out .source .turbo",
         "preview": "bun scripts/preview.ts",
-        "sync:openapi": "bun ../api/src/openapi-export.ts .openapi/postbot.json && bun scripts/sync-openapi.ts"
+        "sync:openapi": "bun ../api/src/openapi-export.ts .openapi/postbot.json && bun scripts/sync-openapi.ts",
+        "check:links": "bun scripts/check-links.ts"
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",

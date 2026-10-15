@@ -107,6 +107,18 @@ complete Better Auth or optional metrics reference. The API integration tests
 remain responsible for request behavior. Future schema work should improve actual
 route annotations and examples rather than hand-editing generated MDX.
 
+## Static link gate
+
+`bun run build` finishes with `check:links`. The checker parses exported HTML with
+Bun's HTMLRewriter, resolves local links against their page, and verifies target
+files, HTML fragment IDs and downloadable assets. It never calls a server or
+checks third-party URLs. Encoded fragments and relative page links are supported.
+Run `bun run check:links` to inspect an existing export. The focused utility test
+uses temporary files and exercises missing-page and missing-anchor failures.
+
+This gate covers actual exported links, not product behavior or the truth of
+provider instructions. A successful run is not a live-provider acceptance result.
+
 ## Sources checked
 
 - https://www.fumadocs.dev/docs/headless/page-conventions
