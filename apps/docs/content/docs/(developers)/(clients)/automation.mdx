@@ -13,9 +13,16 @@ It does not require a separate CLI service or a model subscription from Postbot.
 
 ## Create a draft for review
 
+You need a running instance, permission to edit a project and a connected Bluesky
+channel for the example below. If needed, [connect Bluesky](/docs/providers/bluesky/)
+through Studio first.
+
+<Steps>
+<Step>
+
 ### Give the integration limited access
 
-In Studio, open **Settings → API keys**. Create a key limited to your chosen project
+In Studio, open **Settings**, then **API keys**. Create a key limited to your chosen project
 and these actions:
 
 - `project:read` to discover channels and inspect publications.
@@ -26,12 +33,20 @@ schedule or publish. Key limits also depend on your current project role: a key
 cannot grant access that its owner does not have.
 
 Copy the secret when it is shown and store it in your agent's secret configuration
-or your shell environment. Do not paste it into a shared chat, commit it, or put it
-inside a content file. You can edit the key's limits or revoke it from Studio.
+or your shell environment. You can edit the key's limits or revoke it from Studio.
+
+<Callout title="Keep the key out of prompts and source files" type="warn">
+    Do not paste the secret into a shared chat, commit it, or put it inside a content file.
+</Callout>
 
 Set `POSTBOT_URL` to your installation's origin, for example
 `http://127.0.0.1:3000` for the default local Docker installation, and
-`POSTBOT_API_KEY` to the key secret. Run these commands at the source checkout root:
+`POSTBOT_API_KEY` to the key secret. Run the commands below at the source checkout root.
+
+</Step>
+<Step>
+
+### Find your project and channel
 
 ```sh
 bun run postbot projects list --json
@@ -56,6 +71,9 @@ bun run postbot publishers list --project "$PROJECT_ID" --json
 `active.profile`. `publishers list` reports recorded connection state without
 returning social account tokens. Neither command connects an account or publishes.
 Provider authorization takes place through a human session in Studio.
+
+</Step>
+<Step>
 
 ### Create a text-only Bluesky draft
 
@@ -90,6 +108,11 @@ For a built-in Bluesky channel, save this as `post.json`, replacing
 bun run postbot posts create --project "$PROJECT_ID" --input post.json --json
 ```
 
+</Step>
+<Step>
+
+### Inspect the draft and review it in Studio
+
 The response includes `post.id` and the created `publications`. Copy the destination's
 publication ID to inspect it:
 
@@ -102,6 +125,9 @@ There is deliberately no `scheduledAt` in the input. `automatic` selects the
 channel's eventual delivery method; it does not authorize a send by itself.
 The publication remains an unscheduled draft. Return to **Queue** in Studio to
 review it, following [your first publication](/docs/first-publication/#4-review-in-studio).
+
+</Step>
+</Steps>
 
 For a manual message channel, use `deliveryMode: "manual"` and a destination payload
 with `body` instead of `text`. For other networks, inspect the active profile rather

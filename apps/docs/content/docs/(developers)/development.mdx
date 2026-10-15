@@ -1,22 +1,35 @@
 ---
 title: Development
-description: Integrate with Postbot or work on its codebase.
+description: Connect your tools to Postbot or contribute to its codebase.
 ---
+
+The API and CLI work with the same projects and publications as Studio. Choose
+the CLI to run commands from a script or an agent, or use HTTP for an integration
+that makes its own requests.
 
 ## Build an integration
 
-Use the [CLI walkthrough](/docs/automation/) to create a draft that a person can
-review in Studio. For direct HTTP integrations, start with the
-[API reference](/docs/reference/) and [authentication](/docs/reference/authentication/).
+<Cards>
+    <Card title="Start with the CLI" href="/docs/automation/#create-a-draft-for-review">
+        Create an unscheduled draft with a limited API key, then review it in Studio. Run the
+        walkthrough from a source checkout with Bun.
+    </Card>
+    <Card title="Call the HTTP API" href="/docs/reference/authentication/">
+        Choose an authentication method and key permissions, then look up request and response
+        contracts in the API reference.
+    </Card>
+</Cards>
 
-The CLI and API are available today. A dedicated MCP server, packaged agent skills,
-a supported n8n integration and a mobile client are not available yet. They should
-not be treated as dependencies for a working integration.
+A dedicated MCP server, packaged agent skills, a supported n8n integration and a
+mobile client are planned. They are not available yet. An agent that can run shell
+commands can already use the CLI walkthrough.
 
 ## Work on Postbot
 
-[Architecture](/docs/architecture/) introduces the runtime and client boundaries.
-[Apps and packages](/docs/packages/) maps those responsibilities to the monorepo.
+Start with [architecture](/docs/architecture/) for the server and client boundaries.
+Use [apps and packages](/docs/packages/) to locate the code responsible for a feature.
+The typed HTTP client lives in `packages/client`; the CLI entry point is
+`scripts/postbot.ts`.
 
-Installation and day-to-day administration live in [Self-hosting](/docs/self-hosting/).
-Product workflows live in [Guides](/docs/), rather than being repeated here.
+For running an instance, go to [Self-hosting](/docs/self-hosting/). For preparing
+and reviewing publications, use [Guides](/docs/).
