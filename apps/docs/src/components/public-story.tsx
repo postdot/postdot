@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { type ReactNode } from 'react'
 
 import { PostbotLogo } from './brand'
+import { PublicCapabilities } from './public-capabilities'
 import { PublicEntrance } from './public-entrance'
 import { PublicScreenshot } from './public-screenshot'
 import { UsageGallery } from './usage-study'
@@ -92,6 +93,7 @@ export function PublicStory() {
                 </p>
             </section>
             <UsageGallery embedded />
+            <PublicCapabilities />
             <section id="self-hosting" className="home-chapter home-ownership-chapter">
                 <PublicEntrance kind="copy" className="home-ownership-copy">
                     <h2>
