@@ -1,12 +1,9 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
-import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
-import Link from 'next/link'
 import { type ReactNode } from 'react'
 
-import { PostbotLogo } from './brand'
 import { PublicCapabilities } from './public-capabilities'
 import { PublicEntrance } from './public-entrance'
 import { PublicScreenshot } from './public-screenshot'
@@ -94,50 +91,6 @@ export function PublicStory() {
             </section>
             <UsageGallery embedded />
             <PublicCapabilities />
-            <section id="self-hosting" className="home-chapter home-ownership-chapter">
-                <PublicEntrance kind="copy" className="home-ownership-copy">
-                    <h2>
-                        Your posts belong
-                        <br />
-                        in your workspace.
-                    </h2>
-                    <p>
-                        Postbot is open source and self-hosted. Your posts, media and connections
-                        stay on infrastructure you manage.
-                    </p>
-                    <Link href="/docs/installation/" className="home-inline-action">
-                        Install Postbot <ArrowRightIcon size={18} aria-hidden="true" />
-                    </Link>
-                </PublicEntrance>
-                <Scene className="home-storage-scene">
-                    <div className="home-storage-title">
-                        <PostbotLogo />
-                        <span>Your workspace</span>
-                        <small>Self-hosted</small>
-                    </div>
-                    <div className="home-storage-files">
-                        <div>
-                            <span>posts</span>
-                            <strong>Source &amp; adaptations</strong>
-                            <small>Shared content, destination drafts and revisions</small>
-                        </div>
-                        <div>
-                            <span>media</span>
-                            <strong>Originals &amp; previews</strong>
-                            <small>Local storage or your S3-compatible bucket</small>
-                        </div>
-                        <div>
-                            <span>access</span>
-                            <strong>People &amp; agents</strong>
-                            <small>Project roles and scoped API keys</small>
-                        </div>
-                    </div>
-                    <div className="home-storage-bottom">
-                        <span>One server. Several ways to work.</span>
-                        <Link href="/docs/operations/">Read the operations guide</Link>
-                    </div>
-                </Scene>
-            </section>
             <section className="home-chapter home-questions">
                 <h2>About running Postbot</h2>
                 <FAQ className="home-faq" multiple>

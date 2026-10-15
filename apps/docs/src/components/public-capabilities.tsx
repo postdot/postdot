@@ -1,11 +1,20 @@
 'use client'
 
+// cspell:ignore Français
+
+import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CloudIcon } from '@solar-icons/react/linear/cloud'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { LinkIcon } from '@solar-icons/react/linear/link'
+import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
 import { PlayIcon } from '@solar-icons/react/linear/play'
+import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
+import { TextBoldIcon } from '@solar-icons/react/linear/text-bold'
+import { TextItalicIcon } from '@solar-icons/react/linear/text-italic'
 import { UsersGroupRoundedIcon } from '@solar-icons/react/linear/users-group-rounded'
 import { motion, useReducedMotion } from 'motion/react'
 
+import { PostbotLogo } from './brand'
 import { PublicEntrance } from './public-entrance'
 
 import './public-capabilities.css'
@@ -136,22 +145,108 @@ export function PublicCapabilities() {
                     </div>
                 </motion.article>
                 <article className="capability-detail capability-channels">
-                    <div className="capability-destinations" aria-hidden="true">
-                        <span>Connected</span>
-                        <span>Manual</span>
-                        <span>Custom HTTP</span>
+                    <h3>Your destination isn’t listed?</h3>
+                    <p>Add a manual channel, or connect your own service through HTTP.</p>
+                    <div
+                        className="capability-channel-paths"
+                        role="img"
+                        aria-label="Postbot supports manual publishing tasks and custom HTTP delivery to your own service.">
+                        <PostbotLogo aria-hidden="true" />
+                        <svg viewBox="0 0 50 100" aria-hidden="true">
+                            <path d="M0 50H16Q24 50 24 42V24Q24 16 32 16H50M16 50Q24 50 24 58V76Q24 84 32 84H50" />
+                        </svg>
+                        <div aria-hidden="true">
+                            <span>
+                                <ClipboardCheckIcon size={19} />
+                                Publish manually
+                            </span>
+                            <span>
+                                <LinkIcon size={19} />
+                                Send to your service
+                            </span>
+                        </div>
                     </div>
-                    <h3>Work beyond the built-in networks.</h3>
-                    <p>Track manual publications or connect your own HTTP destination.</p>
                 </article>
                 <article className="capability-detail capability-languages">
-                    <div className="capability-language-pair" aria-hidden="true">
-                        <span>Hello.</span>
-                        <span>Bonjour.</span>
+                    <h3>At home in your language.</h3>
+                    <div className="capability-language-options">
+                        <span>
+                            <img src="/flags/gb.svg" width="24" height="18" alt="" />
+                            English
+                        </span>
+                        <span>
+                            <img src="/flags/fr.svg" width="24" height="18" alt="" />
+                            Français
+                        </span>
                     </div>
-                    <h3>English or French. Your choice.</h3>
-                    <p>Change the interface language. Your posts keep their own voice.</p>
+                    <p>English and French today. More languages planned.</p>
+                    <span className="capability-language-note">
+                        Interface language, independent of your posts.
+                    </span>
                 </article>
+                <motion.article
+                    className="capability-editor"
+                    initial="rest"
+                    whileInView="focus"
+                    whileHover={reduced ? undefined : 'focus'}
+                    viewport={{ once: true, amount: 0.5 }}>
+                    <div className="capability-editor-copy">
+                        <h3>
+                            Give your words
+                            <br />
+                            the right tools.
+                        </h3>
+                        <p>
+                            Format your text, add emoji and media, and check the preview as you
+                            write. Available formatting follows the destination.
+                        </p>
+                        <ul>
+                            <li>Rich text where supported</li>
+                            <li>Emoji, links and attachments</li>
+                            <li>Destination previews</li>
+                        </ul>
+                    </div>
+                    <div
+                        className="capability-editor-example"
+                        role="img"
+                        aria-label="Illustrative editor excerpt: a bold opening line, a short invitation and a link. Formatting availability depends on the destination.">
+                        <div className="capability-editor-toolbar" aria-hidden="true">
+                            <TextBoldIcon size={19} />
+                            <TextItalicIcon size={19} />
+                            <LinkIcon size={19} />
+                            <span />
+                            <SmileCircleIcon size={19} />
+                            <PaperclipIcon size={19} />
+                        </div>
+                        <div className="capability-editor-paper" aria-hidden="true">
+                            <motion.strong
+                                variants={{
+                                    rest: { backgroundColor: 'rgba(36,87,214,0)' },
+                                    focus: {
+                                        backgroundColor: reduced
+                                            ? 'rgba(36,87,214,.12)'
+                                            : [
+                                                  'rgba(36,87,214,0)',
+                                                  'rgba(36,87,214,.16)',
+                                                  'rgba(36,87,214,.08)',
+                                              ],
+                                    },
+                                }}
+                                transition={{ duration: 1.2 }}>
+                                Doors open Saturday.
+                            </motion.strong>
+                            <p>
+                                Come say hello, meet the team,
+                                <br />
+                                and see what we’re making.
+                            </p>
+                            <span className="capability-editor-link">See you at the studio</span>
+                        </div>
+                        <span className="capability-editor-example-label">
+                            Illustrative editor excerpt
+                        </span>
+                    </div>
+                </motion.article>
             </div>
         </section>
     )

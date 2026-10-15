@@ -834,3 +834,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-446 — Integrate client gallery into the homepage and replace terminal/workflow hover effects with replayable contextual sequences.
 
 - [x] SITE-447 — Present core organization and media capabilities with distinct visual treatments and concise language/channel coverage.
+
+- [x] SITE-448 — Clarify custom/manual destinations, enrich language presentation, add verified editor capabilities and remove the superseded ownership section.
