@@ -808,3 +808,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-433 — Replace literal postal experiment with a modest one-source, three-destination SVG study.
 
 - [x] SITE-434 — Correct destination stack, authentic brand assets, content margins and visible spread motion.
+
+- [x] SITE-435 — Restart local services and replace independent illustration motion with a shared Hairline scene model.
