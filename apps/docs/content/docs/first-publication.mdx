@@ -1,31 +1,89 @@
 ---
 title: Your first publication
-description: Try the complete workflow without a provider account.
+description: Prepare a draft, review it in Studio, then decide when it goes live.
 ---
 
-## Create a project
+Start with a short text post and one destination. You can do the whole workflow in
+Studio, or let an agent prepare the draft and review it yourself. Neither route
+requires giving an agent permission to publish.
 
-After installation, register the first administrator account and create a project.
-A project holds its channels, posts, media and member access.
+## 1. Create your project
 
-## Add a manual channel
+[Install Postbot](/docs/installation/), open Studio and create the first account.
+It becomes the installation administrator. Create a project for the account or
+brand you want to publish for.
 
-Open **Channels**, add a channel and choose a manual profile. It needs no external
-credentials. A manual channel is a destination whose delivery you complete yourself.
+A project contains its own channels, posts and media. Keep the same project selected
+throughout this guide so your connected channel and draft appear together.
 
-## Write a post
+## 2. Connect a destination
 
-Open **New publication**, write the shared source and choose your channel.
-Save a draft to inspect the post and its destination without publishing.
+Open **Channels**, add a built-in channel and select the network you want to use.
+Complete the connection from Studio; do not give your social account credentials
+to the agent or include them in a post.
 
-Open that destination to review its own content. When ready, use the manual
-publication workflow to record the result after you publish it externally.
+**Bluesky is a useful first connection for a local installation.** When the browser
+and Postbot run on the same machine, its local loopback mode needs no developer
+application or tunnel. Use `127.0.0.1` consistently when opening Postbot, select
+**Local loopback**, leave **Client metadata URL** empty, then authorize your account.
+For a remotely accessible installation, use the public HTTPS mode instead.
 
-## Connect an automated destination
+Check the connected account before continuing. An authorized connection is not a
+published post. Other networks have different setup requirements; see
+[provider connections](/docs/providers/).
 
-Add a supported provider channel and connect its account from **Channels**.
-Review the destination requirements before scheduling. A working connection alone
-does not guarantee that every piece of content meets the provider's constraints.
+**Prefer to try without a social account?** Add a manual channel instead. You can
+create and review drafts without external credentials. Delivery is then something
+you complete yourself, rather than an automatic send from Postbot.
 
-The **Queue** shows publication state and pending human work. **Overview** shows
-publication timing. Neither changes a saved draft simply because you visit it.
+## 3. Prepare a draft
+
+### In Studio
+
+Open **New publication**, write a short message and choose the channel you added.
+Review the destination's content and save a draft. Leave scheduling for the next
+step. For this first attempt, text alone keeps media requirements out of the way.
+
+### With your agent
+
+If your agent can run terminal commands, use the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review).
+It creates a real draft in the same project, using a key limited to reading and
+draft management. A dedicated MCP server and packaged agent skills are not
+available yet.
+
+You can give the agent a request like this after configuring its access:
+
+> Prepare a short announcement that our new collection is available on Friday.
+> Use the connected Bluesky channel in this project. Save an unscheduled draft
+> in Postbot for me to review. Do not schedule or publish it. Return the post
+> and publication IDs.
+
+This is an instruction for your existing agent, not a chat embedded in Postbot.
+The limited API key enforces the publication boundary independently of the prompt.
+
+## 4. Review in Studio
+
+Open **Queue** in the same project and open the draft. If Studio was already open,
+refresh the list if needed. Check the text, destination and connected account.
+You can edit an agent-created draft just like one you created yourself.
+
+The draft should have no scheduled time. If the CLI reported an uncertain result
+or a transport error, inspect the queue before repeating the creation command:
+the server may have saved the draft even if the response did not reach the client.
+
+## 5. Choose when it goes live
+
+Only continue when you actually want to send this content. Review the destination,
+choose a future time and confirm scheduling in Studio. Scheduling an automatic
+destination authorizes Postbot to deliver it at that time; saving a draft does not.
+
+Use **Queue** to follow the result and **Overview** to see its place in the calendar.
+A scheduled state is not proof of a successful send: check the delivery result.
+If a provider needs attention, inspect the reported problem before trying again.
+
+For a manual channel, publish through the destination yourself and record the
+result through Postbot's manual workflow. Postbot does not send it automatically.
+
+You now have the basic loop: prepare, review, schedule and check the result.
+Continue with [media](/docs/media/) or [posts and destinations](/docs/concepts/)
+when you want to adapt one source for several networks.

@@ -769,7 +769,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[SITE-414]** Review competitor marketing and adoption paths `Priority: 🟠` `Complexity: M` — Official Postiz, Mixpost and OpenPost pages; sourced comparison, proposed site/docs/studio priorities, no unsupported integration claims. Correct the outdated local Bluesky OAuth statement.
 
-- [ ] **[SITE-415]** Build a concrete first-success documentation path `Priority: 🟠` `Complexity: M` — Proposed next task: verified real-network connection and agent-created draft visible in the studio, with explicit permissions and publication actions. Preserve the manual credential-free path as an alternative.
+- [x] **[SITE-415]** Build a concrete first-success documentation path `Priority: 🟠` `Complexity: M` — Document the real-network connection and agent-created draft review path, with implementation-checked commands, explicit permissions and publication actions. Preserve the manual credential-free path. Documentation completed; live provider acceptance remains a separate validation, not claimed here.
 
 - [x] **[SITE-416]** Correct public layout and refresh stability after owner review `Priority: 🟠` `Complexity: M` — Shared viewport-height frame and bottom footer, fixed navigation and hero geometry, recomposed connection panel, tighter FAQ, replacement of rejected invented pattern with attributed PatternCraft texture. Leave ownership-section content unchanged.
 

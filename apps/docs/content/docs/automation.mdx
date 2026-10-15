@@ -1,21 +1,140 @@
 ---
 title: API and CLI
-description: The web app is one client of Postbot.
+description: Give your tools access to the same posts you manage in Studio.
 ---
 
-The REST API and machine CLI use the same project boundaries and publication
-workflow. An API key has a stored scope and action ceilings, and its owner's
-current access still applies.
+The REST API and CLI work with the same projects, posts and destinations as Studio.
+An agent that can run commands can prepare a draft for you; a script can use the
+same commands without reconstructing HTTP requests.
 
-Create a key with only the projects and actions your integration needs. Keep the
-key private and revoke it when the integration no longer needs it.
+A dedicated MCP server and packaged agent skills are planned, not available yet.
+The CLI walkthrough below works from a Postbot source checkout with Bun installed.
+It does not require a separate CLI service or a model subscription from Postbot.
 
-From a source checkout, discover available CLI commands with:
+## Create a draft for review
+
+### Give the integration limited access
+
+In Studio, open **Settings → API keys**. Create a key limited to your chosen project
+and these actions:
+
+- `project:read` to discover channels and inspect publications.
+- `publication:manage` to create and edit drafts.
+
+Leave `publication:dispatch` out. With this limited key, the integration cannot
+schedule or publish. Key limits also depend on your current project role: a key
+cannot grant access that its owner does not have.
+
+Copy the secret when it is shown and store it in your agent's secret configuration
+or your shell environment. Do not paste it into a shared chat, commit it, or put it
+inside a content file. You can edit the key's limits or revoke it from Studio.
+
+Set `POSTBOT_URL` to your installation's origin, for example
+`http://127.0.0.1:3000` for the default local Docker installation, and
+`POSTBOT_API_KEY` to the key secret. Run these commands at the source checkout root:
+
+```sh
+bun run postbot projects list --json
+```
+
+Copy the selected project's ID into `PROJECT_ID`, then inspect its channels:
+
+```sh
+export PROJECT_ID="REPLACE_WITH_PROJECT_ID"
+bun run postbot channels list --project "$PROJECT_ID" --json
+```
+
+Use the ID of a channel you already connected in Studio:
+
+```sh
+export CHANNEL_ID="REPLACE_WITH_CHANNEL_ID"
+bun run postbot channels profile --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
+bun run postbot publishers list --project "$PROJECT_ID" --json
+```
+
+`channels profile` describes the destination's accepted content under
+`active.profile`. `publishers list` reports recorded connection state without
+returning social account tokens. Neither command connects an account or publishes.
+Provider authorization takes place through a human session in Studio.
+
+### Create a text-only Bluesky draft
+
+For a built-in Bluesky channel, save this as `post.json`, replacing
+`REPLACE_WITH_CHANNEL_ID` with the actual channel ID. The JSON uses the field
+`text` required by that provider's profile; it is not a universal network payload.
+
+```json
+{
+    "title": "Friday collection announcement",
+    "sourceContent": {
+        "body": {
+            "text": "Our new collection arrives on Friday. Take a look and tell us your favorite.",
+            "format": "plain_text"
+        },
+        "media": []
+    },
+    "publications": [
+        {
+            "channelId": "REPLACE_WITH_CHANNEL_ID",
+            "deliveryMode": "automatic",
+            "targetContent": {
+                "text": "Our new collection arrives on Friday. Take a look and tell us your favorite.",
+                "media": []
+            }
+        }
+    ]
+}
+```
+
+```sh
+bun run postbot posts create --project "$PROJECT_ID" --input post.json --json
+```
+
+The response includes `post.id` and the created `publications`. Copy the destination's
+publication ID to inspect it:
+
+```sh
+export PUBLICATION_ID="REPLACE_WITH_PUBLICATION_ID"
+bun run postbot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
+```
+
+There is deliberately no `scheduledAt` in the input. `automatic` selects the
+channel's eventual delivery method; it does not authorize a send by itself.
+The publication remains an unscheduled draft. Return to **Queue** in Studio to
+review it, following [your first publication](/docs/first-publication/#4-review-in-studio).
+
+For a manual message channel, use `deliveryMode: "manual"` and a destination payload
+with `body` instead of `text`. For other networks, inspect the active profile rather
+than copying Bluesky's field names. Media also has provider-specific requirements.
+
+## Inspect before repeating a write
+
+With `--json`, successful commands write API JSON to standard output. Failures write
+an error object to standard error and return a nonzero exit code. Requests have a
+30-second deadline by default; `--timeout-ms` changes that deadline.
+
+The CLI does not automatically retry writes. A transport error can mean that the
+server saved the draft but the response was lost. Inspect the current publications
+before submitting the same content again:
+
+```sh
+bun run postbot publications list --project "$PROJECT_ID" --json
+```
+
+Lists are paginated. When `nextCursor` is present, pass its value with `--cursor`
+to read the next page.
+
+## Go further
 
 ```sh
 bun run postbot --help
 ```
 
-The typed client lives in `packages/client`. Discovery and read commands do not
-publish content; publication actions remain explicit. A detailed command reference
-will follow the verified installation and basic workflow guides.
+The CLI also supports media upload/import, draft updates and explicit publication
+lifecycle commands. Those operations need the corresponding key actions. Keep a
+draft-only key for preparation rather than expanding its access just to make an
+unrelated command succeed.
+
+The typed client is in `packages/client`; the REST API uses the same server-side
+project and action checks. Built-in publisher OAuth and access administration
+require a human session. Other clients do not bypass these boundaries.
