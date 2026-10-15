@@ -826,3 +826,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-442 — Build isolated human/agent shared-draft section prototype with editable handoff and explicit access availability. [ISSUE-157]
 
 - [x] **[SITE-443]** Replace the rejected usage study with a client-first visual gallery `Priority: 🟠` `Complexity: M`
+
+- [x] SITE-444 — Refine accepted client-gallery direction with distinct compact artwork, availability tags and purposeful interactions.

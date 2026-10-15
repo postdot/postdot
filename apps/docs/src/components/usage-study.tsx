@@ -2,12 +2,13 @@
 
 import mcp from '@iconify-icons/logos/model-context-protocol-icon'
 import n8n from '@iconify-icons/logos/n8n-icon'
-import { BookBookmarkMinimalisticIcon } from '@solar-icons/react/linear/book-bookmark-minimalistic'
+import { Button } from '@postbot/ui/components/button'
+import { CheckReadIcon } from '@solar-icons/react/linear/check-read'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
-import { Smartphone2Icon } from '@solar-icons/react/linear/smartphone-2'
+import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import Link from 'next/link'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
@@ -26,6 +27,28 @@ function BrandMark({ data }: { data: { width?: number; height?: number; body: st
 }
 
 export function UsageStudy() {
+    const [copied, setCopied] = useState(false)
+    const [copyError, setCopyError] = useState(false)
+    const [copying, setCopying] = useState(false)
+    async function copyCommand() {
+        setCopying(true)
+        let timeout: ReturnType<typeof setTimeout> | undefined
+        try {
+            await Promise.race([
+                navigator.clipboard.writeText('bun run postbot --help'),
+                new Promise((_, reject) => {
+                    timeout = setTimeout(() => reject(new Error('Clipboard unavailable')), 1500)
+                }),
+            ])
+            setCopied(true)
+            setCopyError(false)
+        } catch {
+            setCopyError(true)
+        } finally {
+            clearTimeout(timeout)
+            setCopying(false)
+        }
+    }
     const stage = useRef<HTMLDivElement>(null)
     const reduced = useReducedMotion()
     const { scrollYProgress } = useScroll({ target: stage, offset: ['start end', 'end start'] })
@@ -45,7 +68,6 @@ export function UsageStudy() {
             <main>
                 <section className="usage-section" aria-labelledby="usage-title">
                     <div className="usage-heading">
-                        <span className="usage-eyebrow">Many ways in. One workspace.</span>
                         <h1 id="usage-title">
                             Your tools.
                             <br />
@@ -56,7 +78,9 @@ export function UsageStudy() {
                     <div className="usage-gallery" ref={stage}>
                         <article className="usage-studio">
                             <div className="usage-caption">
-                                <span className="usage-status">Available</span>
+                                <span className="usage-status" data-status="available">
+                                    Available
+                                </span>
                                 <h2>Studio</h2>
                                 <p>A place to make it yours.</p>
                             </div>
@@ -93,7 +117,9 @@ export function UsageStudy() {
                         </article>
                         <article className="usage-mcp">
                             <div className="usage-caption">
-                                <span className="usage-status">Planned</span>
+                                <span className="usage-status" data-status="planned">
+                                    Planned
+                                </span>
                                 <h2>MCP</h2>
                                 <p>Your agent’s way in.</p>
                             </div>
@@ -110,7 +136,9 @@ export function UsageStudy() {
                         </article>
                         <article className="usage-n8n">
                             <div className="usage-caption">
-                                <span className="usage-status">Planned</span>
+                                <span className="usage-status" data-status="planned">
+                                    Planned
+                                </span>
                                 <h2>n8n</h2>
                                 <p>Publishing, in your flow.</p>
                             </div>
@@ -161,32 +189,141 @@ export function UsageStudy() {
                             <span className="usage-medium">Workflow integration</span>
                         </article>
                         <article className="usage-cli usage-small">
-                            <CodeSquareIcon className="usage-small-icon" />
-                            <div>
-                                <span className="usage-status">Available</span>
+                            <div className="usage-small-heading">
+                                <span className="usage-status" data-status="available">
+                                    Available
+                                </span>
                                 <h2>CLI & API</h2>
                                 <p>Make it part of your toolkit.</p>
                             </div>
-                            <span className="usage-cli-type" aria-hidden="true">
-                                postbot<span>_</span>
-                            </span>
+                            <div className="usage-terminal">
+                                <div className="usage-terminal-head">
+                                    <span>Terminal</span>
+                                    <Button
+                                        variant="ghost"
+                                        onClick={copyCommand}
+                                        className="usage-copy">
+                                        {copied ? (
+                                            <CheckReadIcon size={13} />
+                                        ) : (
+                                            <CopyIcon size={13} />
+                                        )}
+                                        {copying ? 'Copying' : copied ? 'Copied' : 'Copy'}
+                                    </Button>
+                                </div>
+                                <code>
+                                    <span className="usage-terminal-prompt" aria-hidden="true">
+                                        ${' '}
+                                    </span>
+                                    bun run postbot --help
+                                </code>
+                                <motion.div
+                                    className="usage-command-options"
+                                    initial={false}
+                                    whileInView={
+                                        reduced ? undefined : { opacity: [0.4, 1], y: [6, 0] }
+                                    }
+                                    viewport={{ once: true, amount: 1 }}
+                                    transition={{ duration: 0.5 }}>
+                                    <span>posts</span>
+                                    <span>projects</span>
+                                    <span>media</span>
+                                </motion.div>
+                                <span
+                                    className={copyError ? 'usage-copy-error' : 'sr-only'}
+                                    role="status">
+                                    {copyError
+                                        ? 'Copy unavailable. Select the command to copy it.'
+                                        : copied
+                                          ? 'Command copied.'
+                                          : ''}
+                                </span>
+                            </div>
                         </article>
-                        <article className="usage-skills usage-small">
-                            <BookBookmarkMinimalisticIcon className="usage-small-icon" />
-                            <div>
-                                <span className="usage-status">Launch target</span>
+                        <motion.article
+                            className="usage-skills usage-small"
+                            initial="rest"
+                            whileHover={reduced ? 'rest' : 'hovered'}
+                            whileInView={reduced ? 'rest' : 'open'}
+                            viewport={{ once: true, amount: 0.7 }}>
+                            <div className="usage-small-heading">
+                                <span className="usage-status" data-status="launch">
+                                    Launch target
+                                </span>
                                 <h2>Agent skills</h2>
                                 <p>Give your agent the know-how.</p>
                             </div>
-                        </article>
-                        <article className="usage-mobile usage-small">
-                            <Smartphone2Icon className="usage-small-icon" />
-                            <div>
-                                <span className="usage-status">Future</span>
+                            <div className="usage-skill-deck" aria-hidden="true">
+                                <motion.div
+                                    className="usage-skill-sheet usage-skill-sheet-back"
+                                    variants={{
+                                        rest: { rotate: 0, x: 0 },
+                                        open: { rotate: -12, x: -32 },
+                                        hovered: { rotate: -17, x: -40 },
+                                    }}
+                                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
+                                    <span>Review</span>
+                                    <i />
+                                    <i />
+                                    <i />
+                                </motion.div>
+                                <motion.div
+                                    className="usage-skill-sheet usage-skill-sheet-middle"
+                                    variants={{
+                                        rest: { rotate: 0, x: 0 },
+                                        open: { rotate: 9, x: 32 },
+                                        hovered: { rotate: 14, x: 40 },
+                                    }}
+                                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
+                                    <span>Schedule</span>
+                                    <i />
+                                    <i />
+                                    <i />
+                                </motion.div>
+                                <motion.div
+                                    className="usage-skill-sheet usage-skill-sheet-front"
+                                    variants={{ rest: { y: 12 }, open: { y: 0 } }}
+                                    transition={{ duration: 0.6 }}>
+                                    <span>SKILL.md</span>
+                                    <strong>
+                                        Publish
+                                        <br />
+                                        with Postbot.
+                                    </strong>
+                                    <div>
+                                        <i />
+                                        <i />
+                                    </div>
+                                </motion.div>
+                            </div>
+                        </motion.article>
+                        <motion.article
+                            className="usage-mobile usage-small"
+                            initial="rest"
+                            whileHover={reduced ? 'rest' : 'hovered'}
+                            whileInView={reduced ? 'rest' : 'open'}
+                            viewport={{ once: true, amount: 0.7 }}>
+                            <div className="usage-small-heading">
+                                <span className="usage-status" data-status="future">
+                                    Future
+                                </span>
                                 <h2>Mobile</h2>
                                 <p>Take your workspace with you.</p>
                             </div>
-                        </article>
+                            <motion.div
+                                className="usage-phone"
+                                aria-hidden="true"
+                                variants={{
+                                    rest: { y: 30, rotate: 9 },
+                                    open: { y: 0, rotate: -6 },
+                                    hovered: { y: -8, rotate: -11 },
+                                }}
+                                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
+                                <span className="usage-phone-camera" />
+                                <PostbotLogo />
+                                <span className="usage-phone-home" />
+                            </motion.div>
+                        </motion.article>
                     </div>
                     <p className="usage-study-note">
                         Studio and CLI/API exist today. MCP, skills, n8n and mobile show the

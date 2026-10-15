@@ -45,3 +45,20 @@ paragraph or clicking. The owner must still judge whether this visual treatment
 has enough character; correct icons and responsive geometry alone do not establish
 that it is a successful marketing section. Do not integrate into the homepage
 without that review.
+
+## Owner feedback and SITE-444 refinement
+
+The owner accepted the client-card direction: shared foundations with a distinct
+visual style for each access surface, and less emphasis on future integrations.
+This accepts the direction, not every detail or homepage integration.
+
+The refinement gives compact clients their own artwork: a real CLI help command,
+a fan of skill sheets, and an abstract mobile-device silhouette, without claiming
+these are shipped skills or a native app screenshot. Status tags retain text and
+use restrained color, so availability never depends on color alone. Skill sheets
+and the phone have a finite in-view composition and a separate hover response.
+The CLI copy control provides feedback and a manual-copy fallback when clipboard
+access is unavailable. No terminal command executes.
+
+Section headers have no pre-title label. This owner rule is captured in the public
+site AGENT.md; descriptive text remains optional and short.

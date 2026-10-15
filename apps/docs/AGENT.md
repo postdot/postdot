@@ -19,3 +19,6 @@ For local review of the actual static output, run `bun run build` then
 `bun run preview` in this workspace. The preview binds to 127.0.0.1:5174 and
 serves the exported not-found page with a 404 status. It is a development helper,
 not a production server or a deployment change.
+
+Section headings use a title and, when useful, one short description. Do not add
+eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).
