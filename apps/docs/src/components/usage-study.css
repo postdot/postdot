@@ -31,7 +31,7 @@
 .usage-heading {
     margin-bottom: 56px;
 }
-.usage-heading h1 {
+.usage-heading h2 {
     font-size: clamp(40px, 5vw, 64px);
     font-weight: 500;
     line-height: 1.04;
@@ -46,7 +46,7 @@
 .usage-gallery {
     display: grid;
     grid-template-columns: 1.15fr 1fr 1fr;
-    grid-template-rows: 270px 230px 300px;
+    grid-template-rows: 270px 230px 340px;
     gap: 12px;
 }
 .usage-gallery article {
@@ -68,7 +68,7 @@
     margin-bottom: 10px;
     opacity: 0.65;
 }
-.usage-gallery h2 {
+.usage-gallery h3 {
     font-size: 32px;
     line-height: 1.1;
     letter-spacing: -0.04em;
@@ -230,7 +230,7 @@
     position: relative;
     z-index: 2;
 }
-.usage-small h2 {
+.usage-small h3 {
     font-size: 25px;
 }
 .usage-small p {
@@ -296,10 +296,6 @@
     border-radius: 4px 4px 0 0;
     transition: transform 0.3s ease;
 }
-.usage-cli:hover .usage-terminal,
-.usage-cli:focus-within .usage-terminal {
-    transform: translateY(-5px);
-}
 .usage-terminal-head {
     display: flex;
     align-items: center;
@@ -316,23 +312,6 @@
 }
 .usage-terminal-prompt {
     color: #96c6ab;
-}
-.usage-copy {
-    min-height: 24px !important;
-    height: 24px !important;
-    padding: 0 6px !important;
-    color: #c0cad5 !important;
-    font-size: 10px !important;
-    gap: 5px !important;
-    border-radius: 3px !important;
-}
-.usage-copy:hover {
-    background: #ffffff14 !important;
-    color: white !important;
-}
-.usage-copy:focus-visible {
-    outline: 2px solid #94b5ff;
-    outline-offset: 2px;
 }
 .usage-command-options {
     display: flex;
@@ -493,13 +472,13 @@
 }
 @media (min-width: 1400px) {
     .usage-gallery {
-        grid-template-rows: 285px 245px 300px;
+        grid-template-rows: 285px 245px 340px;
     }
 }
 @media (max-width: 1000px) {
     .usage-gallery {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: 440px 260px 300px;
+        grid-template-rows: 440px 260px 340px;
     }
     .usage-studio {
         grid-column: 1;
@@ -525,7 +504,7 @@
         padding: 20px;
         gap: 12px;
     }
-    .usage-small h2 {
+    .usage-small h3 {
         font-size: 23px;
     }
     .usage-mobile {
@@ -572,7 +551,7 @@
     .usage-caption {
         padding: 25px;
     }
-    .usage-gallery h2 {
+    .usage-gallery h3 {
         font-size: 30px;
     }
     .usage-browser {
@@ -602,7 +581,7 @@
         padding: 25px;
         min-height: 280px;
     }
-    .usage-small h2 {
+    .usage-small h3 {
         font-size: 25px;
     }
     .usage-small p {
@@ -657,13 +636,6 @@
     }
 }
 
-.usage-copy-error {
-    display: block;
-    font-size: 10px;
-    line-height: 1.4;
-    color: #e8c795;
-    margin-top: 8px;
-}
 .usage-mcp-mark svg,
 .usage-n8n-mark svg {
     transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
@@ -785,4 +757,264 @@
 .dark .usage-n8n .usage-status[data-status='planned'] {
     background: #503741;
     color: #f6c0d3;
+}
+
+.usage-embedded {
+    padding-top: 100px;
+    padding-bottom: 100px;
+    scroll-margin-top: 90px;
+}
+.usage-embedded .usage-heading h2 {
+    font-size: clamp(32px, 4vw, 48px);
+}
+.usage-terminal {
+    left: 20px;
+    right: 20px;
+    bottom: -1px;
+    padding: 0;
+    border: 1px solid #35383d;
+    border-radius: 6px 6px 0 0;
+    background: #090a0c;
+    transform: none;
+    transition: none;
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+}
+.usage-terminal-head {
+    height: 32px;
+    padding: 0 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+    border-bottom: 1px solid #202126;
+    background: #0e0f12;
+    color: #7d818a;
+    font-family: inherit;
+    font-size: 9px;
+}
+.usage-window-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+.usage-window-controls i {
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff5f57;
+}
+.usage-window-controls i:nth-child(2) {
+    background: #febc2e;
+}
+.usage-window-controls i:nth-child(3) {
+    background: #28c840;
+}
+.usage-terminal-replay,
+.usage-art-replay {
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    border-radius: 3px;
+    color: inherit;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    transition: background 0.15s;
+}
+.usage-terminal-replay:hover {
+    background: #ffffff12;
+    color: #fff;
+}
+.usage-terminal-replay:focus-visible,
+.usage-art-replay:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+.usage-terminal-body {
+    padding: 17px 13px 16px;
+    font-size: 10px;
+    line-height: 1.6;
+    min-height: 183px;
+}
+.usage-terminal code,
+.usage-help-output {
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace !important;
+    font-size: 10px;
+    letter-spacing: 0;
+}
+.usage-command-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.usage-command-line > span:first-child {
+    color: #c2c9d3;
+}
+.usage-command-line code {
+    display: block;
+    width: 22ch;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #eff0f3;
+}
+.usage-terminal-cursor {
+    width: 5px;
+    height: 12px;
+    background: #bfc4cc;
+}
+.usage-help-output {
+    margin-top: 10px;
+    color: #858c98;
+}
+.usage-help-output > strong {
+    color: #dde2e9;
+    font-size: 10px;
+    font-weight: 400;
+}
+.usage-help-output > span {
+    color: #a2a8b3;
+}
+.usage-help-output > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.usage-help-output > div > span {
+    text-align: left;
+}
+.usage-help-output code {
+    color: #b1c7b8;
+}
+.usage-terminal-ready {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+    color: #c2c9d3;
+}
+.usage-terminal-ready i {
+    width: 5px;
+    height: 12px;
+    background: #bfc4cc;
+}
+.usage-terminal[data-playing='true'] .usage-command-line code {
+    animation: usage-type 1.5s steps(22, end) both;
+}
+.usage-terminal[data-playing='true'] .usage-help-output {
+    animation: usage-output 0.35s 1.65s both;
+}
+.usage-terminal[data-playing='true'] .usage-help-output > div {
+    animation: usage-output 0.2s 1.9s both;
+}
+.usage-terminal[data-playing='true'] .usage-help-output > div:nth-of-type(2) {
+    animation-delay: 2.05s;
+}
+.usage-terminal[data-playing='true'] .usage-help-output > div:nth-of-type(3) {
+    animation-delay: 2.2s;
+}
+.usage-terminal[data-playing='true'] .usage-terminal-ready {
+    animation: usage-output 0.2s 2.4s both;
+}
+.usage-terminal[data-playing='true'] .usage-terminal-cursor {
+    animation: usage-cursor 1.6s steps(1, end) forwards;
+}
+.usage-art-replay {
+    position: absolute;
+    bottom: 18px;
+    right: 22px;
+    color: #a35d6e;
+}
+.dark .usage-art-replay {
+    color: #ecc6cf;
+}
+.usage-art-replay:hover {
+    background: #c3758d20;
+}
+.usage-workflow-art[data-playing='true'] .usage-flow-signal {
+    stroke-dasharray: 1;
+    animation: usage-flow 1.8s ease-in-out both;
+}
+.usage-workflow-art[data-playing='true'] .usage-flow-start {
+    animation: usage-node 0.7s ease-in-out;
+}
+.usage-workflow-art[data-playing='true'] .usage-flow-hub {
+    animation: usage-node 0.7s 0.7s ease-in-out;
+}
+.usage-workflow-art[data-playing='true'] .usage-flow-end {
+    animation: usage-node 0.7s 1.5s ease-in-out;
+}
+@keyframes usage-type {
+    from {
+        width: 0;
+    }
+    to {
+        width: 22ch;
+    }
+}
+@keyframes usage-output {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+@keyframes usage-cursor {
+    0%,
+    30%,
+    60% {
+        opacity: 1;
+    }
+    15%,
+    45%,
+    100% {
+        opacity: 0;
+    }
+}
+@keyframes usage-flow {
+    from {
+        stroke-dashoffset: 1;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+@keyframes usage-node {
+    50% {
+        stroke: #ef6a91;
+        stroke-width: 2.5;
+        fill: #db6b882d;
+    }
+}
+@media (max-width: 600px) {
+    .usage-cli {
+        min-height: 350px;
+    }
+    .usage-terminal {
+        left: 18px;
+        right: 18px;
+    }
+    .usage-embedded {
+        padding-top: 64px;
+        padding-bottom: 64px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .usage-terminal *,
+    .usage-workflow-art * {
+        animation: none !important;
+    }
+}
+
+.usage-terminal-body,
+.usage-terminal code,
+.usage-help-output,
+.usage-help-output code {
+    font-size: 11px;
+}
+.usage-terminal-head {
+    font-size: 10px;
 }

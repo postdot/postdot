@@ -77,3 +77,16 @@ illustration reveal and product surfaces. They apply only to initially below-fol
 content, run once, preserve layout space and respect reduced motion. Existing
 Skills and Mobile artwork is retained. Homepage gallery integration is still a
 separate step.
+
+## Homepage integration — SITE-446
+
+The owner authorized replacing the terminal-led automation section with this
+shared gallery. `UsageGallery` is now reused by the homepage and isolated study;
+`#automation` remains the public navigation target. Gallery headings use h2/h3.
+
+The CLI is a window illustration, not a copyable snippet: monospace throughout,
+window chrome, prompt, finite stepped command entry and delayed help output. No
+copy button or clipboard access remains. Workflow connectors and node emphasis
+replay together on card entry, pointer entry or the accessible replay controls.
+Controls remain mounted while replaying so keyboard focus is preserved. Reduced
+motion shows the completed terminal and workflow without playing the sequence.

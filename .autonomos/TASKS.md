@@ -830,3 +830,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-444 — Refine accepted client-gallery direction with distinct compact artwork, availability tags and purposeful interactions.
 
 - [x] SITE-445 — Refine workflow and CLI artwork, remove decorative status dots, stabilize Studio and vary homepage scroll entrances.
+
+- [x] SITE-446 — Integrate client gallery into the homepage and replace terminal/workflow hover effects with replayable contextual sequences.

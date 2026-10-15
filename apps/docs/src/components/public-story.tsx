@@ -1,44 +1,19 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
 import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
-import { motion, useReducedMotion } from 'motion/react'
 import Link from 'next/link'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicEntrance } from './public-entrance'
 import { PublicScreenshot } from './public-screenshot'
+import { UsageGallery } from './usage-study'
 
 function Scene({ children, className = '' }: { children: ReactNode; className?: string }) {
     return <PublicEntrance className={`home-scene ${className}`}>{children}</PublicEntrance>
 }
-
-const commands = [
-    {
-        value: 'prepare',
-        label: 'Prepare',
-        command: 'bun run postbot posts create --project "$PROJECT_ID" --input post.json --json',
-        description: 'Create a source post and its destination drafts from a JSON file.',
-    },
-    {
-        value: 'inspect',
-        label: 'Inspect',
-        command:
-            'bun run postbot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json',
-        description: 'Read the source, destination draft and execution state before acting.',
-    },
-    {
-        value: 'schedule',
-        label: 'Schedule',
-        command:
-            'bun run postbot publications promote --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --expected-revision 1 --at "$EPOCH_MS" --json',
-        description:
-            'Promote the inspected revision for the chosen time, within the permissions you granted.',
-    },
-]
 
 const questions = [
     {
@@ -83,120 +58,6 @@ const questions = [
     },
 ]
 
-function AgentCommands() {
-    const reduced = useReducedMotion()
-    const [value, setValue] = useState('prepare')
-    const [copied, setCopied] = useState(false)
-    const [copyFailed, setCopyFailed] = useState(false)
-    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-    useEffect(() => () => clearTimeout(timer.current), [])
-    const active = commands.find(command => command.value === value) ?? commands[0]
-    async function copy() {
-        if (!active) return
-        try {
-            await navigator.clipboard.writeText(active.command)
-            setCopyFailed(false)
-            setCopied(true)
-            clearTimeout(timer.current)
-            timer.current = setTimeout(() => setCopied(false), 2000)
-        } catch {
-            setCopyFailed(true)
-            setCopied(false)
-        }
-    }
-    return (
-        <Tabs
-            value={value}
-            onValueChange={next => {
-                setValue(String(next))
-                setCopied(false)
-            }}
-            className="home-agent-terminal">
-            <div className="home-agent-terminal-top">
-                <TabsList className="home-terminal-tabs">
-                    {commands.map(command => (
-                        <TabsTrigger key={command.value} value={command.value}>
-                            {command.label}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-                <Button variant="ghost" className="home-command-copy" onClick={copy}>
-                    {copied ? 'Copied' : 'Copy'}
-                </Button>
-            </div>
-            {commands.map(command => (
-                <TabsContent key={command.value} value={command.value}>
-                    <div className="home-agent-demo">
-                        <div className="home-agent-request">
-                            <span>Your agent · illustrative request</span>
-                            <p>
-                                {command.value === 'prepare'
-                                    ? 'Prepare the weekend ride announcement for X and LinkedIn.'
-                                    : command.value === 'inspect'
-                                      ? 'Read the draft and its destinations before scheduling.'
-                                      : 'Schedule the reviewed revision for Saturday.'}
-                            </p>
-                            <div className="home-agent-step-track" aria-label="Example workflow">
-                                {commands.map((step, index) => (
-                                    <span
-                                        key={step.value}
-                                        data-current={step.value === command.value}>
-                                        {index + 1} <strong>{step.label}</strong>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                        <motion.div
-                            key={command.value}
-                            className="home-agent-result"
-                            initial={{ opacity: reduced ? 1 : 0.6, y: reduced ? 0 : 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: reduced ? 0 : 0.25 }}>
-                            <div className="home-agent-result-title">
-                                <PostbotLogo />
-                                <span>Weekend on the coast</span>
-                            </div>
-                            <span className="home-agent-result-state">
-                                {command.value === 'prepare'
-                                    ? 'Draft created'
-                                    : command.value === 'inspect'
-                                      ? 'Revision 1 · draft'
-                                      : 'Revision 1 · scheduled'}
-                            </span>
-                            <p>Less traffic. More coastline. Our new weekend route is ready.</p>
-                            <div className="home-agent-destinations">
-                                <span>X</span>
-                                <span>LinkedIn</span>
-                            </div>
-                            <small>
-                                {command.value === 'prepare'
-                                    ? 'Nothing has been published.'
-                                    : command.value === 'inspect'
-                                      ? 'Content and execution state are read together.'
-                                      : 'An explicit action, not a side effect of drafting.'}
-                            </small>
-                        </motion.div>
-                    </div>
-                    <pre>
-                        <code>{command.command}</code>
-                    </pre>
-                    <p>{command.description}</p>
-                </TabsContent>
-            ))}
-            <div className="home-agent-terminal-bottom">
-                <span>CLI · source checkout</span>
-                <span aria-live="polite">
-                    {copied
-                        ? 'Command copied'
-                        : copyFailed
-                          ? 'Select the command to copy it manually'
-                          : 'Project roles and key permissions apply'}
-                </span>
-            </div>
-        </Tabs>
-    )
-}
-
 export function PublicStory() {
     return (
         <div className="home-product-story">
@@ -230,32 +91,7 @@ export function PublicStory() {
                     The real Postbot interface, shown with an example project.
                 </p>
             </section>
-            <section id="automation" className="home-automation-chapter">
-                <div className="home-automation-inner">
-                    <PublicEntrance kind="copy" className="home-chapter-heading home-heading-split">
-                        <h2>
-                            Your agents.
-                            <br />
-                            The same workspace.
-                        </h2>
-                        <p>
-                            Use the tools your agents already understand. Postbot exposes the
-                            publication workflow through its CLI and REST API, without handing them
-                            your provider credentials.
-                        </p>
-                    </PublicEntrance>
-                    <Scene>
-                        <AgentCommands />
-                    </Scene>
-                    <div className="home-agent-notes">
-                        <p>Prepare drafts. Inspect state. Schedule a reviewed revision.</p>
-                        <Link href="/docs/automation/">
-                            Explore the automation interface{' '}
-                            <ArrowRightIcon size={18} aria-hidden="true" />
-                        </Link>
-                    </div>
-                </div>
-            </section>
+            <UsageGallery embedded />
             <section id="self-hosting" className="home-chapter home-ownership-chapter">
                 <PublicEntrance kind="copy" className="home-ownership-copy">
                     <h2>
