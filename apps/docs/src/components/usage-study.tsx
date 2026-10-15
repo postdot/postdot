@@ -1,14 +1,13 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
-import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
-import { ChatRoundDotsIcon } from '@solar-icons/react/linear/chat-round-dots'
-import { PenNewRoundIcon } from '@solar-icons/react/linear/pen-new-round'
-import { RestartIcon } from '@solar-icons/react/linear/restart'
-import { motion, useReducedMotion } from 'motion/react'
+import mcp from '@iconify-icons/logos/model-context-protocol-icon'
+import n8n from '@iconify-icons/logos/n8n-icon'
+import { BookBookmarkMinimalisticIcon } from '@solar-icons/react/linear/book-bookmark-minimalistic'
+import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
+import { Smartphone2Icon } from '@solar-icons/react/linear/smartphone-2'
+import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
@@ -16,48 +15,29 @@ import { PublicThemeToggle } from './public-theme-toggle'
 import './public-home.css'
 import './usage-study.css'
 
-const original =
-    'Meet Postbot: an open-source, self-hosted workspace for social publishing. Prepare a post, adapt it for each network, and work directly or with your own agent.'
-const paths = [
-    ['Studio', 'Available'],
-    ['CLI / API', 'Available'],
-    ['MCP', 'Planned'],
-    ['Agent skills', 'For launch'],
-    ['n8n', 'Planned'],
-    ['Mobile', 'Future'],
-]
+function BrandMark({ data }: { data: { width?: number; height?: number; body: string } }) {
+    return (
+        <svg
+            viewBox={`0 0 ${data.width ?? 16} ${data.height ?? 16}`}
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: data.body }}
+        />
+    )
+}
 
 export function UsageStudy() {
-    const [mode, setMode] = useState('agent')
-    const [phase, setPhase] = useState<'ready' | 'preparing' | 'review'>('ready')
-    const [text, setText] = useState(original)
-    const editor = useRef<HTMLTextAreaElement>(null)
-    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+    const stage = useRef<HTMLDivElement>(null)
     const reduced = useReducedMotion()
-    useEffect(() => () => clearTimeout(timer.current), [])
-    function select(value: string) {
-        clearTimeout(timer.current)
-        setPhase('ready')
-        setMode(value)
-    }
-    function prepare() {
-        setPhase('preparing')
-        timer.current = setTimeout(
-            () => {
-                setPhase('ready')
-            },
-            reduced ? 0 : 1050
-        )
-    }
-    function review() {
-        setPhase('review')
-        requestAnimationFrame(() => editor.current?.focus())
-    }
+    const { scrollYProgress } = useScroll({ target: stage, offset: ['start end', 'end start'] })
+    const studioY = useTransform(scrollYProgress, [0, 1], [36, -36])
+    const protocolRotate = useTransform(scrollYProgress, [0, 1], [-12, 12])
+    const workflowX = useTransform(scrollYProgress, [0, 1], [-22, 22])
     return (
         <div className="public-home usage-study">
             <header className="usage-study-nav">
                 <Link href="/" aria-label="Postbot home">
-                    <PostbotLogo /> <span>postbot</span>
+                    <PostbotLogo />
+                    <span>postbot</span>
                 </Link>
                 <span>Section study</span>
                 <PublicThemeToggle />
@@ -65,150 +45,153 @@ export function UsageStudy() {
             <main>
                 <section className="usage-section" aria-labelledby="usage-title">
                     <div className="usage-heading">
+                        <span className="usage-eyebrow">Many ways in. One workspace.</span>
                         <h1 id="usage-title">
-                            Your agent can start it.
+                            Your tools.
                             <br />
-                            You can take it from there.
+                            Your way to publish.
                         </h1>
-                        <p>
-                            Work directly in the Studio, or let your agent prepare the next draft.
-                            It all stays in your workspace.
-                        </p>
+                        <p>Open the Studio. Bring your agent. Connect your workflows.</p>
                     </div>
-                    <Tabs
-                        value={mode}
-                        onValueChange={value => select(String(value))}
-                        className="usage-demo">
-                        <TabsList className="usage-entry" aria-label="Choose a way to work">
-                            <TabsTrigger value="agent">
-                                <ChatRoundDotsIcon size={18} /> Your agent
-                            </TabsTrigger>
-                            <TabsTrigger value="studio">
-                                <PenNewRoundIcon size={18} /> Studio
-                            </TabsTrigger>
-                        </TabsList>
-                        <div className="usage-stage" data-phase={phase}>
-                            <div className="usage-entry-panel">
-                                <TabsContent value="agent" className="usage-tab-panel">
-                                    <div className="usage-request">
-                                        <span className="usage-speaker">You</span>
-                                        <p>
-                                            Prepare a LinkedIn and Bluesky draft introducing
-                                            Postbot. I’ll review it before anything goes live.
-                                        </p>
-                                    </div>
-                                    <div className="usage-response">
-                                        <span className="usage-agent-mark">
-                                            <ChatRoundDotsIcon size={19} />
-                                        </span>
-                                        <div>
-                                            <strong>Your agent</strong>
-                                            <p role="status">
-                                                {phase === 'preparing'
-                                                    ? 'Preparing the draft…'
-                                                    : 'The draft is ready in your workspace.'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        className="usage-review"
-                                        onClick={review}
-                                        disabled={phase === 'preparing'}>
-                                        Review in Studio <ArrowRightIcon size={17} />
-                                    </Button>
-                                    <button
-                                        className="usage-replay"
-                                        onClick={prepare}
-                                        disabled={phase === 'preparing'}>
-                                        <RestartIcon size={14} /> Replay preparation
-                                    </button>
-                                </TabsContent>
-                                <TabsContent value="studio" className="usage-tab-panel">
-                                    <div className="usage-direct-mark">
-                                        <PenNewRoundIcon size={30} />
-                                    </div>
-                                    <h2>
-                                        Your words.
-                                        <br />
-                                        Your next post.
-                                    </h2>
-                                    <p className="usage-direct-copy">
-                                        Start writing, change a detail, or pick up a draft your
-                                        agent prepared.
-                                    </p>
-                                    <Button className="usage-review" onClick={review}>
-                                        Edit the draft <ArrowRightIcon size={17} />
-                                    </Button>
-                                </TabsContent>
-                            </div>
-                            <div className="usage-connection" aria-hidden="true">
-                                <span />
-                                <i />
+                    <div className="usage-gallery" ref={stage}>
+                        <article className="usage-studio">
+                            <div className="usage-caption">
+                                <span className="usage-status">Available</span>
+                                <h2>Studio</h2>
+                                <p>A place to make it yours.</p>
                             </div>
                             <motion.div
-                                className="usage-draft"
-                                initial={false}
-                                animate={{ opacity: phase === 'preparing' ? 0.55 : 1 }}
-                                transition={{ duration: reduced ? 0 : 0.25 }}>
-                                <div className="usage-draft-head">
-                                    <span>
-                                        <PostbotLogo /> Postbot
-                                    </span>
-                                    <span className="usage-draft-state">Draft</span>
+                                className="usage-browser"
+                                style={{ y: reduced ? 0 : studioY }}>
+                                <div className="usage-browser-bar">
+                                    <PostbotLogo />
+                                    <span>postbot / studio</span>
+                                    <i />
+                                    <i />
+                                    <i />
                                 </div>
-                                <div className="usage-draft-body">
-                                    <div
-                                        className="usage-cover"
-                                        aria-label="Postbot introduction artwork">
-                                        <PostbotLogo />
-                                        <span>
-                                            Meet
-                                            <br />
-                                            <strong>postbot.</strong>
-                                        </span>
-                                    </div>
-                                    <label className="sr-only" htmlFor="usage-draft-text">
-                                        Example draft content
-                                    </label>
-                                    <textarea
-                                        ref={editor}
-                                        id="usage-draft-text"
-                                        value={text}
-                                        onChange={event => setText(event.target.value)}
-                                        readOnly={phase !== 'review'}
-                                        spellCheck={false}
+                                <div className="usage-studio-images">
+                                    <img
+                                        className="usage-image-light"
+                                        src="/product/compose-light.webp"
+                                        alt="Postbot Studio: composing a post with an X preview"
+                                        width="1600"
+                                        height="1000"
+                                    />
+                                    <img
+                                        className="usage-image-dark"
+                                        src="/product/compose-dark.webp"
+                                        alt="Postbot Studio: composing a post with an X preview"
+                                        width="1600"
+                                        height="1000"
                                     />
                                 </div>
-                                <div className="usage-draft-foot">
-                                    <span className="usage-destinations">
-                                        <span>LinkedIn</span>
-                                        <span>Bluesky</span>
-                                    </span>
-                                    <span>
-                                        {phase === 'review'
-                                            ? 'Ready for your edits'
-                                            : 'Saved as a draft'}
-                                    </span>
-                                </div>
                             </motion.div>
-                        </div>
-                    </Tabs>
-                    <p className="usage-example-note">
-                        Interactive example · edits stay in this page. Nothing is published.
-                    </p>
-                    <div
-                        className="usage-access"
-                        aria-label="Postbot access surfaces and availability">
-                        <p>More ways into the same workspace.</p>
-                        <ul>
-                            {paths.map(([name, status]) => (
-                                <li key={name} data-current={status === 'Available'}>
-                                    <strong>{name}</strong>
-                                    <span>{status}</span>
-                                </li>
-                            ))}
-                        </ul>
+                            <span className="usage-studio-index" aria-hidden="true">
+                                For the hands-on.
+                            </span>
+                        </article>
+                        <article className="usage-mcp">
+                            <div className="usage-caption">
+                                <span className="usage-status">Planned</span>
+                                <h2>MCP</h2>
+                                <p>Your agent’s way in.</p>
+                            </div>
+                            <motion.div
+                                className="usage-mcp-mark"
+                                style={{ rotate: reduced ? 0 : protocolRotate }}>
+                                <BrandMark data={mcp} />
+                            </motion.div>
+                            <div className="usage-agent-prompt">
+                                <span aria-hidden="true">“</span>Prepare next week’s posts.
+                                <span aria-hidden="true">”</span>
+                            </div>
+                            <span className="usage-medium">Model Context Protocol</span>
+                        </article>
+                        <article className="usage-n8n">
+                            <div className="usage-caption">
+                                <span className="usage-status">Planned</span>
+                                <h2>n8n</h2>
+                                <p>Publishing, in your flow.</p>
+                            </div>
+                            <motion.div
+                                className="usage-workflow"
+                                style={{ x: reduced ? 0 : workflowX }}
+                                aria-hidden="true">
+                                <span className="usage-workflow-source">
+                                    <CodeSquareIcon />
+                                </span>
+                                <span className="usage-workflow-line">
+                                    {!reduced && (
+                                        <motion.i
+                                            initial={{ x: -12, opacity: 0 }}
+                                            whileInView={{ x: [-12, 24], opacity: [0, 1, 0] }}
+                                            viewport={{ amount: 1 }}
+                                            transition={{
+                                                duration: 1.8,
+                                                repeat: Infinity,
+                                                repeatDelay: 0.6,
+                                                ease: 'linear',
+                                            }}
+                                        />
+                                    )}
+                                </span>
+                                <span className="usage-n8n-mark">
+                                    <BrandMark data={n8n} />
+                                </span>
+                                <span className="usage-workflow-line">
+                                    {!reduced && (
+                                        <motion.i
+                                            initial={{ x: -12, opacity: 0 }}
+                                            whileInView={{ x: [-12, 24], opacity: [0, 1, 0] }}
+                                            viewport={{ amount: 1 }}
+                                            transition={{
+                                                duration: 1.8,
+                                                repeat: Infinity,
+                                                repeatDelay: 0.6,
+                                                ease: 'linear',
+                                            }}
+                                        />
+                                    )}
+                                </span>
+                                <span className="usage-workflow-output">
+                                    <PostbotLogo />
+                                </span>
+                            </motion.div>
+                            <span className="usage-medium">Workflow integration</span>
+                        </article>
+                        <article className="usage-cli usage-small">
+                            <CodeSquareIcon className="usage-small-icon" />
+                            <div>
+                                <span className="usage-status">Available</span>
+                                <h2>CLI & API</h2>
+                                <p>Make it part of your toolkit.</p>
+                            </div>
+                            <span className="usage-cli-type" aria-hidden="true">
+                                postbot<span>_</span>
+                            </span>
+                        </article>
+                        <article className="usage-skills usage-small">
+                            <BookBookmarkMinimalisticIcon className="usage-small-icon" />
+                            <div>
+                                <span className="usage-status">Launch target</span>
+                                <h2>Agent skills</h2>
+                                <p>Give your agent the know-how.</p>
+                            </div>
+                        </article>
+                        <article className="usage-mobile usage-small">
+                            <Smartphone2Icon className="usage-small-icon" />
+                            <div>
+                                <span className="usage-status">Future</span>
+                                <h2>Mobile</h2>
+                                <p>Take your workspace with you.</p>
+                            </div>
+                        </article>
                     </div>
+                    <p className="usage-study-note">
+                        Studio and CLI/API exist today. MCP, skills, n8n and mobile show the
+                        direction ahead.
+                    </p>
                 </section>
             </main>
         </div>
