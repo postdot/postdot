@@ -689,19 +689,37 @@ export const activateChannelProfileBody = Type.Object({
     expectedRevision: Type.Optional(Type.Integer({ minimum: 1 })),
 })
 
-export const createPostBody = Type.Object({
-    title: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
-    sourceContent: sourceContentSchema,
-    publications: Type.Array(
-        Type.Object({
-            channelId: Type.String({ minLength: 1 }),
-            targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-            deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
-            scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
-        }),
-        { minItems: 1 }
-    ),
-})
+export const createPostBody = Type.Object(
+    {
+        title: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
+        sourceContent: sourceContentSchema,
+        publications: Type.Array(
+            Type.Object({
+                channelId: Type.String({ minLength: 1 }),
+                targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+                deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
+                scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+            }),
+            { minItems: 1 }
+        ),
+    },
+    {
+        example: {
+            title: 'Friday collection announcement',
+            sourceContent: {
+                body: { text: 'Our new collection arrives on Friday.', format: 'plain_text' },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId: 'REPLACE_WITH_MANUAL_CHANNEL_ID',
+                    deliveryMode: 'manual',
+                    targetContent: { body: 'Our new collection arrives on Friday.', media: [] },
+                },
+            ],
+        },
+    }
+)
 
 export const savePublicationComposerDraftBody = Type.Object({
     expectedRevision: Type.Integer({ minimum: 0 }),

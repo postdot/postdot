@@ -179,6 +179,8 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     operationId: 'createPost',
                     summary: 'Create a source post and its publications',
                     tags: ['Posts'],
+                    description:
+                        'Omitting scheduledAt creates unscheduled destination drafts. API keys need publication:manage; supplying scheduledAt also requires publication:dispatch. Target content must match the chosen channel profile. The examples use placeholder channel IDs that must be replaced.',
                 },
             },
             ({ apiKeyPermissions, authMethod, body, params, status, user }) => {

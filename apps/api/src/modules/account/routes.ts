@@ -120,6 +120,24 @@ export function createAccountRoutes(
                     tags: ['Account'],
                     summary: 'Remove the signed-in user avatar',
                     security: [{ sessionCookie: [] }],
+                    responses: {
+                        '200': {
+                            description: 'Avatar removed; the account has no profile image.',
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        required: ['success'],
+                                        properties: { success: { type: 'boolean', enum: [true] } },
+                                    },
+                                    example: { success: true },
+                                },
+                            },
+                        },
+                        '401': { description: 'An authenticated human session is required.' },
+                        '403': { description: 'The request origin is not allowed.' },
+                        '503': { description: 'Avatar storage is unavailable.' },
+                    },
                 },
             },
             async ({ accountSession, status }) => {
