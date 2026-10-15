@@ -30,6 +30,12 @@ because it helps the task, not because it is available. Keep the reading order
 usable on mobile and without discovering an optional interaction. Use
 [postbot-writing](../postbot-writing/SKILL.md) for content decisions.
 
+### Component selection
+
+See [the installed component guide](references/mdx-components.md) for verified
+exports and authoring choices. A component shown on Fumadocs' own site may be
+custom; confirm availability and registration before using its MDX name.
+
 ## Preserve generated-content boundaries
 
 Installation MDX is projected from canonical operational Markdown. API operation

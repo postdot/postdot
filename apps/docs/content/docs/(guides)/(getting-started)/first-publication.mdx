@@ -37,7 +37,9 @@ prepare drafts and track publications, but you will deliver the content yourself
 
 Open **New publication**, write a short message and choose your channel. For example:
 
-> Our new collection arrives on Friday. Take a look at what we have been working on.
+<Callout title="Example post" icon={false}>
+    Our new collection arrives on Friday. Take a look at what we have been working on.
+</Callout>
 
 Check the destination's content and save a draft without a scheduled time. Use text
 alone for this first attempt so you can leave media requirements for later.
@@ -51,10 +53,11 @@ and packaged agent skills are not available yet.
 
 Then ask your agent:
 
-> Prepare a short announcement that our new collection is available on Friday.
-> Use the connected Bluesky channel in this project. Save an unscheduled draft
-> in Postbot for me to review. Do not schedule or publish it. Return the post
-> and publication IDs.
+<Callout title="Example request to your agent" icon={false}>
+    Prepare a short announcement that our new collection is available on Friday. Use the connected
+    Bluesky channel in this project. Save an unscheduled draft in Postbot for me to review. Do not
+    schedule or publish it. Return the post and publication IDs.
+</Callout>
 
 Send this request to your existing agent. Postbot has no embedded chat. The key's
 permissions prevent scheduling or publication even if the agent attempts it.
@@ -65,9 +68,11 @@ Open **Queue** in the same project and open the draft. Refresh the list if it wa
 already open. Check the text, destination, connected account and absence of a
 scheduled time. You can edit an agent-created draft in the same editor.
 
-If the CLI reported a transport error or an uncertain result, check the queue
-before repeating the creation command. The server may have saved the draft even
-if the response did not reach the client.
+<Callout type="warn" title="Check before retrying">
+    If the CLI reported a transport error or an uncertain result, check the queue before repeating
+    the creation command. The server may have saved the draft even if the response did not reach the
+    client.
+</Callout>
 
 ## 5. Choose when it goes live
 

@@ -50,6 +50,17 @@ Before delivering, read the passage as the intended reader: can they find the
 answer, act without guessing and tell what happened? Cut repeated information;
 retain the facts needed to do the task. A prose score is not evidence of quality.
 
+## Accepted calibration
+
+The owner reviewed the SITE-462 first-publication, Bluesky and concepts pages
+and found their tone and explanation level coherent and well calibrated. Use
+that level of directness and detail as a baseline, not a fixed page template.
+
+Do not use blockquotes as a generic container for notes or example prompts.
+Reserve them for quotations. Inspect native Fumadocs components for labelled
+examples, consequential notes, choices and sequences; presentation is part of
+writing quality. Keep ordinary prose where a component adds no reading value.
+
 ## Evolve without accumulating clutter
 
 When the owner gives a correction, capture its scope and one short example in this
