@@ -1,19 +1,12 @@
 'use client'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
 import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
 import Link from 'next/link'
-import { type ReactNode } from 'react'
 
 import { PublicCapabilities } from './public-capabilities'
 import { PublicEntrance } from './public-entrance'
-import { PublicScreenshot } from './public-screenshot'
 import { UsageGallery } from './usage-study'
-
-function Scene({ children, className = '' }: { children: ReactNode; className?: string }) {
-    return <PublicEntrance className={`home-scene ${className}`}>{children}</PublicEntrance>
-}
 
 const questions = [
     {
@@ -61,36 +54,6 @@ const questions = [
 export function PublicStory() {
     return (
         <div className="home-product-story">
-            <section id="planning" className="home-chapter home-planning-chapter">
-                <PublicEntrance kind="copy" className="home-chapter-heading home-heading-split">
-                    <h2>
-                        See what is going out.
-                        <br />
-                        And what still needs you.
-                    </h2>
-                    <p>
-                        Plan across destinations, then follow each publication. Your calendar and
-                        queue show timing and state from the same workspace.
-                    </p>
-                </PublicEntrance>
-                <Scene>
-                    <Tabs defaultValue="queue" className="home-planning-tabs">
-                        <TabsList className="home-view-tabs" aria-label="Product views">
-                            <TabsTrigger value="queue">Queue</TabsTrigger>
-                            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="calendar">
-                            <PublicScreenshot name="calendar" title="Publication calendar" />
-                        </TabsContent>
-                        <TabsContent value="queue">
-                            <PublicScreenshot name="queue" title="Publication queue" />
-                        </TabsContent>
-                    </Tabs>
-                </Scene>
-                <p className="home-scene-caption">
-                    The real Postbot interface, shown with an example project.
-                </p>
-            </section>
             <UsageGallery embedded />
             <PublicCapabilities />
             <section

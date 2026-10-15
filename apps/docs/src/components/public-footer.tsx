@@ -19,7 +19,7 @@ export function PublicFooter() {
                     <div>
                         <h2>Postbot</h2>
                         <Link href="/#product">Studio</Link>
-                        <Link href="/#planning">Planning</Link>
+                        <Link href="/#studio-tour">Studio tour</Link>
                         <Link href="/#automation">For agents</Link>
                         <Link href="/#questions">Questions</Link>
                     </div>

@@ -1,0 +1,178 @@
+/* Three views, at most one additional viewport of native scroll. */
+.public-home .home-hero {
+    overflow: clip;
+}
+.home-hero .home-product-scene.home-studio-tour {
+    height: 184svh;
+    padding: 24px max(24px, calc((100vw - 1200px)/2)) 40px;
+    margin: 0;
+    position: relative;
+}
+.home-tour-sticky {
+    position: sticky;
+    top: 88px;
+    width: min(100%, 1200px, calc((100svh - 200px)*1.44));
+    margin: auto;
+}
+.home-studio-tour .home-tour-images {
+    position: relative;
+    aspect-ratio: 1440/1000;
+    width: 100%;
+    background: var(--home-card);
+    isolation: isolate;
+}
+.home-tour-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    pointer-events: none;
+}
+.home-tour-slide[data-active='true'] {
+    opacity: 1;
+    z-index: 1;
+}
+.home-tour-slide .home-shot {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.home-tour-caption {
+    padding-top: 16px;
+    color: var(--home-ink);
+}
+.home-tour-navigation {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.home-tour-navigation button {
+    position: relative;
+    font:
+        500 12px/1.4 'Host Grotesk',
+        sans-serif;
+    padding: 8px 13px;
+    color: var(--home-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+    cursor: pointer;
+    transition:
+        color 0.15s,
+        background 0.15s;
+}
+.home-tour-navigation button[aria-pressed='true'] {
+    color: var(--home-ink);
+    background: var(--home-card);
+}
+.home-tour-navigation button::after {
+    content: '';
+    position: absolute;
+    height: 2px;
+    left: 13px;
+    right: 13px;
+    bottom: 2px;
+    background: var(--home-blue);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+}
+.home-tour-navigation button[aria-pressed='true']::after {
+    transform: scaleX(1);
+}
+.home-tour-navigation button:hover {
+    color: var(--home-ink);
+}
+.home-tour-skip {
+    font-size: 11px;
+    margin-left: auto;
+    color: var(--home-muted);
+    padding: 8px 0 8px 12px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.home-tour-caption > p {
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 8px 0 0 13px;
+    min-height: 36px;
+    max-width: 500px;
+}
+@media (max-width: 900px), (max-height: 699px), (prefers-reduced-motion: reduce) {
+    .home-hero .home-product-scene.home-studio-tour {
+        height: auto;
+        padding-bottom: 64px;
+    }
+    .home-tour-sticky {
+        position: relative;
+        top: auto;
+        width: 100%;
+    }
+    .home-studio-tour .home-tour-images {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+        scrollbar-color: var(--home-edge) transparent;
+        touch-action: auto;
+        aspect-ratio: auto;
+    }
+    .home-tour-slide {
+        position: relative;
+        inset: auto;
+        flex: 0 0 100%;
+        min-width: 0;
+        aspect-ratio: 1440/1000;
+        opacity: 1;
+        pointer-events: auto;
+        scroll-snap-align: start;
+        transition: none;
+    }
+    .home-tour-skip {
+        display: none;
+    }
+}
+@media (max-width: 600px) {
+    .home-hero .home-product-scene.home-studio-tour {
+        padding: 20px 20px 48px;
+    }
+    .home-tour-caption {
+        padding-top: 12px;
+    }
+    .home-tour-caption > p {
+        font-size: 11px;
+        margin-left: 8px;
+    }
+    .home-tour-navigation button {
+        padding-inline: 10px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-tour-navigation button,
+    .home-tour-navigation button::after {
+        transition: none;
+    }
+}
+
+.home-tour-sticky {
+    border-radius: 3px;
+    box-shadow: 0 28px 60px rgb(0 0 0 / 20%);
+}
+.home-studio-tour .home-product-window {
+    border-radius: 3px 3px 0 0;
+    box-shadow: none;
+}
+.home-tour-caption {
+    background: var(--home-card);
+    border-top: 1px solid var(--home-edge);
+    padding: 10px 12px 12px;
+    border-radius: 0 0 3px 3px;
+}
+.home-tour-navigation button[aria-pressed='true'] {
+    background: var(--home-bg);
+}
+@media (max-width: 600px) {
+    .home-tour-caption {
+        padding: 8px 6px 6px;
+    }
+}

@@ -129,7 +129,11 @@ export function PublicMaterial({
         }
         const resize = new ResizeObserver(() => {
             const rect = node.getBoundingClientRect()
-            const ratio = Math.min(1, 1400 / Math.max(rect.width, 1))
+            const ratio = Math.min(
+                1,
+                1400 / Math.max(rect.width, 1),
+                1600 / Math.max(rect.height, 1)
+            )
             node.width = Math.max(1, Math.round(rect.width * ratio))
             node.height = Math.max(1, Math.round(rect.height * ratio))
             const scene = node.closest<HTMLElement>('.home-hero, .home-error-main')

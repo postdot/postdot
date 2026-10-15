@@ -35,7 +35,7 @@ export function PublicDestinations() {
         return () => document.removeEventListener('visibilitychange', update)
     }, [])
     return (
-        <div className="home-connections" aria-label="Social network integrations">
+        <div id="networks" className="home-connections" aria-label="Social network integrations">
             <p className="home-connections-caption">Connect your networks.</p>
             <div
                 ref={ref}
