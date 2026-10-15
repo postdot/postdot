@@ -818,3 +818,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-438 — Finish accepted illustration rhythm and small-screen legibility without changing the composition or homepage.
 
 - [x] SITE-439 — Integrate owner-approved distribution study using the finished palette, motion and static first frame.
+
+- [x] SITE-440 — Capture owner-directed public narrative and future-client/deployment roadmap as prioritized issues, preserving current versus planned status.

@@ -879,6 +879,14 @@ exists` error. At the same time, the Vite development proxy always targets port
   a deferral, not a permanent rejection. Do not create an implementation task
   until the owner reopens this scope.
 
+- Owner direction (2026-10-15): Humans and external agents are first-class audiences
+  from launch. Present MCP as a planned access surface alongside Studio, CLI and
+  API; do not imply it is already shipped. Priority: high, with launch inclusion
+  to assess after the existing stability deferral. This intake does not authorize
+  implementing the server or silently lift the prior stability prerequisite.
+- Related: ISSUE-157 (public narrative), ISSUE-158 (launch agent skills),
+  ISSUE-163 (client workflow coverage).
+
 ## [ISSUE-037] Add reusable built-in channel profile presets
 
 - Type: proposal
@@ -4132,3 +4140,90 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: WEB-312 (completed), WEB-313 (completed), WEB-314 (proposal), WEB-315 (implementation), WEB-316 (hardening)
 - Resolution: diagnosis delivered with two-session browser evidence and deterministic stream tests. Server protection is immediate and complete; the stream announces access loss within one heartbeat and is silent on a role narrowing; refused refetches empty the list surfaces and a navigation drops the project entirely, but the project identity, the cached editor role and the open editable publication survive because a refused refetch cannot replace the last successful data. Unsaved local work is preserved by the existing recovery buffer. No behavior was changed. The proposed correction removes project-scoped caches on the existing signal without purging the client, and leaves copy, disposition of local work, stay-or-navigate, and role-change announcement as owner decisions.
 - Follow-up: WEB-313 qualifies that cache removal as unproved. Router-loader snapshots, context fallbacks, scheduled refreshes, raw in-flight writes, autosave timers, and local buffers can survive it, while `access-revoked` conflates genuine revocation with authorization-control failure. WEB-313 instead models an unverified-access interaction state, without deciding transport, copy, navigation, retention, or announcement policy.
+
+## [ISSUE-157] Structure the public site around usage, core capabilities and self-hosting
+
+- Type: proposal
+- Status: open
+- Priority: high — next public-site design work
+- Evidence: The owner wants the site to establish humans and agents as equal audiences from day one. A separate scheduling illustration would repeat the shared-post distribution story. Current automation presentation is dominated by CLI details, while core capabilities and deployment options lack a coherent hierarchy.
+- Impact: Visitors may mistake Postbot for a technical CLI utility or fail to understand its access surfaces and operational depth.
+- Desired outcome: A visual usage section shows existing and planned access paths to the same workspace, with no false availability claims; a distinct core-capability section groups scheduling, image/video media, local/S3 storage, access administration, built-in/manual/custom channels, workspaces/projects and interface languages. A concise technical/open-source/self-hosting section leads to verified guides and supported image artifacts. Scheduling may enrich the existing publication story rather than receive a redundant standalone chapter. Layout, animation and final copy remain proposals, not approved card grid/carousel choices.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+## [ISSUE-158] Provide agent skills for the first public launch
+
+- Type: proposal
+- Status: open
+- Priority: high — explicit launch requirement, after workflow stabilization
+- Evidence: The owner intends agent skills to be available for the first launch, but has deliberately delayed authoring until the first version is stable enough to avoid repeated rewrites. A CLI and API exist; launch-facing agent skills are not established in the current repository.
+- Impact: Agents may use valid endpoints without understanding review, permissions, destination differences or the boundary between draft creation and publication.
+- Desired outcome: Versioned, discoverable agent guidance covers the stable supported workflows and safe effect boundaries, validated with representative natural-language requests. The owner launch requirement is retained without beginning authoring before stability. Target harnesses, skill distribution and evaluation scope remain to be selected.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+## [ISSUE-159] Establish a supported n8n integration path
+
+- Type: proposal
+- Status: open
+- Priority: medium — after core access surfaces stabilize
+- Evidence: The owner named n8n among intended ways to use Postbot. The API can be called programmatically, but that alone does not establish a tested n8n experience or an official node.
+- Impact: Promoting an integration without a documented, reproducible workflow would shift authentication, error and publication semantics onto users.
+- Desired outcome: Users can connect and run representative Postbot workflows from n8n with explicit permissions, outcomes and documentation. Determine whether documented HTTP workflows, a native node or another route is warranted; do not select a package or promise a native node at intake.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+## [ISSUE-160] Explore a mobile Postbot client
+
+- Type: proposal
+- Status: open
+- Priority: later — exploratory, not a first-launch commitment
+- Evidence: The owner envisages a future mobile client alongside Studio and machine-facing tools. No dedicated mobile app workspace exists; the responsive website is not a shipped mobile application.
+- Impact: Future marketing could overstate availability or a mobile implementation could duplicate domain behavior without a clear user need.
+- Desired outcome: Define the mobile audience, high-value workflows, platforms and access boundaries before choosing delivery technology. Keep mobile visibly future-facing until implemented and validated; this issue does not authorize building an app.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+## [ISSUE-161] Broaden documented self-hosting paths without implying unverified support
+
+- Type: proposal
+- Status: open
+- Priority: medium — Docker/Compose first; orchestrators considered separately
+- Evidence: The owner wants quick-start guides and resources for Docker, Compose, potentially Swarm, Kubernetes, Helm and other relevant hosts. Dockerfile and Compose files already exist; no Swarm/Kubernetes/Helm deliverables were found in the current repository. Release policy already targets GHCR and linux/amd64 plus linux/arm64 under RELEASE-303.
+- Impact: A long list of deployment logos could misrepresent supported installation paths and dilute the lightweight single-service starting point.
+- Desired outcome: Provide a concise Docker/Compose default, then independently scoped, exercised operator guides for justified additional environments. Helm is a possibility, not a selected architecture or launch requirement. Documentation points to public versioned AMD64/ARM64 artifacts only after acceptance and publication. Preserve the single-service/local-storage baseline; optional S3 and orchestrators must not become prerequisites. Public release remains separately authorized.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+- Related work: RELEASE-303 remains the active image-release task. Do not duplicate it or treat this issue as authorization to publish.
+
+## [ISSUE-162] Expand interface language coverage beyond English and French
+
+- Type: proposal
+- Status: open
+- Priority: medium — staged after the existing language foundation
+- Evidence: The owner wants broader international accessibility. Paraglide currently declares en and fr; the localization foundation tracked by ISSUE-049 is resolved, while additional languages and their quality/maintenance process remain future work.
+- Impact: Advertising multi-language support broadly could imply catalogs that do not exist, while adding catalogs without translation and delivery checks could degrade quality or loading behavior.
+- Desired outcome: Prioritize additional locales with translation ownership, fallback and formatting checks, and evidence of their delivered-page/bundle cost. Distinguish interface locale from publication content language and public-site localization. Do not reopen the already completed foundation or promise a language count.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+
+## [ISSUE-163] Define intentional workflow coverage across Postbot clients
+
+- Type: proposal
+- Status: open
+- Priority: medium — before expanding client promises
+- Evidence: Studio, API and CLI exist, while MCP, agent skills, n8n and mobile have different readiness and audience roles. The existing docs/capability-evidence.md records partial CLI coverage, including administration. The owner wants these surfaces to feel like ways to use one product, not disconnected products.
+- Impact: An undifferentiated list of client logos could imply equal availability or full parity, while new clients might reimplement domain rules.
+- Desired outcome: Maintain a workflow-oriented coverage map for human and programmatic clients; identify actual gaps, intentionally unsupported operations and planned surfaces. Separate a direct client (Studio/mobile), an access protocol/interface (API/CLI/MCP), orchestration (n8n) and agent guidance (skills). Preserve shared permissions, project ownership, revisions and effect boundaries; do not require every client to implement every screen.
+- Tasks: none — recorded for triage; no implementation authorized by intake
+- Source: owner direction, 2026-10-15; public-site planning captured in
+  [public positioning](../docs/project/public-positioning.md).
+- Related evidence: [client coverage](../docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
