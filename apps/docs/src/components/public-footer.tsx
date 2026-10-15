@@ -21,6 +21,7 @@ export function PublicFooter() {
                         <Link href="/#product">Studio</Link>
                         <Link href="/#planning">Planning</Link>
                         <Link href="/#automation">For agents</Link>
+                        <Link href="/#questions">Questions</Link>
                     </div>
                     <div>
                         <h2>Guides</h2>

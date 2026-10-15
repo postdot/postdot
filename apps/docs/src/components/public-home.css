@@ -461,15 +461,17 @@
     display: grid;
     grid-template-columns: 0.7fr 1.3fr;
     gap: 96px;
-    padding-top: 160px;
-    padding-bottom: 160px;
+    max-width: 1360px;
+    padding-top: 24px;
+    padding-bottom: 100px;
+    scroll-margin-top: 110px;
 }
-.home-questions > h2 {
+.home-questions-intro h2 {
     font-size: 32px;
     font-weight: 500;
     line-height: 1.2;
     letter-spacing: -0.025em;
-    margin: 12px 0 0;
+    margin: 6px 0 0;
 }
 .home-faq {
     background: transparent;
@@ -1695,5 +1697,195 @@
     }
     .home-connections-marquee {
         mask-image: none;
+    }
+}
+
+/* The closing section shares the feature grid's content edge. */
+.home-questions-intro {
+    align-self: start;
+}
+.home-questions-intro h2 {
+    font-size: 32px;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    margin: 6px 0 0;
+}
+.home-questions-guides {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 32px;
+    width: fit-content;
+}
+.home-questions-guides a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--home-muted);
+    min-height: 28px;
+}
+.home-questions-guides a svg {
+    transition:
+        transform 0.2s,
+        color 0.2s;
+}
+.home-questions-guides a:hover {
+    color: var(--home-ink);
+}
+.home-questions-guides a:hover svg {
+    transform: translateX(3px);
+}
+.home-questions-guides a:focus-visible {
+    outline: 2px solid var(--home-blue);
+    outline-offset: 5px;
+    border-radius: 2px;
+}
+.home-faq-item {
+    border-top: 0;
+    border-bottom: 1px solid var(--home-edge);
+}
+.home-faq-item:first-child {
+    border-top: 1px solid var(--home-edge);
+}
+.home-faq button {
+    min-height: 54px;
+    padding: 14px 0;
+    gap: 24px;
+    text-align: left;
+    transition: color 0.15s;
+}
+.home-faq button:hover {
+    color: var(--home-blue);
+}
+.home-faq button:focus-visible {
+    outline: 2px solid var(--home-blue);
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+.home-faq [role='region'] {
+    line-height: 1.7;
+    font-size: 14px;
+}
+.home-faq [role='region'] > div {
+    padding: 0 34px 20px 0;
+    max-width: 660px;
+}
+.home-footer {
+    padding-inline: max(40px, calc((100vw - 1280px)/2));
+    padding-top: 64px;
+}
+.home-footer-nav > div {
+    gap: 16px;
+}
+.home-footer-nav h2 {
+    font-size: 12px;
+    margin-bottom: 7px;
+}
+.home-footer-nav a,
+.home-footer-social-unavailable {
+    line-height: 1.5;
+}
+.home-footer-nav a {
+    text-decoration: none;
+    transition:
+        color 0.15s,
+        text-decoration-color 0.15s;
+}
+.home-footer-nav a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+}
+.home-footer-bottom {
+    padding-top: 26px;
+    margin-top: 40px;
+    border-top: 1px solid #ffffff26;
+    gap: 20px;
+}
+.home-footer-signature {
+    margin-top: 56px;
+}
+@media (max-width: 800px) {
+    .home-questions {
+        padding-top: 12px;
+        padding-bottom: 72px;
+        gap: 30px;
+    }
+    .home-questions-intro {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+    }
+    .home-questions-guides {
+        margin-top: 2px;
+        gap: 10px;
+    }
+    .home-footer-content {
+        gap: 40px;
+    }
+}
+@media (max-width: 600px) {
+    .home-questions {
+        padding-inline: 20px;
+        padding-top: 0;
+        padding-bottom: 64px;
+    }
+    .home-questions-intro {
+        display: block;
+    }
+    .home-questions-intro h2 {
+        font-size: 28px;
+    }
+    .home-questions-intro h2 br {
+        display: none;
+    }
+    .home-questions-guides {
+        margin-top: 22px;
+        gap: 6px;
+    }
+    .home-faq button {
+        font-size: 15px;
+        min-height: 52px;
+        padding-block: 13px;
+    }
+    .home-faq [role='region'] {
+        font-size: 13px;
+    }
+    .home-footer {
+        padding-inline: 20px;
+        padding-top: 40px;
+    }
+    .home-footer-content {
+        gap: 30px;
+    }
+    .home-footer-bottom {
+        margin-top: 28px;
+        padding-top: 22px;
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+    .home-footer-signature {
+        margin-top: 36px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-questions-guides a svg {
+        transition: none;
+    }
+    .home-questions-guides a:hover svg {
+        transform: none;
+    }
+}
+
+.home-questions-intro h2 {
+    max-width: 280px;
+}
+@media (max-width: 600px) {
+    .home-questions-intro h2 {
+        max-width: none;
     }
 }

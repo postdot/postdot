@@ -1,7 +1,9 @@
 'use client'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
+import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
+import Link from 'next/link'
 import { type ReactNode } from 'react'
 
 import { PublicCapabilities } from './public-capabilities'
@@ -91,8 +93,23 @@ export function PublicStory() {
             </section>
             <UsageGallery embedded />
             <PublicCapabilities />
-            <section className="home-chapter home-questions">
-                <h2>About running Postbot</h2>
+            <section
+                id="questions"
+                className="home-chapter home-questions"
+                aria-labelledby="questions-title">
+                <PublicEntrance kind="copy" className="home-questions-intro">
+                    <h2 id="questions-title">About running Postbot.</h2>
+                    <nav className="home-questions-guides" aria-label="Get started with Postbot">
+                        <Link href="/docs/installation/">
+                            Installation guide
+                            <ArrowRightIcon size={17} aria-hidden="true" />
+                        </Link>
+                        <Link href="/docs/automation/">
+                            API & automation
+                            <ArrowRightIcon size={17} aria-hidden="true" />
+                        </Link>
+                    </nav>
+                </PublicEntrance>
                 <FAQ className="home-faq" multiple>
                     {questions.map((question, index) => (
                         <FAQItem
