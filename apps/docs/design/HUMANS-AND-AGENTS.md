@@ -126,3 +126,18 @@ Next deliverable: one complete, isolated section prototype using this handoff,
 with actual component styling and one resolved example asset. Do not replace the
 current live automation section or build further scenes in the same pass. The
 owner can judge a finished section proposal rather than an empty wireframe.
+
+## Prototype delivered — SITE-442
+
+Review route: `/usage-study/`, independent of the homepage. The shared draft is
+an illustrative Postbot introduction, using the existing brand mark as its cover
+rather than an unrelated invented collection asset. Studio and agent tabs keep
+the same local content. Review/Edit enables the actual textarea; switching modes
+or replaying preparation preserves edits. Timed preparation only demonstrates
+the handoff; it does not call an LLM, API, publisher or external service.
+
+The availability strip names Studio, CLI/API, MCP, skills, n8n and mobile. Labels
+distinguish available, launch intent, planned and future. This is a section
+proposal, not proof of the future integrations. Native Base UI tabs/buttons, Solar
+icons, existing typography/palette and bounded Motion are used. Headline and
+layout remain reviewable, not adopted public messaging.
