@@ -1,32 +1,47 @@
 ---
 title: Posts and destinations
-description: One shared source. Independent publications.
+description: How shared content, destination adaptations and delivery fit together.
 ---
 
-## Post
+A collection announcement might need a short Bluesky message and a longer LinkedIn
+post. In Postbot, they can share a source while keeping their own content and
+publication dates.
 
-A post holds the shared source: title, text and media. You can update the source
-without rewriting destination adaptations or changing past publications.
+## One post, several publications
 
-## Publication
+The **post** holds the shared source: its title, text and media. Each destination
+gets a **publication** with its own adaptation, schedule and execution history.
 
-Each destination has its own publication, draft, schedule and execution history.
-A LinkedIn adaptation and a Bluesky adaptation can come from the same post while
-carrying different text and media.
+| Item                 | Collection announcement example                      |
+| -------------------- | ---------------------------------------------------- |
+| Post                 | The announcement's shared text and images            |
+| Bluesky publication  | A short message scheduled for Friday morning         |
+| LinkedIn publication | A longer introduction scheduled for Friday afternoon |
 
-Applying a source update to a destination is an explicit review action. Saving the
-source does not propagate changes automatically or publish anything.
+Editing the source does not overwrite destination adaptations or past
+publications. Applying a source update to an existing destination requires an
+explicit review action. Saving the source sends nothing.
 
-## Channel and publisher
+You can also add a destination to an existing post. The new destination starts as
+a draft from the saved source; existing publications stay unchanged.
 
-A channel describes a destination and its content requirements. A connected
-publisher enables automated delivery. A manual channel works without one.
+## Where channels and publishers fit
 
-Channel connections belong to the project, rather than the member who connected
-them. Access to the project and permission to edit remain separate decisions.
+A **channel** describes the destination and its content requirements. A connected
+**publisher** supplies the connection for automated delivery. A manual channel has
+no publisher: you deliver the content yourself and record the result in Postbot.
 
-## Delivery state
+These connections belong to the project, rather than the person who connected
+them. Project access and permission to edit determine what a member can do.
 
-Draft, scheduled, published and failed are different states. An ambiguous outcome
-means the provider result is uncertain; check it before deciding to retry. A saved
-editor state does not mean the destination has been published.
+## A saved draft is not a delivery result
+
+A publication can be a draft, be scheduled for delivery, or have a published or
+failed result. Check its delivery state rather than assuming that saving content
+or reaching the scheduled time means the destination received it.
+
+An ambiguous outcome means the provider result is uncertain. Check what happened
+before retrying, since another attempt could send the content twice.
+
+Follow [your first publication](/docs/first-publication/) to try this workflow in
+Studio, or [connect a provider](/docs/providers/) to set up a destination.

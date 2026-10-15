@@ -862,3 +862,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-460 — Align Discord connection OpenAPI authentication with its existing human-session requirement.
 
 - [x] SITE-461 — Install existing writing skills and establish small evolving Postbot writing and Fumadocs skills grounded in selected documentation examples.
+
+- [x] SITE-462 — Apply the writing guidance to the first-publication lesson, Bluesky connection guide and post concepts explanation.

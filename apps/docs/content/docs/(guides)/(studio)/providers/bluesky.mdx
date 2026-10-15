@@ -3,14 +3,21 @@ title: Bluesky
 description: Connect a Bluesky account using local loopback or public HTTPS OAuth.
 ---
 
-You need a Bluesky account and a Bluesky channel in your project. An installation
-administrator configures the OAuth application; an editor connects the account.
-Postbot uses OAuth rather than asking you to paste your account password.
+Connect your Bluesky account through OAuth; you do not need to give Postbot your
+account password.
 
-## Choose the deployment mode
+You need a Bluesky channel in your project and permission to edit it. An installation
+administrator must first configure and activate an OAuth application. If that is
+already done, go to [authorize your account](#authorize-your-account).
 
-For a browser and Postbot running on the **same machine**, configure a Bluesky OAuth
-application in **Local loopback** mode. Leave **Client metadata URL** empty. Use
+## Configure the installation
+
+Choose the mode that matches where Postbot runs. This setup belongs to the
+installation administrator; editors can then use it to connect their channels.
+
+### Browser and server on the same machine
+
+Configure a Bluesky OAuth application in **Local loopback** mode. Leave **Client metadata URL** empty. Use
 `127.0.0.1` consistently for Postbot's origin and the address opened in the browser.
 The default local Docker address is `http://127.0.0.1:3000`.
 
@@ -20,8 +27,10 @@ Do not switch between `localhost` and `127.0.0.1` during authorization: the Post
 session is tied to its host. A remote server opened from your laptop is not this
 local-loopback arrangement.
 
-For **remote access**, configure the instance's canonical HTTPS origin and select
-**Public HTTPS**. A typical deployment uses:
+### Remote access over HTTPS
+
+Configure the instance's canonical HTTPS origin and select **Public HTTPS**.
+A typical deployment uses:
 
 ```text
 Client metadata URL: https://postbot.example/oauth/bluesky/client-metadata.json
@@ -49,8 +58,8 @@ application before connecting a channel.
   the flow, including reverse-proxy configuration.
 - Authorization was declined, expired or already used: start again from the channel.
 
-Save a short text draft before adding media. Images and videos have distinct
-constraints, which Studio checks for the selected profile.
+Once connected, follow [your first publication](/docs/first-publication/) to save a
+text draft. Studio checks image and video constraints when you add media.
 
 See the [Bluesky OAuth documentation](https://bsky.network/docs/oauth-client/) for
 the underlying protocol, and [installation](/docs/installation/) for origin setup.
