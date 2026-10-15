@@ -844,3 +844,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-451 — Harmonize the feature-to-FAQ rhythm and footer alignment while preserving accepted animated material.
 
 - [x] SITE-452 — Consolidate Studio screenshots into a short native-scroll hero tour with manual and reduced-motion alternatives.
+
+- [x] SITE-453 — Center complete Studio slides, reveal first caption on scroll and replace tabs with clear transitions.
