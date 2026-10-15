@@ -22,6 +22,11 @@ describe('isolated OpenAPI export', () => {
                 'createPost'
             )
             expect(first.paths['/api/projects/{projectId}/media/uploads']?.post).toBeDefined()
+            expect(
+                first.paths[
+                    '/api/projects/{projectId}/channels/{channelId}/publisher/discord/connect'
+                ]?.post?.security
+            ).toEqual([{ sessionCookie: [] }])
             expect(first.paths['/health']?.get?.security).toEqual([])
             expect(first.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(first.paths['/api/account/avatar']?.delete?.security).toEqual([

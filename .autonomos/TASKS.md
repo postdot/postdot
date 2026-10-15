@@ -858,3 +858,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-458 — Add provider-specific connection guides for the six implemented networks and organize their navigation.
 
 - [x] SITE-459 — Check internal links, fragment targets and downloads in the static export, then capture the next bounded work options.
+
+- [x] SITE-460 — Align Discord connection OpenAPI authentication with its existing human-session requirement.

@@ -10,7 +10,7 @@ import {
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
-import type { AuthenticatedElysia } from '../../../plugins/auth'
+import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { discordConnectionBody, discordConnectionResponse, errorResponse } from '../models'
@@ -49,6 +49,7 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 operationId: 'createDiscordPublisherConnection',
                 summary: 'Create a Discord publisher connection',
                 tags: ['Channels'],
+                security: sessionSecurity,
             },
         },
         async ({ authMethod, body, params, status, user }) => {
