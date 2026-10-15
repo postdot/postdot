@@ -871,3 +871,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-465 — Export static Markdown and LLM indexes with native documentation page actions.
 
 - [x] SITE-466 — Document the media import, reuse, preview and deletion workflow against implemented behavior.
+
+- [x] SITE-467 — Turn the Guides overview into a concise task-oriented entry point using native navigation cards.

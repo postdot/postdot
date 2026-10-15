@@ -1,23 +1,34 @@
 ---
 title: Guides
-description: Your publication workflow, on your infrastructure.
+description: Prepare, review and publish from Studio or with your agent.
 ---
 
-Postbot brings a shared source post and its destination publications into one
-workspace. Adapt the content for each channel, schedule automated delivery, or
-track the work you publish manually.
+Use these guides to work in a Postbot project. If your installation is not ready,
+start with [self-hosting](/docs/installation/). Otherwise, open Studio and choose
+the task you need.
 
-Start with [installation](/docs/installation/), then create your
-[first publication](/docs/first-publication/).
+## Work with publications
 
-## Use Studio
+<Cards>
+    <Card title="Your first publication" href="/docs/first-publication/">
+        Create a draft in Studio or with your agent, review it and choose when it goes live.
+    </Card>
+    <Card title="Connect a network" href="/docs/providers/">
+        Set up your publishing account and check the requirements for each provider.
+    </Card>
+    <Card title="Posts and destinations" href="/docs/concepts/">
+        Understand how one source supports separate content and schedules for each destination.
+    </Card>
+    <Card title="Add images and videos" href="/docs/media/">
+        Import files, attach them to a publication and manage their use in the project.
+    </Card>
+</Cards>
 
-- [Posts and destinations](/docs/concepts/) explains shared content and independent versions.
-- [Provider connections](/docs/providers/) covers connected channels and authorization.
-- [Media](/docs/media/) explains originals and lightweight previews.
-
-## Other documentation spaces
+## Install, integrate or develop
 
 - [Self-hosting](/docs/self-hosting/) covers installation, storage, backups and updates.
-- [Development](/docs/development/) covers clients, integrations and the codebase.
-- [API reference](/docs/reference/) points to your instance's OpenAPI contract and authentication rules.
+- [Development](/docs/development/) covers the CLI, automation and the codebase.
+- [API reference](/docs/reference/) documents HTTP operations, request formats and authentication.
+
+To give your existing agent access, follow the
+[draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review).
