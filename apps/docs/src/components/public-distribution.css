@@ -1,0 +1,119 @@
+.home-distribution {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    align-items: center;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 100px 40px 0;
+}
+.home-distribution h2 {
+    margin: 0;
+    font-size: 32px;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+}
+.home-distribution p {
+    margin: 24px 0 0;
+    max-width: 360px;
+    color: var(--home-muted);
+    font-size: 16px;
+    line-height: 1.6;
+}
+.distribution-art {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 640/390;
+    --face: #fff;
+    --edge: #bcbcbc;
+    --ink: #777;
+    --blue: #2457d6;
+    --wash: #e8efff;
+    color: #1c1c1c;
+}
+.dark .distribution-art {
+    --face: #202020;
+    --edge: #575757;
+    --ink: #aaa;
+    --blue: #94b5ff;
+    --wash: #26334e;
+    color: #f4f4f4;
+}
+.distribution-art .distribution-still,
+.distribution-live {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.distribution-live > svg {
+    width: 100%;
+    height: 100%;
+}
+.distribution-art .distribution-live {
+    visibility: hidden;
+}
+.distribution-art[data-ready='true'] .distribution-live {
+    visibility: visible;
+}
+.distribution-art[data-ready='true'] .distribution-still {
+    visibility: hidden;
+}
+.distribution-art .sil {
+    fill: var(--face);
+    stroke: var(--edge);
+    stroke-width: 0.65;
+    stroke-linejoin: round;
+}
+.distribution-art .crease {
+    fill: none;
+    stroke: var(--edge);
+    stroke-width: 0.45;
+    opacity: 0.65;
+}
+.distribution-art .rule {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    opacity: 0.5;
+}
+.distribution-art .image {
+    fill: var(--wash);
+    stroke: none;
+}
+.distribution-art .accent {
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.distribution-art .connector {
+    fill: none;
+    stroke: var(--edge);
+    stroke-width: 0.8;
+}
+.distribution-art .pulse {
+    fill: var(--blue);
+    stroke: none;
+}
+@media (max-width: 800px) {
+    .home-distribution {
+        grid-template-columns: 1fr;
+        padding: 72px 22px 0;
+        gap: 32px;
+    }
+    .home-distribution h2 {
+        font-size: 28px;
+    }
+    .home-distribution p {
+        max-width: 440px;
+    }
+    .distribution-art {
+        max-width: 640px;
+        margin: 0 auto;
+    }
+}

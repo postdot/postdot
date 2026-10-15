@@ -3,8 +3,9 @@ import { sceneAt, spreadAt } from './scene.js'
 import { HL } from './vendor/hairline/kernel.js'
 
 const { mk, solid, put, register, reducedMotion } = HL
-function mount(stage) {
+export function mountFigure(stage) {
     const svg = stage.querySelector('svg')
+    svg.replaceChildren()
     const routes = mk('g', {}, svg)
     const root = mk('g', {}, svg)
     const makePlate = () => {
@@ -76,7 +77,8 @@ function mount(stage) {
     const destroy = () => {
         board.unregister()
         document.removeEventListener('visibilitychange', wake)
+        window.removeEventListener('pagehide', destroy)
+        svg.replaceChildren()
     }
-    window.addEventListener('pagehide', destroy, { once: true })
+    return destroy
 }
-for (const stage of document.querySelectorAll('.view')) mount(stage)
