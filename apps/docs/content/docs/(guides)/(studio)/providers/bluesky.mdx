@@ -1,0 +1,56 @@
+---
+title: Bluesky
+description: Connect a Bluesky account using local loopback or public HTTPS OAuth.
+---
+
+You need a Bluesky account and a Bluesky channel in your project. An installation
+administrator configures the OAuth application; an editor connects the account.
+Postbot uses OAuth rather than asking you to paste your account password.
+
+## Choose the deployment mode
+
+For a browser and Postbot running on the **same machine**, configure a Bluesky OAuth
+application in **Local loopback** mode. Leave **Client metadata URL** empty. Use
+`127.0.0.1` consistently for Postbot's origin and the address opened in the browser.
+The default local Docker address is `http://127.0.0.1:3000`.
+
+This mode needs no public metadata endpoint, tunnel or provider developer app.
+A 404 at `/oauth/bluesky/client-metadata.json` is expected in loopback mode.
+Do not switch between `localhost` and `127.0.0.1` during authorization: the Postbot
+session is tied to its host. A remote server opened from your laptop is not this
+local-loopback arrangement.
+
+For **remote access**, configure the instance's canonical HTTPS origin and select
+**Public HTTPS**. A typical deployment uses:
+
+```text
+Client metadata URL: https://postbot.example/oauth/bluesky/client-metadata.json
+Callback: https://postbot.example/api/oauth/bluesky/callback
+```
+
+Replace the example origin. The metadata URL must be publicly fetchable and describe
+the callback of the same deployment. Postbot serves this document; it does not need
+a separate metadata server or a Bluesky client secret. Save and activate the OAuth
+application before connecting a channel.
+
+## Authorize your account
+
+1. Open the Bluesky channel in **Channels** and start its connection.
+2. Enter your **Bluesky handle**, with or without `@`. Custom-domain handles work.
+3. Select the configured OAuth application if Studio offers a choice.
+4. Continue to Bluesky, check the account and requested access, then authorize.
+5. Return to Studio and check the account attached to the channel.
+
+## If the connection fails
+
+- Metadata cannot be fetched: check the public URL and HTTPS reachability, or use
+  loopback only when the browser and server are actually local.
+- Callback loses your Postbot session: check the host and origin used throughout
+  the flow, including reverse-proxy configuration.
+- Authorization was declined, expired or already used: start again from the channel.
+
+Save a short text draft before adding media. Images and videos have distinct
+constraints, which Studio checks for the selected profile.
+
+See the [Bluesky OAuth documentation](https://bsky.network/docs/oauth-client/) for
+the underlying protocol, and [installation](/docs/installation/) for origin setup.

@@ -1,0 +1,51 @@
+---
+title: LinkedIn
+description: Connect a member profile or an organization page.
+---
+
+An installation administrator first configures a LinkedIn OAuth application.
+Connecting a personal profile and connecting an organization page are distinct
+operations; a working member connection does not grant organization access.
+
+## Configure the application
+
+Create or use your LinkedIn developer application. Enable the products and
+permissions appropriate to your intended destination. In the application's OAuth
+configuration, register this callback using your Postbot API origin:
+
+```text
+https://postbot.example/api/oauth/linkedin/callback
+```
+
+In Postbot's **OAuth applications**, save the LinkedIn **Client ID** and **Client
+secret**, activate the application and make it the default if appropriate. Keep
+the configured origin and registered callback identical to the deployment you use.
+
+The implemented member flow requests `openid`, `profile` and `w_member_social`.
+The organization flow requests `openid`, `profile`, `w_organization_social` and
+`rw_organization_admin`. Availability depends on LinkedIn's product access and
+the authorizing account's organization permissions; entering these scope names
+in Postbot cannot grant access to a product your developer app does not have.
+
+## Connect the destination
+
+Open the LinkedIn channel in **Channels**. Connect your member profile, or choose
+**Connect a LinkedIn page** for an organization destination. Select the configured
+OAuth application when offered, authorize with the intended LinkedIn account and
+check the destination shown when you return.
+
+For a page, use its numeric organization ID when Studio asks for the identifier,
+not its public URL or an `urn:` value. The authorizing account must have the
+required page access; Postbot verifies the requested destination with LinkedIn.
+
+## If authorization or delivery fails
+
+Check the exact callback, enabled app products, granted scopes and intended
+member/page destination. If the app configuration changed after a connection was
+created, authorize again. A provider refusal or expired authorization does not
+mean that retrying the same callback will help.
+
+Start with an unscheduled text draft. Only schedule after reviewing the account,
+content and media requirements. See LinkedIn's
+[Share on LinkedIn guide](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin)
+for member publishing; organization access has separate requirements.

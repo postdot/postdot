@@ -854,3 +854,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-456 — Export an isolated reproducible OpenAPI schema and render grouped static Fumadocs reference pages. [ISSUE-164]
 
 - [x] SITE-457 — Document the actual avatar removal responses and provide a verified unscheduled createPost request example.
+
+- [x] SITE-458 — Add provider-specific connection guides for the six implemented networks and organize their navigation.

@@ -97,7 +97,7 @@ Provider setup remains provider-specific:
   plus the exact callback URLs required by each provider. A production OAuth
   deployment will normally use HTTPS, while local provider rules must be
   checked against the provider's current application policy.
-- DEV.to uses an API token entered through Postbot's runtime settings and does
+- DEV.to uses an API key entered when connecting its project channel and does
   not use the Bluesky metadata or callback model.
 - Providers with per-instance or token-based flows may need only the instance
   origin or token and do not automatically inherit Bluesky's public HTTPS

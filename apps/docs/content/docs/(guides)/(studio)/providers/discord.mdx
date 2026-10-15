@@ -1,0 +1,42 @@
+---
+title: Discord
+description: Connect a bot to the channel where it will publish messages.
+---
+
+Postbot publishes Discord messages as a bot. You need a bot application, its bot
+token and access to install that bot in the destination server. A personal user
+token or incoming-webhook URL is not the credential for this connection.
+
+## Prepare Discord
+
+Create or use a bot in the Discord developer portal and install it in the intended
+server. Grant access to the destination channel and **Send Messages**. Attachments
+also require the relevant channel permission, including **Attach Files**.
+Channel-specific overrides can restrict a bot even when its server role looks correct.
+
+Enable Discord Developer Mode and copy the destination's **channel ID**. This is
+a numeric ID, not a server name, channel name or invite URL. Keep the bot token
+private and regenerate it in Discord if it is exposed.
+
+## Connect in Studio
+
+1. Open the Discord channel in **Channels**.
+2. Start the connection and enter the **Bot token** and **Discord channel ID**.
+3. Save the connection and check the bot and destination returned by Postbot.
+
+No Postbot OAuth callback or global OAuth application is required for this flow.
+Postbot checks the bot identity and destination through Discord before saving the
+connection. Review channel permissions as well: identity verification alone does
+not establish that every future message or file can be sent.
+
+## If the connection or delivery fails
+
+For an invalid token, check that you copied the bot token rather than a client
+secret or personal credential. For a destination error, check the numeric channel
+ID and whether the bot can access that channel. For a file failure, inspect both
+the media validation in Studio and the channel's attachment permissions.
+
+If you rotate the token in Discord, reconnect the channel with the replacement.
+Prepare a draft before authorizing a real scheduled message.
+
+Discord explains [channel permissions](https://support.discord.com/hc/en-us/articles/10543994968087-Channel-Permissions-Settings-101).
