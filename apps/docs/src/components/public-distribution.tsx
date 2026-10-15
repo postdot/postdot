@@ -23,10 +23,10 @@ function StaticPlate({ plate, index }: { plate: Plate; index?: number }) {
             ))}
             {brand && (
                 <svg
-                    x={plate.badge[0] - 8.5}
-                    y={plate.badge[1] - 8.5}
-                    width={17}
-                    height={17}
+                    x={plate.badge[0] - 12}
+                    y={plate.badge[1] - 12}
+                    width={24}
+                    height={24}
                     viewBox={`0 0 ${brand.width} ${brand.height}`}
                     fill="currentColor"
                     aria-hidden="true"

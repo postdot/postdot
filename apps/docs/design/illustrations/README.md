@@ -45,3 +45,13 @@ remains still. Curved connections, brand anchors and content use the same pose.
 not appear before its transfer arrives. Avoid decorative opening/closing loops
 that do not explain a product action. The dormant React wrapper is retained as
 an integration tool, not a published feature or approved artistic treatment.
+
+## Finishing baseline
+
+The owner preferred the SITE-437 study; keep its composition and content-transfer
+concept. SITE-438 separates receptions by 600 ms: a target edge highlights on
+arrival, one target at a time. Completed content rests before a 600 ms fade. The
+reset fades without drawing the text backwards. Logos use 24 viewBox units;
+small-screen strokes use non-scaling widths. Build fixed geometry and cache route
+lengths once per mount, updating only animation state on frames. Homepage
+reintegration is a separate review, not implied by this refinement.

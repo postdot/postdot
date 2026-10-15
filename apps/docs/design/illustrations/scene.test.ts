@@ -5,7 +5,7 @@ import { sceneAt, spreadAt, transferAt } from '../../public/illustrations/scene.
 
 test('routes stay attached and stack order remains stable throughout the transfer cycle', () => {
     const portYs = new Set()
-    for (let ms = 0; ms <= 7200; ms += 40) {
+    for (let ms = 0; ms <= 7600; ms += 40) {
         const scene = sceneAt(spreadAt(ms))
         for (const item of scene.destinations) {
             const numbers = item.route.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
@@ -24,10 +24,19 @@ test('routes stay attached and stack order remains stable throughout the transfe
 
 test('destination content appears after arrival, then resets for the next cycle', () => {
     for (let index = 0; index < 3; index++) {
-        const departure = 900 + index * 350
+        const departure = 800 + index * 600
         expect(transferAt(departure + 500, index).content).toBe(0)
         expect(transferAt(departure + 500, index).progress).toBeGreaterThan(0)
         expect(transferAt(departure + 2000, index).content).toBe(1)
-        expect(transferAt(7199, index).content).toBeLessThan(0.01)
+        expect(transferAt(7599, index).content).toBeLessThan(0.01)
     }
+})
+
+test('one destination is accented at a time and completed lines do not rewind during reset', () => {
+    for (let time = 0; time < 7600; time += 40) {
+        const states = [0, 1, 2].map(index => transferAt(time, index))
+        expect(states.filter(state => state.active).length).toBeLessThanOrEqual(1)
+    }
+    expect(transferAt(7000, 0).drawn).toBe(1)
+    expect(transferAt(7000, 0).content).toBeLessThan(1)
 })

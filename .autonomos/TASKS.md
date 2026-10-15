@@ -814,3 +814,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-436 — Integrate accepted distribution study as a reusable theme-aware homepage feature with a static first frame.
 
 - [x] SITE-437 — Withdraw premature homepage placement and refine distribution study composition and meaningful content-transfer motion.
+
+- [x] SITE-438 — Finish accepted illustration rhythm and small-screen legibility without changing the composition or homepage.

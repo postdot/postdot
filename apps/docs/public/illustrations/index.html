@@ -107,6 +107,33 @@
             color: #666;
         }
         @media (max-width: 800px) {
+            .sil,
+            .crease,
+            .rule,
+            .accent,
+            .connector {
+                vector-effect: non-scaling-stroke;
+            }
+            .sil {
+                stroke-width: 0.65;
+            }
+            .sil.active {
+                stroke-width: 0.85;
+            }
+            .crease {
+                stroke-width: 0.4;
+            }
+            .rule {
+                stroke-width: 0.65;
+                opacity: 0.65;
+            }
+            .accent {
+                stroke-width: 0.75;
+            }
+            .connector {
+                stroke-width: 0.55;
+            }
+
             .views {
                 grid-template-columns: 1fr;
             }

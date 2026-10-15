@@ -26,8 +26,8 @@ export function mountFigure(stage) {
         const logo = mk(
             'svg',
             {
-                width: 17,
-                height: 17,
+                width: 24,
+                height: 24,
                 fill: 'currentColor',
                 viewBox: `0 0 ${brands[i].width} ${brands[i].height}`,
                 'aria-hidden': 'true',
@@ -43,33 +43,41 @@ export function mountFigure(stage) {
         nodes.landscape.setAttribute('d', pose.landscape)
         nodes.lines.forEach((line, i) => line.setAttribute('d', pose.lines[i]))
     }
+    // Geometry stays fixed during this sequence; build and measure it once.
+    const pose = sceneAt(1)
+    drawPlate(source, pose.source)
+    targets.forEach((nodes, i) => {
+        const item = pose.destinations[i]
+        drawPlate(nodes, item)
+        nodes.logo.setAttribute('x', item.badge[0] - 12)
+        nodes.logo.setAttribute('y', item.badge[1] - 12)
+        nodes.route.setAttribute('d', item.route)
+        nodes.routeLength = nodes.route.getTotalLength()
+        nodes.lines.forEach(line => {
+            line.setAttribute('pathLength', '1')
+            line.style.strokeDasharray = '1'
+        })
+    })
     let elapsed = 0
     function draw(spread, clock) {
-        const pose = sceneAt(spread)
-        drawPlate(source, pose.source)
         targets.forEach((nodes, i) => {
-            const item = pose.destinations[i]
-            drawPlate(nodes, item)
-            nodes.logo.setAttribute('x', item.badge[0] - 8.5)
-            nodes.logo.setAttribute('y', item.badge[1] - 8.5)
-            nodes.route.setAttribute('d', item.route)
             const transfer = transferAt(clock, i)
             const complete = reducedMotion() ? 1 : transfer.content
             nodes.content.style.opacity = String(complete)
             nodes.lines.forEach((line, j) => {
-                line.setAttribute('pathLength', '1')
-                line.style.strokeDasharray = '1'
                 line.style.strokeDashoffset = String(
-                    1 - Math.max(0, Math.min(1, complete * 1.5 - j * 0.16))
+                    1 -
+                        Math.max(
+                            0,
+                            Math.min(1, (reducedMotion() ? 1 : transfer.drawn) * 1.5 - j * 0.16)
+                        )
                 )
             })
             nodes.body.sil.classList.toggle('active', !reducedMotion() && transfer.active)
             const traveling = transfer.progress > 0 && transfer.progress < 1 && !reducedMotion()
             nodes.pulse.style.opacity = traveling ? '1' : '0'
             if (traveling) {
-                const p = nodes.route.getPointAtLength(
-                    nodes.route.getTotalLength() * transfer.progress
-                )
+                const p = nodes.route.getPointAtLength(nodes.routeLength * transfer.progress)
                 nodes.pulse.setAttribute('cx', p.x)
                 nodes.pulse.setAttribute('cy', p.y)
             }

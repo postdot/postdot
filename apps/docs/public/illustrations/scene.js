@@ -74,19 +74,20 @@ export function sceneAt(spread) {
 }
 
 export function spreadAt(time) {
-    return (time % 7200) / 7200
+    return (time % 7600) / 7600
 }
 
 /** A transfer arrives before the destination draws its content. */
 export function transferAt(time, index) {
-    const phase = time % 7200
-    const departure = 900 + index * 350
+    const phase = time % 7600
+    const departure = 800 + index * 600
     const progress = Math.max(0, Math.min(1, (phase - departure) / 1000))
-    const content = HL.EASE_LIFT(Math.max(0, Math.min(1, (phase - departure - 1000) / 850)))
-    const reset = phase > 6200 ? 1 - HL.EASE_LIFT((phase - 6200) / 1000) : 1
+    const content = HL.EASE_LIFT(Math.max(0, Math.min(1, (phase - departure - 1000) / 700)))
+    const reset = phase > 6500 ? 1 - HL.EASE_LIFT(Math.min(1, (phase - 6500) / 600)) : 1
     return {
         progress,
         content: content * reset,
-        active: phase >= departure && phase < departure + 1850,
+        drawn: content,
+        active: phase >= departure + 1000 && phase < departure + 1500,
     }
 }
