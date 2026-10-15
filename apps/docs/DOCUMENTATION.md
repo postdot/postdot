@@ -1,6 +1,7 @@
 # Documentation structure
 
-Status: initial organization for owner review, not a finished content plan.
+Status: Notebook layout accepted by the owner on 2026-10-15. Content organization
+and editorial examples remain open to refinement.
 
 ## Navigation
 
@@ -53,7 +54,7 @@ present a local code check as a successful real-provider experiment.
 ## Layout and theme evaluation
 
 The installed version includes Docs, Notebook, Flux, Glass and Spacious layouts.
-Notebook is the current candidate because visible top-level spaces and a local
+Notebook is the accepted layout because visible top-level spaces and a local
 sidebar fit several documentation audiences. Default Docs is useful for a single
 continuous manual; its dropdown makes the area change less prominent. Spacious
 prioritizes breathing room; Flux removes more navigation chrome; Glass adds a
@@ -65,32 +66,46 @@ and Postbot's accepted font, surfaces and blue links; changing to an unrelated
 stock palette would break continuity without improving navigation. Review actual
 pages before changing a layout or palette again.
 
-## OpenAPI integration plan
+## Generated OpenAPI reference
 
-The API already registers `@elysiajs/openapi`, exposing `/openapi/json` and an
-instance explorer at `/openapi`. The new reference area links readers to those
-existing resources. It is not yet a generated endpoint reference.
+SITE-456 implements the official `fumadocs-openapi` integration (12.4.2) alongside
+Fumadocs/Base UI 16.17.1. `bun run sync:content` now runs this sequence:
 
-Next implementation should:
+1. Project canonical installation Markdown into its grouped MDX location.
+2. Run `apps/api/src/openapi-export.ts` through Bun. It assembles `createApp` with
+   an in-memory migrated database and a temporary local media adapter. It never
+   imports `src/index.ts`, starts a listener, starts workers or reads instance
+   credentials. Temporary files and the database are closed after extraction.
+3. Validate unique operation IDs and tags, and export `.openapi/postbot.json`.
+   No deployment URL is embedded. A route without a declared response receives
+   an explicit unspecified-response description rather than an invented schema.
+4. Split the schema into one-operation local fragments. Each retains its inherited
+   security and only the relevant path; this prevents preloading the entire API
+   into every page. Reference-only fragments use `https://postbot.example` as a
+   replaceable sample origin. The downloadable schema has no deployment origin.
+5. Generate MDX operation pages grouped by tag below `reference/(generated)`.
+   The source loader adds the official method badges. Metadata is written once
+   per folder: enabling Fumadocs `meta: true` with many schema inputs produces
+   duplicate metadata paths and concurrent writes. Generation rejects duplicate
+   page paths and verifies operation/page coverage.
+6. Build the normal static Next export. Schema fragments are preloaded at build
+   time, so rendering the exported site never fetches a running API.
 
-1. Export a reproducible schema from an isolated runtime matching the source
-   revision. Do not import a production server entry point that starts workers or
-   opens the shared database merely to build docs.
-2. Validate stable operation IDs, tags, auth annotations, request/response schemas
-   and examples. Session-only and API-key operations must remain distinguishable.
-3. Add the official `fumadocs-openapi` integration after checking compatibility
-   with the pinned Fumadocs/Base UI versions. Use a local schema artifact as input
-   to `createOpenAPI`; generate grouped operation pages with `generateFiles`.
-4. Keep generated pages beneath the API reference root, separate from authored
-   introductions. Register its page component and CSS using the installed API,
-   not examples from older Fumadocs major versions.
-5. Verify a static export with the application stopped. The docs site must not
-   fetch a running API to render, require private credentials or proxy requests.
-   An interactive playground needs an explicit instance target; do not prefill
-   production hosts or credentials or imply that a docs visit can publish safely.
+Generated files and the downloadable schema are ignored, reproducible artifacts.
+Do not edit them. Change route definitions, annotations or generation logic.
+`sync:openapi` can regenerate just the reference. Cleanup removes only the dedicated
+generated directory, never authored introductions or the active instance's data.
 
-No OpenAPI dependency or build-time API coupling is introduced by this structure
-pass. No custom renderer or hand-maintained duplicate endpoint schema is needed.
+The client page uses the official renderer with request playgrounds disabled.
+Readers can inspect schemas and copy examples without entering credentials or
+sending requests. No proxy or OAuth handler is installed on the static site.
+
+The isolated export test checks repeatability, zero fetch calls, representative
+route coverage and the difference between public, session-only and inherited
+bearer/session security. It does not prove every API handler works, nor claim a
+complete Better Auth or optional metrics reference. The API integration tests
+remain responsible for request behavior. Future schema work should improve actual
+route annotations and examples rather than hand-editing generated MDX.
 
 ## Sources checked
 

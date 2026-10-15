@@ -36,4 +36,9 @@ apps/docs/.next/
 apps/docs/.source/
 apps/docs/out/
 apps/docs/next-env.d.ts
-apps/docs/content/docs/installation.mdx
+apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx
+
+# Reproducible OpenAPI documentation artifacts
+apps/docs/.openapi/
+apps/docs/content/docs/reference/(generated)/
+apps/docs/public/reference/postbot-openapi.json

@@ -4233,10 +4233,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-164] Generate a version-matched OpenAPI reference for the static docs
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Priority: medium — after documentation structure review
 - Evidence: Elysia already exposes `/openapi/json` and an instance explorer at `/openapi`. SITE-455 adds a distinct API reference space and checks the current official Fumadocs OpenAPI integration, but endpoint pages are not generated yet.
 - Impact: Authored guides cannot replace request/response contracts; manually duplicating those contracts would drift. Fetching a live production instance during docs rendering would couple the static site to deployment state.
 - Desired outcome: Reproducible schema extraction from an isolated matching runtime, reviewed operation IDs/tags/security annotations, generated grouped reference pages through the official Fumadocs integration, and a static build that does not need a running app or private credentials. Session-only routes must remain distinguishable from API-key routes. Interactive requests need an explicit target and must not silently authorize publication.
 - Plan: [documentation structure and OpenAPI boundary](../apps/docs/DOCUMENTATION.md).
-- Tasks: SITE-455 (structure and research complete); implementation remains a follow-up, not part of the structure pass.
+- Tasks: SITE-455 (structure), SITE-456 (isolated export and generated static reference).
+- Resolution: 160 route-derived operations are generated into 16 domains through the official Fumadocs integration. An in-memory exporter and temporary media adapter avoid shared resources; per-operation fragments limit page payload. Public, inherited bearer/session and explicit session-only declarations are preserved. The static renderer has no request playground or proxy. Dynamic Better Auth and optional monitoring routes remain explicitly outside coverage.

@@ -116,3 +116,5 @@ highp
 webglcontextlost
 
 Vanta
+
+shiki

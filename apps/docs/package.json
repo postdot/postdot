@@ -6,13 +6,14 @@
     "scripts": {
         "dev": "bun run sync:content && bun run --bun next dev --port 5174",
         "build": "bun run sync:content && bun run --bun next build",
-        "sync:content": "bun scripts/sync-content.ts && fumadocs-mdx",
+        "sync:content": "bun scripts/sync-content.ts && bun run sync:openapi && fumadocs-mdx",
         "lint": "oxlint --deny-warnings .",
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
         "typecheck": "bun run sync:content && tsc --noEmit",
         "clean": "rimraf .next out .source .turbo",
-        "preview": "bun scripts/preview.ts"
+        "preview": "bun scripts/preview.ts",
+        "sync:openapi": "bun ../api/src/openapi-export.ts .openapi/postbot.json && bun scripts/sync-openapi.ts"
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",
@@ -21,12 +22,15 @@
         "@wrksz/themes": "1.1.0",
         "fumadocs-core": "16.17.1",
         "fumadocs-mdx": "15.4.7",
+        "fumadocs-openapi": "12.4.2",
         "fumadocs-ui": "npm:@fumadocs/base-ui@16.17.1",
+        "json-schema-typed": "8.0.2",
         "lenis": "1.3.26",
         "motion": "13.4.6",
         "next": "16.3.6",
         "react": "19.3.0",
-        "react-dom": "19.3.0"
+        "react-dom": "19.3.0",
+        "shiki": "4.5.0"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "4.3.3",

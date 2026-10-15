@@ -4,6 +4,8 @@ import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page'
 import { notFound } from 'next/navigation'
 
+import { OpenAPIPage } from '@/components/api-page'
+import { openapi } from '@/lib/openapi'
 import { source } from '@/lib/source'
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
@@ -13,12 +15,18 @@ export default async function Page({ params }: { params: Promise<{ slug?: string
     const document = docs.docs.find(entry => entry.info.path === page.path)
     if (!document) notFound()
     const Content = document.body
+    const preloaded = await openapi.preloadOpenAPIPage(page)
     return (
-        <DocsPage toc={document.toc}>
+        <DocsPage toc={document.toc} full={document.full === true}>
             <DocsTitle>{page.data.title}</DocsTitle>
             <DocsDescription>{page.data.description}</DocsDescription>
             <DocsBody>
-                <Content components={defaultMdxComponents} />
+                <Content
+                    components={{
+                        ...defaultMdxComponents,
+                        OpenAPIPage: props => <OpenAPIPage {...preloaded} {...props} />,
+                    }}
+                />
             </DocsBody>
         </DocsPage>
     )

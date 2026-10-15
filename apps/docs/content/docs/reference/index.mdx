@@ -1,29 +1,39 @@
 ---
 title: API reference
-description: Discover the HTTP contract exposed by your Postbot instance.
+description: Request and response contracts generated from Postbot's server routes.
 ---
 
-Postbot's Elysia server exposes its OpenAPI document at `/openapi/json` and an
-interactive API explorer at `/openapi`. These belong to the instance running the
-API, not to this static documentation site.
+Browse operations by domain in the sidebar. Each page describes one HTTP operation,
+including its parameters, request body, declared responses and authentication.
+These pages are generated from the same Elysia route definitions as the server.
 
-For the default local Docker installation:
+## Start with a workflow
 
-- API explorer: `http://127.0.0.1:3000/openapi`
-- OpenAPI JSON: `http://127.0.0.1:3000/openapi/json`
+For a complete draft workflow, follow the [CLI guide](/docs/automation/).
+For direct HTTP access, read [authentication](/docs/reference/authentication/), then
+inspect the operations you need:
 
-Use your instance's origin if it runs elsewhere. To save its schema locally:
+- [List your projects](/docs/reference/projects/listProjects/).
+- [List project channels](/docs/reference/channels/listProjectChannels/).
+- [Create a post and its destination drafts](/docs/reference/posts/createPost/).
 
-```sh
-curl --fail http://127.0.0.1:3000/openapi/json --output postbot-openapi.json
-```
+API-key permissions and project roles still apply. A route appearing in this
+reference does not mean every key can call it. Provider OAuth and access
+administration include session-only operations.
 
-## Choose your starting point
+## Use your instance
 
-[Authentication](/docs/reference/authentication/) explains API keys and session-only
-operations. The [CLI guide](/docs/automation/) demonstrates a complete draft workflow
-without requiring you to construct HTTP requests yourself.
+Code examples use `https://postbot.example` as a placeholder. Replace it with your
+instance's origin. The public documentation does not execute requests or store
+credentials; request playgrounds are disabled.
 
-Endpoint-by-endpoint pages are not generated on this site yet. The schema exposed
-by your instance describes its own version; it does not imply that every endpoint
-is callable with an API key.
+[Download the OpenAPI JSON](/reference/postbot-openapi.json) for this source
+revision. A deployed instance also exposes its own schema at `/openapi/json` and
+an interactive explorer at `/openapi`. For the default local installation, open
+`http://127.0.0.1:3000/openapi`.
+
+A deployed instance may run a different version. Use its own schema when matching
+an integration to that installation. The generated reference covers the domain
+routes and signed media delivery; it does not enumerate Better Auth's dynamically
+mounted endpoints or optional monitoring routes. Where a route declares no
+response schema, the reference says so rather than inventing one.

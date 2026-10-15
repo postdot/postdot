@@ -850,3 +850,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-454 — Extend hero material through the transparent network rail with a progressive fade and unchanged section spacing.
 
 - [x] SITE-455 — Organize documentation into audience-specific spaces, evaluate Notebook navigation and define OpenAPI/editorial boundaries.
+
+- [x] SITE-456 — Export an isolated reproducible OpenAPI schema and render grouped static Fumadocs reference pages. [ISSUE-164]

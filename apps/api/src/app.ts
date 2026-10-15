@@ -183,7 +183,7 @@ function createDomainApp({
                                 scheme: 'bearer',
                                 bearerFormat: 'Postbot API key',
                                 description:
-                                    'A user-owned Postbot API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
+                                    'A user-owned Postbot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
                             },
                             sessionCookie: {
                                 type: 'apiKey',
