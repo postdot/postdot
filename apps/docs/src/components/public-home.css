@@ -1889,3 +1889,19 @@
         max-width: none;
     }
 }
+
+/* One material field spans the hero and transparent network rail. */
+.home-opening {
+    position: relative;
+    isolation: isolate;
+    display: flow-root;
+}
+.home-opening > .home-material-layer {
+    top: calc(-1 * var(--public-header-height));
+    z-index: -1;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 340px), transparent 100%);
+}
+.home-opening .home-material-grain {
+    opacity: 0.055;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 25%), #000 60%, #000 84%, transparent);
+}

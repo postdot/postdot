@@ -36,28 +36,30 @@ export function PublicHome() {
         <div className="public-home">
             <PublicHeader />
             <main>
-                <section id="product" className="home-hero">
+                <div className="home-opening">
                     <PublicMaterial blendBottom />
-                    <div className="home-intro">
-                        <h1>
-                            Social publishing.
-                            <br />
-                            For you and your agents.
-                        </h1>
-                        <p>
-                            Write your next post, or let an agent prepare it. Review the content,
-                            adapt each destination and manage what goes live.
-                        </p>
-                        <div className="home-actions">
-                            <Action href="/docs/installation/">Self-host Postbot</Action>
-                            <Action secondary href="/docs/">
-                                Explore the docs
-                            </Action>
+                    <section id="product" className="home-hero">
+                        <div className="home-intro">
+                            <h1>
+                                Social publishing.
+                                <br />
+                                For you and your agents.
+                            </h1>
+                            <p>
+                                Write your next post, or let an agent prepare it. Review the
+                                content, adapt each destination and manage what goes live.
+                            </p>
+                            <div className="home-actions">
+                                <Action href="/docs/installation/">Self-host Postbot</Action>
+                                <Action secondary href="/docs/">
+                                    Explore the docs
+                                </Action>
+                            </div>
                         </div>
-                    </div>
-                    <PublicProduct />
-                </section>
-                <PublicDestinations />
+                        <PublicProduct />
+                    </section>
+                    <PublicDestinations />
+                </div>
                 <PublicDistribution />
                 <PublicStory />
             </main>

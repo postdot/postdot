@@ -136,7 +136,7 @@ export function PublicMaterial({
             )
             node.width = Math.max(1, Math.round(rect.width * ratio))
             node.height = Math.max(1, Math.round(rect.height * ratio))
-            const scene = node.closest<HTMLElement>('.home-hero, .home-error-main')
+            const scene = node.closest<HTMLElement>('.home-opening, .home-hero, .home-error-main')
             const intro = scene?.querySelector<HTMLElement>('.home-intro')
             gl.uniform1f(
                 safe,

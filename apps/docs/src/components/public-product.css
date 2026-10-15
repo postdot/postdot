@@ -1,6 +1,6 @@
 /* Native scroll: one centered composition, three stable screenshot frames. */
 .public-home .home-hero {
-    overflow: clip;
+    overflow: visible;
 }
 .home-hero .home-product-scene.home-studio-tour {
     height: 200svh;
