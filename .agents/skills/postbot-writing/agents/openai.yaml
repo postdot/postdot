@@ -1,0 +1,4 @@
+interface:
+  display_name: "Postbot Writing"
+  short_description: "Write and refine Postbot documentation"
+  default_prompt: "Use $postbot-writing to draft or improve a Postbot documentation page."

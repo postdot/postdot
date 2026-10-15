@@ -36,20 +36,18 @@ public package distribution.
 - No empty Kubernetes, Helm, mobile or MCP guide is added just to fill a category.
 - Avoid copying a workflow into multiple areas. Explain it once and link to it.
 
-## Initial editorial guardrails
+## Writing and presentation guidance
 
-These are a starting floor for later tone review, not an assertion that the voice
-is finished. Use direct English, concrete tasks and product labels. Start a how-to
-with its outcome and prerequisites, then steps, expected result and relevant
-failure recovery. References describe contracts; explanations describe reasoning.
-Do not force every page into the same outline.
+Use the project [Postbot writing skill](../../.agents/skills/postbot-writing/SKILL.md)
+for authored documentation. It coordinates `documentation-writer` and `stop-slop`
+and owns the evolving editorial preferences. Its small reference comparison records
+observations and open questions; it does not turn AI drafts into accepted style.
 
-No generic introductions about a changing digital world, claims of seamlessness,
-unearned performance guarantees, repeated conclusions, rhetorical questions,
-marketing filler or section eyebrows. Avoid exhaustive caveat paragraphs on every
-step: place an important boundary at the action it affects. Examples must match
-implemented fields and commands. State planned capabilities explicitly. Never
-present a local code check as a successful real-provider experiment.
+Use [Postbot Fumadocs](../../.agents/skills/postbot-fumadocs/SKILL.md) for documentation
+mechanics. This document remains the technical source of truth; skills point here
+rather than copying the generation/navigation manual. Owner feedback should update
+the narrowest relevant guidance, replacing outdated rules instead of accumulating
+contradictory instructions.
 
 ## Layout and theme evaluation
 

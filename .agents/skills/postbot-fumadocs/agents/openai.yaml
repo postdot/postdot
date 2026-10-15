@@ -1,0 +1,4 @@
+interface:
+  display_name: "Postbot Fumadocs"
+  short_description: "Maintain the Postbot Fumadocs implementation"
+  default_prompt: "Use $postbot-fumadocs to implement a documentation change with the pinned Fumadocs APIs."

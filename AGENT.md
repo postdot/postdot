@@ -49,6 +49,7 @@ content generator.
   translation catalogs and generated localization output; run the CSpell
   repository spelling gate when adding text.
 - **Protocol:** Follow `.autonomos/PROTOCOL.md` and the installed harness workflows. Keep task state in `.autonomos/TASKS.md` and session evidence in `.autonomos/worklogs/`.
+- **Public documentation:** Use `.agents/skills/postbot-writing/SKILL.md` for authored reader-facing documentation. Use `.agents/skills/postbot-fumadocs/SKILL.md` when changing its MDX presentation, navigation or generation. These project skills coordinate the installed writing skills; routine worklogs and generated endpoint files are not prose-rewrite targets.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
 - **IDE workspace:** Update `postbot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.

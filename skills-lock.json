@@ -19,6 +19,12 @@
       "skillPath": "plugins/bun/skills/bun-test-coverage/SKILL.md",
       "computedHash": "14f589f5df47b9e728e0d3a0e1f1dd0ac87a27eacb12bc45f1ed21127b11cdf2"
     },
+    "documentation-writer": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/documentation-writer/SKILL.md",
+      "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
+    },
     "elysiajs": {
       "source": "elysiajs/skills",
       "sourceType": "github",
@@ -66,6 +72,12 @@
       "sourceType": "github",
       "skillPath": "skills/solar-icons/SKILL.md",
       "computedHash": "0e3e4853987b9a1f7782d39078b725bfd5c1cc051d73d95a8e9a65cf007c30d3"
+    },
+    "stop-slop": {
+      "source": "hardikpandya/stop-slop",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "617bf97d33162a6bd0da4f40a97aac589de58e5a6c9cf011ed6108992210e7cb"
     },
     "tiptap": {
       "source": "ueberdosis/tiptap",

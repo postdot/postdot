@@ -118,3 +118,7 @@ webglcontextlost
 Vanta
 
 shiki
+
+hardikpandya
+
+Supabase
