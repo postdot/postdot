@@ -19,3 +19,8 @@
 - **Channel connection readiness:** The Channels panel uses the channel-list item's active `execution` summary for manual readiness and compatible connection setup. `profileId` is identity, not a connection capability. Creation reloads the enriched list; lifecycle entity responses preserve its metadata in the cache, and profile activation refreshes the list. See [ADR-083](../../.autonomos/decisions/ADR-083-active-channel-execution-summary.md).
 
 - **Native authoring and preview presentation:** Resolve native formatting, weighted counting and preview chrome from explicit built-in execution, never `profileId`. The composer uses the active channel execution summary; publication inspection uses the profile for the displayed revision, including the selected target profile when locked. Generic text capabilities and required headline bindings remain profile-owned.
+
+- **Status presentation:** Do not prepend decorative dots to status labels or
+  channel names. Preserve readable state text; calendars may use a thin color rule
+  to retain event categorization. Unread indicators and timeline markers have
+  distinct meanings and are not interchangeable with decorative status dots.

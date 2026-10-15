@@ -190,15 +190,14 @@ function EventCalendarEvent<TData = unknown>({
 
     const defaultContent = (
         <>
-            {/* leading dot for single-row chips (month cells, all-day bars); a
+            {/* leading color rule for single-row chips (month cells, all-day bars); a
           time-grid block takes its color from the tinted surface instead, and
-          in its stacked layout a dot would sit alone on the first line */}
+          in its stacked layout a marker would sit alone on the first line */}
             {!timedBlock && (
                 <span
                     aria-hidden
-                    data-slot="event-calendar-event-dot"
-                    // -me-0.5 tightens only the dot-to-title gap; the chip keeps gap-1.5
-                    className="-me-0.5 size-1.5 shrink-0 rounded-full bg-(--ec-event-color)"
+                    data-slot="event-calendar-event-rule"
+                    className="h-3 w-px shrink-0 bg-(--ec-event-color)"
                 />
             )}
             {occurrence.isRecurring && (
@@ -277,7 +276,7 @@ function EventCalendarEvent<TData = unknown>({
         )
     })()
 
-    // Agenda default row: time column, color-dot badge, plain title
+    // Agenda default row: time column, color rule, plain title
     const agendaDefaultContent = (
         <>
             <span className="text-muted-foreground w-40 shrink-0 truncate tabular-nums">
@@ -285,8 +284,8 @@ function EventCalendarEvent<TData = unknown>({
             </span>
             <span
                 aria-hidden
-                data-slot="event-calendar-agenda-dot"
-                className="size-2 shrink-0 rounded-full bg-(--ec-event-color)"
+                data-slot="event-calendar-agenda-rule"
+                className="h-5 w-px shrink-0 bg-(--ec-event-color)"
             />
             <span className="truncate text-sm">{event.title}</span>
             {occurrence.isRecurring && (

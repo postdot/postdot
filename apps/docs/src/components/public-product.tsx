@@ -1,14 +1,16 @@
 'use client'
 
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 
 export function PublicProduct() {
     const reduced = useReducedMotion()
-    const { scrollY } = useScroll()
-    const scale = useTransform(scrollY, [0, 480], [0.88, 1])
     return (
         <figure className="home-product-scene">
-            <motion.div className="home-product-window" style={{ scale: reduced ? 1 : scale }}>
+            <motion.div
+                className="home-product-window"
+                initial={false}
+                whileHover={reduced ? undefined : { scale: 1.005 }}
+                transition={{ duration: 0.5 }}>
                 <img
                     className="home-shot home-shot-light"
                     src="/product/compose-light.webp"

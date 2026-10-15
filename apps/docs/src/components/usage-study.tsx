@@ -3,7 +3,7 @@
 import mcp from '@iconify-icons/logos/model-context-protocol-icon'
 import n8n from '@iconify-icons/logos/n8n-icon'
 import { Button } from '@postbot/ui/components/button'
-import { CheckReadIcon } from '@solar-icons/react/linear/check-read'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
@@ -52,9 +52,7 @@ export function UsageStudy() {
     const stage = useRef<HTMLDivElement>(null)
     const reduced = useReducedMotion()
     const { scrollYProgress } = useScroll({ target: stage, offset: ['start end', 'end start'] })
-    const studioY = useTransform(scrollYProgress, [0, 1], [36, -36])
     const protocolRotate = useTransform(scrollYProgress, [0, 1], [-12, 12])
-    const workflowX = useTransform(scrollYProgress, [0, 1], [-22, 22])
     return (
         <div className="public-home usage-study">
             <header className="usage-study-nav">
@@ -86,7 +84,11 @@ export function UsageStudy() {
                             </div>
                             <motion.div
                                 className="usage-browser"
-                                style={{ y: reduced ? 0 : studioY }}>
+                                initial={false}
+                                whileHover={
+                                    reduced ? undefined : { clipPath: 'inset(0 0 0 0)', y: -8 }
+                                }
+                                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
                                 <div className="usage-browser-bar">
                                     <PostbotLogo />
                                     <span>postbot / studio</span>
@@ -142,50 +144,65 @@ export function UsageStudy() {
                                 <h2>n8n</h2>
                                 <p>Publishing, in your flow.</p>
                             </div>
-                            <motion.div
-                                className="usage-workflow"
-                                style={{ x: reduced ? 0 : workflowX }}
-                                aria-hidden="true">
-                                <span className="usage-workflow-source">
-                                    <CodeSquareIcon />
-                                </span>
-                                <span className="usage-workflow-line">
-                                    {!reduced && (
-                                        <motion.i
-                                            initial={{ x: -12, opacity: 0 }}
-                                            whileInView={{ x: [-12, 24], opacity: [0, 1, 0] }}
-                                            viewport={{ amount: 1 }}
-                                            transition={{
-                                                duration: 1.8,
-                                                repeat: Infinity,
-                                                repeatDelay: 0.6,
-                                                ease: 'linear',
-                                            }}
-                                        />
-                                    )}
-                                </span>
-                                <span className="usage-n8n-mark">
-                                    <BrandMark data={n8n} />
-                                </span>
-                                <span className="usage-workflow-line">
-                                    {!reduced && (
-                                        <motion.i
-                                            initial={{ x: -12, opacity: 0 }}
-                                            whileInView={{ x: [-12, 24], opacity: [0, 1, 0] }}
-                                            viewport={{ amount: 1 }}
-                                            transition={{
-                                                duration: 1.8,
-                                                repeat: Infinity,
-                                                repeatDelay: 0.6,
-                                                ease: 'linear',
-                                            }}
-                                        />
-                                    )}
-                                </span>
-                                <span className="usage-workflow-output">
-                                    <PostbotLogo />
-                                </span>
-                            </motion.div>
+                            <motion.svg
+                                className="usage-workflow-art"
+                                viewBox="0 0 400 280"
+                                aria-hidden="true"
+                                initial="rest"
+                                whileInView="flow"
+                                whileHover="flow"
+                                viewport={{ once: true, amount: 0.65 }}>
+                                <path
+                                    className="usage-flow-track"
+                                    d="M70 55H155Q200 55 200 100V140M200 140V180Q200 225 245 225H330"
+                                />
+                                <motion.path
+                                    className="usage-flow-signal"
+                                    d="M70 55H155Q200 55 200 100V140M200 140V180Q200 225 245 225H330"
+                                    variants={{ rest: { pathLength: 0 }, flow: { pathLength: 1 } }}
+                                    transition={{ duration: reduced ? 0 : 1.6, ease: 'easeInOut' }}
+                                />
+                                <rect
+                                    className="usage-flow-node"
+                                    x="37"
+                                    y="22"
+                                    width="66"
+                                    height="66"
+                                    rx="3"
+                                />
+                                <CodeSquareIcon x={53} y={38} width={34} height={34} />
+                                <text x="117" y="39">
+                                    Trigger
+                                </text>
+                                <rect
+                                    className="usage-flow-hub"
+                                    x="132"
+                                    y="94"
+                                    width="136"
+                                    height="92"
+                                    rx="3"
+                                />
+                                <svg
+                                    x="148"
+                                    y="114"
+                                    width="104"
+                                    height="52"
+                                    viewBox={`0 0 ${n8n.width} ${n8n.height}`}
+                                    dangerouslySetInnerHTML={{ __html: n8n.body }}
+                                />
+                                <rect
+                                    className="usage-flow-node"
+                                    x="297"
+                                    y="192"
+                                    width="66"
+                                    height="66"
+                                    rx="3"
+                                />
+                                <PostbotLogo x={311} y={206} width={38} height={38} />
+                                <text x="283" y="251" textAnchor="end">
+                                    Create a draft
+                                </text>
+                            </motion.svg>
                             <span className="usage-medium">Workflow integration</span>
                         </article>
                         <article className="usage-cli usage-small">
@@ -202,12 +219,9 @@ export function UsageStudy() {
                                     <Button
                                         variant="ghost"
                                         onClick={copyCommand}
+                                        disabled={copying}
                                         className="usage-copy">
-                                        {copied ? (
-                                            <CheckReadIcon size={13} />
-                                        ) : (
-                                            <CopyIcon size={13} />
-                                        )}
+                                        {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
                                         {copying ? 'Copying' : copied ? 'Copied' : 'Copy'}
                                     </Button>
                                 </div>
@@ -217,18 +231,24 @@ export function UsageStudy() {
                                     </span>
                                     bun run postbot --help
                                 </code>
-                                <motion.div
-                                    className="usage-command-options"
-                                    initial={false}
-                                    whileInView={
-                                        reduced ? undefined : { opacity: [0.4, 1], y: [6, 0] }
-                                    }
-                                    viewport={{ once: true, amount: 1 }}
-                                    transition={{ duration: 0.5 }}>
-                                    <span>posts</span>
-                                    <span>projects</span>
-                                    <span>media</span>
-                                </motion.div>
+                                <div
+                                    className="usage-help-output"
+                                    aria-label="Excerpt from CLI help">
+                                    <strong>Postbot CLI</strong>
+                                    <span>Resources</span>
+                                    <div>
+                                        <code>projects list</code>
+                                        <span>List projects</span>
+                                    </div>
+                                    <div>
+                                        <code>media list</code>
+                                        <span>List media</span>
+                                    </div>
+                                    <div>
+                                        <code>posts create</code>
+                                        <span>Create a draft</span>
+                                    </div>
+                                </div>
                                 <span
                                     className={copyError ? 'usage-copy-error' : 'sr-only'}
                                     role="status">

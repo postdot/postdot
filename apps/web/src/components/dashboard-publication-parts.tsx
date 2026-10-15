@@ -589,17 +589,6 @@ export function PublicationRow({
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="inline-flex min-w-0 max-w-full items-center gap-2">
                             <span
-                                className={cn(
-                                    'size-2 shrink-0 rounded-full bg-current',
-                                    channelMarkerClass(
-                                        publication.deliveryMode === 'automatic'
-                                            ? 'automatic'
-                                            : 'manual-message'
-                                    )
-                                )}
-                                aria-hidden="true"
-                            />
-                            <span
                                 className="min-w-0 truncate text-sm font-medium"
                                 title={publication.channelName}>
                                 {publication.channelName}
@@ -720,7 +709,6 @@ export function PublicationStatus({
                 'inline-flex items-center gap-1.5 text-xs font-medium',
                 due ? 'text-state-attention' : statusClass(state)
             )}>
-            <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
             {label}
         </span>
     )

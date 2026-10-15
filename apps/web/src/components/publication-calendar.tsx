@@ -637,7 +637,7 @@ function PublicationCalendarAgenda({
                                     type="button">
                                     <span
                                         aria-hidden="true"
-                                        className="size-2 shrink-0 rounded-full bg-(--publication-color)"
+                                        className="h-5 w-px shrink-0 bg-(--publication-color)"
                                         style={
                                             {
                                                 '--publication-color': occurrence.event.color,
@@ -682,7 +682,7 @@ function PublicationEventContent({
     const statusMarker = (
         <span
             aria-hidden="true"
-            className="mt-1 size-1.5 shrink-0 rounded-full bg-(--publication-color)"
+            className="h-3 w-px shrink-0 self-center bg-(--publication-color)"
             style={
                 {
                     '--publication-color': occurrence.event.color ?? 'var(--color-primary)',
@@ -700,7 +700,7 @@ function PublicationEventContent({
                         {occurrence.event.title}
                     </span>
                 </span>
-                <span className="min-w-0 max-w-full break-words whitespace-normal ps-3 text-[0.625rem] text-muted-foreground">
+                <span className="min-w-0 max-w-full break-words whitespace-normal ps-2 text-[0.625rem] text-muted-foreground">
                     {time} · {publication.channelName}
                 </span>
             </span>

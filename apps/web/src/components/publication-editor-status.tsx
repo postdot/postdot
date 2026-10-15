@@ -109,14 +109,7 @@ export function PublicationEditorSaveIndicator({
             className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
             role="status"
             title={label}>
-            <span
-                className={cn(
-                    'size-1.5 rounded-full bg-current',
-                    state === 'saved' ? 'text-state-published' : 'text-state-attention'
-                )}
-                aria-hidden="true"
-            />
-            <span className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}>
+            <span className={compactOnMobile ? 'max-w-28 truncate sm:max-w-none' : undefined}>
                 {label}
                 {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
             </span>

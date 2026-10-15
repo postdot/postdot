@@ -828,3 +828,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[SITE-443]** Replace the rejected usage study with a client-first visual gallery `Priority: 🟠` `Complexity: M`
 
 - [x] SITE-444 — Refine accepted client-gallery direction with distinct compact artwork, availability tags and purposeful interactions.
+
+- [x] SITE-445 — Refine workflow and CLI artwork, remove decorative status dots, stabilize Studio and vary homepage scroll entrances.

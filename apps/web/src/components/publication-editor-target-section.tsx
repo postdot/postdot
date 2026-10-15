@@ -74,10 +74,6 @@ export function PublicationEditorTargetSection({
                             <Badge
                                 variant="outline"
                                 className="border-0 bg-transparent px-0 text-state-attention">
-                                <span
-                                    className="size-1.5 rounded-full bg-current"
-                                    aria-hidden="true"
-                                />
                                 {m.editor_target_review_required()}
                             </Badge>
                         ) : null}

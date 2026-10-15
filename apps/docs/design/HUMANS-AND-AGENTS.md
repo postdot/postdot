@@ -62,3 +62,18 @@ access is unavailable. No terminal command executes.
 
 Section headers have no pre-title label. This owner rule is captured in the public
 site AGENT.md; descriptive text remains optional and short.
+
+## SITE-445 corrections
+
+Availability tags have no leading dot. n8n uses a rose tag and a larger, fixed
+workflow scene whose connector reveals follow the actual nodes. CLI artwork shows
+an excerpt of the existing help resources rather than three decorative words.
+Copy success uses Solar Check, not the messaging read-receipt icon.
+
+Studio no longer receives a scroll-derived initial translation. The homepage
+product image also starts at its final scale; neither waits for scroll measurement
+to establish its first position. Homepage section entrances now distinguish copy,
+illustration reveal and product surfaces. They apply only to initially below-fold
+content, run once, preserve layout space and respect reduced motion. Existing
+Skills and Mobile artwork is retained. Homepage gallery integration is still a
+separate step.

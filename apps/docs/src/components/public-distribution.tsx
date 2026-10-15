@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 
 import { brands } from '../../public/illustrations/brands.js'
 import { sceneAt } from '../../public/illustrations/scene.js'
+import { PublicEntrance } from './public-entrance'
 
 import './public-distribution.css'
 
@@ -95,7 +96,7 @@ export function DistributionIllustration() {
 export function PublicDistribution() {
     return (
         <section className="home-distribution" aria-labelledby="distribution-title">
-            <div className="home-distribution-copy">
+            <PublicEntrance className="home-distribution-copy" kind="copy">
                 <h2 id="distribution-title">
                     Write once.
                     <br />
@@ -105,8 +106,10 @@ export function PublicDistribution() {
                     Start with one post. Adapt the text, media and schedule for each network, while
                     keeping your source in one place.
                 </p>
-            </div>
-            <DistributionIllustration />
+            </PublicEntrance>
+            <PublicEntrance kind="illustration">
+                <DistributionIllustration />
+            </PublicEntrance>
         </section>
     )
 }

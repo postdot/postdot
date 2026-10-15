@@ -9,21 +9,11 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { PostbotLogo } from './brand'
+import { PublicEntrance } from './public-entrance'
 import { PublicScreenshot } from './public-screenshot'
 
 function Scene({ children, className = '' }: { children: ReactNode; className?: string }) {
-    const reducedMotion = useReducedMotion()
-    return (
-        <motion.div
-            className={`home-scene ${className}`}
-            initial={false}
-            whileInView={{ y: 0 }}
-            style={{ y: reducedMotion ? 0 : 32 }}
-            viewport={{ once: true, amount: 0.12 }}
-            transition={{ duration: reducedMotion ? 0 : 0.7, ease: [0.16, 1, 0.3, 1] }}>
-            {children}
-        </motion.div>
-    )
+    return <PublicEntrance className={`home-scene ${className}`}>{children}</PublicEntrance>
 }
 
 const commands = [
@@ -211,7 +201,7 @@ export function PublicStory() {
     return (
         <div className="home-product-story">
             <section id="planning" className="home-chapter home-planning-chapter">
-                <div className="home-chapter-heading home-heading-split">
+                <PublicEntrance kind="copy" className="home-chapter-heading home-heading-split">
                     <h2>
                         See what is going out.
                         <br />
@@ -221,7 +211,7 @@ export function PublicStory() {
                         Plan across destinations, then follow each publication. Your calendar and
                         queue show timing and state from the same workspace.
                     </p>
-                </div>
+                </PublicEntrance>
                 <Scene>
                     <Tabs defaultValue="queue" className="home-planning-tabs">
                         <TabsList className="home-view-tabs" aria-label="Product views">
@@ -242,7 +232,7 @@ export function PublicStory() {
             </section>
             <section id="automation" className="home-automation-chapter">
                 <div className="home-automation-inner">
-                    <div className="home-chapter-heading home-heading-split">
+                    <PublicEntrance kind="copy" className="home-chapter-heading home-heading-split">
                         <h2>
                             Your agents.
                             <br />
@@ -253,7 +243,7 @@ export function PublicStory() {
                             publication workflow through its CLI and REST API, without handing them
                             your provider credentials.
                         </p>
-                    </div>
+                    </PublicEntrance>
                     <Scene>
                         <AgentCommands />
                     </Scene>
@@ -267,7 +257,7 @@ export function PublicStory() {
                 </div>
             </section>
             <section id="self-hosting" className="home-chapter home-ownership-chapter">
-                <div className="home-ownership-copy">
+                <PublicEntrance kind="copy" className="home-ownership-copy">
                     <h2>
                         Your posts belong
                         <br />
@@ -280,7 +270,7 @@ export function PublicStory() {
                     <Link href="/docs/installation/" className="home-inline-action">
                         Install Postbot <ArrowRightIcon size={18} aria-hidden="true" />
                     </Link>
-                </div>
+                </PublicEntrance>
                 <Scene className="home-storage-scene">
                     <div className="home-storage-title">
                         <PostbotLogo />
