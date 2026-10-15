@@ -1,5 +1,5 @@
 import { brands } from './brands.js'
-import { sceneAt, spreadAt } from './scene.js'
+import { sceneAt, spreadAt, transferAt } from './scene.js'
 import { HL } from './vendor/hairline/kernel.js'
 
 const { mk, solid, put, register, reducedMotion } = HL
@@ -12,10 +12,11 @@ export function mountFigure(stage) {
         const body = solid(root)
         body.sil.setAttribute('class', 'sil')
         body.cr.setAttribute('class', 'crease')
-        const image = mk('path', { class: 'image' }, body.g)
-        const landscape = mk('path', { class: 'accent' }, body.g)
-        const lines = Array.from({ length: 3 }, () => mk('path', { class: 'rule' }, body.g))
-        return { body, image, landscape, lines }
+        const content = mk('g', {}, body.g)
+        const image = mk('path', { class: 'image' }, content)
+        const landscape = mk('path', { class: 'accent' }, content)
+        const lines = Array.from({ length: 3 }, () => mk('path', { class: 'rule' }, content))
+        return { body, content, image, landscape, lines }
     }
     const source = makePlate()
     const targets = [0, 1, 2].map(i => {
@@ -52,12 +53,22 @@ export function mountFigure(stage) {
             nodes.logo.setAttribute('x', item.badge[0] - 8.5)
             nodes.logo.setAttribute('y', item.badge[1] - 8.5)
             nodes.route.setAttribute('d', item.route)
-            const phase = (clock / 1800 - i * 0.16) % 1
-            const traveling = phase > 0.12 && phase < 0.86 && !reducedMotion()
+            const transfer = transferAt(clock, i)
+            const complete = reducedMotion() ? 1 : transfer.content
+            nodes.content.style.opacity = String(complete)
+            nodes.lines.forEach((line, j) => {
+                line.setAttribute('pathLength', '1')
+                line.style.strokeDasharray = '1'
+                line.style.strokeDashoffset = String(
+                    1 - Math.max(0, Math.min(1, complete * 1.5 - j * 0.16))
+                )
+            })
+            nodes.body.sil.classList.toggle('active', !reducedMotion() && transfer.active)
+            const traveling = transfer.progress > 0 && transfer.progress < 1 && !reducedMotion()
             nodes.pulse.style.opacity = traveling ? '1' : '0'
             if (traveling) {
                 const p = nodes.route.getPointAtLength(
-                    (nodes.route.getTotalLength() * (phase - 0.12)) / 0.74
+                    nodes.route.getTotalLength() * transfer.progress
                 )
                 nodes.pulse.setAttribute('cx', p.x)
                 nodes.pulse.setAttribute('cy', p.y)

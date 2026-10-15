@@ -1,6 +1,6 @@
 # Illustration pilot
 
-Live study: `/illustrations/`. The accepted composition also appears in the homepage distribution feature.
+Live study: `/illustrations/`. The homepage placement was withdrawn: the owner accepted basic usability, not the visual standard.
 
 The active pilot uses the vendored Hairline kernel for its fixed camera, rounded
 solids and shared animation scheduler. `scene.js` is the single geometry model:
@@ -35,3 +35,13 @@ Theme colors are scoped to this component, not global SVG classes.
 
 The standalone `preview.js` handles its own page lifecycle, including restoration
 from the browser back/forward cache. Do not auto-mount figures at module import.
+
+## Current study sequence
+
+The source and destination stack share the same ground-plane sum and central
+height, giving a balanced composition with one orthographic camera. The stack
+remains still. Curved connections, brand anchors and content use the same pose.
+`transferAt` defines departures, arrival, content drawing and reset; content does
+not appear before its transfer arrives. Avoid decorative opening/closing loops
+that do not explain a product action. The dormant React wrapper is retained as
+an integration tool, not a published feature or approved artistic treatment.

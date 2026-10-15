@@ -1,14 +1,14 @@
 import { test, expect } from 'bun:test'
 
 // The production scene is browser-independent; no duplicated test geometry.
-import { sceneAt, spreadAt } from '../../public/illustrations/scene.js'
+import { sceneAt, spreadAt, transferAt } from '../../public/illustrations/scene.js'
 
-test('animated routes stay attached throughout an entire opening and closing cycle', () => {
+test('routes stay attached and stack order remains stable throughout the transfer cycle', () => {
     const portYs = new Set()
-    for (let ms = 0; ms <= 6400; ms += 40) {
+    for (let ms = 0; ms <= 7200; ms += 40) {
         const scene = sceneAt(spreadAt(ms))
         for (const item of scene.destinations) {
-            const numbers = item.route.match(/-?\d+(?:\.\d+)?/g).map(Number)
+            const numbers = item.route.match(/-?\d+(?:\.\d+)?/g)!.map(Number)
             const end = numbers.slice(-2)
             expect(Math.abs(end[0]! - item.port[0])).toBeLessThan(0.02)
             expect(Math.abs(end[1]! - item.port[1])).toBeLessThan(0.02)
@@ -19,5 +19,15 @@ test('animated routes stay attached throughout an entire opening and closing cyc
         expect(scene.destinations[0]!.z).toBeLessThan(scene.destinations[1]!.z)
         expect(scene.destinations[1]!.z).toBeLessThan(scene.destinations[2]!.z)
     }
-    expect(portYs.size).toBeGreaterThan(20)
+    expect(portYs.size).toBe(1)
+})
+
+test('destination content appears after arrival, then resets for the next cycle', () => {
+    for (let index = 0; index < 3; index++) {
+        const departure = 900 + index * 350
+        expect(transferAt(departure + 500, index).content).toBe(0)
+        expect(transferAt(departure + 500, index).progress).toBeGreaterThan(0)
+        expect(transferAt(departure + 2000, index).content).toBe(1)
+        expect(transferAt(7199, index).content).toBeLessThan(0.01)
+    }
 })

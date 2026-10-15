@@ -5,17 +5,17 @@ const camera = Cam(45, 0.5, 1.8)
 fit(
     camera,
     [
-        [-180, -40, 0],
-        [-72, 34, 40],
-        [25, -40, 146],
-        [165, 34, 0],
+        [-115, 65, 52],
+        [-7, 139, 55],
+        [25, -75, 10],
+        [160, -1, 115],
     ],
     320,
     195
 )
 const project = proj(camera)
 const front = facing(camera)
-const source = { x: -180, y: -40, z: 44, width: 108, depth: 74 }
+const source = { x: -115, y: 65, z: 52, width: 108, depth: 74 }
 const bases = [10, 52, 94]
 
 function plate(spec) {
@@ -25,15 +25,22 @@ function plate(spec) {
     const point = (u, v) => project(x + u, y + v, z + 3)
     const lines = [44, 53, 62].map((v, i) => open([point(12, v), point([94, 83, 68][i], v)]))
     const image = poly([point(12, 10), point(96, 10), point(96, 35), point(12, 35)])
-    const landscape = open(
+    const horizon = open(
         [
-            [19, 29],
-            [36, 18],
-            [51, 27],
-            [73, 15],
-            [88, 28],
+            [17, 31],
+            [34, 18],
+            [49, 30],
+            [63, 22],
+            [78, 31],
         ].map(([u, v]) => point(u, v))
     )
+    const sun = poly(
+        Array.from({ length: 20 }, (_, i) =>
+            point(82 + 3 * Math.cos((i * Math.PI) / 10), 17 + 3 * Math.sin((i * Math.PI) / 10))
+        )
+    )
+    const landscape = horizon + ' ' + sun
+
     return {
         shape,
         lines,
@@ -46,18 +53,20 @@ function plate(spec) {
 
 /** One pose owns solids, content, brand positions and connector endpoints. */
 export function sceneAt(spread) {
-    const value = Math.max(0, Math.min(1, spread))
+    // Layout stays at rest: only content and active edges participate in the transfer.
+    void spread
     const origin = plate(source)
     const sourcePort = project(source.x + source.width, source.y + source.depth / 2, source.z + 1.5)
-    const junction = project(-23, -3, source.z + 1.5)
+    const junction = [(sourcePort[0] + project(25, -38, 53.5)[0]) / 2, sourcePort[1]]
     const destinations = bases.map((base, i) => {
-        const z = base + (i - 1) * 18 * value
-        const item = plate({ x: 25, y: -40, z, width: 108, depth: 74 })
+        const z = base
+        const item = plate({ x: 25, y: -75, z, width: 108, depth: 74 })
         return {
             ...item,
             z,
             index: i,
-            route: open([sourcePort, junction, item.port]),
+            route: `M${sourcePort.join(',')} L${junction.join(',')} C${junction[0] + 26},${junction[1]} ${item.port[0] - 26},${item.port[1]} ${item.port.join(',')}`,
+
             start: sourcePort,
         }
     })
@@ -65,9 +74,19 @@ export function sceneAt(spread) {
 }
 
 export function spreadAt(time) {
-    const phase = (time % 6400) / 6400
-    if (phase < 0.12) return 0
-    if (phase < 0.4) return HL.EASE_LIFT((phase - 0.12) / 0.28)
-    if (phase < 0.72) return 1
-    return 1 - HL.EASE_LIFT((phase - 0.72) / 0.28)
+    return (time % 7200) / 7200
+}
+
+/** A transfer arrives before the destination draws its content. */
+export function transferAt(time, index) {
+    const phase = time % 7200
+    const departure = 900 + index * 350
+    const progress = Math.max(0, Math.min(1, (phase - departure) / 1000))
+    const content = HL.EASE_LIFT(Math.max(0, Math.min(1, (phase - departure - 1000) / 850)))
+    const reset = phase > 6200 ? 1 - HL.EASE_LIFT((phase - 6200) / 1000) : 1
+    return {
+        progress,
+        content: content * reset,
+        active: phase >= departure && phase < departure + 1850,
+    }
 }

@@ -37,20 +37,20 @@
             min-height: 400px;
             display: grid;
             place-items: center;
-            --face: #fff;
+            --face: #f4f4f4;
             --edge: #bcbcbc;
             --ink: #777;
             --blue: #2457d6;
-            --wash: #e8efff;
+            --wash: #ededed;
             color: #1c1c1c;
         }
         .dark {
             background: #171717;
-            --face: #202020;
+            --face: #171717;
             --edge: #575757;
             --ink: #aaa;
             --blue: #94b5ff;
-            --wash: #26334e;
+            --wash: #222;
             color: #f4f4f4;
         }
         .view > svg {
@@ -63,6 +63,10 @@
             stroke: var(--edge);
             stroke-width: 0.65;
             stroke-linejoin: round;
+        }
+        .sil.active {
+            stroke: var(--blue);
+            stroke-width: 1;
         }
         .crease {
             fill: none;
@@ -131,8 +135,7 @@
         </div>
     </main>
     <footer>
-        Fixed isometric camera. Shared geometry for plates and connections. Reduced motion
-        supported.
+        One source. Three destination drafts. Content appears when each transfer arrives.
     </footer>
     <script type="module" src="./preview.js"></script>
 </html>
