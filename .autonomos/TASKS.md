@@ -875,3 +875,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-467 — Turn the Guides overview into a concise task-oriented entry point using native navigation cards.
 
 - [x] SITE-468 — Clarify the Self-hosting entry around installation, persistent data and maintenance.
+
+- [x] SITE-469 — Structure the canonical installation guide with native generated steps and clearer operational headings while preserving commands.

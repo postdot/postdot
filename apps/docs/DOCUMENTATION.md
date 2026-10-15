@@ -49,6 +49,15 @@ rather than copying the generation/navigation manual. Owner feedback should upda
 the narrowest relevant guidance, replacing outdated rules instead of accumulating
 contradictory instructions.
 
+### Steps in canonical Markdown
+
+The native `remarkSteps` plugin converts numbered headings into visual steps.
+This lets `docs/deployment/self-hosting.md` stay ordinary Markdown while the
+projected installation page uses the same step presentation as authored MDX.
+An unnumbered heading at the same level ends the sequence. Preserve existing
+major heading anchors and compare command blocks when editing operational prose.
+The processed Markdown export retains readable numbered headings.
+
 ## Layout and theme evaluation
 
 The installed version includes Docs, Notebook, Flux, Glass and Spacious layouts.

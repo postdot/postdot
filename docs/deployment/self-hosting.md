@@ -6,8 +6,15 @@ source checkout; no public registry image or released upgrade path is available 
 
 ## First installation
 
-Requirements: Docker Engine with Compose v2.20 or newer, Git, and OpenSSL for generating
-secrets. Start in the root of your Postbot source checkout.
+Before starting, have these available:
+
+- Docker Engine with Compose v2.20 or newer.
+- Git and a Postbot source checkout.
+- OpenSSL to generate the deployment secrets.
+
+Run the commands below from the root of that checkout.
+
+### 1. Configure the instance
 
 ```sh
 cp compose.env.example .env
@@ -27,6 +34,8 @@ The defaults serve <http://127.0.0.1:3000>. If this port is occupied, change
 `POSTBOT_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
 Git and never publish the output of `docker compose config`, which includes secrets.
 
+### 2. Build, start and check readiness
+
 ```sh
 docker compose config --quiet
 docker compose build
@@ -34,10 +43,17 @@ docker compose up -d --wait
 curl --fail http://127.0.0.1:3000/ready
 ```
 
+The readiness request must succeed before you continue. If startup fails, inspect
+`docker compose logs --tail 100 postbot` before changing the configuration.
+
+### 3. Create the administrator account
+
 Open the dashboard and create the first account. It becomes the installation
 administrator; public signup then closes. Create your project and first channel.
 A manual channel lets you prepare and schedule content without configuring a
 provider account. Invite additional users through the application.
+
+### Public HTTPS deployment
 
 For a public deployment, keep the container bound to loopback and place an HTTPS
 reverse proxy on the host in front of it. Set `BETTER_AUTH_URL` and
@@ -54,6 +70,8 @@ contains application state; `/data/media` contains originals, previews and avata
 Keep the Compose project name stable so a later invocation uses the same volume.
 The image contains committed migrations, which apply automatically at startup.
 
+### Check and control the container
+
 ```sh
 docker compose ps
 docker compose logs --tail 100 postbot
@@ -66,6 +84,8 @@ docker compose up -d --wait
 restore, readiness can succeed while recovery hold deliberately suspends delivery.
 Read the administration recovery state before assuming work has resumed.
 
+### Protect the volume and runtime lock
+
 `docker compose down` keeps the data volume. **`docker compose down --volumes`
 deletes it.** Do not use the latter to troubleshoot or update an installation.
 Graceful stop has 30 seconds to drain. If a forced termination leaves a runtime
@@ -73,6 +93,8 @@ lock, verify that no process uses the database before removing only its exact
 `.runtime.lock` marker; never remove a live process's lock.
 
 ## Optional email and S3
+
+### Email delivery
 
 SMTP is optional. Without it, automatic verification/password-reset email and
 email publication alerts are unavailable. Configure the commented SMTP group in
@@ -86,6 +108,8 @@ Port 587 normally uses `POSTBOT_EMAIL_SMTP_SECURE=false` with STARTTLS; implicit
 TLS on port 465 uses `true`. Username/password must be supplied together. Use the
 relay's actual settings and test delivery. There is no bundled production mail server.
 
+### S3-compatible media storage
+
 Local media is the default. S3-compatible storage uses `POSTBOT_MEDIA_STORE=s3`,
 `POSTBOT_MEDIA_S3_BUCKET`, access-key and secret-key variables, plus a region or
 endpoint. The complete list is in `apps/api/.env.example`. Keep the store ID stable
@@ -97,6 +121,8 @@ alone does not migrate existing media. No S3 service is required for first use.
 Backup scheduling, off-host storage and retention belong to the administrator.
 Postbot offers a consistent portable bundle containing SQLite and stored media.
 Preserve deployment secrets separately; they are not included in the bundle.
+
+### Create and copy a backup
 
 Create a uniquely named backup while Postbot is running, then copy it outside the
 application volume:
@@ -117,7 +143,10 @@ storage. A backup left only in `/data` does not protect against loss of that vol
 Use a new output name for each backup. Inspect a representative restore periodically;
 a successful backup alone does not prove your recovery procedure.
 
-To restore the bundle still available under `/data/backups`:
+### Restore and review before resuming
+
+Stop the application before restoring. The commands below use the bundle still
+available under `/data/backups`:
 
 ```sh
 docker compose stop postbot
@@ -134,6 +163,8 @@ For off-host bundles and externally restored databases, follow the
 
 ## Update and rollback
 
+### Prepare and apply an update
+
 Until releases exist, record the source commit and retain the previous image
 before building an update. Back up data and secrets first.
 
@@ -145,6 +176,8 @@ docker compose build
 docker compose up -d --wait
 curl --fail http://127.0.0.1:3000/ready
 ```
+
+### If you need to roll back
 
 A failed update is not a reason to delete the volume. Returning to an older image
 alone may fail after database migrations; schema downgrade is not supported.
