@@ -325,106 +325,10 @@
     color: #6a6a6a;
     margin: 0;
 }
-.capability-brand-cloud {
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    top: 76px;
-    height: 150px;
-}
-.capability-brand {
-    display: block;
-    position: absolute;
-    width: 44px;
-    height: 44px;
-    transform: rotate(-6deg);
-}
-.capability-brand svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
-.capability-brand-0 {
-    left: 4%;
-    top: 38px;
-    width: 38px;
-    height: 38px;
-    color: #1c1c1c;
-    fill: currentColor;
-}
-.capability-brand-1 {
-    left: 34%;
-    top: 5px;
-    transform: rotate(7deg);
-}
-.capability-brand-2 {
-    right: 0;
-    top: 48px;
-    width: 48px;
-    height: 48px;
-    transform: rotate(-8deg);
-}
-.capability-brand-3 {
-    left: 21%;
-    top: 95px;
-    width: 45px;
-    height: 35px;
-    transform: rotate(5deg);
-}
-.capability-brand-4 {
-    left: 58%;
-    top: 100px;
-    width: 36px;
-    height: 36px;
-    transform: rotate(-5deg);
-}
 .capability-expression {
     background: #f4e5dc;
     border-color: #f4e5dc;
     color: #684337;
-}
-.capability-expression-art {
-    position: absolute;
-    top: 70px;
-    left: 24px;
-    right: 24px;
-    height: 155px;
-}
-.capability-expression-bold {
-    position: absolute;
-    left: 29%;
-    top: 12px;
-    font-size: 100px;
-    line-height: 1;
-    font-weight: 700;
-    letter-spacing: -0.05em;
-    color: #8d4e3e;
-}
-.capability-expression-italic {
-    position: absolute;
-    right: 3%;
-    top: 6px;
-    font-size: 26px;
-    color: #b66c52;
-    font-family: Georgia, serif;
-}
-.capability-expression-smile {
-    position: absolute;
-    right: 5%;
-    bottom: 9px;
-    color: #b47b26;
-}
-.capability-expression-clip {
-    position: absolute;
-    left: 4%;
-    top: 16px;
-    color: #ac795e;
-}
-.capability-expression-image {
-    position: absolute;
-    left: 8%;
-    bottom: 2px;
-    color: #ae8375;
 }
 .capability-expression .capability-small-caption {
     color: #815f52;
@@ -435,9 +339,11 @@
     right: 28px;
     top: 24px;
     display: flex;
-    flex-direction: column;
-    gap: 3px;
-    font-size: 30px;
+    flex-direction: row;
+    align-items: baseline;
+    white-space: nowrap;
+    gap: 10px;
+    font-size: clamp(18px, 1.7vw, 23px);
     line-height: 1.15;
     font-weight: 500;
     letter-spacing: -0.035em;
@@ -447,8 +353,8 @@
 }
 .capability-greetings > span[lang='ar'] {
     font-family: 'Noto Sans Arabic', Tahoma, Arial, sans-serif;
-    align-self: flex-start;
-    font-size: 29px;
+    align-self: baseline;
+    font-size: inherit;
     font-weight: 400;
     color: #9c9c9c;
     letter-spacing: 0;
@@ -458,7 +364,7 @@
     position: absolute;
     left: 28px;
     right: 28px;
-    top: 178px;
+    top: 108px;
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
@@ -488,28 +394,10 @@
 .dark .capability-small-caption {
     color: #aaa;
 }
-.dark .capability-brand-0 {
-    color: #f4f4f4;
-}
 .dark .capability-expression {
     background: #382c27;
     border-color: #382c27;
     color: #f1d9ca;
-}
-.dark .capability-expression-bold {
-    color: #e0aa92;
-}
-.dark .capability-expression-italic {
-    color: #d48e72;
-}
-.dark .capability-expression-smile {
-    color: #d7ab65;
-}
-.dark .capability-expression-clip {
-    color: #bb967e;
-}
-.dark .capability-expression-image {
-    color: #c39688;
 }
 .dark .capability-expression .capability-small-caption {
     color: #c7aa9a;
@@ -533,30 +421,14 @@
         right: 18px;
         font-size: 10px;
     }
-    .capability-brand-cloud {
-        left: 15px;
-        right: 15px;
-        transform: scale(0.9);
-        transform-origin: 50% 30%;
-    }
     .capability-greetings {
         left: 22px;
-        font-size: 27px;
+        font-size: 18px;
     }
     .capability-flag-ribbon {
         left: 22px;
         right: 22px;
         gap: 7px;
-    }
-    .capability-expression-art {
-        left: 10px;
-        right: 10px;
-    }
-    .capability-expression-bold {
-        font-size: 85px;
-    }
-    .capability-expression-italic {
-        font-size: 21px;
     }
 }
 @media (max-width: 600px) {
@@ -566,20 +438,12 @@
     .capability-detail {
         min-height: 300px;
     }
-    .capability-brand-cloud {
-        left: 35px;
-        right: 35px;
-    }
     .capability-flag-ribbon {
         max-width: 300px;
         gap: 12px;
     }
     .capability-greetings {
-        font-size: 32px;
-    }
-    .capability-expression-art {
-        left: 35px;
-        right: 35px;
+        font-size: 21px;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -591,6 +455,176 @@
     }
 }
 
-.capability-brand-0 svg path {
-    fill: currentColor;
+.capability-channel-pair {
+    position: absolute;
+    top: 108px;
+    left: 28px;
+    right: 28px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+.capability-channel-tile {
+    width: 112px;
+    height: 112px;
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    font-size: 11px;
+    transition: background 0.25s;
+}
+.capability-built-in {
+    background: #edf2f8;
+    color: #4b617d;
+}
+.capability-built-in > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 38px;
+}
+.capability-built-in svg {
+    width: 30px;
+    height: 30px;
+}
+.capability-custom {
+    background: #e0e8f5;
+    color: #3f5e8c;
+}
+.capability-channels:hover .capability-custom {
+    background: #cfdcf2;
+}
+.capability-typesetting {
+    position: absolute;
+    top: 88px;
+    left: 28px;
+    right: 28px;
+}
+.capability-typesetting > strong {
+    display: block;
+    font-size: 37px;
+    line-height: 1.1;
+    font-weight: 650;
+    letter-spacing: -0.04em;
+    color: #8d4e3e;
+    white-space: nowrap;
+}
+.capability-typesetting > em {
+    position: relative;
+    display: block;
+    width: fit-content;
+    font-size: 35px;
+    line-height: 1.3;
+    letter-spacing: -0.03em;
+    font-weight: 400;
+    color: #a36e56;
+}
+.capability-word-underline {
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #bc896d;
+    transform-origin: left;
+}
+.capability-writing-tools {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 23px;
+    color: #a36e56;
+}
+.capability-languages .capability-flag-ribbon {
+    display: grid;
+    grid-template-columns: repeat(4, 28px);
+    gap: 15px 23px;
+}
+.dark .capability-built-in {
+    background: #293443;
+    color: #bfccde;
+}
+.dark .capability-custom {
+    background: #303f58;
+    color: #c1d4f4;
+}
+.dark .capability-channels:hover .capability-custom {
+    background: #3b5074;
+}
+.dark .capability-typesetting > strong {
+    color: #e0aa92;
+}
+.dark .capability-typesetting > em,
+.dark .capability-writing-tools {
+    color: #d3a78e;
+}
+@media (min-width: 601px) and (max-width: 950px) {
+    .capability-channel-pair {
+        left: 18px;
+        right: 18px;
+        gap: 7px;
+    }
+    .capability-channel-tile {
+        width: 95px;
+    }
+    .capability-built-in > div {
+        gap: 6px;
+    }
+    .capability-built-in svg {
+        width: 23px;
+        height: 23px;
+    }
+    .capability-typesetting {
+        left: 22px;
+        right: 22px;
+    }
+    .capability-typesetting > strong {
+        font-size: 29px;
+    }
+    .capability-typesetting > em {
+        font-size: 30px;
+    }
+    .capability-greetings {
+        gap: 6px;
+        left: 18px;
+        right: 18px;
+        font-size: 16px;
+    }
+}
+@media (max-width: 600px) {
+    .capability-channel-pair {
+        top: 110px;
+    }
+    .capability-greetings {
+        font-size: 21px;
+        gap: 8px;
+    }
+    .capability-typesetting > strong {
+        font-size: 38px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .capability-channel-tile {
+        transition: none;
+    }
+}
+@media (min-width: 601px) and (max-width: 850px) {
+    .capability-detail {
+        grid-column: span 3;
+    }
+    .capability-languages {
+        grid-column: 1/-1;
+        min-height: 220px;
+    }
+    .capability-greetings {
+        font-size: 23px;
+        gap: 12px;
+    }
+    .capability-languages .capability-flag-ribbon {
+        grid-template-columns: repeat(8, 28px);
+        gap: 12px;
+    }
 }

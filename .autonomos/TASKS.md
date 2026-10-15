@@ -838,3 +838,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-448 — Clarify custom/manual destinations, enrich language presentation, add verified editor capabilities and remove the superseded ownership section.
 
 - [x] SITE-449 — Replace the literal editor and secondary documentation cards with a two-row visual capability grid.
+
+- [x] SITE-450 — Clarify built-in/custom channel balance, replace scattered editor symbols and set greetings on one line.

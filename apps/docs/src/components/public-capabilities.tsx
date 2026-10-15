@@ -3,11 +3,9 @@
 // cspell:ignore مرحبًا
 
 import bluesky from '@iconify-icons/logos/bluesky'
-import discord from '@iconify-icons/logos/discord-icon'
 import linkedin from '@iconify-icons/logos/linkedin-icon'
-import mastodon from '@iconify-icons/logos/mastodon-icon'
-import x from '@iconify-icons/logos/x'
 import { CloudIcon } from '@solar-icons/react/linear/cloud'
+import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
 import { PlayIcon } from '@solar-icons/react/linear/play'
@@ -145,88 +143,63 @@ export function PublicCapabilities() {
                     </div>
                 </motion.article>
                 <article className="capability-detail capability-channels">
-                    <h3>Your networks, together.</h3>
+                    <h3>
+                        Built-in channels.
+                        <br />
+                        Custom options, too.
+                    </h3>
                     <div
-                        className="capability-brand-cloud"
+                        className="capability-channel-pair"
                         role="img"
-                        aria-label="Built-in channels include X, LinkedIn, Bluesky, Discord and Mastodon.">
-                        {[
-                            { name: 'X', icon: x },
-                            { name: 'LinkedIn', icon: linkedin },
-                            { name: 'Bluesky', icon: bluesky },
-                            { name: 'Discord', icon: discord },
-                            { name: 'Mastodon', icon: mastodon },
-                        ].map((brand, index) => (
-                            <motion.span
-                                key={brand.name}
-                                className={`capability-brand capability-brand-${index}`}
-                                aria-hidden="true"
-                                whileHover={reduced ? undefined : { rotate: 0, scale: 1.12 }}
-                                transition={{ duration: 0.3 }}>
-                                <svg
-                                    viewBox={`0 0 ${brand.icon.width} ${brand.icon.height}`}
-                                    dangerouslySetInnerHTML={{ __html: brand.icon.body }}
-                                />
-                            </motion.span>
-                        ))}
+                        aria-label="Built-in social channels and custom HTTP destinations are both supported.">
+                        <div className="capability-channel-tile capability-built-in">
+                            <div aria-hidden="true">
+                                {[linkedin, bluesky].map((icon, index) => (
+                                    <svg
+                                        key={index}
+                                        viewBox={`0 0 ${icon.width} ${icon.height}`}
+                                        dangerouslySetInnerHTML={{ __html: icon.body }}
+                                    />
+                                ))}
+                            </div>
+                            <span>Built-in</span>
+                        </div>
+                        <div className="capability-channel-tile capability-custom">
+                            <CodeSquareIcon size={38} aria-hidden="true" />
+                            <span>Custom</span>
+                        </div>
                     </div>
-                    <p className="capability-small-caption">
-                        Built-in channels. Custom options, too.
-                    </p>
+                    <p className="capability-small-caption">Connected, manual or custom.</p>
                 </article>
                 <motion.article
                     className="capability-detail capability-expression"
                     initial="rest"
                     whileInView="open"
-                    whileHover={reduced ? undefined : 'spread'}
+                    whileHover={reduced ? undefined : 'active'}
                     viewport={{ once: true, amount: 0.5 }}>
                     <h3>Make it yours.</h3>
-                    <div className="capability-expression-art" aria-hidden="true">
-                        <motion.strong
-                            className="capability-expression-bold"
-                            variants={{
-                                rest: { rotate: -8 },
-                                open: { rotate: -5 },
-                                spread: { rotate: -10, x: -7, y: 3 },
-                            }}>
-                            B
-                        </motion.strong>
-                        <motion.em
-                            className="capability-expression-italic"
-                            variants={{
-                                rest: { rotate: 9 },
-                                open: { rotate: 4 },
-                                spread: { rotate: 12, x: 8, y: -5 },
-                            }}>
-                            Italic
-                        </motion.em>
-                        <motion.span
-                            className="capability-expression-smile"
-                            variants={{
-                                rest: { rotate: -15 },
-                                open: { rotate: 8 },
-                                spread: { rotate: 20, x: 9, y: 5 },
-                            }}>
-                            <SmileCircleIcon size={64} strokeWidth={1.2} />
-                        </motion.span>
-                        <motion.span
-                            className="capability-expression-clip"
-                            variants={{
-                                rest: { rotate: 30 },
-                                open: { rotate: 15 },
-                                spread: { rotate: 0, x: -8, y: -4 },
-                            }}>
-                            <PaperclipIcon size={48} strokeWidth={1.4} />
-                        </motion.span>
-                        <motion.span
-                            className="capability-expression-image"
-                            variants={{
-                                rest: { rotate: 8 },
-                                open: { rotate: -9 },
-                                spread: { rotate: -17, x: -4, y: 8 },
-                            }}>
-                            <GalleryIcon size={43} strokeWidth={1.2} />
-                        </motion.span>
+                    <div className="capability-typesetting" aria-hidden="true">
+                        <strong>Your words,</strong>
+                        <em>
+                            your way.
+                            <motion.span
+                                className="capability-word-underline"
+                                variants={{
+                                    rest: { scaleX: reduced ? 1 : 0 },
+                                    open: { scaleX: 1 },
+                                    active: { scaleX: [0, 1] },
+                                }}
+                                transition={{
+                                    duration: reduced ? 0 : 0.65,
+                                    ease: [0.16, 1, 0.3, 1],
+                                }}
+                            />
+                        </em>
+                        <div className="capability-writing-tools">
+                            <SmileCircleIcon size={26} />
+                            <PaperclipIcon size={25} />
+                            <GalleryIcon size={25} />
+                        </div>
                     </div>
                     <p className="capability-small-caption">
                         Text, emoji & media. Tools adapt to the network.
