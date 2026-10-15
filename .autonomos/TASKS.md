@@ -836,3 +836,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-447 — Present core organization and media capabilities with distinct visual treatments and concise language/channel coverage.
 
 - [x] SITE-448 — Clarify custom/manual destinations, enrich language presentation, add verified editor capabilities and remove the superseded ownership section.
+
+- [x] SITE-449 — Replace the literal editor and secondary documentation cards with a two-row visual capability grid.

@@ -1,20 +1,20 @@
 'use client'
 
-// cspell:ignore Français
+// cspell:ignore مرحبًا
 
-import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
+import bluesky from '@iconify-icons/logos/bluesky'
+import discord from '@iconify-icons/logos/discord-icon'
+import linkedin from '@iconify-icons/logos/linkedin-icon'
+import mastodon from '@iconify-icons/logos/mastodon-icon'
+import x from '@iconify-icons/logos/x'
 import { CloudIcon } from '@solar-icons/react/linear/cloud'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
-import { LinkIcon } from '@solar-icons/react/linear/link'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
 import { PlayIcon } from '@solar-icons/react/linear/play'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
-import { TextBoldIcon } from '@solar-icons/react/linear/text-bold'
-import { TextItalicIcon } from '@solar-icons/react/linear/text-italic'
 import { UsersGroupRoundedIcon } from '@solar-icons/react/linear/users-group-rounded'
 import { motion, useReducedMotion } from 'motion/react'
 
-import { PostbotLogo } from './brand'
 import { PublicEntrance } from './public-entrance'
 
 import './public-capabilities.css'
@@ -145,108 +145,132 @@ export function PublicCapabilities() {
                     </div>
                 </motion.article>
                 <article className="capability-detail capability-channels">
-                    <h3>Your destination isn’t listed?</h3>
-                    <p>Add a manual channel, or connect your own service through HTTP.</p>
+                    <h3>Your networks, together.</h3>
                     <div
-                        className="capability-channel-paths"
+                        className="capability-brand-cloud"
                         role="img"
-                        aria-label="Postbot supports manual publishing tasks and custom HTTP delivery to your own service.">
-                        <PostbotLogo aria-hidden="true" />
-                        <svg viewBox="0 0 50 100" aria-hidden="true">
-                            <path d="M0 50H16Q24 50 24 42V24Q24 16 32 16H50M16 50Q24 50 24 58V76Q24 84 32 84H50" />
-                        </svg>
-                        <div aria-hidden="true">
-                            <span>
-                                <ClipboardCheckIcon size={19} />
-                                Publish manually
-                            </span>
-                            <span>
-                                <LinkIcon size={19} />
-                                Send to your service
-                            </span>
-                        </div>
+                        aria-label="Built-in channels include X, LinkedIn, Bluesky, Discord and Mastodon.">
+                        {[
+                            { name: 'X', icon: x },
+                            { name: 'LinkedIn', icon: linkedin },
+                            { name: 'Bluesky', icon: bluesky },
+                            { name: 'Discord', icon: discord },
+                            { name: 'Mastodon', icon: mastodon },
+                        ].map((brand, index) => (
+                            <motion.span
+                                key={brand.name}
+                                className={`capability-brand capability-brand-${index}`}
+                                aria-hidden="true"
+                                whileHover={reduced ? undefined : { rotate: 0, scale: 1.12 }}
+                                transition={{ duration: 0.3 }}>
+                                <svg
+                                    viewBox={`0 0 ${brand.icon.width} ${brand.icon.height}`}
+                                    dangerouslySetInnerHTML={{ __html: brand.icon.body }}
+                                />
+                            </motion.span>
+                        ))}
                     </div>
-                </article>
-                <article className="capability-detail capability-languages">
-                    <h3>At home in your language.</h3>
-                    <div className="capability-language-options">
-                        <span>
-                            <img src="/flags/gb.svg" width="24" height="18" alt="" />
-                            English
-                        </span>
-                        <span>
-                            <img src="/flags/fr.svg" width="24" height="18" alt="" />
-                            Français
-                        </span>
-                    </div>
-                    <p>English and French today. More languages planned.</p>
-                    <span className="capability-language-note">
-                        Interface language, independent of your posts.
-                    </span>
+                    <p className="capability-small-caption">
+                        Built-in channels. Custom options, too.
+                    </p>
                 </article>
                 <motion.article
-                    className="capability-editor"
+                    className="capability-detail capability-expression"
                     initial="rest"
-                    whileInView="focus"
-                    whileHover={reduced ? undefined : 'focus'}
+                    whileInView="open"
+                    whileHover={reduced ? undefined : 'spread'}
                     viewport={{ once: true, amount: 0.5 }}>
-                    <div className="capability-editor-copy">
-                        <h3>
-                            Give your words
-                            <br />
-                            the right tools.
-                        </h3>
-                        <p>
-                            Format your text, add emoji and media, and check the preview as you
-                            write. Available formatting follows the destination.
-                        </p>
-                        <ul>
-                            <li>Rich text where supported</li>
-                            <li>Emoji, links and attachments</li>
-                            <li>Destination previews</li>
-                        </ul>
+                    <h3>Make it yours.</h3>
+                    <div className="capability-expression-art" aria-hidden="true">
+                        <motion.strong
+                            className="capability-expression-bold"
+                            variants={{
+                                rest: { rotate: -8 },
+                                open: { rotate: -5 },
+                                spread: { rotate: -10, x: -7, y: 3 },
+                            }}>
+                            B
+                        </motion.strong>
+                        <motion.em
+                            className="capability-expression-italic"
+                            variants={{
+                                rest: { rotate: 9 },
+                                open: { rotate: 4 },
+                                spread: { rotate: 12, x: 8, y: -5 },
+                            }}>
+                            Italic
+                        </motion.em>
+                        <motion.span
+                            className="capability-expression-smile"
+                            variants={{
+                                rest: { rotate: -15 },
+                                open: { rotate: 8 },
+                                spread: { rotate: 20, x: 9, y: 5 },
+                            }}>
+                            <SmileCircleIcon size={64} strokeWidth={1.2} />
+                        </motion.span>
+                        <motion.span
+                            className="capability-expression-clip"
+                            variants={{
+                                rest: { rotate: 30 },
+                                open: { rotate: 15 },
+                                spread: { rotate: 0, x: -8, y: -4 },
+                            }}>
+                            <PaperclipIcon size={48} strokeWidth={1.4} />
+                        </motion.span>
+                        <motion.span
+                            className="capability-expression-image"
+                            variants={{
+                                rest: { rotate: 8 },
+                                open: { rotate: -9 },
+                                spread: { rotate: -17, x: -4, y: 8 },
+                            }}>
+                            <GalleryIcon size={43} strokeWidth={1.2} />
+                        </motion.span>
                     </div>
+                    <p className="capability-small-caption">
+                        Text, emoji & media. Tools adapt to the network.
+                    </p>
+                </motion.article>
+                <article className="capability-detail capability-languages">
                     <div
-                        className="capability-editor-example"
-                        role="img"
-                        aria-label="Illustrative editor excerpt: a bold opening line, a short invitation and a link. Formatting availability depends on the destination.">
-                        <div className="capability-editor-toolbar" aria-hidden="true">
-                            <TextBoldIcon size={19} />
-                            <TextItalicIcon size={19} />
-                            <LinkIcon size={19} />
-                            <span />
-                            <SmileCircleIcon size={19} />
-                            <PaperclipIcon size={19} />
-                        </div>
-                        <div className="capability-editor-paper" aria-hidden="true">
-                            <motion.strong
-                                variants={{
-                                    rest: { backgroundColor: 'rgba(36,87,214,0)' },
-                                    focus: {
-                                        backgroundColor: reduced
-                                            ? 'rgba(36,87,214,.12)'
-                                            : [
-                                                  'rgba(36,87,214,0)',
-                                                  'rgba(36,87,214,.16)',
-                                                  'rgba(36,87,214,.08)',
-                                              ],
-                                    },
-                                }}
-                                transition={{ duration: 1.2 }}>
-                                Doors open Saturday.
-                            </motion.strong>
-                            <p>
-                                Come say hello, meet the team,
-                                <br />
-                                and see what we’re making.
-                            </p>
-                            <span className="capability-editor-link">See you at the studio</span>
-                        </div>
-                        <span className="capability-editor-example-label">
-                            Illustrative editor excerpt
+                        className="capability-greetings"
+                        aria-label="Hello, Bonjour, and an Arabic greeting">
+                        <span lang="en">Hello.</span>
+                        <span lang="fr">Bonjour.</span>
+                        <span lang="ar" dir="rtl">
+                            مرحبًا.
                         </span>
                     </div>
-                </motion.article>
+                    <div
+                        className="capability-flag-ribbon"
+                        aria-label="English and French are available. Other flags illustrate future language expansion.">
+                        {[
+                            ['gb', 'English', true],
+                            ['fr', 'French', true],
+                            ['jp', 'Japanese', false],
+                            ['cn', 'Chinese', false],
+                            ['ae', 'Arabic', false],
+                            ['es', 'Spanish', false],
+                            ['de', 'German', false],
+                            ['it', 'Italian', false],
+                        ].map(([code, name, current]) => (
+                            <img
+                                key={String(code)}
+                                src={`/flags/${code}.svg`}
+                                alt={String(name)}
+                                width="28"
+                                height="21"
+                                data-future={!current || undefined}
+                                title={`${name}${current ? ' — available' : ' — future language example'}`}
+                            />
+                        ))}
+                    </div>
+                    <h3 className="sr-only">A multilingual interface</h3>
+                    <p className="capability-small-caption">
+                        EN & FR today. More languages to come.
+                    </p>
+                </article>
             </div>
         </section>
     )

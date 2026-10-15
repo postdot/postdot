@@ -22,3 +22,7 @@ not a production server or a deployment change.
 
 Section headings use a title and, when useful, one short description. Do not add
 eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).
+
+Capability illustrations should communicate an idea rather than imitate a simplified
+product interface. Use actual product screenshots when interface fidelity matters.
+Keep advanced configuration subordinate to the main built-in publishing path.
