@@ -1,0 +1,28 @@
+---
+title: Self-hosting
+description: Install Postbot, keep your data and maintain your instance.
+---
+
+Postbot runs the API, Studio, scheduler and publication worker in one Bun process.
+SQLite stores application state. Media can stay on the local disk or use an
+S3-compatible store; a separate database or queue service is not required for the
+default installation.
+
+## Install
+
+The [Docker Compose guide](/docs/installation/) builds from a source checkout,
+generates the required secrets and starts one container with persistent storage.
+Public registry images are not published yet.
+
+A local installation and a public HTTPS installation have different provider
+connection requirements. Check [provider connections](/docs/providers/) before
+configuring account authorization.
+
+## Operate
+
+[Backups and updates](/docs/operations/) covers the data and secrets to preserve,
+controlled restoration and ordinary maintenance. Keep backup copies outside the
+machine running Postbot.
+
+[Media storage](/docs/media/) explains originals and previews. Deployment-specific
+local and S3 configuration belongs in the installation guide.

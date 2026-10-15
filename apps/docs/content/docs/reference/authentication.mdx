@@ -1,0 +1,25 @@
+---
+title: Authentication
+description: API-key access and operations that require a human session.
+---
+
+Send a user-owned API key as a bearer token:
+
+```http
+Authorization: Bearer YOUR_POSTBOT_API_KEY
+```
+
+Create and manage keys from **Settings → API keys** in Studio. A key's effective
+access depends on the owner's current role, the selected projects and its action
+limits. Removing the owner's access also removes the key's access to that project.
+
+For draft preparation, limit the key to `project:read` and `publication:manage`.
+Scheduling and delivery actions require `publication:dispatch`. Media management
+has its own action limits; do not expand a key just to silence an authorization
+error without checking what the integration needs.
+
+Built-in publisher OAuth, access administration and API-key management require a
+human session. They cannot be performed just by supplying an API key. A schema's
+presence in OpenAPI is not an authorization grant.
+
+For a complete example, follow the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review).

@@ -10,8 +10,10 @@ const body = source
     .replace(/<(https?:\/\/[^>]+)>/g, '[$1]($1)')
     .replaceAll('(provider-requirements.md)', '(/docs/providers/)')
     .replaceAll('(backup-and-restoration-boundary.md)', '(/docs/operations/)')
-await mkdir(new URL('../content/docs/', import.meta.url), { recursive: true })
+await mkdir(new URL('../content/docs/(self-hosting)/(deployment)/', import.meta.url), {
+    recursive: true,
+})
 await writeFile(
-    new URL('../content/docs/installation.mdx', import.meta.url),
+    new URL('../content/docs/(self-hosting)/(deployment)/installation.mdx', import.meta.url),
     `---\ntitle: Installation\ndescription: Run Postbot on your own infrastructure.\n---\n${body}`
 )

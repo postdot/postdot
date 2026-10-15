@@ -1,0 +1,32 @@
+---
+title: Architecture
+description: One server runtime, several ways to use it.
+---
+
+## Runtime
+
+The Bun/Elysia API owns authorization, publication state, scheduling and execution.
+SQLite persists application state and durable work. The standard production image
+also serves the built Studio assets, so the browser client does not require a
+second running service.
+
+Provider authorization and credentials stay on the server. A client submits work
+through the API; it does not run the publication worker itself.
+
+## Clients
+
+Studio is a React application using TanStack Router. The Bun CLI calls the same
+server through the typed client in `packages/client`. Project roles and API-key
+limits apply at the server boundary regardless of which client initiated a request.
+
+The public website and documentation are a separate Next.js/Fumadocs app. They
+export static files and do not connect to the application database.
+
+## Storage
+
+The database and media store are separate responsibilities. Local and S3 media
+adapters implement the same narrow storage contract. Originals remain the files
+used for publication; generated previews serve display needs.
+
+See [apps and packages](/docs/packages/) for the code map and
+[Self-hosting](/docs/self-hosting/) for deployment instructions.

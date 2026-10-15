@@ -1,0 +1,34 @@
+---
+title: Apps and packages
+description: Where each responsibility lives in the monorepo.
+---
+
+## Applications
+
+| Path                 | Responsibility                                                |
+| -------------------- | ------------------------------------------------------------- |
+| `apps/api`           | Elysia HTTP server, route authorization and runtime assembly. |
+| `apps/web`           | Studio, the React browser client.                             |
+| `apps/docs`          | Static public website and Fumadocs documentation.             |
+| `scripts/postbot.ts` | Bun CLI entry point; it is not a separate server.             |
+
+## Shared packages
+
+| Path              | Responsibility                                               |
+| ----------------- | ------------------------------------------------------------ |
+| `packages/core`   | Shared publication contracts and domain behavior.            |
+| `packages/db`     | Drizzle schema, SQLite persistence and durable-work storage. |
+| `packages/client` | Typed API client used by other clients.                      |
+| `packages/auth`   | Application authentication and session configuration.        |
+| `packages/oauth`  | Publisher authorization-flow mechanics.                      |
+| `packages/media`  | Local and S3-compatible object-storage adapters.             |
+| `packages/ui`     | Shared components, typography and interface tokens.          |
+| `packages/email`  | Account and notification email templates.                    |
+
+Provider packages include `bluesky`, `devto`, `discord`, `linkedin`, `mastodon` and
+`x`. `custom-http` covers custom HTTP delivery. A provider package is an internal
+boundary, not necessarily a separately distributed public SDK.
+
+Use the instructions in the nearest `AGENT.md` when changing a directory. Runtime,
+database and provider work can have different validation requirements from static
+website changes.

@@ -1,5 +1,5 @@
 import { docs } from 'fumadocs-mdx:collections/server'
-import { DocsPage } from 'fumadocs-ui/layouts/docs/page'
+import { DocsPage } from 'fumadocs-ui/layouts/notebook/page'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page'
 import { notFound } from 'next/navigation'

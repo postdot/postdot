@@ -4,7 +4,7 @@ Keep this workspace statically exportable. It has no production Node server,
 authentication, or access to the application database. Search uses the exported
 Fumadocs index. Motion is optional presentation and respects reduced motion.
 
-`content/docs/installation.mdx` is generated from the canonical
+`content/docs/(self-hosting)/(deployment)/installation.mdx` is generated from the canonical
 `docs/deployment/self-hosting.md`; edit that guide instead. Run `sync:content`
 before developing, typechecking, or building.
 
@@ -26,3 +26,8 @@ eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).
 Capability illustrations should communicate an idea rather than imitate a simplified
 product interface. Use actual product screenshots when interface fidelity matters.
 Keep advanced configuration subordinate to the main built-in publishing path.
+
+Documentation is organized with native Fumadocs root folders and grouped content
+folders. Read `DOCUMENTATION.md` before adding navigation, changing layouts or
+integrating OpenAPI. Parenthesized groups preserve existing public URLs; do not
+create colliding slugs. Keep authored guidance separate from generated reference.

@@ -1,0 +1,5 @@
+{
+    "title": "Codebase",
+    "defaultOpen": true,
+    "pages": ["architecture", "packages"]
+}

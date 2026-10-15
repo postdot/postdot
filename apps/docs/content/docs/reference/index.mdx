@@ -1,0 +1,29 @@
+---
+title: API reference
+description: Discover the HTTP contract exposed by your Postbot instance.
+---
+
+Postbot's Elysia server exposes its OpenAPI document at `/openapi/json` and an
+interactive API explorer at `/openapi`. These belong to the instance running the
+API, not to this static documentation site.
+
+For the default local Docker installation:
+
+- API explorer: `http://127.0.0.1:3000/openapi`
+- OpenAPI JSON: `http://127.0.0.1:3000/openapi/json`
+
+Use your instance's origin if it runs elsewhere. To save its schema locally:
+
+```sh
+curl --fail http://127.0.0.1:3000/openapi/json --output postbot-openapi.json
+```
+
+## Choose your starting point
+
+[Authentication](/docs/reference/authentication/) explains API keys and session-only
+operations. The [CLI guide](/docs/automation/) demonstrates a complete draft workflow
+without requiring you to construct HTTP requests yourself.
+
+Endpoint-by-endpoint pages are not generated on this site yet. The schema exposed
+by your instance describes its own version; it does not imply that every endpoint
+is callable with an API key.

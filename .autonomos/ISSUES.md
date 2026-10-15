@@ -4229,3 +4229,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 - Related evidence: [client coverage](../docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
+
+## [ISSUE-164] Generate a version-matched OpenAPI reference for the static docs
+
+- Type: proposal
+- Status: open
+- Priority: medium — after documentation structure review
+- Evidence: Elysia already exposes `/openapi/json` and an instance explorer at `/openapi`. SITE-455 adds a distinct API reference space and checks the current official Fumadocs OpenAPI integration, but endpoint pages are not generated yet.
+- Impact: Authored guides cannot replace request/response contracts; manually duplicating those contracts would drift. Fetching a live production instance during docs rendering would couple the static site to deployment state.
+- Desired outcome: Reproducible schema extraction from an isolated matching runtime, reviewed operation IDs/tags/security annotations, generated grouped reference pages through the official Fumadocs integration, and a static build that does not need a running app or private credentials. Session-only routes must remain distinguishable from API-key routes. Interactive requests need an explicit target and must not silently authorize publication.
+- Plan: [documentation structure and OpenAPI boundary](../apps/docs/DOCUMENTATION.md).
+- Tasks: SITE-455 (structure and research complete); implementation remains a follow-up, not part of the structure pass.

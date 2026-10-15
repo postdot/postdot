@@ -1,13 +1,4 @@
 {
     "title": "Postbot",
-    "pages": [
-        "index",
-        "installation",
-        "first-publication",
-        "concepts",
-        "providers",
-        "media",
-        "automation",
-        "operations"
-    ]
+    "pages": ["(guides)", "(self-hosting)", "(developers)", "reference"]
 }
