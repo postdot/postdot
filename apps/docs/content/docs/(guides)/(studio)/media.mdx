@@ -1,17 +1,93 @@
 ---
 title: Media
-description: Keep the original. Browse with lightweight previews.
+description: Import images and videos, reuse them in publications and manage their files.
 ---
 
-Upload files through **Media** or the publication editor. An asset has one library
-entry; internal thumbnails are not separate files to manage.
+The **Media** library holds the files for your current project. You can import a
+file there before writing, or add it while preparing a publication. Each asset
+has one library entry, even when Postbot creates several previews for it.
 
-Postbot stores bounded image previews and a compact placeholder. Video posters are
-optional and generated in the background. An unavailable poster does not block
-the original video from being stored.
+## Add a file to a publication
 
-The original file remains the publication source. A thumbnail is for display and
-is not substituted for the file sent to a provider.
+You need permission to edit the project. Keep the same project selected when
+importing a file and preparing the publication that will use it.
 
-Video support currently targets ready-to-publish H.264 MP4 files, without automatic
-transcoding. Storage limits and individual destination requirements still apply.
+<Steps>
+<Step>
+
+### Import your file
+
+Open **Media**, choose **Import**, then **Device** to select a file. Studio
+checks the import and reports unsupported files or files above the configured
+size limit.
+
+For images, you can also choose **URL** to import from a direct image address,
+or **Webcam** to take a photo when your browser and device support it.
+
+</Step>
+<Step>
+
+### Select it in the editor
+
+Open **New publication** and use the media picker to select a file from the project
+library. You can also import a new file from the picker. Confirm with **Done**.
+
+Choose the destination and review its content. Networks have different media
+requirements; a file accepted into the library may still be unsuitable for a
+particular destination.
+
+</Step>
+<Step>
+
+### Review and save
+
+Check the destination preview and any validation messages before saving the draft
+or scheduling it. Add **Accessibility text** where the editor offers it to describe
+the media for people who cannot see it.
+
+</Step>
+</Steps>
+
+Importing a file does not schedule or publish it. You can reuse a library file in
+other drafts without uploading it again.
+
+## Previews and original files
+
+Postbot creates smaller image previews and a compact loading placeholder for
+browsing. Video posters are generated in the background when the preview processor
+is available. Until a poster is ready, Studio can show a placeholder.
+
+| What you see                      | What it is for                                      |
+| --------------------------------- | --------------------------------------------------- |
+| Image thumbnail or larger preview | Browsing the library and displaying media in Studio |
+| Video poster                      | Showing a still image before playback               |
+| Original file                     | The media source used for publication               |
+
+You do not manage previews as separate library entries. Postbot keeps them linked
+to their asset and includes them in its deletion lifecycle. It does not substitute
+a thumbnail for the original sent to a provider.
+
+<Callout title="Prepare videos before importing" type="info">
+    Video support currently targets H.264 MP4 files that are ready to publish. Postbot does not
+    transcode them into another format. Check the destination's requirements as well as the
+    installation's upload limit.
+</Callout>
+
+## Inspect or remove a file
+
+Use a file's **Information** action to inspect its details and usage. **Download**
+retrieves the original file.
+
+Postbot checks usage before allowing deletion. Files referenced by content,
+publication history or audit records cannot be deleted. Removing an attachment
+from one draft does not necessarily remove all references to the file.
+
+<Callout title="Check the deletion confirmation" type="warn">
+    The installation's retention setting determines whether a deleted file stays in the trash for a
+    recovery period or is permanently deleted with no option to restore. The confirmation shows
+    which applies. Restore a file from the trash before that period ends if you need to recover it.
+</Callout>
+
+Continue with [posts and destinations](/docs/concepts/) to understand how source
+media and destination adaptations fit together, or follow
+[your first publication](/docs/first-publication/) to prepare a draft.
