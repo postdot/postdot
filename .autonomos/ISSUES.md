@@ -4149,9 +4149,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The owner wants the site to establish humans and agents as equal audiences from day one. A separate scheduling illustration would repeat the shared-post distribution story. Current automation presentation is dominated by CLI details, while core capabilities and deployment options lack a coherent hierarchy.
 - Impact: Visitors may mistake Postbot for a technical CLI utility or fail to understand its access surfaces and operational depth.
 - Desired outcome: A visual usage section shows existing and planned access paths to the same workspace, with no false availability claims; a distinct core-capability section groups scheduling, image/video media, local/S3 storage, access administration, built-in/manual/custom channels, workspaces/projects and interface languages. A concise technical/open-source/self-hosting section leads to verified guides and supported image artifacts. Scheduling may enrich the existing publication story rather than receive a redundant standalone chapter. Layout, animation and final copy remain proposals, not approved card grid/carousel choices.
-- Tasks: none — recorded for triage; no implementation authorized by intake
+- Tasks: SITE-441 (design proposal only; no final layout or implementation selected)
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
+
+- Design proposal: [shared-workspace scene](../apps/docs/design/HUMANS-AND-AGENTS.md).
 
 ## [ISSUE-158] Provide agent skills for the first public launch
 

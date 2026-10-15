@@ -820,3 +820,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-439 — Integrate owner-approved distribution study using the finished palette, motion and static first frame.
 
 - [x] SITE-440 — Capture owner-directed public narrative and future-client/deployment roadmap as prioritized issues, preserving current versus planned status.
+
+- [x] SITE-441 — Define a concrete human/agent shared-workspace scene, interaction sequence and truthful access-surface statuses before visual production. [ISSUE-157]
