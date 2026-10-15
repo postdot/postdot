@@ -43,6 +43,8 @@ pages, schema fragments and downloads come from the isolated route exporter.
 Edit their source, not the generated files. Keep the docs statically exportable,
 with no live API/database dependency. The public API playground remains disabled.
 Read the pipeline notes before changing generation, metadata, preload or cleanup.
+Markdown/LLM resources and page actions are implemented as static exports; consult
+the same document before adding runtime negotiation or copying proxy examples.
 
 For affected content/navigation, run the docs build and its exported-link gate.
 Check the affected browser scenario when interaction/layout changed. Use checks

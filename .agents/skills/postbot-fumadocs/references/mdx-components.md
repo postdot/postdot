@@ -22,12 +22,13 @@ saved draft before retrying a failed request.
 
 ## Native components requiring an import or registration
 
-These modules exist in the installed distribution but are not in the default MDX
-mapping. Inspect their declarations before use:
+These modules exist in the installed distribution. Steps/Step are now registered
+in our page mapping; the other modules still need an import or registration.
+Inspect their declarations before use:
 
 | Module | Use |
 | --- | --- |
-| `fumadocs-ui/components/steps` | A required sequence; do not break linked heading anchors when adding it |
+| `fumadocs-ui/components/steps` | A required sequence; registered globally as Steps/Step; preserve linked heading anchors |
 | `fumadocs-ui/components/tabs` | Real alternatives, such as deployment environments |
 | `fumadocs-ui/components/accordion` | Optional troubleshooting, never hidden prerequisites |
 | `fumadocs-ui/components/files` | A file tree that helps locate an actual file |
@@ -46,3 +47,7 @@ behind tabs. Preserve mobile reading order and keyboard access.
 
 Build the export and check the affected page in the browser after changing its
 presentation. Native availability does not establish a new palette or layout.
+
+The first-publication lesson uses Steps/Step with explicit heading IDs. Let the
+component number the sequence instead of repeating numbers in visible headings.
+Keep subheadings inside their step and leave further-reading links outside Steps.

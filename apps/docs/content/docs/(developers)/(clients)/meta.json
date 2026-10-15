@@ -1,5 +1,6 @@
 {
     "title": "Clients & integrations",
     "defaultOpen": true,
-    "pages": ["automation"]
+    "pages": ["automation"],
+    "icon": "code"
 }

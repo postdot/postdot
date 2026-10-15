@@ -1,5 +1,6 @@
 {
     "title": "Studio",
     "defaultOpen": true,
-    "pages": ["concepts", "providers", "media"]
+    "pages": ["concepts", "providers", "media"],
+    "icon": "document"
 }

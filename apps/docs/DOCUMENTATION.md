@@ -128,3 +128,28 @@ provider instructions. A successful run is not a live-provider acceptance result
 Checked against installed fumadocs-core 16.17.1, the aliased @fumadocs/base-ui
 16.17.1 distribution and fumadocs-mdx 15.4.7 on 2026-10-15. Online examples may
 advance ahead of these pinned versions; local type declarations decide API use.
+
+## Markdown and LLM access
+
+Every documentation page has a build-time Markdown resource at
+`/llms.mdx/docs/<page-slugs>/content.md`; the Guides root uses
+`/llms.mdx/docs/content.md`. The page exposes an alternate Markdown link and native
+Notebook copy/open actions. No private GitHub source link is offered. Opening an
+external chat is an explicit reader action; its service must be able to reach the
+site URL, which is not possible for a local preview from a remote service.
+
+`/llms.txt` follows the native page tree and links directly to these resources.
+`/llms-full.txt` includes all documentation. Both are static route exports; there
+is no Next runtime, request negotiation, proxy or host-specific rewrite dependency.
+The resources use the official processed-Markdown pipeline. Steps wrappers are
+removed while keeping headings and content; other MDX components retain their
+readable JSX and props, including callout titles.
+
+Generated API pages contain renderer code rather than the operation's prose, so
+their Markdown includes the corresponding isolated OpenAPI operation fragment.
+This retains parameter, response and authentication contracts without exporting
+an executable MDX wrapper. Do not replace it with a title-only API export.
+
+`check:llms` runs after the build and checks page coverage, index membership,
+readable lesson content and API JSON. Check actual exported output when changing
+processing: a successful compiler run alone does not prove useful Markdown.

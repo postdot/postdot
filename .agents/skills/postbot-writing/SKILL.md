@@ -60,6 +60,8 @@ Do not use blockquotes as a generic container for notes or example prompts.
 Reserve them for quotations. Inspect native Fumadocs components for labelled
 examples, consequential notes, choices and sequences; presentation is part of
 writing quality. Keep ordinary prose where a component adds no reading value.
+Break long passages at useful task boundaries; use native Steps for a sequential
+lesson and navigation icons as landmarks, without decorating every paragraph.
 
 ## Evolve without accumulating clutter
 

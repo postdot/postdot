@@ -1,5 +1,6 @@
 {
     "title": "Operations",
     "defaultOpen": true,
-    "pages": ["operations"]
+    "pages": ["operations"],
+    "icon": "server"
 }

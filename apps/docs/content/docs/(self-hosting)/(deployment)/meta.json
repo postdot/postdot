@@ -1,5 +1,6 @@
 {
     "title": "Deployment",
     "defaultOpen": true,
-    "pages": ["installation"]
+    "pages": ["installation"],
+    "icon": "server"
 }
