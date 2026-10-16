@@ -162,3 +162,29 @@ an executable MDX wrapper. Do not replace it with a title-only API export.
 `check:llms` runs after the build and checks page coverage, index membership,
 readable lesson content and API JSON. Check actual exported output when changing
 processing: a successful compiler run alone does not prove useful Markdown.
+
+## Social preview images
+
+The homepage exports `/og/home.png`. Each documentation page exports its own
+`/og/docs/<page-slugs>/image.png`, including API operation pages. Open Graph and
+Twitter metadata reference the same 1200 by 630 PNG with an alternate description.
+The shared template uses Postbot's logo, Host Grotesk and a fixed blue material
+field derived from the public site's flowing pigment. No runtime screenshot,
+remote font fetch or image-generation service is required.
+
+`sync:content` generates `.og/material.png` deterministically. The image response
+loads that asset and static Host Grotesk weights from the build-only Fontsource
+package. The application's variable font remains unchanged; the OG renderer
+requires these static font files. Generated material and exported images are
+reproducible build output, not authored assets to edit manually.
+
+Set `POSTBOT_SITE_URL` to the site's public origin when building for a real host.
+Until a domain is chosen, metadata defaults to `http://127.0.0.1:5174`. Generating
+images does not change the current noindex policy or publish any files remotely.
+The images are fetched by sharing clients when needed; they are not loaded into
+every documentation page as displayed content.
+
+`check:og` runs after the export. It verifies homepage/documentation coverage,
+distinct image paths, PNG dimensions, alternate text and matching OG/Twitter
+metadata. Review representative raster output after template changes, including
+a long API title. These checks do not simulate third-party social cache behavior.

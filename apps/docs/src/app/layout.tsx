@@ -4,8 +4,11 @@ import type { ReactNode } from 'react'
 
 import './globals.css'
 import { Providers } from '@/components/providers'
+import { getSocialMetadata } from '@/lib/social-metadata'
 
 export const metadata: Metadata = {
+    metadataBase: new URL(process.env.POSTBOT_SITE_URL ?? 'http://127.0.0.1:5174'),
+    ...getSocialMetadata('Postbot', 'Social publishing. For you and your agents.', '/og/home.png'),
     title: { default: 'Postbot', template: '%s | Postbot' },
     description:
         'Prepare, adapt and schedule social posts in your own workspace. Self-hosted publishing for people, agents and scripts.',

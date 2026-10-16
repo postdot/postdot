@@ -42,3 +42,6 @@ apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx
 apps/docs/.openapi/
 apps/docs/content/docs/reference/(generated)/
 apps/docs/public/reference/postbot-openapi.json
+
+# Reproducible static OG material
+apps/docs/.og/

@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation'
 import { OpenAPIPage } from '@/components/api-page'
 import { getPageMarkdownUrl } from '@/lib/markdown'
 import { openapi } from '@/lib/openapi'
+import { getOGImageUrl, getSocialMetadata } from '@/lib/social-metadata'
 import { source } from '@/lib/source'
 
 export default async function Page({ params }: { params: Promise<{ slug?: string[] }> }) {
@@ -47,6 +48,11 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
     const page = source.getPage((await params).slug)
     return {
+        ...getSocialMetadata(
+            page?.data.title ?? 'Documentation',
+            page?.data.description ?? '',
+            getOGImageUrl(page?.slugs ?? [])
+        ),
         title: page?.data.title,
         description: page?.data.description,
         alternates: page ? { types: { 'text/markdown': getPageMarkdownUrl(page) } } : undefined,

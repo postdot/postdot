@@ -5,8 +5,8 @@
     "type": "module",
     "scripts": {
         "dev": "bun run sync:content && bun run --bun next dev --port 5174",
-        "build": "bun run sync:content && bun run --bun next build && bun run check:links && bun run check:llms",
-        "sync:content": "bun scripts/sync-content.ts && bun run sync:openapi && fumadocs-mdx",
+        "build": "bun run sync:content && bun run --bun next build && bun run check:links && bun run check:llms && bun run check:og",
+        "sync:content": "bun scripts/sync-content.ts && bun run sync:openapi && bun scripts/generate-og-material.ts && fumadocs-mdx",
         "lint": "oxlint --deny-warnings .",
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
@@ -15,7 +15,8 @@
         "preview": "bun scripts/preview.ts",
         "sync:openapi": "bun ../api/src/openapi-export.ts .openapi/postbot.json && bun scripts/sync-openapi.ts",
         "check:links": "bun scripts/check-links.ts",
-        "check:llms": "bun scripts/check-llms.ts"
+        "check:llms": "bun scripts/check-llms.ts",
+        "check:og": "bun scripts/check-og.ts"
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",
@@ -35,6 +36,7 @@
         "shiki": "4.5.0"
     },
     "devDependencies": {
+        "@fontsource/host-grotesk": "5.3.0",
         "@tailwindcss/postcss": "4.3.3",
         "@tala-tools/tsconfig": "0.1.0",
         "@types/mdx": "2.0.14",

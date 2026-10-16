@@ -881,3 +881,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-470 — Clarify the Development entry and turn the existing draft-only CLI walkthrough into a bounded sequence.
 
 - [x] SITE-471 — Explain API authentication choices, effective key access and generated security declarations.
+
+- [x] SITE-472 — Generate static branded OG images for the homepage and documentation, with page metadata and export checks.
