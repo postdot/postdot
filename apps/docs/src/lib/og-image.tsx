@@ -100,11 +100,11 @@ export async function generateOGImage({
                 {home ? (
                     <div style={{ display: 'flex', gap: 24, alignItems: 'center', marginTop: 34 }}>
                         {[
-                            { name: 'Bluesky', icon: bluesky },
-                            { name: 'LinkedIn', icon: linkedin },
-                            { name: 'Mastodon', icon: mastodon },
-                            { name: 'Discord', icon: discord },
                             { name: 'X', icon: x },
+                            { name: 'LinkedIn', icon: linkedin },
+                            { name: 'Discord', icon: discord },
+                            { name: 'Bluesky', icon: bluesky },
+                            { name: 'Mastodon', icon: mastodon },
                         ].map(({ name, icon }) => (
                             <div
                                 key={name}
@@ -124,6 +124,9 @@ export async function generateOGImage({
                                 />
                             </div>
                         ))}
+                        <span style={{ fontSize: 24, color: '#555555', marginLeft: 2 }}>
+                            + more
+                        </span>
                     </div>
                 ) : null}
                 {description ? (
