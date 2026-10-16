@@ -2251,5 +2251,8 @@
     "request_body_source": "Source de la valeur de {name}",
     "request_value_source": "Source de la valeur",
     "request_body_property_name": "Nom de la nouvelle propriété",
-    "request_body_name_invalid": "Utilisez un nom unique de 1 à 128 caractères, sans espace au début ou à la fin ni saut de ligne."
+    "request_body_name_invalid": "Utilisez un nom unique de 1 à 128 caractères, sans espace au début ou à la fin ni saut de ligne.",
+    "request_body_create": "Ajouter un corps JSON",
+    "request_body_format": "Type de corps",
+    "request_body_object": "Objet JSON"
 }

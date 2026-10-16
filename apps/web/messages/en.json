@@ -2251,5 +2251,8 @@
     "request_body_source": "Value source for {name}",
     "request_value_source": "Value source",
     "request_body_property_name": "New property name",
-    "request_body_name_invalid": "Use a unique name of 1–128 characters, without leading/trailing whitespace or line breaks."
+    "request_body_name_invalid": "Use a unique name of 1–128 characters, without leading/trailing whitespace or line breaks.",
+    "request_body_create": "Add JSON body",
+    "request_body_format": "Format",
+    "request_body_object": "JSON object"
 }

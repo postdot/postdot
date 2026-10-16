@@ -14,50 +14,56 @@ export default meta
 type Story = StoryObj
 export const ExistingContract: Story = { render: () => <RequestExample /> }
 
-function RequestExample() {
-    const [profile, setProfile] = useState<Record<string, unknown>>({
-        origin: 'custom',
-        contentSchema: {
-            type: 'object',
-            properties: { body: { type: 'string' }, headline: { type: 'string' } },
-        },
-        fieldBindings: [
-            { id: 'body', path: '/body', semantic: 'primary_text' },
-            { id: 'headline', path: '/headline', semantic: 'headline' },
-        ],
-        execution: {
-            kind: 'declarative_http',
-            mode: 'mapped_http',
-            contractId: 'story',
-            revision: '1',
-            request: {
-                method: 'POST',
-                path: ['posts', { kind: 'secret' }, { kind: 'content', pointer: '/slug' }],
-                body: {
-                    kind: 'json',
-                    value: {
-                        kind: 'object',
-                        properties: {
-                            text: { kind: 'literal', value: 'An announcement' },
-                            source: { kind: 'content', pointer: '/body' },
-                            published: { kind: 'literal', value: false },
-                            priority: { kind: 'literal', value: 1 },
-                            metadata: {
-                                kind: 'object',
-                                properties: { source: { kind: 'literal', value: 'Postbot' } },
+export const WithoutBody: Story = { render: () => <RequestExample withoutBody /> }
+
+function RequestExample({ withoutBody = false }: { readonly withoutBody?: boolean }) {
+    const [profile, setProfile] = useState<Record<string, unknown>>(() => {
+        const initial = {
+            origin: 'custom',
+            contentSchema: {
+                type: 'object',
+                properties: { body: { type: 'string' }, headline: { type: 'string' } },
+            },
+            fieldBindings: [
+                { id: 'body', path: '/body', semantic: 'primary_text' },
+                { id: 'headline', path: '/headline', semantic: 'headline' },
+            ],
+            execution: {
+                kind: 'declarative_http',
+                mode: 'mapped_http',
+                contractId: 'story',
+                revision: '1',
+                request: {
+                    method: 'POST',
+                    path: ['posts', { kind: 'secret' }, { kind: 'content', pointer: '/slug' }],
+                    body: {
+                        kind: 'json',
+                        value: {
+                            kind: 'object',
+                            properties: {
+                                text: { kind: 'literal', value: 'An announcement' },
+                                source: { kind: 'content', pointer: '/body' },
+                                published: { kind: 'literal', value: false },
+                                priority: { kind: 'literal', value: 1 },
+                                metadata: {
+                                    kind: 'object',
+                                    properties: { source: { kind: 'literal', value: 'Postbot' } },
+                                },
                             },
                         },
                     },
-                },
-                response: {
-                    successStatuses: [201],
-                    retryableStatuses: [429],
-                    rejectedStatuses: [400],
-                    ambiguousStatuses: [500],
-                    externalIdPointer: '/id',
+                    response: {
+                        successStatuses: [201],
+                        retryableStatuses: [429],
+                        rejectedStatuses: [400],
+                        ambiguousStatuses: [500],
+                        externalIdPointer: '/id',
+                    },
                 },
             },
-        },
+        }
+        if (withoutBody) Reflect.deleteProperty(initial.execution.request, 'body')
+        return initial
     })
     const [before] = useState(() => structuredClone(profile))
     const [valid, setValid] = useState(true)

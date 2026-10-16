@@ -7,6 +7,41 @@ export type JsonBodyLeaf =
     | { readonly kind: 'content'; readonly pointer: string }
 export type JsonBodyProperty = { readonly name: string; readonly expression: JsonBodyLeaf | null }
 
+/** A defined body, including an unsupported expression, must never be overwritten. */
+export function canCreateJsonBody(profile: unknown): boolean {
+    return Boolean(
+        projectMappedRequest(profile) &&
+        record(profile) &&
+        record(profile.execution) &&
+        record(profile.execution.request) &&
+        !Object.hasOwn(profile.execution.request, 'body')
+    )
+}
+
+export function createJsonBody(profile: unknown): RecordValue | null {
+    if (
+        !canCreateJsonBody(profile) ||
+        !record(profile) ||
+        !record(profile.execution) ||
+        !record(profile.execution.request)
+    )
+        return null
+    return {
+        ...profile,
+        execution: {
+            ...profile.execution,
+            request: {
+                ...profile.execution.request,
+                body: { kind: 'json', value: { kind: 'object', properties: {} } },
+            },
+        },
+    }
+}
+
+export function isJsonBodyCreated(before: unknown, after: unknown): boolean {
+    return canCreateJsonBody(before) && projectJsonBody(after) !== null
+}
+
 /** Only existing simple properties are editable; nested expressions remain opaque. */
 export function projectJsonBody(profile: unknown): readonly JsonBodyProperty[] | null {
     const object = bodyObject(profile)
@@ -66,7 +101,7 @@ export function editJsonBodyProperty(
 }
 
 export function compareJsonBodyProperties(before: unknown, after: unknown) {
-    const previous = projectJsonBody(before)
+    const previous = projectJsonBody(before) ?? (isJsonBodyCreated(before, after) ? [] : null)
     const next = projectJsonBody(after)
     if (!previous || !next) return []
     return [

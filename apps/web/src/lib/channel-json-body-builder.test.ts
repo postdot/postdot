@@ -7,6 +7,9 @@ import {
 } from '@postbot/core'
 
 import {
+    canCreateJsonBody,
+    createJsonBody,
+    isJsonBodyCreated,
     compareJsonBodyProperties,
     changeJsonBodyProperty,
     editJsonBodyProperty,
@@ -244,4 +247,72 @@ test('enforces property names, uniqueness, limits and safe own-key handling', ()
     expect(
         changeJsonBodyProperty(full, 'overflow', 'add', { kind: 'literal', value: '' })
     ).toBeNull()
+})
+
+function withoutBody() {
+    const profile = fixture()
+    Reflect.deleteProperty(profile.execution.request, 'body')
+    return profile
+}
+
+test('explicit body creation preserves the request and produces a valid empty JSON object', () => {
+    const before = withoutBody()
+    const snapshot = structuredClone(before)
+    expect(canCreateJsonBody(before)).toBe(true)
+    const after = createJsonBody(before)
+    expect(after).toEqual({
+        ...before,
+        execution: {
+            ...before.execution,
+            request: {
+                ...before.execution.request,
+                body: { kind: 'json', value: { kind: 'object', properties: {} } },
+            },
+        },
+    })
+    expect(before).toEqual(snapshot)
+    expect(projectJsonBody(after)).toEqual([])
+    expect(
+        validateDeclarativeHttpExecution(
+            (after as typeof before).execution as DeclarativeHttpExecutionContract
+        )
+    ).toEqual([])
+    expect(createJsonBody(after)).toBeNull()
+    expect(isJsonBodyCreated(before, after)).toBe(true)
+    expect(compareJsonBodyProperties(before, after)).toEqual([])
+    const populated = changeJsonBodyProperty(after, 'message', 'add', {
+        kind: 'content',
+        pointer: '/body',
+    })
+    expect(compareJsonBodyProperties(before, populated)).toEqual([
+        { name: 'message', before: undefined, after: { kind: 'content', pointer: '/body' } },
+    ])
+})
+
+test('body creation never converts a defined body or edits a non-mapped profile', () => {
+    for (const body of [
+        undefined,
+        null,
+        {},
+        { kind: 'form' },
+        { kind: 'multipart' },
+        { kind: 'json', value: { kind: 'content', pointer: '/body' } },
+        fixture().execution.request.body,
+    ]) {
+        const profile = withoutBody()
+        Object.defineProperty(profile.execution.request, 'body', { value: body, enumerable: true })
+        expect(canCreateJsonBody(profile)).toBe(false)
+        expect(createJsonBody(profile)).toBeNull()
+        expect(isJsonBodyCreated(profile, fixture())).toBe(false)
+        if (!projectJsonBody(profile))
+            expect(compareJsonBodyProperties(profile, fixture())).toEqual([])
+    }
+    for (const profile of [
+        null,
+        {},
+        createManualChannelProfile(),
+        { ...withoutBody(), origin: 'builtin' },
+    ]) {
+        expect(createJsonBody(profile)).toBeNull()
+    }
 })

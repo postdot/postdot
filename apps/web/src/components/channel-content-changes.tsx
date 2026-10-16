@@ -5,7 +5,11 @@ import {
     type BuilderComparedRule,
     type BuilderRuleChange,
 } from '@/lib/channel-content-builder'
-import { compareJsonBodyProperties, type JsonBodyLeaf } from '@/lib/channel-json-body-builder'
+import {
+    compareJsonBodyProperties,
+    isJsonBodyCreated,
+    type JsonBodyLeaf,
+} from '@/lib/channel-json-body-builder'
 import { compareMappedRequests, type MappedRequestChange } from '@/lib/channel-request-builder'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -30,6 +34,17 @@ export function ChannelContentChanges({
                     before: display(change.before, change.rule, locale),
                     after: display(change.after, change.rule, locale),
                 })),
+                ...(isJsonBodyCreated(before, proposed)
+                    ? [
+                          {
+                              key: 'body-created',
+                              label: m.request_json_body(),
+                              rule: m.request_body_format(),
+                              before: m.request_body_absent(),
+                              after: m.request_body_object(),
+                          },
+                      ]
+                    : []),
                 ...compareJsonBodyProperties(before, proposed).map(change => ({
                     key: `body-${change.name}`,
                     label: m.request_json_body(),

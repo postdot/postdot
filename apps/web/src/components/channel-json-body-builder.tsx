@@ -12,6 +12,8 @@ import { Switch } from '@postbot/ui/components/switch'
 import { useEffect, useId, useState } from 'react'
 
 import {
+    canCreateJsonBody,
+    createJsonBody,
     editJsonBodyProperty,
     changeJsonBodyProperty,
     projectJsonBody,
@@ -41,7 +43,21 @@ export function ChannelJsonBodyBuilder({
     const [creationError, setCreationError] = useState(false)
     const valid = properties === null || !Object.values(invalid).some(Boolean)
     useEffect(() => onValidityChange(valid), [valid, onValidityChange])
-    if (!properties) return null
+    if (!properties)
+        return canCreateJsonBody(profile) ? (
+            <div>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() => {
+                        const next = createJsonBody(profile)
+                        if (next) onChange(next)
+                    }}>
+                    {m.request_body_create()}
+                </Button>
+            </div>
+        ) : null
     function update(name: string, value: JsonBodyLeaf) {
         const next = editJsonBodyProperty(profile, name, value)
         setInvalid(current => ({ ...current, [JSON.stringify(name)]: next === null }))
