@@ -4274,7 +4274,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: Custom creation and profile editing expose JSON text fields. Impact/adoption views also show raw serialized values. Current schema, field bindings, media/text capabilities and profile revision lifecycle already exist.
 - Desired outcome: A usable form for content capabilities, a separate execution setup and field-level impact/validation. Preserve richer existing profiles without silent data loss. Agree unsupported-rule behavior and reuse the existing runtime contract before replacing UI.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
 
 
@@ -4300,12 +4300,45 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner product direction, 2026-10-16.
 
 
-## [ISSUE-170] Evaluate campaign organization using the existing publication taxonomy
+## [ISSUE-170] Preserve user-defined organization through free publication tags
 
 - Type: proposal
 - Status: open
 - Evidence: ADR-062 and ISSUE-053 already deliver publication tags and filtering. The owner suggests campaign-related internal tags; no separate campaign lifecycle is established.
-- Desired outcome: Validate concrete campaign organization/reporting needs against existing tags first. Define a campaign entity only if additional ownership, dates, workflow or reporting semantics require it; avoid recreating existing tags.
+- Desired outcome: Validate concrete campaign organization/reporting needs against existing tags first. The owner clarified that a campaign is an example of tag meaning, not a requested entity. Preserve free tags; any future campaign proposal needs separate evidence and approval.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-171] Evaluate scheduled comments beneath owned publications
+
+- Type: proposal
+- Status: open
+- Evidence: The owner distinguishes a prepared first comment from replying to an incoming comment. Postiz documents delayed first-comment publishing.
+- Desired outcome: Verify support and constraints per provider. Design a dependent delivery after confirmed parent publication, with remote parent identity, explicit timing, independent failure state, retry safety and duplicate prevention. A failed parent cannot trigger its comment. Do not imply an inbox or AI author is required.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
+- Source: owner clarification, 2026-10-16.
+
+
+## [ISSUE-172] Define shared-post and tag-based performance reports
+
+- Type: proposal
+- Status: open
+- Evidence: Current collectors cover bounded Bluesky and DEV.to observations. The owner requests destination, shared-post and tag views.
+- Desired outcome: Compare documented competitor metrics with stored Postbot observations. Define aggregation, compatible metrics, coverage and freshness; avoid double-counting fan-out or overlapping tags. Resolve current versus historical tag attribution before implementing reports. Keep account metrics separate from post metrics.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
+- Source: owner clarification, 2026-10-16.
+
+
+## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio
+
+- Type: proposal
+- Status: open
+- Evidence: New publication, editing and Queue hide the picker when tags are absent. The shared picker only selects. Static searches found no Studio tag creation form or API wrapper for creation.
+- Desired outcome: Provide a first-tag path and project-scoped creation, rename and archive/restore using existing domain permissions. Retain user-defined meaning without adding a campaign entity. Verify actual empty and populated UI states.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
+- Source: owner clarification, 2026-10-16.

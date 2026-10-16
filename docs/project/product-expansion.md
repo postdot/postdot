@@ -1,6 +1,6 @@
 # Product expansion planning
 
-- Status: proposal; implementation sequence and new domain choices are not accepted yet.
+- Status: implementation order accepted by the owner on 2026-10-16; detailed designs remain proposals.
 - Date: 2026-10-16
 - Scope: new providers, usable custom channels, engagement and publishing formats.
 - Task: PRODUCT-477. Related intake: ISSUE-165 through ISSUE-170, ISSUE-162.
@@ -18,7 +18,7 @@ measured client cost. This is not approval for every proposed implementation.
 | Publishing networks | Bluesky, Discord, LinkedIn, Mastodon, X, DEV.to adapters; manual and custom HTTP destinations | Telegram, Facebook and other mainstream networks |
 | Performance | Bluesky observations and DEV.to lifetime totals; Studio performance page | Broader collectors, explicit per-provider metric coverage and freshness |
 | Comments | Some analytics count replies/comments | A count is not a conversation reader, reply workflow or moderation tool |
-| Internal tags | Project-owned publication tags, assignments and queue filters; ADR-062 | Campaign use cases and any genuine campaign entity need definition |
+| Internal tags | Project-owned publication tags, assignments and queue filters; ADR-062 | Complete Studio tag creation/discovery; tags carry user-defined meaning |
 | Native formats | Current provider profiles describe supported target payloads | Polls, questions, threads and other native formats need explicit per-provider discovery |
 | Custom channels | Schema, field bindings, content capabilities and profile lifecycle already exist | Creation/evolution still exposes profile JSON; impact/adoption screens also display raw objects |
 | Languages | EN/FR through Paraglide; generated message module imports both locale modules | Choose two locales and measure their real delivered cost |
@@ -30,7 +30,7 @@ channel-profile-editor-dialog.tsx; publication-profile-adoption.tsx;
 apps/web/src/paraglide/messages/_index.js; apps/web/vite.config.ts.
 No live-provider acceptance was performed for this review.
 
-## Proposed sequence
+## Accepted sequence
 
 1. **Structured channel authoring and JSON removal.** First agree the content
    builder's supported model, then replace creation/editing and impact comparison
@@ -49,13 +49,13 @@ No live-provider acceptance was performed for this review.
    account/publication identity and links, supported performance observations,
    then comment reading/replies where available. Do not interpret “maximum data”
    as unbounded collection of every accessible API field.
-5. **Internal organization and languages.** Validate campaign needs against the
-   existing tag model; add a domain object only for behavior tags cannot express.
+5. **Internal organization and languages.** Complete the existing free-tag workflow. A campaign name is one possible
+   tag value, not a request for a campaign object.
    Add two locales after selecting them, with a before/after bundle and interaction
    check. Do not assume Spanish, Portuguese or another pair is already selected.
 
-The builder and Telegram can be swapped if the owner prefers network coverage
-first. Existing provider publishing must keep working while either changes.
+Existing provider publishing must keep working throughout this sequence.
+Detailed builder proposal: [structured channel authoring](channel-builder.md).
 
 ## Custom channel builder proposal
 
@@ -142,3 +142,43 @@ after. Change loading strategy only if measurements justify it. See ISSUE-162.
 
 No competitor comparison was refreshed. The previous comparison is historical
 evidence, not proof of current feature parity or competitor limitations.
+
+## Owner clarification: organization and engagement
+
+Internal tags have user-defined meaning. Do not introduce a campaign entity as
+part of this expansion. The existing model attaches tags to destination
+publications; shared-post and tag reports must retain that distinction.
+
+Required analytics discovery covers destination results, all destinations of one
+source post and tag-selected publications. Define compatible metrics, coverage,
+freshness and denominators before aggregation. Do not sum audience reach into
+unique people, sum follower counts across repeated posts or average rates without
+their denominators. Overlapping tags must not duplicate a publication within one
+report. Historical versus current tag attribution remains an explicit design
+question.
+
+Scheduled comments under our own published item are a separate publishing
+capability from reading and replying to external comments. Neither requires an
+embedded AI author. Each needs its own provider limits, permissions and delivery
+evidence. See ISSUE-171 and ISSUE-172.
+
+### Competitor evidence checked on 2026-10-16
+
+- [Postiz first-comment and analytics walkthrough](https://postiz.com/blog/grow-social-media-presence-fast-postiz-playbook-2026)
+  describes delayed first comments, per-post statistics and separately tracked
+  short-link clicks. This establishes a useful workflow to investigate; it is
+  not a verified matrix for every provider or edition.
+- [Mixpost features](https://mixpost.app/features) advertises first comments,
+  performance comparisons and audience insights. Its
+  [agent examples](https://mixpost.app/agents) use tags to organize campaigns,
+  supporting free tags as a credible approach. Marketing does not establish
+  exact per-provider fields or prove the absence of a campaign object.
+- [OpenPost analytics guide](https://docs.openpo.st/guides/analytics) separates
+  account and content metrics, including eligible externally published content.
+  Its [coverage reference](https://docs.openpo.st/usage/analytics) publishes
+  provider-specific metrics and access limitations. Postbot currently has
+  narrower collectors (Bluesky and DEV.to); provider coverage, shared-post
+  reports and tag reports need separate acceptance evidence.
+
+These are competitor-authored claims and documentation, not live account tests.
+They justify further discovery, not copying every feature or promising parity.

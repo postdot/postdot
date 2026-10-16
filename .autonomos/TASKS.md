@@ -893,3 +893,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-476 — Add destination-specific scheduling annotations to the existing distribution illustration with matching static and animated states.
 
 - [x] PRODUCT-477 — Inventory product expansion gaps and record staged proposals for platforms, structured channel authoring, engagement, native formats and locales.
+
+- [x] **[PRODUCT-478]** Detail the structured channel builder and reconcile tag, analytics and comment requirements `Priority: 🟠` `Complexity: M`
