@@ -4252,7 +4252,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: No Telegram publishing adapter or built-in channel was found; the owner requests broader network coverage.
 - Desired outcome: A verified bot/account connection and bounded text/media publication flow, preserving project ownership, content validation, durable effects and stored remote identity. Polls and further native formats are separately scoped.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Tasks: PRODUCT-477; TELEGRAM-498 (official capability review and implementation proposal).
+- Proposal: [SPEC-008](specs/SPEC-008-telegram-publishing.md), draft pending the initial media-group scope choice.
 - Source: owner product direction, 2026-10-16.
 
 
