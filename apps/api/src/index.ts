@@ -48,6 +48,7 @@ import { createDiscordProviderAdapter } from './modules/workflow/providers/disco
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
+import { createTelegramProviderAdapter } from './modules/workflow/providers/telegram'
 import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
@@ -253,6 +254,7 @@ async function startServerWithRuntimeLock(
         }),
         createDiscordProviderAdapter({ revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION }),
         createDiscordProviderAdapter(),
+        createTelegramProviderAdapter(),
         createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({
             revision: 'member-post-v2',

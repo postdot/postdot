@@ -938,3 +938,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[TELEGRAM-499]** Implement isolated Telegram bot verification and single-message publishing protocol `Priority: 🟠` `Complexity: L`
 
 - [x] **[TELEGRAM-500]** Register Telegram profiles and encrypted project-owned connection APIs with server validation `Priority: 🟠` `Complexity: L`
+
+- [x] **[TELEGRAM-501]** Execute Telegram publications through verified pinned media and durable delivery states `Priority: 🟠` `Complexity: L`

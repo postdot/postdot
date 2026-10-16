@@ -136,7 +136,14 @@ test('uploads exactly one photo or video with a caption and never enables paid b
         ['image/jpeg', 'sendPhoto', 'photo'],
         ['video/mp4', 'sendVideo', 'video'],
     ] as const) {
-        const { client, calls } = fixture([success({ message_id: 2, chat })])
+        const { client, calls } = fixture([
+            success({
+                message_id: 2,
+                chat,
+                photo: [{ file_id: 'photo-file' }],
+                video: { file_id: 'video-file' },
+            }),
+        ])
         expect(
             (await client.send({ token, chatId, text: 'Caption', media: media(type) })).type
         ).toBe('published')
@@ -192,7 +199,14 @@ test('accepts exact text, caption, photo dimension and byte boundaries', async (
         },
         { text: '', media: media('video/mp4', TELEGRAM_MAX_VIDEO_BYTES) },
     ]) {
-        const { client, calls } = fixture([success({ message_id: 1, chat })])
+        const { client, calls } = fixture([
+            success({
+                message_id: 1,
+                chat,
+                photo: [{ file_id: 'photo-file' }],
+                video: { file_id: 'video-file' },
+            }),
+        ])
         expect((await client.send({ token, chatId, ...input })).type).toBe('published')
         expect(calls).toHaveLength(1)
     }

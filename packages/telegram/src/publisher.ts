@@ -19,7 +19,10 @@ export type TelegramFailure = Exclude<ExternalEffectOutcome, { readonly type: 'p
     readonly code: TelegramFailureCode
 }
 export type TelegramPublishOutcome =
-    | Extract<ExternalEffectOutcome, { readonly type: 'published' }>
+    | (Extract<ExternalEffectOutcome, { readonly type: 'published' }> & {
+          readonly externalId: string
+          readonly mediaId?: string
+      })
     | TelegramFailure
 export type TelegramResult<T> =
     | { readonly ok: true; readonly value: T }
@@ -270,6 +273,24 @@ export function createTelegramPublisher(
                 sent.value.chat.type !== 'channel'
             )
                 return unknownResult(true).outcome
+            let mediaId: string | undefined
+            if (media) {
+                const resultMedia =
+                    media.blob.type === 'video/mp4'
+                        ? sent.value.video
+                        : Array.isArray(sent.value.photo)
+                          ? sent.value.photo.at(-1)
+                          : null
+                if (
+                    !record(resultMedia) ||
+                    typeof resultMedia.file_id !== 'string' ||
+                    !resultMedia.file_id.trim() ||
+                    resultMedia.file_id.includes(input.token) ||
+                    resultMedia.file_id.includes(encodeURIComponent(input.token))
+                )
+                    return unknownResult(true).outcome
+                mediaId = resultMedia.file_id
+            }
             const chatId = input.chatId
             const messageId = sent.value.message_id
             const externalUrl = username(sent.value.chat.username)
@@ -278,6 +299,7 @@ export function createTelegramPublisher(
             return {
                 type: 'published',
                 externalId: `${chatId}:${messageId}`,
+                ...(mediaId ? { mediaId } : {}),
                 ...(externalUrl ? { externalUrl } : {}),
             }
         },
