@@ -17,9 +17,11 @@ import {
     SelectValue,
 } from '@postbot/ui/components/select'
 import { LinkIcon } from '@solar-icons/react/linear/link'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import type { Channel, CustomHttpAuthentication } from '@/lib/api'
+import { api, formatApiError, type Channel, type CustomHttpAuthentication } from '@/lib/api'
+import { customHttpAuthenticationKinds } from '@/lib/custom-http-authentication'
 import { useLanguage } from '@/lib/i18n'
 import { useConnectionAction } from '@/lib/use-connection-action'
 import * as m from '@/paraglide/messages.js'
@@ -56,6 +58,22 @@ export function CustomHttpConnectionDialog({
     const [secret, setSecret] = useState('')
     const { submitting, error, setError, run } = useConnectionAction()
 
+    const profile = useQuery({
+        queryKey: ['project', channel.projectId, 'http-connection-profile', channel.id],
+        queryFn: () => api.getChannelProfileState(channel.projectId, channel.id),
+        enabled: open,
+        staleTime: 0,
+        retry: false,
+    })
+    const authenticationKinds = customHttpAuthenticationKinds(
+        profile.data?.active.profile.execution
+    )
+    const selectedAuthentication = authenticationKinds.includes(authenticationKind)
+        ? authenticationKind
+        : authenticationKinds[0]
+    const profileReady =
+        !profile.isFetching && !profile.isError && selectedAuthentication !== undefined
+
     function reset() {
         setEndpointUrl('')
         setAuthenticationKind('none')
@@ -66,7 +84,7 @@ export function CustomHttpConnectionDialog({
     }
 
     async function submit() {
-        if (disabled || submitting) return
+        if (disabled || submitting || !profileReady || selectedAuthentication === undefined) return
         if (endpointUrl.trim() === '') {
             setError(m.provider_endpoint_required())
             return
@@ -75,15 +93,15 @@ export function CustomHttpConnectionDialog({
             setError(m.provider_secret_min_length())
             return
         }
-        if (authenticationKind === 'header' && headerName.trim() === '') {
+        if (selectedAuthentication === 'header' && headerName.trim() === '') {
             setError(m.provider_header_auth_required())
             return
         }
 
         const authentication: CustomHttpAuthentication =
-            authenticationKind === 'header'
+            selectedAuthentication === 'header'
                 ? { kind: 'header', headerName: headerName.trim() }
-                : { kind: authenticationKind }
+                : { kind: selectedAuthentication }
         const connected = await run(() =>
             onConnect(channel.id, {
                 endpointUrl: endpointUrl.trim(),
@@ -118,9 +136,9 @@ export function CustomHttpConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-x-hidden overflow-y-auto bg-background sm:max-w-sm">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm flex min-h-0 flex-col overflow-hidden bg-background sm:max-w-sm">
                     <form
-                        className="grid gap-4"
+                        className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-4 overflow-hidden"
                         onSubmit={event => {
                             event.preventDefault()
                             void submit()
@@ -136,7 +154,9 @@ export function CustomHttpConnectionDialog({
                                 {m.provider_http_connect_description()}
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4">
+                        <div
+                            data-channel-dialog-body
+                            className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain pr-1">
                             <Field className="gap-1.5">
                                 <FieldLabel htmlFor={`custom-http-endpoint-${channel.id}`}>
                                     {m.provider_endpoint_url()}
@@ -145,6 +165,7 @@ export function CustomHttpConnectionDialog({
                                     disabled={disabled || submitting}
                                     id={`custom-http-endpoint-${channel.id}`}
                                     type="url"
+                                    required
                                     value={endpointUrl}
                                     onChange={event => {
                                         setEndpointUrl(event.target.value)
@@ -158,7 +179,7 @@ export function CustomHttpConnectionDialog({
                                     {m.provider_authentication()}
                                 </FieldLabel>
                                 <Select
-                                    value={authenticationKind}
+                                    value={selectedAuthentication ?? null}
                                     onValueChange={value => {
                                         setError(null)
                                         setAuthenticationKind(
@@ -166,7 +187,7 @@ export function CustomHttpConnectionDialog({
                                         )
                                     }}>
                                     <SelectTrigger
-                                        disabled={disabled || submitting}
+                                        disabled={disabled || submitting || !profileReady}
                                         id={`custom-http-auth-${channel.id}`}>
                                         <SelectValue>
                                             {
@@ -175,27 +196,27 @@ export function CustomHttpConnectionDialog({
                                                     bearer: m.provider_bearer_token(),
                                                     header: m.provider_custom_header(),
                                                     path: m.provider_path_authentication(),
-                                                }[authenticationKind]
+                                                }[selectedAuthentication ?? 'none']
                                             }
                                         </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent align="start">
-                                        <SelectItem value="none">
-                                            {m.provider_no_authentication()}
-                                        </SelectItem>
-                                        <SelectItem value="bearer">
-                                            {m.provider_bearer_token()}
-                                        </SelectItem>
-                                        <SelectItem value="header">
-                                            {m.provider_custom_header()}
-                                        </SelectItem>
-                                        <SelectItem value="path">
-                                            {m.provider_path_authentication()}
-                                        </SelectItem>
+                                        {authenticationKinds.map(kind => (
+                                            <SelectItem key={kind} value={kind}>
+                                                {
+                                                    {
+                                                        none: m.provider_no_authentication(),
+                                                        bearer: m.provider_bearer_token(),
+                                                        header: m.provider_custom_header(),
+                                                        path: m.provider_path_authentication(),
+                                                    }[kind]
+                                                }
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </Field>
-                            {authenticationKind === 'header' ? (
+                            {selectedAuthentication === 'header' ? (
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor={`custom-http-header-${channel.id}`}>
                                         {m.provider_header_name()}
@@ -212,7 +233,7 @@ export function CustomHttpConnectionDialog({
                                     />
                                 </Field>
                             ) : null}
-                            {authenticationKind === 'path' ? (
+                            {selectedAuthentication === 'path' ? (
                                 <FieldDescription>{m.provider_path_auth_help()}</FieldDescription>
                             ) : null}
                             <Field className="gap-1.5">
@@ -238,6 +259,9 @@ export function CustomHttpConnectionDialog({
                                     disabled={disabled || submitting}
                                     id={`custom-http-secret-${channel.id}`}
                                     type="password"
+                                    autoComplete="new-password"
+                                    minLength={32}
+                                    required
                                     value={secret}
                                     onChange={event => {
                                         setSecret(event.target.value)
@@ -246,6 +270,30 @@ export function CustomHttpConnectionDialog({
                                 />
                                 <FieldDescription>{m.provider_http_secret_help()}</FieldDescription>
                             </Field>
+                            {profile.isPending ? (
+                                <p role="status" className="text-sm text-muted-foreground">
+                                    {m.common_loading()}
+                                </p>
+                            ) : null}
+                            {!profile.isPending &&
+                            !profile.isError &&
+                            authenticationKinds.length === 0 ? (
+                                <p role="alert" className="text-sm text-destructive">
+                                    {m.profile_definition_invalid()}
+                                </p>
+                            ) : null}
+                            {profile.isError ? (
+                                <div role="alert" className="grid gap-2 text-sm text-destructive">
+                                    <p>{formatApiError(profile.error)}</p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void profile.refetch()}>
+                                        {m.common_retry()}
+                                    </Button>
+                                </div>
+                            ) : null}
                             {error ? (
                                 <p role="alert" className="text-sm text-destructive">
                                     {error}
@@ -263,7 +311,9 @@ export function CustomHttpConnectionDialog({
                                 disabled={disabled || submitting}>
                                 {m.common_cancel()}
                             </Button>
-                            <Button type="submit" disabled={disabled || submitting}>
+                            <Button
+                                type="submit"
+                                disabled={disabled || submitting || !profileReady}>
                                 <LinkIcon aria-hidden="true" />
                                 {reconnect
                                     ? m.provider_reconnect_title({ provider: 'custom HTTP' })

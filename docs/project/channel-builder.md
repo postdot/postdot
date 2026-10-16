@@ -225,3 +225,17 @@ destination editing, including its real media picker trigger. Preview-only mode
 disables media actions, hides the advanced raw editor and keeps example content
 local. The main source composer remains a distinct surface; this change does not
 claim that source composition and destination editing are identical layouts.
+
+## HTTP connection form
+
+Endpoint and authentication already use structured controls in
+`CustomHttpConnectionDialog`; secrets are connection-owned, never profile fields.
+The dialog loads the active profile before enabling connection. Postbot webhooks
+offer no authentication, bearer or a custom header. Mapped requests with one
+secret path segment require path authentication; requests without it cannot use
+path authentication. Incomplete contracts keep submission disabled. The API
+remains authoritative if the active profile changes during an open dialog.
+
+Connection header and actions remain outside the bounded scrolling body. Profile
+loading failures offer an inline retry without clearing entered connection data.
+This does not implement request mapping authoring or convert execution contracts.
