@@ -124,3 +124,36 @@ Complete the free-tag lifecycle through an explicit project-scoped management
 entry and an obvious first-tag path from the picker. Preserve existing uniqueness,
 archive/restore and permission rules. Do not add campaign fields, dates or a new
 object to solve this access problem. See ISSUE-173.
+
+## Preservation spike result — CHANNEL-479
+
+The isolated prototype lives in
+`apps/web/src/lib/experiments/channel-builder-projection.ts`; nothing in Studio
+imports it. Nine deterministic tests use the real manual/webhook templates,
+X-derived content through the existing preset conversion, and richer valid
+custom fixtures. Validation uses the existing core compiler.
+
+The prototype can patch a direct message/title binding's required status and raw
+maximum while preserving the original profile. It updates both the schema maximum
+and its matching capability maximum. Media rules, execution, accepted formats,
+grapheme/weighted counters and unrelated field restrictions remain unchanged.
+Making a field optional permits omission; it does not permit an empty string.
+
+The result supports targeted editing for a bounded subset, not arbitrary JSON
+Schema editing. Valid root combinators, affected-field relations, field enums and
+different schema/capability maxima require explicit handling; the prototype
+refuses edits rather than guessing precedence. An unchanged rich definition can
+be retained without reconstruction. Built-in execution remains outside editable
+content even if a profile's origin is custom. Draft revision metadata is not
+recomputed locally.
+
+Two fixture failures caught during development reinforced the need to use real
+contracts: custom schemas forbid regex patterns, and custom copies of trusted
+built-ins need bounded asset identifiers. The tests now use a permitted enum and
+the existing preset preparation instead of bypassing policy.
+
+Next implementation should extract a production adapter that identifies each field as
+editable or read-only and explains why, before connecting controls. Media edits, field
+disabling, HTTP authoring, impact/adoption UI and persisted revision integration
+are not proved by this text-rule spike and remain in the implementation lots.
+Do not advertise complete profile support based on these tests.
