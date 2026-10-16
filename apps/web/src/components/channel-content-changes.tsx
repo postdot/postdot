@@ -5,6 +5,7 @@ import {
     type BuilderComparedRule,
     type BuilderRuleChange,
 } from '@/lib/channel-content-builder'
+import { compareMappedRequests, type MappedRequestChange } from '@/lib/channel-request-builder'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -19,11 +20,27 @@ export function ChannelContentChanges({
     const { locale } = useLanguage()
     const changes = useMemo(() => {
         try {
-            return compareBuilderRules(before, JSON.parse(after))
+            const proposed: unknown = JSON.parse(after)
+            return [
+                ...compareBuilderRules(before, proposed).map(change => ({
+                    key: `${change.field.id}-${change.rule}`,
+                    label: fieldLabel(change),
+                    rule: ruleLabel(change.rule, change.field.kind),
+                    before: display(change.before, change.rule, locale),
+                    after: display(change.after, change.rule, locale),
+                })),
+                ...compareMappedRequests(before, proposed).map(change => ({
+                    key: `http-${change.key}`,
+                    label: m.request_title(),
+                    rule: requestRuleLabel(change),
+                    before: change.before,
+                    after: change.after,
+                })),
+            ]
         } catch {
             return []
         }
-    }, [before, after])
+    }, [before, after, locale])
     if (!changes.length) return null
     return (
         <section aria-label={m.builder_changes()} className="min-w-0 space-y-3">
@@ -32,12 +49,12 @@ export function ChannelContentChanges({
             <dl className="divide-y divide-border rounded-sm border border-border px-3">
                 {changes.map(change => (
                     <div
-                        key={`${change.field.id}-${change.rule}`}
+                        key={change.key}
                         className="grid min-w-0 gap-2 py-3 sm:grid-cols-[1fr_1.2fr]">
                         <dt className="text-sm">
-                            <span className="font-medium">{fieldLabel(change)}</span>
+                            <span className="font-medium">{change.label}</span>
                             <span className="block text-xs text-muted-foreground">
-                                {ruleLabel(change.rule, change.field.kind)}
+                                {change.rule}
                             </span>
                         </dt>
                         <dd className="grid min-w-0 grid-cols-2 gap-4 text-sm">
@@ -45,16 +62,14 @@ export function ChannelContentChanges({
                                 <span className="block text-xs text-muted-foreground">
                                     {m.builder_before()}
                                 </span>
-                                <span className="break-words tabular-nums">
-                                    {display(change.before, change.rule, locale)}
-                                </span>
+                                <span className="break-words tabular-nums">{change.before}</span>
                             </div>
                             <div className="min-w-0">
                                 <span className="block text-xs text-muted-foreground">
                                     {m.builder_after()}
                                 </span>
                                 <span className="break-words font-medium tabular-nums">
-                                    {display(change.after, change.rule, locale)}
+                                    {change.after}
                                 </span>
                             </div>
                         </dd>
@@ -120,4 +135,21 @@ function display(
             )
             .join(', ') || m.editor_target_no_values()
     )
+}
+
+function requestRuleLabel(change: MappedRequestChange) {
+    if (change.segmentIndex !== undefined)
+        return m.request_segment({ number: change.segmentIndex + 1 })
+    switch (change.key) {
+        case 'method':
+            return m.request_method()
+        case 'successStatuses':
+            return m.request_success()
+        case 'retryableStatuses':
+            return m.request_retryable()
+        case 'rejectedStatuses':
+            return m.request_rejected()
+        default:
+            return m.request_ambiguous()
+    }
 }

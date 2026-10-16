@@ -2,6 +2,7 @@ import { Button } from '@postbot/ui/components/button'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 
+import { ChannelContentChanges } from '@/components/channel-content-changes'
 import { ChannelRequestBuilder } from '@/components/channel-request-builder'
 import { LanguageProvider } from '@/lib/i18n'
 
@@ -35,6 +36,7 @@ function RequestExample() {
             },
         },
     })
+    const [before] = useState(() => structuredClone(profile))
     const [valid, setValid] = useState(true)
     return (
         <LanguageProvider>
@@ -46,6 +48,7 @@ function RequestExample() {
                         disabled={false}
                         onValidityChange={setValid}
                     />
+                    <ChannelContentChanges before={before} after={JSON.stringify(profile)} />
                     <Button disabled={!valid} type="button">
                         Save profile
                     </Button>

@@ -270,3 +270,17 @@ CHANNEL-490 adds English/French controls and an isolated Storybook example at
 `Channels/Mapped request`. The form appears only for existing custom mapped
 profiles; manual, built-in and Postbot webhook profiles retain their current
 controls. It does not create a mapped HTTP profile from a new template.
+
+## Mapped request comparison — CHANNEL-491
+
+The existing profile comparison now includes the mapped-request controls exposed
+by the form: method, changed static segments at the same index and the four HTTP
+response classifications. Codes are compared as sorted sets so ordering alone
+does not create a change. The view contains explicit active/proposed values and
+uses the same English/French labels as the form.
+
+This remains a bounded comparison. It does not display dynamic expressions,
+connection secrets, mode conversions, path additions/removals or changes to
+preserved body/header/query/extraction mappings. The existing server assessment
+continues to evaluate the broader profile and affected publications. The heading
+is now Profile changes because it covers both content and HTTP controls.

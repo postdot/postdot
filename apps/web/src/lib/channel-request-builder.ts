@@ -131,3 +131,43 @@ export function parseRequestStatuses(value: string): number[] | null {
     if (parts.length > 64 || parts.some(part => !/^[1-5][0-9]{2}$/.test(part))) return null
     return parts.map(Number)
 }
+
+export interface MappedRequestChange {
+    readonly key: 'method' | `segment-${number}` | RequestOutcomeKey
+    readonly segmentIndex?: number
+    readonly before: string
+    readonly after: string
+}
+
+/** Compare only the editable controls; never serialize expressions or credentials. */
+export function compareMappedRequests(
+    before: unknown,
+    after: unknown
+): readonly MappedRequestChange[] {
+    const left = projectMappedRequest(before)
+    const right = projectMappedRequest(after)
+    if (!left || !right) return []
+    const changes: MappedRequestChange[] = []
+    if (left.method !== right.method)
+        changes.push({ key: 'method', before: left.method, after: right.method })
+    for (const segment of left.segments) {
+        const next = right.segments[segment.index]
+        if (segment.editable && next?.editable && segment.value !== next.value) {
+            changes.push({
+                key: `segment-${segment.index}`,
+                segmentIndex: segment.index,
+                before: String(segment.value),
+                after: String(next.value),
+            })
+        }
+    }
+    for (const key of requestOutcomeKeys) {
+        const oldCodes = left.response?.[key]
+        const newCodes = right.response?.[key]
+        if (!validStatuses(oldCodes) || !validStatuses(newCodes)) continue
+        const previous = [...new Set(oldCodes)].sort((a, b) => a - b).join(', ')
+        const next = [...new Set(newCodes)].sort((a, b) => a - b).join(', ')
+        if (previous !== next) changes.push({ key, before: previous, after: next })
+    }
+    return changes
+}

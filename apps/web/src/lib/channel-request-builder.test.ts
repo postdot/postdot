@@ -6,6 +6,7 @@ import {
 } from '@postbot/core'
 
 import {
+    compareMappedRequests,
     editMappedRequest,
     projectMappedRequest,
     type RequestEdit,
@@ -180,4 +181,38 @@ test('parses code lists strictly instead of coercing ranges or expressions', asy
     expect(parseRequestStatuses('200, 201 202')).toEqual([200, 201, 202])
     for (const value of ['', '20e1', '200-299', '99', '600', '200.0', '200, nope'])
         expect(parseRequestStatuses(value)).toBeNull()
+})
+
+test('compares method, static segments and response groups without exposing dynamic values', () => {
+    const before = fixture()
+    let after = apply(before, { kind: 'method', value: 'PATCH' })
+    after = apply(after, { kind: 'segment', index: 0, value: 'articles' })
+    after = apply(after, {
+        kind: 'outcomes',
+        value: {
+            successStatuses: [200, 202],
+            retryableStatuses: [503],
+            rejectedStatuses: [400],
+            ambiguousStatuses: [500],
+        },
+    })
+    expect(compareMappedRequests(before, after)).toEqual([
+        { key: 'method', before: 'POST', after: 'PATCH' },
+        { key: 'segment-0', segmentIndex: 0, before: 'posts', after: 'articles' },
+        { key: 'successStatuses', before: '201', after: '200, 202' },
+        { key: 'retryableStatuses', before: '429', after: '503' },
+    ])
+    expect(JSON.stringify(compareMappedRequests(before, after))).not.toContain('/slug')
+    expect(compareMappedRequests(before, before)).toEqual([])
+})
+
+test('comparison ignores code ordering and does not claim complete contract coverage', () => {
+    const before = fixture()
+    before.execution.request.response.successStatuses = [200, 201]
+    const after = structuredClone(before)
+    after.execution.request.response.successStatuses = [201, 200]
+    after.execution.request.response.externalIdPointer = '/result/id'
+    expect(compareMappedRequests(before, after)).toEqual([])
+    expect(compareMappedRequests(null, after)).toEqual([])
+    expect(compareMappedRequests({ ...before, origin: 'built_in' }, after)).toEqual([])
 })

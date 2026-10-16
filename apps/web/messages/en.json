@@ -2191,7 +2191,7 @@
     "builder_complex": "This profile uses rules this form cannot safely edit. They are preserved without conversion.",
     "builder_preserved": "Profile rules preserved",
     "builder_invalid_number": "Enter a valid value within the indicated limits.",
-    "builder_changes": "Changes to content controls",
+    "builder_changes": "Profile changes",
     "builder_changes_hint": "Compared with the active profile. The impact assessment also checks other profile rules and affected publications.",
     "builder_before": "Active profile",
     "builder_after": "Proposed profile",

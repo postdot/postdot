@@ -2191,7 +2191,7 @@
     "builder_complex": "Ce profil utilise des règles que ce formulaire ne peut pas modifier fidèlement. Elles sont conservées sans conversion.",
     "builder_preserved": "Règles du profil conservées",
     "builder_invalid_number": "Saisissez une valeur valide dans les limites indiquées.",
-    "builder_changes": "Modifications des réglages de contenu",
+    "builder_changes": "Modifications du profil",
     "builder_changes_hint": "Comparaison avec le profil actif. L’évaluation d’impact vérifie aussi les autres règles du profil et les publications concernées.",
     "builder_before": "Profil actif",
     "builder_after": "Profil proposé",
