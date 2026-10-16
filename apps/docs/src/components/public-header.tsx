@@ -28,6 +28,9 @@ export function PublicHeader() {
     useMotionValueEvent(scrollY, 'change', () => setRaised(window.scrollY > 24))
     return (
         <header className="home-header-shell" data-raised={raised}>
+            <a href="#main-content" className="home-skip-link">
+                Skip to content
+            </a>
             <div className="home-header">
                 <Link href="/" className="home-brand" aria-label="Postbot home">
                     <PostbotLogo className="home-logo" />

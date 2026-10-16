@@ -887,3 +887,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-473 — Enrich the homepage social preview with supported platform marks and stronger blue material while preserving the accepted composition.
 
 - [x] SITE-474 — Reorder homepage OG network marks and make the illustrative list explicitly non-exhaustive.
+
+- [x] SITE-475 — Review public navigation at narrow widths and add a keyboard bypass for repeated header navigation.

@@ -35,7 +35,7 @@ export function PublicHome() {
     return (
         <div className="public-home">
             <PublicHeader />
-            <main>
+            <main id="main-content" tabIndex={-1}>
                 <div className="home-opening">
                     <PublicMaterial blendBottom />
                     <section id="product" className="home-hero">

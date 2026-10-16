@@ -19,7 +19,7 @@ export function PublicError({
     return (
         <div className="public-home home-error-page">
             <PublicHeader />
-            <main className="home-error-main">
+            <main id="main-content" tabIndex={-1} className="home-error-main">
                 <div className="home-error-code" aria-hidden="true">
                     {notFound ? (
                         <div className="home-error-digits">

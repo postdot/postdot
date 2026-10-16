@@ -1905,3 +1905,22 @@
     opacity: 0.055;
     mask-image: linear-gradient(to bottom, rgb(0 0 0 / 25%), #000 60%, #000 84%, transparent);
 }
+
+/* Keyboard bypass stays outside the resting composition. */
+.home-skip-link {
+    position: fixed;
+    top: 12px;
+    left: 16px;
+    z-index: 100;
+    padding: 8px 14px;
+    border-radius: 3px;
+    background: var(--home-card);
+    color: var(--home-ink);
+    transform: translateY(-200%);
+}
+.home-skip-link:focus {
+    transform: translateY(0);
+}
+#main-content:focus {
+    outline: none;
+}
