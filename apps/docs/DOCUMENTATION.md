@@ -169,7 +169,9 @@ The homepage exports `/og/home.png`. Each documentation page exports its own
 `/og/docs/<page-slugs>/image.png`, including API operation pages. Open Graph and
 Twitter metadata reference the same 1200 by 630 PNG with an alternate description.
 The shared template uses Postbot's logo, Host Grotesk and a fixed blue material
-field derived from the public site's flowing pigment. No runtime screenshot,
+field derived from the public site's flowing pigment. The homepage has a stronger
+material field and bundled logos for five supported networks; documentation keeps
+the quieter title-focused composition. No runtime screenshot,
 remote font fetch or image-generation service is required.
 
 `sync:content` generates `.og/material.png` deterministically. The image response

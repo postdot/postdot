@@ -1,10 +1,17 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
+import bluesky from '@iconify-icons/logos/bluesky'
+import discord from '@iconify-icons/logos/discord-icon'
+import linkedin from '@iconify-icons/logos/linkedin-icon'
+import mastodon from '@iconify-icons/logos/mastodon-icon'
+import x from '@iconify-icons/logos/x'
 import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
 import { ImageResponse } from 'next/og'
 
-let assets: Promise<{ regular: Buffer; semibold: Buffer; material: string }> | undefined
+let assets:
+    | Promise<{ regular: Buffer; semibold: Buffer; material: string; homeMaterial: string }>
+    | undefined
 function loadAssets() {
     assets ??= Promise.all([
         readFile(
@@ -18,10 +25,12 @@ function loadAssets() {
             )
         ),
         readFile(resolve('.og/material.png')),
-    ]).then(([regular, semibold, material]) => ({
+        readFile(resolve('.og/home-material.png')),
+    ]).then(([regular, semibold, material, homeMaterial]) => ({
         regular,
         semibold,
         material: `data:image/png;base64,${material.toString('base64')}`,
+        homeMaterial: `data:image/png;base64,${homeMaterial.toString('base64')}`,
     }))
     return assets
 }
@@ -37,7 +46,7 @@ export async function generateOGImage({
     section?: string
     home?: boolean
 }) {
-    const { regular, semibold, material } = await loadAssets()
+    const { regular, semibold, material, homeMaterial } = await loadAssets()
     const size = home ? 72 : title.length > 65 ? 50 : title.length > 42 ? 58 : 72
     return new ImageResponse(
         <div
@@ -54,7 +63,7 @@ export async function generateOGImage({
             }}>
             {/* oxlint-disable-next-line nextjs/no-img-element -- Local data URI for the static OG renderer. */}
             <img
-                src={material}
+                src={home ? homeMaterial : material}
                 alt=""
                 width={1200}
                 height={630}
@@ -88,6 +97,35 @@ export async function generateOGImage({
                     }}>
                     {title}
                 </div>
+                {home ? (
+                    <div style={{ display: 'flex', gap: 24, alignItems: 'center', marginTop: 34 }}>
+                        {[
+                            { name: 'Bluesky', icon: bluesky },
+                            { name: 'LinkedIn', icon: linkedin },
+                            { name: 'Mastodon', icon: mastodon },
+                            { name: 'Discord', icon: discord },
+                            { name: 'X', icon: x },
+                        ].map(({ name, icon }) => (
+                            <div
+                                key={name}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 64,
+                                    height: 64,
+                                }}>
+                                {/* oxlint-disable-next-line nextjs/no-img-element -- Bundled provider SVG rendered inside the OG image. */}
+                                <img
+                                    alt={name}
+                                    width={44}
+                                    height={44}
+                                    src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${icon.width ?? 256} ${icon.height ?? 256}">${icon.body}</svg>`).toString('base64')}`}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
                 {description ? (
                     <div
                         style={{
