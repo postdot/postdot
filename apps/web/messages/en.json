@@ -2229,11 +2229,17 @@
     "request_status_invalid": "Use codes from 100 to 599, separated by commas. Each outcome needs at least one code.",
     "request_status_overlap": "Assign each HTTP code to only one outcome.",
     "request_invalid": "Use 1–256 characters for a single segment, without /, ?, # or backslashes. The values “.” and “..” are not allowed.",
-    "request_preserved": "Body, query parameters and headers are preserved; they are not editable here yet.",
+    "request_preserved": "Query parameters, headers and other body formats are preserved; they are not editable here yet.",
     "request_secret": "Connection secret · preserved",
     "request_dynamic": "Dynamic value · {path} · preserved",
     "request_external_id": "Publication ID in response (optional)",
     "request_external_url": "Publication URL in response (optional)",
     "request_pointer_invalid": "Use a JSON Pointer starting with /. Escape ~ as ~0 and / within a key as ~1.",
-    "request_not_extracted": "Not extracted"
+    "request_not_extracted": "Not extracted",
+    "request_json_body": "JSON body",
+    "request_body_preserved": "Nested expression · preserved",
+    "request_body_null": "Null value",
+    "request_body_invalid": "Enter a valid finite number.",
+    "request_body_existing": "Existing properties only. Nested expressions and value types are preserved.",
+    "request_body_content": "Content field: {path}"
 }

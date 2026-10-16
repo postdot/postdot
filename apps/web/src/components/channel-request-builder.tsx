@@ -9,6 +9,7 @@ import {
 } from '@postbot/ui/components/select'
 import { useEffect, useId, useState } from 'react'
 
+import { ChannelJsonBodyBuilder } from '@/components/channel-json-body-builder'
 import {
     editMappedRequest,
     parseRequestStatuses,
@@ -38,7 +39,8 @@ export function ChannelRequestBuilder({
     const [statuses, setStatuses] = useState<Partial<Record<RequestOutcomeKey, string>>>({})
     const [extraction, setExtraction] = useState<Partial<Record<RequestExtractionKey, string>>>({})
     const [errors, setErrors] = useState<Record<string, string>>({})
-    const valid = view === null || Object.keys(errors).length === 0
+    const [bodyValid, setBodyValid] = useState(true)
+    const valid = view === null || (bodyValid && Object.keys(errors).length === 0)
     useEffect(() => onValidityChange(valid), [valid, onValidityChange])
     if (!view) return null
     const labels = {
@@ -142,6 +144,12 @@ export function ChannelRequestBuilder({
                     ) : null}
                 </Field>
             ))}
+            <ChannelJsonBodyBuilder
+                profile={profile}
+                onChange={onChange}
+                disabled={disabled}
+                onValidityChange={setBodyValid}
+            />
             <details className="space-y-3">
                 <summary className="cursor-pointer text-sm">{m.request_responses()}</summary>
                 <div className="grid gap-3 pt-2 sm:grid-cols-2">

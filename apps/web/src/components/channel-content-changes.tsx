@@ -5,6 +5,7 @@ import {
     type BuilderComparedRule,
     type BuilderRuleChange,
 } from '@/lib/channel-content-builder'
+import { compareJsonBodyProperties, type JsonBodyLeaf } from '@/lib/channel-json-body-builder'
 import { compareMappedRequests, type MappedRequestChange } from '@/lib/channel-request-builder'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -28,6 +29,13 @@ export function ChannelContentChanges({
                     rule: ruleLabel(change.rule, change.field.kind),
                     before: display(change.before, change.rule, locale),
                     after: display(change.after, change.rule, locale),
+                })),
+                ...compareJsonBodyProperties(before, proposed).map(change => ({
+                    key: `body-${change.name}`,
+                    label: m.request_json_body(),
+                    rule: change.name,
+                    before: bodyLeafLabel(change.before),
+                    after: bodyLeafLabel(change.after),
                 })),
                 ...compareMappedRequests(before, proposed).map(change => ({
                     key: `http-${change.key}`,
@@ -156,4 +164,10 @@ function requestRuleLabel(change: MappedRequestChange) {
         default:
             return m.request_ambiguous()
     }
+}
+
+function bodyLeafLabel(value: JsonBodyLeaf): string {
+    if (value.kind === 'content') return m.request_body_content({ path: value.pointer })
+    if (value.value === null) return m.request_body_null()
+    return typeof value.value === 'string' ? `“${value.value}”` : String(value.value)
 }

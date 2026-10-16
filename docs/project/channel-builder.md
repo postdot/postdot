@@ -296,3 +296,22 @@ Extraction edits preserve all other response and request mappings. The profile
 comparison shows path additions, replacements and removals, with Not extracted
 for absence. No example response is sent to a service, and this form does not
 prove that a configured endpoint actually returns those paths or scalar types.
+
+## Existing JSON body properties — CHANNEL-493
+
+For custom mapped requests whose JSON body is an object expression, the request
+form exposes existing simple properties behind a JSON body disclosure. Fixed
+text, finite numbers and booleans use typed controls. Content references select
+an existing schema field; a missing reference is retained rather than silently
+replaced. Null values are displayed without type conversion. Nested objects,
+arrays, maps and other expression kinds remain opaque and preserved.
+
+Edits retain the original profile and every unowned request field. Value types
+and expression kinds cannot change through these controls. Invalid numeric input
+stays visible and blocks saving. Each changed simple property is included in the
+existing active/proposed comparison; no raw nested expression is displayed there.
+
+This is not a general JSON editor. Adding/removing/renaming properties, changing
+expression kinds and authoring nested expressions are not implemented. Non-object
+JSON bodies, form and multipart formats are preserved without conversion. Query
+parameters and headers remain outside this form's editing scope.

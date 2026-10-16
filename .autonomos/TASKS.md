@@ -922,3 +922,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-491]** Show mapped HTTP changes in the existing profile comparison `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-492]** Add optional HTTP response extraction controls and profile comparison `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-493]** Edit existing simple JSON body properties without flattening nested mappings `Priority: 🟠` `Complexity: M`

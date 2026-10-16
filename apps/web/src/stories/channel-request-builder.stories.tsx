@@ -17,6 +17,14 @@ export const ExistingContract: Story = { render: () => <RequestExample /> }
 function RequestExample() {
     const [profile, setProfile] = useState<Record<string, unknown>>({
         origin: 'custom',
+        contentSchema: {
+            type: 'object',
+            properties: { body: { type: 'string' }, headline: { type: 'string' } },
+        },
+        fieldBindings: [
+            { id: 'body', path: '/body', semantic: 'primary_text' },
+            { id: 'headline', path: '/headline', semantic: 'headline' },
+        ],
         execution: {
             kind: 'declarative_http',
             mode: 'mapped_http',
@@ -25,7 +33,22 @@ function RequestExample() {
             request: {
                 method: 'POST',
                 path: ['posts', { kind: 'secret' }, { kind: 'content', pointer: '/slug' }],
-                body: { kind: 'json', value: { kind: 'content', pointer: '/body' } },
+                body: {
+                    kind: 'json',
+                    value: {
+                        kind: 'object',
+                        properties: {
+                            text: { kind: 'literal', value: 'An announcement' },
+                            source: { kind: 'content', pointer: '/body' },
+                            published: { kind: 'literal', value: false },
+                            priority: { kind: 'literal', value: 1 },
+                            metadata: {
+                                kind: 'object',
+                                properties: { source: { kind: 'literal', value: 'Postbot' } },
+                            },
+                        },
+                    },
+                },
                 response: {
                     successStatuses: [201],
                     retryableStatuses: [429],
