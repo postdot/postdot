@@ -152,3 +152,32 @@ test('does not convert manual, built-in or webhook contracts into mapped HTTP', 
         })
     }
 })
+
+test('reassigns response codes atomically without losing extraction pointers', () => {
+    const original = fixture()
+    expect(
+        editMappedRequest(original, { kind: 'statuses', outcome: 'successStatuses', value: [429] })
+    ).toEqual({ ok: false, reason: 'overlap' })
+    const result = apply(original, {
+        kind: 'outcomes',
+        value: {
+            successStatuses: [429],
+            retryableStatuses: [201],
+            rejectedStatuses: [400],
+            ambiguousStatuses: [500],
+        },
+    })
+    const response = (result.execution as DeclarativeHttpExecutionContract).request!.response
+    expect(response.successStatuses).toEqual([429])
+    expect(response.retryableStatuses).toEqual([201])
+    expect(response.externalIdPointer).toBe('/id')
+    expect(response.externalUrlPointer).toBe('/url')
+    expect(original.execution.request.response.successStatuses).toEqual([201])
+})
+
+test('parses code lists strictly instead of coercing ranges or expressions', async () => {
+    const { parseRequestStatuses } = await import('./channel-request-builder')
+    expect(parseRequestStatuses('200, 201 202')).toEqual([200, 201, 202])
+    for (const value of ['', '20e1', '200-299', '99', '600', '200.0', '200, nope'])
+        expect(parseRequestStatuses(value)).toBeNull()
+})

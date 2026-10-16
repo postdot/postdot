@@ -6,7 +6,9 @@ export const requestOutcomeKeys = [
     'ambiguousStatuses',
 ] as const
 export type RequestOutcomeKey = (typeof requestOutcomeKeys)[number]
+export type RequestStatusGroups = Readonly<Record<RequestOutcomeKey, readonly number[]>>
 export type RequestEdit =
+    | { readonly kind: 'outcomes'; readonly value: RequestStatusGroups }
     | { readonly kind: 'method'; readonly value: 'POST' | 'PUT' | 'PATCH' }
     | { readonly kind: 'segment'; readonly index: number; readonly value: string }
     | {
@@ -75,9 +77,20 @@ export function editMappedRequest(profile: unknown, edit: RequestEdit): RequestE
         )
         updated = { ...request, path }
     } else {
-        if (!requestOutcomeKeys.includes(edit.outcome) || !record(request.response))
+        if (
+            (edit.kind === 'statuses' && !requestOutcomeKeys.includes(edit.outcome)) ||
+            !record(request.response)
+        )
             return { ok: false, reason: 'unsupported' }
-        const response = { ...request.response, [edit.outcome]: [...edit.value] }
+        const response =
+            edit.kind === 'outcomes'
+                ? {
+                      ...request.response,
+                      ...Object.fromEntries(
+                          requestOutcomeKeys.map(key => [key, [...edit.value[key]]])
+                      ),
+                  }
+                : { ...request.response, [edit.outcome]: [...edit.value] }
         const statuses = requestOutcomeKeys.map(key => response[key])
         if (!statuses.every(validStatuses)) return { ok: false, reason: 'invalid' }
         const flat = statuses.flat() as number[]
@@ -110,4 +123,11 @@ function validStatuses(value: unknown): value is number[] {
 }
 function record(value: unknown): value is RecordValue {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Accept comma/space separated HTTP codes, not ranges or numeric coercion. */
+export function parseRequestStatuses(value: string): number[] | null {
+    const parts = value.trim().split(/[\s,]+/)
+    if (parts.length > 64 || parts.some(part => !/^[1-5][0-9]{2}$/.test(part))) return null
+    return parts.map(Number)
 }

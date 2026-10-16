@@ -2217,5 +2217,19 @@
     "builder_title_required": "Titre obligatoire",
     "builder_preview_media_disabled": "Les actions sur les médias sont désactivées dans cet aperçu.",
     "builder_field_present": "Champ disponible",
-    "builder_optional": "Optionnel"
+    "builder_optional": "Optionnel",
+    "request_title": "Requête HTTP",
+    "request_method": "Méthode",
+    "request_segment": "Segment du chemin {number}",
+    "request_success": "Succès",
+    "request_retryable": "Échec à réessayer",
+    "request_rejected": "Rejet",
+    "request_ambiguous": "Résultat incertain",
+    "request_responses": "Codes de réponse HTTP",
+    "request_status_invalid": "Utilisez des codes de 100 à 599, séparés par des virgules. Chaque résultat doit avoir au moins un code.",
+    "request_status_overlap": "Affectez chaque code HTTP à un seul résultat.",
+    "request_invalid": "Utilisez un segment de 1 à 256 caractères, sans /, ?, # ou barre oblique inverse. Les valeurs « . » et « .. » sont interdites.",
+    "request_preserved": "Le corps, les paramètres, les en-têtes et l’extraction de la réponse sont conservés ; ils ne sont pas encore modifiables ici.",
+    "request_secret": "Secret de connexion · conservé",
+    "request_dynamic": "Valeur dynamique · {path} · conservée"
 }

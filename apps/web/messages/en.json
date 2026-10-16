@@ -2217,5 +2217,19 @@
     "builder_title_required": "Required title",
     "builder_preview_media_disabled": "Media actions are disabled in this preview.",
     "builder_field_present": "Field available",
-    "builder_optional": "Optional"
+    "builder_optional": "Optional",
+    "request_title": "HTTP request",
+    "request_method": "Method",
+    "request_segment": "Path segment {number}",
+    "request_success": "Successful",
+    "request_retryable": "Retryable failure",
+    "request_rejected": "Rejected",
+    "request_ambiguous": "Uncertain outcome",
+    "request_responses": "HTTP response codes",
+    "request_status_invalid": "Use codes from 100 to 599, separated by commas. Each outcome needs at least one code.",
+    "request_status_overlap": "Assign each HTTP code to only one outcome.",
+    "request_invalid": "Use 1–256 characters for a single segment, without /, ?, # or backslashes. The values “.” and “..” are not allowed.",
+    "request_preserved": "Body, query parameters, headers and response extraction are preserved; they are not editable here yet.",
+    "request_secret": "Connection secret · preserved",
+    "request_dynamic": "Dynamic value · {path} · preserved"
 }

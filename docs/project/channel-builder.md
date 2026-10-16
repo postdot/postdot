@@ -243,7 +243,8 @@ This does not implement request mapping authoring or convert execution contracts
 ## Mapped request editing foundation — CHANNEL-489
 
 `channel-request-builder.ts` is a browser-only projection and targeted-edit
-module, not yet wired to a form. It recognizes custom mapped HTTP contracts and
+module used by ChannelRequestBuilder inside the existing profile content form.
+It recognizes custom mapped HTTP contracts and
 allows method changes, replacement of existing static path segments and updates
 to HTTP outcome code lists. It does not convert execution modes, change contract
 identity or modify connection-owned credentials. Dynamic content/context segments
@@ -255,8 +256,17 @@ idempotency configuration and external response pointers. Status lists remain
 nonempty, bounded and disjoint; static segments cannot introduce path separators
 or traversal. The server still performs complete contract validation.
 
-The next form must make its partial scope visible: preserved request bodies are
-not equivalent to an editable body mapping. Creation of mappings, segment
+The form labels dynamic/secret segments as preserved and read-only. Its
+response-code controls use one atomic classification update, so exchanging codes
+between outcomes does not require a temporary saved classification. Invalid
+local input blocks profile save, while valid edits use the existing save/review/
+activation flow. Preserved request bodies are not equivalent to an editable body
+mapping. Creation of mappings, segment
 addition/removal, expression authoring and response extraction controls remain
 separate work. Existing manual, built-in and Postbot webhook contracts are not
 implicitly converted. No runtime compiler dependency is added to the browser.
+
+CHANNEL-490 adds English/French controls and an isolated Storybook example at
+`Channels/Mapped request`. The form appears only for existing custom mapped
+profiles; manual, built-in and Postbot webhook profiles retain their current
+controls. It does not create a mapped HTTP profile from a new template.

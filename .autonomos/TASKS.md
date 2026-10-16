@@ -916,3 +916,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-488]** Restore the local API and verify the contract-aware HTTP connection dialog `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-489]** Prove lossless mapped HTTP request edits before structured form integration `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-490]** Integrate structured mapped-request controls with atomic response classification `Priority: 🟠` `Complexity: M`

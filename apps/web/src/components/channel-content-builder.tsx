@@ -12,6 +12,7 @@ import { Switch } from '@postbot/ui/components/switch'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { ChannelComposerPreview } from '@/components/channel-composer-preview'
+import { ChannelRequestBuilder } from '@/components/channel-request-builder'
 import {
     builderRecord,
     setBuilderTitleMode,
@@ -61,10 +62,13 @@ export function ChannelContentBuilder({
     const savedTitle = useRef<unknown>(null)
     const [preview, setPreview] = useState<Record<string, unknown>>({})
     const [invalid, setInvalid] = useState<Record<string, boolean>>({})
+    const [requestValid, setRequestValid] = useState(true)
     const [error, setError] = useState<string | null>(null)
     useEffect(() => {
-        onValidityChange(profile !== null && !error && !Object.values(invalid).some(Boolean))
-    }, [profile, error, invalid, onValidityChange])
+        onValidityChange(
+            profile !== null && requestValid && !error && !Object.values(invalid).some(Boolean)
+        )
+    }, [profile, requestValid, error, invalid, onValidityChange])
     useEffect(() => () => onValidityChange(true), [onValidityChange])
     function update(id: string, edit: BuilderEdit) {
         const result = editBuilderField(profile, id, edit)
@@ -325,6 +329,12 @@ export function ChannelContentBuilder({
                         controls
                     )
                 })}
+                <ChannelRequestBuilder
+                    profile={profile}
+                    disabled={disabled}
+                    onValidityChange={setRequestValid}
+                    onChange={next => onChange(JSON.stringify(next, null, 2))}
+                />
                 {error ? (
                     <p role="alert" className="text-xs text-destructive">
                         {error}
