@@ -4217,6 +4217,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 
+- Additional owner direction, 2026-10-16: evaluate two further locales after product expansion, with delivered-bundle and interaction measurements. The pair is not selected. PRODUCT-477 found generated static EN/FR imports and an emoji-data locale list that must be included in the scope. See [expansion plan](../docs/project/product-expansion.md).
+
 ## [ISSUE-163] Define intentional workflow coverage across Postbot clients
 
 - Type: proposal
@@ -4241,3 +4243,69 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [documentation structure and OpenAPI boundary](../apps/docs/DOCUMENTATION.md).
 - Tasks: SITE-455 (structure), SITE-456 (isolated export and generated static reference).
 - Resolution: 160 route-derived operations are generated into 16 domains through the official Fumadocs integration. An in-memory exporter and temporary media adapter avoid shared resources; per-operation fragments limit page payload. Public, inherited bearer/session and explicit session-only declarations are preserved. The static renderer has no request playground or proxy. Dynamic Better Auth and optional monitoring routes remain explicitly outside coverage.
+
+
+## [ISSUE-165] Add a Telegram publishing destination
+
+- Type: proposal
+- Status: open
+- Evidence: No Telegram publishing adapter or built-in channel was found; the owner requests broader network coverage.
+- Desired outcome: A verified bot/account connection and bounded text/media publication flow, preserving project ownership, content validation, durable effects and stored remote identity. Polls and further native formats are separately scoped.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-166] Establish Facebook and Instagram integration scope
+
+- Type: proposal
+- Status: open
+- Evidence: The owner requests mainstream networks beyond the existing six. No first-party Meta publishing adapters were found. Official documentation access in PRODUCT-477 was rate-limited.
+- Desired outcome: Verify supported account types, permissions, app review/development access and initial publication formats before implementation. Record unknowns instead of promising personal-profile support or universal content formats.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-167] Replace normal Studio JSON authoring with a structured channel builder
+
+- Type: proposal
+- Status: open
+- Evidence: Custom creation and profile editing expose JSON text fields. Impact/adoption views also show raw serialized values. Current schema, field bindings, media/text capabilities and profile revision lifecycle already exist.
+- Desired outcome: A usable form for content capabilities, a separate execution setup and field-level impact/validation. Preserve richer existing profiles without silent data loss. Agree unsupported-rule behavior and reuse the existing runtime contract before replacing UI.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-168] Expand provider information, performance and comment workflows
+
+- Type: proposal
+- Status: open
+- Evidence: Bluesky and DEV.to collectors expose bounded observations. Reply/comment counts do not provide a conversation UI or reply execution path. The owner asks for richer information and comments.
+- Desired outcome: An explicit provider capability/read-access matrix and scoped stored-data workflows for useful metadata, metrics and comments. Treat reading, replying and moderation as distinct permissions and external effects; preserve metric meanings and freshness.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-169] Support provider-native publication formats and public text entities
+
+- Type: proposal
+- Status: open
+- Evidence: Existing profiles expose provider-specific fields, but no native poll/hashtag entity implementation was found in the inspected publishing adapters. The owner requests questions, polls and hashtag integration.
+- Desired outcome: Discover feasible formats per provider and expose typed editor controls, validation, preview and execution. Distinguish plain questions from native polls and provider hashtags from internal tags; do not force identical support across networks.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.
+
+
+## [ISSUE-170] Evaluate campaign organization using the existing publication taxonomy
+
+- Type: proposal
+- Status: open
+- Evidence: ADR-062 and ISSUE-053 already deliver publication tags and filtering. The owner suggests campaign-related internal tags; no separate campaign lifecycle is established.
+- Desired outcome: Validate concrete campaign organization/reporting needs against existing tags first. Define a campaign entity only if additional ownership, dates, workflow or reporting semantics require it; avoid recreating existing tags.
+- Plan: [product expansion](../docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Source: owner product direction, 2026-10-16.

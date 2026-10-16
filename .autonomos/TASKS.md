@@ -891,3 +891,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] SITE-475 — Review public navigation at narrow widths and add a keyboard bypass for repeated header navigation.
 
 - [x] SITE-476 — Add destination-specific scheduling annotations to the existing distribution illustration with matching static and animated states.
+
+- [x] PRODUCT-477 — Inventory product expansion gaps and record staged proposals for platforms, structured channel authoring, engagement, native formats and locales.
