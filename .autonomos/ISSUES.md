@@ -4342,3 +4342,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
 - Source: owner clarification, 2026-10-16.
+
+
+## [ISSUE-174] Verify built-in provider constraint updates across retained work
+
+- Type: proposal
+- Status: open
+- Evidence: The owner asks what happens if a platform reduces its text limits. ADR-020, ADR-078 and ADR-079 establish versioned profiles, impact review and explicit adoption. Packaged presets are snapshots; their existence is not automatic detection or rollout of upstream changes.
+- Desired outcome: Audit the operational update path for built-in constraints and execution support. Prove behavior for new work, editable drafts, pending selected targets, retries and historical/in-flight revisions using a synthetic limit reduction. Preserve content and history; do not silently truncate, migrate, deliver known-incompatible work or claim automatic upstream detection. Identify any missing operator update/review entry.
+- Tasks: CHANNEL-482 (intake and existing-contract review); implementation not claimed complete.
+- Related: [profile evolution](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ordinary approval compatibility](decisions/ADR-078-explicit-superseded-profile-approval.md), [draft adoption](decisions/ADR-079-explicit-draft-profile-adoption.md).
+- Source: owner direction, 2026-10-16.

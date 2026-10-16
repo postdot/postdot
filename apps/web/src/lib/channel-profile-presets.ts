@@ -169,3 +169,17 @@ export function profileForTemplate(
 ): RuntimeChannelProfile | undefined {
     return templates.find(template => template.id === templateId)?.profile
 }
+
+/** Copy the server's manual defaults, retaining their optional-content semantics. */
+export function manualBuilderStarter(
+    presets: readonly ChannelProfilePreset[]
+): RuntimeChannelProfile | undefined {
+    const preset = presets.find(item => item.id === 'manual-message')
+    if (!preset) return undefined
+    return {
+        ...structuredClone(preset.profile),
+        id: 'custom-manual',
+        origin: 'custom',
+        contentSchema: prepareCustomContentSchema(preset.profile.contentSchema),
+    }
+}

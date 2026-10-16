@@ -303,8 +303,8 @@ export function ChannelProfileEditorDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] overflow-y-auto sm:max-w-5xl">
-                <DialogHeader>
+            <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] flex min-h-0 flex-col overflow-hidden sm:max-w-5xl">
+                <DialogHeader className="shrink-0">
                     <DialogTitle ref={titleRef} tabIndex={-1} className="pr-6 outline-none">
                         {stage === 'confirm'
                             ? m.profile_activation_confirm_title({ channel: currentChannel.name })
@@ -319,7 +319,9 @@ export function ChannelProfileEditorDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4">
+                <div
+                    data-channel-dialog-body
+                    className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain pr-1">
                     {stage === 'edit' && latestTemplateAvailable ? (
                         <Button
                             type="button"

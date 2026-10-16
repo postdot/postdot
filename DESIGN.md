@@ -487,3 +487,11 @@ stable, viewport-bounded result area across loading, populated and empty states.
 Use spacing rather than separator lines; keep the dark palette close to the
 raised workspace surface. A direct All projects switch controls scope when a
 current project exists. Empty results use the shared illustration vocabulary.
+
+## Dialog scrolling (owner direction, 2026-10-16)
+
+Keep the dialog header and action footer visible. Long content scrolls inside
+a bounded body; the popup itself must not become the scrolling document. Apply
+this to content-heavy dialogs at desktop and mobile widths. Keep explanatory
+copy for consequences, constraints and recovery; routine controls must not turn
+into tutorials. Secondary configuration belongs behind explicit disclosure.

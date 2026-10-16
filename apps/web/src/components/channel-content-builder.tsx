@@ -47,6 +47,7 @@ export function ChannelContentBuilder({
             })),
         [profile, locale]
     )
+    const [showLanguage, setShowLanguage] = useState(false)
     const [preview, setPreview] = useState<Record<string, unknown>>({})
     const [invalid, setInvalid] = useState<Record<string, boolean>>({})
     const [error, setError] = useState<string | null>(null)
@@ -71,12 +72,6 @@ export function ChannelContentBuilder({
     return (
         <div data-channel-content-builder className="grid min-w-0 gap-6 lg:grid-cols-[1fr_0.9fr]">
             <div className="min-w-0 space-y-5">
-                <div>
-                    <h3 className="text-sm font-medium">{m.builder_content()}</h3>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {m.builder_content_hint()}
-                    </p>
-                </div>
                 {fields.length === 0 ? (
                     <Alert>
                         <AlertTitle>{m.builder_preserved()}</AlertTitle>
@@ -88,7 +83,7 @@ export function ChannelContentBuilder({
                         previewFields.find(item => item.bindingId === field.id)?.label ?? field.id
                     const locked = disabled || field.reason !== undefined
                     const id = `${instanceId}-${field.id}`
-                    return (
+                    const controls = (
                         <fieldset
                             key={field.id}
                             className="min-w-0 space-y-3 rounded-sm border border-border p-3">
@@ -98,19 +93,21 @@ export function ChannelContentBuilder({
                                     {reasonLabel(field.reason)}
                                 </p>
                             ) : null}
-                            <label
-                                className="flex items-center justify-between gap-3 text-sm"
-                                htmlFor={`${id}-required`}>
-                                <span>{m.builder_required()}</span>
-                                <Switch
-                                    id={`${id}-required`}
-                                    checked={field.required}
-                                    disabled={locked}
-                                    onCheckedChange={checked =>
-                                        update(field.id, { required: checked })
-                                    }
-                                />
-                            </label>
+                            {field.kind !== 'media' ? (
+                                <label
+                                    className="flex items-center justify-between gap-3 text-sm"
+                                    htmlFor={`${id}-required`}>
+                                    <span>{m.builder_required()}</span>
+                                    <Switch
+                                        id={`${id}-required`}
+                                        checked={field.required}
+                                        disabled={locked}
+                                        onCheckedChange={checked =>
+                                            update(field.id, { required: checked })
+                                        }
+                                    />
+                                </label>
+                            ) : null}
                             <BuilderNumber
                                 key={`${field.id}-maximum`}
                                 id={`${id}-maximum`}
@@ -126,36 +123,43 @@ export function ChannelContentBuilder({
                                 onChange={maximum => update(field.id, { maximum: maximum! })}
                             />
                             {field.kind === 'text' ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {['plain_text', 'markdown'].map(format => (
-                                        <label
-                                            key={format}
-                                            className="flex items-center gap-2 text-xs">
-                                            <input
-                                                className="size-3.5 accent-primary"
-                                                type="checkbox"
-                                                checked={field.formats.includes(format)}
-                                                disabled={
-                                                    locked ||
-                                                    (field.formats.length === 1 &&
-                                                        field.formats.includes(format))
-                                                }
-                                                onChange={event =>
-                                                    update(field.id, {
-                                                        formats: event.target.checked
-                                                            ? [...field.formats, format]
-                                                            : field.formats.filter(
-                                                                  item => item !== format
-                                                              ),
-                                                    })
-                                                }
-                                            />
-                                            {format === 'markdown'
-                                                ? 'Markdown'
-                                                : m.builder_plain_text()}
-                                        </label>
-                                    ))}
-                                </div>
+                                field.semantic === 'language' ? null : (
+                                    <details>
+                                        <summary className="cursor-pointer text-xs text-muted-foreground">
+                                            {m.builder_formats()}
+                                        </summary>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['plain_text', 'markdown'].map(format => (
+                                                <label
+                                                    key={format}
+                                                    className="flex items-center gap-2 text-xs">
+                                                    <input
+                                                        className="size-3.5 accent-primary"
+                                                        type="checkbox"
+                                                        checked={field.formats.includes(format)}
+                                                        disabled={
+                                                            locked ||
+                                                            (field.formats.length === 1 &&
+                                                                field.formats.includes(format))
+                                                        }
+                                                        onChange={event =>
+                                                            update(field.id, {
+                                                                formats: event.target.checked
+                                                                    ? [...field.formats, format]
+                                                                    : field.formats.filter(
+                                                                          item => item !== format
+                                                                      ),
+                                                            })
+                                                        }
+                                                    />
+                                                    {format === 'markdown'
+                                                        ? 'Markdown'
+                                                        : m.builder_plain_text()}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </details>
+                                )
                             ) : (
                                 <>
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -189,31 +193,33 @@ export function ChannelContentBuilder({
                                             )
                                         )}
                                     </div>
-                                    <BuilderNumber
-                                        id={`${id}-bytes`}
-                                        label={m.builder_max_bytes()}
-                                        value={
-                                            field.maxBytes === undefined
-                                                ? null
-                                                : field.maxBytes / 1_000_000
-                                        }
-                                        minimum={0.000001}
-                                        decimal
-                                        nullable
-                                        disabled={locked}
-                                        onValid={valid => validity(`${field.id}-bytes`, valid)}
-                                        onChange={megabytes =>
-                                            update(field.id, {
-                                                maxBytes:
-                                                    megabytes === null
-                                                        ? null
-                                                        : Math.round(megabytes * 1_000_000),
-                                            })
-                                        }
-                                    />
-                                    <p className="text-xs leading-5 text-muted-foreground">
-                                        {m.builder_media_hint()}
-                                    </p>
+                                    <details>
+                                        <summary className="cursor-pointer text-xs text-muted-foreground">
+                                            {m.builder_file_limits()}
+                                        </summary>
+                                        <BuilderNumber
+                                            id={`${id}-bytes`}
+                                            label={m.builder_max_bytes()}
+                                            value={
+                                                field.maxBytes === undefined
+                                                    ? null
+                                                    : field.maxBytes / 1_000_000
+                                            }
+                                            minimum={0.000001}
+                                            decimal
+                                            nullable
+                                            disabled={locked}
+                                            onValid={valid => validity(`${field.id}-bytes`, valid)}
+                                            onChange={megabytes =>
+                                                update(field.id, {
+                                                    maxBytes:
+                                                        megabytes === null
+                                                            ? null
+                                                            : Math.round(megabytes * 1_000_000),
+                                                })
+                                            }
+                                        />
+                                    </details>
                                 </>
                             )}
                             {field.maxGraphemes !== undefined ? (
@@ -228,15 +234,28 @@ export function ChannelContentBuilder({
                             ) : null}
                         </fieldset>
                     )
+                    return field.semantic === 'language' ? (
+                        <details
+                            key={field.id}
+                            className="space-y-3"
+                            onToggle={event => setShowLanguage(event.currentTarget.open)}>
+                            <summary className="cursor-pointer text-sm text-muted-foreground">
+                                {m.builder_content_language()}
+                            </summary>
+                            <p className="text-xs text-muted-foreground">
+                                {m.builder_language_hint()}
+                            </p>
+                            {controls}
+                        </details>
+                    ) : (
+                        controls
+                    )
                 })}
                 {error ? (
                     <p role="alert" className="text-xs text-destructive">
                         {error}
                     </p>
                 ) : null}
-                <p className="text-xs leading-5 text-muted-foreground">
-                    {m.builder_transport_preserved()}
-                </p>
             </div>
             <section
                 aria-label={m.builder_preview()}
@@ -246,23 +265,32 @@ export function ChannelContentBuilder({
                     {m.builder_preview_hint()}
                 </p>
                 <div className="grid min-w-0 gap-4">
-                    {previewFields.map((field, index) => (
-                        <TargetFieldControl
-                            key={`${field.bindingId}-${field.path}`}
-                            field={{
-                                ...field,
-                                label: field.required
-                                    ? `${field.label} (${m.builder_required()})`
-                                    : field.label,
-                            }}
-                            fieldId={`${instanceId}-preview-${index}`}
-                            value={readTargetField(preview, field.path)}
-                            disabled={disabled}
-                            onChange={next =>
-                                setPreview(current => updateTargetField(current, field.path, next))
-                            }
-                        />
-                    ))}
+                    {previewFields
+                        .filter(
+                            field => field.semantic !== 'language' || showLanguage || field.required
+                        )
+                        .map((field, index) => (
+                            <TargetFieldControl
+                                key={`${field.bindingId}-${field.path}`}
+                                field={{
+                                    ...field,
+                                    label:
+                                        field.required &&
+                                        (field.kind !== 'media' || (field.minItems ?? 0) > 0)
+                                            ? `${field.label} *`
+                                            : field.label,
+                                }}
+                                compact
+                                fieldId={`${instanceId}-preview-${index}`}
+                                value={readTargetField(preview, field.path)}
+                                disabled={disabled}
+                                onChange={next =>
+                                    setPreview(current =>
+                                        updateTargetField(current, field.path, next)
+                                    )
+                                }
+                            />
+                        ))}
                 </div>
             </section>
         </div>

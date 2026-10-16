@@ -901,3 +901,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-480]** Deliver structured channel content controls and local target preview in creation and profile editing `Priority: 🟠` `Complexity: L`
 
 - [x] **[CHANNEL-481]** Show before/after content controls during channel profile review `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-482]** Simplify channel rules and add fixed dialog actions with pre-creation manual configuration `Priority: 🟠` `Complexity: M`
+- [/] **[CHANNEL-483]** Explain channel lifecycle failures inside the active confirmation dialog `Priority: 🟠` `Complexity: S`

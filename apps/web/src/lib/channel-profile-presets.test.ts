@@ -1,9 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
+import {
+    createManualChannelProfile,
+    ChannelProfileCompiler,
+    type ChannelProfileDefinition,
+} from '@postbot/core'
+
 import type { ChannelProfilePreset } from '@/lib/api'
 import {
     builtInChannelProfileTemplatePrefix,
     channelProfileTemplates,
+    manualBuilderStarter,
     profileForTemplate,
     templatesFromPresets,
 } from '@/lib/channel-profile-presets'
@@ -120,4 +127,22 @@ describe('channel profile templates', () => {
             ])
         ).toEqual([])
     })
+})
+
+test('manual creation starts from current server rules without making optional text required', () => {
+    const original = createManualChannelProfile()
+    const starter = manualBuilderStarter([
+        { id: 'manual-message', version: original.version, profile: original },
+    ])
+    expect(starter?.origin).toBe('custom')
+    expect(starter?.execution).toEqual({ kind: 'manual' })
+    expect(starter?.fieldBindings).toEqual(original.fieldBindings)
+    expect(starter?.capabilities).toEqual(original.capabilities)
+    const compiler = new ChannelProfileCompiler().compile(
+        starter as unknown as ChannelProfileDefinition
+    )
+    expect(compiler.ok).toBe(true)
+    if (compiler.ok) expect(compiler.value.validate({ media: [] }).ok).toBe(true)
+    expect(manualBuilderStarter([])).toBeUndefined()
+    expect(original.origin).toBe('built_in')
 })

@@ -185,3 +185,19 @@ This is explicitly a comparison of represented controls, not a substitute for
 the server's broader impact assessment. Added/removed fields, transport and
 arbitrary schema rules are outside its claimed coverage. The existing impact
 assessment remains available. No review state or activation contract changed.
+
+## Simplified manual creation — CHANNEL-482
+
+Manual and custom creation now expose content configuration before creating the
+channel. Manual configuration copies the current server manual preset into a
+custom manual profile, preserving optional text and other defaults rather than
+using the separate body-required custom starter. Returning to identity preserves
+settings. Built-in automatic providers retain their own constraints.
+
+Only dialog bodies scroll; header and actions remain visible. Text formats, file
+size and content language use disclosure. Content language is publication
+metadata, not account categorization or automatic translation. Media array
+presence is no longer presented as an attachment requirement.
+
+See ISSUE-174 for the uncompleted operational audit of provider limit updates.
+Versioning and compatibility contracts do not imply automatic upstream detection.

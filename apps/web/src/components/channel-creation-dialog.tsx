@@ -42,6 +42,7 @@ import {
     builtInChannelProfileTemplatePrefix,
     channelProfileTemplates,
     profileForTemplate,
+    manualBuilderStarter,
     templatesFromPresets,
 } from '@/lib/channel-profile-presets'
 import { useLanguage } from '@/lib/i18n'
@@ -94,6 +95,7 @@ export function ChannelCreationDialog({
         [templates]
     )
     const [open, setOpen] = useState(false)
+    const [step, setStep] = useState<'identity' | 'rules'>('identity')
     const [name, setName] = useState('')
     const [nameEdited, setNameEdited] = useState(false)
     const [choice, setChoice] = useState<ProfileChoice>('manual-message')
@@ -105,6 +107,7 @@ export function ChannelCreationDialog({
     const [definitionIssueCount, setDefinitionIssueCount] = useState(0)
 
     function reset() {
+        setStep('identity')
         setName('')
         setNameEdited(false)
         setChoice('manual-message')
@@ -132,16 +135,17 @@ export function ChannelCreationDialog({
             setDefinitionIssues([])
             setDefinitionIssueCount(0)
         }
+        if (nextChoice !== choice) setProfileText('')
         setChoice(nextChoice)
         if (!nameEdited) setName(suggestedName(nextChoice))
-        if (nextChoice === 'custom' && profileText === '') {
+        if (nextChoice === 'custom' && (profileText === '' || nextChoice !== choice)) {
             const profile = profileForTemplate(templateId, templates)
             if (profile !== undefined) setProfileText(creationTextForTemplate(profile))
         }
     }
 
     async function submit() {
-        if (choice === 'custom' && !builderValid) return
+        if ((choice === 'custom' || choice === 'manual-message') && !builderValid) return
         const trimmedName = name.trim()
         if (trimmedName === '') {
             setValidationError(m.channel_name_required())
@@ -159,7 +163,7 @@ export function ChannelCreationDialog({
         }
 
         let profile: ChannelCreationProfile = choice === 'custom' ? 'manual-message' : choice
-        if (choice === 'custom') {
+        if (choice === 'custom' || choice === 'manual-message') {
             try {
                 const parsed: unknown = JSON.parse(profileText)
                 if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -255,73 +259,88 @@ export function ChannelCreationDialog({
                 }}>
                 <DialogContent
                     aria-describedby={undefined}
-                    className={`max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-x-hidden overflow-y-auto ${choice === 'custom' ? 'sm:max-w-5xl' : 'sm:max-w-2xl'}`}>
-                    <DialogHeader>
-                        <DialogTitle className="pr-6">{m.channel_create_title()}</DialogTitle>
+                    className={`max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] flex min-h-0 flex-col overflow-hidden ${step === 'rules' ? 'sm:max-w-5xl' : 'sm:max-w-2xl'}`}>
+                    <DialogHeader className="shrink-0">
+                        <DialogTitle className="pr-6">
+                            {step === 'rules'
+                                ? m.builder_configure_channel()
+                                : m.channel_create_title()}
+                        </DialogTitle>
                     </DialogHeader>
 
-                    <div className="grid gap-5">
-                        <Field className="gap-1.5">
-                            <FieldLabel>{m.channel_profile()}</FieldLabel>
-                            <div
-                                className="grid gap-2 sm:grid-cols-2"
-                                role="radiogroup"
-                                aria-label={m.channel_profile()}>
-                                {profileChoices.map(profile => (
-                                    <ProfileChoiceButton
-                                        key={profile.value}
-                                        label={profile.label}
-                                        selected={choice === profile.value}
-                                        value={profile.value}
-                                        onSelect={() => selectProfile(profile.value)}
-                                    />
-                                ))}
-                            </div>
-                        </Field>
-
-                        <Field className="gap-1.5">
-                            <FieldLabel htmlFor="new-channel-name">{m.channel_name()}</FieldLabel>
-                            <Input
-                                id="new-channel-name"
-                                value={name}
-                                onChange={event => {
-                                    setName(event.target.value)
-                                    setNameEdited(true)
-                                    setValidationError(null)
-                                    setDefinitionIssues([])
-                                    setDefinitionIssueCount(0)
-                                }}
-                                placeholder={m.channel_name_placeholder()}
-                            />
-                        </Field>
-
-                        {choice === 'custom' ? (
-                            <div className="grid gap-5">
+                    <div
+                        data-channel-dialog-body
+                        className="grid min-h-0 gap-5 overflow-y-auto overscroll-contain pr-1">
+                        {step === 'identity' ? (
+                            <>
                                 <Field className="gap-1.5">
-                                    <FieldLabel htmlFor="new-channel-template">
-                                        {m.channel_starter_template()}
-                                    </FieldLabel>
-                                    <Select
-                                        items={templateItems}
-                                        value={templateId}
-                                        onValueChange={selectCustomTemplate}>
-                                        <SelectTrigger id="new-channel-template">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent align="start">
-                                            {templates.map(template => (
-                                                <SelectItem key={template.id} value={template.id}>
-                                                    {templateLabel(template.id)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FieldDescription>
-                                        {templateDescription(templateId)}
-                                    </FieldDescription>
+                                    <FieldLabel>{m.channel_profile()}</FieldLabel>
+                                    <div
+                                        className="grid gap-2 sm:grid-cols-2"
+                                        role="radiogroup"
+                                        aria-label={m.channel_profile()}>
+                                        {profileChoices.map(profile => (
+                                            <ProfileChoiceButton
+                                                key={profile.value}
+                                                label={profile.label}
+                                                selected={choice === profile.value}
+                                                value={profile.value}
+                                                onSelect={() => selectProfile(profile.value)}
+                                            />
+                                        ))}
+                                    </div>
                                 </Field>
+
+                                <Field className="gap-1.5">
+                                    <FieldLabel htmlFor="new-channel-name">
+                                        {m.channel_name()}
+                                    </FieldLabel>
+                                    <Input
+                                        id="new-channel-name"
+                                        value={name}
+                                        onChange={event => {
+                                            setName(event.target.value)
+                                            setNameEdited(true)
+                                            setValidationError(null)
+                                            setDefinitionIssues([])
+                                            setDefinitionIssueCount(0)
+                                        }}
+                                        placeholder={m.channel_name_placeholder()}
+                                    />
+                                </Field>
+                            </>
+                        ) : null}
+                        {step === 'rules' ? (
+                            <div className="grid gap-5">
+                                {choice === 'custom' ? (
+                                    <Field className="gap-1.5">
+                                        <FieldLabel htmlFor="new-channel-template">
+                                            {m.channel_starter_template()}
+                                        </FieldLabel>
+                                        <Select
+                                            items={templateItems}
+                                            value={templateId}
+                                            onValueChange={selectCustomTemplate}>
+                                            <SelectTrigger id="new-channel-template">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent align="start">
+                                                {templates.map(template => (
+                                                    <SelectItem
+                                                        key={template.id}
+                                                        value={template.id}>
+                                                        {templateLabel(template.id)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FieldDescription>
+                                            {templateDescription(templateId)}
+                                        </FieldDescription>
+                                    </Field>
+                                ) : null}
                                 <ChannelContentBuilder
-                                    key={templateId}
+                                    key={`${choice}:${templateId}`}
                                     value={profileText}
                                     disabled={pending}
                                     onValidityChange={setBuilderValid}
@@ -368,7 +387,7 @@ export function ChannelCreationDialog({
                         ) : null}
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="shrink-0">
                         <Button
                             type="button"
                             variant="ghost"
@@ -379,12 +398,62 @@ export function ChannelCreationDialog({
                             disabled={pending}>
                             {m.common_cancel()}
                         </Button>
+                        {step === 'rules' ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={pending}
+                                onClick={() => setStep('identity')}>
+                                {m.builder_back()}
+                            </Button>
+                        ) : null}
                         <Button
                             type="button"
-                            onClick={() => void submit()}
-                            disabled={pending || (choice === 'custom' && !builderValid)}>
+                            onClick={() => {
+                                if (
+                                    step === 'identity' &&
+                                    (choice === 'manual-message' || choice === 'custom')
+                                ) {
+                                    if (!name.trim()) {
+                                        setValidationError(m.channel_name_required())
+                                        return
+                                    }
+                                    if (
+                                        channelNameExists(
+                                            name.trim(),
+                                            channels.map(channel => channel.name)
+                                        )
+                                    ) {
+                                        setValidationError(m.channel_name_exists())
+                                        return
+                                    }
+                                    if (choice === 'manual-message' && profileText === '') {
+                                        const starter = manualBuilderStarter(
+                                            presetsQuery.data?.presets ?? []
+                                        )
+                                        if (!starter) {
+                                            setValidationError(m.builder_defaults_failed())
+                                            void presetsQuery.refetch()
+                                            return
+                                        }
+                                        setProfileText(creationTextForTemplate(starter))
+                                    }
+                                    setValidationError(null)
+                                    setStep('rules')
+                                } else void submit()
+                            }}
+                            disabled={
+                                pending ||
+                                (step === 'rules' && !builderValid) ||
+                                (step === 'identity' &&
+                                    choice === 'manual-message' &&
+                                    presetsQuery.isPending)
+                            }>
                             <CodeFileIcon aria-hidden="true" />
-                            {m.channel_create_button()}
+                            {step === 'identity' &&
+                            (choice === 'manual-message' || choice === 'custom')
+                                ? m.builder_configure_channel()
+                                : m.channel_create_button()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
