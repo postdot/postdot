@@ -44,6 +44,8 @@ import {
 
 import * as m from '@/paraglide/messages.js'
 
+import { formatChannelLifecycleConflict } from './channel-lifecycle-feedback'
+
 export type { MediaImportSource } from '@postbot/client'
 export type PublicationSummary = PublicationSummaryPage['publications'][number]
 export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
@@ -1969,6 +1971,8 @@ export type {
 
 export function formatApiError(error: unknown): string {
     if (!(error instanceof ApiError)) return m.api_request_failed()
+    if (error.code === 'channel_lifecycle_conflict')
+        return formatChannelLifecycleConflict(error.blockers)
     const message = apiErrorMessage(error.code)
     if (error.blockers.length === 0) return message
 

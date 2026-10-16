@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@postbot/ui/components/alert'
 import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
@@ -28,6 +29,7 @@ export function ChannelLifecycleDialog({
     onOpenChange,
     open,
     pending,
+    error,
 }: {
     readonly action: ChannelLifecycleAction | null
     readonly channel: Channel | null
@@ -38,12 +40,15 @@ export function ChannelLifecycleDialog({
     ) => Promise<boolean>
     readonly onOpenChange: (open: boolean) => void
     readonly open: boolean
+    readonly error?: string | null
     readonly pending: boolean
 }) {
     useLanguage()
     const [name, setName] = useState('')
+    const [attempted, setAttempted] = useState(false)
 
     useEffect(() => {
+        setAttempted(false)
         if (open && channel !== null) setName(channel.name)
     }, [channel, open])
 
@@ -70,29 +75,38 @@ export function ChannelLifecycleDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
-                <DialogHeader>
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-h-0 max-w-md flex-col overflow-hidden">
+                <DialogHeader className="shrink-0">
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
 
-                {isRename ? (
-                    <Field className="gap-1.5">
-                        <FieldLabel htmlFor="rename-channel-name">{m.channel_name()}</FieldLabel>
-                        <Input
-                            id="rename-channel-name"
-                            value={name}
-                            onChange={event => setName(event.target.value)}
-                            autoFocus
-                        />
-                    </Field>
-                ) : (
-                    <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                        {channel.name}
-                    </p>
-                )}
+                <div className="min-h-0 space-y-4 overflow-y-auto overscroll-contain">
+                    {isRename ? (
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="rename-channel-name">
+                                {m.channel_name()}
+                            </FieldLabel>
+                            <Input
+                                id="rename-channel-name"
+                                value={name}
+                                onChange={event => setName(event.target.value)}
+                                autoFocus
+                            />
+                        </Field>
+                    ) : (
+                        <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                            {channel.name}
+                        </p>
+                    )}
 
-                <DialogFooter>
+                    {attempted && error ? (
+                        <Alert variant="destructive" role="alert">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    ) : null}
+                </div>
+                <DialogFooter className="shrink-0">
                     <Button
                         type="button"
                         variant="ghost"
@@ -105,8 +119,12 @@ export function ChannelLifecycleDialog({
                         variant={destructive ? 'destructive' : 'default'}
                         disabled={pending || (isRename && name.trim() === '')}
                         onClick={async () => {
+                            setAttempted(false)
                             const succeeded = await onAction(action, channel, name.trim())
-                            if (!succeeded) return
+                            if (!succeeded) {
+                                setAttempted(true)
+                                return
+                            }
                             const title =
                                 action === 'rename'
                                     ? m.channel_renamed_success({ channel: name.trim() })

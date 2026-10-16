@@ -139,7 +139,7 @@ export function ChannelManagementPage({
                 title={m.channels_title()}
             />
 
-            {error ? (
+            {error && lifecycle === null ? (
                 <Alert
                     variant="destructive"
                     className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
@@ -206,6 +206,7 @@ export function ChannelManagementPage({
                     channel={lifecycle?.channel ?? null}
                     open={lifecycle !== null}
                     pending={pending}
+                    error={error}
                     onAction={handleLifecycleAction}
                     onOpenChange={open => {
                         if (!open) setLifecycle(null)
