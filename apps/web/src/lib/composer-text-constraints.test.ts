@@ -40,3 +40,22 @@ test('distinguishes schema characters from graphemes without shortening the inpu
     expect(countComposerText('👩‍💻a', body)).toEqual({ characters: 4, graphemes: 2, invalid: true })
     expect(countComposerText('', body).invalid).toBe(false)
 })
+
+test('composer exposes optional and required titles but no title for an absent binding', async () => {
+    const { setBuilderTitleMode } = await import('./channel-content-builder')
+    const { xChannelProfile } = await import('@postbot/x')
+    const manual = createManualChannelProfile()
+    const custom = { ...manual, origin: 'custom' as const }
+    expect(getComposerTextFields(custom).headline?.field.required).toBe(false)
+    const absent = setBuilderTitleMode(custom, 'absent')
+    expect(absent.ok).toBe(true)
+    if (!absent.ok) throw new Error(absent.reason)
+    expect(getComposerTextFields(absent.profile as unknown as typeof manual).headline).toBeNull()
+    const required = setBuilderTitleMode(absent.profile, 'required')
+    expect(required.ok).toBe(true)
+    if (!required.ok) throw new Error(required.reason)
+    expect(
+        getComposerTextFields(required.profile as unknown as typeof manual).headline?.field.required
+    ).toBe(true)
+    expect(getComposerTextFields(xChannelProfile).headline).toBeNull()
+})

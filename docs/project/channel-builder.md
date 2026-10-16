@@ -201,3 +201,23 @@ presence is no longer presented as an attachment requirement.
 
 See ISSUE-174 for the uncompleted operational audit of provider limit updates.
 Versioning and compatibility contracts do not imply automatic upstream detection.
+
+## Title presence and actual editor preview — CHANNEL-484
+
+The title has three explicit modes: absent, optional and required. Absence removes
+the direct title schema property, binding and capability from the proposed
+profile; it is not an empty optional string. Toggling back in the same editing
+session restores the prior title constraints without reverting unrelated edits
+and retains property order. Reopening a saved title-less profile can add a bounded
+plain-text title. Composed, referenced, related and provider-owned rules remain
+guarded. Existing immutable content is not rewritten by these form operations.
+
+Content-control comparisons now include field presence. Normal composition shows
+optional as well as required supported titles; X still has no title binding.
+Title labels communicate optional/required in the shared field controls.
+
+The preview now mounts PublicationTargetEditor, the same component used for
+destination editing, including its real media picker trigger. Preview-only mode
+disables media actions, hides the advanced raw editor and keeps example content
+local. The main source composer remains a distinct surface; this change does not
+claim that source composition and destination editing are identical layouts.

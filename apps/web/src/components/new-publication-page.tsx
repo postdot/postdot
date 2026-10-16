@@ -215,9 +215,7 @@ export function NewPublicationPage({
                 : null,
         [profileQuery.data, profileQuery.isError]
     )
-    const showHeadline =
-        textFields?.headline?.field.required === true ||
-        getNativePlatform(activePreviewChannel?.execution) === 'devto'
+    const showHeadline = textFields?.headline !== undefined && textFields?.headline !== null
     const headlineCount = textFields?.headline
         ? countComposerText(postTitle, textFields.headline)
         : null
@@ -753,6 +751,7 @@ export function NewPublicationPage({
                                 createChannel={
                                     projectRole === 'owner' || projectRole === 'editor' ? (
                                         <ChannelCreationDialog
+                                            projectId={project.id}
                                             compact={activeChannels.length > 0}
                                             channels={channels}
                                             onCreate={onCreateChannel}
@@ -778,7 +777,11 @@ export function NewPublicationPage({
                                 {showHeadline ? (
                                     <DashboardFormField
                                         htmlFor="new-post-title"
-                                        label={m.publication_new_post_title()}>
+                                        label={
+                                            textFields?.headline?.field.required
+                                                ? m.builder_title_required()
+                                                : m.builder_title_optional()
+                                        }>
                                         <Input
                                             id="new-post-title"
                                             aria-invalid={headlineCount?.invalid || undefined}

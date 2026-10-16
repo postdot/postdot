@@ -6,6 +6,7 @@ import {
     editBuilderField,
     projectBuilderFields,
     compareBuilderRules,
+    setBuilderTitleMode,
 } from './channel-content-builder'
 import { channelProfileTemplates } from './channel-profile-presets'
 
@@ -156,5 +157,69 @@ describe('content control comparison', () => {
                 execution: { kind: 'manual', revision: 'other' },
             })
         ).toEqual([])
+    })
+})
+
+describe('three title states', () => {
+    function change(
+        profile: unknown,
+        mode: Parameters<typeof setBuilderTitleMode>[1],
+        saved?: unknown
+    ) {
+        const result = setBuilderTitleMode(profile, mode, saved)
+        if (!result.ok) throw new Error(result.reason)
+        const compiled = new ChannelProfileCompiler().compile(
+            result.profile as unknown as ChannelProfileDefinition
+        )
+        if (!compiled.ok) throw new Error(JSON.stringify(compiled.issues))
+        return {
+            profile: result.profile,
+            validate: (content: Record<string, unknown>) => compiled.value.validate(content).ok,
+        }
+    }
+    test('absent removes the schema property, binding and capability; optional and required differ', () => {
+        const original = fixture()
+        const absent = change(original, 'absent')
+        expect(
+            projectBuilderFields(absent.profile).some(field => field.semantic === 'headline')
+        ).toBe(false)
+        expect(absent.validate({ body: 'Hello', headline: 'Not supported' })).toBe(false)
+        const optional = change(absent.profile, 'optional')
+        expect(optional.validate({ body: 'Hello' })).toBe(true)
+        expect(optional.validate({ body: 'Hello', headline: 'A title' })).toBe(true)
+        const required = change(optional.profile, 'required')
+        expect(required.validate({ body: 'Hello' })).toBe(false)
+        expect(required.validate({ body: 'Hello', headline: 'A title' })).toBe(true)
+        expect(original).toEqual(fixture())
+    })
+    test('restores title rules while preserving unrelated edits made during absence', () => {
+        const original = edit(fixture(), 'headline', { maximum: 53, formats: ['markdown'] }).profile
+        const absent = change(original, 'absent').profile
+        const bodyChanged = edit(absent, 'body', { maximum: 100 }).profile
+        const restored = change(bodyChanged, 'optional', original).profile
+        expect(
+            projectBuilderFields(restored).find(field => field.semantic === 'headline')?.maximum
+        ).toBe(53)
+        expect(
+            projectBuilderFields(restored).find(field => field.semantic === 'headline')?.formats
+        ).toEqual(['markdown'])
+        expect(
+            projectBuilderFields(restored).find(field => field.semantic === 'primary_text')?.maximum
+        ).toBe(100)
+        expect(
+            compareBuilderRules(original, absent).map(item => [item.rule, item.before, item.after])
+        ).toEqual([['present', true, false]])
+    })
+    test('cannot remove a title used by relations or add one over an existing unbound field', () => {
+        const original = fixture()
+        const cap = original.capabilities as Record<string, unknown>
+        cap.relations = [{ kind: 'requires', bindingId: 'headline', relatedBindingId: 'body' }]
+        expect(setBuilderTitleMode(original, 'absent').ok).toBe(false)
+        const absent = change(fixture(), 'absent').profile
+        const schema = absent.contentSchema as { properties: Record<string, unknown> }
+        schema.properties.headline = { type: 'string', maxLength: 20 }
+        expect(setBuilderTitleMode(absent, 'optional').ok).toBe(false)
+        absent.execution = { kind: 'built_in', contractId: 'x', revision: 'v1' }
+        expect(setBuilderTitleMode(absent, 'optional').ok).toBe(false)
     })
 })

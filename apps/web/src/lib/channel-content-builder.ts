@@ -2,6 +2,7 @@
 type ObjectValue = Record<string, unknown>
 export type BuilderReason = 'provider' | 'complex' | 'relation' | 'mismatch'
 export interface BuilderField {
+    readonly present: boolean
     readonly id: string
     readonly key: string
     readonly semantic: string
@@ -124,6 +125,7 @@ export function projectBuilderFields(profile: unknown): readonly BuilderField[] 
         const mimeTypes = strings(cap.mimeTypes)
         return [
             {
+                present: true,
                 id: binding.id,
                 key,
                 semantic: String(binding.semantic),
@@ -219,6 +221,7 @@ export function editBuilderField(profile: unknown, id: string, edit: BuilderEdit
 }
 
 export const builderComparedRules = [
+    'present',
     'required',
     'maximum',
     'formats',
@@ -237,16 +240,118 @@ export interface BuilderRuleChange {
 /** Only claims comparison coverage for the controls this form represents. */
 export function compareBuilderRules(before: unknown, after: unknown): readonly BuilderRuleChange[] {
     const prior = projectBuilderFields(before)
-    return projectBuilderFields(after).flatMap(field => {
+    const next = projectBuilderFields(after)
+    const changes: BuilderRuleChange[] = next.flatMap(field => {
         const old = prior.find(
             item =>
                 item.id === field.id && item.semantic === field.semantic && item.key === field.key
         )
-        if (!old) return []
+        if (!old) return [{ field, rule: 'present', before: false, after: true }]
         return builderComparedRules.flatMap(rule =>
             JSON.stringify(old[rule]) === JSON.stringify(field[rule])
                 ? []
                 : [{ field, rule, before: old[rule], after: field[rule] }]
         )
     })
+    return [
+        ...changes,
+        ...prior
+            .filter(
+                field =>
+                    !next.some(
+                        item =>
+                            item.id === field.id &&
+                            item.semantic === field.semantic &&
+                            item.key === field.key
+                    )
+            )
+            .map(field => ({ field, rule: 'present' as const, before: true, after: false })),
+    ]
+}
+
+export type BuilderTitleMode = 'absent' | 'optional' | 'required'
+/** Removing a title is an explicit schema change, not an empty optional value. */
+export function setBuilderTitleMode(
+    profile: unknown,
+    mode: BuilderTitleMode,
+    restoreFrom?: unknown
+): BuilderResult {
+    if (!builderRecord(profile)) return { ok: false, reason: 'complex' }
+    if (objects(profile.fieldBindings).filter(item => item.semantic === 'headline').length > 1)
+        return { ok: false, reason: 'complex' }
+    const existing = projectBuilderFields(profile).find(field => field.semantic === 'headline')
+    if (existing && mode !== 'absent')
+        return editBuilderField(profile, existing.id, { required: mode === 'required' })
+    if (existing?.reason) return { ok: false, reason: existing.reason }
+    const root = profile.contentSchema
+    const capabilities = profile.capabilities
+    if (
+        !builderRecord(root) ||
+        root.type !== 'object' ||
+        !builderRecord(root.properties) ||
+        !builderRecord(capabilities) ||
+        hasReference(root) ||
+        Object.keys(root).some(key => !rootKeys.has(key))
+    )
+        return { ok: false, reason: 'complex' }
+    if (builderRecord(profile.execution) && profile.execution.kind === 'built_in')
+        return { ok: false, reason: 'provider' }
+    if (!existing && mode === 'absent') return { ok: true, profile: structuredClone(profile) }
+    const next = structuredClone(profile)
+    const schema = next.contentSchema as ObjectValue
+    const properties = schema.properties as ObjectValue
+    const caps = next.capabilities as ObjectValue
+    if (existing) {
+        delete properties[existing.key]
+        schema.required = strings(schema.required).filter(key => key !== existing.key)
+        next.fieldBindings = objects(next.fieldBindings).filter(item => item.id !== existing.id)
+        caps.textFields = objects(caps.textFields).filter(item => item.bindingId !== existing.id)
+    } else {
+        const saved = projectBuilderFields(restoreFrom).find(
+            field => field.semantic === 'headline' && !field.reason
+        )
+        const key = saved?.key ?? 'headline'
+        const id = saved?.id ?? 'headline'
+        if (
+            Object.hasOwn(properties, key) ||
+            objects(next.fieldBindings).some(item => item.id === id || item.path === `/${key}`) ||
+            objects(caps.textFields).some(item => item.bindingId === id) ||
+            objects(caps.relations).some(
+                item => item.bindingId === id || item.relatedBindingId === id
+            )
+        )
+            return { ok: false, reason: 'complex' }
+        const original = builderRecord(restoreFrom) ? restoreFrom : {}
+        const sourceSchema = builderRecord(original.contentSchema) ? original.contentSchema : {}
+        const sourceProperties = builderRecord(sourceSchema.properties)
+            ? sourceSchema.properties
+            : {}
+        const sourceCaps = builderRecord(original.capabilities) ? original.capabilities : {}
+        properties[key] = saved
+            ? structuredClone(sourceProperties[key])
+            : { type: 'string', minLength: 1, maxLength: 10_000 }
+        next.fieldBindings = [
+            ...objects(next.fieldBindings),
+            saved
+                ? structuredClone(objects(original.fieldBindings).find(item => item.id === id)!)
+                : { id, semantic: 'headline', path: `/${key}` },
+        ]
+        caps.textFields = [
+            ...objects(caps.textFields),
+            saved
+                ? structuredClone(
+                      objects(sourceCaps.textFields).find(item => item.bindingId === id)!
+                  )
+                : { bindingId: id, acceptedSourceFormats: ['plain_text'], maxLength: 10_000 },
+        ]
+        const order = saved ? Object.keys(sourceProperties) : [key, ...Object.keys(properties)]
+        schema.properties = Object.fromEntries(
+            [
+                ...order.filter(name => Object.hasOwn(properties, name)),
+                ...Object.keys(properties).filter(name => !order.includes(name)),
+            ].map(name => [name, properties[name]])
+        )
+        if (mode === 'required') schema.required = [...strings(schema.required), key]
+    }
+    return { ok: true, profile: next }
 }

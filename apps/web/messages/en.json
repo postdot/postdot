@@ -2211,5 +2211,11 @@
     "channel_blocked_authorization": "An authorization is in progress. Finish or cancel it before trying again.",
     "channel_blocked_archive": "Archive this channel before deleting it.",
     "channel_blocked_work": "This channel still has active work. Resolve it before archiving.",
-    "channel_blocked_generic": "The channel cannot be changed in its current state. Refresh the channel list and try again."
+    "channel_blocked_generic": "The channel cannot be changed in its current state. Refresh the channel list and try again.",
+    "builder_title_absent": "No title",
+    "builder_title_optional": "Optional title",
+    "builder_title_required": "Required title",
+    "builder_preview_media_disabled": "Media actions are disabled in this preview.",
+    "builder_field_present": "Field available",
+    "builder_optional": "Optional"
 }

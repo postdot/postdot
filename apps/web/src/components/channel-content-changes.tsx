@@ -74,21 +74,23 @@ function fieldLabel(change: BuilderRuleChange) {
             : m.media_attachments_title()
 }
 function ruleLabel(rule: BuilderComparedRule, kind: string) {
-    return rule === 'required'
-        ? m.builder_required()
-        : rule === 'maximum'
-          ? kind === 'media'
-              ? m.builder_max_files()
-              : m.builder_max_length()
-          : rule === 'formats'
-            ? m.builder_formats()
-            : rule === 'families'
-              ? m.builder_media_types()
-              : rule === 'maxBytes'
-                ? m.builder_max_bytes()
-                : rule === 'maxGraphemes'
-                  ? m.builder_grapheme_limit()
-                  : m.builder_weighted_limit()
+    return rule === 'present'
+        ? m.builder_field_present()
+        : rule === 'required'
+          ? m.builder_required()
+          : rule === 'maximum'
+            ? kind === 'media'
+                ? m.builder_max_files()
+                : m.builder_max_length()
+            : rule === 'formats'
+              ? m.builder_formats()
+              : rule === 'families'
+                ? m.builder_media_types()
+                : rule === 'maxBytes'
+                  ? m.builder_max_bytes()
+                  : rule === 'maxGraphemes'
+                    ? m.builder_grapheme_limit()
+                    : m.builder_weighted_limit()
 }
 function display(
     value: BuilderRuleChange['before'],

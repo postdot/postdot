@@ -119,7 +119,14 @@ export function TargetFieldControl({
     return (
         <div data-target-field={field.bindingId}>
             <Field className="min-w-0 gap-1.5">
-                <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
+                <FieldLabel htmlFor={fieldId}>
+                    {field.label}
+                    {field.semantic === 'headline' ? (
+                        <span className="ml-2 font-normal text-muted-foreground">
+                            {field.required ? m.builder_required() : m.builder_optional()}
+                        </span>
+                    ) : null}
+                </FieldLabel>
                 {field.kind === 'text' ? (
                     field.semantic === 'primary_text' ? (
                         <div className="grid min-w-0 gap-1.5">

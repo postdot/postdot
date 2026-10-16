@@ -61,10 +61,12 @@ type ProfileChoice =
 
 export function ChannelCreationDialog({
     onCreate,
+    projectId,
     pending,
     channels = [],
     compact = false,
 }: {
+    readonly projectId: string
     readonly onCreate: (
         name: string,
         profile: ChannelCreationProfile
@@ -340,6 +342,7 @@ export function ChannelCreationDialog({
                                     </Field>
                                 ) : null}
                                 <ChannelContentBuilder
+                                    projectId={projectId}
                                     key={`${choice}:${templateId}`}
                                     value={profileText}
                                     disabled={pending}

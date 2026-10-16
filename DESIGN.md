@@ -495,3 +495,12 @@ a bounded body; the popup itself must not become the scrolling document. Apply
 this to content-heavy dialogs at desktop and mobile widths. Keep explanatory
 copy for consequences, constraints and recovery; routine controls must not turn
 into tutorials. Secondary configuration belongs behind explicit disclosure.
+
+## Publication title availability (owner direction, 2026-10-16)
+
+A destination can have no title field, an optional title or a required title.
+Derive this from its profile rather than provider-name heuristics. Optional does
+not mean hidden; absent removes the destination field. Keep the title separate
+from the body when the destination supports it. Configuration previews should
+reuse the real destination editor; any deliberately disabled actions must remain
+recognizable and explain their disabled state.

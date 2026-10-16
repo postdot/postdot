@@ -108,6 +108,7 @@ export function ChannelManagementPage({
                 action={
                     canEditProject ? (
                         <ChannelCreationDialog
+                            projectId={project.id}
                             channels={channels}
                             onCreate={onCreateChannel}
                             pending={pending}

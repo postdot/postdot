@@ -2211,5 +2211,11 @@
     "channel_blocked_authorization": "Une autorisation est en cours. Terminez-la ou annulez-la avant de réessayer.",
     "channel_blocked_archive": "Archivez ce canal avant de le supprimer.",
     "channel_blocked_work": "Ce canal possède encore des publications en cours. Traitez-les avant de l’archiver.",
-    "channel_blocked_generic": "L’état actuel du canal empêche cette action. Actualisez la liste des canaux et réessayez."
+    "channel_blocked_generic": "L’état actuel du canal empêche cette action. Actualisez la liste des canaux et réessayez.",
+    "builder_title_absent": "Sans titre",
+    "builder_title_optional": "Titre optionnel",
+    "builder_title_required": "Titre obligatoire",
+    "builder_preview_media_disabled": "Les actions sur les médias sont désactivées dans cet aperçu.",
+    "builder_field_present": "Champ disponible",
+    "builder_optional": "Optionnel"
 }

@@ -1,19 +1,28 @@
 import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
 import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
 import { Input } from '@postbot/ui/components/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@postbot/ui/components/select'
 import { Switch } from '@postbot/ui/components/switch'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import {
     builderRecord,
+    setBuilderTitleMode,
+    type BuilderTitleMode,
     editBuilderField,
     projectBuilderFields,
     type BuilderEdit,
     type BuilderReason,
 } from '@/lib/channel-content-builder'
 import { useLanguage } from '@/lib/i18n'
-import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
+import { getTargetEditorFields } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
 
 /** Shared content rules; does not modify transport or perform preview requests. */
@@ -22,7 +31,9 @@ export function ChannelContentBuilder({
     onChange,
     disabled = false,
     onValidityChange,
+    projectId,
 }: {
+    readonly projectId: string
     readonly value: string
     readonly onChange: (value: string) => void
     readonly disabled?: boolean
@@ -47,7 +58,7 @@ export function ChannelContentBuilder({
             })),
         [profile, locale]
     )
-    const [showLanguage, setShowLanguage] = useState(false)
+    const savedTitle = useRef<unknown>(null)
     const [preview, setPreview] = useState<Record<string, unknown>>({})
     const [invalid, setInvalid] = useState<Record<string, boolean>>({})
     const [error, setError] = useState<string | null>(null)
@@ -69,9 +80,75 @@ export function ChannelContentBuilder({
     function validity(key: string, valid: boolean) {
         setInvalid(current => ({ ...current, [key]: !valid }))
     }
+    const headline = fields.find(field => field.semantic === 'headline')
+    const titleMode: BuilderTitleMode = headline
+        ? headline.required
+            ? 'required'
+            : 'optional'
+        : 'absent'
+    const titleItems = {
+        absent: m.builder_title_absent(),
+        optional: m.builder_title_optional(),
+        required: m.builder_title_required(),
+    }
     return (
         <div data-channel-content-builder className="grid min-w-0 gap-6 lg:grid-cols-[1fr_0.9fr]">
             <div className="min-w-0 space-y-5">
+                <Field>
+                    <FieldLabel htmlFor={`${instanceId}-title-mode`}>
+                        {m.editor_source_headline()}
+                    </FieldLabel>
+                    <Select
+                        items={titleItems}
+                        value={titleMode}
+                        disabled={
+                            disabled ||
+                            Boolean(headline?.reason) ||
+                            (builderRecord(profile?.execution) &&
+                                profile.execution.kind === 'built_in')
+                        }
+                        onValueChange={mode => {
+                            if (!mode) return
+                            if (headline && mode === 'absent')
+                                savedTitle.current = structuredClone(profile)
+                            const result = setBuilderTitleMode(
+                                profile,
+                                mode as BuilderTitleMode,
+                                savedTitle.current
+                            )
+                            if (result.ok) {
+                                setError(null)
+                                if (mode === 'absent')
+                                    setInvalid(current =>
+                                        Object.fromEntries(
+                                            Object.entries(current).filter(
+                                                ([key]) =>
+                                                    !key.startsWith(
+                                                        `${headline?.id ?? 'headline'}-`
+                                                    )
+                                            )
+                                        )
+                                    )
+                                onChange(JSON.stringify(result.profile, null, 2))
+                            } else
+                                setError(
+                                    reasonLabel(
+                                        result.reason === 'bounds' ? 'complex' : result.reason
+                                    )
+                                )
+                        }}>
+                        <SelectTrigger id={`${instanceId}-title-mode`}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.entries(titleItems).map(([key, label]) => (
+                                <SelectItem key={key} value={key}>
+                                    {label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </Field>
                 {fields.length === 0 ? (
                     <Alert>
                         <AlertTitle>{m.builder_preserved()}</AlertTitle>
@@ -93,7 +170,7 @@ export function ChannelContentBuilder({
                                     {reasonLabel(field.reason)}
                                 </p>
                             ) : null}
-                            {field.kind !== 'media' ? (
+                            {field.kind !== 'media' && field.semantic !== 'headline' ? (
                                 <label
                                     className="flex items-center justify-between gap-3 text-sm"
                                     htmlFor={`${id}-required`}>
@@ -235,10 +312,7 @@ export function ChannelContentBuilder({
                         </fieldset>
                     )
                     return field.semantic === 'language' ? (
-                        <details
-                            key={field.id}
-                            className="space-y-3"
-                            onToggle={event => setShowLanguage(event.currentTarget.open)}>
+                        <details key={field.id} className="space-y-3">
                             <summary className="cursor-pointer text-sm text-muted-foreground">
                                 {m.builder_content_language()}
                             </summary>
@@ -264,34 +338,18 @@ export function ChannelContentBuilder({
                 <p className="mb-5 mt-1 text-xs leading-5 text-muted-foreground">
                     {m.builder_preview_hint()}
                 </p>
-                <div className="grid min-w-0 gap-4">
-                    {previewFields
-                        .filter(
-                            field => field.semantic !== 'language' || showLanguage || field.required
-                        )
-                        .map((field, index) => (
-                            <TargetFieldControl
-                                key={`${field.bindingId}-${field.path}`}
-                                field={{
-                                    ...field,
-                                    label:
-                                        field.required &&
-                                        (field.kind !== 'media' || (field.minItems ?? 0) > 0)
-                                            ? `${field.label} *`
-                                            : field.label,
-                                }}
-                                compact
-                                fieldId={`${instanceId}-preview-${index}`}
-                                value={readTargetField(preview, field.path)}
-                                disabled={disabled}
-                                onChange={next =>
-                                    setPreview(current =>
-                                        updateTargetField(current, field.path, next)
-                                    )
-                                }
-                            />
-                        ))}
-                </div>
+                <PublicationTargetEditor
+                    projectId={projectId}
+                    mediaScopeId={`profile-preview:${instanceId}`}
+                    previewOnly
+                    compact
+                    profile={profile}
+                    target={preview}
+                    rawText={JSON.stringify(preview)}
+                    onTargetChange={setPreview}
+                    onRawTextChange={() => {}}
+                    disabled={disabled}
+                />
             </section>
         </div>
     )

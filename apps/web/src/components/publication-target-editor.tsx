@@ -19,6 +19,7 @@ import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
+    readonly previewOnly?: boolean
     readonly validationIssues?: readonly Record<string, unknown>[]
     readonly projectId?: string
     readonly mediaScopeId?: string
@@ -35,6 +36,7 @@ interface PublicationTargetEditorProps {
 
 export function PublicationTargetEditor({
     validationIssues = [],
+    previewOnly = false,
     projectId,
     mediaScopeId,
     configuredEditor = true,
@@ -90,13 +92,14 @@ export function PublicationTargetEditor({
                     {fields.map((field, index) =>
                         field.kind === 'media' && projectId !== undefined && target !== null ? (
                             <TargetMediaField
+                                previewOnly={previewOnly}
                                 key={`${field.bindingId}-${field.path}`}
                                 projectId={projectId}
                                 scopeId={`${mediaScopeId ?? 'target'}:${field.bindingId}`}
                                 field={field}
                                 profile={profile}
                                 target={target}
-                                disabled={disabled}
+                                disabled={disabled || previewOnly}
                                 error={fieldValidationMessage(
                                     field,
                                     validationIssues.filter(
@@ -137,7 +140,7 @@ export function PublicationTargetEditor({
                 </div>
             )}
 
-            {!readOnly ? (
+            {!readOnly && !previewOnly ? (
                 <details
                     data-target-advanced="true"
                     open={advancedOpen}
@@ -249,6 +252,7 @@ function fieldValidationMessage(
 function TargetMediaField({
     projectId,
     scopeId,
+    previewOnly = false,
     field,
     profile,
     target,
@@ -258,6 +262,7 @@ function TargetMediaField({
 }: {
     readonly projectId: string
     readonly scopeId: string
+    readonly previewOnly?: boolean
     readonly field: TargetEditorField
     readonly profile: unknown
     readonly target: Record<string, unknown>
@@ -267,7 +272,10 @@ function TargetMediaField({
 }) {
     const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null)
     return (
-        <div data-target-field={field.bindingId} className="min-w-0">
+        <div
+            data-target-field={field.bindingId}
+            className="min-w-0"
+            title={previewOnly ? m.builder_preview_media_disabled() : undefined}>
             <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
                 <span className="text-sm font-medium">{field.label}</span>
                 <div ref={setToolbar} className="flex items-center" />

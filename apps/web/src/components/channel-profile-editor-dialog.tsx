@@ -334,6 +334,7 @@ export function ChannelProfileEditorDialog({
                     ) : null}
                     {stage === 'edit' && !loading && profileText !== '' ? (
                         <ChannelContentBuilder
+                            projectId={currentChannel.projectId}
                             key={currentChannel.id}
                             value={profileText}
                             disabled={busy || reloadRequired}
