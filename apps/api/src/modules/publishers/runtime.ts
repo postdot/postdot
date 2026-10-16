@@ -37,6 +37,7 @@ import { devtoPublisherConnectionPolicy } from './providers/devto'
 import { discordPublisherConnectionPolicy } from './providers/discord'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
+import { telegramPublisherConnectionPolicy } from './providers/telegram'
 import { xPublisherConnectionPolicy } from './providers/x'
 
 export interface PublisherRuntimeOptions {
@@ -169,6 +170,7 @@ export function createPublisherRuntime(
             bluesky: blueskyPublisherConnectionPolicy,
             devto: devtoPublisherConnectionPolicy,
             discord: discordPublisherConnectionPolicy,
+            telegram: telegramPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
             x: xPublisherConnectionPolicy,

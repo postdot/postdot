@@ -23,6 +23,8 @@ import {
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
+import type { TelegramFetcher } from '@postbot/telegram'
+import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
 import { xChannelProfileValidationAdapter } from '@postbot/x'
 import type { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
@@ -65,6 +67,7 @@ export interface PostbotAppOptions {
     /** Test-only escape hatch for independent browser fixtures. */
     readonly allowAdditionalSignups?: boolean
     readonly discordFetcher?: DiscordFetcher
+    readonly telegramFetcher?: TelegramFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
     /** The shared Postbot instance access store. */
@@ -115,6 +118,7 @@ function createDomainApp({
     projectChanges,
     userChanges,
     discordFetcher,
+    telegramFetcher,
     devtoFetcher,
 }: PostbotAppOptions) {
     const accessStore = access ?? createAccessStore(database)
@@ -122,7 +126,12 @@ function createDomainApp({
         ...manualStoreOptions,
         profileCompiler:
             manualStoreOptions?.profileCompiler ??
-            new ChannelProfileCompiler({ validationAdapters: [xChannelProfileValidationAdapter] }),
+            new ChannelProfileCompiler({
+                validationAdapters: [
+                    xChannelProfileValidationAdapter,
+                    telegramChannelProfileValidationAdapter,
+                ],
+            }),
         media,
         publicMediaUrlAvailable:
             media !== undefined &&
@@ -262,6 +271,7 @@ function createDomainApp({
                 onWorkScheduled,
                 now: manualStoreOptions?.now,
                 discordFetcher,
+                telegramFetcher,
                 devtoFetcher,
                 access: accessStore,
                 notifications: notificationStore,
@@ -315,6 +325,7 @@ export function createApp({
     projectChanges,
     userChanges,
     discordFetcher,
+    telegramFetcher,
     devtoFetcher,
 }: PostbotAppOptions) {
     return createDomainApp({
@@ -346,6 +357,7 @@ export function createApp({
         projectChanges,
         userChanges,
         discordFetcher,
+        telegramFetcher,
         devtoFetcher,
     }).use(createAuthRoutes(auth))
 }

@@ -12,6 +12,7 @@ import type {
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
+import type { TelegramFetcher } from '@postbot/telegram'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
@@ -65,6 +66,7 @@ export interface ProjectModuleOptions {
     readonly onWorkScheduled?: () => void
     readonly now?: () => number
     readonly discordFetcher?: DiscordFetcher
+    readonly telegramFetcher?: TelegramFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly access: AccessStore
     readonly recovery?: RecoveryService
@@ -174,6 +176,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         logger: options.logger,
         onWorkScheduled: options.onWorkScheduled,
         discordFetcher: options.discordFetcher,
+        telegramFetcher: options.telegramFetcher,
         devtoFetcher: options.devtoFetcher,
     })
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, options.access, {

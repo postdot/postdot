@@ -156,7 +156,7 @@ export function createTelegramPublisher(
         ): Promise<TelegramResult<TelegramChannel>> {
             if (
                 !validToken(token) ||
-                !(validChatId(reference) || /^@[A-Za-z][A-Za-z0-9_]{4,31}$/.test(reference))
+                !(isTelegramChannelId(reference) || /^@[A-Za-z][A-Za-z0-9_]{4,31}$/.test(reference))
             )
                 return failure('Telegram bot token or channel reference is invalid')
             const bot = await call(token, 'getMe', {}, false)
@@ -224,7 +224,7 @@ export function createTelegramPublisher(
         async send(input: TelegramSendInput): Promise<TelegramPublishOutcome> {
             if (
                 !validToken(input.token) ||
-                !validChatId(input.chatId) ||
+                !isTelegramChannelId(input.chatId) ||
                 typeof input.text !== 'string'
             )
                 return failure('Telegram message input is invalid').outcome
@@ -345,7 +345,7 @@ function unknownResult(sending: boolean): {
     }
 }
 
-function validChatId(value: string) {
+export function isTelegramChannelId(value: string) {
     return (
         typeof value === 'string' &&
         /^-\d+$/.test(value) &&

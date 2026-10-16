@@ -33,6 +33,7 @@
         "@postbot/mastodon": "workspace:*",
         "@postbot/media": "workspace:*",
         "@postbot/oauth": "workspace:*",
+        "@postbot/telegram": "workspace:*",
         "@postbot/x": "workspace:*",
         "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",

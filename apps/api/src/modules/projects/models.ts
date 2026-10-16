@@ -663,6 +663,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('bluesky'),
             Type.Literal('mastodon'),
             Type.Literal('discord'),
+            Type.Literal('telegram'),
             Type.Literal('devto'),
             Type.Literal('x'),
             Type.Object({
@@ -978,3 +979,9 @@ export const errorResponse = Type.Object({
         message: Type.String(),
     }),
 })
+
+export const telegramConnectionBody = Type.Object({
+    botToken: Type.String({ minLength: 1, maxLength: 512, writeOnly: true }),
+    chatReference: Type.String({ minLength: 1, maxLength: 128 }),
+})
+export const telegramConnectionResponse = Type.Object({ connection: publisherConnectionSchema })

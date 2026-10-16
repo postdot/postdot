@@ -4,6 +4,7 @@ import type { AccessStore } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
 import type { MastodonFetcher } from '@postbot/mastodon'
+import type { TelegramFetcher } from '@postbot/telegram'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
@@ -23,6 +24,7 @@ import { registerDevtoPublisherRoutes } from './publisher-providers/devto-routes
 import { registerDiscordPublisherRoutes } from './publisher-providers/discord-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
+import { registerTelegramPublisherRoutes } from './publisher-providers/telegram-routes'
 import { registerXPublisherRoutes } from './publisher-providers/x-routes'
 
 export function registerPublisherRoutes<const Routes extends Record<string, unknown>>(
@@ -34,6 +36,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
         readonly onWorkScheduled?: () => void
         readonly mastodonFetcher?: MastodonFetcher
         readonly discordFetcher?: DiscordFetcher
+        readonly telegramFetcher?: TelegramFetcher
         readonly devtoFetcher?: DevtoFetcher
     }
 ) {
@@ -235,7 +238,11 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             registerDiscordPublisherRoutes(
                 registerDevtoPublisherRoutes(
                     registerBlueskyPublisherRoutes(
-                        registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+                        registerTelegramPublisherRoutes(
+                            registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+                            publisher,
+                            providerOptions
+                        ),
                         publisher,
                         providerOptions
                     ),

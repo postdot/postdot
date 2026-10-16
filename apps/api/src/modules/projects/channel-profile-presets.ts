@@ -4,6 +4,7 @@ import { devtoChannelProfile } from '@postbot/devto'
 import { discordChannelProfile } from '@postbot/discord'
 import { linkedinChannelProfile } from '@postbot/linkedin'
 import { mastodonChannelProfile } from '@postbot/mastodon'
+import { telegramChannelProfile } from '@postbot/telegram'
 import { xChannelProfile } from '@postbot/x'
 
 function presetFor(profile: ChannelProfilePreset['profile']): ChannelProfilePreset {
@@ -25,6 +26,7 @@ export const builtInChannelProfilePresets = [
     presetFor(blueskyChannelProfile),
     presetFor(mastodonChannelProfile),
     presetFor(discordChannelProfile),
+    presetFor(telegramChannelProfile),
     presetFor(devtoChannelProfile),
     presetFor(xChannelProfile),
 ] as const satisfies readonly ChannelProfilePreset[]
