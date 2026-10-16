@@ -166,7 +166,8 @@ function requestRuleLabel(change: MappedRequestChange) {
     }
 }
 
-function bodyLeafLabel(value: JsonBodyLeaf): string {
+function bodyLeafLabel(value: JsonBodyLeaf | undefined): string {
+    if (value === undefined) return m.request_body_absent()
     if (value.kind === 'content') return m.request_body_content({ path: value.pointer })
     if (value.value === null) return m.request_body_null()
     return typeof value.value === 'string' ? `“${value.value}”` : String(value.value)

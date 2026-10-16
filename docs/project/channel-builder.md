@@ -315,3 +315,25 @@ This is not a general JSON editor. Adding/removing/renaming properties, changing
 expression kinds and authoring nested expressions are not implemented. Non-object
 JSON bodies, form and multipart formats are preserved without conversion. Query
 parameters and headers remain outside this form's editing scope.
+
+## Simple property lifecycle and sources — CHANNEL-494
+
+The JSON object form now adds and removes simple properties and explicitly
+changes their value source/type. New names must be unique, 1–128 characters,
+without surrounding whitespace, line breaks or null characters; the object
+remains bounded to 64 properties. Own-property handling supports special JSON
+keys without mutating JavaScript prototypes.
+
+Sources are fixed text, finite number, boolean, null and existing content field.
+An explicit source change resets the draft value to its visible default; ordinary
+value editing still cannot silently change types. Selecting the current source
+is a no-op. Switching away from an invalid numeric draft clears that local error;
+removing a property clears its stale input state as well.
+
+Only simple properties expose removal and source selection. Nested expressions
+remain opaque and preserved. Addition/deletion/source changes appear in the
+existing profile comparison, with Absent for a missing property. Adding then
+removing the same new property leaves no comparison row. These operations edit
+the proposed profile only, through the existing save/review/activation flow.
+Property renaming, nested expression editing and converting non-object request
+bodies remain outside this implementation.

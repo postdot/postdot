@@ -2240,6 +2240,16 @@
     "request_body_preserved": "Expression imbriquée · conservée",
     "request_body_null": "Valeur nulle",
     "request_body_invalid": "Saisissez un nombre fini valide.",
-    "request_body_existing": "Propriétés existantes uniquement. Les expressions imbriquées et les types sont conservés.",
-    "request_body_content": "Champ de contenu : {path}"
+    "request_body_existing": "Les expressions imbriquées sont conservées. Changer de source réinitialise sa valeur dans ce brouillon.",
+    "request_body_content": "Champ de contenu : {path}",
+    "request_body_absent": "Absente",
+    "request_source_text": "Texte fixe",
+    "request_source_number": "Nombre fixe",
+    "request_source_boolean": "Booléen",
+    "request_source_content": "Champ de contenu",
+    "request_body_remove": "Retirer {name}",
+    "request_body_source": "Source de la valeur de {name}",
+    "request_value_source": "Source de la valeur",
+    "request_body_property_name": "Nom de la nouvelle propriété",
+    "request_body_name_invalid": "Utilisez un nom unique de 1 à 128 caractères, sans espace au début ou à la fin ni saut de ligne."
 }

@@ -8,6 +8,7 @@ import {
 
 import {
     compareJsonBodyProperties,
+    changeJsonBodyProperty,
     editJsonBodyProperty,
     projectJsonBody,
 } from './channel-json-body-builder'
@@ -148,4 +149,99 @@ test('unsupported body formats, root expressions and provider contracts are not 
         expect(compareJsonBodyProperties(before, profile)).toEqual([])
     }
     expect(compareJsonBodyProperties(before, before)).toEqual([])
+})
+
+test('adds and removes simple properties with explicit absence in comparison', () => {
+    const before = fixture()
+    const added = changeJsonBodyProperty(before, 'campaign', 'add', {
+        kind: 'literal',
+        value: 'Launch',
+    })!
+    expect(added).not.toBeNull()
+    expect(
+        validateDeclarativeHttpExecution(added.execution as DeclarativeHttpExecutionContract)
+    ).toEqual([])
+    expect(compareJsonBodyProperties(before, added)).toEqual([
+        { name: 'campaign', before: undefined, after: { kind: 'literal', value: 'Launch' } },
+    ])
+    const removed = changeJsonBodyProperty(added, 'caption', 'remove')!
+    expect(compareJsonBodyProperties(added, removed)).toEqual([
+        { name: 'caption', before: { kind: 'literal', value: 'Hello' }, after: undefined },
+    ])
+    expect(changeJsonBodyProperty(before, 'nested', 'remove')).toBeNull()
+    expect(
+        changeJsonBodyProperty(before, 'list', 'replace', { kind: 'literal', value: '' })
+    ).toBeNull()
+    expect(before.execution.request.body.value.properties.caption.value).toBe('Hello')
+})
+
+test('explicit source changes remove incompatible expression fields and preserve everything else', () => {
+    const before = fixture()
+    const changed = changeJsonBodyProperty(before, 'caption', 'replace', {
+        kind: 'content',
+        pointer: '/body',
+    })!
+    const expected = structuredClone(before) as unknown as Record<string, unknown>
+    const execution = expected.execution as DeclarativeHttpExecutionContract
+    const properties = (
+        execution.request!.body as { value: { properties: Record<string, unknown> } }
+    ).value.properties
+    properties.caption = { kind: 'content', pointer: '/body' }
+    expect(changed).toEqual(expected)
+    const fixed = changeJsonBodyProperty(changed, 'caption', 'replace', {
+        kind: 'literal',
+        value: 0,
+    })!
+    const row = projectJsonBody(fixed)!.find(item => item.name === 'caption')!
+    expect(row.expression).toEqual({ kind: 'literal', value: 0 })
+    expect(
+        validateDeclarativeHttpExecution(fixed.execution as DeclarativeHttpExecutionContract)
+    ).toEqual([])
+})
+
+test('enforces property names, uniqueness, limits and safe own-key handling', () => {
+    const before = fixture()
+    for (const name of [
+        '',
+        ' caption',
+        'caption ',
+        'a\nb',
+        'a\rb',
+        'a\u0000b',
+        'a'.repeat(129),
+        'caption',
+        'nested',
+    ]) {
+        expect(
+            changeJsonBodyProperty(before, name, 'add', { kind: 'literal', value: '' })
+        ).toBeNull()
+    }
+    expect(
+        changeJsonBodyProperty(before, 'message', 'replace', {
+            kind: 'content',
+            pointer: '/missing',
+        })
+    ).toBeNull()
+    const safe = changeJsonBodyProperty(before, '__proto__', 'add', {
+        kind: 'literal',
+        value: 'safe',
+    })!
+    expect(projectJsonBody(safe)!.find(item => item.name === '__proto__')?.expression).toEqual({
+        kind: 'literal',
+        value: 'safe',
+    })
+    expect(Object.getPrototypeOf(safe)).toBe(Object.prototype)
+    expect(
+        validateDeclarativeHttpExecution(safe.execution as DeclarativeHttpExecutionContract)
+    ).toEqual([])
+    const full = fixture()
+    const properties = full.execution.request.body.value.properties as unknown as Record<
+        string,
+        unknown
+    >
+    for (let index = Object.keys(properties).length; index < 64; index++)
+        properties[`field${index}`] = { kind: 'literal', value: '' }
+    expect(
+        changeJsonBodyProperty(full, 'overflow', 'add', { kind: 'literal', value: '' })
+    ).toBeNull()
 })

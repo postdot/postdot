@@ -2240,6 +2240,16 @@
     "request_body_preserved": "Nested expression · preserved",
     "request_body_null": "Null value",
     "request_body_invalid": "Enter a valid finite number.",
-    "request_body_existing": "Existing properties only. Nested expressions and value types are preserved.",
-    "request_body_content": "Content field: {path}"
+    "request_body_existing": "Nested expressions are preserved. Changing a value source resets its value in this draft.",
+    "request_body_content": "Content field: {path}",
+    "request_body_absent": "Absent",
+    "request_source_text": "Fixed text",
+    "request_source_number": "Fixed number",
+    "request_source_boolean": "Boolean",
+    "request_source_content": "Content field",
+    "request_body_remove": "Remove {name}",
+    "request_body_source": "Value source for {name}",
+    "request_value_source": "Value source",
+    "request_body_property_name": "New property name",
+    "request_body_name_invalid": "Use a unique name of 1–128 characters, without leading/trailing whitespace or line breaks."
 }

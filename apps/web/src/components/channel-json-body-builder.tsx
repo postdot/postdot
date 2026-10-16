@@ -1,3 +1,4 @@
+import { Button } from '@postbot/ui/components/button'
 import { Field, FieldLabel } from '@postbot/ui/components/field'
 import { Input } from '@postbot/ui/components/input'
 import {
@@ -12,6 +13,7 @@ import { useEffect, useId, useState } from 'react'
 
 import {
     editJsonBodyProperty,
+    changeJsonBodyProperty,
     projectJsonBody,
     type JsonBodyLeaf,
 } from '@/lib/channel-json-body-builder'
@@ -34,6 +36,9 @@ export function ChannelJsonBodyBuilder({
     const fields = getTargetEditorFields(profile)
     const [drafts, setDrafts] = useState<Record<string, string>>({})
     const [invalid, setInvalid] = useState<Record<string, boolean>>({})
+    const [newName, setNewName] = useState('')
+    const [newType, setNewType] = useState<BodySource>('text')
+    const [creationError, setCreationError] = useState(false)
     const valid = properties === null || !Object.values(invalid).some(Boolean)
     useEffect(() => onValidityChange(valid), [valid, onValidityChange])
     if (!properties) return null
@@ -41,6 +46,54 @@ export function ChannelJsonBodyBuilder({
         const next = editJsonBodyProperty(profile, name, value)
         setInvalid(current => ({ ...current, [JSON.stringify(name)]: next === null }))
         if (next) onChange(next)
+    }
+    const sources: Record<BodySource, string> = {
+        text: m.request_source_text(),
+        number: m.request_source_number(),
+        boolean: m.request_source_boolean(),
+        null: m.request_body_null(),
+        content: m.request_source_content(),
+    }
+    function resetDraft(name: string) {
+        const key = JSON.stringify(name)
+        setDrafts(current => {
+            const next = { ...current }
+            delete next[key]
+            return next
+        })
+        setInvalid(current => {
+            const next = { ...current }
+            delete next[key]
+            return next
+        })
+    }
+    function sourcePicker(
+        value: BodySource,
+        onSelect: (source: BodySource) => void,
+        label: string
+    ) {
+        return (
+            <Select
+                value={value}
+                disabled={disabled}
+                onValueChange={source => {
+                    if (source && Object.hasOwn(sources, source)) onSelect(source as BodySource)
+                }}>
+                <SelectTrigger aria-label={label}>
+                    <SelectValue>{sources[value]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                    {(Object.keys(sources) as BodySource[]).map(source => (
+                        <SelectItem
+                            key={source}
+                            value={source}
+                            disabled={source === 'content' && fields.length === 0}>
+                            {sources[source]}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        )
     }
     return (
         <details className="space-y-3">
@@ -52,7 +105,49 @@ export function ChannelJsonBodyBuilder({
                     const stateKey = JSON.stringify(property.name)
                     return (
                         <Field key={property.name} className="gap-1.5">
-                            <FieldLabel htmlFor={fieldId}>{property.name}</FieldLabel>
+                            <div className="flex items-center justify-between gap-3">
+                                <FieldLabel htmlFor={fieldId}>{property.name}</FieldLabel>
+                                {expression ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={disabled}
+                                        aria-label={m.request_body_remove({ name: property.name })}
+                                        onClick={() => {
+                                            const next = changeJsonBodyProperty(
+                                                profile,
+                                                property.name,
+                                                'remove'
+                                            )
+                                            if (next) {
+                                                resetDraft(property.name)
+                                                onChange(next)
+                                            }
+                                        }}>
+                                        {m.common_remove()}
+                                    </Button>
+                                ) : null}
+                            </div>
+                            {expression
+                                ? sourcePicker(
+                                      sourceOf(expression),
+                                      source => {
+                                          if (source === sourceOf(expression)) return
+                                          const next = changeJsonBodyProperty(
+                                              profile,
+                                              property.name,
+                                              'replace',
+                                              defaultValue(source, fields[0]?.path)
+                                          )
+                                          if (next) {
+                                              resetDraft(property.name)
+                                              onChange(next)
+                                          }
+                                      },
+                                      m.request_body_source({ name: property.name })
+                                  )
+                                : null}
                             {expression === null ? (
                                 <p className="text-xs text-muted-foreground">
                                     {m.request_body_preserved()}
@@ -144,7 +239,70 @@ export function ChannelJsonBodyBuilder({
                     )
                 })}
             </div>
+            <div className="grid gap-2 border-t border-border pt-3">
+                <FieldLabel htmlFor={`${id}-new`}>{m.request_body_property_name()}</FieldLabel>
+                <Input
+                    id={`${id}-new`}
+                    disabled={disabled}
+                    value={newName}
+                    onChange={event => {
+                        setNewName(event.target.value)
+                        setCreationError(false)
+                    }}
+                    maxLength={128}
+                />
+                {sourcePicker(newType, setNewType, m.request_value_source())}
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={
+                        disabled ||
+                        !newName ||
+                        properties.length >= 64 ||
+                        (newType === 'content' && fields.length === 0)
+                    }
+                    onClick={() => {
+                        const next = changeJsonBodyProperty(
+                            profile,
+                            newName,
+                            'add',
+                            defaultValue(newType, fields[0]?.path)
+                        )
+                        setCreationError(next === null)
+                        if (next) {
+                            resetDraft(newName)
+                            onChange(next)
+                            setNewName('')
+                        }
+                    }}>
+                    {m.common_add()}
+                </Button>
+                {creationError ? (
+                    <p role="alert" className="text-xs text-destructive">
+                        {m.request_body_name_invalid()}
+                    </p>
+                ) : null}
+            </div>
             <p className="text-xs text-muted-foreground">{m.request_body_existing()}</p>
         </details>
     )
+}
+
+type BodySource = 'text' | 'number' | 'boolean' | 'null' | 'content'
+function sourceOf(value: JsonBodyLeaf): BodySource {
+    if (value.kind === 'content') return 'content'
+    if (value.value === null) return 'null'
+    return typeof value.value === 'string'
+        ? 'text'
+        : typeof value.value === 'number'
+          ? 'number'
+          : 'boolean'
+}
+function defaultValue(source: BodySource, pointer: string | undefined): JsonBodyLeaf {
+    if (source === 'content') return { kind: 'content', pointer: pointer ?? '' }
+    return {
+        kind: 'literal',
+        value:
+            source === 'text' ? '' : source === 'number' ? 0 : source === 'boolean' ? false : null,
+    }
 }

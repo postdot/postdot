@@ -69,17 +69,82 @@ export function compareJsonBodyProperties(before: unknown, after: unknown) {
     const previous = projectJsonBody(before)
     const next = projectJsonBody(after)
     if (!previous || !next) return []
-    return previous.flatMap(property => {
-        const following = next.find(item => item.name === property.name)
-        if (
-            !property.expression ||
-            !following?.expression ||
-            JSON.stringify(property.expression) === JSON.stringify(following.expression)
-        )
-            return []
-        return [{ name: property.name, before: property.expression, after: following.expression }]
+    return [
+        ...new Set([...previous.map(item => item.name), ...next.map(item => item.name)]),
+    ].flatMap(name => {
+        const oldProperty = previous.find(item => item.name === name)
+        const newProperty = next.find(item => item.name === name)
+        if (oldProperty?.expression === null || newProperty?.expression === null) return []
+        const oldValue = oldProperty?.expression
+        const newValue = newProperty?.expression
+        return JSON.stringify(oldValue) === JSON.stringify(newValue)
+            ? []
+            : [{ name, before: oldValue, after: newValue }]
     })
 }
+
+export function changeJsonBodyProperty(
+    profile: unknown,
+    name: string,
+    operation: 'add' | 'remove' | 'replace',
+    value?: JsonBodyLeaf
+): RecordValue | null {
+    const object = bodyObject(profile)
+    if (!object || !record(object.properties)) return null
+    const properties = object.properties
+    const exists = Object.hasOwn(properties, name)
+    if (operation === 'add') {
+        if (exists || Object.keys(properties).length >= 64 || !validName(name)) return null
+    } else if (!exists || !leaf(properties[name])) return null
+    if (operation !== 'remove' && (!value || !validLeaf(profile, value))) return null
+    const next = { ...properties }
+    if (operation === 'remove') delete next[name]
+    else {
+        const old = exists && record(properties[name]) ? properties[name] : {}
+        const expression: RecordValue = { ...old, ...value }
+        if (value?.kind === 'content') delete expression.value
+        else delete expression.pointer
+        Object.defineProperty(next, name, {
+            value: expression,
+            enumerable: true,
+            writable: true,
+            configurable: true,
+        })
+    }
+    if (
+        !record(profile) ||
+        !record(profile.execution) ||
+        !record(profile.execution.request) ||
+        !record(profile.execution.request.body)
+    )
+        return null
+    return {
+        ...profile,
+        execution: {
+            ...profile.execution,
+            request: {
+                ...profile.execution.request,
+                body: { ...profile.execution.request.body, value: { ...object, properties: next } },
+            },
+        },
+    }
+}
+function validName(name: string) {
+    return (
+        name.length > 0 &&
+        name.length <= 128 &&
+        name === name.trim() &&
+        !name.includes('\r') &&
+        !name.includes('\n') &&
+        !name.includes('\u0000')
+    )
+}
+function validLeaf(profile: unknown, value: JsonBodyLeaf) {
+    return value.kind === 'content'
+        ? getTargetEditorFields(profile).some(field => field.path === value.pointer)
+        : leaf(value) !== null
+}
+
 function bodyObject(profile: unknown): RecordValue | null {
     if (
         !projectMappedRequest(profile) ||
