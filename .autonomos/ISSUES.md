@@ -4253,7 +4253,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: A verified bot/account connection and bounded text/media publication flow, preserving project ownership, content validation, durable effects and stored remote identity. Polls and further native formats are separately scoped.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477; TELEGRAM-498 (official capability review and implementation proposal).
-- Proposal: [SPEC-008](specs/SPEC-008-telegram-publishing.md), draft pending the initial media-group scope choice.
+- Proposal: [SPEC-008](specs/SPEC-008-telegram-publishing.md); owner selected text plus one media on 2026-10-17, albums deferred.
+- Implementation: TELEGRAM-499 adds the isolated provider protocol; application connection, execution registration and Studio remain pending.
 - Source: owner product direction, 2026-10-16.
 
 
@@ -4362,3 +4363,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: CHANNEL-488 found the server process alive with the database and runtime-lock descriptors open after its earlier SIGTERM drain log, while port 3002 had no listener. A second explicit termination ended it. The exact retained marker was removed only after verifying its owner and that no process held the database, WAL, shared-memory or marker files.
 - Desired outcome: Reproduce and identify which shutdown step can remain pending. Preserve fail-closed runtime exclusion; do not introduce automatic stale-lock reclamation or infer quiescence from a missing listener.
 - Tasks: CHANNEL-488 (recovery and evidence); root-cause repair remains pending.
+
+
+## [ISSUE-176] Exclude generated test and runtime data from production build contexts
+
+- Type: defect
+- Status: open
+- Evidence: TELEGRAM-499 observed the default Docker context transferring over 4.9 GB before cancellation. Local test-results occupied 7.4 GB and data occupied 218 MB; neither directory is excluded by .dockerignore. These are local/generated inputs rather than production sources. The successful check used a tar context containing tracked files plus the new provider package.
+- Desired outcome: Keep routine production contexts bounded and exclude generated test outputs and runtime data without hiding required workspace manifests or fixtures. Verify the normal Docker build with representative local outputs present. No runtime data was deleted during discovery.
+- Tasks: TELEGRAM-499 (evidence); dedicated build-context cleanup remains pending.

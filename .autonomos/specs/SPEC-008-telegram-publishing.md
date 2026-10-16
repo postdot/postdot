@@ -1,6 +1,6 @@
 # SPEC-008 — Telegram publishing
 
-- Status: draft
+- Status: draft; initial single-media scope accepted by owner on 2026-10-17
 - Scope: First-party Telegram connection, content validation and durable publication
 - Provenance: Owner-approved expansion sequence; [ISSUE-165](../ISSUES.md); TELEGRAM-498
 - Related specification: [SPEC-004](SPEC-004-publication-content-boundary.md)
@@ -97,7 +97,7 @@ Albums avoid that restriction but introduce several message identifiers, shared
 album identity and recovery questions. Choosing one message as externalId while
 losing the others would hide those responsibilities. An album-capable contract
 needs explicit storage, inspection and future deletion/comment semantics. The
-owner has been asked whether this belongs in the first implementation.
+owner selected text plus one media on 2026-10-17; albums are deferred.
 
 Adding a separate text message after media has the same multi-effect problem; it
 is not an acceptable shortcut around the caption limit.

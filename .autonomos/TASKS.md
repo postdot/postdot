@@ -934,3 +934,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-497]** Verify mapped builder edits through authenticated draft persistence, impact review and activation `Priority: 🟠` `Complexity: M`
 
 - [x] **[TELEGRAM-498]** Verify Telegram capabilities and prepare the first publishing contract and delivery plan `Priority: 🟠` `Complexity: M`
+
+- [x] **[TELEGRAM-499]** Implement isolated Telegram bot verification and single-message publishing protocol `Priority: 🟠` `Complexity: L`

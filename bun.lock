@@ -340,6 +340,18 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/telegram": {
+      "name": "@postbot/telegram",
+      "version": "0.0.0",
+      "dependencies": {
+        "@postbot/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.2",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/ui": {
       "name": "@postbot/ui",
       "version": "0.0.0",
@@ -1227,6 +1239,8 @@
     "@postbot/media": ["@postbot/media@workspace:packages/media"],
 
     "@postbot/oauth": ["@postbot/oauth@workspace:packages/oauth"],
+
+    "@postbot/telegram": ["@postbot/telegram@workspace:packages/telegram"],
 
     "@postbot/ui": ["@postbot/ui@workspace:packages/ui"],
 

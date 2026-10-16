@@ -25,6 +25,10 @@
       "path": "packages/client",
     },
     {
+      "name": "telegram",
+      "path": "packages/telegram",
+    },
+    {
       "name": "core",
       "path": "packages/core",
     },
