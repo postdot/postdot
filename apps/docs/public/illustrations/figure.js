@@ -35,7 +35,39 @@ export function mountFigure(stage) {
             plate.body.g
         )
         logo.innerHTML = brands[i].body
-        return { ...plate, route, pulse, logo }
+        const schedule = mk('g', { class: 'distribution-schedule' }, plate.body.g)
+        mk('rect', { width: 80, height: 24, rx: 3 }, schedule)
+        // Solar Linear clock-circle, matching the server-rendered icon.
+        const clock = mk(
+            'svg',
+            {
+                x: 8,
+                y: 5,
+                width: 14,
+                height: 14,
+                viewBox: '0 0 24 24',
+                fill: 'none',
+                'stroke-width': 1.5,
+            },
+            schedule
+        )
+        mk(
+            'circle',
+            { cx: 12, cy: 12, r: 10, stroke: 'currentColor', 'stroke-linecap': 'round' },
+            clock
+        )
+        mk(
+            'path',
+            {
+                d: 'M12 8V12L14.5 14.5',
+                stroke: 'currentColor',
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+            },
+            clock
+        )
+        const time = mk('text', { x: 29, y: 16.5 }, schedule)
+        return { ...plate, route, pulse, logo, schedule, time }
     })
     function drawPlate(nodes, pose) {
         put(nodes.body, pose.shape)
@@ -51,6 +83,8 @@ export function mountFigure(stage) {
         drawPlate(nodes, item)
         nodes.logo.setAttribute('x', item.badge[0] - 12)
         nodes.logo.setAttribute('y', item.badge[1] - 12)
+        nodes.schedule.setAttribute('transform', `translate(${item.schedule.x},${item.schedule.y})`)
+        nodes.time.textContent = item.schedule.label
         nodes.route.setAttribute('d', item.route)
         nodes.routeLength = nodes.route.getTotalLength()
         nodes.lines.forEach(line => {
@@ -65,6 +99,9 @@ export function mountFigure(stage) {
             const transfer = transferAt(clock, i)
             const complete = reducedMotion() ? 1 : transfer.content
             nodes.content.style.opacity = String(complete)
+            nodes.schedule.style.opacity = String(
+                reducedMotion() ? 1 : Math.max(0, (complete - 0.7) / 0.3)
+            )
             nodes.lines.forEach((line, j) => {
                 line.style.strokeDashoffset = String(
                     1 -

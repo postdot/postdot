@@ -65,6 +65,11 @@ export function sceneAt(spread) {
             ...item,
             z,
             index: i,
+            schedule: {
+                x: item.badge[0] - 40,
+                y: item.badge[1] + 20,
+                label: ['09:00', '12:30', '18:00'][i],
+            },
             route: `M${sourcePort.join(',')} L${junction.join(',')} C${junction[0] + 26},${junction[1]} ${item.port[0] - 26},${item.port[1]} ${item.port.join(',')}`,
 
             start: sourcePort,

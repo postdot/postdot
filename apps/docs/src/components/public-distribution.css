@@ -145,3 +145,19 @@
         margin: 0 auto;
     }
 }
+
+.distribution-schedule rect {
+    fill: var(--face);
+    stroke: var(--edge);
+    stroke-width: 0.65;
+}
+.distribution-schedule svg {
+    color: var(--blue);
+}
+.distribution-schedule text {
+    fill: currentColor;
+    font-family: 'Host Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
