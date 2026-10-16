@@ -928,3 +928,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-494]** Add simple JSON property lifecycle and explicit value-source selection `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-495]** Initialize absent mapped JSON bodies explicitly and compare their creation `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-496]** Edit fixed text query parameters with protected dynamic mappings and readable comparison `Priority: 🟠` `Complexity: M`

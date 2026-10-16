@@ -2229,7 +2229,7 @@
     "request_status_invalid": "Use codes from 100 to 599, separated by commas. Each outcome needs at least one code.",
     "request_status_overlap": "Assign each HTTP code to only one outcome.",
     "request_invalid": "Use 1–256 characters for a single segment, without /, ?, # or backslashes. The values “.” and “..” are not allowed.",
-    "request_preserved": "Query parameters, headers and other body formats are preserved; they are not editable here yet.",
+    "request_preserved": "Headers and other body formats are preserved; they are not editable here yet.",
     "request_secret": "Connection secret · preserved",
     "request_dynamic": "Dynamic value · {path} · preserved",
     "request_external_id": "Publication ID in response (optional)",
@@ -2254,5 +2254,10 @@
     "request_body_name_invalid": "Use a unique name of 1–128 characters, without leading/trailing whitespace or line breaks.",
     "request_body_create": "Add JSON body",
     "request_body_format": "Format",
-    "request_body_object": "JSON object"
+    "request_body_object": "JSON object",
+    "request_query": "Query parameters",
+    "request_query_remove": "Remove parameter {name}",
+    "request_query_name": "New parameter name",
+    "request_query_preserved": "Mapped value · preserved",
+    "request_query_invalid": "Use a unique name, up to 128 characters, without surrounding spaces or line breaks."
 }

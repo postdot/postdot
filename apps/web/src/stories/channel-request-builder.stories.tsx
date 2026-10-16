@@ -35,6 +35,10 @@ function RequestExample({ withoutBody = false }: { readonly withoutBody?: boolea
                 revision: '1',
                 request: {
                     method: 'POST',
+                    query: {
+                        format: { kind: 'literal', value: 'compact' },
+                        delivery: { kind: 'context', pointer: '/deliveryId' },
+                    },
                     path: ['posts', { kind: 'secret' }, { kind: 'content', pointer: '/slug' }],
                     body: {
                         kind: 'json',

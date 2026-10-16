@@ -10,6 +10,7 @@ import {
 import { useEffect, useId, useState } from 'react'
 
 import { ChannelJsonBodyBuilder } from '@/components/channel-json-body-builder'
+import { ChannelQueryBuilder } from '@/components/channel-query-builder'
 import {
     editMappedRequest,
     parseRequestStatuses,
@@ -144,6 +145,7 @@ export function ChannelRequestBuilder({
                     ) : null}
                 </Field>
             ))}
+            <ChannelQueryBuilder profile={profile} onChange={onChange} disabled={disabled} />
             <ChannelJsonBodyBuilder
                 profile={profile}
                 onChange={onChange}

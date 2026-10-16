@@ -2229,7 +2229,7 @@
     "request_status_invalid": "Utilisez des codes de 100 à 599, séparés par des virgules. Chaque résultat doit avoir au moins un code.",
     "request_status_overlap": "Affectez chaque code HTTP à un seul résultat.",
     "request_invalid": "Utilisez un segment de 1 à 256 caractères, sans /, ?, # ou barre oblique inverse. Les valeurs « . » et « .. » sont interdites.",
-    "request_preserved": "Les paramètres, les en-têtes et les autres formats de corps sont conservés ; ils ne sont pas encore modifiables ici.",
+    "request_preserved": "Les en-têtes et les autres formats de corps sont conservés ; ils ne sont pas encore modifiables ici.",
     "request_secret": "Secret de connexion · conservé",
     "request_dynamic": "Valeur dynamique · {path} · conservée",
     "request_external_id": "Identifiant dans la réponse (facultatif)",
@@ -2254,5 +2254,10 @@
     "request_body_name_invalid": "Utilisez un nom unique de 1 à 128 caractères, sans espace au début ou à la fin ni saut de ligne.",
     "request_body_create": "Ajouter un corps JSON",
     "request_body_format": "Type de corps",
-    "request_body_object": "Objet JSON"
+    "request_body_object": "Objet JSON",
+    "request_query": "Paramètres de requête",
+    "request_query_remove": "Supprimer le paramètre {name}",
+    "request_query_name": "Nom du nouveau paramètre",
+    "request_query_preserved": "Valeur calculée · conservée",
+    "request_query_invalid": "Utilisez un nom unique de 128 caractères maximum, sans espaces autour ni sauts de ligne."
 }
