@@ -1,18 +1,25 @@
-import type { ChannelProfileDefinition } from '@postbot/core'
-
 import { getTargetEditorFields } from './target-editor'
 
-export function getComposerTextFields(profile: ChannelProfileDefinition) {
+export function getComposerTextFields(profile: unknown) {
+    const capabilities =
+        isRecord(profile) && isRecord(profile.capabilities) ? profile.capabilities : null
+    const textFields = Array.isArray(capabilities?.textFields) ? capabilities.textFields : []
     const fields = getTargetEditorFields(profile)
     const read = (semantic: 'headline' | 'primary_text') => {
         const field = fields.find(item => item.semantic === semantic && item.kind === 'text')
         if (field === undefined) return null
-        const capability = profile.capabilities.textFields.find(
-            item => item.bindingId === field.bindingId
+        const capability = textFields.find(
+            item => isRecord(item) && item.bindingId === field.bindingId
         )
         return {
             field,
-            maxGraphemes: capability?.maxGraphemes ?? null,
+            maxGraphemes:
+                isRecord(capability) &&
+                typeof capability.maxGraphemes === 'number' &&
+                Number.isSafeInteger(capability.maxGraphemes) &&
+                capability.maxGraphemes >= 0
+                    ? capability.maxGraphemes
+                    : null,
         }
     }
     return { headline: read('headline'), body: read('primary_text') }
@@ -39,4 +46,8 @@ export function countComposerText(
                     graphemes !== null &&
                     graphemes > constraint.maxGraphemes)),
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

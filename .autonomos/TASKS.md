@@ -908,3 +908,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-484]** Model absent, optional and required titles and align profile preview with the destination editor `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-485]** Share the New publication writing surface with channel rule previews `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-486]** Share composer count rendering and constraint evaluation with the channel preview `Priority: 🟠` `Complexity: S`

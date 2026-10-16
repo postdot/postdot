@@ -31,6 +31,7 @@ import {
     PublicationChannelTabs,
     publicationSharedTabId,
 } from '@/components/publication-target-list'
+import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
@@ -991,45 +992,11 @@ export function NewPublicationPage({
                                                 />
                                             </div>
                                         ) : bodyCount && textFields?.body ? (
-                                            <div className="px-4 pb-3">
-                                                <p
-                                                    id="new-post-content-weighted-count"
-                                                    data-composer-text-count="true"
-                                                    className={cn(
-                                                        'text-xs',
-                                                        bodyCount.invalid
-                                                            ? 'text-destructive'
-                                                            : 'text-muted-foreground'
-                                                    )}>
-                                                    {textFields.body.field.maxLength !== null
-                                                        ? m.composer_character_count({
-                                                              count: formatNumber(
-                                                                  bodyCount.characters,
-                                                                  locale
-                                                              ),
-                                                              limit: formatNumber(
-                                                                  textFields.body.field.maxLength,
-                                                                  locale
-                                                              ),
-                                                          })
-                                                        : null}
-                                                    {bodyCount.graphemes !== null &&
-                                                    textFields.body.maxGraphemes !== null ? (
-                                                        <span className="ml-2">
-                                                            {m.composer_grapheme_count({
-                                                                count: formatNumber(
-                                                                    bodyCount.graphemes,
-                                                                    locale
-                                                                ),
-                                                                limit: formatNumber(
-                                                                    textFields.body.maxGraphemes,
-                                                                    locale
-                                                                ),
-                                                            })}
-                                                        </span>
-                                                    ) : null}
-                                                </p>
-                                            </div>
+                                            <PublicationTextCount
+                                                id="new-post-content-weighted-count"
+                                                result={bodyCount}
+                                                constraint={textFields.body}
+                                            />
                                         ) : null}
                                     </div>
 

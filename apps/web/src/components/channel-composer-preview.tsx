@@ -2,8 +2,9 @@ import { useId, useMemo, useState } from 'react'
 
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
-import { formatNumber } from '@/lib/format'
+import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { useLanguage } from '@/lib/i18n'
 import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
@@ -32,9 +33,8 @@ export function ChannelComposerPreview({
     const media = fields.find(field => field.kind === 'media')
     const text = body ? readTargetField(target, body.path) : ''
     const value = typeof text === 'string' ? text : ''
-    const count = Array.from(value).length
-    const invalid =
-        body?.maxLength !== null && body?.maxLength !== undefined && count > body.maxLength
+    const constraint = useMemo(() => getComposerTextFields(profile).body, [profile])
+    const count = constraint ? countComposerText(value, constraint) : null
     return (
         <div className="min-w-0">
             <div className="grid gap-4">
@@ -70,8 +70,8 @@ export function ChannelComposerPreview({
                     appearance="composer"
                     id={`${id}-body`}
                     aria-label={m.publication_new_channel_copy()}
-                    aria-describedby={body.maxLength !== null ? `${id}-count` : undefined}
-                    aria-invalid={invalid || undefined}
+                    aria-describedby={count ? `${id}-count` : undefined}
+                    aria-invalid={count?.invalid || undefined}
                     onToolbarMount={setToolbar}
                     value={value}
                     onValueChange={next => onChange(updateTargetField(target, body.path, next))}
@@ -80,15 +80,8 @@ export function ChannelComposerPreview({
                     rows={9}
                 />
             ) : null}
-            {body?.maxLength !== null && body?.maxLength !== undefined ? (
-                <p
-                    id={`${id}-count`}
-                    className={`px-4 pb-3 text-xs ${invalid ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {m.composer_character_count({
-                        count: formatNumber(count, locale),
-                        limit: formatNumber(body.maxLength, locale),
-                    })}
-                </p>
+            {count && constraint ? (
+                <PublicationTextCount id={`${id}-count`} result={count} constraint={constraint} />
             ) : null}
             {media ? (
                 <div title={m.builder_preview_media_disabled()}>

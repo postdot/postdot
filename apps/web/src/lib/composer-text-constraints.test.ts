@@ -59,3 +59,16 @@ test('composer exposes optional and required titles but no title for an absent b
     ).toBe(true)
     expect(getComposerTextFields(xChannelProfile).headline).toBeNull()
 })
+
+test('preview constraint lookup tolerates incomplete draft definitions', () => {
+    expect(getComposerTextFields(null)).toEqual({ headline: null, body: null })
+    const profile = createManualChannelProfile()
+    const incomplete = {
+        ...profile,
+        capabilities: { textFields: [null, { bindingId: 'body', maxGraphemes: 'invalid' }] },
+    }
+    const body = getComposerTextFields(incomplete).body!
+    expect(body.field.path).toBe('/body')
+    expect(body.maxGraphemes).toBeNull()
+    expect(countComposerText('👩‍💻', body).characters).toBe(3)
+})
