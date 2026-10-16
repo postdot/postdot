@@ -4353,3 +4353,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: CHANNEL-482 (intake and existing-contract review); implementation not claimed complete.
 - Related: [profile evolution](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ordinary approval compatibility](decisions/ADR-078-explicit-superseded-profile-approval.md), [draft adoption](decisions/ADR-079-explicit-draft-profile-adoption.md).
 - Source: owner direction, 2026-10-16.
+
+## [ISSUE-175] Investigate a development API shutdown that retained SQLite
+
+- Type: defect
+- Status: open
+- Evidence: CHANNEL-488 found the server process alive with the database and runtime-lock descriptors open after its earlier SIGTERM drain log, while port 3002 had no listener. A second explicit termination ended it. The exact retained marker was removed only after verifying its owner and that no process held the database, WAL, shared-memory or marker files.
+- Desired outcome: Reproduce and identify which shutdown step can remain pending. Preserve fail-closed runtime exclusion; do not introduce automatic stale-lock reclamation or infer quiescence from a missing listener.
+- Tasks: CHANNEL-488 (recovery and evidence); root-cause repair remains pending.

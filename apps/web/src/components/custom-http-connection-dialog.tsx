@@ -300,7 +300,7 @@ export function CustomHttpConnectionDialog({
                                 </p>
                             ) : null}
                         </div>
-                        <DialogFooter className="bg-transparent">
+                        <DialogFooter className="mx-0 mb-0 bg-transparent px-0 pb-0">
                             <Button
                                 type="button"
                                 variant="ghost"
