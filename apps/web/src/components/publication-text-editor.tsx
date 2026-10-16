@@ -14,6 +14,7 @@ const loadEmojiPicker = () => import('./publication-emoji-picker')
 const EmojiPicker = lazy(loadEmojiPicker)
 
 type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'> & {
+    readonly appearance?: 'field' | 'composer'
     readonly value: string
     readonly onValueChange: (value: string) => void
     readonly onToolbarMount?: (node: HTMLDivElement | null) => void
@@ -21,6 +22,7 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'>
 
 /** Text commands remain separate from the publication payload and preview. */
 export function PublicationTextEditor({
+    appearance = 'field',
     value,
     onValueChange,
     className,
@@ -109,7 +111,12 @@ export function PublicationTextEditor({
                 disabled={disabled}
                 value={value}
                 onChange={event => onValueChange(event.target.value)}
-                className={cn(className, 'focus-visible:ring-0 focus-visible:border-transparent')}
+                className={cn(
+                    appearance === 'composer' &&
+                        'min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent',
+                    className,
+                    'focus-visible:ring-0 focus-visible:border-transparent'
+                )}
             />
         </div>
     )

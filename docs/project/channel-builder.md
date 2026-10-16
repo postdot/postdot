@@ -34,8 +34,11 @@ The runtime requires bounded limits: an empty maximum must not silently mean
 unlimited, zero or the current template's very large fallback. Recommend defaults
 only after checking the existing validator and representative destination needs.
 
-The preview shows the actual schema-driven publication fields, required markers,
-media choices and validation. It is an editor preview, not a fabricated social
+The preview uses the New publication text editor in its shared composer appearance.
+The actual attachment trigger is mounted before the emoji control, above the
+borderless writing area; the character count follows the body. Optional and
+required title fields remain separate, and content language stays collapsed.
+Media actions are disabled in this local sample. It is an editor preview, not a fabricated social
 network rendering. Changing a rule updates this preview without mutating saved
 publications. Preview example content is transient and clearly distinguished
 from saved data.

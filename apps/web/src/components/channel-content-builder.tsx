@@ -11,7 +11,7 @@ import {
 import { Switch } from '@postbot/ui/components/switch'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
-import { PublicationTargetEditor } from '@/components/publication-target-editor'
+import { ChannelComposerPreview } from '@/components/channel-composer-preview'
 import {
     builderRecord,
     setBuilderTitleMode,
@@ -333,21 +333,17 @@ export function ChannelContentBuilder({
             </div>
             <section
                 aria-label={m.builder_preview()}
-                className="min-w-0 self-start rounded-sm bg-surface-inset p-4 shadow-field lg:sticky lg:top-0">
+                className="min-w-0 self-start rounded-sm bg-background p-4 shadow-field lg:sticky lg:top-0">
                 <h3 className="text-sm font-medium">{m.builder_preview()}</h3>
                 <p className="mb-5 mt-1 text-xs leading-5 text-muted-foreground">
                     {m.builder_preview_hint()}
                 </p>
-                <PublicationTargetEditor
+                <ChannelComposerPreview
                     projectId={projectId}
-                    mediaScopeId={`profile-preview:${instanceId}`}
-                    previewOnly
-                    compact
+                    scopeId={`profile-preview:${instanceId}`}
                     profile={profile}
                     target={preview}
-                    rawText={JSON.stringify(preview)}
-                    onTargetChange={setPreview}
-                    onRawTextChange={() => {}}
+                    onChange={setPreview}
                     disabled={disabled}
                 />
             </section>

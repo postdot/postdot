@@ -906,3 +906,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-483]** Explain channel lifecycle failures inside the active confirmation dialog `Priority: 🟠` `Complexity: S`
 
 - [x] **[CHANNEL-484]** Model absent, optional and required titles and align profile preview with the destination editor `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-485]** Share the New publication writing surface with channel rule previews `Priority: 🟠` `Complexity: M`

@@ -961,6 +961,7 @@ export function NewPublicationPage({
                                             </Suspense>
                                         ) : (
                                             <PublicationTextEditor
+                                                appearance="composer"
                                                 onToolbarMount={setMediaToolbar}
                                                 id="new-post-content"
                                                 aria-label={
@@ -979,7 +980,6 @@ export function NewPublicationPage({
                                                 onValueChange={editActiveText}
                                                 placeholder={m.publication_new_source_placeholder()}
                                                 rows={9}
-                                                className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
                                             />
                                         )}
                                         {activeTextValidation !== null ? (

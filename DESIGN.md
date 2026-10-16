@@ -502,5 +502,7 @@ A destination can have no title field, an optional title or a required title.
 Derive this from its profile rather than provider-name heuristics. Optional does
 not mean hidden; absent removes the destination field. Keep the title separate
 from the body when the destination supports it. Configuration previews should
-reuse the real destination editor; any deliberately disabled actions must remain
-recognizable and explain their disabled state.
+reuse the New publication writing surface, including its attachment-before-emoji
+toolbar and borderless body. Sharing a field renderer alone does not establish
+visual parity. Any deliberately disabled actions must remain recognizable and
+explain their disabled state.
