@@ -16,7 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postbot/ui/components/select'
-import { Textarea } from '@postbot/ui/components/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
@@ -24,6 +23,7 @@ import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
+import { ChannelContentBuilder } from '@/components/channel-content-builder'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import {
     api,
@@ -99,6 +99,7 @@ export function ChannelCreationDialog({
     const [choice, setChoice] = useState<ProfileChoice>('manual-message')
     const [templateId, setTemplateId] = useState(channelProfileTemplates[0]?.id ?? '')
     const [profileText, setProfileText] = useState('')
+    const [builderValid, setBuilderValid] = useState(true)
     const [validationError, setValidationError] = useState<string | null>(null)
     const [definitionIssues, setDefinitionIssues] = useState<readonly ProfileDefinitionIssue[]>([])
     const [definitionIssueCount, setDefinitionIssueCount] = useState(0)
@@ -109,6 +110,7 @@ export function ChannelCreationDialog({
         setChoice('manual-message')
         setTemplateId(channelProfileTemplates[0]?.id ?? '')
         setProfileText('')
+        setBuilderValid(true)
         setValidationError(null)
         setDefinitionIssues([])
         setDefinitionIssueCount(0)
@@ -139,6 +141,7 @@ export function ChannelCreationDialog({
     }
 
     async function submit() {
+        if (choice === 'custom' && !builderValid) return
         const trimmedName = name.trim()
         if (trimmedName === '') {
             setValidationError(m.channel_name_required())
@@ -252,9 +255,9 @@ export function ChannelCreationDialog({
                 }}>
                 <DialogContent
                     aria-describedby={undefined}
-                    className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-2xl overflow-x-hidden overflow-y-auto sm:max-w-2xl">
+                    className={`max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-x-hidden overflow-y-auto ${choice === 'custom' ? 'sm:max-w-5xl' : 'sm:max-w-2xl'}`}>
                     <DialogHeader>
-                        <DialogTitle>{m.channel_create_title()}</DialogTitle>
+                        <DialogTitle className="pr-6">{m.channel_create_title()}</DialogTitle>
                     </DialogHeader>
 
                     <div className="grid gap-5">
@@ -293,7 +296,7 @@ export function ChannelCreationDialog({
                         </Field>
 
                         {choice === 'custom' ? (
-                            <div className="grid gap-4 rounded-lg bg-muted p-4">
+                            <div className="grid gap-5">
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor="new-channel-template">
                                         {m.channel_starter_template()}
@@ -317,36 +320,18 @@ export function ChannelCreationDialog({
                                         {templateDescription(templateId)}
                                     </FieldDescription>
                                 </Field>
-                                <Field className="gap-1.5">
-                                    <FieldLabel htmlFor="new-channel-profile-json">
-                                        {m.channel_custom_profile_json()}
-                                    </FieldLabel>
-                                    <Textarea
-                                        id="new-channel-profile-json"
-                                        value={profileText}
-                                        onChange={event => {
-                                            setProfileText(event.target.value)
-                                            setValidationError(null)
-                                            setDefinitionIssues([])
-                                            setDefinitionIssueCount(0)
-                                        }}
-                                        onFocus={() => {
-                                            if (profileText !== '') return
-                                            const profile = profileForTemplate(
-                                                templateId,
-                                                templates
-                                            )
-                                            if (profile !== undefined)
-                                                setProfileText(creationTextForTemplate(profile))
-                                        }}
-                                        spellCheck={false}
-                                        rows={14}
-                                        className="font-mono text-xs leading-5"
-                                    />
-                                    <FieldDescription>
-                                        {m.channel_custom_profile_validation()}
-                                    </FieldDescription>
-                                </Field>
+                                <ChannelContentBuilder
+                                    key={templateId}
+                                    value={profileText}
+                                    disabled={pending}
+                                    onValidityChange={setBuilderValid}
+                                    onChange={value => {
+                                        setProfileText(value)
+                                        setValidationError(null)
+                                        setDefinitionIssues([])
+                                        setDefinitionIssueCount(0)
+                                    }}
+                                />
                             </div>
                         ) : null}
 
@@ -394,7 +379,10 @@ export function ChannelCreationDialog({
                             disabled={pending}>
                             {m.common_cancel()}
                         </Button>
-                        <Button type="button" onClick={() => void submit()} disabled={pending}>
+                        <Button
+                            type="button"
+                            onClick={() => void submit()}
+                            disabled={pending || (choice === 'custom' && !builderValid)}>
                             <CodeFileIcon aria-hidden="true" />
                             {m.channel_create_button()}
                         </Button>

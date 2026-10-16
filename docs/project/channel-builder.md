@@ -157,3 +157,18 @@ editable or read-only and explains why, before connecting controls. Media edits,
 disabling, HTTP authoring, impact/adoption UI and persisted revision integration
 are not proved by this text-rule spike and remain in the implementation lots.
 Do not advertise complete profile support based on these tests.
+
+## Implemented content surface — CHANNEL-480
+
+Studio creation and draft editing now use the shared content form and local
+TargetFieldControl preview. Supported direct fields expose required status, raw
+length and text formats; simple media bindings expose families, item count and
+global per-file MB limits. Unsupported rules remain unchanged and read-only,
+with a reason. The browser adapter does not import the core schema compiler;
+server validation, draft revisions, impact and activation remain authoritative.
+
+Local browser verification covered creation, reopened values, draft save, impact,
+assessment invalidation, explicit activation and mobile layout. HTTP mapping,
+arbitrary field removal and full impact/adoption presentation remain unfinished.
+The experimental spike remains isolated; runtime controls use the independently
+tested production adapter. No persistence model or new lifecycle was introduced.

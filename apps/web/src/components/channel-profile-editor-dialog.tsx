@@ -8,13 +8,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@postbot/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
-import { Textarea } from '@postbot/ui/components/textarea'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useEffect, useRef, useState } from 'react'
 
+import { ChannelContentBuilder } from '@/components/channel-content-builder'
 import { ChannelProfileImpactPreview } from '@/components/channel-profile-impact-preview'
 import {
     api,
@@ -52,7 +51,7 @@ export function ChannelProfileEditorDialog({
     const [draftId, setDraftId] = useState<string | null>(null)
     const [draftRevision, setDraftRevision] = useState<number | undefined>(undefined)
     const [assessment, setAssessment] = useState<ChannelProfileAssessment | null>(null)
-    const [editing, setEditing] = useState(true)
+    const [builderValid, setBuilderValid] = useState(true)
     const [stage, setStage] = useState<'edit' | 'confirm' | 'activated'>('edit')
     const [reloadRequired, setReloadRequired] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -85,7 +84,7 @@ export function ChannelProfileEditorDialog({
         setSaving(false)
         setError(null)
         setAssessment(null)
-        setEditing(true)
+        setBuilderValid(true)
         setStage('edit')
         setReloadRequired(false)
         void api
@@ -129,6 +128,7 @@ export function ChannelProfileEditorDialog({
     const currentChannel = channel
 
     async function saveDraft() {
+        if (!builderValid) return
         let profile: Record<string, unknown>
         try {
             const parsed: unknown = JSON.parse(profileText)
@@ -198,7 +198,6 @@ export function ChannelProfileEditorDialog({
             )
             if (epoch !== session.current) return
             setAssessment(response.assessment)
-            setEditing(false)
             setStage(confirm ? 'confirm' : 'edit')
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
@@ -258,7 +257,7 @@ export function ChannelProfileEditorDialog({
             if (preset === undefined) throw new Error('LinkedIn template unavailable')
             setProfileText(profilePresentation(templatesFromPresets([preset])[0]!.profile).text)
             setAssessment(null)
-            setEditing(true)
+            setBuilderValid(true)
             setLatestTemplateAvailable(false)
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
@@ -284,7 +283,7 @@ export function ChannelProfileEditorDialog({
             setDraftId(state.draft?.id ?? null)
             setDraftRevision(state.draft?.revision)
             setAssessment(null)
-            setEditing(true)
+            setBuilderValid(true)
             setStage('edit')
             setError(null)
             setReloadRequired(false)
@@ -295,14 +294,14 @@ export function ChannelProfileEditorDialog({
         }
     }
 
-    const busy = pending || loading || saving
+    const busy = pending || loading || saving || profileText === ''
     const unsaved = profileText !== savedProfileText
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] overflow-y-auto sm:max-w-3xl">
+            <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] overflow-y-auto sm:max-w-5xl">
                 <DialogHeader>
-                    <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+                    <DialogTitle ref={titleRef} tabIndex={-1} className="pr-6 outline-none">
                         {stage === 'confirm'
                             ? m.profile_activation_confirm_title({ channel: currentChannel.name })
                             : stage === 'activated'
@@ -322,43 +321,23 @@ export function ChannelProfileEditorDialog({
                             type="button"
                             variant="outline"
                             className="justify-self-start"
-                            disabled={busy || unsaved || reloadRequired}
+                            disabled={busy || !builderValid || unsaved || reloadRequired}
                             onClick={() => void loadLatestTemplate()}>
                             {m.profile_load_latest_linkedin_template()}
                         </Button>
                     ) : null}
-                    {stage === 'edit' ? (
-                        <details
-                            open={editing}
-                            onToggle={event => setEditing(event.currentTarget.open)}>
-                            <summary className="cursor-pointer font-medium">
-                                {m.profile_json()}
-                            </summary>
-                            <Field className="mt-3 gap-1.5">
-                                <FieldLabel htmlFor="channel-profile-json">
-                                    {m.profile_json()}
-                                </FieldLabel>
-                                <Textarea
-                                    id="channel-profile-json"
-                                    value={profileText}
-                                    onChange={event => {
-                                        setProfileText(event.target.value)
-                                        setError(null)
-                                        setAssessment(null)
-                                    }}
-                                    spellCheck={false}
-                                    rows={10}
-                                    readOnly={reloadRequired}
-                                    disabled={busy}
-                                    className="field-sizing-fixed max-h-64 overflow-y-auto font-mono text-xs leading-5"
-                                />
-                                <FieldDescription>
-                                    {unsaved
-                                        ? m.profile_save_before_preview()
-                                        : m.profile_json_description()}
-                                </FieldDescription>
-                            </Field>
-                        </details>
+                    {stage === 'edit' && !loading && profileText !== '' ? (
+                        <ChannelContentBuilder
+                            key={currentChannel.id}
+                            value={profileText}
+                            disabled={busy || reloadRequired}
+                            onValidityChange={setBuilderValid}
+                            onChange={value => {
+                                setProfileText(value)
+                                setError(null)
+                                setAssessment(null)
+                            }}
+                        />
                     ) : null}
 
                     {stage === 'edit' && metadata ? (
@@ -459,7 +438,7 @@ export function ChannelProfileEditorDialog({
                                     type="button"
                                     variant="outline"
                                     onClick={() => void saveDraft()}
-                                    disabled={busy || reloadRequired}>
+                                    disabled={busy || !builderValid || reloadRequired}>
                                     <CodeFileIcon aria-hidden="true" />
                                     {m.profile_save_draft()}
                                 </Button>
@@ -468,7 +447,11 @@ export function ChannelProfileEditorDialog({
                                     variant="outline"
                                     onClick={() => void previewDraft()}
                                     disabled={
-                                        busy || draftId === null || unsaved || reloadRequired
+                                        busy ||
+                                        !builderValid ||
+                                        draftId === null ||
+                                        unsaved ||
+                                        reloadRequired
                                     }>
                                     <RefreshIcon aria-hidden="true" />
                                     {m.profile_preview_impact()}
@@ -480,7 +463,13 @@ export function ChannelProfileEditorDialog({
                             onClick={() =>
                                 stage === 'confirm' ? void activateDraft() : void previewDraft(true)
                             }
-                            disabled={busy || assessment === null || unsaved || reloadRequired}>
+                            disabled={
+                                busy ||
+                                !builderValid ||
+                                assessment === null ||
+                                unsaved ||
+                                reloadRequired
+                            }>
                             <CheckIcon aria-hidden="true" />
                             {stage === 'confirm'
                                 ? m.profile_activation_confirm()
