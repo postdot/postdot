@@ -899,3 +899,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-479]** Prove lossless structured profile edits with isolated contract fixtures `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-480]** Deliver structured channel content controls and local target preview in creation and profile editing `Priority: 🟠` `Complexity: L`
+
+- [x] **[CHANNEL-481]** Show before/after content controls during channel profile review `Priority: 🟠` `Complexity: M`

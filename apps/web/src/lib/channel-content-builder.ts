@@ -217,3 +217,36 @@ export function editBuilderField(profile: unknown, id: string, edit: BuilderEdit
     }
     return { ok: true, profile: next }
 }
+
+export const builderComparedRules = [
+    'required',
+    'maximum',
+    'formats',
+    'families',
+    'maxBytes',
+    'maxGraphemes',
+    'maxWeightedLength',
+] as const
+export type BuilderComparedRule = (typeof builderComparedRules)[number]
+export interface BuilderRuleChange {
+    readonly field: BuilderField
+    readonly rule: BuilderComparedRule
+    readonly before: BuilderField[BuilderComparedRule]
+    readonly after: BuilderField[BuilderComparedRule]
+}
+/** Only claims comparison coverage for the controls this form represents. */
+export function compareBuilderRules(before: unknown, after: unknown): readonly BuilderRuleChange[] {
+    const prior = projectBuilderFields(before)
+    return projectBuilderFields(after).flatMap(field => {
+        const old = prior.find(
+            item =>
+                item.id === field.id && item.semantic === field.semantic && item.key === field.key
+        )
+        if (!old) return []
+        return builderComparedRules.flatMap(rule =>
+            JSON.stringify(old[rule]) === JSON.stringify(field[rule])
+                ? []
+                : [{ field, rule, before: old[rule], after: field[rule] }]
+        )
+    })
+}

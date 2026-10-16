@@ -2190,5 +2190,14 @@
     "builder_mismatch": "This profile has different schema and capability limits. They are preserved; this form cannot merge them.",
     "builder_complex": "This profile uses rules this form cannot safely edit. They are preserved without conversion.",
     "builder_preserved": "Profile rules preserved",
-    "builder_invalid_number": "Enter a valid value within the indicated limits."
+    "builder_invalid_number": "Enter a valid value within the indicated limits.",
+    "builder_changes": "Changes to content controls",
+    "builder_changes_hint": "Compared with the active profile. The impact assessment also checks other profile rules and affected publications.",
+    "builder_before": "Active profile",
+    "builder_after": "Proposed profile",
+    "builder_formats": "Accepted text formats",
+    "builder_media_types": "Permitted attachments",
+    "builder_grapheme_limit": "Grapheme limit",
+    "builder_weighted_limit": "Provider-weighted limit",
+    "builder_no_extra_limit": "No additional limit"
 }

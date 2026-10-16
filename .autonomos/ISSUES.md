@@ -4274,7 +4274,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: Custom creation and profile editing expose JSON text fields. Impact/adoption views also show raw serialized values. Current schema, field bindings, media/text capabilities and profile revision lifecycle already exist.
 - Desired outcome: A usable form for content capabilities, a separate execution setup and field-level impact/validation. Preserve richer existing profiles without silent data loss. Agree unsupported-rule behavior and reuse the existing runtime contract before replacing UI.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike); full builder implementation remains pending.
+- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Transport authoring, arbitrary field removal and full adoption cleanup remain pending.
 - Source: owner product direction, 2026-10-16.
 
 

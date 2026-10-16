@@ -14,6 +14,7 @@ import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useEffect, useRef, useState } from 'react'
 
 import { ChannelContentBuilder } from '@/components/channel-content-builder'
+import { ChannelContentChanges } from '@/components/channel-content-changes'
 import { ChannelProfileImpactPreview } from '@/components/channel-profile-impact-preview'
 import {
     api,
@@ -45,6 +46,7 @@ export function ChannelProfileEditorDialog({
     const [profileText, setProfileText] = useState('')
     const [latestTemplateAvailable, setLatestTemplateAvailable] = useState(false)
     const [savedProfileText, setSavedProfileText] = useState('')
+    const [activeDefinition, setActiveDefinition] = useState<unknown>(null)
     const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const session = useRef(0)
     const titleRef = useRef<HTMLHeadingElement>(null)
@@ -78,6 +80,7 @@ export function ChannelProfileEditorDialog({
         setProfileText('')
         setSavedProfileText('')
         setMetadata(null)
+        setActiveDefinition(null)
         setLatestTemplateAvailable(false)
         setDraftId(null)
         setDraftRevision(undefined)
@@ -91,6 +94,7 @@ export function ChannelProfileEditorDialog({
             .getChannelProfileState(channel.projectId, channel.id)
             .then(state => {
                 if (cancelled) return
+                setActiveDefinition(state.active.profile)
                 const version = state.draft ?? state.active
                 const presentation = profilePresentation(version.profile)
                 setProfileText(presentation.text)
@@ -338,6 +342,10 @@ export function ChannelProfileEditorDialog({
                                 setAssessment(null)
                             }}
                         />
+                    ) : null}
+
+                    {activeDefinition !== null && stage !== 'activated' ? (
+                        <ChannelContentChanges before={activeDefinition} after={profileText} />
                     ) : null}
 
                     {stage === 'edit' && metadata ? (

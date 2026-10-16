@@ -172,3 +172,16 @@ assessment invalidation, explicit activation and mobile layout. HTTP mapping,
 arbitrary field removal and full impact/adoption presentation remain unfinished.
 The experimental spike remains isolated; runtime controls use the independently
 tested production adapter. No persistence model or new lifecycle was introduced.
+
+## Implemented comparison — CHANNEL-481
+
+Profile editing now compares represented controls against the active definition,
+including an existing saved draft. The rows show required status, raw maximum,
+formats, families, file-size limit and retained grapheme/weighted counters when
+they differ. Schema/capability duplicates produce one control row. The comparison
+remains visible during activation confirmation and disappears after success.
+
+This is explicitly a comparison of represented controls, not a substitute for
+the server's broader impact assessment. Added/removed fields, transport and
+arbitrary schema rules are outside its claimed coverage. The existing impact
+assessment remains available. No review state or activation contract changed.

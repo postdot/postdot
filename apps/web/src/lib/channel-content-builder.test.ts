@@ -2,7 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postbot/core'
 
-import { editBuilderField, projectBuilderFields } from './channel-content-builder'
+import {
+    editBuilderField,
+    projectBuilderFields,
+    compareBuilderRules,
+} from './channel-content-builder'
 import { channelProfileTemplates } from './channel-profile-presets'
 
 function fixture() {
@@ -125,5 +129,32 @@ describe('structured channel content adapter', () => {
             expect(editBuilderField(fixture(), 'body', { maximum: value }).ok).toBe(false)
         expect(editBuilderField(fixture(), 'media', { families: [] }).ok).toBe(false)
         expect(editBuilderField(fixture(), 'body', { formats: [] }).ok).toBe(false)
+    })
+})
+
+describe('content control comparison', () => {
+    test('reports required and maximum changes once, despite duplicated runtime constraints', () => {
+        const original = fixture()
+        const output = edit(original, 'headline', { required: true, maximum: 50 }).profile
+        const changes = compareBuilderRules(original, output)
+        expect(changes.map(item => [item.field.id, item.rule, item.before, item.after])).toEqual([
+            ['headline', 'required', false, true],
+            ['headline', 'maximum', 10000, 50],
+        ])
+        expect(compareBuilderRules(original, original)).toEqual([])
+    })
+    test('compares media families and size without claiming transport coverage', () => {
+        const original = fixture()
+        const output = edit(original, 'media', { families: ['image'], maxBytes: 5000000 }).profile
+        expect(compareBuilderRules(original, output).map(item => item.rule)).toEqual([
+            'families',
+            'maxBytes',
+        ])
+        expect(
+            compareBuilderRules(original, {
+                ...original,
+                execution: { kind: 'manual', revision: 'other' },
+            })
+        ).toEqual([])
     })
 })
