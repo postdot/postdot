@@ -2225,11 +2225,15 @@
     "request_retryable": "Échec à réessayer",
     "request_rejected": "Rejet",
     "request_ambiguous": "Résultat incertain",
-    "request_responses": "Codes de réponse HTTP",
+    "request_responses": "Réponse HTTP",
     "request_status_invalid": "Utilisez des codes de 100 à 599, séparés par des virgules. Chaque résultat doit avoir au moins un code.",
     "request_status_overlap": "Affectez chaque code HTTP à un seul résultat.",
     "request_invalid": "Utilisez un segment de 1 à 256 caractères, sans /, ?, # ou barre oblique inverse. Les valeurs « . » et « .. » sont interdites.",
-    "request_preserved": "Le corps, les paramètres, les en-têtes et l’extraction de la réponse sont conservés ; ils ne sont pas encore modifiables ici.",
+    "request_preserved": "Le corps, les paramètres et les en-têtes sont conservés ; ils ne sont pas encore modifiables ici.",
     "request_secret": "Secret de connexion · conservé",
-    "request_dynamic": "Valeur dynamique · {path} · conservée"
+    "request_dynamic": "Valeur dynamique · {path} · conservée",
+    "request_external_id": "Identifiant dans la réponse (facultatif)",
+    "request_external_url": "URL dans la réponse (facultative)",
+    "request_pointer_invalid": "Utilisez un JSON Pointer commençant par /. Encodez ~ en ~0 et / dans une clé en ~1.",
+    "request_not_extracted": "Non extrait"
 }

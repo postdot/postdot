@@ -7,7 +7,14 @@ export const requestOutcomeKeys = [
 ] as const
 export type RequestOutcomeKey = (typeof requestOutcomeKeys)[number]
 export type RequestStatusGroups = Readonly<Record<RequestOutcomeKey, readonly number[]>>
+export const requestExtractionKeys = ['externalIdPointer', 'externalUrlPointer'] as const
+export type RequestExtractionKey = (typeof requestExtractionKeys)[number]
 export type RequestEdit =
+    | {
+          readonly kind: 'extraction'
+          readonly field: RequestExtractionKey
+          readonly value: string | undefined
+      }
     | { readonly kind: 'outcomes'; readonly value: RequestStatusGroups }
     | { readonly kind: 'method'; readonly value: 'POST' | 'PUT' | 'PATCH' }
     | { readonly kind: 'segment'; readonly index: number; readonly value: string }
@@ -76,6 +83,18 @@ export function editMappedRequest(profile: unknown, edit: RequestEdit): RequestE
             segment.index === edit.index ? edit.value : segment.value
         )
         updated = { ...request, path }
+    } else if (edit.kind === 'extraction') {
+        if (!requestExtractionKeys.includes(edit.field) || !record(request.response))
+            return { ok: false, reason: 'unsupported' }
+        if (
+            edit.value !== undefined &&
+            (!edit.value.startsWith('/') || /~(?:[^01]|$)/.test(edit.value))
+        )
+            return { ok: false, reason: 'invalid' }
+        const response = { ...request.response }
+        if (edit.value === undefined) delete response[edit.field]
+        else response[edit.field] = edit.value
+        updated = { ...request, response }
     } else {
         if (
             (edit.kind === 'statuses' && !requestOutcomeKeys.includes(edit.outcome)) ||
@@ -133,10 +152,10 @@ export function parseRequestStatuses(value: string): number[] | null {
 }
 
 export interface MappedRequestChange {
-    readonly key: 'method' | `segment-${number}` | RequestOutcomeKey
+    readonly key: 'method' | `segment-${number}` | RequestOutcomeKey | RequestExtractionKey
     readonly segmentIndex?: number
-    readonly before: string
-    readonly after: string
+    readonly before: string | null
+    readonly after: string | null
 }
 
 /** Compare only the editable controls; never serialize expressions or credentials. */
@@ -168,6 +187,17 @@ export function compareMappedRequests(
         const previous = [...new Set(oldCodes)].sort((a, b) => a - b).join(', ')
         const next = [...new Set(newCodes)].sort((a, b) => a - b).join(', ')
         if (previous !== next) changes.push({ key, before: previous, after: next })
+    }
+    for (const key of requestExtractionKeys) {
+        const previous = left.response?.[key]
+        const next = right.response?.[key]
+        if (
+            (previous === undefined || typeof previous === 'string') &&
+            (next === undefined || typeof next === 'string') &&
+            previous !== next
+        ) {
+            changes.push({ key, before: previous ?? null, after: next ?? null })
+        }
     }
     return changes
 }

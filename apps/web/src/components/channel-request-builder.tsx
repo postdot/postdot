@@ -14,6 +14,8 @@ import {
     parseRequestStatuses,
     projectMappedRequest,
     requestOutcomeKeys,
+    requestExtractionKeys,
+    type RequestExtractionKey,
     type RequestEdit,
     type RequestOutcomeKey,
 } from '@/lib/channel-request-builder'
@@ -34,6 +36,7 @@ export function ChannelRequestBuilder({
     const view = projectMappedRequest(profile)
     const [segments, setSegments] = useState<Record<number, string>>({})
     const [statuses, setStatuses] = useState<Partial<Record<RequestOutcomeKey, string>>>({})
+    const [extraction, setExtraction] = useState<Partial<Record<RequestExtractionKey, string>>>({})
     const [errors, setErrors] = useState<Record<string, string>>({})
     const valid = view === null || Object.keys(errors).length === 0
     useEffect(() => onValidityChange(valid), [valid, onValidityChange])
@@ -51,7 +54,11 @@ export function ChannelRequestBuilder({
             if (result.ok) delete next[key]
             else
                 next[key] =
-                    result.reason === 'overlap' ? m.request_status_overlap() : m.request_invalid()
+                    edit.kind === 'extraction'
+                        ? m.request_pointer_invalid()
+                        : result.reason === 'overlap'
+                          ? m.request_status_overlap()
+                          : m.request_invalid()
             return next
         })
         if (result.ok) onChange(result.profile)
@@ -162,6 +169,44 @@ export function ChannelRequestBuilder({
                         {errors.statuses}
                     </p>
                 ) : null}
+                {requestExtractionKeys.map(key => (
+                    <Field key={key} className="gap-1.5">
+                        <FieldLabel htmlFor={`${id}-${key}`}>
+                            {key === 'externalIdPointer'
+                                ? m.request_external_id()
+                                : m.request_external_url()}
+                        </FieldLabel>
+                        <Input
+                            id={`${id}-${key}`}
+                            disabled={disabled}
+                            value={
+                                extraction[key] ??
+                                (typeof view.response?.[key] === 'string' ? view.response[key] : '')
+                            }
+                            placeholder={key === 'externalIdPointer' ? '/data/id' : '/data/url'}
+                            spellCheck={false}
+                            aria-invalid={Boolean(errors[key]) || undefined}
+                            aria-describedby={errors[key] ? `${id}-${key}-error` : undefined}
+                            onChange={event => {
+                                const value = event.target.value
+                                setExtraction(current => ({ ...current, [key]: value }))
+                                apply(key, {
+                                    kind: 'extraction',
+                                    field: key,
+                                    value: value === '' ? undefined : value,
+                                })
+                            }}
+                        />
+                        {errors[key] ? (
+                            <p
+                                id={`${id}-${key}-error`}
+                                role="alert"
+                                className="text-xs text-destructive">
+                                {errors[key]}
+                            </p>
+                        ) : null}
+                    </Field>
+                ))}
             </details>
             <p className="text-xs text-muted-foreground">{m.request_preserved()}</p>
         </fieldset>

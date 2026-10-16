@@ -33,8 +33,8 @@ export function ChannelContentChanges({
                     key: `http-${change.key}`,
                     label: m.request_title(),
                     rule: requestRuleLabel(change),
-                    before: change.before,
-                    after: change.after,
+                    before: change.before ?? m.request_not_extracted(),
+                    after: change.after ?? m.request_not_extracted(),
                 })),
             ]
         } catch {
@@ -141,6 +141,10 @@ function requestRuleLabel(change: MappedRequestChange) {
     if (change.segmentIndex !== undefined)
         return m.request_segment({ number: change.segmentIndex + 1 })
     switch (change.key) {
+        case 'externalIdPointer':
+            return m.request_external_id()
+        case 'externalUrlPointer':
+            return m.request_external_url()
         case 'method':
             return m.request_method()
         case 'successStatuses':

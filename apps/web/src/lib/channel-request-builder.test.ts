@@ -212,7 +212,56 @@ test('comparison ignores code ordering and does not claim complete contract cove
     const after = structuredClone(before)
     after.execution.request.response.successStatuses = [201, 200]
     after.execution.request.response.externalIdPointer = '/result/id'
-    expect(compareMappedRequests(before, after)).toEqual([])
+    expect(compareMappedRequests(before, after)).toEqual([
+        { key: 'externalIdPointer', before: '/id', after: '/result/id' },
+    ])
     expect(compareMappedRequests(null, after)).toEqual([])
     expect(compareMappedRequests({ ...before, origin: 'built_in' }, after)).toEqual([])
+})
+
+test('response extraction edits add, change and remove pointers without losing mappings', () => {
+    const before = fixture('multipart')
+    let after = apply(before, { kind: 'extraction', field: 'externalIdPointer', value: '/data/id' })
+    after = apply(after, { kind: 'extraction', field: 'externalUrlPointer', value: undefined })
+    const expected = structuredClone(before) as Record<string, unknown>
+    const response = (expected.execution as DeclarativeHttpExecutionContract).request!
+        .response as unknown as Record<string, unknown>
+    response.externalIdPointer = '/data/id'
+    delete response.externalUrlPointer
+    expect(after).toEqual(expected)
+    expect(compareMappedRequests(before, after)).toEqual([
+        { key: 'externalIdPointer', before: '/id', after: '/data/id' },
+        { key: 'externalUrlPointer', before: '/url', after: null },
+    ])
+    after = apply(after, { kind: 'extraction', field: 'externalUrlPointer', value: '/data/link' })
+    expect(compareMappedRequests(expected, after)).toEqual([
+        { key: 'externalUrlPointer', before: null, after: '/data/link' },
+    ])
+    expect(before.execution.request.response.externalUrlPointer).toBe('/url')
+})
+
+test('pointer validation agrees with the domain, including escaped keys and empty-key tokens', () => {
+    for (const value of [
+        '/data/id',
+        '/a~1b/~0key',
+        '/',
+        '/items/0/id',
+        '',
+        'id',
+        '#/id',
+        '/bad~',
+        '/bad~2',
+    ]) {
+        const before = fixture()
+        const execution = structuredClone(before.execution) as DeclarativeHttpExecutionContract
+        const response = execution.request!.response as unknown as Record<string, unknown>
+        response.externalIdPointer = value
+        const valid = validateDeclarativeHttpExecution(execution).length === 0
+        const result = editMappedRequest(before, {
+            kind: 'extraction',
+            field: 'externalIdPointer',
+            value,
+        })
+        expect(result.ok).toBe(valid)
+    }
 })

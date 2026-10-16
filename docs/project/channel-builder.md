@@ -262,8 +262,7 @@ between outcomes does not require a temporary saved classification. Invalid
 local input blocks profile save, while valid edits use the existing save/review/
 activation flow. Preserved request bodies are not equivalent to an editable body
 mapping. Creation of mappings, segment
-addition/removal, expression authoring and response extraction controls remain
-separate work. Existing manual, built-in and Postbot webhook contracts are not
+addition/removal and expression authoring remain separate work. Existing manual, built-in and Postbot webhook contracts are not
 implicitly converted. No runtime compiler dependency is added to the browser.
 
 CHANNEL-490 adds English/French controls and an isolated Storybook example at
@@ -281,6 +280,19 @@ uses the same English/French labels as the form.
 
 This remains a bounded comparison. It does not display dynamic expressions,
 connection secrets, mode conversions, path additions/removals or changes to
-preserved body/header/query/extraction mappings. The existing server assessment
+preserved body/header/query mappings. The existing server assessment
 continues to evaluate the broader profile and affected publications. The heading
 is now Profile changes because it covers both content and HTTP controls.
+
+## Optional response extraction — CHANNEL-492
+
+The HTTP response disclosure includes optional JSON Pointer inputs for the remote
+publication ID and URL. Existing paths are editable; clearing an input removes
+that extraction property rather than storing an empty pointer. Values follow the
+domain's non-root JSON Pointer syntax, including ~0/~1 escapes. Invalid local
+input remains visible and blocks saving without changing the last valid profile.
+
+Extraction edits preserve all other response and request mappings. The profile
+comparison shows path additions, replacements and removals, with Not extracted
+for absence. No example response is sent to a service, and this form does not
+prove that a configured endpoint actually returns those paths or scalar types.

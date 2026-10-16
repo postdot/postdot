@@ -2225,11 +2225,15 @@
     "request_retryable": "Retryable failure",
     "request_rejected": "Rejected",
     "request_ambiguous": "Uncertain outcome",
-    "request_responses": "HTTP response codes",
+    "request_responses": "HTTP response",
     "request_status_invalid": "Use codes from 100 to 599, separated by commas. Each outcome needs at least one code.",
     "request_status_overlap": "Assign each HTTP code to only one outcome.",
     "request_invalid": "Use 1–256 characters for a single segment, without /, ?, # or backslashes. The values “.” and “..” are not allowed.",
-    "request_preserved": "Body, query parameters, headers and response extraction are preserved; they are not editable here yet.",
+    "request_preserved": "Body, query parameters and headers are preserved; they are not editable here yet.",
     "request_secret": "Connection secret · preserved",
-    "request_dynamic": "Dynamic value · {path} · preserved"
+    "request_dynamic": "Dynamic value · {path} · preserved",
+    "request_external_id": "Publication ID in response (optional)",
+    "request_external_url": "Publication URL in response (optional)",
+    "request_pointer_invalid": "Use a JSON Pointer starting with /. Escape ~ as ~0 and / within a key as ~1.",
+    "request_not_extracted": "Not extracted"
 }
