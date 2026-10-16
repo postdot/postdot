@@ -220,11 +220,11 @@ Content-control comparisons now include field presence. Normal composition shows
 optional as well as required supported titles; X still has no title binding.
 Title labels communicate optional/required in the shared field controls.
 
-The preview now mounts PublicationTargetEditor, the same component used for
-destination editing, including its real media picker trigger. Preview-only mode
-disables media actions, hides the advanced raw editor and keeps example content
-local. The main source composer remains a distinct surface; this change does not
-claim that source composition and destination editing are identical layouts.
+The current preview uses PublicationTextEditor in composer appearance and the
+actual MediaAttachmentPicker trigger, matching New publication's attachment and
+emoji toolbar. PublicationTextCount and countComposerText are shared as well.
+Media actions stay disabled and sample content remains local. This does not mount
+the full New publication page or provider-native configured editors.
 
 ## HTTP connection form
 
@@ -239,3 +239,24 @@ remains authoritative if the active profile changes during an open dialog.
 Connection header and actions remain outside the bounded scrolling body. Profile
 loading failures offer an inline retry without clearing entered connection data.
 This does not implement request mapping authoring or convert execution contracts.
+
+## Mapped request editing foundation — CHANNEL-489
+
+`channel-request-builder.ts` is a browser-only projection and targeted-edit
+module, not yet wired to a form. It recognizes custom mapped HTTP contracts and
+allows method changes, replacement of existing static path segments and updates
+to HTTP outcome code lists. It does not convert execution modes, change contract
+identity or modify connection-owned credentials. Dynamic content/context segments
+and secret placeholders remain locked and are preserved as objects.
+
+An edit retains the rest of the original profile, including content rules,
+query/header expressions, nested JSON bodies, form bodies, multipart mappings,
+idempotency configuration and external response pointers. Status lists remain
+nonempty, bounded and disjoint; static segments cannot introduce path separators
+or traversal. The server still performs complete contract validation.
+
+The next form must make its partial scope visible: preserved request bodies are
+not equivalent to an editable body mapping. Creation of mappings, segment
+addition/removal, expression authoring and response extraction controls remain
+separate work. Existing manual, built-in and Postbot webhook contracts are not
+implicitly converted. No runtime compiler dependency is added to the browser.

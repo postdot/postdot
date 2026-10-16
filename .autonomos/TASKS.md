@@ -914,3 +914,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[CHANNEL-487]** Align HTTP connection authentication choices with active contracts and anchor dialog actions `Priority: 🟠` `Complexity: M`
 
 - [x] **[CHANNEL-488]** Restore the local API and verify the contract-aware HTTP connection dialog `Priority: 🟠` `Complexity: M`
+
+- [x] **[CHANNEL-489]** Prove lossless mapped HTTP request edits before structured form integration `Priority: 🟠` `Complexity: M`
