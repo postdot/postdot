@@ -3,7 +3,7 @@ import { requireNonBlank, requireTimestamp } from '@postbot/core'
 import type { PostbotDatabase } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
-export const providerApplicationProviders = ['linkedin', 'bluesky', 'x'] as const
+export const providerApplicationProviders = ['linkedin', 'bluesky', 'x', 'facebook'] as const
 export type ProviderApplicationProvider = (typeof providerApplicationProviders)[number]
 
 export const providerApplicationStates = ['active', 'disabled'] as const
@@ -188,6 +188,8 @@ function normalizeApplication(
             `${input.providerId} application configuration does not accept handleResolver`
         )
     }
+    if (input.providerId === 'facebook' && !/^[1-9]\d*$/.test(input.clientId ?? ''))
+        throw new Error('Facebook application ID must be numeric')
     return {
         providerId: input.providerId,
         name,

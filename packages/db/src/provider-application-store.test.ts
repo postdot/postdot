@@ -185,3 +185,39 @@ describe('provider application store', () => {
         }
     })
 })
+
+it('encrypts Facebook application secrets and rejects non-numeric application IDs', async () => {
+    const { database, store } = createFixture()
+    try {
+        await expect(
+            store.createProviderApplication({
+                providerId: 'facebook',
+                name: 'Invalid',
+                clientId: 'not-an-app-id',
+                clientSecret: 'synthetic-secret',
+                createdByUserId: 'user-1',
+            })
+        ).rejects.toThrow('Facebook application ID must be numeric')
+        const saved = await store.createProviderApplication({
+            providerId: 'facebook',
+            name: 'Facebook',
+            clientId: '12345',
+            clientSecret: 'facebook-encrypted-secret',
+            createdByUserId: 'user-1',
+        })
+        expect(saved.kind).toBe('created')
+        expect(
+            JSON.stringify(store.listProviderApplicationConfigurations('facebook'))
+        ).not.toContain('facebook-encrypted-secret')
+        expect((await store.resolveProviderApplication('facebook'))?.clientSecret).toBe(
+            'facebook-encrypted-secret'
+        )
+        expect(
+            JSON.stringify(
+                database.$client.query('select * from provider_application_configurations').all()
+            )
+        ).not.toContain('facebook-encrypted-secret')
+    } finally {
+        closeDatabase(database)
+    }
+})

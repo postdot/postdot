@@ -81,12 +81,13 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         return 'unavailable' as const
                     }
                 }
-                const [linkedin, bluesky, x] = await Promise.all([
+                const [linkedin, bluesky, x, facebook] = await Promise.all([
                     readiness(() => publisher.resolveLinkedInApplication()),
                     readiness(() => publisher.resolveBlueskyApplication()),
                     readiness(() => publisher.resolveXApplication()),
+                    readiness(() => publisher.resolveFacebookApplication()),
                 ])
-                return { connections, oauthReadiness: { linkedin, bluesky, x } }
+                return { connections, oauthReadiness: { linkedin, bluesky, x, facebook } }
             }
         )
         .post(

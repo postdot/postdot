@@ -957,4 +957,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[FACEBOOK-509]** Wire Facebook OAuth callback and explicit Page selection into session/project authorization and encrypted connection persistence `Priority: 🟠` `Complexity: L` — ISSUE-166; use FACEBOOK-508 primitives, test replay/expiry/foreign access and persistence failure before Studio exposure.
 
-- [ ] **[FACEBOOK-510]** Add encrypted Facebook application configuration and a concise Studio Page-selection flow using the authenticated connection routes `Priority: 🟠` `Complexity: L` — ISSUE-166; preserve pending versus connected state and keep publishing disabled until native profile and worker readiness.
+- [x] **[FACEBOOK-510]** Add encrypted Facebook application configuration and a concise Studio Page-selection flow using the authenticated connection routes `Priority: 🟠` `Complexity: L` — ISSUE-166; preserve pending versus connected state and keep publishing disabled until native profile and worker readiness.
+
+- [ ] **[FACEBOOK-511]** Complete the native Facebook capability contract and durable text/link/single-photo worker before registering channel creation `Priority: 🟠` `Complexity: L` — ISSUE-166; use inspected project media, preserve ambiguous-result recovery, and verify Studio creation-to-connection without live Meta calls.

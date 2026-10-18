@@ -756,6 +756,7 @@ describe('Postbot API', () => {
             expect(await listResponse.json()).toEqual({
                 applications: [created.application],
                 xCallbackUri: `${baseURL}/api/oauth/x/callback`,
+                facebookCallbackUri: `${baseURL}/api/oauth/facebook/callback`,
             })
 
             const disableResponse = await jsonRequest(
@@ -811,6 +812,7 @@ describe('Postbot API', () => {
                 'bluesky',
                 'mastodon',
                 'discord',
+                'telegram',
                 'devto',
                 'x',
             ])
@@ -1143,8 +1145,13 @@ describe('Postbot API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/activate',
                 '/api/projects/{projectId}/publishers',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/custom-http/connect',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/facebook/connect',
+                '/api/oauth/facebook/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/facebook/pages',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/facebook/select',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
                 '/api/oauth/linkedin/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/telegram/connect',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/bluesky/connect',
                 '/api/oauth/bluesky/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/devto/connect',
@@ -1282,7 +1289,7 @@ describe('Postbot API', () => {
                 bearerAuth: {
                     bearerFormat: 'Postbot API key',
                     description:
-                        'A user-owned Postbot API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
+                        'A user-owned Postbot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
                     scheme: 'bearer',
                     type: 'http',
                 },

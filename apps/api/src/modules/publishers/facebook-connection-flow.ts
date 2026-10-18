@@ -42,10 +42,11 @@ export function createFacebookConnectionFlow(options: {
     readonly access: Pick<ReturnType<typeof createAccessStore>, 'canAccessProject'>
     readonly oauth: ReturnType<typeof createFacebookOAuth>
     readonly graph: ReturnType<typeof createFacebookPublisher>
+    readonly applicationId?: string | null
     readonly now?: () => number
 }) {
     const now = options.now ?? Date.now
-    const selectionProvider = 'facebook-page-selection'
+    const selectionProvider = 'facebook'
     const fail = (code: FacebookConnectionError['code']): never => {
         throw new FacebookConnectionError(code)
     }
@@ -90,7 +91,8 @@ export function createFacebookConnectionFlow(options: {
         attempt: AuthorizationAttempt | null,
         binding: Binding,
         actorId: string,
-        providerId: string
+        providerId: string,
+        phase: 'authorization' | 'page-selection'
     ) {
         if (
             !attempt ||
@@ -99,7 +101,9 @@ export function createFacebookConnectionFlow(options: {
             attempt.connectedByActorId !== actorId ||
             attempt.providerId !== providerId ||
             attempt.callbackUri !== options.oauth.callbackUri ||
-            attempt.context.clientId !== options.oauth.clientId
+            attempt.context.clientId !== options.oauth.clientId ||
+            attempt.context.phase !== phase ||
+            (attempt.providerApplicationId ?? null) !== (options.applicationId ?? null)
         )
             return fail('invalid_attempt')
         return attempt
@@ -111,7 +115,8 @@ export function createFacebookConnectionFlow(options: {
             options.attempts.getAuthorizationAttempt(stateDigest),
             binding,
             authorization.actorId,
-            selectionProvider
+            selectionProvider,
+            'page-selection'
         )
         const input = {
             stateDigest,
@@ -148,10 +153,11 @@ export function createFacebookConnectionFlow(options: {
                 channelId: binding.channelId,
                 connectedByActorId: actorId,
                 providerId: 'facebook',
+                providerApplicationId: options.applicationId,
                 callbackUri: options.oauth.callbackUri,
                 scopes: FACEBOOK_PUBLISH_PERMISSIONS,
                 returnPath,
-                context: { clientId: options.oauth.clientId },
+                context: { clientId: options.oauth.clientId, phase: 'authorization' },
                 stateDigest: await digest(request.state),
                 codeVerifier: request.codeVerifier,
             })
@@ -167,7 +173,8 @@ export function createFacebookConnectionFlow(options: {
                 options.attempts.getAuthorizationAttempt(stateDigest),
                 binding,
                 actorId,
-                'facebook'
+                'facebook',
+                'authorization'
             )
             // Consume before exchanging a one-use provider code, including on refused authorization.
             const consumed = await options.attempts.consumeAuthorizationAttempt({
@@ -194,10 +201,11 @@ export function createFacebookConnectionFlow(options: {
                 channelId: binding.channelId,
                 connectedByActorId: actorId,
                 providerId: selectionProvider,
+                providerApplicationId: options.applicationId,
                 callbackUri: options.oauth.callbackUri,
                 scopes: permission.value,
                 returnPath: attempt.returnPath,
-                context: { clientId: options.oauth.clientId },
+                context: { clientId: options.oauth.clientId, phase: 'page-selection' },
                 stateDigest: await digest(selection),
                 codeVerifier: null,
                 providerState: JSON.stringify({

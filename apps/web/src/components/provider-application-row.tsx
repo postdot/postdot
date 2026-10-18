@@ -86,6 +86,7 @@ export function ProviderApplicationRow({
 }
 
 function providerLabel(provider: ProviderApplicationProvider) {
+    if (provider === 'facebook') return m.provider_apps_provider_facebook()
     if (provider === 'linkedin') return m.provider_apps_provider_linkedin()
     if (provider === 'bluesky') return m.provider_apps_provider_bluesky()
     return m.provider_apps_provider_x()

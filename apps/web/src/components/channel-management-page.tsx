@@ -15,6 +15,7 @@ import {
 import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { FacebookPagePickerDialog } from '@/components/facebook-page-picker-dialog'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
@@ -27,6 +28,7 @@ import type { PublisherCallbackResult } from '@/lib/publisher-connection-feedbac
 import * as m from '@/paraglide/messages.js'
 
 interface ChannelManagementPageProps {
+    readonly facebookSelection?: { readonly selection: string; readonly channelId: string }
     readonly onDismissPublisherFeedback?: () => Promise<void>
     readonly publisherFeedback?: {
         readonly channelId?: string
@@ -37,6 +39,7 @@ interface ChannelManagementPageProps {
 export function ChannelManagementPage({
     onDismissPublisherFeedback,
     publisherFeedback,
+    facebookSelection,
 }: ChannelManagementPageProps) {
     useLanguage()
     const { isInstanceAdmin } = useDashboardGlobal()
@@ -105,6 +108,23 @@ export function ChannelManagementPage({
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+            {facebookSelection && canEditProject ? (
+                <FacebookPagePickerDialog
+                    key={facebookSelection.selection}
+                    projectId={project.id}
+                    channelId={facebookSelection.channelId}
+                    channelName={
+                        channels.find(channel => channel.id === facebookSelection.channelId)
+                            ?.name ?? 'Facebook'
+                    }
+                    selection={facebookSelection.selection}
+                    onClose={() => void onDismissPublisherFeedback?.()}
+                    onConnected={async () => {
+                        await onDismissPublisherFeedback?.()
+                        await onRefreshProject()
+                    }}
+                />
+            ) : null}
             <DashboardPageHeader
                 action={
                     canEditProject ? (

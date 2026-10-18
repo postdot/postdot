@@ -36,7 +36,7 @@ export function OAuthConnectionDialog({
     onConnect,
 }: {
     readonly channel: Channel
-    readonly provider: 'LinkedIn' | 'X'
+    readonly provider: 'LinkedIn' | 'X' | 'Facebook'
     readonly disabled: boolean
     readonly reconnect: boolean
     readonly applications: readonly ProviderApplication[]
@@ -73,7 +73,7 @@ export function OAuthConnectionDialog({
     }
 
     // A redirect with no choice needs no intermediate confirmation dialog.
-    if (provider === 'X' && applications.length < 2) {
+    if (provider !== 'LinkedIn' && applications.length < 2) {
         return (
             <div className="flex flex-col items-end gap-2">
                 <Button

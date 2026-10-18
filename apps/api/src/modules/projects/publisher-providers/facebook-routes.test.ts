@@ -149,7 +149,7 @@ test('Facebook HTTP flow redirects to sanitized choices and persists the explici
         expect(await selected.text()).not.toContain('synthetic-page-token')
         const calls = f.calls
         const replay = await f.request(callback, f.owner.cookie)
-        expect(new URL(replay.headers.get('location')!).searchParams.get('publisher_error')).toBe(
+        expect(new URL(replay.headers.get('location')!).searchParams.get('publisher')).toBe(
             'invalid_callback'
         )
         expect(f.calls).toBe(calls)
@@ -178,6 +178,129 @@ test('unconfigured Facebook routes make no provider calls', async () => {
         const response = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
         expect(response.status).toBe(503)
         expect(f.calls).toBe(0)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('Facebook callback and pending selection retain their stored application when the default changes', async () => {
+    const f = await fixture()
+    try {
+        async function application(clientId: string) {
+            const response = await f.request(
+                '/api/settings/provider-applications',
+                f.owner.cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'facebook',
+                        name: `Application ${clientId}`,
+                        clientId,
+                        clientSecret: `synthetic-${clientId}-secret`,
+                        isDefault: true,
+                    }),
+                }
+            )
+            expect(response.status).toBe(201)
+            const text = await response.text()
+            expect(text).not.toContain(`synthetic-${clientId}-secret`)
+            return (JSON.parse(text) as { application: { id: string } }).application.id
+        }
+        const first = await application('111')
+        const start = await f.request(`${f.path}/connect`, f.owner.cookie, {
+            method: 'POST',
+            body: JSON.stringify({ providerApplicationId: first }),
+        })
+        expect(start.status).toBe(200)
+        const auth = new URL(((await start.json()) as { url: string }).url)
+        expect(auth.searchParams.get('client_id')).toBe('111')
+        await application('222')
+        const callback = await f.request(
+            `/api/oauth/facebook/callback?state=${auth.searchParams.get('state')}&code=code`,
+            f.owner.cookie
+        )
+        const selection = new URL(callback.headers.get('location')!).searchParams.get(
+            'facebook_selection'
+        )!
+        expect(selection).toBeTruthy()
+        const selected = await f.request(`${f.path}/select`, f.owner.cookie, {
+            method: 'POST',
+            body: JSON.stringify({ selection, pageId: '456' }),
+        })
+        expect(selected.status).toBe(200)
+        const attempts = f.database.$client
+            .query(
+                'select provider_application_id as application from oauth_authorization_attempts'
+            )
+            .all()
+        expect(attempts).toEqual([{ application: first }, { application: first }])
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('disabling a stored Facebook application invalidates its callback before any provider request', async () => {
+    const f = await fixture()
+    try {
+        const saved = await f.publisher.providerApplicationStore.createProviderApplication({
+            providerId: 'facebook',
+            name: 'Facebook',
+            clientId: '111',
+            clientSecret: 'synthetic-secret',
+            createdByUserId: f.owner.id,
+        })
+        if (saved.kind !== 'created') throw new Error('Expected application')
+        const start = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
+        const url = new URL(((await start.json()) as { url: string }).url)
+        await f.publisher.providerApplicationStore.updateProviderApplication({
+            id: saved.configuration.id,
+            state: 'disabled',
+        })
+        const response = await f.request(
+            `/api/oauth/facebook/callback?state=${url.searchParams.get('state')}&code=code`,
+            f.owner.cookie
+        )
+        expect(new URL(response.headers.get('location')!).searchParams.get('publisher')).toBe(
+            'invalid_callback'
+        )
+        expect(f.calls).toBe(0)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('declining Facebook authorization returns contextual feedback without contacting Meta', async () => {
+    const f = await fixture()
+    try {
+        const start = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
+        const url = new URL(((await start.json()) as { url: string }).url)
+        const response = await f.request(
+            `/api/oauth/facebook/callback?state=${url.searchParams.get('state')}&error=access_denied`,
+            f.owner.cookie
+        )
+        const target = new URL(response.headers.get('location')!)
+        expect(target.pathname).toMatch(/\/dashboard\/projects\/[^/]+\/channels$/)
+        expect(target.searchParams.get('publisher')).toBe('authorization_denied')
+        expect(f.calls).toBe(0)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('a foreign callback session learns no project return path and does not consume the owner attempt', async () => {
+    const f = await fixture()
+    try {
+        const start = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
+        const url = new URL(((await start.json()) as { url: string }).url)
+        const path = `/api/oauth/facebook/callback?state=${url.searchParams.get('state')}&code=code`
+        const stranger = await f.signup('callback-stranger@postbot.test')
+        const rejected = await f.request(path, stranger.cookie)
+        expect(new URL(rejected.headers.get('location')!).pathname).toBe('/dashboard')
+        expect(f.calls).toBe(0)
+        const accepted = await f.request(path, f.owner.cookie)
+        expect(
+            new URL(accepted.headers.get('location')!).searchParams.get('facebook_selection')
+        ).toBeTruthy()
     } finally {
         closeDatabase(f.database)
     }

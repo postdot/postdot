@@ -166,7 +166,15 @@ export type CustomHttpAuthentication =
     | { readonly kind: 'header'; readonly headerName: string }
     | { readonly kind: 'path' }
 
-export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
+export interface FacebookPageChoices {
+    readonly pages: readonly {
+        readonly id: string
+        readonly name: string
+        readonly hasPublishTask: boolean
+    }[]
+    readonly nextCursor: string | null
+}
+export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x' | 'facebook'
 export type ProviderApplicationState = 'active' | 'disabled'
 export type ProviderApplicationOAuthMode = 'loopback' | 'web'
 
@@ -608,10 +616,13 @@ export const api = {
     async listProviderApplications(): Promise<{
         applications: ProviderApplication[]
         xCallbackUri: string
+        facebookCallbackUri: string
     }> {
-        return requestAuth<{ applications: ProviderApplication[]; xCallbackUri: string }>(
-            '/api/settings/provider-applications'
-        )
+        return requestAuth<{
+            applications: ProviderApplication[]
+            xCallbackUri: string
+            facebookCallbackUri: string
+        }>('/api/settings/provider-applications')
     },
 
     listChannelProfilePresets(): Promise<ChannelProfilePresets> {
@@ -1423,6 +1434,43 @@ export const api = {
         )
     },
 
+    async startFacebookPublisherConnection(
+        projectId: string,
+        channelId: string,
+        providerApplicationId?: string
+    ): Promise<{ url: string }> {
+        return unwrap<{ url: string }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.facebook.connect.post({ providerApplicationId })
+        )
+    },
+    async listFacebookPages(
+        projectId: string,
+        channelId: string,
+        selection: string,
+        after?: string
+    ): Promise<FacebookPageChoices> {
+        return unwrap<FacebookPageChoices>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.facebook.pages.get({ query: { selection, after } })
+        )
+    },
+    async selectFacebookPage(
+        projectId: string,
+        channelId: string,
+        input: { selection: string; pageId: string; after?: string }
+    ): Promise<{ connection: PublisherConnection }> {
+        return unwrap<{ connection: PublisherConnection }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.facebook.select.post(input)
+        )
+    },
     async startLinkedInPublisherConnection(
         projectId: string,
         channelId: string,

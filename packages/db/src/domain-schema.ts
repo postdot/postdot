@@ -397,7 +397,7 @@ export const providerApplicationConfigurations = sqliteTable(
             .where(sql`${table.isDefault} = 1`),
         check(
             'provider_application_configurations_provider_valid',
-            sql`${table.providerId} in ('linkedin', 'bluesky', 'x')`
+            sql`${table.providerId} in ('linkedin', 'bluesky', 'x', 'facebook')`
         ),
         check(
             'provider_application_configurations_name_nonblank',
@@ -410,7 +410,7 @@ export const providerApplicationConfigurations = sqliteTable(
         check(
             'provider_application_configurations_shape_valid',
             sql`(
-                ${table.providerId} in ('linkedin', 'x')
+                ${table.providerId} in ('linkedin', 'x', 'facebook')
                 and ${table.clientId} is not null
                 and length(trim(${table.clientId})) > 0
                 and ${table.clientMetadataUrl} is null

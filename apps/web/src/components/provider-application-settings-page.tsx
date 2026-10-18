@@ -23,6 +23,7 @@ import * as m from '@/paraglide/messages.js'
 export function ProviderApplicationSettingsPage() {
     useLanguage()
     const [applications, setApplications] = useState<ProviderApplication[] | null>(null)
+    const [facebookCallbackUri, setFacebookCallbackUri] = useState('')
     const [xCallbackUri, setXCallbackUri] = useState<string | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState<ProviderApplicationFormState>(newProviderApplicationForm)
@@ -43,6 +44,7 @@ export function ProviderApplicationSettingsPage() {
                 if (!cancelled) {
                     setApplications(response.applications)
                     setXCallbackUri(response.xCallbackUri)
+                    setFacebookCallbackUri(response.facebookCallbackUri)
                     setFormOpen(false)
                 }
             })
@@ -145,6 +147,7 @@ export function ProviderApplicationSettingsPage() {
         const response = await api.listProviderApplications()
         setApplications(response.applications)
         setXCallbackUri(response.xCallbackUri)
+        setFacebookCallbackUri(response.facebookCallbackUri)
     }
 
     async function runAction(action: () => Promise<void>) {
@@ -253,9 +256,9 @@ export function ProviderApplicationSettingsPage() {
                 </div>
             </main>
             <DialogContent
-                className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-raised sm:max-w-xl"
+                className="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden bg-surface-raised sm:max-w-xl"
                 showCloseButton={!pending}>
-                <DialogTitle className="pr-6">
+                <DialogTitle className="shrink-0 pr-6">
                     {editingId === null ? m.provider_apps_new() : m.provider_apps_edit()}
                 </DialogTitle>
                 {error ? (
@@ -269,6 +272,7 @@ export function ProviderApplicationSettingsPage() {
                     editingId={editingId}
                     form={form}
                     xCallbackUri={xCallbackUri ?? ''}
+                    facebookCallbackUri={facebookCallbackUri}
                     onCancel={cancelEdit}
                     onFormChange={setForm}
                     onSubmit={event => void handleSubmit(event)}

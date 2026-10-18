@@ -2266,5 +2266,16 @@
     "provider_telegram_channel_invalid": "Enter a channel username (@name) or numeric channel ID.",
     "provider_telegram_channel_placeholder": "@your_channel / -1001234567890",
     "provider_telegram_token_help": "Create a bot with BotFather, then add it as a channel administrator with posting permission.",
-    "provider_telegram_token_help_label": "Where do I find the bot token?"
+    "provider_telegram_token_help_label": "Where do I find the bot token?",
+    "provider_apps_provider_facebook": "Facebook",
+    "provider_facebook_pages_title": "Choose a Facebook Page",
+    "provider_facebook_pages_empty": "No Pages available. Check your Facebook access, then try again.",
+    "provider_facebook_pages_more": "Load more Pages",
+    "provider_facebook_pages_access": "Publishing access required",
+    "provider_facebook_pages_connect": "Connect Page",
+    "provider_facebook_pages_restart": "Start a new Facebook connection.",
+    "provider_apps_callback_uri": "Callback URL",
+    "provider_apps_https_required": "Facebook requires an HTTPS callback URL.",
+    "provider_facebook_app_id": "App ID",
+    "provider_facebook_app_secret": "App secret"
 }

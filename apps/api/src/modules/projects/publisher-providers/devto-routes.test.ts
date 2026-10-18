@@ -241,6 +241,7 @@ it('reports OAuth prerequisites without exposing configuration or mistaking fail
             linkedin: 'not_configured',
             bluesky: 'not_configured',
             x: 'not_configured',
+            facebook: 'not_configured',
         })
         publisher.resolveBlueskyApplication = async () => {
             throw new Error('PRIVATE_CONFIGURATION_SENTINEL')

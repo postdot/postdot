@@ -110,6 +110,7 @@ export function PublisherConnectionPanel({
                         linkedin: 'unavailable',
                         bluesky: 'unavailable',
                         x: 'unavailable',
+                        facebook: 'unavailable',
                     })
             })
         return () => {
@@ -128,7 +129,7 @@ export function PublisherConnectionPanel({
         connectableChannels.some(channel => {
             if (
                 channel.execution.kind !== 'built_in' ||
-                !['linkedin', 'bluesky', 'x'].includes(channel.execution.contractId)
+                !['linkedin', 'bluesky', 'x', 'facebook'].includes(channel.execution.contractId)
             )
                 return false
             const connection = connections.find(item => item.channelId === channel.id)
@@ -204,7 +205,7 @@ export function PublisherConnectionPanel({
                       )
                           return []
                       const provider = channel.execution.contractId
-                      return ['linkedin', 'bluesky', 'x'].includes(provider) &&
+                      return ['linkedin', 'bluesky', 'x', 'facebook'].includes(provider) &&
                           oauthReadiness[provider as ProviderApplicationProvider] ===
                               'not_configured' &&
                           applicationsFor(provider as ProviderApplicationProvider).length === 0
@@ -213,7 +214,9 @@ export function PublisherConnectionPanel({
                                     ? 'LinkedIn'
                                     : provider === 'bluesky'
                                       ? 'Bluesky'
-                                      : 'X',
+                                      : provider === 'facebook'
+                                        ? 'Facebook'
+                                        : 'X',
                             ]
                           : []
                   })
@@ -417,7 +420,7 @@ export function PublisherConnectionPanel({
                             </div>
 
                             {readOnly || channel.state === 'archived' ? null : canConnect &&
-                              ['linkedin', 'bluesky', 'x'].includes(connectionKind) &&
+                              ['linkedin', 'bluesky', 'x', 'facebook'].includes(connectionKind) &&
                               oauthReadiness[connectionKind as ProviderApplicationProvider] !==
                                   'ready' &&
                               applicationsFor(connectionKind as ProviderApplicationProvider)
@@ -445,6 +448,24 @@ export function PublisherConnectionPanel({
                                         ) : null}
                                     </div>
                                 )
+                            ) : connectionKind === 'facebook' && canConnect ? (
+                                <OAuthConnectionDialog
+                                    channel={channel}
+                                    provider="Facebook"
+                                    disabled={pending}
+                                    reconnect={connection !== undefined}
+                                    applications={applicationsFor('facebook')}
+                                    applicationId={selectedApplicationId('facebook')}
+                                    onApplicationChange={id => selectApplication('facebook', id)}
+                                    onConnect={async () => {
+                                        const result = await api.startFacebookPublisherConnection(
+                                            channel.projectId,
+                                            channel.id,
+                                            selectedApplicationId('facebook')
+                                        )
+                                        window.location.assign(result.url)
+                                    }}
+                                />
                             ) : connectionKind === 'linkedin' && canConnect ? (
                                 <OAuthConnectionDialog
                                     channel={channel}

@@ -4,6 +4,7 @@ import shapes from '@dicebear/styles/shapes.json' with { type: 'json' }
 import blueskyIcon from '@iconify-icons/logos/bluesky'
 import devIcon from '@iconify-icons/logos/dev-icon'
 import discordIcon from '@iconify-icons/logos/discord-icon'
+import facebookIcon from '@iconify-icons/logos/facebook'
 import linkedinIcon from '@iconify-icons/logos/linkedin-icon'
 import mastodonIcon from '@iconify-icons/logos/mastodon-icon'
 import telegramIcon from '@iconify-icons/logos/telegram'
@@ -23,6 +24,7 @@ const channelIcons = {
     bluesky: blueskyIcon,
     devto: devIcon,
     discord: discordIcon,
+    facebook: facebookIcon,
     telegram: telegramIcon,
     linkedin: linkedinIcon,
     mastodon: mastodonIcon,

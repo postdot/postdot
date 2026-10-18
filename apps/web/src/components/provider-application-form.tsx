@@ -52,6 +52,7 @@ export function ProviderApplicationForm({
     onSubmit,
     pending,
     xCallbackUri,
+    facebookCallbackUri,
 }: {
     readonly editingApplication?: ProviderApplication
     readonly editingId: string | null
@@ -60,6 +61,7 @@ export function ProviderApplicationForm({
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
     readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
     readonly pending: boolean
+    readonly facebookCallbackUri?: string
     readonly xCallbackUri: string
 }) {
     const requiresSecret =
@@ -72,14 +74,15 @@ export function ProviderApplicationForm({
             : form.clientId.trim() !== '' && (!requiresSecret || form.clientSecret.trim() !== ''))
 
     return (
-        <form className="space-y-5" onSubmit={onSubmit}>
-            <fieldset disabled={pending} className="min-w-0 space-y-5">
+        <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onSubmit}>
+            <fieldset disabled={pending} className="min-h-0 min-w-0 space-y-5 overflow-y-auto">
                 <FieldGroup className="gap-4">
                     <ProviderApplicationFormFields
                         editingId={editingId}
                         form={form}
                         onFormChange={onFormChange}
                         xCallbackUri={xCallbackUri}
+                        facebookCallbackUri={facebookCallbackUri}
                         preserveSecret={editingApplication?.hasClientSecret === true}
                     />
 
@@ -105,16 +108,15 @@ export function ProviderApplicationForm({
                         </FieldContent>
                     </Field>
                 </FieldGroup>
-
-                <div className="flex flex-wrap justify-end gap-2 pt-1">
-                    <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-                        {m.common_cancel()}
-                    </Button>
-                    <Button type="submit" disabled={!canSubmit || pending}>
-                        {editingId === null ? m.provider_apps_create() : m.provider_apps_save()}
-                    </Button>
-                </div>
             </fieldset>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 pt-1">
+                <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
+                    {m.common_cancel()}
+                </Button>
+                <Button type="submit" disabled={!canSubmit || pending}>
+                    {editingId === null ? m.provider_apps_create() : m.provider_apps_save()}
+                </Button>
+            </div>
         </form>
     )
 }

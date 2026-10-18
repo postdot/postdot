@@ -949,6 +949,11 @@ export const customHttpConnectionResponse = Type.Object({
 export const publisherConnectionsSchema = Type.Object({
     connections: Type.Array(publisherConnectionSchema),
     oauthReadiness: Type.Object({
+        facebook: Type.Union([
+            Type.Literal('ready'),
+            Type.Literal('not_configured'),
+            Type.Literal('unavailable'),
+        ]),
         linkedin: Type.Union([
             Type.Literal('ready'),
             Type.Literal('not_configured'),

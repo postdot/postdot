@@ -323,6 +323,38 @@ export function createPublisherRuntime(
         return x === undefined ? undefined : { applicationId: null, ...x }
     }
 
+    const facebookCallbackUri = new URL(
+        '/api/oauth/facebook/callback',
+        options.apiOrigin
+    ).toString()
+    async function resolveFacebookApplication(applicationId?: string | null) {
+        const configured =
+            applicationId === null
+                ? null
+                : await providerApplicationStore.resolveProviderApplication(
+                      'facebook',
+                      applicationId
+                  )
+        if (
+            configured === null &&
+            applicationId !== null &&
+            (applicationId !== undefined ||
+                providerApplicationStore.hasProviderApplication('facebook'))
+        )
+            return undefined
+        const credentials = configured ?? options.facebook
+        if (!credentials?.clientId || !credentials.clientSecret) return undefined
+        return {
+            applicationId: configured?.id ?? null,
+            oauth: createFacebookOAuth({
+                clientId: credentials.clientId,
+                clientSecret: credentials.clientSecret,
+                callbackUri: facebookCallbackUri,
+                fetcher: options.facebook?.fetcher,
+            }),
+            graph: createFacebookPublisher({ fetcher: options.facebook?.fetcher }),
+        }
+    }
     return {
         apiOrigin: options.apiOrigin,
         webOrigin: options.webOrigin,
@@ -334,19 +366,8 @@ export function createPublisherRuntime(
         credentialStore,
         authorizationAttemptStore,
         providerApplicationStore,
-        facebook:
-            options.facebook === undefined
-                ? undefined
-                : {
-                      oauth: createFacebookOAuth({
-                          ...options.facebook,
-                          callbackUri: new URL(
-                              '/api/oauth/facebook/callback',
-                              options.apiOrigin
-                          ).toString(),
-                      }),
-                      graph: createFacebookPublisher({ fetcher: options.facebook.fetcher }),
-                  },
+        facebookCallbackUri,
+        resolveFacebookApplication,
         resolveLinkedInApplication,
         resolveBlueskyApplication,
         resolveXApplication,
