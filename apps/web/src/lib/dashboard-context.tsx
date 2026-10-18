@@ -196,6 +196,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
+    readonly onConnectTelegramPublisher: (
+        channelId: string,
+        input: { botToken: string; chatReference: string }
+    ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<boolean>
     readonly onRetryPublication: (publicationId: string) => Promise<boolean>
@@ -594,6 +598,16 @@ export function ProjectDashboardProvider({
         return true
     }
 
+    async function handleConnectTelegramPublisher(
+        channelId: string,
+        input: { botToken: string; chatReference: string }
+    ): Promise<boolean> {
+        setError(null)
+        await api.connectTelegramPublisher(project.id, channelId, input)
+        await refreshProject()
+        return true
+    }
+
     async function handleConnectDevtoPublisher(
         channelId: string,
         apiKey: string
@@ -776,6 +790,7 @@ export function ProjectDashboardProvider({
         onStartMastodonConnection: handleStartMastodonConnection,
         onStartXConnection: handleStartXConnection,
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
+        onConnectTelegramPublisher: handleConnectTelegramPublisher,
         onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,
         onRetryPublication: handleRetryPublication,

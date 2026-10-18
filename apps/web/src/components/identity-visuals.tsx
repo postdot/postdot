@@ -6,6 +6,7 @@ import devIcon from '@iconify-icons/logos/dev-icon'
 import discordIcon from '@iconify-icons/logos/discord-icon'
 import linkedinIcon from '@iconify-icons/logos/linkedin-icon'
 import mastodonIcon from '@iconify-icons/logos/mastodon-icon'
+import telegramIcon from '@iconify-icons/logos/telegram'
 import xIcon from '@iconify-icons/logos/x'
 import { Icon } from '@iconify/react'
 import { Avatar, AvatarFallback, AvatarImage } from '@postbot/ui/components/avatar'
@@ -22,6 +23,7 @@ const channelIcons = {
     bluesky: blueskyIcon,
     devto: devIcon,
     discord: discordIcon,
+    telegram: telegramIcon,
     linkedin: linkedinIcon,
     mastodon: mastodonIcon,
     x: xIcon,

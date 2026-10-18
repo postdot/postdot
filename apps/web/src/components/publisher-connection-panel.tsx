@@ -13,6 +13,7 @@ import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
 import { OAuthConnectionDialog } from '@/components/oauth-connection-dialog'
+import { TelegramConnectionDialog } from '@/components/telegram-connection-dialog'
 import type {
     Channel,
     ChannelListItem,
@@ -60,6 +61,10 @@ interface PublisherConnectionPanelProps {
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
+    readonly onConnectTelegramPublisher: (
+        channelId: string,
+        input: { botToken: string; chatReference: string }
+    ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
     readonly isInstanceAdmin?: boolean
@@ -78,6 +83,7 @@ export function PublisherConnectionPanel({
     onStartMastodonConnection,
     onStartXConnection,
     onConnectDiscordPublisher,
+    onConnectTelegramPublisher,
     onConnectDevtoPublisher,
     onDisconnectPublisher,
     isInstanceAdmin = false,
@@ -325,6 +331,7 @@ export function PublisherConnectionPanel({
                                           'bluesky',
                                           'mastodon',
                                           'discord',
+                                          'telegram',
                                           'devto',
                                           'x',
                                       ].includes(connectionKind) ? (
@@ -350,9 +357,14 @@ export function PublisherConnectionPanel({
                                                             connection.externalAccountName ??
                                                             connection.externalAccountId,
                                                     })
-                                                  : connection.providerId === 'discord'
+                                                  : ['discord', 'telegram'].includes(
+                                                          connection.providerId
+                                                      )
                                                     ? m.publisher_channel({
-                                                          provider: 'Discord',
+                                                          provider:
+                                                              connection.providerId === 'telegram'
+                                                                  ? 'Telegram'
+                                                                  : 'Discord',
                                                           account:
                                                               connection.destination?.name ??
                                                               connection.destination?.id ??
@@ -479,6 +491,13 @@ export function PublisherConnectionPanel({
                                     applicationId={xApplicationId}
                                     onApplicationChange={id => selectApplication('x', id)}
                                     onConnect={() => onStartXConnection(channel.id, xApplicationId)}
+                                />
+                            ) : connectionKind === 'telegram' && canConnect ? (
+                                <TelegramConnectionDialog
+                                    channel={channel}
+                                    disabled={pending}
+                                    onConnect={onConnectTelegramPublisher}
+                                    reconnect={connection !== undefined}
                                 />
                             ) : connectionKind === 'discord' && canConnect ? (
                                 <DiscordConnectionDialog

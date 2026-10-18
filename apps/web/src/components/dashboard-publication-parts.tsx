@@ -725,6 +725,7 @@ export function channelProfileLabel(profileId: string) {
     if (profileId === 'bluesky') return m.channel_bluesky_profile()
     if (profileId === 'mastodon') return m.channel_mastodon_profile()
     if (profileId === 'discord') return m.channel_discord_profile()
+    if (profileId === 'telegram') return m.channel_telegram_profile()
     if (profileId === 'devto') return m.channel_devto_profile()
     if (profileId === 'manual-message') return m.channel_manual_profile()
     if (profileId === 'custom') return m.channel_custom_profile()

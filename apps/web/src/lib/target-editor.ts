@@ -4,6 +4,8 @@ import { getNativeEditorProfile } from '@/lib/native-presentation'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
 
+import { telegramTextLimit } from './telegram-text-constraints'
+
 /** Keep generic field controls when the profile does not declare native execution. */
 export function getTargetEditorProfile(profile: unknown) {
     const execution = isRecord(profile) && isRecord(profile.execution) ? profile.execution : null
@@ -43,6 +45,7 @@ export interface TargetEditorField {
     readonly minItems: number | null
     readonly maxItems: number | null
     readonly minimum: number | null
+    readonly textLengthUnit?: 'utf16'
     readonly maximum: number | null
     readonly multipleOf: number | null
     readonly acceptedSourceFormats: readonly string[]
@@ -59,7 +62,8 @@ interface TargetEditorBinding {
 
 export function getTargetEditorFields(
     profile: unknown,
-    locale?: Locale
+    locale?: Locale,
+    target?: unknown
 ): readonly TargetEditorField[] {
     if (!isRecord(profile)) return []
 
@@ -96,8 +100,18 @@ export function getTargetEditorFields(
         emittedBindingIds.add(binding.id)
     }
 
-    if (profile.origin !== 'built_in') return fields
-    return fields.map(field => {
+    const telegramLimit = telegramTextLimit(profile, target)
+    const nativeFields = fields.map(field =>
+        telegramLimit !== null && field.semantic === 'primary_text' && field.kind === 'text'
+            ? {
+                  ...field,
+                  maxLength: Math.min(field.maxLength ?? telegramLimit, telegramLimit),
+                  textLengthUnit: 'utf16' as const,
+              }
+            : field
+    )
+    if (profile.origin !== 'built_in') return nativeFields
+    return nativeFields.map(field => {
         const fieldSchema = schema === null ? null : resolveSchemaAtPath(schema, field.path)
         if (typeof fieldSchema?.title === 'string') return field
         const label = builtInFieldLabel(field.semantic, locale)

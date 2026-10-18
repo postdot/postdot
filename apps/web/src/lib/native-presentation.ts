@@ -6,6 +6,7 @@ export function getNativePlatform(execution: ChannelListItem['execution'] | unde
     switch (execution.contractId) {
         case 'x':
         case 'discord':
+        case 'telegram':
         case 'devto':
         case 'linkedin':
         case 'bluesky':

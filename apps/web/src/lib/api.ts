@@ -146,6 +146,7 @@ export type ChannelCreationProfile =
     | 'bluesky'
     | 'mastodon'
     | 'discord'
+    | 'telegram'
     | 'devto'
     | 'x'
     | RuntimeChannelProfile
@@ -1494,6 +1495,19 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.discord.connect.post(input)
+        )
+    },
+
+    async connectTelegramPublisher(
+        projectId: string,
+        channelId: string,
+        input: { botToken: string; chatReference: string }
+    ): Promise<{ connection: PublisherConnection }> {
+        return unwrap<{ connection: PublisherConnection }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.telegram.connect.post(input)
         )
     },
 

@@ -52,7 +52,7 @@ export function PublicationEditorTargetSection({
     issueMessage,
 }: PublicationEditorTargetSectionProps) {
     const { locale } = useLanguage()
-    const fields = getTargetEditorFields(profile, locale)
+    const fields = getTargetEditorFields(profile, locale, target)
     const hasUnmappedIssues = validationIssues.some(
         issue => validationField(fields, issue) === undefined
     )

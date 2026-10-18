@@ -4254,7 +4254,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477; TELEGRAM-498 (official capability review and implementation proposal).
 - Proposal: [SPEC-008](specs/SPEC-008-telegram-publishing.md); owner selected text plus one media on 2026-10-17, albums deferred.
-- Implementation: TELEGRAM-499 adds the isolated provider protocol; TELEGRAM-500 adds the encrypted connection API and versioned profile; TELEGRAM-501 registers execution with pinned media and durable delivery handling. Studio and live acceptance remain pending.
+- Implementation: TELEGRAM-499 adds the isolated provider protocol; TELEGRAM-500 adds the encrypted connection API and versioned profile; TELEGRAM-501 registers execution with pinned media and durable delivery handling. TELEGRAM-502 adds Studio creation, connection and conditional native editor limits. Full storage/worker media acceptance and live acceptance remain pending.
 - Source: owner product direction, 2026-10-16.
 
 

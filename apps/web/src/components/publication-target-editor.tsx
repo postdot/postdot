@@ -50,7 +50,10 @@ export function PublicationTargetEditor({
     compact = false,
 }: PublicationTargetEditorProps) {
     const { locale } = useLanguage()
-    const fields = useMemo(() => getTargetEditorFields(profile, locale), [profile, locale])
+    const fields = useMemo(
+        () => getTargetEditorFields(profile, locale, target),
+        [profile, locale, target]
+    )
     const [advancedOpen, setAdvancedOpen] = useState(target === null)
 
     useEffect(() => {

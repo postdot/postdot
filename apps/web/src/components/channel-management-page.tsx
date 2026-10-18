@@ -57,6 +57,7 @@ export function ChannelManagementPage({
         onStartMastodonConnection,
         onStartXConnection,
         onConnectDiscordPublisher,
+        onConnectTelegramPublisher,
         onConnectDevtoPublisher,
         pending,
         postContent,
@@ -174,6 +175,7 @@ export function ChannelManagementPage({
                         onStartMastodonConnection={onStartMastodonConnection}
                         onStartXConnection={onStartXConnection}
                         onConnectDiscordPublisher={onConnectDiscordPublisher}
+                        onConnectTelegramPublisher={onConnectTelegramPublisher}
                         onConnectDevtoPublisher={onConnectDevtoPublisher}
                         onDisconnectPublisher={onDisconnectPublisher}
                         isInstanceAdmin={isInstanceAdmin}

@@ -212,9 +212,9 @@ export function NewPublicationPage({
     const textFields = useMemo(
         () =>
             !profileQuery.isError && profileQuery.data
-                ? getComposerTextFields(profileQuery.data.active.profile)
+                ? getComposerTextFields(profileQuery.data.active.profile, { media: sourceMedia })
                 : null,
-        [profileQuery.data, profileQuery.isError]
+        [profileQuery.data, profileQuery.isError, sourceMedia]
     )
     const showHeadline = textFields?.headline !== undefined && textFields?.headline !== null
     const headlineCount = textFields?.headline

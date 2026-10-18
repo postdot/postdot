@@ -1,10 +1,10 @@
 import { getTargetEditorFields } from './target-editor'
 
-export function getComposerTextFields(profile: unknown) {
+export function getComposerTextFields(profile: unknown, target?: unknown) {
     const capabilities =
         isRecord(profile) && isRecord(profile.capabilities) ? profile.capabilities : null
     const textFields = Array.isArray(capabilities?.textFields) ? capabilities.textFields : []
-    const fields = getTargetEditorFields(profile)
+    const fields = getTargetEditorFields(profile, undefined, target)
     const read = (semantic: 'headline' | 'primary_text') => {
         const field = fields.find(item => item.semantic === semantic && item.kind === 'text')
         if (field === undefined) return null
@@ -29,7 +29,8 @@ export function countComposerText(
     text: string,
     constraint: NonNullable<ReturnType<typeof getComposerTextFields>['body']>
 ) {
-    const characters = Array.from(text).length
+    const characters =
+        constraint.field.textLengthUnit === 'utf16' ? text.length : Array.from(text).length
     const graphemes =
         constraint.maxGraphemes === null
             ? null

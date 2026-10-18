@@ -3,7 +3,15 @@ import { expect, test } from 'bun:test'
 import { getNativeEditorProfile, getNativePlatform } from './native-presentation'
 
 test('native presentation follows explicit execution, not custom identity', () => {
-    for (const contractId of ['x', 'discord', 'devto', 'linkedin', 'bluesky', 'mastodon']) {
+    for (const contractId of [
+        'x',
+        'discord',
+        'telegram',
+        'devto',
+        'linkedin',
+        'bluesky',
+        'mastodon',
+    ]) {
         expect(getNativePlatform({ kind: 'built_in', contractId })).toBe(contractId)
     }
     expect(getNativePlatform({ kind: 'manual' })).toBe('custom')

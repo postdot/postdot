@@ -6,7 +6,9 @@ export function channelVariant(channelId: string, channels: readonly ChannelIden
     const channel = channels.find(item => item.id === channelId)
     if (
         channel === undefined ||
-        !['linkedin', 'x', 'bluesky', 'mastodon', 'discord', 'devto'].includes(channel.profileId)
+        !['linkedin', 'x', 'bluesky', 'mastodon', 'discord', 'telegram', 'devto'].includes(
+            channel.profileId
+        )
     )
         return undefined
     const peers = channels

@@ -14,8 +14,10 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'
 
+import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
+import { countComposerText } from '@/lib/composer-text-constraints'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import {
@@ -66,6 +68,10 @@ export function TargetFieldControl({
         typeof value === 'string' &&
         value.trim().length > 0 &&
         !weightedText.valid
+    const nativeConstraint = field.textLengthUnit === 'utf16' ? { field, maxGraphemes: null } : null
+    const nativeCount = nativeConstraint
+        ? countComposerText(typeof value === 'string' ? value : '', nativeConstraint)
+        : null
     const description =
         compact && field.kind !== 'unsupported' && field.kind !== 'readonly'
             ? null
@@ -158,11 +164,15 @@ export function TargetFieldControl({
                                     minLength={field.minLength ?? undefined}
                                     maxLength={field.maxLength ?? undefined}
                                     aria-invalid={
-                                        Boolean(error) || weightedTextInvalid || undefined
+                                        Boolean(error) ||
+                                        weightedTextInvalid ||
+                                        nativeCount?.invalid ||
+                                        undefined
                                     }
                                     aria-describedby={
                                         [
                                             errorId,
+                                            nativeCount ? `${fieldId}-native-count` : undefined,
                                             weightedText === null
                                                 ? undefined
                                                 : `${fieldId}-weighted-count`,
@@ -174,6 +184,13 @@ export function TargetFieldControl({
                                     className="min-h-32 min-w-0 max-w-full text-sm leading-6"
                                 />
                             )}
+                            {nativeCount && nativeConstraint ? (
+                                <PublicationTextCount
+                                    id={`${fieldId}-native-count`}
+                                    result={nativeCount}
+                                    constraint={nativeConstraint}
+                                />
+                            ) : null}
                             {weightedText !== null ? (
                                 <XWeightedTextCount
                                     id={`${fieldId}-weighted-count`}

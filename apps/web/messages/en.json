@@ -2259,5 +2259,13 @@
     "request_query_remove": "Remove parameter {name}",
     "request_query_name": "New parameter name",
     "request_query_preserved": "Mapped value · preserved",
-    "request_query_invalid": "Use a unique name, up to 128 characters, without surrounding spaces or line breaks."
+    "request_query_invalid": "Use a unique name, up to 128 characters, without surrounding spaces or line breaks.",
+    "channel_telegram_profile": "Telegram channel",
+    "provider_connect_telegram": "Connect Telegram",
+    "provider_telegram_channel_id": "Telegram channel",
+    "provider_telegram_channel_invalid": "Enter a channel username (@name) or numeric channel ID.",
+    "provider_telegram_channel_placeholder": "@your_channel",
+    "provider_telegram_channel_help": "Public username or private channel ID.",
+    "provider_telegram_description": "Connect a bot with permission to post in this channel. Verification sends no message.",
+    "provider_telegram_token_help": "Create a bot with BotFather, then add it as a channel administrator with posting permission."
 }

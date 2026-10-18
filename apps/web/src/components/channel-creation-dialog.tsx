@@ -56,6 +56,7 @@ type ProfileChoice =
     | 'mastodon'
     | 'x'
     | 'discord'
+    | 'telegram'
     | 'devto'
     | 'custom'
 
@@ -199,6 +200,7 @@ export function ChannelCreationDialog({
         { value: 'mastodon', label: m.channel_mastodon_profile() },
         { value: 'x', label: m.channel_x_profile() },
         { value: 'discord', label: m.channel_discord_profile() },
+        { value: 'telegram', label: m.channel_telegram_profile() },
         { value: 'devto', label: m.channel_devto_profile() },
         { value: 'custom', label: m.channel_custom_profile() },
     ]
@@ -211,6 +213,7 @@ export function ChannelCreationDialog({
             mastodon: 'Mastodon',
             x: 'X.com',
             discord: 'Discord',
+            telegram: 'Telegram',
             devto: 'DEV.to',
             'manual-message': m.channel_default_manual_name(),
         }
@@ -519,6 +522,7 @@ function templateLabel(templateId: string) {
         if (profileId === 'bluesky') return m.channel_bluesky_profile()
         if (profileId === 'mastodon') return m.channel_mastodon_profile()
         if (profileId === 'discord') return m.channel_discord_profile()
+        if (profileId === 'telegram') return m.channel_telegram_profile()
         if (profileId === 'devto') return m.channel_devto_profile()
         if (profileId === 'x') return m.channel_x_profile()
     }

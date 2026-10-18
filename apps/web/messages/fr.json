@@ -2259,5 +2259,13 @@
     "request_query_remove": "Supprimer le paramètre {name}",
     "request_query_name": "Nom du nouveau paramètre",
     "request_query_preserved": "Valeur calculée · conservée",
-    "request_query_invalid": "Utilisez un nom unique de 128 caractères maximum, sans espaces autour ni sauts de ligne."
+    "request_query_invalid": "Utilisez un nom unique de 128 caractères maximum, sans espaces autour ni sauts de ligne.",
+    "channel_telegram_profile": "Canal Telegram",
+    "provider_connect_telegram": "Connecter Telegram",
+    "provider_telegram_channel_id": "Canal Telegram",
+    "provider_telegram_channel_invalid": "Indiquez le nom du canal (@nom) ou son identifiant numérique.",
+    "provider_telegram_channel_placeholder": "@votre_canal",
+    "provider_telegram_channel_help": "Nom public ou identifiant du canal privé.",
+    "provider_telegram_description": "Connectez un bot autorisé à publier dans ce canal. La vérification n’envoie aucun message.",
+    "provider_telegram_token_help": "Créez un bot avec BotFather, puis ajoutez-le comme administrateur du canal avec le droit de publier."
 }

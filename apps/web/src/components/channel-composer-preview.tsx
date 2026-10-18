@@ -28,12 +28,15 @@ export function ChannelComposerPreview({
     const { locale } = useLanguage()
     const id = useId()
     const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null)
-    const fields = useMemo(() => getTargetEditorFields(profile, locale), [profile, locale])
+    const fields = useMemo(
+        () => getTargetEditorFields(profile, locale, target),
+        [profile, locale, target]
+    )
     const body = fields.find(field => field.semantic === 'primary_text' && field.kind === 'text')
     const media = fields.find(field => field.kind === 'media')
     const text = body ? readTargetField(target, body.path) : ''
     const value = typeof text === 'string' ? text : ''
-    const constraint = useMemo(() => getComposerTextFields(profile).body, [profile])
+    const constraint = useMemo(() => getComposerTextFields(profile, target).body, [profile, target])
     const count = constraint ? countComposerText(value, constraint) : null
     return (
         <div className="min-w-0">
