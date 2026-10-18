@@ -64,12 +64,17 @@ async function fixture(configured = true) {
         publisher,
         notifications: createNotificationStore(database),
     })
-    async function request(path: string, cookie = '', init: RequestInit = {}) {
+    async function request(
+        path: string,
+        cookie = '',
+        init: RequestInit = {},
+        transportOrigin = origin
+    ) {
         const headers = new Headers(init.headers)
         headers.set('origin', origin)
         if (cookie) headers.set('cookie', cookie)
         if (init.body !== undefined) headers.set('content-type', 'application/json')
-        return app.handle(new Request(`${origin}${path}`, { ...init, headers }))
+        return app.handle(new Request(`${transportOrigin}${path}`, { ...init, headers }))
     }
     async function signup(email: string) {
         const response = await request('/api/auth/sign-up/email', '', {
@@ -299,6 +304,30 @@ test('a foreign callback session learns no project return path and does not cons
         expect(
             new URL(accepted.headers.get('location')!).searchParams.get('facebook_selection')
         ).toBeTruthy()
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('Facebook callback uses the configured public origin behind a TLS proxy', async () => {
+    const f = await fixture()
+    try {
+        const start = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
+        const authorization = new URL(((await start.json()) as { url: string }).url)
+        const callback = `/api/oauth/facebook/callback?state=${authorization.searchParams.get('state')}&code=synthetic-code`
+        const completed = await f.request(
+            callback,
+            f.owner.cookie,
+            {
+                headers: { 'x-forwarded-host': 'attacker.test', 'x-forwarded-proto': 'http' },
+            },
+            'http://internal:3003'
+        )
+        expect(completed.status).toBe(303)
+        const location = new URL(completed.headers.get('location')!)
+        expect(location.origin).toBe(origin)
+        expect(location.searchParams.get('facebook_selection')?.length).toBeGreaterThan(32)
+        expect(f.calls).toBeGreaterThan(0)
     } finally {
         closeDatabase(f.database)
     }

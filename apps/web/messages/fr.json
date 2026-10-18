@@ -668,6 +668,7 @@
     "publisher_account": "Compte {provider} · {account}",
     "publisher_channel": "Canal {provider} · {account}",
     "publisher_page": "Page LinkedIn · {account}",
+    "publisher_facebook_page": "Page Facebook · {account}",
     "publisher_member": "Membre LinkedIn · {account}",
     "publisher_custom_endpoint": "Endpoint HTTP personnalisé",
     "publisher_bearer_auth": "authentification bearer",

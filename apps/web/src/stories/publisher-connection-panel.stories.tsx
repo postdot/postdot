@@ -1,5 +1,6 @@
 import { SolarProvider } from '@solar-icons/react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { ChannelListItem, PublisherConnection } from '@/lib/api'
@@ -8,6 +9,8 @@ import { LanguageProvider } from '@/lib/i18n'
 const STORY_PROJECT_ID = 'publisher-connections-story'
 
 const channels: ChannelListItem[] = [
+    createChannel('facebook-ready', 'Facebook Page', 'facebook'),
+    createChannel('facebook-connected', 'Connected Facebook Page', 'facebook'),
     createChannel('manual', 'Manual publishing', 'manual-message'),
     createChannel('active', 'LinkedIn account', 'linkedin'),
     createChannel('reconnect', 'Expired LinkedIn account', 'linkedin'),
@@ -15,6 +18,15 @@ const channels: ChannelListItem[] = [
 ]
 
 const connections: PublisherConnection[] = [
+    createConnection({
+        channelId: 'facebook-connected',
+        destination: { type: 'channel', id: 'page-1', name: 'Postbot Test' },
+        externalAccountId: 'page-1',
+        externalAccountName: 'Postbot Test',
+        kind: 'facebook',
+        providerId: 'facebook',
+        state: 'active',
+    }),
     createConnection({
         channelId: 'active',
         destination: { type: 'member', id: 'member-1', name: 'Postbot team' },
@@ -42,12 +54,21 @@ const connections: PublisherConnection[] = [
     }),
 ]
 
-const meta = {
+const storyQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+const meta: Meta<typeof PublisherConnectionPanel> = {
     title: 'Channels/Readiness',
     component: PublisherConnectionPanel,
+    decorators: [
+        Story => (
+            <QueryClientProvider client={storyQueryClient}>
+                <Story />
+            </QueryClientProvider>
+        ),
+    ],
     parameters: { layout: 'fullscreen' },
     tags: ['autodocs'],
-} satisfies Meta<typeof PublisherConnectionPanel>
+}
 
 export default meta
 

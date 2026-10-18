@@ -961,4 +961,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[FACEBOOK-511]** Complete the native Facebook capability contract and durable text/link/single-photo worker before registering channel creation `Priority: 🟠` `Complexity: L` — ISSUE-166; native unknown-limit contract, creation preset, validation and production worker registered; synthetic creation-to-connection and worker checks passed.
 
-- [/] **[FACEBOOK-512]** Validate the native Facebook connection and text/photo publication with an owner-authorized test account and Page `Priority: 🟠` `Complexity: M` — ISSUE-166; prepare Meta application, verify permissions and record observed outcomes without storing secrets in repository artifacts.
+- [x] **[FACEBOOK-512]** Validate the native Facebook connection and text/photo publication with an owner-authorized test account and Page `Priority: 🟠` `Complexity: M` — ISSUE-166; prepare Meta application, verify permissions and record observed outcomes without storing secrets in repository artifacts.

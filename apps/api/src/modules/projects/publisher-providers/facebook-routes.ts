@@ -147,7 +147,10 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
                     })
                 if (authMethod !== 'session') return redirect(fallback)
                 try {
-                    const parameters = new URL(request.url)
+                    // TLS may terminate at a proxy. The configured callback owns the public
+                    // origin; forwarded headers must not choose the OAuth redirect identity.
+                    const parameters = new URL(publisher.facebookCallbackUri)
+                    parameters.search = new URL(request.url).search
                     if (parameters.searchParams.getAll('state').length !== 1)
                         return redirect(fallback)
                     const state = parameters.searchParams.get('state') ?? ''

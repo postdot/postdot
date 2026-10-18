@@ -4265,7 +4265,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The owner requests mainstream networks beyond the existing six. No first-party Meta publishing adapters were found. Official documentation access in PRODUCT-477 was rate-limited.
 - Desired outcome: Verify supported account types, permissions, app review/development access and initial publication formats before implementation. Record unknowns instead of promising personal-profile support or universal content formats.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review), FACEBOOK-506 (isolated Pages discovery and text/link/photo protocol), FACEBOOK-507 (isolated content profile and granted-permission Page selection), FACEBOOK-508 (confidential OAuth adapter), FACEBOOK-509 (authenticated callback and connection persistence), FACEBOOK-510 (encrypted application settings and gated Studio Page picker), FACEBOOK-511 (native capability and worker completion). FACEBOOK-511 registers the native profile, validation, Studio creation and production worker after owner acceptance of an explicitly unknown text maximum. Synthetic creation-to-connection and worker tests pass. Real Meta acceptance remains pending.
+- Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review), FACEBOOK-506 (isolated Pages discovery and text/link/photo protocol), FACEBOOK-507 (isolated content profile and granted-permission Page selection), FACEBOOK-508 (confidential OAuth adapter), FACEBOOK-509 (authenticated callback and connection persistence), FACEBOOK-510 (encrypted application settings and gated Studio Page picker), FACEBOOK-511 (native capability and worker completion). FACEBOOK-511 registers the native profile, validation, Studio creation and production worker after owner acceptance of an explicitly unknown text maximum. Synthetic creation-to-connection and worker tests pass. FACEBOOK-512 verified live OAuth, explicit Page selection and text/single-PNG publishing on an owner-authorized test Page. App Review and other businesses remain unverified.
 - Research: [Meta integration discovery](../docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
@@ -4373,3 +4373,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: TELEGRAM-499 observed the default Docker context transferring over 4.9 GB before cancellation. Local test-results occupied 7.4 GB and data occupied 218 MB; neither directory is excluded by .dockerignore. These are local/generated inputs rather than production sources. The successful check used a tar context containing tracked files plus the new provider package.
 - Desired outcome: Keep routine production contexts bounded and exclude generated test outputs and runtime data without hiding required workspace manifests or fixtures. Verify the normal Docker build with representative local outputs present. No runtime data was deleted during discovery.
 - Tasks: TELEGRAM-499 (evidence); dedicated build-context cleanup remains pending.
+
+
+## [ISSUE-177] Verify publication detail refresh after automatic delivery
+
+- Type: defect investigation
+- Status: open
+- Evidence: FACEBOOK-512 observed the open publication detail still displaying Queued after its isolated database recorded a successful automatic Facebook publication. Reloading showed Published. The remote post was independently visible on Facebook. The cause and exact update delay have not been isolated; a proxy stream or route subscription is a hypothesis, not a conclusion.
+- Desired outcome: Reproduce the subscribed detail transition through a controlled local worker event and, if relevant, a TLS proxy. Preserve authoritative publication state and avoid adding polling without evidence.
+- Source: live acceptance observation during FACEBOOK-512; follow-up remains pending.

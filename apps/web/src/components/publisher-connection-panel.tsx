@@ -335,6 +335,7 @@ export function PublisherConnectionPanel({
                                           'mastodon',
                                           'discord',
                                           'telegram',
+                                          'facebook',
                                           'devto',
                                           'x',
                                       ].includes(connectionKind) ? (
@@ -373,26 +374,33 @@ export function PublisherConnectionPanel({
                                                               connection.destination?.id ??
                                                               connection.externalAccountId,
                                                       })
-                                                    : connection.providerId === 'devto'
-                                                      ? m.publisher_account({
-                                                            provider: 'DEV.to',
+                                                    : connection.providerId === 'facebook'
+                                                      ? m.publisher_facebook_page({
                                                             account:
                                                                 connection.destination?.name ??
                                                                 connection.externalAccountName ??
                                                                 connection.externalAccountId,
                                                         })
-                                                      : connection.destination?.type ===
-                                                          'organization'
-                                                        ? m.publisher_page({
+                                                      : connection.providerId === 'devto'
+                                                        ? m.publisher_account({
+                                                              provider: 'DEV.to',
                                                               account:
-                                                                  connection.destination.name ??
-                                                                  connection.destination.id,
-                                                          })
-                                                        : m.publisher_member({
-                                                              account:
+                                                                  connection.destination?.name ??
                                                                   connection.externalAccountName ??
                                                                   connection.externalAccountId,
-                                                          })}
+                                                          })
+                                                        : connection.destination?.type ===
+                                                            'organization'
+                                                          ? m.publisher_page({
+                                                                account:
+                                                                    connection.destination.name ??
+                                                                    connection.destination.id,
+                                                            })
+                                                          : m.publisher_member({
+                                                                account:
+                                                                    connection.externalAccountName ??
+                                                                    connection.externalAccountId,
+                                                            })}
                                         </p>
                                     ) : null}
                                     {connection !== undefined &&
