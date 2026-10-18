@@ -959,4 +959,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[FACEBOOK-510]** Add encrypted Facebook application configuration and a concise Studio Page-selection flow using the authenticated connection routes `Priority: 🟠` `Complexity: L` — ISSUE-166; preserve pending versus connected state and keep publishing disabled until native profile and worker readiness.
 
-- [ ] **[FACEBOOK-511]** Complete the native Facebook capability contract and durable text/link/single-photo worker before registering channel creation `Priority: 🟠` `Complexity: L` — ISSUE-166; use inspected project media, preserve ambiguous-result recovery, and verify Studio creation-to-connection without live Meta calls.
+- [/] **[FACEBOOK-511]** Complete the native Facebook capability contract and durable text/link/single-photo worker before registering channel creation `Priority: 🟠` `Complexity: L` — ISSUE-166; worker adapter and isolated execution tests implemented; activation awaits the explicit unknown-text-limit versus Postbot-ceiling decision, followed by Studio creation-to-connection checks.
