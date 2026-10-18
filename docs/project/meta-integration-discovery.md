@@ -15,7 +15,7 @@ Checked: 2026-10-18. Related: ISSUE-166, META-505.
    separate permissions and product slices.
 
 This sequence is a recommendation, not a reason to make the first format the
-permanent feature ceiling. No provider has been registered by this discovery.
+permanent feature ceiling. No provider has been registered by this discovery. FACEBOOK-506 subsequently adds an isolated Pages protocol package; OAuth connection setup, profiles, worker and Studio integration are not active yet.
 
 ## What the provider documentation establishes
 
@@ -36,9 +36,9 @@ identity rather than treating the uploaded asset as the published post. Video
 uses a separate API. Its broad prerequisite list covers replies/moderation too;
 do not request every listed permission for a publishing-only feature.
 
-Permission candidates to verify against each selected endpoint before coding:
+Verified on 2026-10-18 against the v26.0 [Page Feed publishing](https://developers.facebook.com/docs/graph-api/reference/page/feed/) and [Page Photos creating](https://developers.facebook.com/docs/graph-api/reference/page/photos/) references:
 `pages_show_list` for discovery, `pages_manage_posts` for publishing and
-`pages_read_engagement` where required. Do not silently add messaging, ads,
+`pages_read_engagement` for this bounded flow, with the authorizing person able to perform CREATE_CONTENT. Do not silently add messaging, ads,
 moderation or business-management scopes. Version-specific endpoint requirements
 and granted Page tasks must be part of connection acceptance tests.
 
@@ -116,10 +116,7 @@ mock is not evidence that Meta fetched an installation's URL or approved its app
 
 ## Next bounded lot
 
-Prepare a Facebook Pages protocol/profile proposal with exact endpoint permission
-references, text/link and single-photo behavior, post-versus-photo identity,
-error classification and connection discovery. Validate with injected transport
-and synthetic identities before adding Studio controls. This work does not need
+The isolated Pages protocol now covers discovery and text/link/single-photo publishing with injected transport tests. Photo bytes use the documented multipart upload, avoiding a public image URL requirement for this Facebook slice. Next: register a versioned profile and project connection setup, then integrate the worker with pinned media and durable delivery states before adding Studio controls. This work does not need
 to wait for public App Review, but real authorization/publishing tests require an
 explicit test app, Page and operator authorization.
 

@@ -948,3 +948,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[STUDIO-504]** Reduce Telegram connection copy and disclose setup help on demand `Priority: 🟠` `Complexity: S`
 
 - [x] **[META-505]** Verify Facebook/Instagram publishing access and map a bounded integration proposal to existing contracts `Priority: 🟠` `Complexity: M` — ISSUE-166; research only, no provider registration or live action.
+
+- [x] **[FACEBOOK-506]** Add an isolated Facebook Pages discovery and text/link/single-photo protocol with synthetic transport tests `Priority: 🟠` `Complexity: M` — ISSUE-166; no OAuth app registration, worker activation or live send.

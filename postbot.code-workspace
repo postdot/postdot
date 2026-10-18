@@ -25,6 +25,10 @@
       "path": "packages/client",
     },
     {
+      "name": "facebook",
+      "path": "packages/facebook",
+    },
+    {
       "name": "telegram",
       "path": "packages/telegram",
     },

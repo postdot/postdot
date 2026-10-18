@@ -297,6 +297,18 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/facebook": {
+      "name": "@postbot/facebook",
+      "version": "0.0.0",
+      "dependencies": {
+        "@postbot/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.2",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/linkedin": {
       "name": "@postbot/linkedin",
       "version": "0.0.0",
@@ -1233,6 +1245,8 @@
     "@postbot/docs": ["@postbot/docs@workspace:apps/docs"],
 
     "@postbot/email": ["@postbot/email@workspace:packages/email"],
+
+    "@postbot/facebook": ["@postbot/facebook@workspace:packages/facebook"],
 
     "@postbot/linkedin": ["@postbot/linkedin@workspace:packages/linkedin"],
 
