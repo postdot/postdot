@@ -75,6 +75,79 @@ async function createAttemptInput(fixture: ReturnType<typeof createFixture>, sta
     } as const
 }
 
+it('reads a bound pending provider phase without consuming it or exposing the PKCE verifier', async () => {
+    const fixture = createFixture()
+    try {
+        const input = {
+            ...(await createAttemptInput(fixture, 'pending-page-choice')),
+            providerState: 'synthetic-user-token',
+        }
+        expect((await fixture.store.createAuthorizationAttempt(input)).kind).toBe('created')
+        const binding = {
+            stateDigest: input.stateDigest,
+            connectedByActorId: input.connectedByActorId,
+            providerId: input.providerId,
+            callbackUri: input.callbackUri,
+        }
+        for (const wrong of [
+            { ...binding, connectedByActorId: 'another-actor' },
+            { ...binding, providerId: 'other' },
+            { ...binding, callbackUri: 'https://attacker.test/callback' },
+        ])
+            expect(await fixture.store.readPendingAuthorizationProviderState(wrong)).toEqual({
+                kind: 'mismatch',
+            })
+        const first = await fixture.store.readPendingAuthorizationProviderState(binding)
+        expect(first).toMatchObject({ kind: 'ready', providerState: input.providerState })
+        expect(Object.keys(first)).not.toContain('codeVerifier')
+        expect(await fixture.store.readPendingAuthorizationProviderState(binding)).toEqual(first)
+        const raw = fixture.database.$client
+            .query('select * from oauth_authorization_attempts')
+            .get()
+        expect(JSON.stringify(raw)).not.toContain(input.providerState)
+        expect(await fixture.store.consumeAuthorizationAttempt(binding)).toMatchObject({
+            kind: 'consumed',
+            providerState: input.providerState,
+        })
+        expect(await fixture.store.readPendingAuthorizationProviderState(binding)).toEqual({
+            kind: 'already_used',
+        })
+        expect(
+            fixture.database.$client
+                .query(
+                    'select provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
+                )
+                .get()
+        ).toEqual({ ciphertext: null })
+    } finally {
+        closeDatabase(fixture.database)
+    }
+})
+
+it('expired pending provider inspection erases the encrypted state instead of revealing it', async () => {
+    const fixture = createFixture()
+    try {
+        const input = {
+            ...(await createAttemptInput(fixture, 'expired-page-choice')),
+            providerState: 'expired-token',
+        }
+        await fixture.store.createAuthorizationAttempt(input)
+        fixture.advance(60_000)
+        expect(await fixture.store.readPendingAuthorizationProviderState(input)).toEqual({
+            kind: 'expired',
+        })
+        expect(
+            fixture.database.$client
+                .query(
+                    'select provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
+                )
+                .get()
+        ).toEqual({ ciphertext: null })
+    } finally {
+        closeDatabase(fixture.database)
+    }
+})
+
 describe('OAuth authorization attempt store', () => {
     it('rejects authorization attempts for archived channels', async () => {
         const fixture = createFixture()

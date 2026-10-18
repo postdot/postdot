@@ -20,7 +20,8 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*"
+        "@postbot/core": "workspace:*",
+        "@postbot/oauth": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

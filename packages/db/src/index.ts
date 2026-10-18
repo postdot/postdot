@@ -212,6 +212,7 @@ export type {
     AuthorizationAttemptStoreOptions,
     ConsumeAuthorizationAttemptInput,
     ConsumeAuthorizationAttemptResult,
+    ReadAuthorizationProviderStateResult,
     CreateAuthorizationAttemptInput,
     CreateAuthorizationAttemptResult,
 } from './oauth-authorization-attempt-store'

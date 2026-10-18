@@ -952,3 +952,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[FACEBOOK-506]** Add an isolated Facebook Pages discovery and text/link/single-photo protocol with synthetic transport tests `Priority: 🟠` `Complexity: M` — ISSUE-166; no OAuth app registration, worker activation or live send.
 
 - [x] **[FACEBOOK-507]** Define the versioned Facebook content profile and verify actual granted permissions before Page selection `Priority: 🟠` `Complexity: M` — ISSUE-166; keep runtime registration disabled until OAuth exchange compatibility is established.
+
+- [x] **[FACEBOOK-508]** Implement the documented confidential Meta OAuth adapter and encrypted pending-state read primitive with isolated tests `Priority: 🟠` `Complexity: L` — ISSUE-166; no live Meta authorization or production enablement.
+
+- [ ] **[FACEBOOK-509]** Wire Facebook OAuth callback and explicit Page selection into session/project authorization and encrypted connection persistence `Priority: 🟠` `Complexity: L` — ISSUE-166; use FACEBOOK-508 primitives, test replay/expiry/foreign access and persistence failure before Studio exposure.

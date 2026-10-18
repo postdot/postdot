@@ -302,6 +302,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@postbot/core": "workspace:*",
+        "@postbot/oauth": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

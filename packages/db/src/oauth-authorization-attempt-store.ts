@@ -65,6 +65,14 @@ export type ConsumeAuthorizationAttemptResult =
     | { readonly kind: 'already_used' }
     | { readonly kind: 'conflict' }
 
+export type ReadAuthorizationProviderStateResult =
+    | {
+          readonly kind: 'ready'
+          readonly attempt: AuthorizationAttempt
+          readonly providerState: string | null
+      }
+    | { readonly kind: 'not_found' | 'already_used' | 'mismatch' | 'expired' }
+
 export interface AuthorizationAttemptStoreOptions {
     readonly cipher: PublisherCredentialCipher
     readonly validateReturnPath: (returnPath: string) => string
@@ -422,6 +430,46 @@ export function createAuthorizationAttemptStore(
     `)
 
     return {
+        /** Server-only inspection of a pending provider phase; never returns its PKCE verifier. */
+        async readPendingAuthorizationProviderState(
+            input: ConsumeAuthorizationAttemptInput
+        ): Promise<ReadAuthorizationProviderStateResult> {
+            const row = loadAttemptByStateStatement.get(requireStateDigest(input.stateDigest))
+            if (row === null) return { kind: 'not_found' }
+            if (row.status !== 'pending') return { kind: 'already_used' }
+            if (
+                row.connectedByActorId !== input.connectedByActorId ||
+                row.providerId !== input.providerId ||
+                row.callbackUri !== input.callbackUri
+            )
+                return { kind: 'mismatch' }
+            const timestamp = requireTimestamp(now(), 'now')
+            if (row.expiresAt <= timestamp) {
+                expireAttemptStatement.run(timestamp, row.id)
+                return { kind: 'expired' }
+            }
+            if (
+                loadBindingStatement.get(row.projectId, row.channelId, row.connectedByActorId) ===
+                null
+            )
+                return { kind: 'not_found' }
+            const envelope = providerStateEnvelope(row)
+            return {
+                kind: 'ready',
+                attempt: toAttempt(row),
+                providerState:
+                    envelope === null
+                        ? null
+                        : await cipher.decrypt(
+                              {
+                                  recordId: row.id,
+                                  providerId: row.providerId,
+                                  field: 'provider_state',
+                              },
+                              envelope
+                          ),
+            }
+        },
         getAuthorizationAttempt(stateDigest: Uint8Array): AuthorizationAttempt | null {
             const row = loadAttemptByStateStatement.get(requireStateDigest(stateDigest))
             return row === null ? null : toAttempt(row)
