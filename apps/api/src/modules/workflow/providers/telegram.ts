@@ -103,9 +103,10 @@ async function execute(
                 failDelivery(input, deliveryId, false, 'media_unavailable')
                 return permanentFailure('The pinned Telegram media changed or is unavailable')
             }
-            const blob = await new Response(opened.stream, {
-                headers: { 'content-type': pinned.contentType },
-            }).blob()
+            // Preserve the inspected MIME explicitly: Bun may omit Response.blob() type.
+            const blob = new Blob([await new Response(opened.stream).arrayBuffer()], {
+                type: pinned.contentType,
+            })
             const hash = createHash('sha256')
             for await (const bytes of blob.stream()) hash.update(bytes)
             if (blob.size !== pinned.byteSize || hash.digest('hex') !== pinned.sha256) {

@@ -1,4 +1,7 @@
 import { expect, test } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postbot/core'
 import {
@@ -6,11 +9,13 @@ import {
     closeDatabase,
     runMigrations,
     createManualStore,
+    createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postbot/db'
 import { publications } from '@postbot/db/schema'
+import { createLocalMediaStore } from '@postbot/media'
 import {
     createTelegramPublisher,
     telegramChannelProfile,
@@ -22,13 +27,35 @@ import { createBuiltInProviderRegistry } from './providers/registry'
 import { createTelegramProviderAdapter } from './providers/telegram'
 import { createPublicationWorker } from './worker'
 
-for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
-    test(`Telegram worker persists ${scenario} without replaying completed work`, async () => {
+const scenarios = [
+    { outcome: 'published', media: null },
+    { outcome: 'ambiguous', media: null },
+    { outcome: 'authentication', media: null },
+    { outcome: 'published', media: 'photo' },
+    { outcome: 'published', media: 'video' },
+    { outcome: 'ambiguous', media: 'photo' },
+    { outcome: 'retry', media: 'video' },
+] as const
+
+for (const { outcome: scenario, media: mediaKind } of scenarios) {
+    test(`Telegram worker persists ${mediaKind ?? 'text'} ${scenario} without replaying completed work`, async () => {
         const database = createDatabase(':memory:')
         runMigrations(database)
         const now = 1_800_000_000_000
+        let clock = now
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-telegram-worker-'))
+        const media = createMediaAssetStore(
+            database,
+            createLocalMediaStore({
+                storeId: 'telegram-test',
+                rootDirectory,
+                maxObjectBytes: 2_000_000,
+            }),
+            { now: () => clock }
+        )
         const store = createManualStore(database, {
-            now: () => now,
+            now: () => clock,
+            media,
             profileCompiler: new ChannelProfileCompiler({
                 validationAdapters: [telegramChannelProfileValidationAdapter],
             }),
@@ -76,39 +103,90 @@ for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
                     destination: { type: 'channel', id: '-1001234567890', name: 'Announcements' },
                 }).kind
             ).toBe('created')
+            const bytes =
+                mediaKind === 'video'
+                    ? await Bun.file(
+                          new URL(
+                              '../../../../../packages/db/src/fixtures/video-h264.mp4',
+                              import.meta.url
+                          )
+                      ).bytes()
+                    : new Uint8Array(
+                          Buffer.from(
+                              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=',
+                              'base64'
+                          )
+                      )
+            let assetId: string | undefined
+            if (mediaKind) {
+                const reservation = media.reserveUpload({
+                    projectId: project.project.id,
+                    subjectId: 'operator',
+                    originalFilename: mediaKind === 'video' ? 'clip.mp4' : 'photo.png',
+                    contentType: mediaKind === 'video' ? 'video/mp4' : 'image/png',
+                    expectedSize: bytes.length,
+                })!
+                expect(reservation).not.toBeNull()
+                expect(
+                    await media.upload({
+                        projectId: project.project.id,
+                        subjectId: 'operator',
+                        intentId: reservation.intent.id,
+                        source: new Blob([bytes]).stream(),
+                    })
+                ).toMatchObject({ kind: 'uploaded' })
+                expect(
+                    await media.finalizeUpload({
+                        projectId: project.project.id,
+                        subjectId: 'operator',
+                        intentId: reservation.intent.id,
+                    })
+                ).toMatchObject({ kind: 'ready' })
+                assetId = reservation.asset.id
+            }
+            const references = assetId ? [{ assetId }] : []
             const post = store.createPost({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 sourceContent: {
                     body: { text: 'Hello Telegram', format: 'plain_text' },
-                    media: [],
+                    media: references,
                 },
                 publications: [
                     {
                         channelId: channel.id,
                         deliveryMode: 'automatic',
                         scheduledAt: now,
-                        targetContent: { text: 'Hello Telegram', media: [] },
+                        targetContent: { text: 'Hello Telegram', media: references },
                     },
                 ],
             })
             expect(post?.publications).toHaveLength(1)
             let calls = 0
+            const requests: { url: string; body: RequestInit['body'] }[] = []
             const worker = createPublicationWorker({
                 database,
                 publisherStore: publishers,
                 publisherCredentialStore: credentials,
-                now: () => now,
+                now: () => clock,
+                media,
+                retryPolicy: { nextRunAt: ({ failedAt }) => failedAt + 1000 },
                 builtInProviderRegistry: createBuiltInProviderRegistry([
                     createTelegramProviderAdapter({
                         createPublisher: () =>
                             createTelegramPublisher({
-                                fetcher: async (_input, init) => {
+                                fetcher: async (input, init) => {
                                     calls++
-                                    expect(JSON.parse(String(init?.body))).toEqual({
-                                        chat_id: '-1001234567890',
-                                        text: 'Hello Telegram',
-                                    })
+                                    requests.push({ url: String(input), body: init?.body })
+                                    if (scenario === 'retry' && calls === 1)
+                                        return Response.json(
+                                            {
+                                                ok: false,
+                                                error_code: 429,
+                                                parameters: { retry_after: 1 },
+                                            },
+                                            { status: 429 }
+                                        )
                                     if (scenario === 'ambiguous')
                                         throw new Error('Synthetic transport loss')
                                     if (scenario === 'authentication')
@@ -120,6 +198,11 @@ for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
                                         ok: true,
                                         result: {
                                             message_id: 42,
+                                            ...(mediaKind === 'video'
+                                                ? { video: { file_id: 'remote-video-42' } }
+                                                : mediaKind === 'photo'
+                                                  ? { photo: [{ file_id: 'remote-photo-42' }] }
+                                                  : {}),
                                             chat: { id: -1001234567890, type: 'channel' },
                                         },
                                     })
@@ -130,6 +213,17 @@ for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
             })
             try {
                 await worker.processDueEvents(now)
+                if (scenario === 'retry') {
+                    expect(
+                        database.$client
+                            .query(
+                                'select state, remote_media_id as remoteId from provider_media_deliveries'
+                            )
+                            .all()
+                    ).toEqual([{ state: 'failed', remoteId: null }])
+                    clock += 2000
+                    await worker.processDueEvents(clock)
+                }
                 expect(
                     database
                         .select({ state: publications.state, externalId: publications.externalId })
@@ -137,12 +231,66 @@ for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
                         .all()
                 ).toEqual([
                     {
-                        state: scenario === 'authentication' ? 'failed' : scenario,
-                        externalId: scenario === 'published' ? '-1001234567890:42' : null,
+                        state:
+                            scenario === 'authentication'
+                                ? 'failed'
+                                : scenario === 'retry'
+                                  ? 'published'
+                                  : scenario,
+                        externalId:
+                            scenario === 'published' || scenario === 'retry'
+                                ? '-1001234567890:42'
+                                : null,
                     },
                 ])
-                await worker.processDueEvents(now + 60_000)
-                expect(calls).toBe(1)
+                if (mediaKind) {
+                    expect(
+                        database.$client
+                            .query(
+                                'select state, remote_media_id as remoteId from provider_media_deliveries'
+                            )
+                            .all()
+                    ).toEqual([
+                        {
+                            state: scenario === 'ambiguous' ? 'ambiguous' : 'uploaded',
+                            remoteId: scenario === 'ambiguous' ? null : `remote-${mediaKind}-42`,
+                        },
+                    ])
+                    expect(
+                        database.$client
+                            .query(
+                                'select count(*) as count from publication_execution_revision_media'
+                            )
+                            .get()
+                    ).toEqual({ count: 1 })
+                }
+                clock = now + 60_000
+                await worker.processDueEvents(clock)
+                expect(calls).toBe(scenario === 'retry' ? 2 : 1)
+                // Assert outside the provider callback: uncertain-response handling catches errors.
+                for (const request of requests) {
+                    if (mediaKind) {
+                        expect(
+                            request.url.endsWith(
+                                mediaKind === 'video' ? '/sendVideo' : '/sendPhoto'
+                            )
+                        ).toBe(true)
+                        expect(request.body).toBeInstanceOf(FormData)
+                        const body = request.body as FormData
+                        expect(body.get('chat_id')).toBe('-1001234567890')
+                        expect(body.get('caption')).toBe('Hello Telegram')
+                        const file = body.get(mediaKind) as File
+                        expect(file).toBeInstanceOf(Blob)
+                        expect(file.type).toBe(mediaKind === 'video' ? 'video/mp4' : 'image/png')
+                        expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes)
+                    } else {
+                        expect(JSON.parse(String(request.body))).toEqual({
+                            chat_id: '-1001234567890',
+                            text: 'Hello Telegram',
+                        })
+                    }
+                }
+
                 const connection = publishers.listPublisherConnections(
                     project.project.id,
                     'operator'
@@ -155,6 +303,7 @@ for (const scenario of ['published', 'ambiguous', 'authentication'] as const) {
             }
         } finally {
             closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 }
