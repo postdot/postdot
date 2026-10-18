@@ -41,6 +41,10 @@ export interface FacebookPageBatch {
     /** Opaque cursor, not a URL. Null means there is no next page. */
     readonly nextCursor: string | null
 }
+export interface FacebookPageSelection {
+    readonly page: FacebookPage
+    readonly grantedPermissions: readonly string[]
+}
 export interface FacebookPhoto {
     /** Inspected bytes from project-owned storage, not an arbitrary remote URL. */
     readonly blob: Blob
@@ -145,82 +149,152 @@ export function createFacebookPublisher(
         }
     }
 
-    return {
-        /** Reads one batch. The caller explicitly selects a Page; no writes or automatic pagination. */
-        async listPages(input: {
-            readonly userToken: string
-            readonly after?: string
-        }): Promise<FacebookResult<FacebookPageBatch>> {
+    async function listPages(input: {
+        readonly userToken: string
+        readonly after?: string
+    }): Promise<FacebookResult<FacebookPageBatch>> {
+        if (
+            !validToken(input.userToken) ||
+            (input.after !== undefined && !validCursor(input.after, input.userToken))
+        )
+            return failed('Facebook discovery input is invalid', 'invalid_input')
+        const query = new URLSearchParams({
+            fields: 'id,name,access_token,tasks',
+            limit: '100',
+        })
+        if (input.after !== undefined) query.set('after', input.after)
+        const result = await call(input.userToken, 'me/accounts', query)
+        if (!result.ok) return result
+        if (!record(result.value) || !Array.isArray(result.value.data))
+            return retryable('Facebook returned an invalid Page list', 'unavailable')
+        const pages: FacebookPage[] = []
+        const seen = new Set<string>()
+        for (const page of result.value.data) {
             if (
+                !record(page) ||
+                !numericId(page.id) ||
+                typeof page.name !== 'string' ||
+                !page.name.trim() ||
+                page.name.includes(input.userToken) ||
+                !validToken(page.access_token) ||
+                !Array.isArray(page.tasks) ||
+                !page.tasks.every(
+                    task =>
+                        typeof task === 'string' &&
+                        task.length <= 128 &&
+                        !task.includes(input.userToken)
+                ) ||
+                seen.has(page.id)
+            )
+                return retryable('Facebook returned an invalid Page list', 'unavailable')
+            seen.add(page.id)
+            pages.push({
+                id: page.id,
+                name: page.name,
+                accessToken: page.access_token,
+                tasks: page.tasks,
+                hasPublishTask: page.tasks.some(
+                    task => task === 'CREATE_CONTENT' || task === 'PROFILE_PLUS_CREATE_CONTENT'
+                ),
+            })
+        }
+        let nextCursor: string | null = null
+        if (result.value.paging !== undefined) {
+            const paging = result.value.paging
+            if (!record(paging))
+                return retryable('Facebook returned invalid pagination', 'unavailable')
+            if (paging.next !== undefined && paging.next !== null) {
+                if (!record(paging.cursors) || !validCursor(paging.cursors.after, input.userToken))
+                    return retryable('Facebook returned invalid pagination', 'unavailable')
+                nextCursor = paging.cursors.after
+            }
+        }
+        return { ok: true, value: { pages, nextCursor } }
+    }
+
+    async function getGrantedPermissions(
+        userToken: string
+    ): Promise<FacebookResult<readonly string[]>> {
+        if (!validToken(userToken))
+            return failed('Facebook permission input is invalid', 'invalid_input')
+        const result = await call(
+            userToken,
+            'me/permissions',
+            new URLSearchParams({ limit: '100' })
+        )
+        if (!result.ok) return result
+        if (
+            !record(result.value) ||
+            !Array.isArray(result.value.data) ||
+            (result.value.paging !== undefined &&
+                (!record(result.value.paging) || result.value.paging.next != null))
+        )
+            return retryable('Facebook returned an incomplete permission list', 'unavailable')
+        const seen = new Set<string>()
+        const granted: string[] = []
+        for (const permission of result.value.data) {
+            if (
+                !record(permission) ||
+                typeof permission.permission !== 'string' ||
+                !/^[a-z][a-z0-9_]{0,127}$/.test(permission.permission) ||
+                typeof permission.status !== 'string' ||
+                !['granted', 'declined', 'expired'].includes(permission.status) ||
+                seen.has(permission.permission)
+            )
+                return retryable('Facebook returned an invalid permission list', 'unavailable')
+            seen.add(permission.permission)
+            if (permission.status === 'granted') granted.push(permission.permission)
+        }
+        return { ok: true, value: granted.sort() }
+    }
+
+    return {
+        /** Reads one batch; the caller chooses a Page. Tokens stay on the server. */
+        listPages,
+        getGrantedPermissions,
+        /** Requires a user token from a validated, installation-bound OAuth callback. */
+        async selectPage(input: {
+            readonly userToken: string
+            readonly pageId: string
+            readonly after?: string
+        }): Promise<FacebookResult<FacebookPageSelection>> {
+            if (
+                !numericId(input.pageId) ||
                 !validToken(input.userToken) ||
                 (input.after !== undefined && !validCursor(input.after, input.userToken))
             )
-                return failed('Facebook discovery input is invalid', 'invalid_input')
-            const query = new URLSearchParams({
-                fields: 'id,name,access_token,tasks',
-                limit: '100',
-            })
-            if (input.after !== undefined) query.set('after', input.after)
-            const result = await call(input.userToken, 'me/accounts', query)
-            if (!result.ok) return result
-            if (!record(result.value) || !Array.isArray(result.value.data))
-                return retryable('Facebook returned an invalid Page list', 'unavailable')
-            const pages: FacebookPage[] = []
-            const seen = new Set<string>()
-            for (const page of result.value.data) {
-                if (
-                    !record(page) ||
-                    !numericId(page.id) ||
-                    typeof page.name !== 'string' ||
-                    !page.name.trim() ||
-                    page.name.includes(input.userToken) ||
-                    !validToken(page.access_token) ||
-                    !Array.isArray(page.tasks) ||
-                    !page.tasks.every(
-                        task =>
-                            typeof task === 'string' &&
-                            task.length <= 128 &&
-                            !task.includes(input.userToken)
-                    ) ||
-                    seen.has(page.id)
+                return failed('Facebook Page selection is invalid', 'invalid_input')
+            const permissions = await getGrantedPermissions(input.userToken)
+            if (!permissions.ok) return permissions
+            if (
+                !FACEBOOK_PUBLISH_PERMISSIONS.every(permission =>
+                    permissions.value.includes(permission)
                 )
-                    return retryable('Facebook returned an invalid Page list', 'unavailable')
-                seen.add(page.id)
-                pages.push({
-                    id: page.id,
-                    name: page.name,
-                    accessToken: page.access_token,
-                    tasks: page.tasks,
-                    hasPublishTask: page.tasks.some(
-                        task => task === 'CREATE_CONTENT' || task === 'PROFILE_PLUS_CREATE_CONTENT'
-                    ),
-                })
-            }
-            let nextCursor: string | null = null
-            if (result.value.paging !== undefined) {
-                const paging = result.value.paging
-                if (!record(paging))
-                    return retryable('Facebook returned invalid pagination', 'unavailable')
-                if (paging.next !== undefined && paging.next !== null) {
-                    if (
-                        !record(paging.cursors) ||
-                        !validCursor(paging.cursors.after, input.userToken)
-                    )
-                        return retryable('Facebook returned invalid pagination', 'unavailable')
-                    nextCursor = paging.cursors.after
-                }
-            }
-            return { ok: true, value: { pages, nextCursor } }
+            )
+                return failed(
+                    'Facebook publishing permissions were not granted',
+                    'permission_denied'
+                )
+            const pages = await listPages(input)
+            if (!pages.ok) return pages
+            const page = pages.value.pages.find(candidate => candidate.id === input.pageId)
+            if (!page || !page.hasPublishTask)
+                return failed(
+                    'The selected Facebook Page is unavailable for publishing',
+                    'permission_denied'
+                )
+            return { ok: true, value: { page, grantedPermissions: permissions.value } }
         },
 
         async send(input: FacebookSendInput): Promise<FacebookPublishOutcome> {
+            const link = input.link === '' ? undefined : input.link
             if (
                 !validToken(input.pageToken) ||
                 !numericId(input.pageId) ||
                 typeof input.text !== 'string' ||
-                (input.link !== undefined && !httpLink(input.link)) ||
-                (input.photo !== undefined && input.link !== undefined) ||
-                (!input.text.trim() && input.link === undefined && input.photo === undefined)
+                (link !== undefined && !isFacebookLink(link)) ||
+                (input.photo !== undefined && link !== undefined) ||
+                (!input.text.trim() && link === undefined && input.photo === undefined)
             )
                 return failed('Facebook publication input is invalid', 'invalid_input').outcome
             let body: URLSearchParams | FormData
@@ -251,7 +325,7 @@ export function createFacebookPublisher(
                     body.set('alt_text_custom', photo.accessibilityText)
             } else {
                 body = new URLSearchParams({ message: input.text, published: 'true' })
-                if (input.link !== undefined) body.set('link', input.link)
+                if (link !== undefined) body.set('link', link)
             }
             const result = await call(
                 input.pageToken,
@@ -307,7 +381,7 @@ function validCursor(value: unknown, token: string): value is string {
         !value.includes(token)
     )
 }
-function httpLink(value: unknown): value is string {
+export function isFacebookLink(value: unknown): value is string {
     if (typeof value !== 'string' || !value.trim() || value !== value.trim()) return false
     try {
         const url = new URL(value)

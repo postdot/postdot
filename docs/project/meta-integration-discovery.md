@@ -15,7 +15,7 @@ Checked: 2026-10-18. Related: ISSUE-166, META-505.
    separate permissions and product slices.
 
 This sequence is a recommendation, not a reason to make the first format the
-permanent feature ceiling. No provider has been registered by this discovery. FACEBOOK-506 subsequently adds an isolated Pages protocol package; OAuth connection setup, profiles, worker and Studio integration are not active yet.
+permanent feature ceiling. No provider has been registered by this discovery. FACEBOOK-506 subsequently adds an isolated Pages protocol package; FACEBOOK-507 adds an isolated content profile and explicit permission-gated Page selection. OAuth connection setup, runtime profile registration, worker and Studio integration are not active yet.
 
 ## What the provider documentation establishes
 
@@ -132,3 +132,11 @@ uses `/documentation/`. Official Meta Postman collections corroborated the two
 Instagram login families and Page-token discovery, but current endpoint guides
 are the implementation reference. No third-party tutorial was used as authority.
 No app dashboard, real token, connection, remote post or test message was used.
+
+## OAuth compatibility checkpoint (2026-10-18)
+
+The current [manual Facebook Login guide](https://developers.facebook.com/documentation/facebook-login/guides/advanced/manual-flow) documents server-side code exchange as GET with client secret and code parameters, while Postbot's shared OAuth adapter performs the standard POST exchange with PKCE enabled by default. The guide does not document PKCE enforcement for this web flow. Absence from the guide is not proof of unsupported PKCE. Do not silently disable it or claim that a mocked POST proves Meta compatibility. Before activating a callback, establish the supported exchange/PKCE behavior and record any provider-specific deviation.
+
+The same guide explicitly documents `/me/permissions` and the granted/declined distinction. FACEBOOK-507 reads this endpoint before retrieving Page tokens for selection. Missing or expired required grants stop the flow; incomplete or contradictory responses do not authorize selection. A caller must supply the explicitly selected Page ID and a user token from the validated callback. No browser/API route accepts arbitrary tokens through this package helper.
+
+The isolated profile handles text, optional link and a single photo, without a title. Empty optional links are absent; source adaptation preserves an explicit target-only link. The API reference did not establish a native text ceiling, so the draft profile does not publish a guessed maximum. Resolve its text capability contract before enabling creation.

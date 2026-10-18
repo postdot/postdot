@@ -162,6 +162,18 @@ test('link-only posts preserve the exact URL without requiring invented message 
     expect((requests[0]!.init!.body as URLSearchParams).get('message')).toBe('')
 })
 
+test('an empty optional link is absent from text and photo requests', async () => {
+    for (const image of [undefined, photo]) {
+        const { publisher, requests } = fixture(() =>
+            Response.json(image ? { id: photoId, post_id: postId } : { id: postId })
+        )
+        expect(await publisher.send({ ...send, link: '', photo: image })).toMatchObject({
+            type: 'published',
+        })
+        expect((requests[0]!.init!.body as URLSearchParams | FormData).get('link')).toBeNull()
+    }
+})
+
 test('a photo is a single multipart write with distinct post and media identities', async () => {
     for (const mime of ['image/png', 'image/jpeg']) {
         const blob = new Blob(['actual-image-bytes'], { type: mime })
@@ -220,7 +232,6 @@ test('invalid content never reaches the transport or silently drops a link/photo
         { ...send, link: 'javascript:alert(1)' },
         { ...send, link: 'https://user:password@example.com' },
         { ...send, link: ' https://example.com' },
-        { ...send, link: '', photo },
         { ...send, link: 'https://example.com', photo },
         { ...send, photo: { blob: new Blob([], { type: 'image/jpeg' }) } },
         { ...send, photo: { blob: new Blob(['video'], { type: 'video/mp4' }) } },

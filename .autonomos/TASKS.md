@@ -950,3 +950,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[META-505]** Verify Facebook/Instagram publishing access and map a bounded integration proposal to existing contracts `Priority: 🟠` `Complexity: M` — ISSUE-166; research only, no provider registration or live action.
 
 - [x] **[FACEBOOK-506]** Add an isolated Facebook Pages discovery and text/link/single-photo protocol with synthetic transport tests `Priority: 🟠` `Complexity: M` — ISSUE-166; no OAuth app registration, worker activation or live send.
+
+- [x] **[FACEBOOK-507]** Define the versioned Facebook content profile and verify actual granted permissions before Page selection `Priority: 🟠` `Complexity: M` — ISSUE-166; keep runtime registration disabled until OAuth exchange compatibility is established.
