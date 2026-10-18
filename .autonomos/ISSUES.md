@@ -4265,7 +4265,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The owner requests mainstream networks beyond the existing six. No first-party Meta publishing adapters were found. Official documentation access in PRODUCT-477 was rate-limited.
 - Desired outcome: Verify supported account types, permissions, app review/development access and initial publication formats before implementation. Record unknowns instead of promising personal-profile support or universal content formats.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
+- Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review). Implementation scope remains proposed.
+- Research: [Meta integration discovery](../docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
 

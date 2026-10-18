@@ -946,3 +946,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[TELEGRAM-503]** Verify Telegram photo/video publishing through isolated storage, worker and delivery persistence `Priority: 🟠` `Complexity: M`
 
 - [x] **[STUDIO-504]** Reduce Telegram connection copy and disclose setup help on demand `Priority: 🟠` `Complexity: S`
+
+- [x] **[META-505]** Verify Facebook/Instagram publishing access and map a bounded integration proposal to existing contracts `Priority: 🟠` `Complexity: M` — ISSUE-166; research only, no provider registration or live action.
