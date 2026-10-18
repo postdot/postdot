@@ -24,3 +24,5 @@
   channel names. Preserve readable state text; calendars may use a thin color rule
   to retain event categorization. Unread indicators and timeline markers have
   distinct meanings and are not interchangeable with decorative status dots.
+
+- **Form copy:** Apply the progressive-help rule in `postbot-operational-ux`: familiar labels and concrete examples first, exceptional setup guidance on demand. Do not turn dialogs into tutorials or add an info icon mechanically to every field.

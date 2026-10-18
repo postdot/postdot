@@ -3,13 +3,14 @@ import { Button } from '@postbot/ui/components/button'
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@postbot/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
+import { Field, FieldLabel } from '@postbot/ui/components/field'
 import { Input } from '@postbot/ui/components/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@postbot/ui/components/popover'
+import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
@@ -95,7 +96,9 @@ export function TelegramConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-hidden bg-background sm:max-w-sm">
+                <DialogContent
+                    aria-describedby={undefined}
+                    className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-sm overflow-hidden bg-background sm:max-w-sm">
                     <form
                         className="flex min-h-0 flex-col gap-4"
                         onSubmit={event => {
@@ -109,9 +112,6 @@ export function TelegramConnectionDialog({
                                     ? m.provider_reconnect_title({ provider: channel.name })
                                     : m.provider_connect_title({ provider: channel.name })}
                             </DialogTitle>
-                            <DialogDescription>
-                                {m.provider_telegram_description()}
-                            </DialogDescription>
                         </DialogHeader>
                         <div className="grid min-h-0 gap-4 overflow-y-auto">
                             <Field className="gap-1.5">
@@ -122,7 +122,6 @@ export function TelegramConnectionDialog({
                                     disabled={disabled || submitting}
                                     id={`telegram-channel-${channel.id}`}
                                     autoFocus
-
                                     value={targetChannelId}
                                     onChange={event => {
                                         setTargetChannelId(event.target.value)
@@ -130,14 +129,31 @@ export function TelegramConnectionDialog({
                                     }}
                                     placeholder={m.provider_telegram_channel_placeholder()}
                                 />
-                                <FieldDescription>
-                                    {m.provider_telegram_channel_help()}
-                                </FieldDescription>
                             </Field>
                             <Field className="gap-1.5">
-                                <FieldLabel htmlFor={`telegram-token-${channel.id}`}>
-                                    {m.provider_bot_token()}
-                                </FieldLabel>
+                                <div className="flex items-center gap-1">
+                                    <FieldLabel htmlFor={`telegram-token-${channel.id}`}>
+                                        {m.provider_bot_token()}
+                                    </FieldLabel>
+                                    <Popover>
+                                        <PopoverTrigger
+                                            render={
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                />
+                                            }
+                                            aria-label={m.provider_telegram_token_help_label()}>
+                                            <InfoCircleIcon aria-hidden="true" />
+                                        </PopoverTrigger>
+                                        <PopoverContent
+                                            className="max-w-[calc(100vw-2rem)] text-sm"
+                                            side="top">
+                                            {m.provider_telegram_token_help()}
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                                 <Input
                                     disabled={disabled || submitting}
                                     id={`telegram-token-${channel.id}`}
@@ -149,9 +165,6 @@ export function TelegramConnectionDialog({
                                         setError(null)
                                     }}
                                 />
-                                <FieldDescription>
-                                    {m.provider_telegram_token_help()}
-                                </FieldDescription>
                             </Field>
                             {error === null ? null : (
                                 <p className="text-sm text-destructive" role="alert">

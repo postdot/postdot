@@ -40,6 +40,13 @@ change before choosing composition.
   behavior; do not add a second “Close” action unless the task has a distinct
   reason to place it in the action row.
 
+- Forms must remain usable without reading setup paragraphs. Prefer familiar
+  labels, concrete input examples and established control patterns. Remove
+  routine instructions from the default view; expose genuinely necessary setup
+  help through a nearby, named help control that works by keyboard and touch.
+  Do not add an info control to every field. Errors and important consequences
+  stay visible when relevant rather than being hidden in help.
+
 ## Interaction intent
 
 Classify each target as inspect, create, navigate, or destructive action before

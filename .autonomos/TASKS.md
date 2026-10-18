@@ -944,3 +944,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[TELEGRAM-502]** Expose Telegram creation, connection and conditional editor constraints in Studio `Priority: 🟠` `Complexity: M`
 
 - [x] **[TELEGRAM-503]** Verify Telegram photo/video publishing through isolated storage, worker and delivery persistence `Priority: 🟠` `Complexity: M`
+
+- [x] **[STUDIO-504]** Reduce Telegram connection copy and disclose setup help on demand `Priority: 🟠` `Complexity: S`

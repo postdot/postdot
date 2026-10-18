@@ -2264,8 +2264,7 @@
     "provider_connect_telegram": "Connecter Telegram",
     "provider_telegram_channel_id": "Canal Telegram",
     "provider_telegram_channel_invalid": "Indiquez le nom du canal (@nom) ou son identifiant numérique.",
-    "provider_telegram_channel_placeholder": "@votre_canal",
-    "provider_telegram_channel_help": "Nom public ou identifiant du canal privé.",
-    "provider_telegram_description": "Connectez un bot autorisé à publier dans ce canal. La vérification n’envoie aucun message.",
-    "provider_telegram_token_help": "Créez un bot avec BotFather, puis ajoutez-le comme administrateur du canal avec le droit de publier."
+    "provider_telegram_channel_placeholder": "@votre_canal / -1001234567890",
+    "provider_telegram_token_help": "Créez un bot avec BotFather, puis ajoutez-le comme administrateur du canal avec le droit de publier.",
+    "provider_telegram_token_help_label": "Où trouver le token du bot ?"
 }
