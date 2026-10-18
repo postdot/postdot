@@ -4,7 +4,7 @@ import { FACEBOOK_MAX_PHOTO_BYTES, isFacebookLink } from './publisher'
 
 export const FACEBOOK_EXECUTION_REVISION = 'page-post-v1'
 
-/** Not registered for channel creation until the connection/execution path is complete. */
+/** Native Page text, link or a single inspected photo. */
 export const facebookChannelProfile: ChannelProfileDefinition = {
     id: 'facebook',
     version: 1,
@@ -44,8 +44,7 @@ export const facebookChannelProfile: ChannelProfileDefinition = {
     ],
     capabilities: {
         revision: 'facebook-page-post-v1',
-        // The endpoint reference does not establish a text ceiling. Do not invent one.
-        textFields: [],
+        textFields: [{ bindingId: 'text', acceptedSourceFormats: ['plain_text'], maxLength: null }],
         mediaFields: [
             {
                 bindingId: 'media',

@@ -55,14 +55,21 @@ export function PublicationDraftPreview({
     })
 
     const linkedIn = platform === 'linkedin'
+    const facebook = platform === 'facebook'
     const article = platform === 'devto'
     const message = platform === 'discord'
     const mastodon = platform === 'mastodon'
     const social = !article && !message
-    const accountDriven = ['linkedin', 'x', 'bluesky', 'mastodon', 'devto', 'discord'].includes(
-        platform
-    )
-    const sampleIdentity = accountDriven && identityMode === 'sample'
+    const accountDriven = [
+        'linkedin',
+        'x',
+        'bluesky',
+        'mastodon',
+        'devto',
+        'discord',
+        'facebook',
+    ].includes(platform)
+    const sampleIdentity = accountDriven && !facebook && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
     const compactMedia = article || !accountDriven
@@ -270,7 +277,22 @@ export function PublicationDraftPreview({
                                 ? 'gap-1 px-3 pb-2 pt-2 text-[11px] text-[#61666b]'
                                 : 'max-w-sm px-5 pb-4 pl-16 [&_svg]:size-5'
                         )}>
-                        {linkedIn ? (
+                        {facebook ? (
+                            <>
+                                <span className="flex items-center gap-1.5">
+                                    <FeedPreviewGlyph profile="linkedin" action="like" />
+                                    {m.publication_preview_like()}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <ChatRoundIcon aria-hidden="true" />
+                                    {m.publication_preview_comment()}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                    <ShareIcon aria-hidden="true" />
+                                    {m.publication_preview_share()}
+                                </span>
+                            </>
+                        ) : linkedIn ? (
                             <>
                                 <span className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
                                     <FeedPreviewGlyph profile="linkedin" action="like" />

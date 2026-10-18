@@ -29,7 +29,9 @@ export function PublicationTextCount({
                           count: formatNumber(result.characters, locale),
                           limit: formatNumber(constraint.field.maxLength, locale),
                       })
-                    : null}
+                    : m.composer_character_count_unknown({
+                          count: formatNumber(result.characters, locale),
+                      })}
                 {result.graphemes !== null && constraint.maxGraphemes !== null ? (
                     <span className="ml-2">
                         {m.composer_grapheme_count({

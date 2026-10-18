@@ -147,6 +147,7 @@ export type ChannelCreationProfile =
     | 'mastodon'
     | 'discord'
     | 'telegram'
+    | 'facebook'
     | 'devto'
     | 'x'
     | RuntimeChannelProfile

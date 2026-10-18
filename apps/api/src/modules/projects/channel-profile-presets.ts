@@ -2,6 +2,7 @@ import { blueskyChannelProfile } from '@postbot/bluesky'
 import { createManualChannelProfile, type ChannelProfilePreset } from '@postbot/core'
 import { devtoChannelProfile } from '@postbot/devto'
 import { discordChannelProfile } from '@postbot/discord'
+import { facebookChannelProfile } from '@postbot/facebook'
 import { linkedinChannelProfile } from '@postbot/linkedin'
 import { mastodonChannelProfile } from '@postbot/mastodon'
 import { telegramChannelProfile } from '@postbot/telegram'
@@ -27,6 +28,7 @@ export const builtInChannelProfilePresets = [
     presetFor(mastodonChannelProfile),
     presetFor(discordChannelProfile),
     presetFor(telegramChannelProfile),
+    presetFor(facebookChannelProfile),
     presetFor(devtoChannelProfile),
     presetFor(xChannelProfile),
 ] as const satisfies readonly ChannelProfilePreset[]

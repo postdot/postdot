@@ -813,6 +813,7 @@ describe('Postbot API', () => {
                 'mastodon',
                 'discord',
                 'telegram',
+                'facebook',
                 'devto',
                 'x',
             ])

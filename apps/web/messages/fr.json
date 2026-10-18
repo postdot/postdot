@@ -2277,5 +2277,6 @@
     "provider_apps_callback_uri": "URL de rappel",
     "provider_apps_https_required": "Facebook exige une URL de rappel HTTPS.",
     "provider_facebook_app_id": "ID de l’application",
-    "provider_facebook_app_secret": "Secret de l’application"
+    "provider_facebook_app_secret": "Secret de l’application",
+    "composer_character_count_unknown": "{count} caractères"
 }

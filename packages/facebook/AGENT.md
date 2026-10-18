@@ -8,4 +8,4 @@
 - Blob inputs must come from inspected project-owned storage. Initial support is JPEG/PNG only, at a conservative 10,000,000-byte ceiling. Link plus photo is deliberately rejected rather than silently dropping either.
 
 - `selectPage` checks current granted scopes and the chosen Page's publishing task. It does not prove token provenance: call it only after the installation-bound OAuth callback validates state, app configuration, project and actor. Never turn arbitrary client-supplied tokens into a connection through this helper.
-- The exported content profile is not registered for creation or execution yet. Preserve that boundary until connection compatibility and the native text-capability contract are established; an unset text ceiling is not a claim of unlimited Facebook text.
+- The native profile explicitly sets text `maxLength: null`: the provider maximum is unknown, not unlimited. Do not substitute an unverified numeric ceiling. Creation, native validation and worker execution are registered; live Meta acceptance still requires an explicitly authorized provider test.

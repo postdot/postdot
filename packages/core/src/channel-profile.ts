@@ -62,7 +62,8 @@ export interface TextFieldCapability {
     readonly bindingId: string
     readonly acceptedSourceFormats: readonly SourceTextFormat[]
     readonly minLength?: number
-    readonly maxLength: number
+    /** Null means the native maximum is unknown, not unlimited. */
+    readonly maxLength: number | null
     readonly maxGraphemes?: number
     readonly maxWeightedLength?: number
     readonly weightedLengthAlgorithm?: string
@@ -504,12 +505,15 @@ function validateCapabilities(profile: ChannelProfileDefinition): ValidationIssu
                 )
             )
         }
-        if (!Number.isSafeInteger(capability.maxLength) || capability.maxLength < 0) {
+        if (
+            capability.maxLength !== null &&
+            (!Number.isSafeInteger(capability.maxLength) || capability.maxLength < 0)
+        ) {
             issues.push(
                 profileIssue(
                     `${path}/maxLength`,
                     'capability.limit_invalid',
-                    'Text maxLength must be a non-negative safe integer',
+                    'Text maxLength must be a non-negative safe integer or null when unknown',
                     'capability'
                 )
             )
@@ -566,7 +570,7 @@ function validateCapabilities(profile: ChannelProfileDefinition): ValidationIssu
         }
         if (
             invalidOptionalPositiveInteger(capability.minLength) ||
-            invalidRange(capability.minLength, capability.maxLength)
+            invalidRange(capability.minLength, capability.maxLength ?? undefined)
         ) {
             issues.push(
                 profileIssue(

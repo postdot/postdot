@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postbot/auth'
-import {
-    closeDatabase,
-    createDatabase,
-    createManualStore,
-    createNotificationStore,
-    runMigrations,
-} from '@postbot/db'
-import { facebookChannelProfile, FACEBOOK_PUBLISH_PERMISSIONS } from '@postbot/facebook'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
+import { FACEBOOK_PUBLISH_PERMISSIONS } from '@postbot/facebook'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
@@ -97,12 +91,16 @@ async function fixture(configured = true) {
     })
     expect(projectResponse.status).toBe(201)
     const project = (await projectResponse.json()) as { project: { id: string } }
-    const channel = createManualStore(database).createChannel({
-        projectId: project.project.id,
-        subjectId: owner.id,
-        name: 'Facebook',
-        profile: facebookChannelProfile,
-    })!
+    const channelResponse = await request(
+        `/api/projects/${project.project.id}/channels`,
+        owner.cookie,
+        {
+            method: 'POST',
+            body: JSON.stringify({ name: 'Facebook', profile: 'facebook' }),
+        }
+    )
+    expect(channelResponse.status).toBe(201)
+    const { channel } = (await channelResponse.json()) as { channel: { id: string } }
     const path = `/api/projects/${project.project.id}/channels/${channel.id}/publisher/facebook`
     return {
         database,

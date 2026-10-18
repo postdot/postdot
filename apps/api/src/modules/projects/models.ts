@@ -664,6 +664,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('mastodon'),
             Type.Literal('discord'),
             Type.Literal('telegram'),
+            Type.Literal('facebook'),
             Type.Literal('devto'),
             Type.Literal('x'),
             Type.Object({

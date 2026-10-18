@@ -23,6 +23,7 @@ import {
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
+import { facebookChannelProfileValidationAdapter } from '@postbot/facebook'
 import type { TelegramFetcher } from '@postbot/telegram'
 import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
 import { xChannelProfileValidationAdapter } from '@postbot/x'
@@ -130,6 +131,7 @@ function createDomainApp({
                 validationAdapters: [
                     xChannelProfileValidationAdapter,
                     telegramChannelProfileValidationAdapter,
+                    facebookChannelProfileValidationAdapter,
                 ],
             }),
         media,

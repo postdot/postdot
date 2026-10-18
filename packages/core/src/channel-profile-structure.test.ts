@@ -111,3 +111,34 @@ test('malformed prepared profiles are module failures rather than runtime crashe
         })
     )
 })
+
+test('an unknown text maximum is explicit null; omission and malformed limits remain invalid', () => {
+    const original = createManualChannelProfile()
+    const unknown = {
+        ...original,
+        capabilities: {
+            ...original.capabilities,
+            textFields: original.capabilities.textFields.map((field, index) =>
+                index === 0 ? { ...field, maxLength: null } : field
+            ),
+        },
+    }
+    expect(compiler.compile(unknown).ok).toBe(true)
+    for (const value of [undefined, 'unknown', -1, NaN, Infinity, 1.5]) {
+        const malformed = structuredClone(unknown) as any
+        if (value === undefined) delete malformed.capabilities.textFields[0].maxLength
+        else malformed.capabilities.textFields[0].maxLength = value
+        expect(compiler.compile(malformed).ok).toBe(false)
+    }
+    const known = structuredClone(original)
+    expect(compiler.compile(known).ok).toBe(true)
+    const field = known.capabilities.textFields[0]!
+    const invalidRange = {
+        ...known,
+        capabilities: {
+            ...known.capabilities,
+            textFields: [{ ...field, minLength: 20, maxLength: 10 }],
+        },
+    }
+    expect(compiler.compile(invalidRange).ok).toBe(false)
+})

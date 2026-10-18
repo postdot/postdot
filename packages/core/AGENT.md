@@ -7,3 +7,5 @@
 - **External effects:** Keep publication and notification execution behind the shared fenced external-effect contract. New work items must carry only the durable identity and attempt count required by the executor; transport behavior and persistence remain outside this package. Treat `NextEventScheduler.stop()` as an asynchronous drain barrier: callers must await it before closing resources used by an in-flight effect.
 
 - **Provider processing:** A `deferred` effect requests a positive relative delay from executor completion, not an absolute time captured before a long upload. Publication stores schedule it durably without consuming failure attempts; provider-specific status checks and processing limits remain in adapters. It is not a retryable failure or a confirmed publication.
+
+- **Unknown text limits:** An explicit capability `maxLength: null` represents an unknown provider maximum, not unlimited text. Missing or malformed values remain invalid. Preserve known numeric limits and the bounded-schema policy for custom profiles.

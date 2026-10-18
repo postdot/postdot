@@ -40,7 +40,9 @@ test('the Facebook profile accepts text, link or one photo without inventing a t
         maxBytesPerItem: FACEBOOK_MAX_PHOTO_BYTES,
     })
     // No unsupported native maximum is advertised as a platform fact.
-    expect(facebookChannelProfile.capabilities.textFields).toEqual([])
+    expect(facebookChannelProfile.capabilities.textFields).toEqual([
+        { bindingId: 'text', acceptedSourceFormats: ['plain_text'], maxLength: null },
+    ])
 })
 
 test('structural and native Facebook content errors remain field-addressable', () => {

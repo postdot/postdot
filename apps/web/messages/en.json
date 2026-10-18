@@ -2277,5 +2277,6 @@
     "provider_apps_callback_uri": "Callback URL",
     "provider_apps_https_required": "Facebook requires an HTTPS callback URL.",
     "provider_facebook_app_id": "App ID",
-    "provider_facebook_app_secret": "App secret"
+    "provider_facebook_app_secret": "App secret",
+    "composer_character_count_unknown": "{count} characters"
 }

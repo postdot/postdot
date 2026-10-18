@@ -7,6 +7,7 @@ export function getNativePlatform(execution: ChannelListItem['execution'] | unde
         case 'x':
         case 'discord':
         case 'telegram':
+        case 'facebook':
         case 'devto':
         case 'linkedin':
         case 'bluesky':

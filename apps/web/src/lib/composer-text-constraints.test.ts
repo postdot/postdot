@@ -72,3 +72,29 @@ test('preview constraint lookup tolerates incomplete draft definitions', () => {
     expect(body.maxGraphemes).toBeNull()
     expect(countComposerText('👩‍💻', body).characters).toBe(3)
 })
+
+test('an explicitly unknown native text maximum produces a count without an invented ceiling', () => {
+    const profile = {
+        contentSchema: { type: 'object', properties: { text: { type: 'string' } } },
+        fieldBindings: [{ id: 'text', semantic: 'primary_text', path: '/text' }],
+        capabilities: {
+            textFields: [
+                { bindingId: 'text', acceptedSourceFormats: ['plain_text'], maxLength: null },
+            ],
+        },
+    }
+    const fields = getComposerTextFields(profile)
+    expect(fields.body?.field.maxLength).toBeNull()
+    expect(countComposerText('a'.repeat(70_000), fields.body!)).toEqual({
+        characters: 70_000,
+        graphemes: null,
+        invalid: false,
+    })
+    const known = {
+        ...profile,
+        capabilities: { textFields: [{ ...profile.capabilities.textFields[0], maxLength: 280 }] },
+    }
+    expect(countComposerText('a'.repeat(281), getComposerTextFields(known).body!).invalid).toBe(
+        true
+    )
+})

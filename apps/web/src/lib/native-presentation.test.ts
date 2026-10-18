@@ -7,6 +7,7 @@ test('native presentation follows explicit execution, not custom identity', () =
         'x',
         'discord',
         'telegram',
+        'facebook',
         'devto',
         'linkedin',
         'bluesky',

@@ -65,7 +65,7 @@ export function channelProfileStructureIssues(value: unknown): readonly Validati
             if (capability === undefined) return
             field(capability, 'bindingId', path, 'string')
             strings(capability.acceptedSourceFormats, `${path}/acceptedSourceFormats`)
-            field(capability, 'maxLength', path, 'number')
+            if (capability.maxLength !== null) field(capability, 'maxLength', path, 'number')
             for (const key of ['minLength', 'maxGraphemes', 'maxWeightedLength'])
                 field(capability, key, path, 'number', true)
             field(capability, 'weightedLengthAlgorithm', path, 'string', true)

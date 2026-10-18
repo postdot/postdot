@@ -45,6 +45,7 @@ import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
 import { createDevtoProviderAdapter } from './modules/workflow/providers/devto'
 import { createDiscordProviderAdapter } from './modules/workflow/providers/discord'
+import { createFacebookProviderAdapter } from './modules/workflow/providers/facebook'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
@@ -255,6 +256,7 @@ async function startServerWithRuntimeLock(
         createDiscordProviderAdapter({ revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION }),
         createDiscordProviderAdapter(),
         createTelegramProviderAdapter(),
+        createFacebookProviderAdapter(),
         createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({
             revision: 'member-post-v2',
