@@ -955,4 +955,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[FACEBOOK-508]** Implement the documented confidential Meta OAuth adapter and encrypted pending-state read primitive with isolated tests `Priority: 🟠` `Complexity: L` — ISSUE-166; no live Meta authorization or production enablement.
 
-- [ ] **[FACEBOOK-509]** Wire Facebook OAuth callback and explicit Page selection into session/project authorization and encrypted connection persistence `Priority: 🟠` `Complexity: L` — ISSUE-166; use FACEBOOK-508 primitives, test replay/expiry/foreign access and persistence failure before Studio exposure.
+- [x] **[FACEBOOK-509]** Wire Facebook OAuth callback and explicit Page selection into session/project authorization and encrypted connection persistence `Priority: 🟠` `Complexity: L` — ISSUE-166; use FACEBOOK-508 primitives, test replay/expiry/foreign access and persistence failure before Studio exposure.
+
+- [ ] **[FACEBOOK-510]** Add encrypted Facebook application configuration and a concise Studio Page-selection flow using the authenticated connection routes `Priority: 🟠` `Complexity: L` — ISSUE-166; preserve pending versus connected state and keep publishing disabled until native profile and worker readiness.

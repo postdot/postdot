@@ -172,6 +172,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.access
     )
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {
+        channels: options.manualStore,
         access: options.access,
         logger: options.logger,
         onWorkScheduled: options.onWorkScheduled,

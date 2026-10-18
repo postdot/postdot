@@ -1,6 +1,6 @@
 import { isCustomHttpAuthentication } from '@postbot/core'
 import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@postbot/custom-http'
-import type { AccessStore } from '@postbot/db'
+import type { createManualStore, AccessStore } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
 import type { MastodonFetcher } from '@postbot/mastodon'
@@ -22,6 +22,7 @@ import {
 import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-routes'
 import { registerDevtoPublisherRoutes } from './publisher-providers/devto-routes'
 import { registerDiscordPublisherRoutes } from './publisher-providers/discord-routes'
+import { registerFacebookPublisherRoutes } from './publisher-providers/facebook-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
 import { registerTelegramPublisherRoutes } from './publisher-providers/telegram-routes'
@@ -31,6 +32,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -239,7 +241,11 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 registerDevtoPublisherRoutes(
                     registerBlueskyPublisherRoutes(
                         registerTelegramPublisherRoutes(
-                            registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+                            registerLinkedInPublisherRoutes(
+                                registerFacebookPublisherRoutes(routes, publisher, providerOptions),
+                                publisher,
+                                providerOptions
+                            ),
                             publisher,
                             providerOptions
                         ),

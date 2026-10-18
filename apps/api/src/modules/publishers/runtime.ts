@@ -9,6 +9,11 @@ import {
     type PostbotDatabase,
 } from '@postbot/db'
 import {
+    createFacebookOAuth,
+    createFacebookPublisher,
+    type FacebookFetcher,
+} from '@postbot/facebook'
+import {
     LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     LINKEDIN_OAUTH_ISSUER,
     LINKEDIN_OAUTH_TOKEN_ENDPOINT,
@@ -35,6 +40,7 @@ import {
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { devtoPublisherConnectionPolicy } from './providers/devto'
 import { discordPublisherConnectionPolicy } from './providers/discord'
+import { facebookPublisherConnectionPolicy } from './providers/facebook'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
 import { telegramPublisherConnectionPolicy } from './providers/telegram'
@@ -65,6 +71,11 @@ export interface PublisherRuntimeOptions {
         readonly clientSecret: string
         readonly authorizationServer?: OAuthAuthorizationServer
         readonly publisher?: XPublisher
+    }
+    readonly facebook?: {
+        readonly clientId: string
+        readonly clientSecret: string
+        readonly fetcher?: FacebookFetcher
     }
     readonly now?: () => number
     readonly createId?: () => string
@@ -171,6 +182,7 @@ export function createPublisherRuntime(
             devto: devtoPublisherConnectionPolicy,
             discord: discordPublisherConnectionPolicy,
             telegram: telegramPublisherConnectionPolicy,
+            facebook: facebookPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
             x: xPublisherConnectionPolicy,
@@ -322,6 +334,19 @@ export function createPublisherRuntime(
         credentialStore,
         authorizationAttemptStore,
         providerApplicationStore,
+        facebook:
+            options.facebook === undefined
+                ? undefined
+                : {
+                      oauth: createFacebookOAuth({
+                          ...options.facebook,
+                          callbackUri: new URL(
+                              '/api/oauth/facebook/callback',
+                              options.apiOrigin
+                          ).toString(),
+                      }),
+                      graph: createFacebookPublisher({ fetcher: options.facebook.fetcher }),
+                  },
         resolveLinkedInApplication,
         resolveBlueskyApplication,
         resolveXApplication,
