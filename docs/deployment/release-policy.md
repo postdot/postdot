@@ -98,3 +98,15 @@ POSTBOT_CONTAINER_TEST_IMAGE=postbot:local bun run test:container:recovery
 The supplied image must exist locally. The harness creates isolated disposable
 containers and directories but retains that image. Without this variable, the
 existing command still builds and removes its own uniquely tagged image.
+
+The focused scenario runs only the container startup-termination check against
+the supplied image:
+
+```bash
+POSTBOT_CONTAINER_TEST_IMAGE=postbot:local POSTBOT_CONTAINER_TEST_SCENARIO=startup-termination bun run test:container:recovery
+```
+
+It exists to exercise the stop of a container whose entrypoint is PID 1
+without the packaged poster decoder, the backup and restore scenario and the
+forced-stop probe. The default scenario, `full`, and an unset variable keep
+the whole acceptance scenario.

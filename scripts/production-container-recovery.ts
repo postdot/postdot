@@ -12,10 +12,42 @@ const runId = randomUUID().replaceAll('-', '').slice(0, 12)
 const suppliedImage = process.env.POSTBOT_CONTAINER_TEST_IMAGE
 const imageTag = suppliedImage ?? `postbot-recovery:${runId}`
 const containerName = `postbot-recovery-${runId}`
+
+/**
+ * The scenarios this script can run.
+ *
+ * `full` is the default acceptance scenario of the production image. The
+ * `startup-termination` scenario runs the container-level startup
+ * termination check alone, so it can be executed against a lightweight image
+ * that carries neither the packaged poster decoder nor the dashboard assets.
+ */
+const fullScenario = 'full'
+const startupTerminationScenario = 'startup-termination'
+const selectedScenario = process.env.POSTBOT_CONTAINER_TEST_SCENARIO ?? fullScenario
+if (selectedScenario !== fullScenario && selectedScenario !== startupTerminationScenario) {
+    throw new Error(
+        `Unsupported POSTBOT_CONTAINER_TEST_SCENARIO "${selectedScenario}"; use "${fullScenario}" or "${startupTerminationScenario}".`
+    )
+}
+
+/** The bounded deadline for the runtime marker to appear after the start. */
+const startupMarkerDeadlineMs = 60_000
+/** The bounded grace period Docker grants the container to stop on its own. */
+const startupStopGracePeriodSeconds = 10
+/** The bounded number of attempts to land the termination inside the startup window. */
+const startupWindowAttempts = 3
+/** The bounded interval between the observations of the runtime marker. */
+const startupMarkerPollIntervalMs = 10
+/** The bounded deadline for the in-container probe of the API. */
+const startupProbeTimeoutMs = 2_000
+/** The bounded deadline for the probe request inside the container. */
+const startupProbeRequestTimeoutMs = 500
+
 const testRoot = await mkdtemp(join(tmpdir(), 'postbot-production-recovery-'))
 const sourceData = join(testRoot, 'source-data')
 const restoredData = join(testRoot, 'restored-data')
 const backupDirectory = join(testRoot, 'backups')
+const startupData = join(testRoot, 'startup-data')
 const authSecret = 'production-image-recovery-test-auth-secret'
 const mediaUrlSecret = 'production-image-recovery-test-media-secret'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
@@ -267,6 +299,361 @@ async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void>
     containerStarted = false
 }
 
+/**
+ * The verdict of the in-container probe of the API.
+ *
+ * `not-serving` means the container refused the probe connection, so the API
+ * had not reached its listen call and the startup window was still open.
+ * `serving` means the container answered the probe, so the startup window was
+ * already over. `inconclusive` means the probe could not be run or its
+ * outcome could not be read, so the attempt proves nothing.
+ */
+type StartupProbeVerdict = 'not-serving' | 'serving' | 'inconclusive'
+
+interface StartupProbe {
+    readonly verdict: StartupProbeVerdict
+    readonly detail: string
+}
+
+interface StartupAttempt {
+    /** True when the termination landed inside the startup window. */
+    readonly caught: boolean
+    /** What the in-container probe saw. */
+    readonly probe: StartupProbe
+    /** The state of the container the attempt used. */
+    readonly state: string
+    /** The logs of the container the attempt used. */
+    readonly logs: string
+}
+
+/**
+ * The probe runs inside the container, where the API listens on the loopback
+ * interface even without a published port. The result is a single line of
+ * JSON: an answered request proves that the API is serving, a refused
+ * connection proves that it is not, and any other failure is reported so the
+ * attempt can be discarded instead of guessed.
+ */
+const startupProbeScript = [
+    `const probe = await fetch('http://127.0.0.1:3000/health', { signal: AbortSignal.timeout(${startupProbeRequestTimeoutMs}) })`,
+    '    .then(response => ({ answered: true, status: response.status }))',
+    '    .catch(error => ({ answered: false, name: error?.name ?? null, code: error?.code ?? error?.cause?.code ?? null, message: String(error?.message ?? error).slice(0, 160) }))',
+    'console.log(JSON.stringify(probe))',
+].join('\n')
+
+/**
+ * Probes the API from inside the container and reports whether it already
+ * serves.
+ *
+ * Any answer counts as serving, including an error status: a container that
+ * answers the probe has passed its listen call, so the startup window is
+ * over. A refused connection is the only proof that the API is still
+ * starting.
+ */
+function probeStartupApi(container: string): StartupProbe {
+    const result = spawnSync('docker', ['exec', container, 'bun', '-e', startupProbeScript], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+        // The exec is bounded, so a wedged container cannot hang the check.
+        timeout: startupProbeTimeoutMs,
+        killSignal: 'SIGKILL',
+    })
+
+    if (result.error !== undefined) {
+        return {
+            verdict: 'inconclusive',
+            detail: `the probe did not complete: ${result.error.message}`,
+        }
+    }
+    if (result.status !== 0) {
+        const stderr = (result.stderr ?? '').trim()
+        return {
+            verdict: 'inconclusive',
+            detail: `the probe exited ${String(result.status)}${stderr === '' ? '' : `: ${stderr}`}`,
+        }
+    }
+
+    const output = (result.stdout ?? '').trim()
+    const line = output
+        .split('\n')
+        .map(entry => entry.trim())
+        .filter(entry => entry.startsWith('{'))
+        .pop()
+    if (line === undefined) {
+        return { verdict: 'inconclusive', detail: `the probe printed no result: ${output}` }
+    }
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(line)
+    } catch {
+        return {
+            verdict: 'inconclusive',
+            detail: `the probe printed an unreadable result: ${line}`,
+        }
+    }
+    const probe = parsed as {
+        answered?: unknown
+        status?: unknown
+        name?: unknown
+        code?: unknown
+        message?: unknown
+    }
+
+    if (probe.answered === true) {
+        return {
+            verdict: 'serving',
+            detail: `the API answered the probe with HTTP ${String(probe.status ?? 'an unknown status')}`,
+        }
+    }
+
+    const code = typeof probe.code === 'string' ? probe.code.toUpperCase() : ''
+    const message = typeof probe.message === 'string' ? probe.message : ''
+    if (code.includes('REFUSED') || message.toLowerCase().includes('unable to connect')) {
+        return {
+            verdict: 'not-serving',
+            detail: 'the container refused the probe connection, so the API was not serving yet',
+        }
+    }
+    if (probe.name === 'TimeoutError' || message.toLowerCase().includes('timed out')) {
+        return {
+            verdict: 'serving',
+            detail: 'the container accepted the probe connection without an answer, so the API was already serving',
+        }
+    }
+    return {
+        verdict: 'inconclusive',
+        detail: `the probe failed with ${String(probe.name ?? 'an unknown error')}: ${message}`,
+    }
+}
+
+/**
+ * The moment the runtime marker appeared, taken from the marker file itself.
+ * The observation on the host can only be later, so the file timestamp is
+ * the accurate reference for the startup window.
+ */
+async function runtimeMarkerAppearance(marker: string): Promise<number | undefined> {
+    try {
+        const stat = await Bun.file(marker).stat()
+        return Number.isFinite(stat.mtimeMs) ? stat.mtimeMs : undefined
+    } catch {
+        return undefined
+    }
+}
+
+/** The moment the container exited, taken from the container state. */
+function containerExitTime(container: string): number | undefined {
+    try {
+        const raw = runDocker(['inspect', '--format', '{{.State.FinishedAt}}', container])
+        const parsed = Date.parse(raw)
+        return Number.isFinite(parsed) ? parsed : undefined
+    } catch {
+        return undefined
+    }
+}
+
+/**
+ * The time between the appearance of the runtime marker and the exit of the
+ * container. It bounds the part of the startup window the termination could
+ * have used, because the marker is the first statement of the startup and
+ * the exit is the end of the container.
+ */
+function startupWindowMarginMs(
+    markerAppearedAt: number,
+    container: string,
+    exitObservedAt: number
+): number {
+    const exitAt = containerExitTime(container) ?? exitObservedAt
+    const margin = exitAt - markerAppearedAt
+    // A marker timestamp and a container timestamp that disagree by more than
+    // the startup deadline cannot describe one startup, so the observation on
+    // the host is used instead.
+    if (!Number.isFinite(margin) || margin < 0 || margin > startupMarkerDeadlineMs) {
+        return exitObservedAt - markerAppearedAt
+    }
+    return margin
+}
+
+/**
+ * Runs one attempt of the startup termination check.
+ *
+ * The attempt observes the runtime marker, probes the API from inside the
+ * container and only stops the container when the probe proves that the API
+ * is not serving yet. A container whose API already serves is discarded, so
+ * the caller can start a fresh one instead of exercising the serving path.
+ */
+async function runStartupTerminationAttempt(
+    dataDirectory: string,
+    attempt: number
+): Promise<StartupAttempt> {
+    const container = `${containerName}-startup-${attempt}`
+    const marker = join(dataDirectory, 'postbot.sqlite.runtime.lock')
+    await prepareContainerWritableDirectory(dataDirectory)
+
+    runDocker([
+        'run',
+        '--detach',
+        '--name',
+        container,
+        '--network',
+        'none',
+        ...serverEnvironment(dataDirectory),
+        imageTag,
+    ])
+
+    try {
+        const markerDeadline = Date.now() + startupMarkerDeadlineMs
+        while (!(await Bun.file(marker).exists()) && Date.now() < markerDeadline) {
+            await new Promise(resolve => setTimeout(resolve, startupMarkerPollIntervalMs))
+        }
+        if (!(await Bun.file(marker).exists())) {
+            const state = inspectContainerState(container)
+            const logs = runDockerLogs(container)
+            throw new Error(
+                `The production container did not create its runtime marker within ${startupMarkerDeadlineMs}ms, so the startup window was never entered. Container state: ${state.status} (exit ${state.exitCode}). Container logs:\n${logs}`
+            )
+        }
+        const markerObservedAt = Date.now()
+        const markerAppearedAt = (await runtimeMarkerAppearance(marker)) ?? markerObservedAt
+
+        const probe = probeStartupApi(container)
+        const probeFinishedAt = Date.now()
+        if (probe.verdict !== 'not-serving') {
+            // The startup window was missed. The container is discarded with
+            // its own disposable data directory, and a fresh container is
+            // started for the next attempt.
+            const state = inspectContainerState(container)
+            const logs = runDockerLogs(container)
+            return {
+                caught: false,
+                probe,
+                state: `${state.status} (exit ${state.exitCode})`,
+                logs,
+            }
+        }
+
+        const stopStartedAt = Date.now()
+        runDocker(['stop', '--timeout', String(startupStopGracePeriodSeconds), container])
+        const stopDurationMs = Date.now() - stopStartedAt
+        const exitObservedAt = Date.now()
+        const stopState = inspectContainerState(container)
+        const logs = runDockerLogs(container)
+        // The marker is only observed, never removed by another path, so the
+        // fail-closed exclusion stays in place.
+        const markerRetained = await Bun.file(marker).exists()
+        if (stopState.exitCode !== 0) {
+            throw new Error(
+                `The production container stopped during the API startup did not stop gracefully: exit code ${stopState.exitCode} after ${stopDurationMs}ms. ` +
+                    (stopState.exitCode === 137
+                        ? 'Exit code 137 means Docker SIGKILLed the container after the stop grace period instead of observing an orderly shutdown; as PID 1 the container ignored the stop signal, so the runtime marker survives in the data volume and the next deployment of that volume is refused until an operator removes the marker. '
+                        : '') +
+                    (markerRetained
+                        ? `The runtime marker is still present at ${marker}. `
+                        : 'The runtime marker was released. ') +
+                    `Container logs:\n${logs}`
+            )
+        }
+        if (markerRetained) {
+            throw new Error(
+                `The production container exited 0 but retained its runtime marker at ${marker}; a termination during the API startup must release the marker.`
+            )
+        }
+        // The marker release has to come from the application's own drain, so
+        // the container logs must carry that drain. Empty logs would mean the
+        // marker was removed by another path.
+        if (!logs.includes('[postbot-shutdown] SIGTERM received')) {
+            throw new Error(
+                `The production container exited 0 without running its own orderly drain, so the runtime marker release did not come from the application. Container logs:\n${logs}`
+            )
+        }
+        if (!logs.includes('shutdown complete with exit code 0')) {
+            throw new Error(
+                `The production container did not report a completed orderly drain in its logs. Container logs:\n${logs}`
+            )
+        }
+        const marginMs = Math.round(
+            startupWindowMarginMs(markerAppearedAt, container, exitObservedAt)
+        )
+        const probeAfterMarkerMs = Math.round(probeFinishedAt - markerAppearedAt)
+        console.log(
+            `The production container stopped during the API startup exited 0 in ${(stopDurationMs / 1_000).toFixed(1)}s, released its runtime marker and logged its own orderly drain. ` +
+                `The runtime marker appeared ${marginMs}ms before the container exited, which bounds the part of the startup window the termination used, and the in-container probe confirmed ${probeAfterMarkerMs}ms after the marker that the API was not serving yet.`
+        )
+        return {
+            caught: true,
+            probe,
+            state: `${stopState.status} (exit ${stopState.exitCode})`,
+            logs,
+        }
+    } finally {
+        // The disposable container is always removed, including when an
+        // assertion above failed and left it running.
+        try {
+            runDocker(['rm', '--force', container])
+        } catch {
+            // The container may already have been removed.
+        }
+    }
+}
+
+/**
+ * Proves that a container stopped while the API is still starting shuts down
+ * in an orderly way.
+ *
+ * A container runs its entrypoint as PID 1, and the kernel does not apply the
+ * default action of SIGTERM to PID 1. A container without an installed
+ * handler therefore ignores the stop signal entirely: Docker waits for the
+ * whole grace period, SIGKILLs the container (exit 137), the container logs
+ * stay empty, and the runtime marker survives in the persistent data volume.
+ * The next deployment of that volume is then refused until an operator
+ * removes the marker by hand.
+ *
+ * The runtime marker is created at the first statement of the API startup, so
+ * it is the earliest observable signal that the startup began. The API logs
+ * nothing when it begins to serve, so the container output cannot tell a
+ * termination during the startup from a termination of a serving container.
+ * The check therefore probes the API from inside the container, where the
+ * loopback interface answers even without a published port, and only stops
+ * the container while the probe still reports that the API does not serve.
+ * A container whose API already serves is discarded and the check starts a
+ * fresh container on a fresh disposable data directory, so a missed startup
+ * window can never pass silently.
+ *
+ * The check needs no published port: it observes the marker inside the
+ * mounted data directory and the container's exit status, so the container
+ * runs with `--network none` and stays independent of the host network.
+ *
+ * A retained marker is only ever observed. The check never deletes a marker
+ * by another path, so the fail-closed exclusion stays in place.
+ */
+async function verifyStartupTerminationReleasesLock(dataDirectory: string): Promise<void> {
+    await prepareContainerWritableDirectory(dataDirectory)
+    const observations: string[] = []
+    let lastState = 'unknown'
+    let lastLogs = ''
+
+    for (let attempt = 1; attempt <= startupWindowAttempts; attempt += 1) {
+        const outcome = await runStartupTerminationAttempt(
+            join(dataDirectory, `attempt-${attempt}`),
+            attempt
+        )
+        if (outcome.caught) return
+        observations.push(`attempt ${attempt}: ${outcome.probe.detail}`)
+        lastState = outcome.state
+        lastLogs = outcome.logs
+        console.log(
+            `The startup window was missed in attempt ${attempt}: ${outcome.probe.detail}. ` +
+                'The container was discarded and a fresh one was started on a fresh disposable data directory.'
+        )
+    }
+
+    throw new Error(
+        `The production container never landed inside the startup window in ${startupWindowAttempts} attempts, so the termination cannot be proven to stop the API during its startup. ` +
+            `The in-container probe saw: ${observations.join('; ')}. ` +
+            `The last container state: ${lastState}. Container logs:\n${lastLogs}`
+    )
+}
+
 function runDockerLogs(container: string): string {
     // `docker logs` carries the refusal reason on the container stderr stream,
     // which runDocker does not return, so read both streams here.
@@ -292,16 +679,27 @@ try {
         runDocker(['image', 'inspect', imageTag])
     }
     imageAvailable = true
-    runDocker([
-        'run',
-        '--rm',
-        '--mount',
-        `type=bind,source=${join(repositoryRoot, 'packages/db/src/fixtures/video-h264.mp4')},target=/fixture.mp4,readonly`,
-        '--entrypoint',
-        'bun',
-        imageTag,
-        '-e',
-        `const child = Bun.spawn(['/usr/local/bin/postbot-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
+
+    // The container-level startup termination check runs in every scenario.
+    // The focused scenario stops after it, so it can run against a
+    // lightweight image that carries neither the packaged poster decoder nor
+    // the dashboard assets of the full acceptance scenario.
+    await verifyStartupTerminationReleasesLock(startupData)
+    console.log(
+        'The production image released its runtime marker when the container was stopped during the API startup.'
+    )
+
+    if (selectedScenario !== startupTerminationScenario) {
+        runDocker([
+            'run',
+            '--rm',
+            '--mount',
+            `type=bind,source=${join(repositoryRoot, 'packages/db/src/fixtures/video-h264.mp4')},target=/fixture.mp4,readonly`,
+            '--entrypoint',
+            'bun',
+            imageTag,
+            '-e',
+            `const child = Bun.spawn(['/usr/local/bin/postbot-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
         const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
         try {
             const source = await new Response(child.stdout).blob();
@@ -311,45 +709,46 @@ try {
             const metadata = await new Bun.Image(preview).metadata();
             if (!placeholder || preview.size === 0 || metadata.width > 256 || metadata.height > 256) throw new Error('Native image preview failed');
         } finally { clearTimeout(timer); }`,
-    ])
-    console.log('Packaged H.264 decoder and native image preview generation passed.')
+        ])
+        console.log('Packaged H.264 decoder and native image preview generation passed.')
 
-    await startServer(sourceData, 'source')
+        await startServer(sourceData, 'source')
 
-    await prepareContainerWritableDirectory(restoredData)
-    runDocker([
-        'run',
-        '--rm',
-        '--mount',
-        `type=bind,source=${sourceData},target=/data`,
-        '--mount',
-        `type=bind,source=${backupDirectory},target=/backups`,
-        imageTag,
-        'backup',
-        '--media',
-        '--output',
-        '/backups/postbot.bundle',
-    ])
+        await prepareContainerWritableDirectory(restoredData)
+        runDocker([
+            'run',
+            '--rm',
+            '--mount',
+            `type=bind,source=${sourceData},target=/data`,
+            '--mount',
+            `type=bind,source=${backupDirectory},target=/backups`,
+            imageTag,
+            'backup',
+            '--media',
+            '--output',
+            '/backups/postbot.bundle',
+        ])
 
-    runDocker([
-        'run',
-        '--rm',
-        '--mount',
-        `type=bind,source=${restoredData},target=/data`,
-        '--mount',
-        `type=bind,source=${backupDirectory},target=/backups`,
-        imageTag,
-        'restore',
-        '--media',
-        '--input',
-        '/backups/postbot.bundle',
-    ])
+        runDocker([
+            'run',
+            '--rm',
+            '--mount',
+            `type=bind,source=${restoredData},target=/data`,
+            '--mount',
+            `type=bind,source=${backupDirectory},target=/backups`,
+            imageTag,
+            'restore',
+            '--media',
+            '--input',
+            '/backups/postbot.bundle',
+        ])
 
-    await startServer(restoredData, 'restored')
-    await verifyForcedStopRetainsLock(restoredData)
-    console.log(
-        'Production image started, created a media backup without server secrets, restored it, became ready, stopped gracefully with exit 0 and a released lock, and kept forced termination visible and fail-closed.'
-    )
+        await startServer(restoredData, 'restored')
+        await verifyForcedStopRetainsLock(restoredData)
+        console.log(
+            'Production image started, created a media backup without server secrets, restored it, became ready, stopped gracefully with exit 0 and a released lock, and kept forced termination visible and fail-closed.'
+        )
+    }
 } finally {
     if (containerStarted) {
         try {
@@ -380,6 +779,7 @@ try {
                 '/test-root/source-data',
                 '/test-root/restored-data',
                 '/test-root/backups',
+                '/test-root/startup-data',
             ])
         } catch {
             // The host cleanup below still removes these paths when ownership permits it.
