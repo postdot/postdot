@@ -28,8 +28,13 @@ import type { TelegramFetcher } from '@postbot/telegram'
 import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
 import { xChannelProfileValidationAdapter } from '@postbot/x'
 import type { Registry } from '@prometheus-io/client'
-import { Elysia } from 'elysia'
+import { Elysia, setupTypebox } from 'elysia'
 import { Type } from 'typebox'
+import * as typeboxCompile from 'typebox/compile'
+import * as typeboxSchema from 'typebox/schema'
+import * as typeboxSystem from 'typebox/system'
+import * as typeboxType from 'typebox/type'
+import * as typeboxValue from 'typebox/value'
 
 import type { PostbotLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
@@ -122,6 +127,19 @@ function createDomainApp({
     telegramFetcher,
     devtoFetcher,
 }: PostbotAppOptions) {
+    // Elysia compiles its routes at runtime and loads the TypeBox namespaces
+    // through a dynamic require it cannot bundle. The production image carries
+    // the bundle only, so those namespaces are wired statically here: the
+    // bundler includes them and the image needs no node_modules.
+    setupTypebox({
+        typebox: {
+            type: typeboxType,
+            system: typeboxSystem,
+            value: typeboxValue,
+            schema: typeboxSchema,
+            compile: typeboxCompile,
+        },
+    })
     const accessStore = access ?? createAccessStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
