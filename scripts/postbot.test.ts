@@ -212,6 +212,7 @@ describe('machine publication workflow', () => {
                 linkedin: 'not_configured',
                 bluesky: 'not_configured',
                 x: 'not_configured',
+                facebook: 'not_configured',
             })
             const connectionChannel = await client.api
                 .projects({ projectId: project.id })
