@@ -331,7 +331,14 @@ test('keeps calendar titles readable across intermediate workspace widths', asyn
 
     for (const collapsed of [false, true]) {
         await page.setViewportSize({ width: 1280, height: 900 })
-        if (collapsed) await page.locator('[data-slot="sidebar-trigger"]').click()
+        // The shell collapses the workspace navigation from the header toggle.
+        if (collapsed) await page.locator('[data-sidebar="trigger"]').click()
+        // Guard the dimension itself: the sweep must run with the navigation
+        // expanded and with it collapsed to icon width.
+        await expect(page.locator('[data-slot="sidebar"][data-state]')).toHaveAttribute(
+            'data-state',
+            collapsed ? 'collapsed' : 'expanded'
+        )
         for (const view of ['month', 'week']) {
             await page.goto(
                 `/dashboard/projects/${projectId}/overview?date=2026-10-01&view=${view}`
