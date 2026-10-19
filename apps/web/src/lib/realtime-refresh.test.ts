@@ -63,8 +63,9 @@ test('a blocked project does not serialize another project or leak its scope', a
     const aReadStarted = new Promise<void>(resolve => {
         signalAStarted = resolve
     })
-    const reads: Record<string, RefreshScope[]> = { a: [], b: [] }
+    const reads: Record<'a' | 'b', RefreshScope[]> = { a: [], b: [] }
     const refresh = createRealtimeRefreshQueue(async (key, scope) => {
+        if (key !== 'a' && key !== 'b') throw new Error('Unexpected project key')
         reads[key].push(scope)
         if (key === 'a' && reads.a.length === 1) {
             signalAStarted()

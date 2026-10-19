@@ -966,3 +966,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[REALTIME-513]** Reproduce and repair stale publication detail after an automatic delivery event `Priority: 🟠` `Complexity: M` — ISSUE-177; preserve local edits and verify refresh without browser reload or external publishing.
 
 - [x] **[HANDOVER-514]** Prepare a stable clean-checkout handover for the owner's new collaboration experiment `Priority: 🟠` `Complexity: S` — Root HANDOVER.md records verified state, remaining uncertainty and multi-agent coordination boundaries; no new product work started.
+
+- [x] **[REALTIME-515]** Add deterministic refresh-queue isolation and repeated-overlap regressions `Priority: 🔵` `Complexity: S` — ISSUE-177; bounded delegated test implementation, orchestrator review and mutation checks; no runtime behavior change or automatic-worker acceptance claim.
