@@ -18,6 +18,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 

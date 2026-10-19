@@ -273,14 +273,8 @@ test('uses active execution for custom channel readiness and connection actions'
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     const creation = page.getByRole('dialog')
     await creation.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    const profileJson = creation.getByLabel('Custom profile JSON', { exact: true })
-    const manualProfile = JSON.parse(await profileJson.inputValue())
-    await creation.getByRole('combobox', { name: 'Starter template', exact: true }).click()
-    await page.getByRole('option', { name: 'Custom webhook channel', exact: true }).click()
-    const webhookProfile = JSON.parse(await profileJson.inputValue())
-    await creation.getByRole('combobox', { name: 'Starter template', exact: true }).click()
-    await page.getByRole('option', { name: 'Custom manual channel', exact: true }).click()
     await creation.getByLabel('Channel name').fill('custom-manual')
+    await creation.getByRole('button', { name: 'Configure content', exact: true }).click()
     const created = page.waitForResponse(
         response => response.url().endsWith(path) && response.request().method() === 'POST'
     )
@@ -294,6 +288,20 @@ test('uses active execution for custom channel readiness and connection actions'
             .locator(`#publisher-connection-${ids['custom-manual']}`)
             .getByText('Manual', { exact: true })
     ).toBeVisible()
+    const manualDefinition = await page.request.get(`${path}/${ids['custom-manual']}/profile`)
+    expect(manualDefinition.status()).toBe(200)
+    const manualProfile = (await manualDefinition.json()).active.profile
+    expect(manualProfile.execution).toEqual({ kind: 'manual' })
+    const webhookProfile = {
+        ...manualProfile,
+        id: 'custom-webhook',
+        execution: {
+            kind: 'declarative_http',
+            contractId: 'custom-webhook',
+            revision: 'v1',
+            mode: 'postbot_webhook',
+        },
+    }
     const webhookResponse = await page.request.post(path, {
         data: { name: 'custom-webhook', profile: webhookProfile },
     })

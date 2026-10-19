@@ -524,7 +524,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
         await expect(preview.locator('[data-publication-preview-content]')).toHaveText(body)
         if (profileId === 'devto') {
             await page
-                .getByLabel(en.publication_new_post_title, { exact: true })
+                .getByLabel(en.builder_title_required, { exact: true })
                 .fill('A community update')
             await expect(preview.getByRole('heading', { name: 'A community update' })).toBeVisible()
         }
@@ -1189,7 +1189,7 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         )
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.getByLabel(en.publication_new_post_title, { exact: true }).fill('Media adaptation')
+    await page.getByLabel(en.builder_title_required, { exact: true }).fill('Media adaptation')
     const created = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )

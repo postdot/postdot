@@ -111,7 +111,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(dashboardLogo).toBeVisible()
     await page.goto('/dashboard?projectId=none')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
-    await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 189 189')
+    await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 128 128')
     await expect(dashboardLogo.locator('[fill="currentColor"]')).toHaveCount(5)
     await expect(page.locator('a[aria-label="Postbot workspace"]')).toHaveCSS(
         'background-color',
@@ -342,6 +342,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
@@ -1747,6 +1748,8 @@ async function createChannel(page: Page, channelName: string, profileName?: stri
         await channelProfile.getByRole('radio', { name: profileName, exact: true }).click()
     }
     await page.getByLabel('Channel name').fill(channelName)
+    if (profileName === undefined)
+        await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 }
