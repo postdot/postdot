@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Request } from '@playwright/test'
 import type { PublicationEditorState } from '@postbot/client'
 
 test('rebases a stale sibling draft without replacing destination text or attachments', async ({
@@ -313,23 +313,23 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
     const context = await browser.newContext({ storageState: await page.context().storageState() })
     const other = await context.newPage()
     const editorUrl = `/publications/${pair.first}/editor`
+    const reads = observeProjectReads(other, editorUrl)
     try {
-        let reads = 0
-        other.on('request', request => {
-            if (request.url().endsWith(editorUrl)) reads += 1
-        })
         await other.goto(pair.pageUrl(pair.first))
-        await expect.poll(() => reads).toBeGreaterThanOrEqual(1)
+        await expect.poll(() => reads.count).toBeGreaterThanOrEqual(1)
         await expect(other.locator('#source-body')).toHaveText('Initial common source')
-        // Let the existing journal replay refresh retries settle before measuring hidden draft reads.
-        await other.waitForTimeout(1500)
-        reads = 0
-        await other.evaluate(() =>
+        // The project stream replays journal events on connect and every replayed event
+        // fans out project reads, so wait for that fan-out to become observably idle
+        // before hiding. A fixed sleep no longer covers the replay retries.
+        await reads.waitForQuiescence()
+        reads.reset()
+        await other.evaluate(() => {
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
                 get: () => 'hidden',
             })
-        )
+            document.dispatchEvent(new Event('visibilitychange'))
+        })
         const before = await pair.read(page, pair.first)
         const saved = await page.request.patch(
             `/api/projects/${pair.id}/publications/${pair.first}/draft`,
@@ -346,7 +346,7 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
         )
         expect(saved.ok()).toBe(true)
         await other.waitForTimeout(700)
-        expect(reads).toBe(0)
+        expect(reads.count).toBe(0)
         await other.evaluate(() => {
             Object.defineProperty(document, 'visibilityState', {
                 configurable: true,
@@ -378,6 +378,7 @@ test('catches up missed draft signals on visibility return and SSE reconnect', a
         })
         await expect(other.locator('[data-publication-conflict="true"]')).toHaveCount(0)
     } finally {
+        reads.dispose()
         await context.close()
     }
 })
@@ -387,6 +388,75 @@ async function openCustomization(page: Page) {
     if ((await details.getAttribute('open')) === null)
         await details.locator(':scope > summary').click()
     await expect(details.locator('[data-target-field="text"]')).toBeVisible()
+}
+
+/**
+ * Counts publication editor reads and observes the project read fan-out that the
+ * realtime bridge replays when the project stream connects. Only finite project
+ * reads are tracked; the long-lived project event stream is excluded because it
+ * never settles.
+ */
+function observeProjectReads(page: Page, editorUrlSuffix: string) {
+    let count = 0
+    let lastActivityAt = Date.now()
+    let streamSeen = false
+    const pending = new Set<Request>()
+    const pathOf = (request: Request) => new URL(request.url()).pathname
+    const isProjectRead = (request: Request) => {
+        if (request.method() !== 'GET') return false
+        const path = pathOf(request)
+        return path.startsWith('/api/projects/') && !path.endsWith('/events')
+    }
+    const isProjectStream = (request: Request) => {
+        if (request.method() !== 'GET') return false
+        const path = pathOf(request)
+        return path.startsWith('/api/projects/') && path.endsWith('/events')
+    }
+    const onRequest = (request: Request) => {
+        if (request.url().endsWith(editorUrlSuffix)) count += 1
+        if (isProjectRead(request)) pending.add(request)
+        // Include stream startup in the observed activity before measuring idle time.
+        else if (isProjectStream(request)) {
+            streamSeen = true
+            lastActivityAt = Date.now()
+        }
+    }
+    const onFinished = (request: Request) => {
+        if (!pending.delete(request)) return
+        lastActivityAt = Date.now()
+    }
+    page.on('request', onRequest)
+    page.on('requestfinished', onFinished)
+    // cspell:disable-next-line
+    page.on('requestfailed', onFinished)
+    return {
+        get count() {
+            return count
+        },
+        reset() {
+            count = 0
+        },
+        async waitForQuiescence() {
+            // The quiet window has to outlast the longest refresh retry leg (800ms).
+            const quietMs = 1500
+            const timeoutMs = 20_000
+            const deadline = Date.now() + timeoutMs
+            while (Date.now() < deadline) {
+                if (streamSeen && pending.size === 0 && Date.now() - lastActivityAt >= quietMs)
+                    return
+                await new Promise(resolve => setTimeout(resolve, 50))
+            }
+            throw new Error(
+                `Project reads did not settle within ${timeoutMs}ms (stream connected: ${streamSeen}, in flight: ${pending.size})`
+            )
+        },
+        dispose() {
+            page.off('request', onRequest)
+            page.off('requestfinished', onFinished)
+            // cspell:disable-next-line
+            page.off('requestfailed', onFinished)
+        },
+    }
 }
 
 for (const scheduled of [false, true]) {
