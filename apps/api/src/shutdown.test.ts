@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+    createShutdownDependencies,
     createShutdownHandler,
     describeShutdownError,
     type ShutdownDependencies,
@@ -224,6 +225,58 @@ describe('createShutdownHandler', () => {
         expect(calls.filter(call => call === 'worker')).toHaveLength(1)
         expect(outcome.exitCalls).toBe(1)
         expect(outcome.exitCode).toBe(0)
+    })
+})
+
+describe('createShutdownDependencies', () => {
+    test('a step assigned after the handler exists is the step that drains', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const dependencies = createShutdownDependencies(() => {
+            calls.push('release')
+            return true
+        }, outcome.exit)
+        dependencies.log = () => {}
+        const handleShutdown = createShutdownHandler(dependencies)
+
+        dependencies.stopWorker = async () => {
+            calls.push('worker')
+        }
+        dependencies.closeDatabase = () => {
+            calls.push('close')
+        }
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual(['worker', 'close', 'release'])
+        expect(outcome.exitCode).toBe(0)
+    })
+
+    test('a resource that does not exist yet drains as a no-op', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const dependencies = createShutdownDependencies(() => {
+            calls.push('release')
+            return true
+        }, outcome.exit)
+        dependencies.log = () => {}
+        const handleShutdown = createShutdownHandler(dependencies)
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual(['release'])
+        expect(outcome.exitCode).toBe(0)
+    })
+
+    test('the runtime marker release reports the outcome it is given', async () => {
+        const outcome = recordOutcome()
+        const dependencies = createShutdownDependencies(() => false, outcome.exit)
+        dependencies.log = () => {}
+        const handleShutdown = createShutdownHandler(dependencies)
+
+        await handleShutdown('SIGTERM')
+
+        expect(outcome.exitCode).toBe(2)
     })
 })
 

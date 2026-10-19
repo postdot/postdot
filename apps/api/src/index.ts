@@ -55,7 +55,11 @@ import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
 import { createRecoveryService } from './recovery'
 import { registerServingHandle } from './serving'
-import { createShutdownHandler } from './shutdown'
+import {
+    createShutdownDependencies,
+    createShutdownHandler,
+    type MutableShutdownDependencies,
+} from './shutdown'
 import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-posters'
 
 export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
@@ -116,26 +120,50 @@ export type {
 } from './modules/projects/notification-models'
 
 async function startServer(config = createPostbotConfig()) {
-    const runtimeLock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
+    // The process signals are handled before the runtime marker exists, so a
+    // termination during startup runs the same drain as a running server
+    // instead of the platform default disposition. The default disposition
+    // would leave the marker behind and block the next start until an
+    // operator removes it.
+    let runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock> | undefined
+    let shutdownRequested = false
+    const dependencies = createShutdownDependencies(
+        () => (runtimeLock === undefined ? true : runtimeLock.release()),
+        exitCode => process.exit(exitCode)
+    )
+    const handleShutdown = createShutdownHandler(dependencies)
+    const requestShutdown = (signal: NodeJS.Signals) => {
+        shutdownRequested = true
+        void handleShutdown(signal)
+    }
+    process.once('SIGINT', () => requestShutdown('SIGINT'))
+    process.once('SIGTERM', () => requestShutdown('SIGTERM'))
+    process.once('SIGHUP', () => requestShutdown('SIGHUP'))
+
+    const lock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
+    runtimeLock = lock
     try {
-        await startServerWithRuntimeLock(config, runtimeLock)
+        await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested)
     } catch (error) {
-        runtimeLock.release()
+        lock.release()
         throw error
     }
 }
 
 async function startServerWithRuntimeLock(
     config: ReturnType<typeof createPostbotConfig>,
-    runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock>
+    dependencies: MutableShutdownDependencies,
+    shutdownRequested: () => boolean
 ) {
     let resumeRuntimes: (() => void) | undefined
     const recovery = createRecoveryService(config.database.fileName, () => resumeRuntimes?.())
     const database = createDatabase(config.database.fileName)
+    dependencies.closeDatabase = () => closeDatabase(database)
     runMigrations(database, config.database.migrationsDirectory)
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
+    dependencies.stopNotificationProjection = () => notificationProjection.stop()
     const emailStore = createNotificationEmailStore(database)
     let emailRuntime: ReturnType<typeof createNotificationEmailRuntime> | undefined
     const emailSettings = await createEmailSettingsService({
@@ -165,11 +193,13 @@ async function startServerWithRuntimeLock(
         resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
         onError: error => console.error('[postbot-realtime] post-commit wakeup failed', error),
     })
+    dependencies.stopRealtime = () => realtime.stop()
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
         database,
         projectIds => realtime.publish(projectIds),
         error => console.error('[postbot-realtime] post-commit observer failed', error)
     )
+    dependencies.clearCommitObserver = () => clearDatabaseCommitObserver()
     const objectStorage = createConfiguredMediaStore(config.media)
     const avatars = createUserAvatarStore(database, objectStorage)
     const posterExtractor = createVideoPosterExtractor(objectStorage)
@@ -200,6 +230,10 @@ async function startServerWithRuntimeLock(
             return result
         },
     })
+    dependencies.stopMediaMaintenance = async () => {
+        await posterRuntime?.stop()
+        await mediaMaintenance.stop()
+    }
     const email = createPostbotAuthEmailDelivery({
         getSmtp: () => (recovery.held() ? undefined : emailSettings.current()),
         transport: emailSettings,
@@ -312,6 +346,10 @@ async function startServerWithRuntimeLock(
         onRunCompleted: metrics?.observeWorkerRun,
     })
     metrics?.bindScheduler(worker.scheduler)
+    dependencies.stopWorker = async () => {
+        await worker.stop()
+        await emailRuntime?.stop()
+    }
     const baseApp = createApp({
         recovery,
         auth,
@@ -350,6 +388,7 @@ async function startServerWithRuntimeLock(
         config.environment === 'production'
             ? baseApp.use(await createWebAssets(config.web.assetsDirectory))
             : baseApp
+    dependencies.stopServer = () => app.stop()
 
     resumeRuntimes = () => {
         worker.start()
@@ -357,34 +396,16 @@ async function startServerWithRuntimeLock(
         posterRuntime?.start()
         emailRuntime?.start()
     }
+    // A termination received during startup must not start a runtime that is
+    // already draining, and must not start serving. No signal can arrive
+    // between this check and the listen call, because no await separates them.
+    if (shutdownRequested()) return
     if (!recovery.held()) resumeRuntimes()
     notificationProjection.start()
     if (recovery.held())
         console.warn('[postbot-recovery] inspection only; resume from installation settings')
     app.listen(config.server.port)
     registerServingHandle(app.server)
-
-    const handleShutdown = createShutdownHandler({
-        stopWorker: async () => {
-            await worker.stop()
-            await emailRuntime?.stop()
-        },
-        stopMediaMaintenance: async () => {
-            await posterRuntime?.stop()
-            await mediaMaintenance.stop()
-        },
-        stopNotificationProjection: () => notificationProjection.stop(),
-        stopRealtime: () => realtime.stop(),
-        clearCommitObserver: () => clearDatabaseCommitObserver(),
-        stopServer: () => app.stop(),
-        closeDatabase: () => closeDatabase(database),
-        releaseRuntimeLock: () => runtimeLock.release(),
-        exit: exitCode => process.exit(exitCode),
-    })
-
-    process.once('SIGINT', () => void handleShutdown('SIGINT'))
-    process.once('SIGTERM', () => void handleShutdown('SIGTERM'))
-    process.once('SIGHUP', () => void handleShutdown('SIGHUP'))
 }
 
 if (import.meta.main) {

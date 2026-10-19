@@ -38,6 +38,42 @@ export interface ShutdownDependencies {
 }
 
 /**
+ * The dependency set of the shutdown path, with assignable steps.
+ *
+ * The API runtime creates its resources gradually, so the drain has to be
+ * able to run before every step exists. A step that is not assigned yet
+ * corresponds to a resource that does not exist yet.
+ */
+export type MutableShutdownDependencies = {
+    -readonly [Key in keyof ShutdownDependencies]: ShutdownDependencies[Key]
+}
+
+/**
+ * Creates the dependency set of a shutdown path whose resources appear over
+ * time.
+ *
+ * Every resource step starts as a no-op and is replaced by the real step as
+ * soon as its resource exists. The two process-level steps are explicit: the
+ * runtime marker release and the process exit.
+ */
+export function createShutdownDependencies(
+    releaseRuntimeLock: () => boolean,
+    exit: (code: ShutdownExitCode) => void
+): MutableShutdownDependencies {
+    return {
+        stopWorker: async () => {},
+        stopMediaMaintenance: async () => {},
+        stopNotificationProjection: () => {},
+        stopRealtime: () => {},
+        clearCommitObserver: () => {},
+        stopServer: () => {},
+        closeDatabase: () => {},
+        releaseRuntimeLock,
+        exit,
+    }
+}
+
+/**
  * Builds the process-signal shutdown path. Drain failures are fail-fast:
  * remaining drains are skipped, but the database close and the single
  * token-checked lock release are always attempted before exiting.

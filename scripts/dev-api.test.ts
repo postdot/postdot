@@ -249,6 +249,135 @@ test('real API releases its runtime lock when terminal hangup reaches the child 
     }
 }, 10000)
 
+test('the real API releases its runtime marker when a signal arrives during startup', async () => {
+    const { rm } = await import('node:fs/promises')
+    const { join } = await import('node:path')
+    const { createE2ERuntimeResources } = await import('./e2e-runtime')
+    const resources = await createE2ERuntimeResources({})
+    const marker = `${resources.databaseFile}.runtime.lock`
+    const environment = {
+        PATH: process.env.PATH,
+        NODE_ENV: 'test',
+        PORT: String(resources.apiPort),
+        DB_FILE_NAME: resources.databaseFile,
+        POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+        POSTBOT_MEDIA_STORE: 'local',
+        BETTER_AUTH_URL: resources.apiOrigin,
+        POSTBOT_WEB_ORIGIN: resources.webOrigin,
+        BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
+        POSTBOT_MEDIA_PUBLIC_URL_SECRET:
+            'postbot-isolated-test-media-secret-at-least-32-characters',
+        POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+        LOG_LEVEL: 'silent',
+    }
+    const spawnApi = () =>
+        Bun.spawn([process.execPath, join(import.meta.dir, '../apps/api/src/index.ts')], {
+            cwd: resources.dataDirectory,
+            env: environment,
+            stdout: 'ignore',
+            stderr: 'pipe',
+        })
+    const server = spawnApi()
+    let replacement: ReturnType<typeof spawnApi> | undefined
+    const failures: Error[] = []
+    let serverExited = false
+    let replacementExited = false
+    try {
+        // The API must never serve while the signal is on its way: the
+        // termination has to land in the startup window, before the server
+        // listens.
+        let served = false
+        let exited = false
+        const exitedCode = server.exited.then(code => {
+            exited = true
+            return code
+        })
+        const pollHealth = (async () => {
+            const deadline = Date.now() + 20_000
+            while (!exited && Date.now() < deadline) {
+                try {
+                    const response = await fetch(`${resources.apiOrigin}/health`, {
+                        signal: AbortSignal.timeout(200),
+                    })
+                    if (response.ok) served = true
+                } catch {}
+                await Bun.sleep(10)
+            }
+        })()
+
+        // The runtime marker is created at the first statement of the
+        // startup, so its presence marks the beginning of that window.
+        const markerDeadline = Date.now() + 15_000
+        while (!(await Bun.file(marker).exists()) && Date.now() < markerDeadline) {
+            await Bun.sleep(2)
+        }
+        expect(await Bun.file(marker).exists()).toBe(true)
+
+        server.kill('SIGTERM')
+        const exitCode = await Promise.race([exitedCode, Bun.sleep(20_000).then(() => null)])
+        serverExited = exitCode !== null
+        expect(exitCode).toBe(0)
+        expect(await Bun.file(marker).exists()).toBe(false)
+        await pollHealth
+        expect(served).toBe(false)
+
+        // The next start must not be blocked by a retained marker.
+        replacement = spawnApi()
+        const replacementCode = replacement.exited.then(code => {
+            replacementExited = true
+            return code
+        })
+        const readyDeadline = Date.now() + 20_000
+        let ready = false
+        while (!ready && Date.now() < readyDeadline) {
+            try {
+                const response = await fetch(`${resources.apiOrigin}/health`, {
+                    signal: AbortSignal.timeout(1_000),
+                })
+                ready = response.ok
+            } catch {}
+            if (!ready) await Bun.sleep(25)
+        }
+        expect(ready).toBe(true)
+
+        replacement.kill('SIGTERM')
+        const replacementExitCode = await Promise.race([
+            replacementCode,
+            Bun.sleep(20_000).then(() => null),
+        ])
+        expect(replacementExitCode).toBe(0)
+        expect(await Bun.file(marker).exists()).toBe(false)
+    } catch (error) {
+        failures.push(error instanceof Error ? error : new Error(String(error)))
+    } finally {
+        // Bounded cleanup of the exact children this test owns. The fixture is
+        // removed only after every owned child is gone.
+        for (const child of [server, replacement]) {
+            if (child === undefined) continue
+            if (child.exitCode === null && child.signalCode === null) {
+                child.kill('SIGKILL')
+                await Promise.race([child.exited, Bun.sleep(5_000)])
+            }
+        }
+        await Promise.race([server.exited, Bun.sleep(5_000)])
+        if (replacement !== undefined) await Promise.race([replacement.exited, Bun.sleep(5_000)])
+        if (serverExited && (replacement === undefined || replacementExited)) {
+            await rm(resources.mediaDirectory, { recursive: true, force: true })
+            await rm(resources.dataDirectory, { recursive: true, force: true })
+        } else {
+            failures.push(
+                new Error(
+                    `An owned API child did not exit, so its isolated fixture was kept at ${resources.dataDirectory}`
+                )
+            )
+        }
+    }
+    const [first] = failures
+    if (first === undefined) return
+    if (failures.length === 1) throw first
+    throw new Error(failures.map(item => item.message).join('\n'), { cause: first })
+}, 90_000)
+
 const requestDeadlineMs = 15_000
 const streamRequestDeadlineMs = 20_000
 const streamDrainDeadlineMs = 10_000
