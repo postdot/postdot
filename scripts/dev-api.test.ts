@@ -630,3 +630,286 @@ test('the real API exits and releases its runtime lock while an authenticated ev
     if (failures.length === 1) throw first
     throw new Error(failures.map(item => item.message).join('\n'), { cause: first })
 }, 120_000)
+
+test('the development launcher releases the API runtime marker when a stop lands during startup', async () => {
+    const { mkdir, mkdtemp, readFile, rm, symlink, writeFile } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { createE2ERuntimeResources } = await import('./e2e-runtime')
+
+    const resources = await createE2ERuntimeResources({})
+    const marker = `${resources.databaseFile}.runtime.lock`
+    const fixture = await mkdtemp(join(tmpdir(), 'postbot-launcher-fixture-'))
+    const apiDirectory = join(fixture, 'apps/api')
+    const launcherModule = join(import.meta.dir, 'dev-api.ts')
+    const realApiEntry = join(import.meta.dir, '../apps/api/src/index.ts')
+
+    // The launcher's environment is built explicitly instead of being spread
+    // from the ambient one. Bun's --env-file never overrides a variable that
+    // is already present, so these are the only values the API child can
+    // see: the owner's own .env, port, database and secrets stay out.
+    const environment = {
+        PATH: process.env.PATH ?? '',
+        HOME: process.env.HOME ?? '',
+        TMPDIR: process.env.TMPDIR ?? '',
+        NODE_ENV: 'test',
+        PORT: String(resources.apiPort),
+        DB_FILE_NAME: resources.databaseFile,
+        POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+        POSTBOT_MEDIA_STORE: 'local',
+        BETTER_AUTH_URL: resources.apiOrigin,
+        POSTBOT_WEB_ORIGIN: resources.webOrigin,
+        BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
+        POSTBOT_MEDIA_PUBLIC_URL_SECRET:
+            'postbot-isolated-test-media-secret-at-least-32-characters',
+        POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+        LOG_LEVEL: 'silent',
+    }
+    const configurationNames = [
+        'NODE_ENV',
+        'PORT',
+        'DB_FILE_NAME',
+        'POSTBOT_MEDIA_DIRECTORY',
+        'POSTBOT_MEDIA_STORE',
+        'BETTER_AUTH_URL',
+        'POSTBOT_WEB_ORIGIN',
+        'BETTER_AUTH_SECRET',
+        'POSTBOT_MEDIA_PUBLIC_URL_SECRET',
+        'POSTBOT_PUBLISHER_ENCRYPTION_KEY',
+        'LOG_LEVEL',
+    ] as const
+    await mkdir(join(apiDirectory, 'src'), { recursive: true })
+    await mkdir(join(fixture, 'packages/placeholder/src'), { recursive: true })
+    await writeFile(join(fixture, 'bun.lock'), '')
+    await writeFile(join(fixture, 'package.json'), '{}')
+    await writeFile(
+        join(apiDirectory, '.env'),
+        `${configurationNames.map(name => `${name}=${environment[name]}`).join('\n')}\n`
+    )
+    // The launcher runs the real API: a link to the real entry point, which
+    // Bun resolves, so the real workspace packages and the real migrations
+    // stay in use while the configuration stays synthetic.
+    await symlink(realApiEntry, join(apiDirectory, 'src/index.ts'))
+
+    const spawnLauncher = () => {
+        const child = Bun.spawn(
+            [
+                process.execPath,
+                '-e',
+                `import { runDevelopmentApi } from ${JSON.stringify(launcherModule)}; await runDevelopmentApi(${JSON.stringify(fixture)});`,
+            ],
+            { env: environment, stdout: 'pipe', stderr: 'pipe' }
+        )
+        let output = ''
+        const consume = async (stream: ReadableStream<Uint8Array>) => {
+            for await (const chunk of stream) output += new TextDecoder().decode(chunk)
+        }
+        const streams = Promise.all([consume(child.stdout), consume(child.stderr)])
+        return { child, streams, output: () => output }
+    }
+    const launchers: Array<ReturnType<typeof spawnLauncher>> = []
+    const startLauncher = () => {
+        const launcher = spawnLauncher()
+        launchers.push(launcher)
+        return launcher
+    }
+    const isRunning = (pid: number) => {
+        try {
+            process.kill(pid, 0)
+            return true
+        } catch {
+            return false
+        }
+    }
+    const readMarkerPid = async () => {
+        try {
+            const record = JSON.parse(await readFile(marker, 'utf8')) as { pid: number }
+            return record.pid
+        } catch {
+            return undefined
+        }
+    }
+    // The launcher names the child it started in its own first output line, so
+    // the marker can be tied to the process the launcher owns. The wait is
+    // bounded: the line is written before the child creates the marker, but it
+    // reaches this process through a pipe, so it can arrive a moment later.
+    const readReportedPid = async (launcher: ReturnType<typeof spawnLauncher>) => {
+        const deadline = Date.now() + 20_000
+        for (;;) {
+            const match = /\[postbot-dev\] API started \(pid (\d+)\)/.exec(launcher.output())
+            if (match !== null) return Number(match[1])
+            if (Date.now() >= deadline) return undefined
+            await Bun.sleep(5)
+        }
+    }
+
+    const failures: Error[] = []
+    const apiPids = new Set<number>()
+    try {
+        const launcherOne = startLauncher()
+        let launcherOneExited = false
+        const launcherOneExitCode = launcherOne.child.exited.then(code => {
+            launcherOneExited = true
+            return code
+        })
+        // The health poll covers the whole lifetime of the first launcher, so
+        // a request the API answered at any point is recorded. Any response
+        // counts as the API having served, not only a successful one.
+        let responded = false
+        const pollHealth = (async () => {
+            while (!launcherOneExited) {
+                try {
+                    const response = await fetch(`${resources.apiOrigin}/health`, {
+                        signal: AbortSignal.timeout(200),
+                    })
+                    responded = true
+                    const body = response.body
+                    if (body !== null) void body.cancel().catch(() => {})
+                } catch {}
+                await Bun.sleep(5)
+            }
+        })()
+
+        // The marker is created at the first statement of the API startup, so
+        // its presence opens the window in which the API has not served yet.
+        const markerDeadline = Date.now() + 20_000
+        while (!(await Bun.file(marker).exists()) && Date.now() < markerDeadline) {
+            await Bun.sleep(2)
+        }
+        expect(await Bun.file(marker).exists()).toBe(true)
+        const firstApiPid = await readMarkerPid()
+        expect(firstApiPid).toBeDefined()
+        if (firstApiPid === undefined)
+            throw new Error('The runtime marker carried no process identifier')
+        apiPids.add(firstApiPid)
+        // The marker must name the very child this launcher reports, so it
+        // cannot be a leftover of an unrelated process.
+        const firstReportedPid = await readReportedPid(launcherOne)
+        expect(firstReportedPid).toBeDefined()
+        if (firstReportedPid === undefined)
+            throw new Error('The launcher did not report the pid of the API child')
+        expect(firstReportedPid).toBe(firstApiPid)
+
+        // The operator stops the launcher while the API child is still
+        // starting. The launcher forwards the signal to the child at once, so
+        // the child receives it inside its startup window.
+        launcherOne.child.kill('SIGTERM')
+        const launcherOneCode = await Promise.race([
+            launcherOneExitCode,
+            Bun.sleep(20_000).then(() => null),
+        ])
+        expect(launcherOneCode).toBe(143)
+        await Promise.race([launcherOne.streams, Bun.sleep(2_000)])
+        expect(launcherOne.output()).toContain('[postbot-dev] Launcher stopping (SIGTERM)')
+        // The child ran the orderly drain, so it released the marker itself
+        // instead of losing the default disposition of the signal.
+        expect(launcherOne.output()).toContain('[postbot-shutdown] SIGTERM received')
+        expect(launcherOne.output()).toContain('shutdown complete with exit code 0')
+        expect(launcherOne.output()).toContain('[postbot-dev] API stopped')
+        // The child left through its own orderly path, so the launcher reports
+        // the orderly exit code and not the code of a process the platform
+        // killed with the default disposition of the signal.
+        expect(launcherOne.output()).toMatch(/\[postbot-dev\] API stopped \(pid \d+, code 0\)/)
+        expect(await Bun.file(marker).exists()).toBe(false)
+        expect(isRunning(firstApiPid)).toBe(false)
+        await pollHealth
+        expect(responded).toBe(false)
+
+        // The next launcher run must not be blocked by a retained marker.
+        const launcherTwo = startLauncher()
+        const launcherTwoExitCode = launcherTwo.child.exited
+        const readyDeadline = Date.now() + 30_000
+        let ready = false
+        while (!ready && Date.now() < readyDeadline) {
+            try {
+                const response = await fetch(`${resources.apiOrigin}/health`, {
+                    signal: AbortSignal.timeout(1_000),
+                })
+                ready = response.status === 200
+                const body = response.body
+                if (body !== null) void body.cancel().catch(() => {})
+            } catch {}
+            if (!ready) await Bun.sleep(25)
+        }
+        expect(ready).toBe(true)
+        expect(await Bun.file(marker).exists()).toBe(true)
+        const secondApiPid = await readMarkerPid()
+        expect(secondApiPid).toBeDefined()
+        if (secondApiPid === undefined)
+            throw new Error('The runtime marker carried no process identifier')
+        apiPids.add(secondApiPid)
+        expect(secondApiPid).not.toBe(firstApiPid)
+        // The second marker must name the child the second launcher reports,
+        // and the launchers must report two different children.
+        const secondReportedPid = await readReportedPid(launcherTwo)
+        expect(secondReportedPid).toBeDefined()
+        if (secondReportedPid === undefined)
+            throw new Error('The launcher did not report the pid of the API child')
+        expect(secondReportedPid).toBe(secondApiPid)
+        expect(secondReportedPid).not.toBe(firstReportedPid)
+
+        // Stopping the second launcher releases the marker again.
+        launcherTwo.child.kill('SIGHUP')
+        const launcherTwoCode = await Promise.race([
+            launcherTwoExitCode,
+            Bun.sleep(20_000).then(() => null),
+        ])
+        expect(launcherTwoCode).toBe(129)
+        await Promise.race([launcherTwo.streams, Bun.sleep(2_000)])
+        expect(launcherTwo.output()).toContain('[postbot-dev] Launcher stopping (SIGHUP)')
+        expect(launcherTwo.output()).toContain('shutdown complete with exit code 0')
+        // The hangup was translated into the graceful path of the child, so
+        // the launcher reports the orderly exit code of that child.
+        expect(launcherTwo.output()).toMatch(/\[postbot-dev\] API stopped \(pid \d+, code 0\)/)
+        expect(await Bun.file(marker).exists()).toBe(false)
+        expect(isRunning(secondApiPid)).toBe(false)
+    } catch (error) {
+        failures.push(error instanceof Error ? error : new Error(String(error)))
+    } finally {
+        // Bounded cleanup of the exact processes this test owns. A launcher
+        // is asked to drain its child first, and a child that outlives it is
+        // only signalled while the marker still names it.
+        for (const launcher of launchers) {
+            if (launcher.child.exitCode === null && launcher.child.signalCode === null) {
+                launcher.child.kill('SIGTERM')
+                await Promise.race([launcher.child.exited, Bun.sleep(5_000)])
+            }
+            if (launcher.child.exitCode === null && launcher.child.signalCode === null) {
+                launcher.child.kill('SIGKILL')
+                await Promise.race([launcher.child.exited, Bun.sleep(5_000)])
+            }
+            await Promise.race([launcher.streams, Bun.sleep(2_000)])
+        }
+        let ownedProcessesGone = true
+        for (const pid of apiPids) {
+            if (!isRunning(pid)) continue
+            if ((await readMarkerPid()) === pid) {
+                process.kill(pid, 'SIGTERM')
+                const deadline = Date.now() + 5_000
+                while (isRunning(pid) && Date.now() < deadline) await Bun.sleep(25)
+                if (isRunning(pid)) {
+                    process.kill(pid, 'SIGKILL')
+                    await Bun.sleep(250)
+                }
+            }
+            if (isRunning(pid)) ownedProcessesGone = false
+        }
+        if (ownedProcessesGone) {
+            // Every owned process is gone, so the isolated fixture is free to
+            // remove.
+            await rm(fixture, { recursive: true, force: true })
+            await rm(resources.mediaDirectory, { recursive: true, force: true })
+            await rm(resources.dataDirectory, { recursive: true, force: true })
+        } else {
+            failures.push(
+                new Error(
+                    `An owned API child was still running, so its isolated fixture was kept at ${fixture}`
+                )
+            )
+        }
+    }
+    const [first] = failures
+    if (first === undefined) return
+    if (failures.length === 1) throw first
+    throw new Error(failures.map(item => item.message).join('\n'), { cause: first })
+}, 120_000)
