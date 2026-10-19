@@ -1,6 +1,7 @@
+// cspell:ignore framenavigated requestfailed
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Request } from '@playwright/test'
 
 interface RealtimeRecorderEvent {
     readonly url: string
@@ -92,9 +93,9 @@ for (const dirty of [false, true]) {
             await installNavigationRecorder(page)
             await installRealtimeRecorder(page)
 
-            let mainFrameNavigations = 0
+            let mainFrameNavigationCount = 0
             page.on('framenavigated', frame => {
-                if (frame === page.mainFrame()) mainFrameNavigations += 1
+                if (frame === page.mainFrame()) mainFrameNavigationCount += 1
             })
 
             const suffix = randomUUID().slice(0, 8)
@@ -128,6 +129,30 @@ for (const dirty of [false, true]) {
             })
             let projectReadCaptured = false
 
+            let completedProjectLists = 0
+            const pendingProjectReads = new Set<Request>()
+            page.on('request', request => {
+                const path = new URL(request.url()).pathname
+                if (
+                    request.method() === 'GET' &&
+                    path.startsWith(`/api/projects/${projectId}/`) &&
+                    !path.endsWith('/events')
+                )
+                    pendingProjectReads.add(request)
+            })
+            page.on('response', response => {
+                const url = new URL(response.url())
+                if (
+                    response.ok() &&
+                    response.request().method() === 'GET' &&
+                    url.pathname === `/api/projects/${projectId}/publications` &&
+                    url.search === ''
+                )
+                    completedProjectLists += 1
+            })
+            page.on('requestfinished', request => pendingProjectReads.delete(request))
+            page.on('requestfailed', request => pendingProjectReads.delete(request))
+
             try {
                 await page.goto(`/dashboard/projects/${projectId}/publications/${publicationId}`)
                 await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
@@ -141,8 +166,17 @@ for (const dirty of [false, true]) {
                     })
                     .toBeGreaterThan(0)
 
+                // Initial data load plus the bridge's four connection refresh passes.
+                // Drain them before gating a project-only refresh: startup includes editors.
+                await expect
+                    .poll(() => completedProjectLists >= 5 && pendingProjectReads.size === 0, {
+                        timeout: 20_000,
+                        message: 'startup project refreshes to finish',
+                    })
+                    .toBe(true)
+
                 const baseline = await readNavigationState(page)
-                const baselineMainFrameNavigations = mainFrameNavigations
+                const baselineMainFrameNavigationCount = mainFrameNavigationCount
 
                 if (dirty) {
                     await openCustomization(page)
@@ -177,22 +211,6 @@ for (const dirty of [false, true]) {
                     'the unrelated project refresh to read project data'
                 )
 
-                const editorPublishedResponse = page.waitForResponse(
-                    async response => {
-                        if (response.request().method() !== 'GET') return false
-                        if (new URL(response.url()).pathname !== editorPath) return false
-                        try {
-                            const body = (await response.json()) as {
-                                editor?: { publication?: { state?: string } }
-                            }
-                            return body.editor?.publication?.state === 'published'
-                        } catch {
-                            return false
-                        }
-                    },
-                    { timeout: 30_000 }
-                )
-
                 const reschedule = await page.request.patch(
                     `/api/projects/${projectId}/publications/schedule`,
                     {
@@ -207,18 +225,16 @@ for (const dirty of [false, true]) {
                 await expect
                     .poll(
                         async () =>
-                            (
-                                await readReceiverObservations(receiverOrigin)
-                            ).requests.filter(
+                            (await readReceiverObservations(receiverOrigin)).requests.filter(
                                 request => request.body.publication?.id === publicationId
                             ).length,
                         { timeout: 30_000, message: 'the custom webhook delivery to arrive' }
                     )
                     .toBeGreaterThan(0)
 
-                const observation = (
-                    await readReceiverObservations(receiverOrigin)
-                ).requests.find(request => request.body.publication?.id === publicationId)
+                const observation = (await readReceiverObservations(receiverOrigin)).requests.find(
+                    request => request.body.publication?.id === publicationId
+                )
                 if (observation === undefined) {
                     throw new Error('Expected the custom webhook delivery to be recorded')
                 }
@@ -234,17 +250,7 @@ for (const dirty of [false, true]) {
                 )
                 expect(observation.released).toBe(false)
 
-                releaseProjectRead?.()
-
                 await releaseDelivery(receiverOrigin, observation.deliveryId)
-
-                const publishedResponse = await editorPublishedResponse
-                expect(publishedResponse.ok()).toBe(true)
-                const publishedBody = (await publishedResponse.json()) as {
-                    editor: { publication: { state: string; publishedAt: number | null } }
-                }
-                expect(publishedBody.editor.publication.state).toBe('published')
-                expect(publishedBody.editor.publication.publishedAt).not.toBeNull()
 
                 const rescheduledEvent = await waitForProjectEvent(
                     page,
@@ -270,10 +276,41 @@ for (const dirty of [false, true]) {
                     cursorSequence(rescheduledEvent.cursor)
                 )
 
+                const authoritative = await page.request.get(editorPath)
+                expect(authoritative.ok()).toBe(true)
+                expect((await authoritative.json()).editor.publication.state).toBe('published')
+
+                const editorPublishedResponse = page.waitForResponse(
+                    async response => {
+                        if (response.request().method() !== 'GET') return false
+                        if (new URL(response.url()).pathname !== editorPath) return false
+                        try {
+                            const body = (await response.json()) as {
+                                editor?: { publication?: { state?: string } }
+                            }
+                            return body.editor?.publication?.state === 'published'
+                        } catch {
+                            return false
+                        }
+                    },
+                    { timeout: 30_000 }
+                )
+
+                releaseProjectRead?.()
+
+                const publishedResponse = await editorPublishedResponse
+                expect(publishedResponse.ok()).toBe(true)
+                const publishedBody = (await publishedResponse.json()) as {
+                    editor: { publication: { state: string; publishedAt: number | null } }
+                }
+                expect(publishedBody.editor.publication.state).toBe('published')
+                expect(publishedBody.editor.publication.publishedAt).not.toBeNull()
+
                 if (dirty) {
-                    await expect(
-                        page.locator('[data-target-field="body"] textarea')
-                    ).toHaveValue(localDestination, { timeout: 30_000 })
+                    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(
+                        localDestination,
+                        { timeout: 30_000 }
+                    )
                     await expect(page.locator('[data-publication-conflict="true"]')).toBeVisible({
                         timeout: 30_000,
                     })
@@ -306,7 +343,7 @@ for (const dirty of [false, true]) {
                 expect(finalNavigation.marker).not.toBeNull()
                 expect(finalNavigation.marker).toBe(baseline.marker)
                 expect(finalNavigation.loads).toBe(baseline.loads)
-                expect(mainFrameNavigations).toBe(baselineMainFrameNavigations)
+                expect(mainFrameNavigationCount).toBe(baselineMainFrameNavigationCount)
             } finally {
                 releaseProjectRead?.()
                 await page.unroute(listMatcher).catch(() => undefined)
@@ -488,8 +525,7 @@ async function waitForProjectEvent(
 ): Promise<RealtimeRecorderEvent> {
     await expect
         .poll(
-            async () =>
-                projectEvents(await readRealtimeEvents(page), projectId).some(predicate),
+            async () => projectEvents(await readRealtimeEvents(page), projectId).some(predicate),
             { timeout: timeoutMs, message: description }
         )
         .toBe(true)

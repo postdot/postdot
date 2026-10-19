@@ -968,3 +968,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[HANDOVER-514]** Prepare a stable clean-checkout handover for the owner's new collaboration experiment `Priority: 🟠` `Complexity: S` — Root HANDOVER.md records verified state, remaining uncertainty and multi-agent coordination boundaries; no new product work started.
 
 - [x] **[REALTIME-515]** Add deterministic refresh-queue isolation and repeated-overlap regressions `Priority: 🔵` `Complexity: S` — ISSUE-177; bounded delegated test implementation, orchestrator review and mutation checks; no runtime behavior change or automatic-worker acceptance claim.
+
+- [x] **[REALTIME-516]** Verify automatic worker completion reaches an open publication editor `Priority: 🟠` `Complexity: M` — ISSUE-177; isolated synthetic transport, real worker/journal/stream, overlapping project refresh and local-edit protection; no external publishing.

@@ -1,3 +1,4 @@
+import { createServer } from 'node:net'
 import { basename, join, resolve } from 'node:path'
 
 import { defineConfig, devices } from '@playwright/test'
@@ -8,6 +9,37 @@ const rootDirectory = process.cwd()
 const useMailpit = process.env.POSTBOT_E2E_MAILPIT === 'true'
 const runtime = await createE2ERuntimeResources()
 const { apiOrigin, apiPort, dataDirectory, mediaDirectory, webOrigin, webPort } = runtime
+const realtimeAcceptance = process.env.POSTBOT_E2E_REALTIME_ACCEPTANCE === 'true'
+const receiverPort = realtimeAcceptance ? await allocateReceiverPort() : undefined
+if (receiverPort !== undefined) process.env.POSTBOT_E2E_RECEIVER_PORT = String(receiverPort)
+
+async function allocateReceiverPort(): Promise<number> {
+    const configured = process.env.POSTBOT_E2E_RECEIVER_PORT
+    if (configured !== undefined) {
+        const port = Number(configured)
+        if (
+            !Number.isInteger(port) ||
+            port < 1 ||
+            port > 65_535 ||
+            [apiPort, webPort].includes(port)
+        )
+            throw new Error('Invalid isolated realtime receiver port')
+        return port
+    }
+    const port = await new Promise<number>((resolvePort, reject) => {
+        const socket = createServer()
+        socket.once('error', reject)
+        socket.listen(0, '127.0.0.1', () => {
+            const address = socket.address()
+            if (address === null || typeof address === 'string') {
+                socket.close(() => reject(new Error('Receiver port allocation failed')))
+                return
+            }
+            socket.close(error => (error ? reject(error) : resolvePort(address.port)))
+        })
+    })
+    return [apiPort, webPort].includes(port) ? allocateReceiverPort() : port
+}
 
 if (useMailpit !== (runtime.mailpit !== undefined)) {
     throw new Error('Mailpit E2E resources are not configured consistently')
@@ -40,6 +72,13 @@ const apiEnvironment = {
     POSTBOT_E2E_ALLOW_ADDITIONAL_SIGNUPS: 'true',
     LOG_LEVEL: 'silent',
     LOG_PRETTY: 'false',
+    ...(receiverPort === undefined
+        ? {}
+        : {
+              POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS: JSON.stringify([
+                  { kind: 'cidr', cidr: '127.0.0.1/32', port: receiverPort, schemes: ['http'] },
+              ]),
+          }),
     ...(runtime.mailpit === undefined
         ? {}
         : {
@@ -52,7 +91,10 @@ const apiEnvironment = {
 
 export default defineConfig({
     testDir: './e2e',
-    testIgnore: useMailpit ? [] : ['**/access-219-password-reset.spec.ts'],
+    testIgnore: [
+        ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
+        ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
+    ],
     outputDir: join(rootDirectory, 'test-results', basename(dataDirectory)),
     metadata: {
         postbotE2eDataDirectory: dataDirectory,
@@ -74,6 +116,16 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
     },
     webServer: [
+        ...(receiverPort === undefined
+            ? []
+            : [
+                  {
+                      command: 'bun ./scripts/e2e-realtime-receiver.ts',
+                      url: `http://127.0.0.1:${receiverPort}/ready`,
+                      reuseExistingServer: false,
+                      env: { ...apiEnvironment, POSTBOT_E2E_RECEIVER_PORT: String(receiverPort) },
+                  },
+              ]),
         {
             command: 'bun ./scripts/e2e-api.ts',
             url: `${apiOrigin}/ready`,
