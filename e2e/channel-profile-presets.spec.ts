@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
-test('offers provider profiles as editable custom channel starters', async ({ page }) => {
+test('offers provider profiles as custom channel starters with read-only provider rules', async ({
+    page,
+}) => {
     test.setTimeout(45_000)
 
     const suffix = randomUUID().slice(0, 8)
     const channelName = `E2E-142 preset channel ${suffix}`
     await createAccountAndProject(page, suffix)
+    const projectId = new URL(page.url()).pathname.split('/')[3]!
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
@@ -18,6 +21,7 @@ test('offers provider profiles as editable custom channel starters', async ({ pa
     await page.getByLabel('Channel name').fill(channelName)
 
     await page.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    await page.getByRole('button', { name: 'Configure content', exact: true }).click()
 
     const starter = page.getByRole('combobox', { name: 'Starter template', exact: true })
     await starter.click()
@@ -29,13 +33,29 @@ test('offers provider profiles as editable custom channel starters', async ({ pa
             exact: true,
         })
     ).toBeVisible()
-    const profileJson = page.getByLabel('Custom profile JSON')
-    await expect(profileJson).toHaveValue(/"id": "custom-bluesky"/)
-    await expect(profileJson).toHaveValue(/"origin": "custom"/)
-    await expect(profileJson).toHaveValue(/"contractId": "bluesky"/)
+    // A provider copy keeps the provider's own limits: the starter is not editable.
+    const body = bodyGroup(page)
+    await expect(bodyMaximum(page)).toBeDisabled()
+    await expect(body).toContainText(
+        'These limits belong to the publishing integration and cannot be changed here.'
+    )
 
+    const created = page.waitForResponse(
+        response =>
+            response.request().method() === 'POST' &&
+            response.url().endsWith(`/api/projects/${projectId}/channels`)
+    )
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    expect((await created).status()).toBe(201)
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
+
+    const state = await channelProfileState(page, projectId, channelName)
+    const profile = state.active.profile
+    expect(profile.id).toBe('custom-bluesky')
+    expect(profile.origin).toBe('custom')
+    expect(profile.execution).toMatchObject({ kind: 'built_in', contractId: 'bluesky' })
+    expect(profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+    expect(profile.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
 })
 
 test('makes profile impact inspectable without activating or rewriting publications', async ({
@@ -58,8 +78,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    const json = dialog.getByLabel('Profile JSON', { exact: true })
-    await expect(json).toHaveValue(/contentSchema/)
+    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
     await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
@@ -67,7 +86,6 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await expect(impact).toContainText(
         'No editable drafts or pending publications use this channel.'
     )
-    await expect(json).not.toBeVisible()
     await expect(
         dialog.getByRole('button', { name: 'Review activation', exact: true })
     ).toBeEnabled()
@@ -119,7 +137,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.reload()
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    await expect(json).toHaveValue(/contentSchema/)
+    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(impact).toContainText('Publication names could not be loaded.')
     await expect(impact.locator('[data-profile-impact-publication]')).toHaveCount(2)
@@ -135,13 +153,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
         dialog.getByRole('button', { name: 'Review activation', exact: true })
     ).toBeEnabled()
 
-    await dialog.locator('details > summary').filter({ hasText: 'Profile JSON' }).click()
-    const proposed = JSON.parse(await json.inputValue())
-    proposed.contentSchema.properties.body.maxLength = 12
-    proposed.capabilities.textFields.find(
-        (field: { bindingId: string }) => field.bindingId === 'body'
-    ).maxLength = 12
-    await json.fill(JSON.stringify(proposed, null, 2))
+    await bodyMaximum(dialog).fill('12')
     await expect(impact).toHaveCount(0)
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeDisabled()
     await expect(
@@ -182,7 +194,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    await expect(json).toHaveValue(/contentSchema/)
+    await expect(bodyMaximum(dialog)).toHaveValue('12')
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(longRow).toContainText('Long publication')
     await page.screenshot({ path: info.outputPath('profile-impact-dark.png') })
@@ -261,14 +273,8 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    const json = dialog.getByLabel('Profile JSON', { exact: true })
-    await expect(json).toHaveValue(/contentSchema/)
-    const proposed = JSON.parse(await json.inputValue())
-    proposed.contentSchema.properties.body.maxLength = 12
-    proposed.capabilities.textFields.find(
-        (field: { bindingId: string }) => field.bindingId === 'body'
-    ).maxLength = 12
-    await json.fill(JSON.stringify(proposed, null, 2))
+    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
+    await bodyMaximum(dialog).fill('12')
     await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
@@ -317,11 +323,7 @@ test('confirms profile activation, preserves affected work, and exposes explicit
         original
     )
     await dialog.getByRole('button', { name: 'Reload saved profile', exact: true }).click()
-    await expect
-        .poll(
-            async () => JSON.parse(await json.inputValue()).contentSchema.properties.body.maxLength
-        )
-        .toBe(10)
+    await expect(bodyMaximum(dialog)).toHaveValue('10')
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(
         dialog.getByRole('button', { name: 'Review activation', exact: true })
@@ -428,16 +430,17 @@ test('edits profile constraints repeatedly while Postbot owns technical metadata
     await page.getByRole('button', { name: `Manage Fingerprints ${suffix}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
-    const json = dialog.getByLabel('Profile JSON', { exact: true })
-    await expect(json).toHaveValue(/contentSchema/)
-    for (const key of ['id', 'origin', 'version', 'schemaHash', 'profileHash']) {
-        expect(Object.hasOwn(JSON.parse(await json.inputValue()), key)).toBe(false)
-    }
+    const metadata = dialog.locator('[data-profile-metadata]')
+    await metadata.getByText('Profile metadata', { exact: true }).click()
+    await expect(metadata).toContainText(original.profile.id)
+    await expect(metadata).toContainText(original.profile.origin)
+    await expect(metadata.getByText('version', { exact: true })).toBeVisible()
+    // Identity and fingerprints are shown, never authored by the operator.
+    await expect(metadata.getByRole('textbox')).toHaveCount(0)
+    await expect(bodyMaximum(dialog)).toHaveValue('1000000')
     let saved = original
     for (const maxLength of [900, 800]) {
-        const editable = JSON.parse(await json.inputValue())
-        editable.contentSchema.properties.body.maxLength = maxLength
-        await json.fill(JSON.stringify(editable, null, 2))
+        await bodyMaximum(dialog).fill(String(maxLength))
         const done = page.waitForResponse(
             r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
         )
@@ -452,19 +455,17 @@ test('edits profile constraints repeatedly while Postbot owns technical metadata
         saved = next
         await expect(dialog.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled()
     }
-    const metadata = dialog.locator('[data-profile-metadata]')
-    await metadata.getByText('Profile metadata', { exact: true }).click()
     await expect(metadata).toContainText(saved.profile.schemaHash)
     await expect(metadata).toContainText(saved.profile.profileHash)
-    await expect(metadata.getByRole('textbox')).toHaveCount(0)
-    const editable = JSON.parse(await json.inputValue())
-    await json.fill(JSON.stringify({ ...editable, id: 'unwanted-identity' }, null, 2))
-    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
-    await expect(dialog.getByRole('alert')).toContainText(
-        'Identity, origin, version and fingerprints are managed by Postbot.'
-    )
+    const identity = await page.request.post(`${url}/profile-drafts`, {
+        data: {
+            profile: { ...saved.profile, id: 'unwanted-identity' },
+            expectedRevision: saved.revision,
+        },
+    })
+    expect(identity.status()).toBe(400)
+    expect((await identity.json()).error.code).toBe('invalid_input')
     expect((await (await page.request.get(`${url}/profile`)).json()).draft).toEqual(saved)
-    await json.fill(JSON.stringify(editable, null, 2))
     const done = page.waitForResponse(
         r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
     )
@@ -479,6 +480,28 @@ test('edits profile constraints repeatedly while Postbot owns technical metadata
     expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath('profile-metadata-mobile.png') })
 })
+
+/** The structured form exposes the body rules as a named group. */
+function bodyGroup(scope: Page | Locator): Locator {
+    return scope.getByRole('group', { name: 'Body', exact: true })
+}
+
+function bodyMaximum(scope: Page | Locator): Locator {
+    return bodyGroup(scope).getByLabel('Maximum characters', { exact: true })
+}
+
+async function channelProfileState(page: Page, projectId: string, channelName: string) {
+    const channels = (
+        (await (await page.request.get(`/api/projects/${projectId}/channels`)).json()) as {
+            channels: { id: string; name: string }[]
+        }
+    ).channels
+    const channel = channels.find(item => item.name === channelName)
+    if (channel === undefined) throw new Error(`Channel not found: ${channelName}`)
+    return (await (
+        await page.request.get(`/api/projects/${projectId}/channels/${channel.id}/profile`)
+    ).json()) as { active: { profile: Record<string, unknown> } }
+}
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')

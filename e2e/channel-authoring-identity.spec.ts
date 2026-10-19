@@ -133,16 +133,26 @@ test('distinguishes repeated platforms and creates a channel without leaving the
         'aria-pressed',
         'true'
     )
+    // The X destination declares no headline, so its scope renders no title field.
+    await expect(page.locator('#new-post-title')).toHaveCount(0)
+    await expect(page.getByText(en.composer_constraints_loading, { exact: true })).toHaveCount(0)
     const editorTop = await page
         .locator('#new-post-content')
         .evaluate(element => element.getBoundingClientRect().top)
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    // The common scope resolves to the first destination, whose profile declares an
+    // optional title, so the scopes legitimately differ in the fields they render.
+    await expect(page.locator('#new-post-title')).toHaveCount(1)
+    await expect(page.getByLabel(en.builder_title_optional, { exact: true })).toBeVisible()
+    await expect(content).toHaveText(body)
+    await rail.getByRole('button', { name: 'X.com · A', exact: true }).click()
+    // Returning to the same destination restores the same composition geometry.
+    await expect(page.locator('#new-post-title')).toHaveCount(0)
     expect(
         await page
             .locator('#new-post-content')
             .evaluate(element => element.getBoundingClientRect().top)
     ).toBe(editorTop)
-    await rail.getByRole('button', { name: 'X.com · A', exact: true }).click()
     await expect(
         rail.getByRole('button', {
             name: en.publication_new_remove_channel.replace('{channel}', 'X.com · B'),
@@ -462,6 +472,7 @@ test('creates the first destination while preserving the first publication', asy
     await dialog
         .getByRole('textbox', { name: en.channel_name, exact: true })
         .fill('First destination')
+    await dialog.getByRole('button', { name: en.builder_configure_channel, exact: true }).click()
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     await expect(dialog).toHaveCount(0)
     await expect(content).toHaveText(body)
