@@ -58,6 +58,9 @@ content generator.
 
 ### Parallel Agent Protocol (Operational policy)
 
+<!-- cspell:disable-next-line -->
+- **Delegation preference (owner direction, 2026-10-19):** Attempt bounded delegation to MiniMax M3.1 Flash Free through OpenCode for each subsequent task. Select the highest reasoning variant advertised for that exact model in the live T3 catalog (currently max; otherwise xhigh or high). The orchestrator must review results and request revisions when needed. If delegation fails, report the failure and continue authorized independent work without silently substituting another model.
+
 - The orchestrator owns the canonical checkout, shared development servers, live browser validation, external-provider actions, integration, pull-request decisions, merges, branch deletion, and advancement of `main`.
 - Before dispatch, each mission records its Autonomos task ID, base commit, worktree and branch, semantic ownership, allowed paths, forbidden paths and resources, acceptance criteria, permitted checks, stop condition, report format, and cleanup owner.
 - Shared governance files and hotspots—including `.autonomos/`, root configuration, lockfiles, migrations, central dispatch code, and integration metadata—are reserved for one owner at a time; file-level separation alone does not make two missions independent.
