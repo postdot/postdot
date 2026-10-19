@@ -979,4 +979,4 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[FACEBOOK-520]** Investigate the missing-expiration Facebook token contract with MiniMax `Priority: 🟠` `Complexity: M` — ISSUE-178; two read-only rounds reviewed, unsupported provider claims rejected, bounded nullable-expiration candidate defined for FACEBOOK-521. No policy adopted or live validation claimed. [Evidence](worklogs/2026-10-19-FACEBOOK-520.md).
 
-- [/] **[FACEBOOK-521]** Prepare and verify bounded missing-expiration Facebook support `Priority: 🟠` `Complexity: M` — ISSUE-178; MiniMax implements a four-file candidate in an isolated worktree; parent reviews omission versus malformed expiry, local TTL, known shorter deadlines and provider checks before adoption/integration.
+- [/] **[FACEBOOK-521]** Prepare and verify bounded missing-expiration Facebook support `Priority: 🟠` `Complexity: M` — ISSUE-178; MiniMax round 2 revises the isolated four-file candidate after parent mutation checks exposed two regression gaps; deadline validation and permission-refusal coverage remain under review before adoption/integration.
