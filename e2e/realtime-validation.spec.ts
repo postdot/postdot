@@ -517,7 +517,16 @@ test('keeps operational labels localized without changing custom notification co
         await page.locator('summary').filter({ hasText: copy.editor_channel_details }).click()
         const target = page.locator('[data-target-editor="true"]')
         await expect(target.getByText(copy.profile_field_body, { exact: true })).toBeVisible()
-        await expect(target.getByText(copy.profile_field_headline, { exact: true })).toBeVisible()
+        // The destination headline label states the field availability next to
+        // the localized field name, so the field is addressed by the full
+        // localized accessible name instead of a bare label.
+        await expect(
+            target.getByRole('textbox', {
+                name: `${copy.profile_field_headline} ${copy.builder_optional}`,
+                exact: true,
+            })
+        ).toBeVisible()
+        await expect(target.getByText(copy.builder_optional, { exact: true })).toBeVisible()
         await expect(target.getByText(copy.profile_field_language, { exact: true })).toBeVisible()
         await page.goto(`/dashboard/projects/${projectId}/publications/new`)
         await page.locator('[data-publication-schedule-disclosure] > summary').click()

@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+// Compare permissions in the same calendar day for every actor, independent of the host zone.
+test.use({ timezoneId: 'UTC' })
+
 test('Overview withholds viewer create and bulk actions while keeping consultation', async ({
     page,
 }) => {
@@ -13,10 +16,12 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
 
     // Anchor the publication inside the currently focused civil day so the
     // week, day and agenda readings all contain it.
-    const scheduledDate = new Date()
-    scheduledDate.setHours(10, 5, 0, 0)
-    if (scheduledDate.getTime() < Date.now()) scheduledDate.setHours(16, 5, 0, 0)
-    const scheduledAt = scheduledDate.getTime()
+    const scheduledAt = await page.evaluate(() => {
+        const scheduledDate = new Date()
+        scheduledDate.setHours(10, 5, 0, 0)
+        if (scheduledDate.getTime() < Date.now()) scheduledDate.setHours(16, 5, 0, 0)
+        return scheduledDate.getTime()
+    })
     await mockCalendarPublications(page, owner.projectId, scheduledAt, suffix)
 
     const browser = page.context().browser()
@@ -38,7 +43,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         viewerEmail,
         'viewer'
     )
-    const viewerContext = await browser.newContext()
+    const viewerContext = await browser.newContext({ timezoneId: 'UTC' })
     const viewerPage = await viewerContext.newPage()
     await mockCalendarPublications(viewerPage, owner.projectId, scheduledAt, suffix)
 
@@ -164,7 +169,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         editorEmail,
         'editor'
     )
-    const editorContext = await browser.newContext()
+    const editorContext = await browser.newContext({ timezoneId: 'UTC' })
     const editorPage = await editorContext.newPage()
     await mockCalendarPublications(editorPage, owner.projectId, scheduledAt, suffix)
 
@@ -335,8 +340,15 @@ async function createAccountAndProject(page: Page, suffix: string) {
         ),
         page.getByRole('button', { name: 'Create account', exact: true }).click(),
     ])
-    await page.goto('/dashboard?projectId=none')
-    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
+    // Keep invitation fixtures below the membership limit regardless of accounts
+    // accumulated by earlier scenarios in the shared runtime.
+    const workspaceResponse = await page.request.post('/api/workspaces', {
+        data: { name: `E2E-310 workspace ${suffix}` },
+    })
+    expect(workspaceResponse.status()).toBe(201)
+    const { workspace } = (await workspaceResponse.json()) as { workspace: { id: string } }
+    await page.goto(`/dashboard?workspaceId=${workspace.id}&projectId=none`)
+    await expect(page).toHaveURL(/\/dashboard\?workspaceId=[^&]+&projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
