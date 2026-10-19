@@ -964,3 +964,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[FACEBOOK-512]** Validate the native Facebook connection and text/photo publication with an owner-authorized test account and Page `Priority: 🟠` `Complexity: M` — ISSUE-166; prepare Meta application, verify permissions and record observed outcomes without storing secrets in repository artifacts.
 
 - [x] **[REALTIME-513]** Reproduce and repair stale publication detail after an automatic delivery event `Priority: 🟠` `Complexity: M` — ISSUE-177; preserve local edits and verify refresh without browser reload or external publishing.
+
+- [x] **[HANDOVER-514]** Prepare a stable clean-checkout handover for the owner's new collaboration experiment `Priority: 🟠` `Complexity: S` — Root HANDOVER.md records verified state, remaining uncertainty and multi-agent coordination boundaries; no new product work started.
