@@ -19,6 +19,42 @@ type Binding = {
     readonly authMethod: 'session' | 'user_api_key'
 }
 
+const maximumExpiresInSeconds = 31_536_000
+
+type PendingProviderState = {
+    readonly token: string
+    readonly expiresAt: number | null
+}
+
+/**
+ * `expiresAt` is required. Only an explicit null is an unknown provider
+ * deadline; a known one must be a safe integer still in the future.
+ */
+function parsePendingProviderState(
+    providerState: string,
+    now: number
+): PendingProviderState | null {
+    let value: unknown
+    try {
+        value = JSON.parse(providerState)
+    } catch {
+        return null
+    }
+    if (
+        value === null ||
+        typeof value !== 'object' ||
+        !('token' in value) ||
+        typeof value.token !== 'string' ||
+        !('expiresAt' in value)
+    )
+        return null
+    const expiresAt = value.expiresAt
+    if (expiresAt === null) return { token: value.token, expiresAt: null }
+    if (typeof expiresAt !== 'number' || !Number.isSafeInteger(expiresAt) || expiresAt <= now)
+        return null
+    return { token: value.token, expiresAt }
+}
+
 export class FacebookConnectionError extends Error {
     constructor(
         readonly code:
@@ -126,23 +162,9 @@ export function createFacebookConnectionFlow(options: {
         }
         const stored = await options.attempts.readPendingAuthorizationProviderState(input)
         if (stored.kind !== 'ready' || !stored.providerState) return fail('invalid_attempt')
-        let value: unknown
-        try {
-            value = JSON.parse(stored.providerState)
-        } catch {
-            return fail('invalid_attempt')
-        }
-        if (
-            !value ||
-            typeof value !== 'object' ||
-            !('token' in value) ||
-            typeof value.token !== 'string' ||
-            !('expiresAt' in value) ||
-            typeof value.expiresAt !== 'number' ||
-            value.expiresAt <= now()
-        )
-            return fail('invalid_attempt')
-        return { authorization, input, token: value.token }
+        const providerState = parsePendingProviderState(stored.providerState, now())
+        if (providerState === null) return fail('invalid_attempt')
+        return { authorization, input, token: providerState.token }
     }
     return {
         async start(binding: Binding, returnPath: string) {
@@ -185,7 +207,19 @@ export function createFacebookConnectionFlow(options: {
             })
             if (consumed.kind !== 'consumed') return fail('invalid_attempt')
             const tokenSet = await options.oauth.complete({ parameters, expectedState: state })
-            if (!tokenSet.expiresInSeconds || tokenSet.expiresInSeconds <= 0)
+            const expiresInSeconds = tokenSet.expiresInSeconds
+            if (
+                expiresInSeconds !== null &&
+                (!Number.isSafeInteger(expiresInSeconds) ||
+                    expiresInSeconds <= 0 ||
+                    expiresInSeconds > maximumExpiresInSeconds)
+            )
+                return fail('invalid_attempt')
+            // The provider deadline is measured when the exchange completed, so a
+            // slow permission probe cannot extend the pending token's lifetime.
+            const providerExpiresAt =
+                expiresInSeconds === null ? null : now() + expiresInSeconds * 1000
+            if (providerExpiresAt !== null && !Number.isSafeInteger(providerExpiresAt))
                 return fail('invalid_attempt')
             // Permissions are checked again at selection; no Page token is returned from this phase.
             const permission = await options.graph.getGrantedPermissions(tokenSet.accessToken)
@@ -194,6 +228,9 @@ export function createFacebookConnectionFlow(options: {
                 FACEBOOK_PUBLISH_PERMISSIONS.some(scope => !permission.value.includes(scope))
             )
                 return fail('provider_unavailable')
+            // A known deadline that the permission probe crossed is not a usable pending choice.
+            if (providerExpiresAt !== null && now() >= providerExpiresAt)
+                return fail('invalid_attempt')
             authorize(binding)
             const selection = crypto.randomUUID() + crypto.randomUUID()
             const created = await options.attempts.createAuthorizationAttempt({
@@ -210,7 +247,7 @@ export function createFacebookConnectionFlow(options: {
                 codeVerifier: null,
                 providerState: JSON.stringify({
                     token: tokenSet.accessToken,
-                    expiresAt: now() + tokenSet.expiresInSeconds * 1000,
+                    expiresAt: providerExpiresAt,
                 }),
             })
             if (created.kind !== 'created') return fail('conflict')

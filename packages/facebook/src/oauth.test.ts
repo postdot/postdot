@@ -157,15 +157,75 @@ test('Facebook configuration rejects insecure or ambiguous callback addresses', 
         ).toThrow()
 })
 
+test('an omitted final expiration is unknown and never reuses the first exchange token or expiry', async () => {
+    const { oauth, requests } = setup(call =>
+        call === 1
+            ? Response.json({
+                  access_token: 'synthetic-user-token',
+                  token_type: 'bearer',
+                  expires_in: 3600,
+              })
+            : Response.json({
+                  access_token: 'synthetic-long-user-token',
+                  token_type: 'bearer',
+              })
+    )
+    const auth = await oauth.createAuthorizationRequest()
+    const tokenSet = await oauth.complete({
+        parameters: new URL(`${callbackUri}?code=code&state=${auth.state}`),
+        expectedState: auth.state,
+    })
+    expect(tokenSet.accessToken).toBe('synthetic-long-user-token')
+    expect(tokenSet.expiresInSeconds).toBeNull()
+    expect(requests).toHaveLength(2)
+})
+
+test('a present but invalid final expiration is refused and never falls back to the first exchange', async () => {
+    // JSON carries neither NaN nor Infinity; both would serialize to null.
+    for (const expiresIn of [
+        null,
+        0,
+        -1,
+        '3600',
+        1.5,
+        {},
+        [],
+        true,
+        Number.MAX_SAFE_INTEGER + 1,
+        31_536_001,
+    ]) {
+        const { oauth, requests } = setup(call =>
+            call === 1
+                ? Response.json({
+                      access_token: 'synthetic-user-token',
+                      token_type: 'bearer',
+                      expires_in: 3600,
+                  })
+                : Response.json({
+                      access_token: 'synthetic-long-user-token',
+                      token_type: 'bearer',
+                      expires_in: expiresIn,
+                  })
+        )
+        const auth = await oauth.createAuthorizationRequest()
+        await expect(
+            oauth.complete({
+                parameters: new URL(`${callbackUri}?code=code&state=${auth.state}`),
+                expectedState: auth.state,
+            })
+        ).rejects.toMatchObject({
+            code: 'exchange_failed',
+            message: 'Facebook authorization could not be completed',
+        })
+        expect(requests).toHaveLength(2)
+    }
+})
+
 test('a failed long-lived exchange never returns the initial short-lived token', async () => {
     for (const reply of [
         () => Response.json({ error: { message: clientSecret } }, { status: 400 }),
-        () => Response.json({ access_token: 'token', token_type: 'bearer' }),
-        () => Response.json({ access_token: 'token', token_type: 'bearer', expires_in: 0 }),
-        () => Response.json({ access_token: 'token', token_type: 'bearer', expires_in: 1.5 }),
-        () =>
-            Response.json({ access_token: 'token', token_type: 'bearer', expires_in: 31_536_001 }),
-        () => Response.json({ access_token: 'token', token_type: 'unexpected', expires_in: 3600 }),
+        () => Response.json({ token_type: 'bearer', expires_in: 3600 }),
+        () => Response.json({ access_token: 'token', token_type: 'unexpected' }),
         () => new Response('invalid'),
         () => {
             throw new Error(clientSecret)

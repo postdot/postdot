@@ -20,7 +20,14 @@ import {
 import { createFacebookConnectionFlow } from './facebook-connection-flow'
 
 const callbackUri = 'https://postbot.example/api/oauth/facebook/callback'
-function fixture() {
+type PermissionMode = 'granted' | 'declined' | 'missing' | 'revoked'
+function fixture(
+    options: {
+        readonly finalExpiration?: number | null
+        readonly permissionDelayMs?: number
+        readonly permissionMode?: PermissionMode
+    } = {}
+) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     let timestamp = 1_800_000_000_000
@@ -29,6 +36,9 @@ function fixture() {
     let failConnection = false
     let requests = 0
     const now = () => timestamp
+    const finalExpiration = options.finalExpiration === undefined ? 3600 : options.finalExpiration
+    const permissionDelayMs = options.permissionDelayMs ?? 0
+    const permissionMode = options.permissionMode ?? 'granted'
     const channels = createManualStore(database, { now })
     const project = channels.createProject({
         name: 'Test',
@@ -69,12 +79,19 @@ function fixture() {
         clientId: '123',
         clientSecret: 'synthetic-secret',
         callbackUri,
-        fetcher: async () => {
+        fetcher: async input => {
             requests++
+            const url = new URL(String(input))
+            if (url.searchParams.get('grant_type') !== 'fb_exchange_token')
+                return Response.json({
+                    access_token: 'synthetic-user-token',
+                    token_type: 'bearer',
+                    expires_in: 3600,
+                })
             return Response.json({
-                access_token: 'synthetic-user-token',
+                access_token: 'synthetic-long-user-token',
                 token_type: 'bearer',
-                expires_in: 3600,
+                ...(finalExpiration === null ? {} : { expires_in: finalExpiration }),
             })
         },
     })
@@ -82,13 +99,30 @@ function fixture() {
         fetcher: async input => {
             requests++
             const url = new URL(String(input))
-            if (url.pathname.endsWith('/me/permissions'))
+            if (url.pathname.endsWith('/me/permissions')) {
+                timestamp += permissionDelayMs
+                if (permissionMode === 'revoked')
+                    return Response.json(
+                        {
+                            error: {
+                                message: 'Invalid OAuth token',
+                                type: 'OAuthException',
+                                code: 190,
+                            },
+                        },
+                        { status: 401 }
+                    )
+                const scopes =
+                    permissionMode === 'missing'
+                        ? FACEBOOK_PUBLISH_PERMISSIONS.slice(0, -1)
+                        : FACEBOOK_PUBLISH_PERMISSIONS
                 return Response.json({
-                    data: FACEBOOK_PUBLISH_PERMISSIONS.map(permission => ({
+                    data: scopes.map(permission => ({
                         permission,
-                        status: permitted ? 'granted' : 'declined',
+                        status: permitted && permissionMode !== 'declined' ? 'granted' : 'declined',
                     })),
                 })
+            }
             return Response.json({
                 data: [
                     {
@@ -136,6 +170,7 @@ function fixture() {
     }
     return {
         database,
+        cipher,
         channels,
         channel,
         project,
@@ -149,8 +184,8 @@ function fixture() {
         get requests() {
             return requests
         },
-        advance() {
-            timestamp += 60_001
+        advance(milliseconds = 60_001) {
+            timestamp += milliseconds
         },
         setViewer() {
             editor = false
@@ -162,6 +197,58 @@ function fixture() {
             failConnection = true
         },
     }
+}
+
+async function stateDigest(state: string): Promise<Uint8Array> {
+    return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(state)))
+}
+
+/** Reads the decrypted pending provider state through the store's own API. */
+async function readPendingProviderState(
+    f: ReturnType<typeof fixture>,
+    selection: string
+): Promise<Record<string, unknown>> {
+    const row = f.database.$client
+        .query<{ connectedByActorId: string }, []>(
+            `select connected_by_actor_id as connectedByActorId
+             from oauth_authorization_attempts
+             where provider_state_ciphertext is not null`
+        )
+        .get()
+    if (!row) throw new Error('no pending attempt')
+    const stored = await f.attempts.readPendingAuthorizationProviderState({
+        stateDigest: await stateDigest(selection),
+        connectedByActorId: row.connectedByActorId,
+        providerId: 'facebook',
+        callbackUri,
+    })
+    if (stored.kind !== 'ready' || !stored.providerState)
+        throw new Error('pending provider state is unreadable')
+    return JSON.parse(stored.providerState) as Record<string, unknown>
+}
+
+/** Persists a crafted pending provider state through the store's own API. */
+async function storePendingProviderState(
+    f: ReturnType<typeof fixture>,
+    state: string,
+    providerState: string
+): Promise<void> {
+    const actorId = f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
+    if (!actorId) throw new Error('no actor')
+    const created = await f.attempts.createAuthorizationAttempt({
+        projectId: f.binding.projectId,
+        channelId: f.binding.channelId,
+        connectedByActorId: actorId,
+        providerId: 'facebook',
+        callbackUri,
+        scopes: FACEBOOK_PUBLISH_PERMISSIONS,
+        returnPath: '/dashboard/channels',
+        context: { clientId: '123', phase: 'page-selection' },
+        stateDigest: await stateDigest(state),
+        codeVerifier: null,
+        providerState,
+    })
+    if (created.kind !== 'created') throw new Error('pending attempt was not created')
 }
 
 test('Facebook callback stages encrypted choices and connects only the explicitly selected Page', async () => {
@@ -180,11 +267,11 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
             nextCursor: null,
         })
         expect(JSON.stringify(pages)).not.toContain('token')
-        expect(
-            JSON.stringify(
-                f.database.$client.query('select * from oauth_authorization_attempts').all()
-            )
-        ).not.toContain('synthetic-user-token')
+        const attempts = JSON.stringify(
+            f.database.$client.query('select * from oauth_authorization_attempts').all()
+        )
+        expect(attempts).not.toContain('synthetic-user-token')
+        expect(attempts).not.toContain('synthetic-long-user-token')
         const result = await f.flow.selectPage(f.binding, pending.selection, '456')
         expect(result.connection.destination).toEqual({
             type: 'channel',
@@ -202,6 +289,237 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
                 )
                 .all()
         ).toEqual([{ secret: null }, { secret: null }])
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('an unknown provider expiration completes the Page selection and stores only the selected Page token', async () => {
+    const f = fixture({ finalExpiration: null })
+    try {
+        const pending = await f.pending()
+        const stored = f.database.$client
+            .query<{ id: string; ciphertext: Uint8Array | null }, []>(
+                'select id, provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
+            )
+            .all()
+        const sealed = stored.find(row => row.ciphertext !== null)
+        expect(sealed).toBeDefined()
+        expect(sealed!.ciphertext!.byteLength).toBeGreaterThan(16)
+        expect(new TextDecoder().decode(sealed!.ciphertext!)).not.toContain(
+            'synthetic-long-user-token'
+        )
+        const pages = await f.flow.listPages(f.binding, pending.selection)
+        expect(pages.pages.map(page => page.id)).toEqual(['456', '789'])
+        const result = await f.flow.selectPage(f.binding, pending.selection, '456')
+        expect(result.connection.destination).toEqual({
+            type: 'channel',
+            id: '456',
+            name: 'Selected Page',
+        })
+        const credentials = f.database.$client
+            .query<
+                {
+                    id: string
+                    providerId: string
+                    version: 1
+                    keyId: string
+                    ciphertext: Uint8Array
+                    nonce: Uint8Array
+                },
+                []
+            >(
+                `select id, provider_id as providerId, encryption_version as version,
+                        encryption_key_id as keyId, access_token_ciphertext as ciphertext,
+                        access_token_nonce as nonce
+                 from publisher_credentials`
+            )
+            .all()
+        expect(credentials).toHaveLength(1)
+        expect(
+            await f.cipher.decrypt(
+                {
+                    recordId: credentials[0]!.id,
+                    providerId: credentials[0]!.providerId,
+                    field: 'access_token',
+                },
+                {
+                    version: credentials[0]!.version,
+                    keyId: credentials[0]!.keyId,
+                    ciphertext: credentials[0]!.ciphertext,
+                    nonce: credentials[0]!.nonce,
+                }
+            )
+        ).toBe('synthetic-page-token')
+        expect(
+            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+        ).not.toContain('synthetic-long-user-token')
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('an unknown provider expiration is stored as an explicit null deadline holding the final token', async () => {
+    const f = fixture({ finalExpiration: null })
+    try {
+        const pending = await f.pending()
+        const state = await readPendingProviderState(f, pending.selection)
+        expect(Object.hasOwn(state, 'expiresAt')).toBe(true)
+        expect(state.expiresAt).toBeNull()
+        expect(state.token).toBe('synthetic-long-user-token')
+        const rows = JSON.stringify(
+            f.database.$client.query('select * from oauth_authorization_attempts').all()
+        )
+        expect(rows).not.toContain('synthetic-user-token')
+        expect(rows).not.toContain('synthetic-long-user-token')
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('an unknown provider expiration stays bound to the local attempt lifetime', async () => {
+    const f = fixture({ finalExpiration: null })
+    try {
+        const pending = await f.pending()
+        f.advance(59_999)
+        await expect(f.flow.listPages(f.binding, pending.selection)).resolves.toBeDefined()
+        const before = f.requests
+        f.advance(2)
+        await expect(f.flow.listPages(f.binding, pending.selection)).rejects.toMatchObject({
+            code: 'invalid_attempt',
+        })
+        expect(f.requests).toBe(before)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('a known provider expiration shorter than the local attempt lifetime refuses the pending token', async () => {
+    const f = fixture({ finalExpiration: 30 })
+    try {
+        const pending = await f.pending()
+        f.advance(30_000)
+        const before = f.requests
+        await expect(f.flow.listPages(f.binding, pending.selection)).rejects.toMatchObject({
+            code: 'invalid_attempt',
+        })
+        await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
+            code: 'invalid_attempt',
+        })
+        expect(f.requests).toBe(before)
+        f.advance(1)
+        await expect(f.flow.listPages(f.binding, pending.selection)).rejects.toMatchObject({
+            code: 'invalid_attempt',
+        })
+        expect(f.requests).toBe(before)
+        expect(
+            f.database.$client
+                .query<{ status: string }, []>('select status from oauth_authorization_attempts')
+                .all()
+                .map(row => row.status)
+        ).toEqual(['consumed', 'pending'])
+        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
+            0
+        )
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('a permission probe that crosses a known deadline is refused before any pending choice exists', async () => {
+    const f = fixture({ finalExpiration: 10, permissionDelayMs: 11_000 })
+    try {
+        const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+        await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
+            code: 'invalid_attempt',
+        })
+        const attempts = f.database.$client
+            .query<{ status: string; ciphertext: Uint8Array | null }, []>(
+                `select status, provider_state_ciphertext as ciphertext
+                 from oauth_authorization_attempts`
+            )
+            .all()
+        expect(attempts).toHaveLength(1)
+        expect(attempts[0]!.status).toBe('consumed')
+        expect(attempts[0]!.ciphertext).toBeNull()
+        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
+            0
+        )
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('a refused permission discovery creates no pending Page selection', async () => {
+    const f = fixture()
+    try {
+        f.losePermission()
+        const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+        await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
+            code: 'provider_unavailable',
+        })
+        const attempts = f.database.$client
+            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+                `select status, context_json as context, provider_state_ciphertext as ciphertext
+                 from oauth_authorization_attempts`
+            )
+            .all()
+        expect(attempts).toHaveLength(1)
+        expect(attempts[0]!.status).toBe('consumed')
+        expect(attempts[0]!.ciphertext).toBeNull()
+        expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('an unknown provider expiration still refuses missing or declined publishing permissions', async () => {
+    for (const permissionMode of ['declined', 'missing'] as const) {
+        const f = fixture({ finalExpiration: null, permissionMode })
+        try {
+            const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+            await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
+                code: 'provider_unavailable',
+            })
+            const attempts = f.database.$client
+                .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+                    `select status, context_json as context, provider_state_ciphertext as ciphertext
+                     from oauth_authorization_attempts`
+                )
+                .all()
+            expect(attempts).toHaveLength(1)
+            expect(attempts[0]!.status).toBe('consumed')
+            expect(attempts[0]!.ciphertext).toBeNull()
+            expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
+            expect(
+                f.database.$client.query('select * from publisher_credentials').all()
+            ).toHaveLength(0)
+        } finally {
+            closeDatabase(f.database)
+        }
+    }
+})
+
+test('an unknown provider expiration refuses a revoked provider token', async () => {
+    const f = fixture({ finalExpiration: null, permissionMode: 'revoked' })
+    try {
+        const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+        await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
+            code: 'provider_unavailable',
+        })
+        const attempts = f.database.$client
+            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+                `select status, context_json as context, provider_state_ciphertext as ciphertext
+                 from oauth_authorization_attempts`
+            )
+            .all()
+        expect(attempts).toHaveLength(1)
+        expect(attempts[0]!.status).toBe('consumed')
+        expect(attempts[0]!.ciphertext).toBeNull()
+        expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
+        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
+            0
+        )
     } finally {
         closeDatabase(f.database)
     }
@@ -265,6 +583,49 @@ test('expired or foreign pending choices never disclose Pages', async () => {
             code: 'invalid_attempt',
         })
         expect(f.requests).toBe(before)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('a malformed pending provider state is refused before any Graph request', async () => {
+    for (const providerState of [
+        '{"token":"synthetic-long-user-token"}',
+        '{"token":"synthetic-long-user-token","expiresAt":"1800000000000"}',
+        '{"token":"synthetic-long-user-token","expiresAt":1800000000000.5}',
+        '{"token":"synthetic-long-user-token","expiresAt":1e300}',
+        'null',
+        '"synthetic-long-user-token"',
+    ]) {
+        const f = fixture({ finalExpiration: null })
+        try {
+            const state = crypto.randomUUID() + crypto.randomUUID()
+            await storePendingProviderState(f, state, providerState)
+            const before = f.requests
+            await expect(f.flow.listPages(f.binding, state)).rejects.toMatchObject({
+                code: 'invalid_attempt',
+            })
+            expect(f.requests).toBe(before)
+            expect(
+                f.database.$client.query('select * from publisher_credentials').all()
+            ).toHaveLength(0)
+        } finally {
+            closeDatabase(f.database)
+        }
+    }
+})
+
+test('a legacy numeric pending provider state is still accepted', async () => {
+    const f = fixture({ finalExpiration: null })
+    try {
+        const state = crypto.randomUUID() + crypto.randomUUID()
+        await storePendingProviderState(
+            f,
+            state,
+            JSON.stringify({ token: 'synthetic-long-user-token', expiresAt: 1_800_000_030_000 })
+        )
+        const pages = await f.flow.listPages(f.binding, state)
+        expect(pages.pages.map(page => page.id)).toEqual(['456', '789'])
     } finally {
         closeDatabase(f.database)
     }

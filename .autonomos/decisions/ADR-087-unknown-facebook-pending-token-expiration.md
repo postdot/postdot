@@ -1,11 +1,11 @@
 # ADR-087 — Unknown Facebook pending token expiration
 
-- Status: proposed
+- Status: accepted
 - Scope: Facebook OAuth token response and transient Page selection only
 - Evidence: ISSUE-178, FACEBOOK-520; candidate verification in FACEBOOK-521
-- Adoption: Pending review of a concrete patch; no runtime policy change yet
+- Adoption: Owner approved the reviewed round-2 candidate on 2026-10-19; implementation and parent verification recorded in FACEBOOK-521.
 
-## Proposed behavior
+## Accepted behavior
 
 Represent an omitted `expires_in` on the final Facebook token-exchange response as unknown (`expiresInSeconds: null`). Absence is not proof of validity, token class or non-expiration. A present value, including JSON null, must satisfy the existing positive safe-integer and maximum bounds. Do not substitute the first exchange's token or expiry.
 

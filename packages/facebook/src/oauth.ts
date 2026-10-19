@@ -23,6 +23,30 @@ const server: OAuthAuthorizationServer = {
     pkce: 'disabled',
 }
 
+const maximumExpiresInSeconds = 31_536_000
+
+type Expiration =
+    | { readonly kind: 'known'; readonly seconds: number }
+    | { readonly kind: 'unknown' }
+    | { readonly kind: 'invalid' }
+
+/**
+ * Only the absence of `expires_in` on the final exchange is an unknown
+ * lifetime. A present value, JSON null included, must satisfy the bounds.
+ */
+function readExpiration(result: Record<string, unknown>): Expiration {
+    if (!Object.hasOwn(result, 'expires_in')) return { kind: 'unknown' }
+    const value = result.expires_in
+    if (
+        typeof value !== 'number' ||
+        !Number.isSafeInteger(value) ||
+        value <= 0 ||
+        value > maximumExpiresInSeconds
+    )
+        return { kind: 'invalid' }
+    return { kind: 'known', seconds: value }
+}
+
 export class FacebookOAuthError extends Error {
     constructor(readonly code: 'invalid_callback' | 'access_denied' | 'exchange_failed') {
         super(
@@ -154,22 +178,21 @@ export function createFacebookOAuth(options: {
                 if (!response.ok || !value || typeof value !== 'object' || Array.isArray(value))
                     throw new FacebookOAuthError('exchange_failed')
                 const result = value as Record<string, unknown>
+                const expiration = readExpiration(result)
                 if (
                     typeof result.access_token !== 'string' ||
                     !/^[\x21-\x7e]{1,4096}$/.test(result.access_token) ||
                     typeof result.token_type !== 'string' ||
                     result.token_type.toLowerCase() !== 'bearer' ||
-                    typeof result.expires_in !== 'number' ||
-                    !Number.isSafeInteger(result.expires_in) ||
-                    result.expires_in <= 0 ||
-                    result.expires_in > 31_536_000 ||
+                    expiration.kind === 'invalid' ||
                     Object.hasOwn(result, 'error')
                 )
                     throw new FacebookOAuthError('exchange_failed')
                 return {
                     ...tokenSet,
+                    // The final exchange alone supplies the token and its lifetime.
                     accessToken: result.access_token,
-                    expiresInSeconds: result.expires_in,
+                    expiresInSeconds: expiration.kind === 'known' ? expiration.seconds : null,
                 }
             } catch {
                 throw new FacebookOAuthError('exchange_failed')

@@ -11,3 +11,5 @@
 - The native profile explicitly sets text `maxLength: null`: the provider maximum is unknown, not unlimited. Do not substitute an unverified numeric ceiling. Creation, native validation and worker execution are registered; live Meta acceptance still requires an explicitly authorized provider test.
 
 - Behind a TLS proxy, reconstruct callback parameters using the installation-configured public callback URL and the incoming query. Do not use the internal HTTP origin or trust forwarded headers to choose the OAuth identity. Provider validation still requires the exact configured HTTPS callback.
+
+- Final OAuth exchange metadata may omit expiration: represent it as unknown, never infinite or guessed, and never reuse the first exchange lifetime. Present malformed expiration remains a failure. Unknown lifetime is permitted only within the encrypted, expiring Page-selection attempt and existing permission checks; it does not change durable Page credential lifetime. See [ADR-087](../../.autonomos/decisions/ADR-087-unknown-facebook-pending-token-expiration.md).
