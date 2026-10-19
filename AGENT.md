@@ -43,6 +43,7 @@ content generator.
   shared transport or a transversal path, the cause stays unknown, the fix weakens
   an assertion, or the flake recurs only under the full matrix. See
   `.autonomos/decisions/ADR-077-two-validation-obligations.md`.
+- **Evolving tests (owner direction, 2026-10-19):** This is an early-stage project. Update tests when accepted product direction or API contracts change; historical assertions are not immutable requirements. Use project context and change provenance to distinguish obsolete mechanisms from real regressions. Preserve meaningful current outcomes, replace obsolete assertions deliberately, and investigate newly exposed failures before changing their expected results.
 - **Language:** English
 - **Repository language:** Keep code, comments, documentation, Autonomos artifacts,
   and test descriptions in English. French is allowed only in application
