@@ -972,3 +972,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[REALTIME-516]** Verify automatic worker completion reaches an open publication editor `Priority: 🟠` `Complexity: M` — ISSUE-177; isolated synthetic transport, real worker/journal/stream, overlapping project refresh and local-edit protection; no external publishing.
 
 - [x] **[REALTIME-517]** Verify automatic publication refresh through an isolated local TLS proxy `Priority: 🟠` `Complexity: M` — ISSUE-177; reuse clean/dirty REALTIME-516 acceptance with HTTPS termination and native SSE; no real provider or system trust changes.
+
+- [x] **[FACEBOOK-518]** Prepare an isolated native Facebook/proxy replay `Priority: 🟠` `Complexity: S` — ISSUE-177; retained fixture is absent, Studio rebuilt, clean/unsaved text replay and cleanup prepared; execution awaits working Meta browser access and fresh isolated runtime/tunnel configuration. No real publishing performed. [Evidence](worklogs/2026-10-19-FACEBOOK-518.md).
