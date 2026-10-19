@@ -977,4 +977,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [!] **[FACEBOOK-519]** Execute the native Facebook/tunnel refresh replay `Priority: 🟠` `Complexity: M` — ISSUE-177; application secret stored encrypted, but native OAuth returns bearer tokens without `expires_in` and is rejected before Page selection (ISSUE-178). Callback removed and test services stopped; two unscheduled drafts and encrypted setup retained privately. [Evidence](worklogs/2026-10-19-FACEBOOK-519.md).
 
-- [/] **[FACEBOOK-520]** Investigate the missing-expiration Facebook token contract with MiniMax `Priority: 🟠` `Complexity: M` — ISSUE-178; round-2 code findings verified, unsupported token-type and lifetime assumptions challenged in focused read-only round 3. No runtime or credential-policy change adopted. [Evidence](worklogs/2026-10-19-FACEBOOK-520.md).
+- [x] **[FACEBOOK-520]** Investigate the missing-expiration Facebook token contract with MiniMax `Priority: 🟠` `Complexity: M` — ISSUE-178; two read-only rounds reviewed, unsupported provider claims rejected, bounded nullable-expiration candidate defined for FACEBOOK-521. No policy adopted or live validation claimed. [Evidence](worklogs/2026-10-19-FACEBOOK-520.md).
+
+- [/] **[FACEBOOK-521]** Prepare and verify bounded missing-expiration Facebook support `Priority: 🟠` `Complexity: M` — ISSUE-178; MiniMax implements a four-file candidate in an isolated worktree; parent reviews omission versus malformed expiry, local TTL, known shorter deadlines and provider checks before adoption/integration.
