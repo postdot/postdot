@@ -1,7 +1,7 @@
 // cspell:ignore framenavigated requestfailed
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request, type Response } from '@playwright/test'
 
 interface RealtimeRecorderEvent {
     readonly url: string
@@ -100,6 +100,13 @@ for (const dirty of [false, true]) {
 
             const suffix = randomUUID().slice(0, 8)
             const projectId = await createAccountAndProject(page, suffix)
+            if (process.env.POSTBOT_E2E_TLS_PROXY === 'true') {
+                const sessionCookie = (await page.context().cookies()).find(cookie =>
+                    cookie.name.endsWith('better-auth.session_token')
+                )
+                expect(sessionCookie?.secure).toBe(true)
+                expect(sessionCookie?.httpOnly).toBe(true)
+            }
             const currentTimeZone = await readProjectTimeZone(page, projectId)
             const otherTimeZone =
                 ['UTC', 'Pacific/Kiritimati', 'America/New_York'].find(
@@ -128,9 +135,16 @@ for (const dirty of [false, true]) {
                 projectReadHeld = resolve
             })
             let projectReadCaptured = false
+            let streamResponse: Response | undefined
 
             let completedProjectLists = 0
             const pendingProjectReads = new Set<Request>()
+            page.on('framenavigated', frame => {
+                if (frame !== page.mainFrame()) return
+                // Requests from the previous document cannot gate this editor's startup.
+                pendingProjectReads.clear()
+                completedProjectLists = 0
+            })
             page.on('request', request => {
                 const path = new URL(request.url()).pathname
                 if (
@@ -142,7 +156,9 @@ for (const dirty of [false, true]) {
             })
             page.on('response', response => {
                 const url = new URL(response.url())
+                if (url.pathname === `/api/projects/${projectId}/events`) streamResponse = response
                 if (
+                    pendingProjectReads.has(response.request()) &&
                     response.ok() &&
                     response.request().method() === 'GET' &&
                     url.pathname === `/api/projects/${projectId}/publications` &&
@@ -166,14 +182,27 @@ for (const dirty of [false, true]) {
                     })
                     .toBeGreaterThan(0)
 
+                if (process.env.POSTBOT_E2E_TLS_PROXY === 'true') {
+                    expect(new URL(page.url()).protocol).toBe('https:')
+                    if (streamResponse === undefined)
+                        throw new Error('Expected the TLS event stream')
+                    expect(new URL(streamResponse.url()).origin).toBe(new URL(page.url()).origin)
+                    expect((await streamResponse.securityDetails())?.protocol).toMatch(/^TLS/)
+                }
+
                 // Initial data load plus the bridge's four connection refresh passes.
                 // Drain them before gating a project-only refresh: startup includes editors.
                 await expect
-                    .poll(() => completedProjectLists >= 5 && pendingProjectReads.size === 0, {
-                        timeout: 20_000,
-                        message: 'startup project refreshes to finish',
-                    })
-                    .toBe(true)
+                    .poll(
+                        () => ({
+                            minimumReads: completedProjectLists >= 5,
+                            pending: [...pendingProjectReads]
+                                .map(request => new URL(request.url()).pathname)
+                                .sort(),
+                        }),
+                        { timeout: 20_000, message: 'startup project refreshes to finish' }
+                    )
+                    .toEqual({ minimumReads: true, pending: [] })
 
                 const baseline = await readNavigationState(page)
                 const baselineMainFrameNavigationCount = mainFrameNavigationCount

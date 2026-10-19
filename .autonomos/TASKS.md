@@ -970,3 +970,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[REALTIME-515]** Add deterministic refresh-queue isolation and repeated-overlap regressions `Priority: 🔵` `Complexity: S` — ISSUE-177; bounded delegated test implementation, orchestrator review and mutation checks; no runtime behavior change or automatic-worker acceptance claim.
 
 - [x] **[REALTIME-516]** Verify automatic worker completion reaches an open publication editor `Priority: 🟠` `Complexity: M` — ISSUE-177; isolated synthetic transport, real worker/journal/stream, overlapping project refresh and local-edit protection; no external publishing.
+
+- [x] **[REALTIME-517]** Verify automatic publication refresh through an isolated local TLS proxy `Priority: 🟠` `Complexity: M` — ISSUE-177; reuse clean/dirty REALTIME-516 acceptance with HTTPS termination and native SSE; no real provider or system trust changes.
