@@ -4244,7 +4244,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: SITE-455 (structure), SITE-456 (isolated export and generated static reference).
 - Resolution: 160 route-derived operations are generated into 16 domains through the official Fumadocs integration. An in-memory exporter and temporary media adapter avoid shared resources; per-operation fragments limit page payload. Public, inherited bearer/session and explicit session-only declarations are preserved. The static renderer has no request playground or proxy. Dynamic Better Auth and optional monitoring routes remain explicitly outside coverage.
 
-
 ## [ISSUE-165] Add a Telegram publishing destination
 
 - Type: proposal
@@ -4257,7 +4256,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Implementation: TELEGRAM-499 adds the isolated provider protocol; TELEGRAM-500 adds the encrypted connection API and versioned profile; TELEGRAM-501 registers execution with pinned media and durable delivery handling. TELEGRAM-502 adds Studio creation, connection and conditional native editor limits. TELEGRAM-503 verifies photo/video storage-to-worker delivery and fixes MIME preservation under Bun. Live acceptance remains pending.
 - Source: owner product direction, 2026-10-16.
 
-
 ## [ISSUE-166] Establish Facebook and Instagram integration scope
 
 - Type: proposal
@@ -4269,7 +4267,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Research: [Meta integration discovery](../docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
-
 ## [ISSUE-167] Replace normal Studio JSON authoring with a structured channel builder
 
 - Type: proposal
@@ -4279,7 +4276,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Transport authoring, arbitrary field removal and full adoption cleanup remain pending.
 - Source: owner product direction, 2026-10-16.
-
 
 ## [ISSUE-168] Expand provider information, performance and comment workflows
 
@@ -4291,7 +4287,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
 
-
 ## [ISSUE-169] Support provider-native publication formats and public text entities
 
 - Type: proposal
@@ -4301,7 +4296,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
-
 
 ## [ISSUE-170] Preserve user-defined organization through free publication tags
 
@@ -4313,7 +4307,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
 
-
 ## [ISSUE-171] Evaluate scheduled comments beneath owned publications
 
 - Type: proposal
@@ -4323,7 +4316,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
 - Source: owner clarification, 2026-10-16.
-
 
 ## [ISSUE-172] Define shared-post and tag-based performance reports
 
@@ -4335,7 +4327,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
 - Source: owner clarification, 2026-10-16.
 
-
 ## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio
 
 - Type: proposal
@@ -4345,7 +4336,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
 - Source: owner clarification, 2026-10-16.
-
 
 ## [ISSUE-174] Verify built-in provider constraint updates across retained work
 
@@ -4365,7 +4355,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Reproduce and identify which shutdown step can remain pending. Preserve fail-closed runtime exclusion; do not introduce automatic stale-lock reclamation or infer quiescence from a missing listener.
 - Tasks: CHANNEL-488 (recovery and evidence); root-cause repair remains pending.
 
-
 ## [ISSUE-176] Exclude generated test and runtime data from production build contexts
 
 - Type: defect
@@ -4374,11 +4363,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Keep routine production contexts bounded and exclude generated test outputs and runtime data without hiding required workspace manifests or fixtures. Verify the normal Docker build with representative local outputs present. No runtime data was deleted during discovery.
 - Tasks: TELEGRAM-499 (evidence); dedicated build-context cleanup remains pending.
 
-
 ## [ISSUE-177] Verify publication detail refresh after automatic delivery
 
 - Type: defect investigation
 - Status: open
 - Evidence: FACEBOOK-512 observed the open publication detail still displaying Queued after its isolated database recorded a successful automatic Facebook publication. Reloading showed Published. The remote post was independently visible on Facebook. The cause and exact update delay have not been isolated; a proxy stream or route subscription is a hypothesis, not a conclusion.
 - Desired outcome: Reproduce the subscribed detail transition through a controlled local worker event and, if relevant, a TLS proxy. Preserve authoritative publication state and avoid adding polling without evidence.
-- Source: live acceptance observation during FACEBOOK-512; follow-up remains pending.
+- Follow-up: REALTIME-513 repaired a deterministic overlapping-refresh defect: project refreshes could discard publication-editor invalidation and later signals. Regression tests fail with the previous coalescing behavior. An isolated manual publication updated the rebuilt Studio without reload. The original automatic Facebook/proxy sequence has not been replayed, so this issue remains open until that acceptance check.
+- Source: live acceptance observation during FACEBOOK-512; partial follow-up in REALTIME-513.

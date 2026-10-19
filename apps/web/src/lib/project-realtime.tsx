@@ -2,6 +2,8 @@ import type { PublicationEditorState } from '@postbot/client'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { createRealtimeRefreshQueue } from './realtime-refresh'
+
 export const projectQueryKeys = {
     data: (projectId: string) => ['project', projectId, 'data'] as const,
     calendarPublications: (projectId: string) =>
@@ -435,17 +437,8 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
         const source = createProjectRealtimeClient(projectId)
         let stopped = false
         let wasDisconnected = false
-        const pendingRefreshes = new Map<string, Promise<void>>()
-
-        const refresh = (
-            key: string,
-            full = false,
-            includePublicationEditors = false
-        ): Promise<void> => {
-            const existing = pendingRefreshes.get(key)
-            if (existing !== undefined) return existing
-
-            const operation = (async () => {
+        const refresh = createRealtimeRefreshQueue(
+            async (key, { full, includePublicationEditors }) => {
                 for (const delay of reconnectRefreshDelays) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
@@ -490,11 +483,8 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                         ])
                     }
                 }
-            })().finally(() => pendingRefreshes.delete(key))
-
-            pendingRefreshes.set(key, operation)
-            return operation
-        }
+            }
+        )
 
         const draftChanges = new Map<string, DraftChangeSignal>()
         let draftRefreshTimer: ReturnType<typeof setTimeout> | undefined
@@ -601,7 +591,6 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
             draftChanges.clear()
             unsubscribe()
             source.close()
-            pendingRefreshes.clear()
         }
     }, [projectId, queryClient])
 
