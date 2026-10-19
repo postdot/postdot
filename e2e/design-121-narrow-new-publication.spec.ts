@@ -235,7 +235,10 @@ test('keeps narrow new-publication flow and queue usable with long channel names
         'true'
     )
 
-    await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0)
+    // The manual destination declares an optional headline, so the composer
+    // keeps the destination title control and labels it optional.
+    await expect(page.getByLabel('Optional title', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Required title', { exact: true })).toHaveCount(0)
     const sharedContent = 'E2E-121 narrow new publication content'
     await page.getByLabel('Content', { exact: true }).fill(sharedContent)
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
@@ -318,9 +321,16 @@ async function createChannel(page: Page, name: string): Promise<void> {
     const addChannelButton = page.getByRole('button', { name: 'Add channel', exact: true })
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await page.getByLabel('Channel name').fill(name)
-    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByLabel('Channel name').fill(name)
+    // Channel creation is a two-step flow: the destination identity first, then
+    // the content rules that define the profile used for its publications.
+    await dialog.getByRole('button', { name: 'Configure content', exact: true }).click()
+    await expect(
+        dialog.getByRole('heading', { name: 'Configure content', exact: true })
+    ).toBeVisible()
+    await dialog.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: name }).first()).toBeVisible()
 }
 

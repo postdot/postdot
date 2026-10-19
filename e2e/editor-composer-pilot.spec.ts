@@ -643,14 +643,10 @@ test('projects custom destination text and ordered media through active nested b
     page,
 }) => {
     const projectId = await createProject(page)
-    await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    const starter = JSON.parse(
-        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
-    )
-    await page.keyboard.press('Escape')
+    const presets = await serverPresets(page)
+    // The structured form authors single-segment bindings only, so these nested
+    // fixture profiles are prepared from the real server preset and created
+    // through the API.
     const channels: { id: string; nested: boolean; customized: boolean }[] = []
     for (const [name, nested, customized, http] of [
         ['Root control', false, true, false],
@@ -658,8 +654,7 @@ test('projects custom destination text and ordered media through active nested b
         ['Nested HTTP', true, true, true],
         ['Shared nested', true, false, false],
     ] as const) {
-        const profile = structuredClone(starter)
-        profile.id = name.toLowerCase().replaceAll(' ', '-')
+        const profile = customManualProfile(presets, name.toLowerCase().replaceAll(' ', '-'))
         if (nested) {
             const { $schema, ...inner } = profile.contentSchema
             profile.contentSchema = {
@@ -669,7 +664,7 @@ test('projects custom destination text and ordered media through active nested b
                 required: ['article'],
                 additionalProperties: false,
             }
-            profile.fieldBindings = profile.fieldBindings.map((binding: { path: string }) => ({
+            profile.fieldBindings = profile.fieldBindings.map(binding => ({
                 ...binding,
                 path: '/article' + binding.path,
             }))
@@ -785,23 +780,18 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     page,
 }) => {
     const projectId = await createProject(page)
-    await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    const starter = JSON.parse(
-        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
-    )
-    await page.keyboard.press('Escape')
+    const presets = await serverPresets(page)
     const ids: string[] = []
     for (const nested of [false, true]) {
-        const profile = structuredClone(starter)
-        profile.id = nested ? 'nested-short-title' : 'root-short-title'
-        profile.contentSchema.properties.body.maxLength = 8
+        const profile = customProfileFromPreset(
+            presets['manual-message']!,
+            nested ? 'nested-short-title' : 'root-short-title'
+        )
+        profile.contentSchema.properties.body!.maxLength = 8
         profile.contentSchema.required = ['body', 'headline']
         profile.capabilities.textFields.find(
             (field: { bindingId: string }) => field.bindingId === 'body'
-        ).maxLength = 8
+        )!.maxLength = 8
         if (nested) {
             const { $schema, ...inner } = profile.contentSchema
             profile.contentSchema = {
@@ -811,7 +801,7 @@ test('shows custom headline and length feedback without blocking invalid drafts'
                 required: ['article'],
                 additionalProperties: false,
             }
-            profile.fieldBindings = profile.fieldBindings.map((binding: { path: string }) => ({
+            profile.fieldBindings = profile.fieldBindings.map(binding => ({
                 ...binding,
                 path: '/article' + binding.path,
             }))
@@ -922,6 +912,113 @@ test('shows custom headline and length feedback without blocking invalid drafts'
     }
 })
 
+/** The JSON Schema dialect a custom profile must declare. */
+const jsonSchema202012Dialect = 'https://json-schema.org/draft/2020-12/schema'
+
+interface ProfileFixture {
+    [key: string]: unknown
+    contentSchema: {
+        $schema?: string
+        type: string
+        properties: Record<string, Record<string, unknown>>
+        required: string[]
+        additionalProperties: boolean
+    }
+    fieldBindings: { id: string; semantic: string; path: string }[]
+    capabilities: {
+        revision: string
+        textFields: { bindingId: string; maxLength: number | null }[]
+        mediaFields: { bindingId: string; maxItems: number }[]
+        relations: unknown[]
+    }
+    execution: Record<string, unknown>
+}
+
+/**
+ * Mirrors the preparation the web app applies to a server preset when it
+ * offers that preset as a custom starter: the custom definition declares the
+ * JSON Schema dialect and a finite maximum for every string it contains.
+ */
+function prepareCustomContentSchema(value: unknown, path: readonly string[] = []): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item, index) =>
+            prepareCustomContentSchema(item, [...path, String(index)])
+        )
+    }
+    if (value === null || typeof value !== 'object') return value
+    const record = value as Record<string, unknown>
+    const prepared = Object.fromEntries(
+        Object.entries(record).map(([key, child]) => [
+            key,
+            prepareCustomContentSchema(child, [...path, key]),
+        ])
+    )
+    if (path.length === 0 && prepared.$schema === undefined) {
+        prepared.$schema = jsonSchema202012Dialect
+    }
+    if (prepared.type === 'string' && prepared.maxLength === undefined) {
+        prepared.maxLength = path.at(-1) === 'assetId' ? 255 : 10_000
+    }
+    return prepared
+}
+
+/**
+ * Derives a custom profile from a real server preset. The declared identity,
+ * origin and version stay operator-owned; the server derives the fingerprints
+ * when the channel is created.
+ */
+function customProfileFromPreset(
+    preset: Record<string, unknown>,
+    id: string,
+    version?: number
+): ProfileFixture {
+    const {
+        profileHash: _profileHash,
+        schemaHash: _schemaHash,
+        ...authored
+    } = structuredClone(preset)
+    return {
+        ...authored,
+        id,
+        version: version ?? (preset.version as number),
+        origin: 'custom',
+        contentSchema: prepareCustomContentSchema(
+            authored.contentSchema
+        ) as ProfileFixture['contentSchema'],
+        fieldBindings: authored.fieldBindings as ProfileFixture['fieldBindings'],
+        capabilities: authored.capabilities as ProfileFixture['capabilities'],
+        execution: authored.execution as Record<string, unknown>,
+    }
+}
+
+/**
+ * The generic manual destination used by the composition fixtures keeps the
+ * custom-manual contract: a required body, an optional headline and optional
+ * media. The server manual preset supplies the rest unchanged; only the
+ * declared required list differs from that preset.
+ */
+function customManualProfile(
+    presets: Record<string, Record<string, unknown>>,
+    id: string
+): ProfileFixture {
+    const profile = customProfileFromPreset(presets['manual-message']!, id)
+    profile.contentSchema.required = ['body']
+    return profile
+}
+
+/** Reads the profile presets the API publishes for channel creation. */
+async function serverPresets(page: Page): Promise<Record<string, Record<string, unknown>>> {
+    const response = await page.request.get('/api/channel-profile-presets')
+    expect(response.ok()).toBe(true)
+    const { presets } = await response.json()
+    return Object.fromEntries(
+        presets.map((preset: { id: string; profile: Record<string, unknown> }) => [
+            preset.id,
+            preset.profile,
+        ])
+    )
+}
+
 /** A 1x1 PNG, matching the fixture already used by the media journey. */
 const previewPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -999,26 +1096,14 @@ test('composer native presentation follows execution rather than profile identit
 }) => {
     test.setTimeout(90_000)
     const projectId = await createProject(page)
-    await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    const dialog = page.getByRole('dialog')
-    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    const starter = JSON.parse(
-        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
-    )
-    const aliases = new Map<string, Record<string, unknown>>()
-    for (const [platform, label] of [
-        ['x', 'X post'],
-        ['discord', 'Discord message'],
-        ['devto', 'DEV.to article'],
-    ]) {
-        await dialog.getByRole('combobox', { name: 'Starter template', exact: true }).click()
-        await page.getByRole('option', { name: label, exact: true }).click()
-        const json = dialog.getByLabel('Custom profile JSON', { exact: true })
-        await expect(json).toHaveValue(new RegExp(`"id": "custom-${platform}"`))
-        aliases.set(platform!, { ...JSON.parse(await json.inputValue()), id: `alias-${platform}` })
+    const presets = await serverPresets(page)
+    // An alias keeps a provider's execution contract under a declared custom
+    // identity; a manual profile declares its own generic execution.
+    const aliases = new Map<string, ProfileFixture>()
+    for (const platform of ['x', 'discord', 'devto']) {
+        aliases.set(platform, customProfileFromPreset(presets[platform]!, `alias-${platform}`))
     }
-    await page.keyboard.press('Escape')
+    const manualStarter = customManualProfile(presets, 'custom-manual')
     const cases: { id: string; platform: string; kind: 'native' | 'alias' | 'manual' }[] = []
     for (const platform of ['x', 'discord', 'devto']) {
         const native = await page.request.post(`/api/projects/${projectId}/channels`, {
@@ -1028,12 +1113,12 @@ test('composer native presentation follows execution rather than profile identit
         const nativeId = (await native.json()).channel.id
         cases.push({ id: nativeId, platform, kind: 'native' })
         const alias = aliases.get(platform)!
-        const manual = structuredClone(starter)
+        const manual = structuredClone(manualStarter)
         manual.id = platform
-        manual.contentSchema.properties.body.maxLength = 8
+        manual.contentSchema.properties.body!.maxLength = 8
         manual.capabilities.textFields.find(
             (field: { bindingId: string }) => field.bindingId === 'body'
-        ).maxLength = 8
+        )!.maxLength = 8
         for (const [kind, profile] of [
             ['alias', alias],
             ['manual', manual],
@@ -1057,7 +1142,17 @@ test('composer native presentation follows execution rather than profile identit
         const native = channel.kind !== 'manual'
         const article = native && channel.platform === 'devto'
         const discord = native && channel.platform === 'discord'
-        await expect(page.locator('#new-post-title')).toHaveCount(article ? 1 : 0)
+        // A destination title follows the destination profile, not the platform
+        // name: the manual profile declares an optional headline, the DEV.to
+        // profile requires one, and the X and Discord profiles declare none.
+        const title =
+            channel.kind === 'manual'
+                ? 'Optional title'
+                : channel.platform === 'devto'
+                  ? 'Required title'
+                  : null
+        await expect(page.locator('#new-post-title')).toHaveCount(title === null ? 0 : 1)
+        if (title !== null) await expect(page.getByLabel(title, { exact: true })).toBeVisible()
         await expect(page.locator('[data-weighted-count]')).toHaveCount(
             native && channel.platform === 'x' ? 1 : 0
         )
@@ -1164,22 +1259,13 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     const catalog = await (await page.request.get('/api/channel-profile-presets')).json()
     const latest = catalog.presets.find((item: { id: string }) => item.id === 'linkedin').profile
     expect(latest.capabilities.mediaFields[0].maxItems).toBe(20)
-    await page.goto(`/dashboard/projects/${projectId}/channels`)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await page.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Starter template', exact: true }).click()
-    await page.getByRole('option', { name: 'LinkedIn post', exact: true }).click()
-    const old = JSON.parse(await page.getByLabel('Custom profile JSON').inputValue())
-    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-    old.version = 2
-    old.origin = 'custom'
-    old.contentSchema.$schema = 'https://json-schema.org/draft/2020-12/schema'
-    old.profileHash = 'sha256:postbot-linkedin-member-post-v2'
-    old.schemaHash = 'sha256:postbot-linkedin-member-post-schema-v2'
+    // An older LinkedIn profile, prepared from the real server preset and
+    // narrowed to the single-image limit the historical target already uses.
+    const old = customProfileFromPreset(latest, 'custom-linkedin', 2)
     old.execution.revision = 'member-post-v2'
     old.capabilities.revision = 'linkedin-member-post-v2'
-    old.contentSchema.properties.media.maxItems = 1
-    old.capabilities.mediaFields[0].maxItems = 1
+    old.contentSchema.properties.media!.maxItems = 1
+    old.capabilities.mediaFields[0]!.maxItems = 1
     const made = await page.request.post(`/api/projects/${projectId}/channels`, {
         data: { name: 'LinkedIn images', profile: old },
     })
@@ -1219,7 +1305,9 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
-    await expect(dialog.getByLabel('Profile JSON', { exact: true })).toHaveValue(/member-post-v4/)
+    // The loaded template is a local edit in the structured controls: the media
+    // limit already shows the latest template value.
+    await expect(dialog.getByLabel('Maximum files (0 = none)', { exact: true })).toHaveValue('20')
     // Loading the template is a local draft action, never an activation.
     const profileUrl = `/api/projects/${projectId}/channels/${channelId}/profile`
     expect(
