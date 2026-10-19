@@ -115,4 +115,63 @@ describe('project realtime runtime', () => {
         await runtime.hub.waitForChange('project-1', new AbortController().signal)
         runtime.publish(['project-1'])
     })
+
+    it('tells both served hubs that the runtime stopped', () => {
+        const runtime = createProjectRealtimeRuntime()
+        let projectNotifications = 0
+        let userNotifications = 0
+        runtime.hub.subscribeShutdown?.(() => {
+            projectNotifications += 1
+        })
+        runtime.userHub.subscribeShutdown?.(() => {
+            userNotifications += 1
+        })
+
+        runtime.stop()
+
+        expect(projectNotifications).toBe(1)
+        expect(userNotifications).toBe(1)
+    })
+
+    it('tells a listener that subscribes after the runtime stopped', () => {
+        const runtime = createProjectRealtimeRuntime()
+        runtime.stop()
+        let notified = false
+
+        runtime.hub.subscribeShutdown?.(() => {
+            notified = true
+        })
+
+        expect(notified).toBe(true)
+    })
+
+    it('stops notifying a listener that unsubscribed', () => {
+        const runtime = createProjectRealtimeRuntime()
+        let notified = false
+        const unsubscribe = runtime.hub.subscribeShutdown?.(() => {
+            notified = true
+        })
+
+        unsubscribe?.()
+        runtime.stop()
+
+        expect(notified).toBe(false)
+    })
+
+    it('keeps notifying the remaining listeners when one fails', () => {
+        const errors: unknown[] = []
+        const runtime = createProjectRealtimeRuntime({ onError: error => errors.push(error) })
+        let notified = false
+        runtime.hub.subscribeShutdown?.(() => {
+            throw new Error('shutdown listener failed')
+        })
+        runtime.userHub.subscribeShutdown?.(() => {
+            notified = true
+        })
+
+        runtime.stop()
+
+        expect(notified).toBe(true)
+        expect(errors).toHaveLength(1)
+    })
 })

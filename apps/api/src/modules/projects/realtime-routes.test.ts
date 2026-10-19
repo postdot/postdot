@@ -37,6 +37,10 @@ function journalEntry(input: {
 
 const readText = readFrame
 
+function wait(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
 describe('SSE-318 stream lifecycle', () => {
     it('opens both streams with a comment frame that carries no event and no cursor', async () => {
         const projectStream = createProjectEventStream({
@@ -499,5 +503,166 @@ describe('ephemeral draft changes', () => {
         expect(frame).not.toContain('project.draft-changed')
         expect((await readText(reader)).done).toBe(true)
         runtime.stop()
+    })
+})
+
+describe('stream shutdown', () => {
+    it('ends an idle project stream when the realtime runtime stops', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            projectChanges: runtime.hub,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        const opening = await reader.read()
+        expect(opening.done).toBe(false)
+
+        const terminal = reader.read()
+        runtime.stop()
+        const result = await Promise.race([terminal, wait(1_000).then(() => null)])
+
+        // The stream ends on its own: nothing is left waiting for a wakeup
+        // that the stopped runtime will never publish.
+        expect(result?.done).toBe(true)
+        expect(result?.value).toBeUndefined()
+    })
+
+    it('ends an idle user stream when the realtime runtime stops', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        const reader = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => ['project-1'],
+            journal: { readAllAfter: () => [] },
+            after: null,
+            userChanges: runtime.userHub,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        const opening = await reader.read()
+        expect(opening.done).toBe(false)
+
+        const terminal = reader.read()
+        runtime.stop()
+        const result = await Promise.race([terminal, wait(1_000).then(() => null)])
+
+        expect(result?.done).toBe(true)
+        expect(result?.value).toBeUndefined()
+    })
+
+    it('ends a project stream opened after the runtime stopped', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        runtime.stop()
+
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            projectChanges: runtime.hub,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        const result = await Promise.race([reader.read(), wait(1_000).then(() => null)])
+
+        expect(result?.done).toBe(true)
+    })
+
+    it('ends a user stream opened after the runtime stopped', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        runtime.stop()
+
+        const reader = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => ['project-1'],
+            journal: { readAllAfter: () => [] },
+            after: null,
+            userChanges: runtime.userHub,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        const result = await Promise.race([reader.read(), wait(1_000).then(() => null)])
+
+        expect(result?.done).toBe(true)
+    })
+
+    it('stops reading the journal and the session once the runtime stopped', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        let reads = 0
+        let checks = 0
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: {
+                readAfter: () => {
+                    reads += 1
+                    return []
+                },
+            },
+            after: null,
+            projectChanges: runtime.hub,
+            // The authorization check yields to the event loop, so a stream that
+            // kept polling after the shutdown would fail the assertions below
+            // instead of starving the test runner.
+            isAuthorized: async () => {
+                checks += 1
+                await Bun.sleep(0)
+                return true
+            },
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        await reader.read()
+        const terminal = reader.read()
+        await wait(20)
+        const readsAtStop = reads
+        const checksAtStop = checks
+
+        runtime.stop()
+        const result = await Promise.race([terminal, wait(1_000).then(() => null)])
+
+        expect(result?.done).toBe(true)
+        await wait(50)
+        expect(reads).toBe(readsAtStop)
+        expect(checks).toBe(checksAtStop)
+    })
+
+    it('releases the draft subscription and the shutdown subscription it holds', async () => {
+        let draftUnsubscribed = false
+        let shutdownUnsubscribed = false
+        let notifyShutdown: () => void = () => {}
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            projectChanges: {
+                waitForChange: () => new Promise<void>(() => {}),
+                subscribeDraftChanges: () => () => {
+                    draftUnsubscribed = true
+                },
+                subscribeShutdown: listener => {
+                    notifyShutdown = listener
+                    return () => {
+                        shutdownUnsubscribed = true
+                    }
+                },
+            },
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        }).getReader()
+
+        await reader.read()
+        const terminal = reader.read()
+        notifyShutdown()
+        const result = await Promise.race([terminal, wait(1_000).then(() => null)])
+
+        expect(result?.done).toBe(true)
+        expect(draftUnsubscribed).toBe(true)
+        expect(shutdownUnsubscribed).toBe(true)
     })
 })

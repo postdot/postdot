@@ -354,6 +354,8 @@ export function createProjectEventStream({
     let heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
     let closed = false
     let releaseWait: (() => void) | undefined
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    let unsubscribeShutdown: (() => void) | undefined
 
     const pendingDraftChanges = new Map<string, DraftChangeSignal>()
     const unsubscribeDraftChanges = projectChanges?.subscribeDraftChanges?.(projectId, change => {
@@ -370,10 +372,16 @@ export function createProjectEventStream({
     }
     request.signal.addEventListener('abort', cleanupDraftChanges, { once: true })
 
+    function cleanupShutdownSubscription(): void {
+        unsubscribeShutdown?.()
+        unsubscribeShutdown = undefined
+    }
+
     function close(controller: ReadableStreamDefaultController<Uint8Array>) {
         if (closed) return
         closed = true
         cleanupDraftChanges()
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -390,6 +398,7 @@ export function createProjectEventStream({
         if (closed) return
         closed = true
         cleanupDraftChanges()
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -408,6 +417,7 @@ export function createProjectEventStream({
         if (closed) return
         closed = true
         cleanupDraftChanges()
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -438,11 +448,20 @@ export function createProjectEventStream({
 
     return new ReadableStream<Uint8Array>({
         async start(controller) {
+            streamController = controller
+            // A stopped runtime ends this stream at once. A stream left waiting
+            // for a wakeup would keep the graceful server stop waiting for a
+            // request that can never finish.
+            unsubscribeShutdown = projectChanges?.subscribeShutdown?.(() => {
+                if (streamController !== undefined) close(streamController)
+            })
+            if (closed) return
             try {
                 controller.enqueue(encoder.encode(streamConnectedComment))
             } catch {
                 closed = true
                 cleanupDraftChanges()
+                cleanupShutdownSubscription()
             }
         },
         async pull(controller) {
@@ -455,6 +474,7 @@ export function createProjectEventStream({
                 }
 
                 if (!(await ensureAuthorized(controller))) return
+                if (closed) return
 
                 let entries: readonly EventJournalEntry[]
                 try {
@@ -469,6 +489,7 @@ export function createProjectEventStream({
                 }
 
                 if (!(await ensureAuthorized(controller))) return
+                if (closed) return
 
                 const frames: string[] = [...pendingDraftChanges.values()].map(
                     change => `event: project.draft-changed\ndata: ${JSON.stringify(change)}\n\n`
@@ -503,6 +524,7 @@ export function createProjectEventStream({
                     } catch {
                         closed = true
                         cleanupDraftChanges()
+                        cleanupShutdownSubscription()
                         return
                     }
                     heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
@@ -518,6 +540,7 @@ export function createProjectEventStream({
                     } catch {
                         closed = true
                         cleanupDraftChanges()
+                        cleanupShutdownSubscription()
                         return
                     }
                     heartbeatAt = now + streamOptions.heartbeatIntervalMs
@@ -540,11 +563,13 @@ export function createProjectEventStream({
                     close(controller)
                     return
                 }
+                if (closed) return
             }
         },
         cancel() {
             closed = true
             cleanupDraftChanges()
+            cleanupShutdownSubscription()
             releaseWait?.()
             releaseWait = undefined
         },
@@ -568,10 +593,18 @@ export function createUserEventStream({
     let heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
     let closed = false
     let releaseWait: (() => void) | undefined
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    let unsubscribeShutdown: (() => void) | undefined
+
+    function cleanupShutdownSubscription(): void {
+        unsubscribeShutdown?.()
+        unsubscribeShutdown = undefined
+    }
 
     function close(controller: ReadableStreamDefaultController<Uint8Array>) {
         if (closed) return
         closed = true
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -587,6 +620,7 @@ export function createUserEventStream({
     ) {
         if (closed) return
         closed = true
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -604,6 +638,7 @@ export function createUserEventStream({
     function closeWithAccessRevoked(controller: ReadableStreamDefaultController<Uint8Array>) {
         if (closed) return
         closed = true
+        cleanupShutdownSubscription()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -620,12 +655,19 @@ export function createUserEventStream({
 
     return new ReadableStream<Uint8Array>({
         start(controller) {
+            streamController = controller
+            // A stopped runtime ends this stream at once. A stream left waiting
+            // for a wakeup would keep the graceful server stop waiting for a
+            // request that can never finish.
+            unsubscribeShutdown = userChanges?.subscribeShutdown?.(() => {
+                if (streamController !== undefined) close(streamController)
+            })
+            if (closed) return
             try {
                 controller.enqueue(encoder.encode(streamConnectedComment))
             } catch {
                 closed = true
-                releaseWait?.()
-                releaseWait = undefined
+                cleanupShutdownSubscription()
             }
         },
         async pull(controller) {
@@ -640,6 +682,7 @@ export function createUserEventStream({
                     closeWithAccessRevoked(controller)
                     return
                 }
+                if (closed) return
 
                 let entries: readonly EventJournalEntry[]
                 try {
@@ -657,6 +700,7 @@ export function createUserEventStream({
                     closeWithAccessRevoked(controller)
                     return
                 }
+                if (closed) return
                 const frames: string[] = []
                 for (const entry of entries) {
                     let sequence: number
@@ -688,6 +732,7 @@ export function createUserEventStream({
                         controller.enqueue(encoder.encode(frames.join('')))
                     } catch {
                         closed = true
+                        cleanupShutdownSubscription()
                         return
                     }
                     heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
@@ -702,6 +747,7 @@ export function createUserEventStream({
                         controller.enqueue(encoder.encode(': heartbeat\n\n'))
                     } catch {
                         closed = true
+                        cleanupShutdownSubscription()
                         return
                     }
                     heartbeatAt = now + streamOptions.heartbeatIntervalMs
@@ -724,10 +770,12 @@ export function createUserEventStream({
                     close(controller)
                     return
                 }
+                if (closed) return
             }
         },
         cancel() {
             closed = true
+            cleanupShutdownSubscription()
             releaseWait?.()
             releaseWait = undefined
         },

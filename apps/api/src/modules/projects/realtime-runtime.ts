@@ -1,5 +1,13 @@
 export interface RealtimeHub {
     waitForChange(projectId: string, signal: AbortSignal): Promise<void>
+    /**
+     * Registers a listener that runs when the runtime stops.
+     *
+     * The listener runs at once when the runtime has already stopped, so a
+     * stream opened after the shutdown never waits for a wakeup that cannot
+     * come. The returned function removes the listener.
+     */
+    subscribeShutdown?(listener: () => void): () => void
 }
 
 export interface DraftChangeSignal {
@@ -49,6 +57,7 @@ export function createProjectRealtimeRuntime(
     const draftListeners = new Map<string, Set<(change: DraftChangeSignal) => void>>()
     const projectWaiters = new Map<string, Set<Waiter>>()
     const userWaiters = new Map<string, Set<Waiter>>()
+    const shutdownListeners = new Set<() => void>()
     let stopped = false
 
     function removeWaiter(
@@ -117,6 +126,29 @@ export function createProjectRealtimeRuntime(
         }
     }
 
+    function subscribeShutdown(listener: () => void): () => void {
+        if (stopped) {
+            listener()
+            return () => {}
+        }
+        shutdownListeners.add(listener)
+        return () => {
+            shutdownListeners.delete(listener)
+        }
+    }
+
+    function notifyShutdown(): void {
+        const listeners = [...shutdownListeners]
+        shutdownListeners.clear()
+        for (const listener of listeners) {
+            try {
+                listener()
+            } catch (error) {
+                reportError(error)
+            }
+        }
+    }
+
     function publish(projectIds: readonly string[]): void {
         if (stopped) return
         const uniqueProjectIds = [...new Set(projectIds.filter(projectId => projectId.length > 0))]
@@ -141,6 +173,10 @@ export function createProjectRealtimeRuntime(
     function stop(): void {
         if (stopped) return
         stopped = true
+        // The served streams are told first. A stream that waits for a wakeup
+        // must end before its waiter is resolved, or it would read the journal
+        // again and wait for a change that is never published.
+        notifyShutdown()
         draftListeners.clear()
         for (const [projectId, waiters] of projectWaiters) {
             for (const waiter of waiters) waiter.resolve()
@@ -175,9 +211,11 @@ export function createProjectRealtimeRuntime(
                 notify(projectWaiters, [change.projectId])
             },
             waitForChange: (projectId, signal) => waitForChange(projectWaiters, projectId, signal),
+            subscribeShutdown,
         },
         userHub: {
             waitForChange: (userId, signal) => waitForChange(userWaiters, userId, signal),
+            subscribeShutdown,
         },
         publish,
         publishUsers,
