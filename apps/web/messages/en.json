@@ -2299,5 +2299,9 @@
     "provider_apps_https_required": "Facebook requires an HTTPS callback URL.",
     "provider_facebook_app_id": "App ID",
     "provider_facebook_app_secret": "App secret",
-    "composer_character_count_unknown": "{count} characters"
+    "composer_character_count_unknown": "{count} characters",
+    "performance_read_failed": "Stored statistics could not be loaded.",
+    "performance_read_incomplete": "Some stored metrics are missing from this response.",
+    "performance_grouped_description": "Results by source post and destination for loaded publications. Metrics are cumulative provider observations, not combined totals.",
+    "profile_load_shipped_template": "Load shipped template"
 }

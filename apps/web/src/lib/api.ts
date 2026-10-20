@@ -1335,6 +1335,28 @@ export const api = {
         )
     },
 
+    async listLatestBlueskyProviderAnalytics(
+        projectId: string,
+        publicationIds: readonly string[]
+    ): Promise<ProviderAnalyticsPage> {
+        return unwrap<ProviderAnalyticsPage>(
+            await client.api.projects({ projectId }).analytics.provider.bluesky.latest.get({
+                query: { publicationIds: [...publicationIds] },
+            })
+        )
+    },
+
+    async listLatestDevtoProviderAnalytics(
+        projectId: string,
+        publicationIds: readonly string[]
+    ): Promise<ProviderAnalyticsPage> {
+        return unwrap<ProviderAnalyticsPage>(
+            await client.api.projects({ projectId }).analytics.provider.devto.latest.get({
+                query: { publicationIds: [...publicationIds] },
+            })
+        )
+    },
+
     async collectBlueskyProviderAnalytics(
         projectId: string,
         channelId: string,

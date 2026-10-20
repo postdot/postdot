@@ -2299,5 +2299,9 @@
     "provider_apps_https_required": "Facebook exige une URL de rappel HTTPS.",
     "provider_facebook_app_id": "ID de l’application",
     "provider_facebook_app_secret": "Secret de l’application",
-    "composer_character_count_unknown": "{count} caractères"
+    "composer_character_count_unknown": "{count} caractères",
+    "performance_read_failed": "Impossible de charger les statistiques enregistrées.",
+    "performance_read_incomplete": "Certaines mesures enregistrées manquent dans cette réponse.",
+    "performance_grouped_description": "Résultats par publication source et destination pour les publications chargées. Les mesures sont des observations cumulées des plateformes, sans total combiné.",
+    "profile_load_shipped_template": "Charger le modèle fourni"
 }

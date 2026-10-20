@@ -45,6 +45,7 @@ export function ChannelProfileEditorDialog({
     useLanguage()
     const [profileText, setProfileText] = useState('')
     const [latestTemplateAvailable, setLatestTemplateAvailable] = useState(false)
+    const [shippedTemplateText, setShippedTemplateText] = useState<string | null>(null)
     const [savedProfileText, setSavedProfileText] = useState('')
     const [activeDefinition, setActiveDefinition] = useState<unknown>(null)
     const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
@@ -82,6 +83,7 @@ export function ChannelProfileEditorDialog({
         setMetadata(null)
         setActiveDefinition(null)
         setLatestTemplateAvailable(false)
+        setShippedTemplateText(null)
         setDraftId(null)
         setDraftRevision(undefined)
         setSaving(false)
@@ -114,6 +116,25 @@ export function ChannelProfileEditorDialog({
                 )
                 setDraftId(state.draft?.id ?? null)
                 setDraftRevision(state.draft?.revision)
+                if (state.draft === null && state.active.profile.origin === 'built_in') {
+                    void api
+                        .listChannelProfilePresets()
+                        .then(({ presets }) => {
+                            if (cancelled) return
+                            const preset = presets.find(item => item.id === state.active.profile.id)
+                            if (preset === undefined) return
+                            const text = profilePresentation(preset.profile).text
+                            if (
+                                canonicalProfileValue(JSON.parse(text)) !==
+                                canonicalProfileValue(JSON.parse(presentation.text))
+                            ) {
+                                setShippedTemplateText(text)
+                            }
+                        })
+                        .catch(caughtError => {
+                            if (!cancelled) setError(formatApiError(caughtError))
+                        })
+                }
             })
             .catch(caughtError => {
                 if (!cancelled) setError(formatApiError(caughtError))
@@ -164,6 +185,8 @@ export function ChannelProfileEditorDialog({
             if (epoch !== session.current) return
             setDraftId(response.profile.id)
             setDraftRevision(response.profile.revision)
+            setShippedTemplateText(null)
+            setLatestTemplateAvailable(false)
             const presentation = profilePresentation(response.profile.profile)
             setProfileText(presentation.text)
             setSavedProfileText(presentation.text)
@@ -251,6 +274,16 @@ export function ChannelProfileEditorDialog({
     }
 
     async function loadLatestTemplate() {
+        if (draftId !== null) return
+        if (shippedTemplateText !== null) {
+            setProfileText(shippedTemplateText)
+            setAssessment(null)
+            setBuilderValid(true)
+            setShippedTemplateText(null)
+            setLatestTemplateAvailable(false)
+            setError(null)
+            return
+        }
         const epoch = session.current
         setLoading(true)
         setError(null)
@@ -322,14 +355,18 @@ export function ChannelProfileEditorDialog({
                 <div
                     data-channel-dialog-body
                     className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain pr-1">
-                    {stage === 'edit' && latestTemplateAvailable ? (
+                    {stage === 'edit' &&
+                    draftId === null &&
+                    (shippedTemplateText !== null || latestTemplateAvailable) ? (
                         <Button
                             type="button"
                             variant="outline"
                             className="justify-self-start"
                             disabled={busy || !builderValid || unsaved || reloadRequired}
                             onClick={() => void loadLatestTemplate()}>
-                            {m.profile_load_latest_linkedin_template()}
+                            {shippedTemplateText !== null
+                                ? m.profile_load_shipped_template()
+                                : m.profile_load_latest_linkedin_template()}
                         </Button>
                     ) : null}
                     {stage === 'edit' && !loading && profileText !== '' ? (
@@ -502,4 +539,19 @@ function profilePresentation(profile: object) {
         Object.entries(profile).filter(([key]) => !profileMetadataKeys.some(field => field === key))
     )
     return { text: JSON.stringify(editable, null, 2), metadata }
+}
+
+function canonicalProfileValue(value: unknown): string {
+    if (Array.isArray(value)) return '[' + value.map(canonicalProfileValue).join(',') + ']'
+    if (value !== null && typeof value === 'object') {
+        return (
+            '{' +
+            Object.entries(value)
+                .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+                .map(([key, entry]) => JSON.stringify(key) + ':' + canonicalProfileValue(entry))
+                .join(',') +
+            '}'
+        )
+    }
+    return JSON.stringify(value)
 }

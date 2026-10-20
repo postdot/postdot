@@ -2,7 +2,7 @@ import { Button, buttonVariants } from '@postbot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
@@ -21,9 +21,13 @@ import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
+import {
+    createPerformanceProviderBatches,
+    performanceProvider as analyticsProvider,
+    groupPerformancePublications,
+    groupLatestObservations,
+} from '@/lib/publication-performance'
 import * as m from '@/paraglide/messages.js'
-
-const analyticsPageSize = 500
 
 const providerMetrics = {
     bluesky: [
@@ -42,25 +46,6 @@ const providerMetrics = {
 
 type AnalyticsProvider = keyof typeof providerMetrics
 type MetricKey = (typeof providerMetrics)[AnalyticsProvider][number]['key']
-
-function groupLatestObservations(observations: readonly ProviderAnalyticsItem[]) {
-    const grouped = new Map<string, Map<string, ProviderAnalyticsItem>>()
-    for (const observation of observations) {
-        if (
-            observation.postbotEntityType !== 'publication' ||
-            observation.postbotEntityId === null
-        ) {
-            continue
-        }
-        const publicationMetrics = grouped.get(observation.postbotEntityId) ?? new Map()
-        const current = publicationMetrics.get(observation.metricName)
-        if (current === undefined || observation.fetchedAt > current.fetchedAt) {
-            publicationMetrics.set(observation.metricName, observation)
-        }
-        grouped.set(observation.postbotEntityId, publicationMetrics)
-    }
-    return grouped
-}
 
 function availabilityMessage(availability: ProviderAnalyticsItem['availability']): string {
     switch (availability) {
@@ -98,10 +83,6 @@ function collectProviderAnalytics(
         : api.collectBlueskyProviderAnalytics(projectId, channelId, publicationId)
 }
 
-function analyticsProvider(profileId: string | undefined): AnalyticsProvider | null {
-    return profileId === 'bluesky' || profileId === 'devto' ? profileId : null
-}
-
 export function PublicationPerformancePage() {
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
@@ -121,20 +102,44 @@ export function PublicationPerformancePage() {
         staleTime: Number.POSITIVE_INFINITY,
         retry: 1,
     })
-    const blueskyQuery = useQuery({
-        queryKey: projectQueryKeys.providerAnalytics(project.id, 'bluesky'),
-        queryFn: () => api.listBlueskyProviderAnalytics(project.id, { limit: analyticsPageSize }),
-        enabled: publicationsQuery.data !== undefined,
-        staleTime: Number.POSITIVE_INFINITY,
-        retry: 1,
+    const channelsById = new Map(channels.map(channel => [channel.id, channel]))
+    const publications = (
+        publicationsQuery.data?.pages.flatMap(page => page.publications) ?? []
+    ).filter(
+        publication =>
+            publication.state === 'published' &&
+            analyticsProvider(channelsById.get(publication.channelId)?.profileId) !== null
+    )
+    const groups = groupPerformancePublications(publications)
+    const batches = createPerformanceProviderBatches(
+        publications.map(publication => ({
+            publicationId: publication.id,
+            provider: analyticsProvider(channelsById.get(publication.channelId)?.profileId)!,
+        }))
+    )
+    const analyticsQueries = useQueries({
+        queries: batches.map(batch => ({
+            queryKey: [
+                ...projectQueryKeys.providerAnalytics(project.id, batch.provider),
+                'latest',
+                ...batch.publicationIds,
+            ],
+            queryFn: () =>
+                batch.provider === 'bluesky'
+                    ? api.listLatestBlueskyProviderAnalytics(project.id, batch.publicationIds)
+                    : api.listLatestDevtoProviderAnalytics(project.id, batch.publicationIds),
+            staleTime: Number.POSITIVE_INFINITY,
+            retry: 1,
+        })),
     })
-    const devtoQuery = useQuery({
-        queryKey: projectQueryKeys.providerAnalytics(project.id, 'devto'),
-        queryFn: () => api.listDevtoProviderAnalytics(project.id, { limit: analyticsPageSize }),
-        enabled: publicationsQuery.data !== undefined,
-        staleTime: Number.POSITIVE_INFINITY,
-        retry: 1,
-    })
+    const readsByPublication = new Map(
+        batches.flatMap((batch, index) =>
+            batch.publicationIds.map(id => [id, analyticsQueries[index]!] as const)
+        )
+    )
+    const latestObservations = groupLatestObservations(
+        analyticsQueries.flatMap(query => query.data?.observations ?? [])
+    )
     const refreshMutation = useMutation<
         BlueskyAnalyticsCollection | DevtoAnalyticsCollection,
         Error,
@@ -171,19 +176,6 @@ export function PublicationPerformancePage() {
         },
     })
 
-    const channelsById = new Map(channels.map(channel => [channel.id, channel]))
-    const publications = (
-        publicationsQuery.data?.pages.flatMap(page => page.publications) ?? []
-    ).filter(
-        publication =>
-            publication.state === 'published' &&
-            analyticsProvider(channelsById.get(publication.channelId)?.profileId) !== null
-    )
-    const analyticsByProvider = {
-        bluesky: groupLatestObservations(blueskyQuery.data?.observations ?? []),
-        devto: groupLatestObservations(devtoQuery.data?.observations ?? []),
-    } satisfies Record<AnalyticsProvider, Map<string, Map<string, ProviderAnalyticsItem>>>
-
     function formatDate(timestamp: number): string {
         return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(timestamp)
     }
@@ -194,9 +186,10 @@ export function PublicationPerformancePage() {
         const metricObservations =
             provider === null
                 ? new Map<string, ProviderAnalyticsItem>()
-                : (analyticsByProvider[provider].get(publication.id) ?? new Map())
+                : (latestObservations.get(publication.id) ?? new Map())
         const metrics: readonly { key: MetricKey; label: () => string }[] =
             provider === null ? [] : providerMetrics[provider]
+        const read = readsByPublication.get(publication.id)
         const latestFetch = [...metricObservations.values()].reduce<number | null>(
             (latest, observation) =>
                 latest === null || observation.fetchedAt > latest ? observation.fetchedAt : latest,
@@ -207,7 +200,6 @@ export function PublicationPerformancePage() {
         )
         const isRefreshing =
             refreshMutation.isPending && refreshMutation.variables?.publicationId === publication.id
-        const title = publicationIdentityLabel(publication)
 
         return (
             <article
@@ -219,13 +211,12 @@ export function PublicationPerformancePage() {
                         to="/dashboard/projects/$projectId/publications/$publicationId"
                         params={{ projectId: project.id, publicationId: publication.id }}
                         className="block break-words text-sm font-medium text-foreground hover:text-primary">
-                        {title}
+                        {publication.channelName}
                     </Link>
                     <p className="mt-1 break-words text-xs text-muted-foreground">
-                        {publication.channelName}
                         {publication.publishedAt === null
                             ? ''
-                            : ` · ${formatDate(publication.publishedAt)}`}
+                            : formatDate(publication.publishedAt)}
                     </p>
                     {refreshErrors[publication.id] !== undefined ? (
                         <p role="alert" className="mt-2 text-xs leading-5 text-state-failed">
@@ -254,15 +245,23 @@ export function PublicationPerformancePage() {
                     <p className="min-w-0 text-xs text-muted-foreground">
                         {provider === null
                             ? m.performance_status_not_supported()
-                            : unavailable === undefined
-                              ? latestFetch === null
-                                  ? m.performance_not_collected()
-                                  : m.performance_updated_at({ date: formatDate(latestFetch) })
-                              : availabilityMessage(unavailable.availability)}
+                            : read?.isPending
+                              ? m.common_loading()
+                              : read?.isError
+                                ? m.performance_read_failed()
+                                : read?.data?.hasMore
+                                  ? m.performance_read_incomplete()
+                                  : unavailable === undefined
+                                    ? latestFetch === null
+                                        ? m.performance_not_collected()
+                                        : m.performance_updated_at({
+                                              date: formatDate(latestFetch),
+                                          })
+                                    : availabilityMessage(unavailable.availability)}
                     </p>
                     {canRefresh && provider !== null ? (
                         <Button
-                            aria-label={`${m.performance_refresh()}: ${title}`}
+                            aria-label={`${m.performance_refresh()}: ${publication.channelName}`}
                             disabled={refreshMutation.isPending}
                             onClick={() =>
                                 refreshMutation.mutate({
@@ -342,17 +341,39 @@ export function PublicationPerformancePage() {
                 />
             ) : (
                 <>
-                    {blueskyQuery.isError || devtoQuery.isError ? (
+                    {analyticsQueries.some(query => query.isError) ? (
                         <QueryErrorState
                             className="mb-3"
                             onRetry={() => {
-                                void blueskyQuery.refetch()
-                                void devtoQuery.refetch()
+                                for (const query of analyticsQueries) {
+                                    if (query.isError) void query.refetch()
+                                }
                             }}
                         />
                     ) : null}
                     <section aria-label={m.performance_title()} className="space-y-1">
-                        {publications.map(renderPublication)}
+                        <p className="mb-4 text-sm text-muted-foreground">
+                            {m.performance_grouped_description()}
+                        </p>
+                        {groups.map(group => (
+                            <section
+                                key={group.postId}
+                                className="space-y-2 pb-6"
+                                aria-labelledby={`performance-post-${group.postId}`}
+                                data-performance-post={group.postId}>
+                                <h2
+                                    id={`performance-post-${group.postId}`}
+                                    className="break-words text-base font-semibold">
+                                    <Link
+                                        to="/dashboard/projects/$projectId/posts/$postId"
+                                        params={{ projectId: project.id, postId: group.postId }}
+                                        className="hover:text-primary">
+                                        {publicationIdentityLabel(group.publications[0]!)}
+                                    </Link>
+                                </h2>
+                                {group.publications.map(renderPublication)}
+                            </section>
+                        ))}
                     </section>
                     {publicationsQuery.hasNextPage ? (
                         <div className="flex justify-center py-6">
