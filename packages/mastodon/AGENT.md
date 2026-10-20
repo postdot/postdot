@@ -15,6 +15,10 @@ responses, and provider error classification.
 - Keep instance-specific limits and payload rules here. The application adapter owns
   project credentials, connection endpoints, media lifecycle checkpoints, and
   scheduling semantics.
+- Status IDs are local to an instance. Resolve reply targets on the original
+  publishing instance, verify the connected account owns the source status, and
+  check public ancestry before dispatch. Preserve unlisted visibility rather than
+  promoting a reply to public visibility.
 
 - Preserve the immutable `status-v1` image and `status-v2` video profiles and
   execution registrations. New channels use `status-v3`, which adds optional

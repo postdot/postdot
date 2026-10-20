@@ -28,7 +28,7 @@ export function PublicationCommentsPanel({
     const { locale } = useLanguage()
     const [open, setOpen] = useState(false)
     const [replyTo, setReplyTo] = useState<{ uri: string; handle: string | null } | null>(null)
-    const replies = usePublicationReplies(projectId, publicationId, open && provider === 'bluesky')
+    const replies = usePublicationReplies(projectId, publicationId, open)
     const client = useQueryClient()
     const key = ['project', projectId, 'publication-comments', publicationId] as const
     const query = useQuery({
@@ -164,8 +164,7 @@ export function PublicationCommentsPanel({
                                                             <p className="mt-2 whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
                                                                 {comment.text}
                                                             </p>
-                                                            {provider === 'bluesky' &&
-                                                            canRefresh &&
+                                                            {canRefresh &&
                                                             replies.data?.pages[0]?.canReply &&
                                                             replyTo === null ? (
                                                                 <Button
@@ -206,16 +205,15 @@ export function PublicationCommentsPanel({
                             )}
                         </>
                     )}
-                    {provider === 'bluesky' ? (
-                        <PublicationRepliesPanel
-                            history={replies}
-                            projectId={projectId}
-                            publicationId={publicationId}
-                            canSend={canRefresh}
-                            parent={replyTo}
-                            onClose={() => setReplyTo(null)}
-                        />
-                    ) : null}
+                    <PublicationRepliesPanel
+                        history={replies}
+                        provider={provider}
+                        projectId={projectId}
+                        publicationId={publicationId}
+                        canSend={canRefresh}
+                        parent={replyTo}
+                        onClose={() => setReplyTo(null)}
+                    />
                 </div>
             ) : null}
         </details>

@@ -160,7 +160,12 @@ function withTimeout(fetcher: MastodonFetcher, timeoutMs: number): MastodonFetch
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), timeoutMs)
         try {
-            return await fetcher(input, { ...init, signal: controller.signal })
+            return await fetcher(input, {
+                ...init,
+                signal: init?.signal
+                    ? AbortSignal.any([init.signal, controller.signal])
+                    : controller.signal,
+            })
         } finally {
             clearTimeout(timer)
         }
@@ -468,6 +473,19 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
         },
 
         async publishStatus(input): Promise<MastodonPublishOutcome> {
+            if (input.signal?.aborted)
+                return permanentFailure('invalid_input', 'The status was cancelled before dispatch')
+            if (
+                input.reply &&
+                (!input.text.trim() ||
+                    input.text.length > 500 ||
+                    !/^\d+$/.test(input.reply.parentId) ||
+                    !/^\d+$/.test(input.reply.accountId) ||
+                    input.mediaIds.length > 0 ||
+                    input.poll !== undefined ||
+                    !['public', 'unlisted'].includes(input.visibility ?? ''))
+            )
+                return permanentFailure('invalid_input', 'Invalid Mastodon reply')
             if (
                 input.poll !== undefined &&
                 (input.mediaIds.length > 0 || mastodonPollError(input.poll) !== null)
@@ -477,6 +495,7 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
                     'A valid poll must not contain media attachments'
                 )
             const body = new URLSearchParams({ status: input.text })
+            if (input.reply) body.set('in_reply_to_id', input.reply.parentId)
             for (const mediaId of input.mediaIds) body.append('media_ids[]', mediaId)
             if (input.poll !== undefined) {
                 for (const option of input.poll.options) body.append('poll[options][]', option)
@@ -498,6 +517,7 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
                         'idempotency-key': input.idempotencyKey,
                     },
                     body,
+                    signal: input.signal,
                 },
                 input.accessToken,
                 'status'
@@ -506,6 +526,17 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
             if (!isRecord(result.body)) {
                 return ambiguousFailure('missing_post_id', 'Mastodon returned no status')
             }
+            if (
+                input.reply &&
+                (result.body.in_reply_to_id !== input.reply.parentId ||
+                    !isRecord(result.body.account) ||
+                    result.body.account.id !== input.reply.accountId ||
+                    result.body.visibility !== input.visibility)
+            )
+                return ambiguousFailure(
+                    'unexpected_response',
+                    'Mastodon did not confirm the requested reply'
+                )
             if (
                 input.poll !== undefined &&
                 (!isRecord(result.body.poll) ||

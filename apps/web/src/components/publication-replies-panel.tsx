@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationRepliesPanel({
+    provider,
     projectId,
     publicationId,
     canSend,
@@ -14,6 +15,7 @@ export function PublicationRepliesPanel({
     onClose,
     history,
 }: {
+    provider: 'bluesky' | 'mastodon'
     projectId: string
     publicationId: string
     canSend: boolean
@@ -29,8 +31,13 @@ export function PublicationRepliesPanel({
         parentUri: string
         text: string
     } | null>(null)
-    const count = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)]
-        .length
+    const first = history.data?.pages[0]
+    const limit = first?.textLimit ?? (provider === 'mastodon' ? 500 : 300)
+    const count =
+        provider === 'mastodon'
+            ? text.length
+            : [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length
+    const platform = provider === 'mastodon' ? 'Mastodon' : 'Bluesky'
     const send = useMutation({
         mutationFn: (body: { requestId: string; parentUri: string; text: string }) =>
             api.sendPublicationReply(projectId, publicationId, body),
@@ -45,9 +52,8 @@ export function PublicationRepliesPanel({
             void client.invalidateQueries({ queryKey: key })
         },
     })
-    const first = history.data?.pages[0]
     const outgoing = history.data?.pages.flatMap(page => page.replies) ?? []
-    const allowed = canSend && first?.canReply
+    const allowed = canSend && first?.canReply && first.provider === provider
     const labels = {
         pending: m.replies_pending,
         running: m.replies_sending,
@@ -63,13 +69,13 @@ export function PublicationRepliesPanel({
                         {m.replies_to({ handle: parent.handle ?? '' })}
                     </label>
                     <p className="text-xs text-muted-foreground">
-                        {m.replies_public_as({ account: first.accountName ?? 'Bluesky' })}
+                        {m.replies_public_as({ account: first.accountName ?? platform })}
                     </p>
                     <Textarea
                         autoFocus
                         id={`reply-${publicationId}`}
                         value={text}
-                        maxLength={3000}
+                        maxLength={provider === 'mastodon' ? 500 : 3000}
                         disabled={send.isPending || request !== null}
                         onChange={event => {
                             setText(event.target.value)
@@ -78,11 +84,11 @@ export function PublicationRepliesPanel({
                     />
                     <p
                         className={
-                            count > 300
+                            count > limit
                                 ? 'text-xs text-state-failed'
                                 : 'text-xs text-muted-foreground'
                         }>
-                        {count}/300
+                        {count}/{limit}
                     </p>
                     {send.isError ? (
                         <div role="alert" className="space-y-2 text-sm text-state-failed">
@@ -107,7 +113,7 @@ export function PublicationRepliesPanel({
                             type="button"
                             size="sm"
                             disabled={
-                                !text.trim() || count > 300 || send.isPending || request !== null
+                                !text.trim() || count > limit || send.isPending || request !== null
                             }
                             onClick={() => {
                                 const body = {
@@ -147,7 +153,9 @@ export function PublicationRepliesPanel({
                 </div>
             ) : null}
             {canSend && first && !first.canReply ? (
-                <p className="text-xs text-muted-foreground">{m.replies_connection_required()}</p>
+                <p className="text-xs text-muted-foreground">
+                    {m.replies_connection_required({ platform })}
+                </p>
             ) : null}
             {outgoing.length ? (
                 <>
@@ -179,16 +187,20 @@ export function PublicationRepliesPanel({
                                 ) : null}
                                 {reply.state === 'ambiguous' ? (
                                     <p className="text-xs text-state-failed">
-                                        {m.replies_ambiguous_help()}
+                                        {m.replies_ambiguous_help({ platform })}
                                     </p>
                                 ) : null}
-                                {reply.externalUrl?.startsWith('https://bsky.app/') ? (
+                                {replyLinkAllowed(
+                                    reply.externalUrl,
+                                    provider,
+                                    first?.instanceOrigin ?? null
+                                ) ? (
                                     <a
                                         href={reply.externalUrl}
                                         target="_blank"
                                         rel="noreferrer noopener"
                                         className="text-xs underline">
-                                        {m.comments_open_original({ platform: 'Bluesky' })}
+                                        {m.comments_open_original({ platform })}
                                     </a>
                                 ) : null}
                             </li>
@@ -226,4 +238,24 @@ export function usePublicationReplies(projectId: string, publicationId: string, 
         refetchOnWindowFocus: false,
         enabled,
     })
+}
+
+function replyLinkAllowed(
+    url: string | null,
+    provider: 'bluesky' | 'mastodon',
+    origin: string | null
+): url is string {
+    if (!url) return false
+    if (provider === 'bluesky') return url.startsWith('https://bsky.app/')
+    try {
+        const parsed = new URL(url)
+        return (
+            parsed.protocol === 'https:' &&
+            !parsed.username &&
+            !parsed.password &&
+            parsed.origin === origin
+        )
+    } catch {
+        return false
+    }
 }

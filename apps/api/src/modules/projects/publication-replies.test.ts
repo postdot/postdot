@@ -10,6 +10,7 @@ import {
     runMigrations,
     closeDatabase,
 } from '@postbot/db'
+import { mastodonChannelProfile } from '@postbot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -18,7 +19,7 @@ import { createPublicationWorker } from '../workflow/worker'
 import type { PublicationRepliesResponse } from './publication-replies-routes'
 import { createPublicationRepliesService } from './publication-replies-service'
 
-async function fixture(production = false) {
+async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'bluesky') {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const baseURL = 'http://localhost:3000'
@@ -27,19 +28,65 @@ async function fixture(production = false) {
         secret: 'reply-fixture-secret-which-is-long-enough',
         allowAdditionalSignups: true,
     })
+    const effects: string[] = []
+    let mode: 'success' | 'failed' | 'throw' = 'success'
+    let permission = true
+    let beforeContext: (() => void) | undefined
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
         publisherEncryptionKey: new Uint8Array(32).fill(1),
         publisherEncryptionKeyId: 'test',
+        mastodon: {
+            fetcher: async (url, init) => {
+                const path = new URL(String(url)).pathname
+                if (path === '/oauth/token') {
+                    const body = init!.body as URLSearchParams
+                    expect(body.get('grant_type')).toBe('refresh_token')
+                    expect(body.get('refresh_token')).toBe('synthetic-refresh-token')
+                    return Response.json({
+                        access_token: 'synthetic-new-token',
+                        refresh_token: 'synthetic-rotated-token',
+                        token_type: 'Bearer',
+                        expires_in: 3600,
+                    })
+                }
+                if (path === '/api/v1/statuses') {
+                    const form = init!.body as URLSearchParams
+                    const key = new Headers(init?.headers).get('idempotency-key')!
+                    expect(key).toStartWith('reply:')
+                    effects.push(key.slice('reply:'.length))
+                    expect(form.get('in_reply_to_id')).toBe('200')
+                    expect(form.get('visibility')).toBe('unlisted')
+                    if (mode === 'throw') throw new Error('secret diagnostic')
+                    if (mode === 'failed')
+                        return Response.json({ error: 'Forbidden' }, { status: 403 })
+                    return Response.json({
+                        id: '300',
+                        url: 'https://social.example/@owner/300',
+                        account: { id: '10' },
+                        in_reply_to_id: '200',
+                        visibility: 'unlisted',
+                    })
+                }
+                if (path.endsWith('verify_credentials'))
+                    return Response.json({ id: permission ? '10' : '99' })
+                if (path.endsWith('/context')) {
+                    beforeContext?.()
+                    return Response.json({ ancestors: [{ id: '100' }] })
+                }
+                return Response.json(
+                    path.endsWith('/100')
+                        ? { id: '100', account: { id: '10' }, visibility: 'public' }
+                        : { id: '200', visibility: 'unlisted' }
+                )
+            },
+        },
         bluesky: {
             clientMetadataUrl: 'https://postbot.example/client-metadata.json',
             handleResolver: 'https://resolver.example',
         },
     })
-    const effects: string[] = []
-    let permission = true
-    let beforeContext: (() => void) | undefined
     const serialized = JSON.stringify({
         tokenSet: {
             sub: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
@@ -78,7 +125,6 @@ async function fixture(production = false) {
         },
         getSerializedSession: () => serialized,
     })) as unknown as typeof restoreBlueskySession
-    let mode: 'success' | 'failed' | 'throw' = 'success'
     const service = createPublicationRepliesService({
         database,
         publisher,
@@ -116,8 +162,8 @@ async function fixture(production = false) {
                       }
                   return {
                       type: 'published',
-                      externalId: `at://${work.accountDid}/app.bsky.feed.post/${work.recordKey}`,
-                      externalUrl: `https://bsky.app/profile/${work.accountDid}/post/${work.recordKey}`,
+                      externalId: `at://${work.accountId}/app.bsky.feed.post/${work.recordKey}`,
+                      externalUrl: `https://bsky.app/profile/${work.accountId}/post/${work.recordKey}`,
                   }
               },
     })
@@ -171,7 +217,7 @@ async function fixture(production = false) {
         projectId: project.id,
         subjectId: owner.id,
         name: 'Bluesky',
-        profile: blueskyChannelProfile,
+        profile: provider === 'bluesky' ? blueskyChannelProfile : mastodonChannelProfile,
     })!
     const created = manual.createPost({
         projectId: project.id,
@@ -188,27 +234,48 @@ async function fixture(production = false) {
         expectedRevision: editor.draft.revision,
         scheduledAt: Date.now() + 1000,
     })
-    const rootUri = 'at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/root',
-        parentUri = 'at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/app.bsky.feed.post/comment'
+    const rootUri =
+            provider === 'mastodon'
+                ? 'https://social.example/api/v1/statuses/100'
+                : 'at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/root',
+        parentUri =
+            provider === 'mastodon'
+                ? 'https://social.example/api/v1/statuses/200'
+                : 'at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/app.bsky.feed.post/comment'
     database.$client
         .query(
             "update publications set state = 'published', external_id = ?1, published_at = ?2, published_by_actor_id = created_by_actor_id where id = ?3"
         )
-        .run(rootUri, Date.now(), publicationId)
+        .run(provider === 'mastodon' ? '100' : rootUri, Date.now(), publicationId)
+    if (provider === 'mastodon')
+        database.$client
+            .query('update publications set external_url = ?1 where id = ?2')
+            .run('https://social.example/@owner/100', publicationId)
     const actorId = publisher.publisherStore.getProjectActorId(project.id, owner.id)!
     const credential = await publisher.credentialStore.createPublisherCredential({
         projectId: project.id,
         connectedByActorId: actorId,
-        providerId: 'bluesky',
-        externalAccountId: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
+        providerId: provider,
+        scopes: provider === 'mastodon' ? ['read:accounts', 'write:statuses'] : [],
+        externalAccountId: provider === 'mastodon' ? '10' : 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
         externalAccountName: 'owner.test',
         accessToken: 'synthetic-reply-access-token',
-        providerSession: JSON.stringify({
-            tokenSet: {
-                sub: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
-                access_token: 'synthetic-old-token',
-            },
-        }),
+        refreshToken: provider === 'mastodon' ? 'synthetic-refresh-token' : undefined,
+        providerSession: JSON.stringify(
+            provider === 'mastodon'
+                ? {
+                      version: 1,
+                      instanceUrl: 'https://social.example',
+                      clientId: 'test-client',
+                      clientSecret: 'test-secret',
+                  }
+                : {
+                      tokenSet: {
+                          sub: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
+                          access_token: 'synthetic-old-token',
+                      },
+                  }
+        ),
         expiresAt: null,
     })
     if (credential.kind !== 'created') throw new Error('Fixture credential was not created')
@@ -217,7 +284,8 @@ async function fixture(production = false) {
             projectId: project.id,
             channelId: channel.id,
             subjectId: owner.id,
-            kind: 'bluesky',
+            kind: provider,
+            ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
             credentialId: credential.credential.id,
         }).kind
     ).toBe('created')
@@ -277,163 +345,168 @@ async function fixture(production = false) {
     }
 }
 
-test('queues one idempotent request, dispatches it through the singleton worker and exposes team history', async () => {
-    const f = await fixture()
-    try {
-        const body = f.body()
-        for (let i = 0; i < 2; i++)
-            expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
-        expect(f.effects).toHaveLength(0)
-        expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
-            canReply: true,
-            replies: [{ id: body.requestId, state: 'pending' }],
-        })
-        expect(f.worker.scheduler.state).not.toBe('started')
-        await f.worker.processDueEvents(Date.now())
-        expect(f.effects).toEqual([body.requestId])
-        expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
-            replies: [{ state: 'sent', text: body.text }],
-        })
-        await f.worker.processDueEvents(Date.now())
-        expect(f.effects).toHaveLength(1)
-        expect(
-            (await f.request(f.path, f.owner.cookie, { ...body, text: 'Different' })).status
-        ).toBe(409)
-        expect(
-            (
-                await f.request(f.path, f.owner.cookie, {
-                    ...f.body(),
-                    parentUri: 'at://did:plc:foreign/app.bsky.feed.post/other',
-                })
-            ).status
-        ).toBe(409)
-        const viewer = await f.signup('reply-viewer@postbot.local')
-        await f.request('/api/projects', viewer.cookie)
-        const access = createAccessStore(f.database)
-        access.updateInstanceMembership({
-            actorUserId: f.owner.id,
-            userId: viewer.id,
-            role: 'member',
-        })
-        access.grantProjectUserAccess({
-            projectId: f.project.id,
-            userId: viewer.id,
-            role: 'viewer',
-        })
-        expect(await (await f.request(f.path, viewer.cookie)).json()).toMatchObject({
-            canReply: false,
-            replies: [{ state: 'sent' }],
-        })
-        expect((await f.request(f.path, viewer.cookie, f.body())).status).toBe(403)
-        expect(
-            (await f.request(f.path.replace(f.project.id, 'foreign-project'), viewer.cookie)).status
-        ).toBe(404)
-        expect((await f.request(f.path, '')).status).toBe(401)
-        expect(
-            f.database.$client
-                .query<{ count: number }, []>(
-                    "select count(*) as count from audit_events where action like 'publication_reply.%'"
-                )
-                .get()?.count
-        ).toBe(3)
-    } finally {
-        await f.worker.stop()
-        closeDatabase(f.database)
-    }
-})
-test('records known failures and uncertain writes without automatic resends or raw errors', async () => {
-    const f = await fixture()
-    try {
-        f.setMode('failed')
-        await f.request(f.path, f.owner.cookie, f.body())
-        await f.worker.processDueEvents(Date.now())
-        f.setMode('throw')
-        await f.request(f.path, f.owner.cookie, f.body())
-        await f.worker.processDueEvents(Date.now())
-        const result = (await (
-            await f.request(f.path, f.owner.cookie)
-        ).json()) as PublicationRepliesResponse
-        expect(result.replies.map((reply: { state: string }) => reply.state)).toEqual([
-            'ambiguous',
-            'failed',
-        ])
-        expect(JSON.stringify(result)).not.toContain('secret diagnostic')
-        await f.worker.processDueEvents(Date.now())
-        expect(f.effects).toHaveLength(2)
-    } finally {
-        await f.worker.stop()
-        closeDatabase(f.database)
-    }
-})
-test('recovers pre-effect claims, quarantines interrupted effects and refuses stale completions', async () => {
-    const f = await fixture()
-    try {
-        const body = f.body()
-        await f.request(f.path, f.owner.cookie, body)
-        const at = Date.now()
-        f.service.store.deliveries.claimNextDueJob({
-            actorId: 'test-worker',
-            claimToken: 'old',
-            now: at,
-            leaseExpiresAt: at + 10,
-        })
-        expect(f.service.store.deliveries.recoverExpiredClaims(at + 11).requeuedJobIds).toEqual([
-            body.requestId,
-        ])
-        f.service.store.deliveries.claimNextDueJob({
-            actorId: 'test-worker',
-            claimToken: 'new',
-            now: at + 12,
-            leaseExpiresAt: at + 20,
-        })
-        expect(f.service.store.deliveries.startExternalEffect(body.requestId, 'new', at + 13)).toBe(
-            true
-        )
-        expect(f.service.store.deliveries.recoverExpiredClaims(at + 21).ambiguousJobIds).toEqual([
-            body.requestId,
-        ])
-        expect(
-            f.service.store.deliveries.completeExternalEffect({
-                jobId: body.requestId,
-                claimToken: 'new',
-                completedAt: at + 22,
-                outcome: { type: 'published' },
+for (const provider of ['bluesky', 'mastodon'] as const) {
+    test('queues one idempotent request, dispatches it through the singleton worker and exposes team history', async () => {
+        const f = await fixture(provider === 'mastodon', provider)
+        try {
+            const body = f.body()
+            for (let i = 0; i < 2; i++)
+                expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
+            expect(f.effects).toHaveLength(0)
+            expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
+                canReply: true,
+                replies: [{ id: body.requestId, state: 'pending' }],
             })
-        ).toBeNull()
-        await f.worker.processDueEvents(at + 23)
-        expect(f.effects).toHaveLength(0)
-    } finally {
-        await f.worker.stop()
-        closeDatabase(f.database)
-    }
-})
-
-test('rechecks permissions and the pinned connection before dispatch, without creating publications', async () => {
-    const f = await fixture()
-    try {
-        const body = f.body()
-        expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
-        const row = f.service.store.get(body.requestId)!
-        f.database.$client
-            .query("update publisher_credentials set state = 'reconnect_required' where id = ?1")
-            .run(row.credentialId)
-        await f.worker.processDueEvents(Date.now())
-        expect(f.effects).toHaveLength(0)
-        expect(f.service.store.get(body.requestId)?.state).toBe('failed')
-        for (const table of ['posts', 'publications'])
+            expect(f.worker.scheduler.state).not.toBe('started')
+            await f.worker.processDueEvents(Date.now())
+            expect(f.effects).toEqual([body.requestId])
+            expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
+                replies: [{ state: 'sent', text: body.text }],
+            })
+            await f.worker.processDueEvents(Date.now())
+            expect(f.effects).toHaveLength(1)
+            expect(
+                (await f.request(f.path, f.owner.cookie, { ...body, text: 'Different' })).status
+            ).toBe(409)
+            expect(
+                (
+                    await f.request(f.path, f.owner.cookie, {
+                        ...f.body(),
+                        parentUri: 'at://did:plc:foreign/app.bsky.feed.post/other',
+                    })
+                ).status
+            ).toBe(409)
+            const viewer = await f.signup('reply-viewer@postbot.local')
+            await f.request('/api/projects', viewer.cookie)
+            const access = createAccessStore(f.database)
+            access.updateInstanceMembership({
+                actorUserId: f.owner.id,
+                userId: viewer.id,
+                role: 'member',
+            })
+            access.grantProjectUserAccess({
+                projectId: f.project.id,
+                userId: viewer.id,
+                role: 'viewer',
+            })
+            expect(await (await f.request(f.path, viewer.cookie)).json()).toMatchObject({
+                canReply: false,
+                replies: [{ state: 'sent' }],
+            })
+            expect((await f.request(f.path, viewer.cookie, f.body())).status).toBe(403)
+            expect(
+                (await f.request(f.path.replace(f.project.id, 'foreign-project'), viewer.cookie))
+                    .status
+            ).toBe(404)
+            expect((await f.request(f.path, '')).status).toBe(401)
             expect(
                 f.database.$client
-                    .query<{ count: number }, []>(`select count(*) as count from ${table}`)
+                    .query<{ count: number }, []>(
+                        "select count(*) as count from audit_events where action like 'publication_reply.%'"
+                    )
                     .get()?.count
-            ).toBe(1)
-        expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
-            canReply: false,
-        })
-    } finally {
-        await f.worker.stop()
-        closeDatabase(f.database)
-    }
-})
+            ).toBe(3)
+        } finally {
+            await f.worker.stop()
+            closeDatabase(f.database)
+        }
+    })
+    test('records known failures and uncertain writes without automatic resends or raw errors', async () => {
+        const f = await fixture(provider === 'mastodon', provider)
+        try {
+            f.setMode('failed')
+            await f.request(f.path, f.owner.cookie, f.body())
+            await f.worker.processDueEvents(Date.now())
+            f.setMode('throw')
+            await f.request(f.path, f.owner.cookie, f.body())
+            await f.worker.processDueEvents(Date.now())
+            const result = (await (
+                await f.request(f.path, f.owner.cookie)
+            ).json()) as PublicationRepliesResponse
+            expect(result.replies.map((reply: { state: string }) => reply.state)).toEqual([
+                'ambiguous',
+                'failed',
+            ])
+            expect(JSON.stringify(result)).not.toContain('secret diagnostic')
+            await f.worker.processDueEvents(Date.now())
+            expect(f.effects).toHaveLength(2)
+        } finally {
+            await f.worker.stop()
+            closeDatabase(f.database)
+        }
+    })
+    test('recovers pre-effect claims, quarantines interrupted effects and refuses stale completions', async () => {
+        const f = await fixture(provider === 'mastodon', provider)
+        try {
+            const body = f.body()
+            await f.request(f.path, f.owner.cookie, body)
+            const at = Date.now()
+            f.service.store.deliveries.claimNextDueJob({
+                actorId: 'test-worker',
+                claimToken: 'old',
+                now: at,
+                leaseExpiresAt: at + 10,
+            })
+            expect(f.service.store.deliveries.recoverExpiredClaims(at + 11).requeuedJobIds).toEqual(
+                [body.requestId]
+            )
+            f.service.store.deliveries.claimNextDueJob({
+                actorId: 'test-worker',
+                claimToken: 'new',
+                now: at + 12,
+                leaseExpiresAt: at + 20,
+            })
+            expect(
+                f.service.store.deliveries.startExternalEffect(body.requestId, 'new', at + 13)
+            ).toBe(true)
+            expect(
+                f.service.store.deliveries.recoverExpiredClaims(at + 21).ambiguousJobIds
+            ).toEqual([body.requestId])
+            expect(
+                f.service.store.deliveries.completeExternalEffect({
+                    jobId: body.requestId,
+                    claimToken: 'new',
+                    completedAt: at + 22,
+                    outcome: { type: 'published' },
+                })
+            ).toBeNull()
+            await f.worker.processDueEvents(at + 23)
+            expect(f.effects).toHaveLength(0)
+        } finally {
+            await f.worker.stop()
+            closeDatabase(f.database)
+        }
+    })
+
+    test('rechecks permissions and the pinned connection before dispatch, without creating publications', async () => {
+        const f = await fixture(provider === 'mastodon', provider)
+        try {
+            const body = f.body()
+            expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
+            const row = f.service.store.get(body.requestId)!
+            f.database.$client
+                .query(
+                    "update publisher_credentials set state = 'reconnect_required' where id = ?1"
+                )
+                .run(row.credentialId)
+            await f.worker.processDueEvents(Date.now())
+            expect(f.effects).toHaveLength(0)
+            expect(f.service.store.get(body.requestId)?.state).toBe('failed')
+            for (const table of ['posts', 'publications'])
+                expect(
+                    f.database.$client
+                        .query<{ count: number }, []>(`select count(*) as count from ${table}`)
+                        .get()?.count
+                ).toBe(1)
+            expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
+                canReply: false,
+            })
+        } finally {
+            await f.worker.stop()
+            closeDatabase(f.database)
+        }
+    })
+}
 test('keeps older outgoing history reachable through a project-scoped cursor', async () => {
     const f = await fixture()
     try {
@@ -490,6 +563,61 @@ test('prepares live references, verifies granted scope, persists refresh and rec
         const rows = f.service.store.list(f.project.id, f.path.split('/')[5]!, f.owner.id)!.replies
         expect(rows.filter(reply => reply.state === 'sent')).toHaveLength(1)
         expect(rows.filter(reply => reply.state === 'failed')).toHaveLength(2)
+    } finally {
+        await f.worker.stop()
+        closeDatabase(f.database)
+    }
+})
+
+test('Mastodon refuses a different live account and rechecks the original instance after context reads', async () => {
+    const f = await fixture(true, 'mastodon')
+    try {
+        const first = f.body()
+        expect((await f.request(f.path, f.owner.cookie, first)).status).toBe(200)
+        f.setPermission(false)
+        await f.worker.processDueEvents(Date.now())
+        expect(f.service.store.get(first.requestId)?.state).toBe('failed')
+        expect(f.effects).toHaveLength(0)
+        f.setPermission(true)
+        const second = f.body()
+        expect((await f.request(f.path, f.owner.cookie, second)).status).toBe(200)
+        f.beforeContext(() =>
+            f.database.$client
+                .query(
+                    "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
+                )
+                .run(f.credentialId)
+        )
+        await f.worker.processDueEvents(Date.now())
+        expect(f.service.store.get(second.requestId)?.state).toBe('failed')
+        expect(f.effects).toHaveLength(0)
+        expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
+            provider: 'mastodon',
+            canReply: false,
+        })
+    } finally {
+        await f.worker.stop()
+        closeDatabase(f.database)
+    }
+})
+
+test('refreshes an expired Mastodon token through the original controlled transport before replying', async () => {
+    const f = await fixture(true, 'mastodon')
+    try {
+        f.database.$client
+            .query('update publisher_credentials set expires_at = 1 where id = ?1')
+            .run(f.credentialId)
+        const body = f.body()
+        expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
+        await f.worker.processDueEvents(Date.now())
+        expect(f.service.store.get(body.requestId)?.state).toBe('sent')
+        const secrets = await f.publisher.credentialStore.resolvePublisherCredentialSecrets(
+            f.project.id,
+            f.credentialId
+        )
+        expect(secrets?.accessToken).toBe('synthetic-new-token')
+        expect(secrets?.refreshToken).toBe('synthetic-rotated-token')
+        expect(f.effects).toEqual([body.requestId])
     } finally {
         await f.worker.stop()
         closeDatabase(f.database)

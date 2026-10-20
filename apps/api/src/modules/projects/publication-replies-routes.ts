@@ -30,6 +30,9 @@ export const publicationRepliesResponseSchema = Type.Object({
     nextBefore: nullableText,
     canReply: Type.Boolean(),
     accountName: nullableText,
+    provider: Type.Union([Type.Literal('bluesky'), Type.Literal('mastodon')]),
+    textLimit: Type.Integer(),
+    instanceOrigin: nullableText,
 })
 export function registerPublicationRepliesRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -58,7 +61,7 @@ export function registerPublicationRepliesRoutes<const Routes extends Record<str
                 response,
                 detail: {
                     operationId: 'getPublicationReplies',
-                    summary: 'Read outgoing Bluesky reply history',
+                    summary: 'Read outgoing conversation reply history',
                     tags: ['Publications'],
                 },
             },
@@ -84,7 +87,7 @@ export function registerPublicationRepliesRoutes<const Routes extends Record<str
                 response,
                 detail: {
                     operationId: 'sendPublicationReply',
-                    summary: 'Request a public text reply to a stored Bluesky comment',
+                    summary: 'Request a text reply to a stored public comment',
                     tags: ['Publications'],
                 },
             },

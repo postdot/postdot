@@ -17,10 +17,16 @@ import {
     type PostbotDatabase,
     type PublicationReplyWork,
 } from '@postbot/db'
+import {
+    resolveMastodonStatusReference,
+    mastodonReplyStatusId,
+    mastodonReplyTextValid,
+} from '@postbot/mastodon'
 import { Value } from 'typebox/value'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 import { publicationCommentSnapshotSchema } from './publication-comments-models'
+import { performMastodonReply } from './publication-replies-mastodon'
 
 export function createPublicationRepliesService(options: {
     database: PostbotDatabase
@@ -42,10 +48,28 @@ export function createPublicationRepliesService(options: {
         if (!editor || editor.publication.state !== 'published' || !editor.publication.externalId)
             return null
         const execution = editor.profile.profile.execution
-        if (execution.kind !== 'built_in' || execution.contractId !== 'bluesky') return null
+        if (execution.kind !== 'built_in') return null
+        if (execution.contractId === 'mastodon') {
+            const reference = resolveMastodonStatusReference(
+                editor.publication.externalId,
+                editor.publication.externalUrl
+            )
+            return reference
+                ? {
+                      providerId: 'mastodon' as const,
+                      rootUri: reference.rootUri,
+                      did: null,
+                      origin: reference.origin,
+                      channelId: editor.publication.channelId,
+                  }
+                : null
+        }
+        if (execution.contractId !== 'bluesky') return null
         const did = blueskyPostDid(editor.publication.externalId)
         return did
             ? {
+                  providerId: 'bluesky' as const,
+                  origin: null,
                   rootUri: editor.publication.externalId,
                   did,
                   channelId: editor.publication.channelId,
@@ -60,13 +84,24 @@ export function createPublicationRepliesService(options: {
             source.channelId,
             subjectId
         )
-        return connected?.state === 'active' &&
-            connected.kind === 'bluesky' &&
-            connected.providerId === 'bluesky' &&
-            connected.externalAccountId === source.did &&
-            (connected.destination?.id ?? connected.externalAccountId) === source.did
-            ? { source, connected }
-            : null
+        if (
+            !connected ||
+            connected.state !== 'active' ||
+            connected.kind !== source.providerId ||
+            connected.providerId !== source.providerId ||
+            (connected.destination?.id ?? connected.externalAccountId) !==
+                connected.externalAccountId
+        )
+            return null
+        if (source.providerId === 'bluesky' && connected.externalAccountId !== source.did)
+            return null
+        if (
+            source.providerId === 'mastodon' &&
+            (connected.endpointUrl !== source.origin ||
+                !connected.scopes.some(scope => scope === 'write' || scope === 'write:statuses'))
+        )
+            return null
+        return { source, connected }
     }
     async function perform(
         work: PublicationReplyWork,
@@ -86,14 +121,28 @@ export function createPublicationRepliesService(options: {
                 !pinned ||
                 pinned.connected.id !== work.connectionId ||
                 pinned.connected.credentialId !== work.credentialId ||
+                pinned.source.providerId !== work.providerId ||
+                pinned.source.rootUri !== work.rootUri ||
+                pinned.connected.externalAccountId !== work.accountId ||
+                pinned.source.origin !== work.instanceOrigin ||
                 !store.claimCurrent(work, now())
             )
-                return failed(
-                    'The original Bluesky account or editor access is no longer available'
-                )
+                return failed('The original account or editor access is no longer available')
             if (options.performReply) {
                 dispatched = true
                 return await options.performReply(work, signal)
+            }
+            if (work.providerId === 'mastodon') {
+                return await performMastodonReply({
+                    work,
+                    publisher: options.publisher,
+                    signal,
+                    stillEligible: () => store.claimCurrent(work, now()),
+                    onDispatch: () => {
+                        dispatched = true
+                    },
+                    now: now(),
+                })
             }
             const oauth = await options.publisher.resolveBlueskyOAuth(
                 options.publisher.credentialStore.getPublisherCredential(
@@ -109,13 +158,13 @@ export function createPublicationRepliesService(options: {
             if (!oauth || !secrets?.providerSession)
                 return failed('Reconnect the original Bluesky account to reply')
             const restored = await (options.restoreSession ?? restoreBlueskySession)({
-                sub: work.accountDid,
+                sub: work.accountId,
                 serializedSession: secrets.providerSession,
                 client: oauth,
             })
             const grant = await restored.session.getTokenInfo()
             if (
-                restored.session.did !== work.accountDid ||
+                restored.session.did !== work.accountId ||
                 !grant.scope
                     .split(/\s+/)
                     .some(
@@ -127,7 +176,7 @@ export function createPublicationRepliesService(options: {
                 return failed('The Bluesky account has not granted permission to create replies')
             const serialized = restored.getSerializedSession()
             const token = readBlueskySessionTokenSet(serialized)
-            if (!token || token.sub !== work.accountDid)
+            if (!token || token.sub !== work.accountId)
                 return failed('The Bluesky session is invalid')
             if (serialized !== secrets.providerSession) {
                 const result =
@@ -177,19 +226,23 @@ export function createPublicationRepliesService(options: {
                     type: 'ambiguous',
                     errorMessage: 'The reply outcome could not be confirmed',
                 }
-            return failed('The Bluesky connection or reply context could not be prepared')
+            return failed('The connection or reply context could not be prepared')
         }
     }
     return {
         store,
         getNextEventAt: store.getNextEventAt,
         list(projectId: string, publicationId: string, subjectId: string, before?: string) {
-            if (!identity(projectId, publicationId, subjectId)) return null
+            const source = identity(projectId, publicationId, subjectId)
+            if (!source) return null
             const page = store.list(projectId, publicationId, subjectId, before)
             if (!page) return null
             const ready = connection(projectId, publicationId, subjectId)
             return {
                 ...page,
+                provider: source.providerId,
+                textLimit: source.providerId === 'mastodon' ? 500 : 300,
+                instanceOrigin: source.origin,
                 canReply: ready !== null && access.canAccessProject(projectId, subjectId, 'editor'),
                 accountName: ready?.connected.externalAccountName ?? ready?.source.did ?? null,
             }
@@ -202,7 +255,19 @@ export function createPublicationRepliesService(options: {
             parentUri: string
             text: string
         }) {
-            if (!blueskyReplyTextValid(input.text)) return null
+            const source = identity(input.projectId, input.publicationId, input.subjectId)
+            if (
+                !source ||
+                !(source.providerId === 'bluesky'
+                    ? blueskyReplyTextValid(input.text)
+                    : mastodonReplyTextValid(input.text))
+            )
+                return null
+            if (
+                source.providerId === 'mastodon' &&
+                !mastodonReplyStatusId(input.parentUri, source.origin!)
+            )
+                return null
             // Retrying an accepted request after a lost HTTP response must return that same request.
             const existing = store.get(input.requestId)
             if (existing) {
@@ -247,8 +312,13 @@ export function createPublicationRepliesService(options: {
                 parentUri: input.parentUri,
                 connectionId: ready.connected.id,
                 credentialId: ready.connected.credentialId,
-                accountDid: ready.source.did,
-                recordKey: createBlueskyReplyRecordKey(),
+                providerId: ready.source.providerId,
+                instanceOrigin: ready.source.origin,
+                accountId: ready.connected.externalAccountId,
+                recordKey:
+                    ready.source.providerId === 'bluesky'
+                        ? createBlueskyReplyRecordKey()
+                        : input.requestId,
                 now: now(),
             })
         },

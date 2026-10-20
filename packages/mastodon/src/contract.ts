@@ -116,6 +116,8 @@ export interface MastodonStatusInput {
     readonly accessToken: string
     readonly text: string
     readonly mediaIds: readonly string[]
+    readonly reply?: { readonly parentId: string; readonly accountId: string }
+    readonly signal?: AbortSignal
     readonly visibility?: MastodonVisibility
     readonly sensitive?: boolean
     readonly spoilerText?: string

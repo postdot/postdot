@@ -2870,7 +2870,11 @@ export const publicationCommentReplies = sqliteTable(
         text: text('text').notNull(),
         connectionId: text('connection_id').notNull(),
         credentialId: text('credential_id').notNull(),
-        accountDid: text('account_did').notNull(),
+        providerId: text('provider_id', { enum: ['bluesky', 'mastodon'] })
+            .notNull()
+            .default('bluesky'),
+        accountId: text('account_id').notNull(),
+        instanceOrigin: text('instance_origin'),
         recordKey: text('record_key').notNull(),
         state: text('state', {
             enum: ['pending', 'running', 'sent', 'failed', 'ambiguous'],
@@ -2900,7 +2904,11 @@ export const publicationCommentReplies = sqliteTable(
             table.publicationId,
             table.createdAt
         ),
-        uniqueIndex('publication_comment_replies_record').on(table.accountDid, table.recordKey),
+        uniqueIndex('publication_comment_replies_record').on(
+            table.providerId,
+            table.accountId,
+            table.recordKey
+        ),
         check(
             'publication_comment_replies_state_valid',
             sql`${table.state} in ('pending', 'running', 'sent', 'failed', 'ambiguous')`

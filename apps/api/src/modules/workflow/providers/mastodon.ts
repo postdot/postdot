@@ -17,8 +17,13 @@ import {
     type MastodonPublisher,
     type MastodonPublishOutcome,
 } from '@postbot/mastodon'
-import { clientSecretPost, refreshAccessToken, type OAuthAuthorizationServer } from '@postbot/oauth'
+import { clientSecretPost, refreshAccessToken } from '@postbot/oauth'
 
+import {
+    parseProviderSession,
+    mastodonAuthorizationServer,
+    expiryFromSeconds,
+} from '../../publishers/mastodon-session'
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { prepareMastodonVideo } from './mastodon-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
@@ -39,13 +44,6 @@ export interface MastodonProviderAdapterOptions {
     readonly sleep?: (milliseconds: number) => Promise<void>
     readonly mediaProcessingTimeoutMs?: number
     readonly mediaProcessingIntervalMs?: number
-}
-
-interface MastodonProviderSession {
-    readonly version: 1
-    readonly instanceUrl: string
-    readonly clientId: string
-    readonly clientSecret: string
 }
 
 const defaultSleep = (milliseconds: number) =>
@@ -588,46 +586,4 @@ function toMastodonDestination(
     if (value === null || value.type !== 'account') return null
     const id = value.id.trim()
     return id.length > 0 && !/\s/.test(id) ? { type: 'account', id } : null
-}
-
-function parseProviderSession(value: string | null): MastodonProviderSession | null {
-    if (value === null) return null
-    try {
-        const parsed = JSON.parse(value) as Partial<MastodonProviderSession>
-        if (
-            parsed.version !== 1 ||
-            typeof parsed.instanceUrl !== 'string' ||
-            typeof parsed.clientId !== 'string' ||
-            typeof parsed.clientSecret !== 'string'
-        ) {
-            return null
-        }
-        const instanceUrl = normalizeMastodonInstanceOrigin(parsed.instanceUrl)
-        if (parsed.clientId.trim().length === 0 || parsed.clientSecret.trim().length === 0) {
-            return null
-        }
-        return {
-            version: 1,
-            instanceUrl,
-            clientId: parsed.clientId,
-            clientSecret: parsed.clientSecret,
-        }
-    } catch {
-        return null
-    }
-}
-
-function mastodonAuthorizationServer(instanceUrl: string): OAuthAuthorizationServer {
-    return {
-        issuer: instanceUrl,
-        authorizationEndpoint: `${instanceUrl}/oauth/authorize`,
-        tokenEndpoint: `${instanceUrl}/oauth/token`,
-        pkce: 'required',
-    }
-}
-
-function expiryFromSeconds(seconds: number | null, now: number): number | null {
-    if (seconds === null || !Number.isSafeInteger(seconds) || seconds <= 0) return null
-    const expiry = now + seconds * 1_000
-    return Number.isSafeInteger(expiry) ? expiry : null
 }
