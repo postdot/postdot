@@ -1,0 +1,33 @@
+{
+    "name": "@postbot/instagram",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Instagram single-image publishing protocol for Postbot",
+    "license": "AGPL-3.0-only",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "dependencies": {
+        "@postbot/core": "workspace:*"
+    },
+    "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.2",
+        "typescript": "7.0.2"
+    },
+    "engines": {
+        "bun": ">=1.4.2"
+    }
+}

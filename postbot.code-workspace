@@ -29,6 +29,10 @@
       "path": "packages/facebook",
     },
     {
+      "name": "instagram",
+      "path": "packages/instagram",
+    },
+    {
       "name": "telegram",
       "path": "packages/telegram",
     },

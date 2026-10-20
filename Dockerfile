@@ -31,6 +31,7 @@ COPY packages/devto/package.json packages/devto/package.json
 COPY packages/discord/package.json packages/discord/package.json
 COPY packages/telegram/package.json packages/telegram/package.json
 COPY packages/facebook/package.json packages/facebook/package.json
+COPY packages/instagram/package.json packages/instagram/package.json
 COPY packages/email/package.json packages/email/package.json
 COPY packages/bluesky/package.json packages/bluesky/package.json
 COPY packages/linkedin/package.json packages/linkedin/package.json
