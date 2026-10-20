@@ -2,7 +2,7 @@
     "name": "@postbot/instagram",
     "version": "0.0.0",
     "private": true,
-    "description": "Instagram single-image publishing protocol for Postbot",
+    "description": "Instagram publishing and login protocol for Postbot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -20,7 +20,8 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*"
+        "@postbot/core": "workspace:*",
+        "@postbot/oauth": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

@@ -177,7 +177,7 @@ export interface FacebookPageChoices {
     }[]
     readonly nextCursor: string | null
 }
-export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x' | 'facebook'
+export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x' | 'facebook' | 'instagram'
 export type ProviderApplicationState = 'active' | 'disabled'
 export type ProviderApplicationOAuthMode = 'loopback' | 'web'
 
@@ -620,11 +620,13 @@ export const api = {
         applications: ProviderApplication[]
         xCallbackUri: string
         facebookCallbackUri: string
+        instagramCallbackUri: string
     }> {
         return requestAuth<{
             applications: ProviderApplication[]
             xCallbackUri: string
             facebookCallbackUri: string
+            instagramCallbackUri: string
         }>('/api/settings/provider-applications')
     },
 

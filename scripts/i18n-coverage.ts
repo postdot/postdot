@@ -77,6 +77,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'provider_apps_provider_linkedin',
             'provider_apps_provider_x',
             'provider_apps_provider_facebook',
+            'provider_apps_provider_instagram',
             'provider_discord_channel_placeholder',
             'provider_endpoint_placeholder',
             'provider_header_name_placeholder',

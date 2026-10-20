@@ -275,6 +275,7 @@ async function startServerWithRuntimeLock(
         linkedin: config.publishers.linkedin,
         bluesky: config.publishers.bluesky,
         mastodon: { fetcher: mastodonFetcher },
+        instagram: { fetcher: mastodonFetcher },
         x: config.publishers.x,
     })
     const customHttpTransport = createCustomHttpTransport({

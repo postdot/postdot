@@ -15,6 +15,7 @@ const providerIdSchema = Type.Union([
     Type.Literal('bluesky'),
     Type.Literal('x'),
     Type.Literal('facebook'),
+    Type.Literal('instagram'),
 ])
 const stateSchema = Type.Union([Type.Literal('active'), Type.Literal('disabled')])
 
@@ -72,6 +73,7 @@ const applicationListSchema = Type.Object({
     applications: Type.Array(applicationSchema),
     xCallbackUri: Type.String({ minLength: 1 }),
     facebookCallbackUri: Type.String({ minLength: 1 }),
+    instagramCallbackUri: Type.String({ minLength: 1 }),
 })
 const applicationResponseSchema = Type.Object({ application: applicationSchema })
 
@@ -117,6 +119,7 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                         publisher.providerApplicationStore.listProviderApplicationConfigurations(),
                     xCallbackUri: publisher.xCallbackUri,
                     facebookCallbackUri: publisher.facebookCallbackUri,
+                    instagramCallbackUri: publisher.instagramCallbackUri,
                 }
             }
         )

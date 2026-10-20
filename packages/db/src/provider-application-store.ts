@@ -3,7 +3,13 @@ import { requireNonBlank, requireTimestamp } from '@postbot/core'
 import type { PostbotDatabase } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
-export const providerApplicationProviders = ['linkedin', 'bluesky', 'x', 'facebook'] as const
+export const providerApplicationProviders = [
+    'linkedin',
+    'bluesky',
+    'x',
+    'facebook',
+    'instagram',
+] as const
 export type ProviderApplicationProvider = (typeof providerApplicationProviders)[number]
 
 export const providerApplicationStates = ['active', 'disabled'] as const
@@ -140,6 +146,21 @@ function optionalUrl(value: string | null | undefined, field: string): string | 
     return value === null || value === undefined ? null : url(value, field)
 }
 
+const numericApplicationIdLabels: Partial<Record<ProviderApplicationProvider, string>> = {
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+}
+
+function requireNumericApplicationId(
+    providerId: ProviderApplicationProvider,
+    clientId: string | null
+): void {
+    const label = numericApplicationIdLabels[providerId]
+    if (label === undefined) return
+    if (!/^[1-9]\d*$/.test(clientId ?? ''))
+        throw new Error(`${label} application ID must be numeric`)
+}
+
 function normalizeApplication(
     input: {
         readonly providerId: ProviderApplicationProvider
@@ -188,8 +209,7 @@ function normalizeApplication(
             `${input.providerId} application configuration does not accept handleResolver`
         )
     }
-    if (input.providerId === 'facebook' && !/^[1-9]\d*$/.test(input.clientId ?? ''))
-        throw new Error('Facebook application ID must be numeric')
+    requireNumericApplicationId(input.providerId, input.clientId ?? null)
     return {
         providerId: input.providerId,
         name,

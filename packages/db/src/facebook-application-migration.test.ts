@@ -117,7 +117,7 @@ test('Facebook application migration preserves encrypted configurations and refe
         runMigrations(database)
         expect(
             database.$client.query('select count(*) as count from __drizzle_migrations').get()
-        ).toEqual({ count: 13 })
+        ).toEqual({ count: journal.entries.length })
     } finally {
         closeDatabase(database)
         rmSync(folder, { recursive: true, force: true })

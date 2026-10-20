@@ -712,75 +712,80 @@ describe('Postbot API', () => {
         }
     })
 
-    it('manages runtime provider applications without exposing client secrets', async () => {
-        const { app, database } = createFixture()
+    for (const providerId of ['linkedin', 'instagram'] as const) {
+        it(`${providerId}: manages runtime provider applications without exposing client secrets`, async () => {
+            const { app, database } = createFixture()
+            const clientSecret = `${providerId}-client-secret`
 
-        try {
-            const cookie = await signUp(app, 'provider-applications@postbot.local')
-            const createResponse = await jsonRequest(
-                app,
-                '/api/settings/provider-applications',
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        providerId: 'linkedin',
-                        name: 'Postbot LinkedIn',
-                        clientId: 'linkedin-client-id',
-                        clientSecret: 'linkedin-client-secret',
-                    }),
+            try {
+                const cookie = await signUp(app, 'provider-applications@postbot.local')
+                const createResponse = await jsonRequest(
+                    app,
+                    '/api/settings/provider-applications',
+                    cookie,
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            providerId,
+                            name: `Postbot ${providerId}`,
+                            clientId:
+                                providerId === 'instagram' ? '123456789' : 'linkedin-client-id',
+                            clientSecret: clientSecret,
+                        }),
+                    }
+                )
+                expect(createResponse.status).toBe(201)
+                const created = (await createResponse.json()) as {
+                    application: {
+                        id: string
+                        providerId: string
+                        isDefault: boolean
+                        hasClientSecret: boolean
+                    }
                 }
-            )
-            expect(createResponse.status).toBe(201)
-            const created = (await createResponse.json()) as {
-                application: {
-                    id: string
-                    providerId: string
-                    isDefault: boolean
-                    hasClientSecret: boolean
-                }
-            }
-            expect(created.application).toMatchObject({
-                providerId: 'linkedin',
-                isDefault: true,
-                hasClientSecret: true,
-            })
-            expect(JSON.stringify(created)).not.toContain('linkedin-client-secret')
-
-            const listResponse = await jsonRequest(
-                app,
-                '/api/settings/provider-applications',
-                cookie
-            )
-            expect(listResponse.status).toBe(200)
-            expect(await listResponse.json()).toEqual({
-                applications: [created.application],
-                xCallbackUri: `${baseURL}/api/oauth/x/callback`,
-                facebookCallbackUri: `${baseURL}/api/oauth/facebook/callback`,
-            })
-
-            const disableResponse = await jsonRequest(
-                app,
-                `/api/settings/provider-applications/${created.application.id}`,
-                cookie,
-                {
-                    method: 'PATCH',
-                    body: JSON.stringify({ state: 'disabled' }),
-                }
-            )
-            expect(disableResponse.status).toBe(200)
-            expect(await disableResponse.json()).toMatchObject({
-                application: {
-                    id: created.application.id,
-                    state: 'disabled',
-                    isDefault: false,
+                expect(created.application).toMatchObject({
+                    providerId,
+                    isDefault: true,
                     hasClientSecret: true,
-                },
-            })
-        } finally {
-            closeDatabase(database)
-        }
-    })
+                })
+                expect(JSON.stringify(created)).not.toContain(clientSecret)
+
+                const listResponse = await jsonRequest(
+                    app,
+                    '/api/settings/provider-applications',
+                    cookie
+                )
+                expect(listResponse.status).toBe(200)
+                expect(await listResponse.json()).toEqual({
+                    applications: [created.application],
+                    xCallbackUri: `${baseURL}/api/oauth/x/callback`,
+                    facebookCallbackUri: `${baseURL}/api/oauth/facebook/callback`,
+                    instagramCallbackUri: `${baseURL}/api/oauth/instagram/callback`,
+                })
+
+                const disableResponse = await jsonRequest(
+                    app,
+                    `/api/settings/provider-applications/${created.application.id}`,
+                    cookie,
+                    {
+                        method: 'PATCH',
+                        body: JSON.stringify({ state: 'disabled' }),
+                    }
+                )
+                expect(disableResponse.status).toBe(200)
+                expect(await disableResponse.json()).toMatchObject({
+                    application: {
+                        id: created.application.id,
+                        state: 'disabled',
+                        isDefault: false,
+                        hasClientSecret: true,
+                    },
+                })
+            } finally {
+                closeDatabase(database)
+            }
+        })
+    }
 
     it('lists provider-owned channel profile presets for authenticated clients', async () => {
         const { app, database } = createFixture()

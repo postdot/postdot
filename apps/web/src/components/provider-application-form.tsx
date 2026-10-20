@@ -53,6 +53,7 @@ export function ProviderApplicationForm({
     pending,
     xCallbackUri,
     facebookCallbackUri,
+    instagramCallbackUri,
 }: {
     readonly editingApplication?: ProviderApplication
     readonly editingId: string | null
@@ -61,6 +62,7 @@ export function ProviderApplicationForm({
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
     readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
     readonly pending: boolean
+    readonly instagramCallbackUri?: string
     readonly facebookCallbackUri?: string
     readonly xCallbackUri: string
 }) {
@@ -83,6 +85,7 @@ export function ProviderApplicationForm({
                         onFormChange={onFormChange}
                         xCallbackUri={xCallbackUri}
                         facebookCallbackUri={facebookCallbackUri}
+                        instagramCallbackUri={instagramCallbackUri}
                         preserveSecret={editingApplication?.hasClientSecret === true}
                     />
 

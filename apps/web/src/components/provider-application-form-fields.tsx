@@ -18,17 +18,27 @@ export function ProviderApplicationFormFields({
     onFormChange,
     xCallbackUri,
     facebookCallbackUri,
+    instagramCallbackUri,
     preserveSecret,
 }: {
     readonly editingId: string | null
     readonly form: ProviderApplicationFormState
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
     readonly preserveSecret: boolean
+    readonly instagramCallbackUri?: string
     readonly facebookCallbackUri?: string
     readonly xCallbackUri: string
 }) {
+    const isInstagram = form.providerId === 'instagram'
+    const callbackUri = isInstagram ? instagramCallbackUri : facebookCallbackUri
     function selectProvider(value: string | null) {
-        if (value !== 'linkedin' && value !== 'bluesky' && value !== 'x' && value !== 'facebook')
+        if (
+            value !== 'linkedin' &&
+            value !== 'bluesky' &&
+            value !== 'x' &&
+            value !== 'facebook' &&
+            value !== 'instagram'
+        )
             return
         onFormChange(current => ({
             ...current,
@@ -53,6 +63,7 @@ export function ProviderApplicationFormFields({
                         bluesky: m.provider_apps_provider_bluesky(),
                         x: m.provider_apps_provider_x(),
                         facebook: m.provider_apps_provider_facebook(),
+                        instagram: m.provider_apps_provider_instagram(),
                     }}
                     value={form.providerId}
                     onValueChange={selectProvider}>
@@ -68,6 +79,9 @@ export function ProviderApplicationFormFields({
                         </SelectItem>
                         <SelectItem value="facebook">
                             {m.provider_apps_provider_facebook()}
+                        </SelectItem>
+                        <SelectItem value="instagram">
+                            {m.provider_apps_provider_instagram()}
                         </SelectItem>
                         <SelectItem value="x">{m.provider_apps_provider_x()}</SelectItem>
                     </SelectContent>
@@ -169,14 +183,24 @@ export function ProviderApplicationFormFields({
                 <>
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor="provider-application-client-id">
-                            {form.providerId === 'facebook'
-                                ? m.provider_facebook_app_id()
-                                : m.provider_apps_client_id()}
+                            {form.providerId === 'instagram'
+                                ? m.provider_instagram_app_id()
+                                : form.providerId === 'facebook'
+                                  ? m.provider_facebook_app_id()
+                                  : m.provider_apps_client_id()}
                         </FieldLabel>
                         <Input
                             id="provider-application-client-id"
-                            inputMode={form.providerId === 'facebook' ? 'numeric' : undefined}
-                            pattern={form.providerId === 'facebook' ? '[1-9][0-9]*' : undefined}
+                            inputMode={
+                                form.providerId === 'facebook' || form.providerId === 'instagram'
+                                    ? 'numeric'
+                                    : undefined
+                            }
+                            pattern={
+                                form.providerId === 'facebook' || form.providerId === 'instagram'
+                                    ? '[1-9][0-9]*'
+                                    : undefined
+                            }
                             value={form.clientId}
                             onChange={event =>
                                 onFormChange(current => ({
@@ -185,7 +209,7 @@ export function ProviderApplicationFormFields({
                                 }))
                             }
                             placeholder={
-                                form.providerId === 'facebook'
+                                form.providerId === 'facebook' || form.providerId === 'instagram'
                                     ? '123456789012345'
                                     : m.provider_apps_client_id_placeholder()
                             }
@@ -193,9 +217,11 @@ export function ProviderApplicationFormFields({
                     </Field>
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor="provider-application-secret">
-                            {form.providerId === 'facebook'
-                                ? m.provider_facebook_app_secret()
-                                : m.provider_apps_client_secret()}
+                            {form.providerId === 'instagram'
+                                ? m.provider_instagram_app_secret()
+                                : form.providerId === 'facebook'
+                                  ? m.provider_facebook_app_secret()
+                                  : m.provider_apps_client_secret()}
                         </FieldLabel>
                         <Input
                             id="provider-application-secret"
@@ -210,9 +236,11 @@ export function ProviderApplicationFormFields({
                             }
                             placeholder={
                                 editingId === null
-                                    ? form.providerId === 'facebook'
-                                        ? m.provider_facebook_app_secret()
-                                        : m.provider_apps_client_secret()
+                                    ? form.providerId === 'instagram'
+                                        ? m.provider_instagram_app_secret()
+                                        : form.providerId === 'facebook'
+                                          ? m.provider_facebook_app_secret()
+                                          : m.provider_apps_client_secret()
                                     : m.provider_apps_client_secret_placeholder()
                             }
                         />
@@ -220,19 +248,22 @@ export function ProviderApplicationFormFields({
                             <FieldDescription>{m.provider_apps_secret_keep()}</FieldDescription>
                         ) : null}
                     </Field>
-                    {form.providerId === 'facebook' ? (
+                    {form.providerId === 'facebook' || isInstagram ? (
                         <Field className="gap-1.5">
-                            <FieldLabel htmlFor="provider-application-facebook-callback">
+                            <FieldLabel
+                                htmlFor={`provider-application-${form.providerId}-callback`}>
                                 {m.provider_apps_callback_uri()}
                             </FieldLabel>
                             <Input
-                                id="provider-application-facebook-callback"
-                                value={facebookCallbackUri ?? ''}
+                                id={`provider-application-${form.providerId}-callback`}
+                                value={callbackUri ?? ''}
                                 readOnly
                             />
-                            {facebookCallbackUri && !facebookCallbackUri.startsWith('https://') ? (
+                            {callbackUri && !callbackUri.startsWith('https://') ? (
                                 <FieldDescription>
-                                    {m.provider_apps_https_required()}
+                                    {isInstagram
+                                        ? m.provider_instagram_https_required()
+                                        : m.provider_apps_https_required()}
                                 </FieldDescription>
                             ) : null}
                         </Field>

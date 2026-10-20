@@ -24,6 +24,7 @@ export function ProviderApplicationSettingsPage() {
     useLanguage()
     const [applications, setApplications] = useState<ProviderApplication[] | null>(null)
     const [facebookCallbackUri, setFacebookCallbackUri] = useState('')
+    const [instagramCallbackUri, setInstagramCallbackUri] = useState('')
     const [xCallbackUri, setXCallbackUri] = useState<string | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState<ProviderApplicationFormState>(newProviderApplicationForm)
@@ -45,6 +46,7 @@ export function ProviderApplicationSettingsPage() {
                     setApplications(response.applications)
                     setXCallbackUri(response.xCallbackUri)
                     setFacebookCallbackUri(response.facebookCallbackUri)
+                    setInstagramCallbackUri(response.instagramCallbackUri)
                     setFormOpen(false)
                 }
             })
@@ -148,6 +150,7 @@ export function ProviderApplicationSettingsPage() {
         setApplications(response.applications)
         setXCallbackUri(response.xCallbackUri)
         setFacebookCallbackUri(response.facebookCallbackUri)
+        setInstagramCallbackUri(response.instagramCallbackUri)
     }
 
     async function runAction(action: () => Promise<void>) {
@@ -273,6 +276,7 @@ export function ProviderApplicationSettingsPage() {
                     form={form}
                     xCallbackUri={xCallbackUri ?? ''}
                     facebookCallbackUri={facebookCallbackUri}
+                    instagramCallbackUri={instagramCallbackUri}
                     onCancel={cancelEdit}
                     onFormChange={setForm}
                     onSubmit={event => void handleSubmit(event)}

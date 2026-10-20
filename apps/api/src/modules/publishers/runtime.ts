@@ -13,6 +13,7 @@ import {
     createFacebookPublisher,
     type FacebookFetcher,
 } from '@postbot/facebook'
+import { createInstagramOAuth, type InstagramFetcher } from '@postbot/instagram'
 import {
     LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     LINKEDIN_OAUTH_ISSUER,
@@ -41,6 +42,7 @@ import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { devtoPublisherConnectionPolicy } from './providers/devto'
 import { discordPublisherConnectionPolicy } from './providers/discord'
 import { facebookPublisherConnectionPolicy } from './providers/facebook'
+import { instagramPublisherConnectionPolicy } from './providers/instagram'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
 import { telegramPublisherConnectionPolicy } from './providers/telegram'
@@ -77,6 +79,7 @@ export interface PublisherRuntimeOptions {
         readonly clientSecret: string
         readonly fetcher?: FacebookFetcher
     }
+    readonly instagram?: { readonly fetcher?: InstagramFetcher }
     readonly now?: () => number
     readonly createId?: () => string
 }
@@ -183,6 +186,7 @@ export function createPublisherRuntime(
             discord: discordPublisherConnectionPolicy,
             telegram: telegramPublisherConnectionPolicy,
             facebook: facebookPublisherConnectionPolicy,
+            instagram: instagramPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
             x: xPublisherConnectionPolicy,
@@ -323,6 +327,10 @@ export function createPublisherRuntime(
         return x === undefined ? undefined : { applicationId: null, ...x }
     }
 
+    const instagramCallbackUri = new URL(
+        '/api/oauth/instagram/callback',
+        options.apiOrigin
+    ).toString()
     const facebookCallbackUri = new URL(
         '/api/oauth/facebook/callback',
         options.apiOrigin
@@ -355,6 +363,24 @@ export function createPublisherRuntime(
             graph: createFacebookPublisher({ fetcher: options.facebook?.fetcher }),
         }
     }
+    async function resolveInstagramApplication(applicationId?: string | null) {
+        if (applicationId === null) return undefined
+        const configured = await providerApplicationStore.resolveProviderApplication(
+            'instagram',
+            applicationId
+        )
+        if (!configured?.clientId || !configured.clientSecret) return undefined
+        return {
+            applicationId: configured.id,
+            oauth: createInstagramOAuth({
+                clientId: configured.clientId,
+                clientSecret: configured.clientSecret,
+                callbackUri: instagramCallbackUri,
+                fetcher: options.instagram?.fetcher,
+                now,
+            }),
+        }
+    }
     return {
         apiOrigin: options.apiOrigin,
         webOrigin: options.webOrigin,
@@ -367,7 +393,9 @@ export function createPublisherRuntime(
         authorizationAttemptStore,
         providerApplicationStore,
         facebookCallbackUri,
+        instagramCallbackUri,
         resolveFacebookApplication,
+        resolveInstagramApplication,
         resolveLinkedInApplication,
         resolveBlueskyApplication,
         resolveXApplication,

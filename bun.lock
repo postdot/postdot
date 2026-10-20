@@ -42,6 +42,7 @@
         "@postbot/discord": "workspace:*",
         "@postbot/email": "workspace:*",
         "@postbot/facebook": "workspace:*",
+        "@postbot/instagram": "workspace:*",
         "@postbot/linkedin": "workspace:*",
         "@postbot/mastodon": "workspace:*",
         "@postbot/media": "workspace:*",
@@ -318,6 +319,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@postbot/core": "workspace:*",
+        "@postbot/oauth": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

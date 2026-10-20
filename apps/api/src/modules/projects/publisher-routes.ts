@@ -23,6 +23,7 @@ import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-ro
 import { registerDevtoPublisherRoutes } from './publisher-providers/devto-routes'
 import { registerDiscordPublisherRoutes } from './publisher-providers/discord-routes'
 import { registerFacebookPublisherRoutes } from './publisher-providers/facebook-routes'
+import { registerInstagramPublisherRoutes } from './publisher-providers/instagram-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
 import { registerTelegramPublisherRoutes } from './publisher-providers/telegram-routes'
@@ -81,13 +82,17 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         return 'unavailable' as const
                     }
                 }
-                const [linkedin, bluesky, x, facebook] = await Promise.all([
+                const [linkedin, bluesky, x, facebook, instagram] = await Promise.all([
                     readiness(() => publisher.resolveLinkedInApplication()),
                     readiness(() => publisher.resolveBlueskyApplication()),
                     readiness(() => publisher.resolveXApplication()),
                     readiness(() => publisher.resolveFacebookApplication()),
+                    readiness(() => publisher.resolveInstagramApplication()),
                 ])
-                return { connections, oauthReadiness: { linkedin, bluesky, x, facebook } }
+                return {
+                    connections,
+                    oauthReadiness: { linkedin, bluesky, x, facebook, instagram },
+                }
             }
         )
         .post(
@@ -243,7 +248,15 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     registerBlueskyPublisherRoutes(
                         registerTelegramPublisherRoutes(
                             registerLinkedInPublisherRoutes(
-                                registerFacebookPublisherRoutes(routes, publisher, providerOptions),
+                                registerInstagramPublisherRoutes(
+                                    registerFacebookPublisherRoutes(
+                                        routes,
+                                        publisher,
+                                        providerOptions
+                                    ),
+                                    publisher,
+                                    providerOptions
+                                ),
                                 publisher,
                                 providerOptions
                             ),

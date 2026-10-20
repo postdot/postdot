@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 
 import { closeDatabase, createDatabase } from './client'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
+
+const journal = JSON.parse(
+    readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')
+) as { entries: { tag: string }[] }
 
 function listTables(database: ReturnType<typeof createDatabase>): string[] {
     return database.$client
@@ -57,7 +62,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 13 })
+            ).toEqual({ count: journal.entries.length })
         } finally {
             closeDatabase(database)
         }
@@ -81,7 +86,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 13 })
+            ).toEqual({ count: journal.entries.length })
         } finally {
             closeDatabase(database)
         }
@@ -89,9 +94,8 @@ describe('database migrations', () => {
 
     it('keeps the committed migration folder in generated order', () => {
         const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })].sort()
-        expect(files).toHaveLength(13)
-        expect(files[0]).toMatch(/^0000_.+\.sql$/)
-        expect(files[1]).toMatch(/^0001_.+\.sql$/)
-        expect(files[2]).toMatch(/^0002_.+\.sql$/)
+        expect(files).toEqual(journal.entries.map(entry => `${entry.tag}.sql`))
+        for (const [index, file] of files.entries())
+            expect(file).toMatch(new RegExp(`^${String(index).padStart(4, '0')}_.+\\.sql$`))
     })
 })
