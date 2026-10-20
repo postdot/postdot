@@ -68,6 +68,14 @@ export const providerAnalyticsQuery = Type.Object({
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
 })
 
+export const providerAnalyticsLatestQuery = Type.Object({
+    publicationIds: Type.Array(Type.String({ minLength: 1, pattern: '\\S' }), {
+        minItems: 1,
+        maxItems: 25,
+        uniqueItems: true,
+    }),
+})
+
 export const blueskyAnalyticsCollectionBody = Type.Object({
     channelId: Type.String({ minLength: 1 }),
     publicationIds: Type.Optional(

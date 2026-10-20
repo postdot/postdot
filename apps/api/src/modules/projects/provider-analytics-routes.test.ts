@@ -283,6 +283,39 @@ describe('provider analytics routes', () => {
             expect(read.observations).toHaveLength(8)
             expect(providerCalls).toBe(2)
 
+            const latestPath =
+                '/api/projects/' +
+                project.project.id +
+                '/analytics/provider/bluesky/latest?publicationIds=' +
+                encodeURIComponent(publicationId)
+            const latestResponse = await request(app, latestPath, cookie)
+            expect(latestResponse.status).toBe(200)
+            expect(await latestResponse.json()).toMatchObject({
+                hasMore: false,
+                limit: 500,
+                observations: expect.arrayContaining([
+                    expect.objectContaining({
+                        postbotEntityId: publicationId,
+                        metricName: 'likeCount',
+                        value: 1,
+                    }),
+                ]),
+            })
+            expect(providerCalls).toBe(2)
+            expect((await request(app, latestPath, '')).status).toBe(401)
+            const invalidLatest = await request(
+                app,
+                latestPath.slice(0, latestPath.indexOf('?')),
+                cookie
+            )
+            expect(invalidLatest.status).toBe(422)
+            const hiddenLatest = await request(
+                app,
+                latestPath.replace(project.project.id, 'missing-project'),
+                cookie
+            )
+            expect(hiddenLatest.status).toBe(404)
+
             const repeatResponse = await request(
                 app,
                 '/api/projects/' + project.project.id + '/analytics/provider/bluesky/collect',
@@ -406,6 +439,18 @@ describe('provider analytics routes', () => {
             expect(
                 ((await devtoReadResponse.json()) as { observations: unknown[] }).observations
             ).toHaveLength(3)
+            expect(devtoCalls).toBe(1)
+            const latestDevto = await request(
+                app,
+                '/api/projects/' +
+                    project.project.id +
+                    '/analytics/provider/devto/latest?publicationIds=' +
+                    encodeURIComponent(devtoPublicationId),
+                cookie
+            )
+            expect(latestDevto.status).toBe(200)
+            const latestDevtoBody = (await latestDevto.json()) as { observations: unknown[] }
+            expect(latestDevtoBody.observations).toHaveLength(3)
             expect(devtoCalls).toBe(1)
 
             const operationalResponse = await request(

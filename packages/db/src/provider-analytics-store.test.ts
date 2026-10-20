@@ -130,6 +130,109 @@ describe('provider analytics store', () => {
         }
     })
 
+    it('reads latest metrics before applying the cap and isolates selected publication histories', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const manual = createManualStore(database, { now: () => now })
+            const { project } = manual.createProject({
+                name: 'Latest reports',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const foreign = manual.createProject({
+                name: 'Other project',
+                subjectId: 'user-2',
+                displayName: 'Other operator',
+            })
+            let sequence = 0
+            const store = createProviderAnalyticsStore(database, {
+                createId: () => 'row-' + String(++sequence).padStart(6, '0'),
+            })
+            const content = (
+                publicationId: string,
+                fetchedAt: number,
+                value: number | null = 0
+            ) => ({
+                ...observation(project.id, fetchedAt, value),
+                subjectType: 'content' as const,
+                postbotEntityType: 'publication' as const,
+                postbotEntityId: publicationId,
+                providerSubjectId: 'at://did:plc:report/app.bsky.feed.post/' + publicationId,
+                metricName: 'likeCount',
+            })
+            store.recordObservations({
+                projectId: project.id,
+                subjectId: 'user-1',
+                observations: [
+                    content('older-publication', now, 0),
+                    ...Array.from({ length: 510 }, (_, i) =>
+                        content('busy-publication', now + i + 1, i)
+                    ),
+                ],
+            })
+            store.recordObservations({
+                projectId: project.id,
+                subjectId: 'user-1',
+                observations: [
+                    content('busy-publication', now + 1000, null),
+                    {
+                        ...content('busy-publication', now + 1000, 5),
+                        providerSubjectId: 'replacement-identity',
+                    },
+                ],
+            })
+            const input = {
+                projectId: project.id,
+                subjectId: 'user-1',
+                provider: 'bluesky',
+                publicationIds: ['older-publication', 'busy-publication'],
+            }
+            const result = store.listLatestContentObservations(input)
+            expect(result?.hasMore).toBe(false)
+            expect(result?.observations).toHaveLength(2)
+            expect(
+                result?.observations.find(row => row.postbotEntityId === 'older-publication')?.value
+            ).toBe(0)
+            expect(
+                result?.observations.find(row => row.postbotEntityId === 'busy-publication')?.value
+            ).toBe(5)
+            store.recordObservations({
+                projectId: project.id,
+                subjectId: 'user-1',
+                observations: [content('busy-publication', now + 2000, null)],
+            })
+            expect(store.listLatestContentObservations(input)?.observations[0]).toMatchObject({
+                value: null,
+                availability: 'not_reported',
+            })
+            expect(
+                store.listLatestContentObservations({ ...input, subjectId: 'user-2' })
+            ).toBeNull()
+            expect(
+                store.listLatestContentObservations({
+                    ...input,
+                    projectId: foreign.project.id,
+                    subjectId: 'user-2',
+                })?.observations
+            ).toEqual([])
+            expect(() =>
+                store.listLatestContentObservations({ ...input, publicationIds: [] })
+            ).toThrow()
+            expect(() =>
+                store.listLatestContentObservations({ ...input, publicationIds: ['same', 'same'] })
+            ).toThrow()
+            expect(() =>
+                store.listLatestContentObservations({
+                    ...input,
+                    publicationIds: Array.from({ length: 26 }, (_, i) => String(i)),
+                })
+            ).toThrow()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('lists only known provider publications and never discovers account content', () => {
         const database = createDatabase(':memory:')
         try {

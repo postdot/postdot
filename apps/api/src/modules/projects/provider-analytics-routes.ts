@@ -9,6 +9,7 @@ import {
     blueskyAnalyticsCollectionResponseSchema,
     devtoAnalyticsCollectionBody,
     devtoAnalyticsCollectionResponseSchema,
+    providerAnalyticsLatestQuery,
     providerAnalyticsObservationPageSchema,
     providerAnalyticsQuery,
 } from './provider-analytics-models'
@@ -51,6 +52,38 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     providerSubjectId: query.providerSubjectId,
                     postbotEntityId: query.postbotEntityId,
                     limit: query.limit,
+                })
+                return result === null
+                    ? status(404, { error: { code: 'not_found', message: 'Project not found' } })
+                    : result
+            }
+        )
+        .get(
+            '/api/projects/:projectId/analytics/provider/bluesky/latest',
+            {
+                auth: true,
+                params: projectParams,
+                query: providerAnalyticsLatestQuery,
+                response: {
+                    200: providerAnalyticsObservationPageSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'getLatestBlueskyProviderAnalytics',
+                    summary: 'Read the latest persisted Bluesky observation per publication metric',
+                    tags: ['Provider Analytics'],
+                },
+            },
+            ({ params, query, status, user }) => {
+                const result = providerAnalytics.listLatestContentObservations({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    provider: 'bluesky',
+                    publicationIds: query.publicationIds,
                 })
                 return result === null
                     ? status(404, { error: { code: 'not_found', message: 'Project not found' } })
@@ -131,6 +164,38 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     providerSubjectId: query.providerSubjectId,
                     postbotEntityId: query.postbotEntityId,
                     limit: query.limit,
+                })
+                return result === null
+                    ? status(404, { error: { code: 'not_found', message: 'Project not found' } })
+                    : result
+            }
+        )
+        .get(
+            '/api/projects/:projectId/analytics/provider/devto/latest',
+            {
+                auth: true,
+                params: projectParams,
+                query: providerAnalyticsLatestQuery,
+                response: {
+                    200: providerAnalyticsObservationPageSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'getLatestDevtoProviderAnalytics',
+                    summary: 'Read the latest persisted DEV.to observation per publication metric',
+                    tags: ['Provider Analytics'],
+                },
+            },
+            ({ params, query, status, user }) => {
+                const result = providerAnalytics.listLatestContentObservations({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    provider: 'devto',
+                    publicationIds: query.publicationIds,
                 })
                 return result === null
                     ? status(404, { error: { code: 'not_found', message: 'Project not found' } })

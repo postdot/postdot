@@ -66,6 +66,13 @@ export interface ListKnownProviderContentInput {
     readonly limit?: number
 }
 
+export interface ListLatestProviderContentObservationsInput {
+    readonly projectId: string
+    readonly subjectId: string
+    readonly provider: string
+    readonly publicationIds: readonly string[]
+}
+
 export interface KnownProviderContent {
     readonly channelId: string
     readonly postbotEntityType: 'publication'
@@ -266,6 +273,67 @@ export function createProviderAnalyticsStore(
         limit ?6
     `
     )
+    const listLatestContentObservationsStatement = (publicationIds: readonly string[]) =>
+        client.query<ObservationRow, [string, string, ...string[]]>(
+            String.raw`
+            with ranked as (
+                select id,
+                       project_id as projectId,
+                       provider,
+                       subject_type as subjectType,
+                       provider_subject_id as providerSubjectId,
+                       provider_subject_label as providerSubjectLabel,
+                       provider_content_revision_id as providerContentRevisionId,
+                       postbot_entity_type as postbotEntityType,
+                       postbot_entity_id as postbotEntityId,
+                       metric_name as metricName,
+                       value,
+                       unit,
+                       aggregation,
+                       reporting_period_start as reportingPeriodStart,
+                       reporting_period_end as reportingPeriodEnd,
+                       observed_at as observedAt,
+                       fetched_at as fetchedAt,
+                       availability,
+                       freshness,
+                       provenance,
+                       row_number() over (
+                           partition by postbot_entity_id, metric_name
+                           order by fetched_at desc, id desc
+                       ) as rowRank
+                from provider_analytics_observations
+                where project_id = ?1
+                  and provider = ?2
+                  and subject_type = 'content'
+                  and postbot_entity_type = 'publication'
+                  and postbot_entity_id in (${publicationIds.map((_, index) => `?${index + 3}`).join(', ')})
+            )
+            select id,
+                   projectId,
+                   provider,
+                   subjectType,
+                   providerSubjectId,
+                   providerSubjectLabel,
+                   providerContentRevisionId,
+                   postbotEntityType,
+                   postbotEntityId,
+                   metricName,
+                   value,
+                   unit,
+                   aggregation,
+                   reportingPeriodStart,
+                   reportingPeriodEnd,
+                   observedAt,
+                   fetchedAt,
+                   availability,
+                   freshness,
+                   provenance
+            from ranked
+            where rowRank = 1
+            order by fetchedAt desc, id desc
+            limit ${maximumObservationLimit + 1}
+        `
+        )
     const listKnownContentStatement = client.query<
         KnownProviderContentRow,
         [projectId: string, channelId: string, provider: string, limit: number]
@@ -408,6 +476,31 @@ export function createProviderAnalyticsStore(
                 observations: rows.slice(0, limit).map(toObservation),
                 limit,
                 hasMore: rows.length > limit,
+            }
+        },
+
+        listLatestContentObservations(
+            input: ListLatestProviderContentObservationsInput
+        ): ProviderAnalyticsObservationPage | null {
+            const projectId = requireNonBlank(input.projectId, 'projectId')
+            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+            if (projectAccessStatement.get(projectId, subjectId) === null) return null
+
+            const provider = requireNonBlank(input.provider, 'provider')
+            const publicationIds = normalizeLatestPublicationIds(input.publicationIds)
+            const rows = listLatestContentObservationsStatement(publicationIds).all(
+                projectId,
+                provider,
+                ...publicationIds
+            )
+
+            return {
+                contractVersion: providerAnalyticsContractVersion,
+                projectId,
+                provider,
+                observations: rows.slice(0, maximumObservationLimit).map(toObservation),
+                limit: maximumObservationLimit,
+                hasMore: rows.length > maximumObservationLimit,
             }
         },
 
@@ -607,6 +700,33 @@ function normalizePublicationIds(value: readonly string[] | undefined): string[]
             `at most ${maximumKnownContentLimit} publicationIds may be collected at once`
         )
     }
+    return ids
+}
+
+function normalizeLatestPublicationIds(value: readonly string[] | undefined): string[] {
+    if (!Array.isArray(value) || value.length === 0) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            'publicationIds must contain between 1 and ' + maximumKnownContentLimit + ' ids'
+        )
+    }
+    if (value.length > maximumKnownContentLimit) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            'publicationIds must contain between 1 and ' + maximumKnownContentLimit + ' ids'
+        )
+    }
+
+    const ids = value.map(id => {
+        if (typeof id !== 'string') {
+            throw new DomainInvariantError('invalid_input', 'publicationIds must be strings')
+        }
+        return requireNonBlank(id, 'publicationId')
+    })
+    if (new Set(ids).size !== ids.length) {
+        throw new DomainInvariantError('invalid_input', 'publicationIds must be distinct')
+    }
+
     return ids
 }
 
