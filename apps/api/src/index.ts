@@ -21,6 +21,7 @@ import {
     runMigrations,
 } from '@postbot/db'
 import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postbot/discord'
+import { createInstagramPublisher } from '@postbot/instagram'
 import { createMastodonThreadReader } from '@postbot/mastodon'
 import {
     createMastodonPublisher,
@@ -49,6 +50,7 @@ import { createBlueskyProviderAdapter } from './modules/workflow/providers/blues
 import { createDevtoProviderAdapter } from './modules/workflow/providers/devto'
 import { createDiscordProviderAdapter } from './modules/workflow/providers/discord'
 import { createFacebookProviderAdapter } from './modules/workflow/providers/facebook'
+import { createInstagramProviderAdapter } from './modules/workflow/providers/instagram'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
@@ -295,6 +297,11 @@ async function startServerWithRuntimeLock(
         createDiscordProviderAdapter(),
         createTelegramProviderAdapter(),
         createFacebookProviderAdapter(),
+        createInstagramProviderAdapter({
+            createPublisher: () => createInstagramPublisher({ fetcher: mastodonFetcher }),
+            resolveOAuth: async applicationId =>
+                (await publisher.resolveInstagramApplication(applicationId))?.oauth,
+        }),
         createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({
             revision: 'member-post-v2',

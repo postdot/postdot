@@ -25,6 +25,7 @@ import {
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
 import { facebookChannelProfileValidationAdapter } from '@postbot/facebook'
+import { instagramChannelProfileValidationAdapter } from '@postbot/instagram'
 import {
     mastodonChannelProfileValidationAdapter,
     type MastodonThreadReader,
@@ -165,6 +166,7 @@ function createDomainApp({
                     xChannelProfileValidationAdapter,
                     telegramChannelProfileValidationAdapter,
                     facebookChannelProfileValidationAdapter,
+                    instagramChannelProfileValidationAdapter,
                     mastodonChannelProfileValidationAdapter,
                 ],
             }),

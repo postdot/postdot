@@ -819,6 +819,7 @@ describe('Postbot API', () => {
                 'discord',
                 'telegram',
                 'facebook',
+                'instagram',
                 'devto',
                 'x',
             ])

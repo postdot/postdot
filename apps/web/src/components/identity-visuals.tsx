@@ -5,6 +5,7 @@ import blueskyIcon from '@iconify-icons/logos/bluesky'
 import devIcon from '@iconify-icons/logos/dev-icon'
 import discordIcon from '@iconify-icons/logos/discord-icon'
 import facebookIcon from '@iconify-icons/logos/facebook'
+import instagramIcon from '@iconify-icons/logos/instagram-icon'
 import linkedinIcon from '@iconify-icons/logos/linkedin-icon'
 import mastodonIcon from '@iconify-icons/logos/mastodon-icon'
 import telegramIcon from '@iconify-icons/logos/telegram'
@@ -25,6 +26,7 @@ const channelIcons = {
     devto: devIcon,
     discord: discordIcon,
     facebook: facebookIcon,
+    instagram: instagramIcon,
     telegram: telegramIcon,
     linkedin: linkedinIcon,
     mastodon: mastodonIcon,

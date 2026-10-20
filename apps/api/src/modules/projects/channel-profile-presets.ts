@@ -3,6 +3,7 @@ import { createManualChannelProfile, type ChannelProfilePreset } from '@postbot/
 import { devtoChannelProfile } from '@postbot/devto'
 import { discordChannelProfile } from '@postbot/discord'
 import { facebookChannelProfile } from '@postbot/facebook'
+import { instagramChannelProfile } from '@postbot/instagram'
 import { linkedinChannelProfile } from '@postbot/linkedin'
 import { mastodonChannelProfile } from '@postbot/mastodon'
 import { telegramChannelProfile } from '@postbot/telegram'
@@ -29,6 +30,7 @@ export const builtInChannelProfilePresets = [
     presetFor(discordChannelProfile),
     presetFor(telegramChannelProfile),
     presetFor(facebookChannelProfile),
+    presetFor(instagramChannelProfile),
     presetFor(devtoChannelProfile),
     presetFor(xChannelProfile),
 ] as const satisfies readonly ChannelProfilePreset[]

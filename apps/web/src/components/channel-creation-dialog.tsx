@@ -58,6 +58,7 @@ type ProfileChoice =
     | 'discord'
     | 'telegram'
     | 'facebook'
+    | 'instagram'
     | 'devto'
     | 'custom'
 
@@ -203,6 +204,7 @@ export function ChannelCreationDialog({
         { value: 'discord', label: m.channel_discord_profile() },
         { value: 'telegram', label: m.channel_telegram_profile() },
         { value: 'facebook', label: m.provider_apps_provider_facebook() },
+        { value: 'instagram', label: m.channel_instagram_profile() },
         { value: 'devto', label: m.channel_devto_profile() },
         { value: 'custom', label: m.channel_custom_profile() },
     ]
@@ -217,6 +219,7 @@ export function ChannelCreationDialog({
             discord: 'Discord',
             telegram: 'Telegram',
             facebook: 'Facebook',
+            instagram: 'Instagram',
             devto: 'DEV.to',
             'manual-message': m.channel_default_manual_name(),
         }
@@ -526,6 +529,7 @@ function templateLabel(templateId: string) {
         if (profileId === 'mastodon') return m.channel_mastodon_profile()
         if (profileId === 'discord') return m.channel_discord_profile()
         if (profileId === 'facebook') return m.provider_apps_provider_facebook()
+        if (profileId === 'instagram') return m.channel_instagram_profile()
         if (profileId === 'telegram') return m.channel_telegram_profile()
         if (profileId === 'devto') return m.channel_devto_profile()
         if (profileId === 'x') return m.channel_x_profile()

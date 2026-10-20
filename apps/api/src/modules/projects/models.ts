@@ -665,6 +665,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('discord'),
             Type.Literal('telegram'),
             Type.Literal('facebook'),
+            Type.Literal('instagram'),
             Type.Literal('devto'),
             Type.Literal('x'),
             Type.Object({

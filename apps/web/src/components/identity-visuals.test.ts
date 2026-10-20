@@ -7,6 +7,7 @@ describe('channel identity visuals', () => {
         expect(channelHasBrandIcon('bluesky')).toBe(true)
         expect(channelHasBrandIcon('devto')).toBe(true)
         expect(channelHasBrandIcon('discord')).toBe(true)
+        expect(channelHasBrandIcon('instagram')).toBe(true)
         expect(channelHasBrandIcon('linkedin')).toBe(true)
         expect(channelHasBrandIcon('mastodon')).toBe(true)
         expect(channelHasBrandIcon('x')).toBe(true)

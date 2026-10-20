@@ -22,6 +22,11 @@ export type BuiltInExecutionContract = Extract<
 export type ProviderMediaContentStore = Pick<MediaAssetStore, 'openRepresentationContent'>
 
 export interface PublisherCredentialExecutionPort {
+    /** Providers that require stored grant verification fail closed when unavailable. */
+    getPublisherCredential?(
+        projectId: string,
+        credentialId: string
+    ): { readonly scopes: readonly string[] } | null
     resolvePublisherCredentialSecrets(
         projectId: string,
         credentialId: string

@@ -15,6 +15,7 @@ export function channelVariant(channelId: string, channels: readonly ChannelIden
             'telegram',
             'devto',
             'facebook',
+            'instagram',
         ].includes(channel.profileId)
     )
         return undefined

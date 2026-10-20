@@ -36,7 +36,7 @@ export function OAuthConnectionDialog({
     onConnect,
 }: {
     readonly channel: Channel
-    readonly provider: 'LinkedIn' | 'X' | 'Facebook'
+    readonly provider: 'LinkedIn' | 'X' | 'Facebook' | 'Instagram'
     readonly disabled: boolean
     readonly reconnect: boolean
     readonly applications: readonly ProviderApplication[]
@@ -130,7 +130,9 @@ export function OAuthConnectionDialog({
                         <DialogHeader>
                             <DialogTitle>{title}</DialogTitle>
                             <DialogDescription>
-                                {m.provider_oauth_description({ provider })}
+                                {provider === 'Instagram'
+                                    ? m.provider_instagram_description()
+                                    : m.provider_oauth_description({ provider })}
                             </DialogDescription>
                         </DialogHeader>
                         {provider === 'LinkedIn' ? (

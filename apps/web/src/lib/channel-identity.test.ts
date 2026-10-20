@@ -18,6 +18,13 @@ describe('project channel identity', () => {
         expect(channelVariant(other.id, [second, other, first])).toBeUndefined()
         expect(channelVariant('unknown', [first])).toBeUndefined()
     })
+    it('marks repeated native Instagram destinations by creation order', () => {
+        const first = { id: 'one', name: 'Instagram', profileId: 'instagram', createdAt: 10 }
+        const second = { id: 'two', name: 'Instagram', profileId: 'instagram', createdAt: 20 }
+        expect(channelVariant(first.id, [first, second])).toBe('A')
+        expect(channelVariant(second.id, [first, second])).toBe('B')
+        expect(channelVariant(first.id, [first])).toBeUndefined()
+    })
     it('suggests an unused name while respecting edited labels and case-insensitive collisions', () => {
         expect(suggestChannelName('X.com', [])).toBe('X.com')
         expect(suggestChannelName('X.com', [' x.COM ', 'X.com B'])).toBe('X.com C')

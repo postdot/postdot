@@ -1,14 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postbot/auth'
-import {
-    closeDatabase,
-    createDatabase,
-    createNotificationStore,
-    createManualStore,
-    runMigrations,
-} from '@postbot/db'
-import { INSTAGRAM_PUBLISH_PERMISSIONS, instagramChannelProfile } from '@postbot/instagram'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
+import { INSTAGRAM_PUBLISH_PERMISSIONS } from '@postbot/instagram'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
@@ -95,18 +89,17 @@ async function fixture(configured = true) {
     const owner = await signup('owner@postbot.test')
     const projectResponse = await request('/api/projects', owner.cookie, {
         method: 'POST',
-        body: JSON.stringify({ name: 'Facebook project' }),
+        body: JSON.stringify({ name: 'Instagram project' }),
     })
     expect(projectResponse.status).toBe(201)
     const project = (await projectResponse.json()) as { project: { id: string } }
     const projectId = project.project.id
-    const channel = createManualStore(database).createChannel({
-        projectId,
-        subjectId: owner.id,
-        name: 'Instagram',
-        profile: instagramChannelProfile,
+    const channelResponse = await request(`/api/projects/${projectId}/channels`, owner.cookie, {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Instagram', profile: 'instagram' }),
     })
-    if (!channel) throw new Error('Channel was not created')
+    expect(channelResponse.status).toBe(201)
+    const { channel } = (await channelResponse.json()) as { channel: { id: string } }
     const configuration = configured
         ? await publisher.providerApplicationStore.createProviderApplication({
               providerId: 'instagram',

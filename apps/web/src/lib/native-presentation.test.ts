@@ -8,6 +8,7 @@ test('native presentation follows explicit execution, not custom identity', () =
         'discord',
         'telegram',
         'facebook',
+        'instagram',
         'devto',
         'linkedin',
         'bluesky',
@@ -25,5 +26,6 @@ test('only supported native execution grants a rich editor dialect', () => {
     expect(getNativeEditorProfile({ kind: 'built_in', contractId: 'discord' })).toBe('discord')
     expect(getNativeEditorProfile({ kind: 'built_in', contractId: 'devto' })).toBe('article')
     expect(getNativeEditorProfile({ kind: 'built_in', contractId: 'x' })).toBe('plain')
+    expect(getNativeEditorProfile({ kind: 'built_in', contractId: 'instagram' })).toBe('plain')
     expect(getNativeEditorProfile({ kind: 'manual' })).toBe('plain')
 })

@@ -111,6 +111,7 @@ export function PublisherConnectionPanel({
                         bluesky: 'unavailable',
                         x: 'unavailable',
                         facebook: 'unavailable',
+                        instagram: 'unavailable',
                     })
             })
         return () => {
@@ -129,7 +130,7 @@ export function PublisherConnectionPanel({
         connectableChannels.some(channel => {
             if (
                 channel.execution.kind !== 'built_in' ||
-                !['linkedin', 'bluesky', 'x', 'facebook'].includes(channel.execution.contractId)
+                !oauthProviderIds.includes(channel.execution.contractId)
             )
                 return false
             const connection = connections.find(item => item.channelId === channel.id)
@@ -190,6 +191,8 @@ export function PublisherConnectionPanel({
     const blueskyApplicationId = selectedApplicationId('bluesky')
     const xApplications = applicationsFor('x')
     const xApplicationId = selectedApplicationId('x') ?? xApplications[0]?.id
+    const instagramApplications = applicationsFor('instagram')
+    const instagramApplicationId = selectedApplicationId('instagram')
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -205,19 +208,11 @@ export function PublisherConnectionPanel({
                       )
                           return []
                       const provider = channel.execution.contractId
-                      return ['linkedin', 'bluesky', 'x', 'facebook'].includes(provider) &&
+                      return oauthProviderIds.includes(provider) &&
                           oauthReadiness[provider as ProviderApplicationProvider] ===
                               'not_configured' &&
                           applicationsFor(provider as ProviderApplicationProvider).length === 0
-                          ? [
-                                provider === 'linkedin'
-                                    ? 'LinkedIn'
-                                    : provider === 'bluesky'
-                                      ? 'Bluesky'
-                                      : provider === 'facebook'
-                                        ? 'Facebook'
-                                        : 'X',
-                            ]
+                          ? [providerLabel(provider as ProviderApplicationProvider)]
                           : []
                   })
               ),
@@ -268,13 +263,9 @@ export function PublisherConnectionPanel({
                     const needsSetup =
                         canConnect &&
                         missingProviders.includes(
-                            connectionKind === 'linkedin'
-                                ? 'LinkedIn'
-                                : connectionKind === 'bluesky'
-                                  ? 'Bluesky'
-                                  : connectionKind === 'x'
-                                    ? 'X'
-                                    : ''
+                            isProviderApplicationProvider(connectionKind)
+                                ? providerLabel(connectionKind)
+                                : ''
                         )
                     const connectionLabel =
                         channel.state === 'archived'
@@ -329,6 +320,12 @@ export function PublisherConnectionPanel({
                                         </p>
                                     ) : connection === undefined &&
                                       channel.execution.kind === 'built_in' &&
+                                      connectionKind === 'instagram' ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            {m.publisher_instagram_professional_account()}
+                                        </p>
+                                    ) : connection === undefined &&
+                                      channel.execution.kind === 'built_in' &&
                                       ![
                                           'linkedin',
                                           'bluesky',
@@ -336,6 +333,7 @@ export function PublisherConnectionPanel({
                                           'discord',
                                           'telegram',
                                           'facebook',
+                                          'instagram',
                                           'devto',
                                           'x',
                                       ].includes(connectionKind) ? (
@@ -381,26 +379,44 @@ export function PublisherConnectionPanel({
                                                                 connection.externalAccountName ??
                                                                 connection.externalAccountId,
                                                         })
-                                                      : connection.providerId === 'devto'
-                                                        ? m.publisher_account({
-                                                              provider: 'DEV.to',
-                                                              account:
+                                                      : connection.providerId === 'instagram'
+                                                        ? m.publisher_instagram_account({
+                                                              username:
                                                                   connection.destination?.name ??
                                                                   connection.externalAccountName ??
                                                                   connection.externalAccountId,
                                                           })
-                                                        : connection.destination?.type ===
-                                                            'organization'
-                                                          ? m.publisher_page({
+                                                        : connection.providerId === 'devto'
+                                                          ? m.publisher_account({
+                                                                provider: 'DEV.to',
                                                                 account:
-                                                                    connection.destination.name ??
-                                                                    connection.destination.id,
-                                                            })
-                                                          : m.publisher_member({
-                                                                account:
+                                                                    connection.destination?.name ??
                                                                     connection.externalAccountName ??
                                                                     connection.externalAccountId,
-                                                            })}
+                                                            })
+                                                          : connection.destination?.type ===
+                                                              'organization'
+                                                            ? m.publisher_page({
+                                                                  account:
+                                                                      connection.destination.name ??
+                                                                      connection.destination.id,
+                                                              })
+                                                            : m.publisher_member({
+                                                                  account:
+                                                                      connection.externalAccountName ??
+                                                                      connection.externalAccountId,
+                                                              })}
+                                        </p>
+                                    ) : null}
+                                    {connection !== undefined &&
+                                    connection.kind !== 'custom_http' &&
+                                    connection.providerId === 'instagram' ? (
+                                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                                            {m.publisher_instagram_account_id({
+                                                id:
+                                                    connection.destination?.id ??
+                                                    connection.externalAccountId,
+                                            })}
                                         </p>
                                     ) : null}
                                     {connection !== undefined &&
@@ -428,7 +444,7 @@ export function PublisherConnectionPanel({
                             </div>
 
                             {readOnly || channel.state === 'archived' ? null : canConnect &&
-                              ['linkedin', 'bluesky', 'x', 'facebook'].includes(connectionKind) &&
+                              oauthProviderIds.includes(connectionKind) &&
                               oauthReadiness[connectionKind as ProviderApplicationProvider] !==
                                   'ready' &&
                               applicationsFor(connectionKind as ProviderApplicationProvider)
@@ -470,6 +486,24 @@ export function PublisherConnectionPanel({
                                             channel.projectId,
                                             channel.id,
                                             selectedApplicationId('facebook')
+                                        )
+                                        window.location.assign(result.url)
+                                    }}
+                                />
+                            ) : connectionKind === 'instagram' && canConnect ? (
+                                <OAuthConnectionDialog
+                                    channel={channel}
+                                    provider="Instagram"
+                                    disabled={pending}
+                                    reconnect={connection !== undefined}
+                                    applications={instagramApplications}
+                                    applicationId={instagramApplicationId}
+                                    onApplicationChange={id => selectApplication('instagram', id)}
+                                    onConnect={async () => {
+                                        const result = await api.startInstagramConnection(
+                                            channel.projectId,
+                                            channel.id,
+                                            instagramApplicationId
                                         )
                                         window.location.assign(result.url)
                                     }}
@@ -574,4 +608,26 @@ export function PublisherConnectionPanel({
             </div>
         </section>
     )
+}
+
+/** Providers whose authorization is configured as an installation application. */
+const oauthProviderIds: readonly string[] = ['linkedin', 'bluesky', 'x', 'facebook', 'instagram']
+
+function isProviderApplicationProvider(value: string): value is ProviderApplicationProvider {
+    return oauthProviderIds.includes(value)
+}
+
+function providerLabel(provider: ProviderApplicationProvider): string {
+    switch (provider) {
+        case 'linkedin':
+            return 'LinkedIn'
+        case 'bluesky':
+            return 'Bluesky'
+        case 'x':
+            return 'X'
+        case 'facebook':
+            return 'Facebook'
+        case 'instagram':
+            return 'Instagram'
+    }
 }
