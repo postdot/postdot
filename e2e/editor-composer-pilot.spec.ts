@@ -1371,7 +1371,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
 
 for (const [platform, revision] of [
     ['linkedin', 'member-post-v4'],
-    ['mastodon', 'status-v2'],
+    ['mastodon', 'status-v3'],
     ['discord', 'message-v2'],
     ['bluesky', 'post-v2'],
 ] as const) {

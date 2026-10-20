@@ -1,3 +1,4 @@
+import { readMastodonPoll } from '@postbot/mastodon/poll'
 import { cn } from '@postbot/ui/lib/utils'
 import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
 import { EarthIcon } from '@solar-icons/react/linear/earth'
@@ -9,6 +10,7 @@ import { ShareIcon } from '@solar-icons/react/linear/share'
 import previewPaths from '@/assets/platform-preview-icons/paths.json'
 import sampleSocialPortrait from '@/assets/sample-social-portrait.jpg'
 import { ChannelAvatar } from '@/components/identity-visuals'
+import { mastodonPollDuration } from '@/components/mastodon-poll-control'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { PublicationArticleBody } from '@/components/publication-article-body'
 import { PublicationDiscordBody } from '@/components/publication-discord-body'
@@ -28,6 +30,7 @@ interface PublicationDraftPreviewProps {
     readonly mediaSelections?: readonly MediaSelection[]
     readonly postContent: string
     readonly postTitle: string
+    readonly poll?: unknown
     readonly targetContent?: string
 }
 
@@ -41,6 +44,7 @@ export function PublicationDraftPreview({
     postContent,
     postTitle,
     targetContent,
+    poll: pollValue,
 }: PublicationDraftPreviewProps) {
     useLanguage()
 
@@ -59,6 +63,7 @@ export function PublicationDraftPreview({
     const article = platform === 'devto'
     const message = platform === 'discord'
     const mastodon = platform === 'mastodon'
+    const poll = mastodon ? readMastodonPoll(pollValue) : null
     const social = !article && !message
     const accountDriven = [
         'linkedin',
@@ -180,6 +185,34 @@ export function PublicationDraftPreview({
                         </p>
                     ) : null}
 
+                    {poll ? (
+                        <div
+                            data-mastodon-poll-preview="true"
+                            className="mt-4 space-y-2"
+                            aria-label={m.poll_preview()}>
+                            {poll.options.map((option, index) => (
+                                <div
+                                    key={index}
+                                    className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                                    <span
+                                        aria-hidden="true"
+                                        className={`size-3 shrink-0 border border-muted-foreground ${poll.multiple ? 'rounded-xs' : 'rounded-full'}`}
+                                    />
+                                    {option || m.poll_option({ number: index + 1 })}
+                                </div>
+                            ))}
+                            <p className="text-xs text-muted-foreground">
+                                {m.poll_closes_after({
+                                    duration: mastodonPollDuration(poll.expiresIn),
+                                })}
+                            </p>
+                            {poll.hideTotals ? (
+                                <p className="text-xs text-muted-foreground">
+                                    {m.poll_hide_totals()}
+                                </p>
+                            ) : null}
+                        </div>
+                    ) : null}
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"

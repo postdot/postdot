@@ -25,7 +25,10 @@ import {
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
 import { facebookChannelProfileValidationAdapter } from '@postbot/facebook'
-import type { MastodonThreadReader } from '@postbot/mastodon'
+import {
+    mastodonChannelProfileValidationAdapter,
+    type MastodonThreadReader,
+} from '@postbot/mastodon'
 import type { TelegramFetcher } from '@postbot/telegram'
 import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
 import { xChannelProfileValidationAdapter } from '@postbot/x'
@@ -162,6 +165,7 @@ function createDomainApp({
                     xChannelProfileValidationAdapter,
                     telegramChannelProfileValidationAdapter,
                     facebookChannelProfileValidationAdapter,
+                    mastodonChannelProfileValidationAdapter,
                 ],
             }),
         media,

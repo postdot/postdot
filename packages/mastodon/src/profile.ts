@@ -4,6 +4,7 @@ import {
     MASTODON_DEFAULT_MAX_CHARACTERS,
     MASTODON_DEFAULT_MAX_MEDIA_ATTACHMENTS,
     MASTODON_EXECUTION_CONTRACT_REVISION,
+    MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_MAX_VIDEO_BYTES,
     MASTODON_MAX_ALT_TEXT_LENGTH,
@@ -92,7 +93,7 @@ export const mastodonImageChannelProfile: ChannelProfileDefinition = {
     },
 }
 
-export const mastodonChannelProfile: ChannelProfileDefinition = {
+export const mastodonVideoChannelProfile: ChannelProfileDefinition = {
     ...mastodonImageChannelProfile,
     version: 2,
     profileHash: 'sha256:postbot-mastodon-status-v2',
@@ -115,6 +116,43 @@ export const mastodonChannelProfile: ChannelProfileDefinition = {
             ],
         })),
     },
+    execution: {
+        kind: 'built_in',
+        contractId: MASTODON_PROVIDER,
+        revision: MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
+    },
+}
+
+export const mastodonChannelProfile: ChannelProfileDefinition = {
+    ...mastodonVideoChannelProfile,
+    version: 3,
+    profileHash: 'sha256:postbot-mastodon-status-v3',
+    schemaHash: 'sha256:postbot-mastodon-status-schema-v3',
+    contentSchema: {
+        ...mastodonVideoChannelProfile.contentSchema,
+        properties: {
+            ...((mastodonVideoChannelProfile.contentSchema as Readonly<Record<string, unknown>>)
+                .properties as Record<string, unknown>),
+            poll: {
+                type: 'object',
+                properties: {
+                    options: {
+                        type: 'array',
+                        minItems: 2,
+                        maxItems: 4,
+                        uniqueItems: true,
+                        items: { type: 'string', minLength: 1, maxLength: 3000, pattern: '\\S' },
+                    },
+                    expiresIn: { type: 'integer', minimum: 300, maximum: 2629746 },
+                    multiple: { type: 'boolean' },
+                    hideTotals: { type: 'boolean' },
+                },
+                required: ['options', 'expiresIn'],
+                additionalProperties: false,
+            },
+        },
+    },
+    capabilities: { ...mastodonVideoChannelProfile.capabilities, revision: 'mastodon-status-v3' },
     execution: {
         kind: 'built_in',
         contractId: MASTODON_PROVIDER,

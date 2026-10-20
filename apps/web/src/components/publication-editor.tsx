@@ -1353,6 +1353,7 @@ export function PublicationEditor({
             execution={previewProfile.execution}
             identityMode={publicationEditable ? 'sample' : 'channel'}
             media={previewMedia}
+            poll={previewTarget?.poll}
             mediaSelections={previewMediaSelections}
             postContent={previewContent}
             postTitle={getTargetPreviewTitle(previewProfile, previewTarget)}

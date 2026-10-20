@@ -14,6 +14,7 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'
 
+import { MastodonPollControl } from '@/components/mastodon-poll-control'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
@@ -76,6 +77,17 @@ export function TargetFieldControl({
         compact && field.kind !== 'unsupported' && field.kind !== 'readonly'
             ? null
             : fieldDescription(field, locale)
+
+    if (field.kind === 'mastodon-poll')
+        return (
+            <MastodonPollControl
+                fieldId={fieldId}
+                value={value}
+                disabled={disabled}
+                onChange={onChange}
+                error={error}
+            />
+        )
 
     if (field.kind === 'media') {
         const count = Array.isArray(value) ? value.length : 0

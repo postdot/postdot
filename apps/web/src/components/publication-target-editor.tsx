@@ -1,9 +1,11 @@
+import { readMastodonPoll } from '@postbot/mastodon/poll'
 import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
 import { Field, FieldLabel } from '@postbot/ui/components/field'
 import { Textarea } from '@postbot/ui/components/textarea'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { useEffect, useMemo, useState } from 'react'
 
+import { mastodonPollDuration } from '@/components/mastodon-poll-control'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
 import { useLanguage } from '@/lib/i18n'
@@ -210,6 +212,17 @@ function AdvancedSummary() {
 }
 
 function formatReadOnlyValue(value: unknown, field: TargetEditorField): string {
+    if (field.kind === 'mastodon-poll') {
+        const poll = readMastodonPoll(value)
+        return poll
+            ? [
+                  ...poll.options.map((option, index) => `${index + 1}. ${option}`),
+                  m.poll_closes_after({ duration: mastodonPollDuration(poll.expiresIn) }),
+                  ...(poll.multiple ? [m.poll_multiple()] : []),
+                  ...(poll.hideTotals ? [m.poll_hide_totals()] : []),
+              ].join('\n')
+            : '—'
+    }
     if (field.kind === 'media' && Array.isArray(value)) {
         return m.editor_target_selected({ count: value.length })
     }

@@ -16,9 +16,13 @@ responses, and provider error classification.
   project credentials, connection endpoints, media lifecycle checkpoints, and
   scheduling semantics.
 
-- Preserve the immutable image-only `status-v1` profile and execution registration.
-  New channels use `status-v2`: one MP4 video, exclusive of images, with required
-  accessibility text. Check instance MIME, byte and pixel limits before upload.
+- Preserve the immutable `status-v1` image and `status-v2` video profiles and
+  execution registrations. New channels use `status-v3`, which adds optional
+  polls. Video remains one MP4, exclusive of images, with required accessibility
+  text. Check instance MIME, byte and pixel limits before upload.
+- Polls exclude media attachments. Validate option text as graphemes and check
+  the connected instance's advertised poll limits before sending. Missing limits
+  do not establish support; missing poll acknowledgement after dispatch is ambiguous.
 - Stream video multipart bodies; do not materialize an entire video Blob. A 206
   media read means processing, not failure or readiness. The API adapter persists
   the remote identifier and defers its job; it must never upload that video again.

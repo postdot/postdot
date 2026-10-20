@@ -1,8 +1,11 @@
 import type { ExternalEffectOutcome } from '@postbot/core'
 
+import type { MastodonPollInput, MastodonPollLimits } from './poll'
+
 export const MASTODON_PROVIDER = 'mastodon' as const
 export const MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION = 'status-v1'
-export const MASTODON_EXECUTION_CONTRACT_REVISION = 'status-v2'
+export const MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION = 'status-v2'
+export const MASTODON_EXECUTION_CONTRACT_REVISION = 'status-v3'
 export const MASTODON_MAX_VIDEO_BYTES = 100_000_000
 export const MASTODON_REQUIRED_SCOPES = ['read:accounts', 'write:media', 'write:statuses'] as const
 export const MASTODON_DEFAULT_MAX_CHARACTERS = 500
@@ -117,6 +120,7 @@ export interface MastodonStatusInput {
     readonly sensitive?: boolean
     readonly spoilerText?: string
     readonly language?: string
+    readonly poll?: MastodonPollInput
     readonly idempotencyKey: string
 }
 
@@ -127,6 +131,7 @@ export interface MastodonVideoLimits {
 }
 
 export interface MastodonPublisher {
+    getPollLimits(): Promise<MastodonOperationResult<MastodonPollLimits>>
     getVideoLimits(): Promise<MastodonOperationResult<MastodonVideoLimits>>
     registerApplication(input: {
         readonly clientName: string

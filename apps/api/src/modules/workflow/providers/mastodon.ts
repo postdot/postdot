@@ -2,6 +2,9 @@ import type { ExternalEffectOutcome } from '@postbot/core'
 import type { PublisherExecutionTarget } from '@postbot/db'
 import {
     MASTODON_EXECUTION_CONTRACT_REVISION,
+    type MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
+    mastodonPollError,
+    readMastodonPoll,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_MAX_IMAGE_BYTES,
     MASTODON_PROVIDER,
@@ -29,6 +32,7 @@ export interface MastodonProviderAdapterOptions {
     readonly revision?:
         | typeof MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION
         | typeof MASTODON_EXECUTION_CONTRACT_REVISION
+        | typeof MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION
     readonly createPublisher?: (baseUrl: string) => MastodonPublisher
     readonly fetcher?: MastodonFetcher
     readonly refreshAccessToken?: typeof refreshAccessToken
@@ -134,6 +138,24 @@ async function executeMastodonPublication(input: {
     const text = readMastodonTextContent(target.content)
     if (text === null) return permanentFailure('The execution revision has no Mastodon status text')
 
+    const poll =
+        target.content.poll === undefined ? undefined : readMastodonPoll(target.content.poll)
+    if (
+        poll === null ||
+        (poll !== undefined &&
+            (target.media.length > 0 ||
+                (options.revision ?? MASTODON_EXECUTION_CONTRACT_REVISION) !==
+                    MASTODON_EXECUTION_CONTRACT_REVISION))
+    )
+        return permanentFailure('The Mastodon poll is invalid or unsupported by this profile')
+    if (poll !== undefined) {
+        const localError = mastodonPollError(poll)
+        if (localError !== null) return permanentFailure(localError)
+        const limits = await publisher.getPollLimits()
+        if (limits.kind === 'failure') return limits.outcome
+        const instanceError = mastodonPollError(poll, limits.value)
+        if (instanceError !== null) return permanentFailure(instanceError)
+    }
     const hasVideo = target.media.some(item => item.family === 'video')
     if (hasVideo && options.revision === MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION)
         return permanentFailure('The historical Mastodon execution supports images only')
@@ -165,6 +187,7 @@ async function executeMastodonPublication(input: {
         outcome = await publisher.publishStatus({
             accessToken,
             text,
+            ...(poll === undefined ? {} : { poll }),
             mediaIds: mediaResult.mediaIds,
             ...readMastodonStatusOptions(target.content),
             idempotencyKey: `${target.publicationId}:${target.executionRevisionId}`,

@@ -11,6 +11,7 @@ import type {
     MastodonPublisherOptions,
 } from './contract'
 import { MASTODON_DEFAULT_TIMEOUT_MS, MASTODON_MAX_VIDEO_BYTES } from './contract'
+import { mastodonPollError } from './poll'
 import { createVideoMultipart } from './video-multipart'
 
 const mastodonBasePath = '/api'
@@ -252,6 +253,40 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
     }
 
     return {
+        async getPollLimits() {
+            const result = await request('/v2/instance', { method: 'GET' }, undefined, 'read')
+            if ('failure' in result) return operationFailure(result.failure)
+            const configuration = isRecord(result.body) ? result.body.configuration : null
+            const limits = isRecord(configuration) ? configuration.polls : null
+            if (
+                !isRecord(limits) ||
+                ![
+                    'max_options',
+                    'max_characters_per_option',
+                    'min_expiration',
+                    'max_expiration',
+                ].every(
+                    key =>
+                        typeof limits[key] === 'number' &&
+                        Number.isSafeInteger(limits[key]) &&
+                        limits[key] > 0
+                ) ||
+                (limits.max_options as number) < 2 ||
+                (limits.max_expiration as number) < (limits.min_expiration as number)
+            )
+                return operationFailure(
+                    permanentFailure(
+                        'invalid_request',
+                        'The Mastodon instance does not advertise usable poll limits'
+                    )
+                )
+            return operationSuccess({
+                maxOptions: limits.max_options as number,
+                maxCharactersPerOption: limits.max_characters_per_option as number,
+                minExpiration: limits.min_expiration as number,
+                maxExpiration: limits.max_expiration as number,
+            })
+        },
         async getVideoLimits() {
             const result = await request('/v2/instance', { method: 'GET' }, undefined, 'read')
             if ('failure' in result) return operationFailure(result.failure)
@@ -433,8 +468,22 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
         },
 
         async publishStatus(input): Promise<MastodonPublishOutcome> {
+            if (
+                input.poll !== undefined &&
+                (input.mediaIds.length > 0 || mastodonPollError(input.poll) !== null)
+            )
+                return permanentFailure(
+                    'invalid_input',
+                    'A valid poll must not contain media attachments'
+                )
             const body = new URLSearchParams({ status: input.text })
             for (const mediaId of input.mediaIds) body.append('media_ids[]', mediaId)
+            if (input.poll !== undefined) {
+                for (const option of input.poll.options) body.append('poll[options][]', option)
+                body.set('poll[expires_in]', String(input.poll.expiresIn))
+                body.set('poll[multiple]', String(input.poll.multiple ?? false))
+                body.set('poll[hide_totals]', String(input.poll.hideTotals ?? false))
+            }
             if (input.visibility !== undefined) body.set('visibility', input.visibility)
             if (input.sensitive !== undefined) body.set('sensitive', String(input.sensitive))
             if (input.spoilerText !== undefined) body.set('spoiler_text', input.spoilerText)
@@ -457,6 +506,17 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
             if (!isRecord(result.body)) {
                 return ambiguousFailure('missing_post_id', 'Mastodon returned no status')
             }
+            if (
+                input.poll !== undefined &&
+                (!isRecord(result.body.poll) ||
+                    readString(result.body.poll.id) === null ||
+                    !Array.isArray(result.body.poll.options) ||
+                    result.body.poll.options.length !== input.poll.options.length)
+            )
+                return ambiguousFailure(
+                    'unexpected_response',
+                    'Mastodon did not confirm the requested poll'
+                )
             const externalId = readString(result.body.id)
             const externalUrl = result.body.url
             if (externalId === null || (externalUrl !== null && typeof externalUrl !== 'string')) {

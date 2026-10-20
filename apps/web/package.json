@@ -29,6 +29,7 @@
         "@iconify/react": "6.0.2",
         "@postbot/client": "workspace:*",
         "@postbot/core": "workspace:*",
+        "@postbot/mastodon": "workspace:*",
         "@postbot/telegram": "workspace:*",
         "@postbot/ui": "workspace:*",
         "@postbot/x": "workspace:*",

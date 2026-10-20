@@ -1026,3 +1026,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[ENGAGEMENT-531]** Extend stored comment reading to Mastodon `Priority: 🟠` `Complexity: M` — Reuse the accepted latest-snapshot/manual-refresh policy for public replies, resolve the instance from the delivered permalink, preserve outbound network controls, and keep provider HTML out of Studio. [Plan](worklogs/2026-10-20-ENGAGEMENT-531.md).
 
 - [x] **[ENGAGEMENT-532]** Send text replies to Bluesky comments from Studio `Priority: 🟠` `Complexity: L` — Owner selected conversation-owned reply history without Post/Publication/calendar entries. Preserve editor authorization, provider identity, durable external-effect fencing and uncertain outcomes. [Plan](worklogs/2026-10-20-ENGAGEMENT-532.md).
+
+- [x] **[MASTODON-533]** Author and deliver native Mastodon polls `Priority: 🟠` `Complexity: M` — ISSUE-169; retained v1/v2, added v3 native controls/preview and instance-limit validation. Static gates, 80 focused tests and 2 browser scenarios passed; no live publication. [Evidence](worklogs/2026-10-20-MASTODON-533.md).

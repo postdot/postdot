@@ -68,6 +68,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'nav_workspace_settings',
             'notifications_title',
             'overview_publications',
+            'poll_minutes',
             'provider_apps_active',
             'provider_apps_handle_resolver_placeholder',
             'provider_apps_name_placeholder',

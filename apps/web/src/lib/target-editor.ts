@@ -18,6 +18,7 @@ export function getTargetEditorProfile(profile: unknown) {
 }
 
 export type TargetEditorFieldKind =
+    | 'mastodon-poll'
     | 'text'
     | 'number'
     | 'boolean'
@@ -98,6 +99,28 @@ export function getTargetEditorFields(
         if (emittedBindingIds.has(binding.id)) continue
         fields.push(createBoundField(schema, binding, capabilities))
         emittedBindingIds.add(binding.id)
+    }
+
+    const execution = isRecord(profile.execution) ? profile.execution : null
+    if (
+        execution?.kind === 'built_in' &&
+        execution.contractId === 'mastodon' &&
+        execution.revision === 'status-v3' &&
+        schema !== null &&
+        resolveSchemaAtPath(schema, '/poll') !== null
+    ) {
+        for (let index = fields.length - 1; index >= 0; index--)
+            if (fields[index]!.path === '/poll' || fields[index]!.path.startsWith('/poll/'))
+                fields.splice(index, 1)
+        fields.push({
+            ...createField(
+                schema,
+                { id: 'schema:/poll', path: '/poll', semantic: 'provider_field' },
+                capabilities
+            ),
+            kind: 'mastodon-poll',
+            label: m.poll_title({}, { locale }),
+        })
     }
 
     const telegramLimit = telegramTextLimit(profile, target)

@@ -35,6 +35,9 @@ import {
 } from '@postbot/linkedin'
 import {
     MASTODON_PROVIDER,
+    createMastodonPublisher,
+    MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+    MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
     mastodonChannelProfile,
     type MastodonPublishOutcome,
     type MastodonPublisher,
@@ -201,6 +204,17 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         }),
         createAdapter(outcome, onDispatch) {
             const publisher: MastodonPublisher = {
+                async getPollLimits() {
+                    return {
+                        kind: 'success',
+                        value: {
+                            maxOptions: 4,
+                            maxCharactersPerOption: 50,
+                            minExpiration: 300,
+                            maxExpiration: 2629746,
+                        },
+                    }
+                },
                 async getVideoLimits() {
                     return {
                         kind: 'success',
@@ -1382,4 +1396,86 @@ describe('built-in provider adapter conformance', () => {
             expect(dispatched).toBe(true)
         })
     })
+})
+
+it('executes a native Mastodon poll after checking advertised limits, with no upload and the retained key', async () => {
+    const provider = adapterCases.find(provider => provider.providerId === 'mastodon')!
+    const poll = {
+        options: ['First', 'Second'],
+        expiresIn: 86400,
+        multiple: true,
+        hideTotals: true,
+    }
+    let maxCharacters = 50
+    const requests: Array<{ url: string; init?: RequestInit }> = []
+    const publisher = createMastodonPublisher({
+        baseUrl: provider.endpointUrl!,
+        fetcher: async (url, init) => {
+            requests.push({ url: String(url), init })
+            return Response.json(
+                String(url).endsWith('/instance')
+                    ? {
+                          configuration: {
+                              polls: {
+                                  max_options: 4,
+                                  max_characters_per_option: maxCharacters,
+                                  min_expiration: 300,
+                                  max_expiration: 2629746,
+                              },
+                          },
+                      }
+                    : {
+                          id: 'poll-status',
+                          url: 'https://mastodon.example/@owner/poll-status',
+                          poll: { id: 'poll', options: poll.options.map(title => ({ title })) },
+                      }
+            )
+        },
+    })
+    const adapter = createMastodonProviderAdapter({ createPublisher: () => publisher })
+    const fixture = createExecutionFixture(provider, {
+        target: { content: { text: 'Choose', media: [], poll } },
+    })
+    expect(await adapter.execute(fixture.input)).toMatchObject({
+        type: 'published',
+        externalId: 'poll-status',
+    })
+    expect(requests.map(request => request.url)).toEqual([
+        'https://mastodon.example/api/v2/instance',
+        'https://mastodon.example/api/v1/statuses',
+    ])
+    expect(new Headers(requests[1]!.init?.headers).get('idempotency-key')).toBe(
+        'publication-conformance:execution-revision-1'
+    )
+    expect((requests[1]!.init!.body as URLSearchParams).getAll('poll[options][]')).toEqual(
+        poll.options
+    )
+    requests.length = 0
+    maxCharacters = 3
+    expect(await adapter.execute(fixture.input)).toMatchObject({
+        type: 'permanent_failure',
+        effectOccurred: false,
+    })
+    expect(requests).toHaveLength(1)
+    requests.length = 0
+    const mixed = createExecutionFixture(provider, {
+        target: { content: { text: 'Choose', media: [], poll }, media: [conformanceMedia] },
+    })
+    expect(await adapter.execute(mixed.input)).toMatchObject({
+        type: 'permanent_failure',
+        effectOccurred: false,
+    })
+    expect(requests).toHaveLength(0)
+    for (const revision of [
+        MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+        MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
+    ] as const) {
+        expect(
+            await createMastodonProviderAdapter({
+                revision,
+                createPublisher: () => publisher,
+            }).execute(fixture.input)
+        ).toMatchObject({ type: 'permanent_failure', effectOccurred: false })
+    }
+    expect(requests).toHaveLength(0)
 })

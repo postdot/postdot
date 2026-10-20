@@ -25,6 +25,7 @@ import { createMastodonThreadReader } from '@postbot/mastodon'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+    MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
 } from '@postbot/mastodon'
 
 import { createApp } from './app'
@@ -310,6 +311,12 @@ async function startServerWithRuntimeLock(
         }),
         createMastodonProviderAdapter({
             revision: MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+            fetcher: mastodonFetcher,
+            createPublisher: baseUrl =>
+                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
+        }),
+        createMastodonProviderAdapter({
+            revision: MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
             fetcher: mastodonFetcher,
             createPublisher: baseUrl =>
                 createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
