@@ -1012,3 +1012,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 
 - [/] **[BLUESKY-526]** Add a bounded public thread-reading primitive `Priority: 🟠` `Complexity: M` — ENGAGEMENT-525 identified reusable public reading and retained AT-URI identity. Implement only the provider protocol reader with synthetic tests; storage, application permissions, refresh policy and conversation UI remain separate decisions. [Mission](worklogs/2026-10-20-PRODUCT-523-525.md).
+
+- [/] **[ANALYTICS-527]** Read latest persisted metrics for bounded publication sets `Priority: 🟠` `Complexity: M` — ANALYTICS-524 identifies the global 500-row cutoff. Add a project-authorized, bounded latest-per-publication/metric read without collector calls or storage changes. [Mission](worklogs/2026-10-20-PRODUCT-523-525.md).
+
+- [/] **[ANALYTICS-528]** Group performance observations by source post in Studio `Priority: 🟠` `Complexity: M` — Present per-destination metrics and coverage from ANALYTICS-527, with honest loading/error/truncation states; no totals, time-window claims or tag attribution choice. [Mission](worklogs/2026-10-20-PRODUCT-523-525.md).
