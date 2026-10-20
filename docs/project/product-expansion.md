@@ -5,7 +5,13 @@
 - Scope: new providers, usable custom channels, engagement and publishing formats.
 - Task: PRODUCT-477. Related intake: ISSUE-165 through ISSUE-170, ISSUE-162.
 
-## Starting point
+Current implementation coverage: [provider capability reference](provider-capabilities.md)
+(2026-10-20). The starting point below records the original 2026-10-16 planning
+baseline; later tasks have delivered Telegram, Facebook, Instagram, Mastodon
+polls, stored conversations and broader performance coverage. Instagram live
+acceptance remains deferred.
+
+## Starting point (2026-10-16)
 
 The owner wants to prioritize product completeness after the public-site work.
 The goal includes mainstream networks, comments, useful provider information,

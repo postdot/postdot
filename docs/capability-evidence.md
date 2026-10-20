@@ -1,5 +1,10 @@
 # Capability Availability and Verification
 
+For provider-by-provider publishing, performance and conversation coverage after
+the October product expansion, use the
+[2026-10-20 provider reference](project/provider-capabilities.md). The cross-surface
+snapshot below retains its original review date.
+
 - Repository and recorded-evidence review: 2026-10-11 (no new live-provider acceptance)
 - Scope: the web dashboard, HTTP API, shipped script CLI, and checked-in end-to-end evidence
 
