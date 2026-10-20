@@ -14,12 +14,17 @@ interface CommentIdentity {
     readonly publicationId: string
     readonly subjectId: string
     readonly rootUri: string
+    readonly externalId: string
+    readonly externalUrl?: string
 }
 
 export function createPublicationCommentStore(database: PostbotDatabase) {
     const access = createAccessStore(database)
-    const publication = database.$client.query<{ id: string }, [string, string, string]>(
-        "select id from publications where project_id = ?1 and id = ?2 and external_id = ?3 and state = 'published'"
+    const publication = database.$client.query<
+        { id: string },
+        [string, string, string, string | null]
+    >(
+        "select id from publications where project_id = ?1 and id = ?2 and external_id = ?3 and (?4 is null or external_url = ?4) and state = 'published'"
     )
     const read = database.$client.query<PublicationCommentRecord, [string, string, string]>(
         'select snapshot_json as snapshotJson, last_attempt_at as lastAttemptAt, last_error as lastError from publication_comment_snapshots where project_id = ?1 and publication_id = ?2 and root_uri = ?3'
@@ -41,7 +46,12 @@ export function createPublicationCommentStore(database: PostbotDatabase) {
         requireNonBlank(input.rootUri, 'comment root URI')
         return (
             access.canAccessProject(input.projectId, input.subjectId, role) &&
-            publication.get(input.projectId, input.publicationId, input.rootUri) !== null
+            publication.get(
+                input.projectId,
+                input.publicationId,
+                input.externalId,
+                input.externalUrl ?? null
+            ) !== null
         )
     }
     return {

@@ -1022,3 +1022,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 
 - [x] **[ENGAGEMENT-530]** Expose read-only Bluesky comments in Studio `Priority: 🟠` `Complexity: M` — Owner accepted continuing after BLUESKY-526. Prepare a publication-scoped stored reader and explicit refresh with accurate availability/coverage; Owner selected latest snapshot only, editor refresh and project-member reads; transient failure preserves the previous snapshot. No reply/moderation, automatic collection or real-provider action. [Plan](worklogs/2026-10-20-ENGAGEMENT-530.md).
+
+- [x] **[ENGAGEMENT-531]** Extend stored comment reading to Mastodon `Priority: 🟠` `Complexity: M` — Reuse the accepted latest-snapshot/manual-refresh policy for public replies, resolve the instance from the delivered permalink, preserve outbound network controls, and keep provider HTML out of Studio. [Plan](worklogs/2026-10-20-ENGAGEMENT-531.md).

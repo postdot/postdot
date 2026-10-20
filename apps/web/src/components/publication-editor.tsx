@@ -1554,10 +1554,18 @@ export function PublicationEditor({
                 />
 
                 {editor.publication.state === 'published' &&
-                editor.publication.externalId?.startsWith('at://') &&
+                editor.publication.externalId &&
                 editor.profile.profile.execution.kind === 'built_in' &&
-                editor.profile.profile.execution.contractId === 'bluesky' ? (
+                ((editor.profile.profile.execution.contractId === 'bluesky' &&
+                    editor.publication.externalId.startsWith('at://')) ||
+                    (editor.profile.profile.execution.contractId === 'mastodon' &&
+                        editor.publication.externalUrl)) ? (
                     <PublicationCommentsPanel
+                        provider={
+                            editor.profile.profile.execution.contractId === 'mastodon'
+                                ? 'mastodon'
+                                : 'bluesky'
+                        }
                         projectId={projectId}
                         publicationId={editor.publication.id}
                         canRefresh={!readOnly && !accessWritesBlocked}

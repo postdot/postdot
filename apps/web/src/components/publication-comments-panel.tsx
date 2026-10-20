@@ -7,12 +7,14 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationCommentsPanel({
+    provider,
     projectId,
     publicationId,
     canRefresh,
     timeZone,
     onAccessRefused,
 }: {
+    readonly provider: 'bluesky' | 'mastodon'
     readonly projectId: string
     readonly publicationId: string
     readonly canRefresh: boolean
@@ -39,6 +41,7 @@ export function PublicationCommentsPanel({
                 onAccessRefused?.()
         },
     })
+    const platform = { platform: provider === 'mastodon' ? 'Mastodon' : 'Bluesky' }
     const snapshot = query.data?.snapshot
     const date = (timestamp: number) =>
         new Intl.DateTimeFormat(locale, {
@@ -98,22 +101,24 @@ export function PublicationCommentsPanel({
                             ) : null}
                             {!snapshot ? (
                                 <p className="text-sm text-muted-foreground">
-                                    {canRefresh ? m.comments_start() : m.comments_awaiting_editor()}
+                                    {canRefresh
+                                        ? m.comments_start(platform)
+                                        : m.comments_awaiting_editor()}
                                 </p>
                             ) : snapshot.availability !== 'available' ? (
                                 <p className="text-sm text-muted-foreground">
                                     {snapshot.availability === 'not_found'
-                                        ? m.comments_thread_missing()
+                                        ? m.comments_thread_missing(platform)
                                         : snapshot.availability === 'blocked'
-                                          ? m.comments_thread_blocked()
-                                          : m.comments_thread_unavailable()}
+                                          ? m.comments_thread_blocked(platform)
+                                          : m.comments_thread_unavailable(platform)}
                                 </p>
                             ) : (
                                 <>
                                     <p className="text-xs text-muted-foreground">
                                         {snapshot.truncated
                                             ? m.comments_truncated()
-                                            : m.comments_limited_view()}
+                                            : m.comments_limited_view(platform)}
                                     </p>
                                     {snapshot.comments.length === 0 ? (
                                         <p className="text-sm text-muted-foreground">
@@ -153,15 +158,19 @@ export function PublicationCommentsPanel({
                                                             <p className="mt-2 whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
                                                                 {comment.text}
                                                             </p>
-                                                            {comment.externalUrl?.startsWith(
-                                                                'https://bsky.app/'
+                                                            {commentLinkAllowed(
+                                                                comment.externalUrl,
+                                                                provider,
+                                                                snapshot.rootUri
                                                             ) ? (
                                                                 <a
                                                                     href={comment.externalUrl}
                                                                     rel="noreferrer noopener"
                                                                     target="_blank"
                                                                     className="mt-2 inline-block text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
-                                                                    {m.comments_open_original()}
+                                                                    {m.comments_open_original(
+                                                                        platform
+                                                                    )}
                                                                 </a>
                                                             ) : null}
                                                         </>
@@ -178,4 +187,24 @@ export function PublicationCommentsPanel({
             ) : null}
         </details>
     )
+}
+
+function commentLinkAllowed(
+    url: string | null,
+    provider: 'bluesky' | 'mastodon',
+    rootUri: string
+): url is string {
+    if (url === null) return false
+    if (provider === 'bluesky') return url.startsWith('https://bsky.app/')
+    try {
+        const link = new URL(url)
+        return (
+            link.protocol === 'https:' &&
+            !link.username &&
+            !link.password &&
+            link.origin === new URL(rootUri).origin
+        )
+    } catch {
+        return false
+    }
 }

@@ -39,7 +39,7 @@ export const publicationCommentSnapshotSchema = Type.Object({
 })
 export const publicationCommentsResponseSchema = Type.Object({
     publicationId: Type.String(),
-    provider: Type.Literal('bluesky'),
+    provider: Type.Union([Type.Literal('bluesky'), Type.Literal('mastodon')]),
     snapshot: Type.Union([publicationCommentSnapshotSchema, Type.Null()]),
     lastAttemptAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
     lastError: Type.Union([commentFailureSchema, Type.Null()]),

@@ -21,6 +21,7 @@ import {
     runMigrations,
 } from '@postbot/db'
 import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postbot/discord'
+import { createMastodonThreadReader } from '@postbot/mastodon'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -351,6 +352,7 @@ async function startServerWithRuntimeLock(
         await emailRuntime?.stop()
     }
     const baseApp = createApp({
+        mastodonCommentsReader: createMastodonThreadReader({ fetcher: mastodonFetcher }),
         recovery,
         auth,
         database,

@@ -2311,14 +2311,14 @@
     "comments_read_failed": "Impossible de charger les commentaires enregistrés.",
     "comments_refresh_failed_saved": "L’actualisation a échoué. L’instantané précédent reste affiché.",
     "comments_refresh_failed": "Impossible d’actualiser les commentaires. Réessayez.",
-    "comments_start": "Actualisez pour lire les réponses publiques sur Bluesky.",
+    "comments_start": "Actualisez pour lire les réponses publiques sur {platform}.",
     "comments_awaiting_editor": "Un éditeur peut actualiser ce fil pour rendre les réponses disponibles ici.",
-    "comments_thread_missing": "Cette publication est introuvable sur Bluesky.",
-    "comments_thread_blocked": "Ce fil est bloqué dans la vue publique de Bluesky.",
-    "comments_thread_unavailable": "Ce fil n’est pas disponible sur Bluesky.",
+    "comments_thread_missing": "Cette publication est introuvable sur {platform}.",
+    "comments_thread_blocked": "Ce fil est bloqué dans la vue publique de {platform}.",
+    "comments_thread_unavailable": "Ce fil n’est pas disponible sur {platform}.",
     "comments_truncated": "La limite de lecture a été atteinte. D’autres réponses peuvent manquer.",
-    "comments_limited_view": "Réponses publiques uniquement. Bluesky peut omettre certaines réponses dans cette vue.",
+    "comments_limited_view": "Réponses publiques uniquement. {platform} peut omettre certaines réponses dans cette vue.",
     "comments_empty": "Aucune réponse dans cet instantané.",
     "comments_reply_unavailable": "Cette réponse n’est pas disponible.",
-    "comments_open_original": "Ouvrir sur Bluesky"
+    "comments_open_original": "Ouvrir sur {platform}"
 }

@@ -1,5 +1,11 @@
 import { createBlueskyThreadReader, type BlueskyThreadReader } from '@postbot/bluesky'
+import { createNetworkControlledFetcher } from '@postbot/custom-http'
 import type { AccessStore, PublicationCommentStore } from '@postbot/db'
+import {
+    createMastodonThreadReader,
+    resolveMastodonStatusReference,
+    type MastodonThreadReader,
+} from '@postbot/mastodon'
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
 
@@ -11,7 +17,7 @@ import {
     commentFailureSchema,
     type PublicationCommentsResponse,
 } from './publication-comments-models'
-import { presentPublicationComments } from './publication-comments-view'
+import { presentPublicationComments, presentMastodonComments } from './publication-comments-view'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerPublicationCommentsRoutes<const Routes extends Record<string, unknown>>(
@@ -21,25 +27,44 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
         manual: ManualStore
         access: AccessStore
         reader?: BlueskyThreadReader
+        mastodonReader?: MastodonThreadReader
         now?: () => number
     }
 ) {
     const reader = options.reader ?? createBlueskyThreadReader()
+    const mastodonReader =
+        options.mastodonReader ??
+        createMastodonThreadReader({ fetcher: createNetworkControlledFetcher() })
     const now = options.now ?? Date.now
     function identity(projectId: string, publicationId: string, subjectId: string) {
         const editor = options.manual.getPublicationEditorState(projectId, publicationId, subjectId)
         if (editor === null || editor.publication.state !== 'published') return null
         const execution = editor.profile.profile.execution
         const rootUri = editor.publication.externalId
+        if (execution.kind !== 'built_in' || rootUri === null) return null
+        const base = { projectId, publicationId, subjectId, externalId: rootUri }
         if (
-            execution.kind !== 'built_in' ||
-            execution.contractId !== 'bluesky' ||
-            rootUri === null ||
-            !/^at:\/\/did:[^/\s]+\/app\.bsky\.feed\.post\/[^/\s]+$/.test(rootUri)
+            execution.contractId === 'bluesky' &&
+            /^at:\/\/did:[^/\s]+\/app\.bsky\.feed\.post\/[^/\s]+$/.test(rootUri)
         )
-            return null
-        return { projectId, publicationId, subjectId, rootUri }
+            return { ...base, provider: 'bluesky' as const, rootUri }
+        if (execution.contractId === 'mastodon') {
+            const reference = resolveMastodonStatusReference(
+                rootUri,
+                editor.publication.externalUrl
+            )
+            if (reference !== null)
+                return {
+                    ...base,
+                    provider: 'mastodon' as const,
+                    rootUri: reference.rootUri,
+                    externalUrl: editor.publication.externalUrl!,
+                    reference,
+                }
+        }
+        return null
     }
+
     function stored(
         input: NonNullable<ReturnType<typeof identity>>
     ): PublicationCommentsResponse | null {
@@ -53,7 +78,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
         const snapshot = decoded
         return {
             publicationId: input.publicationId,
-            provider: 'bluesky',
+            provider: input.provider,
             snapshot,
             lastAttemptAt: row?.lastAttemptAt ?? null,
             lastError:
@@ -81,7 +106,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                 response,
                 detail: {
                     operationId: 'getPublicationComments',
-                    summary: 'Read the stored Bluesky comment snapshot',
+                    summary: 'Read the stored comment snapshot',
                     tags: ['Publications'],
                 },
             },
@@ -93,7 +118,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                     status(404, {
                         error: {
                             code: 'not_found',
-                            message: 'Published Bluesky publication not found',
+                            message: 'Supported published publication not found',
                         },
                     })
                 )
@@ -108,7 +133,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                 response,
                 detail: {
                     operationId: 'refreshPublicationComments',
-                    summary: 'Refresh the latest Bluesky comment snapshot',
+                    summary: 'Refresh the latest public comment snapshot',
                     tags: ['Publications'],
                 },
             },
@@ -128,20 +153,28 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                     return status(404, {
                         error: {
                             code: 'not_found',
-                            message: 'Published Bluesky publication not found',
+                            message: 'Supported published publication not found',
                         },
                     })
                 const attemptedAt = now()
-                const read = await reader.getPostThread(input.rootUri)
+                const refreshed =
+                    input.provider === 'mastodon'
+                        ? await mastodonReader.getPostThread(input.reference).then(read => ({
+                              read,
+                              snapshot: presentMastodonComments(read, attemptedAt),
+                          }))
+                        : await reader.getPostThread(input.rootUri).then(read => ({
+                              read,
+                              snapshot: presentPublicationComments(read, attemptedAt),
+                          }))
+                const { read, snapshot } = refreshed
                 const keepSnapshot =
                     read.kind === 'unavailable' &&
                     !['blocked', 'not_found', 'disabled'].includes(read.availability)
                 const saved = options.store.saveAttempt({
                     ...input,
                     lastAttemptAt: attemptedAt,
-                    snapshotJson: keepSnapshot
-                        ? null
-                        : JSON.stringify(presentPublicationComments(read, attemptedAt)),
+                    snapshotJson: keepSnapshot ? null : JSON.stringify(snapshot),
                     lastError:
                         keepSnapshot && read.kind === 'unavailable' ? read.availability : null,
                 })
@@ -151,7 +184,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                     status(404, {
                         error: {
                             code: 'not_found',
-                            message: 'Published Bluesky publication not found',
+                            message: 'Supported published publication not found',
                         },
                     })
                 )

@@ -25,6 +25,7 @@ import {
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
 import { facebookChannelProfileValidationAdapter } from '@postbot/facebook'
+import type { MastodonThreadReader } from '@postbot/mastodon'
 import type { TelegramFetcher } from '@postbot/telegram'
 import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
 import { xChannelProfileValidationAdapter } from '@postbot/x'
@@ -90,6 +91,7 @@ export interface PostbotAppOptions {
     readonly providerAnalytics?: ProviderAnalyticsStore
     readonly taxonomy?: TaxonomyStore
     readonly blueskyCommentsReader?: BlueskyThreadReader
+    readonly mastodonCommentsReader?: MastodonThreadReader
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
@@ -121,6 +123,7 @@ function createDomainApp({
     providerAnalytics,
     taxonomy,
     blueskyCommentsReader,
+    mastodonCommentsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -303,6 +306,7 @@ function createDomainApp({
                 providerAnalytics: providerAnalyticsStore,
                 taxonomy: taxonomyStore,
                 blueskyCommentsReader,
+                mastodonCommentsReader,
                 blueskyAnalyticsFetcher,
                 blueskyAnalyticsTimeoutMs,
                 blueskyAnalyticsNow,
@@ -345,6 +349,7 @@ export function createApp({
     providerAnalytics,
     taxonomy,
     blueskyCommentsReader,
+    mastodonCommentsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -378,6 +383,7 @@ export function createApp({
         providerAnalytics,
         taxonomy,
         blueskyCommentsReader,
+        mastodonCommentsReader,
         blueskyAnalyticsFetcher,
         blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,

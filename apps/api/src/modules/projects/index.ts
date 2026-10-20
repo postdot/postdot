@@ -13,6 +13,7 @@ import type {
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
+import type { MastodonThreadReader } from '@postbot/mastodon'
 import type { TelegramFetcher } from '@postbot/telegram'
 import type { Logger } from 'pino'
 
@@ -81,6 +82,7 @@ export interface ProjectModuleOptions {
     readonly analytics: AnalyticsStore
     readonly publicationComments: PublicationCommentStore
     readonly blueskyCommentsReader?: BlueskyThreadReader
+    readonly mastodonCommentsReader?: MastodonThreadReader
     readonly providerAnalytics: ProviderAnalyticsStore
     readonly taxonomy: TaxonomyStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
@@ -228,6 +230,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         manual: options.manualStore,
         access: options.access,
         reader: options.blueskyCommentsReader,
+        mastodonReader: options.mastodonCommentsReader,
         now: options.now,
     })
     const auditRoutes = registerAuditEventRoutes(commentRoutes, options.manualStore)

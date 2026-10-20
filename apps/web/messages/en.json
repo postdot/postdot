@@ -2311,14 +2311,14 @@
     "comments_read_failed": "Saved comments could not be loaded.",
     "comments_refresh_failed_saved": "Refresh failed. The previous snapshot is still displayed.",
     "comments_refresh_failed": "Comments could not be refreshed. Try again.",
-    "comments_start": "Refresh to read the public replies on Bluesky.",
+    "comments_start": "Refresh to read the public replies on {platform}.",
     "comments_awaiting_editor": "An editor can refresh this thread to make replies available here.",
-    "comments_thread_missing": "This publication was not found on Bluesky.",
-    "comments_thread_blocked": "This thread is blocked in the public Bluesky view.",
-    "comments_thread_unavailable": "This thread is unavailable from Bluesky.",
+    "comments_thread_missing": "This publication was not found on {platform}.",
+    "comments_thread_blocked": "This thread is blocked in the public {platform} view.",
+    "comments_thread_unavailable": "This thread is unavailable from {platform}.",
     "comments_truncated": "The reading limit was reached. Other replies may be missing.",
-    "comments_limited_view": "Public replies only. Bluesky may omit some replies from this view.",
+    "comments_limited_view": "Public replies only. {platform} may omit some replies from this view.",
     "comments_empty": "No replies in this snapshot.",
     "comments_reply_unavailable": "This reply is unavailable.",
-    "comments_open_original": "Open on Bluesky"
+    "comments_open_original": "Open on {platform}"
 }
