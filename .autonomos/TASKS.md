@@ -1009,3 +1009,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [/] **[ANALYTICS-524]** Scope a useful publication and tag performance slice from stored observations `Priority: 🟠` `Complexity: S` — ISSUE-172; identify existing read models, a narrow deliverable and unresolved attribution/metric decisions. No new collectors or unsupported aggregation. [Parallel mission record](worklogs/2026-10-20-PRODUCT-523-525.md).
 
 - [/] **[ENGAGEMENT-525]** Establish the smallest feasible comment-reading workflow `Priority: 🟠` `Complexity: S` — ISSUE-168; inspect current identity/read boundaries and verify only necessary official API facts. No reply/moderation side effects or generic inbox architecture. [Parallel mission record](worklogs/2026-10-20-PRODUCT-523-525.md).
+
+
+- [/] **[BLUESKY-526]** Add a bounded public thread-reading primitive `Priority: 🟠` `Complexity: M` — ENGAGEMENT-525 identified reusable public reading and retained AT-URI identity. Implement only the provider protocol reader with synthetic tests; storage, application permissions, refresh policy and conversation UI remain separate decisions. [Mission](worklogs/2026-10-20-PRODUCT-523-525.md).
