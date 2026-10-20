@@ -20,6 +20,7 @@ import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
+import { TagIcon } from '@solar-icons/react/linear/tag'
 import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
 import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
@@ -48,6 +49,7 @@ export type DashboardSection =
     | 'media'
     | 'access'
     | 'invitations'
+    | 'tags'
     | 'settings-access'
     | 'settings-provider-applications'
     | 'settings-workspace'
@@ -209,6 +211,14 @@ export function DashboardSidebar({
                                         destination="invitations"
                                         icon={<UserPlusRoundedIcon aria-hidden="true" />}
                                         label={m.nav_project_invitations()}
+                                        projectId={selectedProjectId}
+                                        workspaceId={selectedWorkspaceId}
+                                    />
+                                    <WorkspaceMenuItem
+                                        active={activeSection === 'tags'}
+                                        destination="tags"
+                                        icon={<TagIcon aria-hidden="true" />}
+                                        label={m.taxonomy_tags()}
                                         projectId={selectedProjectId}
                                         workspaceId={selectedWorkspaceId}
                                     />
@@ -421,6 +431,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     if (pathname.includes('/channels')) return 'channels'
     if (pathname.includes('/media')) return 'media'
     if (pathname.includes('/invitations')) return 'invitations'
+    if (pathname.includes('/tags')) return 'tags'
     if (pathname.includes('/access')) return 'access'
     return 'overview'
 }
@@ -433,6 +444,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'media') return m.nav_media()
     if (section === 'access') return m.nav_access()
     if (section === 'invitations') return m.nav_project_invitations()
+    if (section === 'tags') return m.taxonomy_tags()
     if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings-provider-applications') return m.nav_instance_provider_apps()
     if (section === 'settings-workspace') return m.nav_workspace_administration()
@@ -466,7 +478,8 @@ function WorkspaceMenuItem({
             destination === 'channels' ||
             destination === 'media' ||
             destination === 'access' ||
-            destination === 'invitations')
+            destination === 'invitations' ||
+            destination === 'tags')
 
     return (
         <SidebarMenuItem>

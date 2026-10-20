@@ -756,6 +756,34 @@ export const api = {
         )
     },
 
+    async createProjectTag(projectId: string, name: string): Promise<{ tag: ProjectTag }> {
+        return unwrap<{ tag: ProjectTag }>(
+            await client.api.projects({ projectId }).tags.post({ name })
+        )
+    },
+
+    async renameProjectTag(
+        projectId: string,
+        tagId: string,
+        name: string
+    ): Promise<{ tag: ProjectTag }> {
+        return unwrap<{ tag: ProjectTag }>(
+            await client.api.projects({ projectId }).tags({ tagId }).patch({ name })
+        )
+    },
+
+    async archiveProjectTag(projectId: string, tagId: string): Promise<{ tag: ProjectTag }> {
+        return unwrap<{ tag: ProjectTag }>(
+            await client.api.projects({ projectId }).tags({ tagId }).archive.post()
+        )
+    },
+
+    async restoreProjectTag(projectId: string, tagId: string): Promise<{ tag: ProjectTag }> {
+        return unwrap<{ tag: ProjectTag }>(
+            await client.api.projects({ projectId }).tags({ tagId }).restore.post()
+        )
+    },
+
     async listPublicationTags(
         projectId: string,
         publicationId: string,

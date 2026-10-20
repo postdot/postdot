@@ -22,6 +22,7 @@ import {
     projectAccessReducer,
 } from '@/lib/project-access-verification'
 import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
+import { useProjectTagCatalog } from '@/lib/project-tags'
 import { isCalendarDateKey } from '@/lib/publication-calendar'
 import {
     isPublicationCalendarView,
@@ -71,11 +72,17 @@ function PublicationEditorRoute() {
     const router = useRouter()
     const { projectId, publicationId } = Route.useParams()
     const { date, from, view, editor: editorEngine } = Route.useSearch()
-    const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
+    const {
+        editor,
+        projectTags: initialProjectTags,
+        publicationTags,
+        relatedPublications,
+    } = Route.useLoaderData()
     const {
         activeChannels,
         connections,
         onCancelPublications,
+        onCreateProjectTag,
         onPublish,
         onRetryPublication,
         project,
@@ -174,6 +181,8 @@ function PublicationEditorRoute() {
         refetchOnReconnect: false,
     })
     const currentEditor = editorQuery.data?.editor ?? editor
+    const tagCatalogQuery = useProjectTagCatalog(projectId, initialProjectTags)
+    const projectTags = tagCatalogQuery.data?.tags ?? initialProjectTags
 
     // A refused refetch of previously loaded data starts the same one-shot
     // verification: through a degraded transport the in-band signal may never
@@ -218,6 +227,7 @@ function PublicationEditorRoute() {
                 configuredEditor={!(import.meta.env.DEV && editorEngine === 'legacy')}
                 initialEditor={currentEditor}
                 initialPublicationTags={publicationTags}
+                onCreateProjectTag={onCreateProjectTag}
                 onCancel={
                     canAct ? () => onCancelPublications([currentEditor.publication.id]) : undefined
                 }

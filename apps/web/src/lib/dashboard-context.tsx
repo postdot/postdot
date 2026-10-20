@@ -38,6 +38,11 @@ import {
     type DateTimeLocalError,
 } from '@/lib/date-time'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import {
+    synchronizeProjectTag,
+    updateProjectTagCatalog,
+    upsertProjectTag,
+} from '@/lib/project-tags'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
 import { useActionError } from '@/lib/use-action-error'
@@ -144,6 +149,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly activeChannels: readonly ChannelListItem[]
     readonly error: string | null
     readonly onArchiveChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
+    readonly onArchiveProjectTag: (tagId: string) => Promise<ProjectTag>
     readonly onConnectCustomHttpPublisher: (
         channelId: string,
         input: {
@@ -161,6 +167,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
         event: FormEvent<HTMLFormElement>,
         mode?: PublicationCreationMode
     ) => Promise<Publication[] | null>
+    readonly onCreateProjectTag: (name: string) => Promise<ProjectTag>
     readonly onDeleteChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onDeleteDraftPublication: (publicationId: string) => Promise<boolean>
     readonly onDuplicateDraftPublication: (publicationId: string) => Promise<Publication | null>
@@ -171,7 +178,9 @@ export interface ProjectDashboardContextValue extends ProjectData {
         name: string,
         expectedRevision: number
     ) => Promise<boolean>
+    readonly onRenameProjectTag: (tagId: string, name: string) => Promise<ProjectTag>
     readonly onRestoreChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
+    readonly onRestoreProjectTag: (tagId: string) => Promise<ProjectTag>
     readonly onPostContentChange: (value: string) => void
     readonly onPostTitleChange: (value: string) => void
     readonly onPublicationTagIdsChange: Dispatch<SetStateAction<string[]>>
@@ -264,6 +273,46 @@ export function ProjectDashboardProvider({
         queryClient.setQueryData<ProjectData>(projectQueryKeys.data(project.id), current =>
             updater(current ?? initialData)
         )
+    }
+
+    async function handleCreateProjectTag(name: string): Promise<ProjectTag> {
+        const { tag } = await api.createProjectTag(project.id, name)
+        updateProjectTagCatalog(queryClient, project.id, tag)
+        setProjectData(current => ({
+            ...current,
+            projectTags: upsertProjectTag(current.projectTags, tag),
+        }))
+        return tag
+    }
+
+    async function handleRenameProjectTag(tagId: string, name: string): Promise<ProjectTag> {
+        const { tag } = await api.renameProjectTag(project.id, tagId, name)
+        updateProjectTagCatalog(queryClient, project.id, tag)
+        setProjectData(current => ({
+            ...current,
+            projectTags: synchronizeProjectTag(current.projectTags, tag),
+        }))
+        return tag
+    }
+
+    async function handleArchiveProjectTag(tagId: string): Promise<ProjectTag> {
+        const { tag } = await api.archiveProjectTag(project.id, tagId)
+        updateProjectTagCatalog(queryClient, project.id, tag)
+        setProjectData(current => ({
+            ...current,
+            projectTags: synchronizeProjectTag(current.projectTags, tag),
+        }))
+        return tag
+    }
+
+    async function handleRestoreProjectTag(tagId: string): Promise<ProjectTag> {
+        const { tag } = await api.restoreProjectTag(project.id, tagId)
+        updateProjectTagCatalog(queryClient, project.id, tag)
+        setProjectData(current => ({
+            ...current,
+            projectTags: synchronizeProjectTag(current.projectTags, tag),
+        }))
+        return tag
     }
 
     async function handleCreateChannel(
@@ -770,16 +819,20 @@ export function ProjectDashboardProvider({
         activeChannels,
         error: error ?? dataError,
         onArchiveChannel: handleArchiveChannel,
+        onArchiveProjectTag: handleArchiveProjectTag,
         onConnectCustomHttpPublisher: handleConnectCustomHttpPublisher,
         onCreateChannel: handleCreateChannel,
         onCreatePost: handleCreatePost,
+        onCreateProjectTag: handleCreateProjectTag,
         onDeleteChannel: handleDeleteChannel,
         onDeleteDraftPublication: handleDeleteDraftPublication,
         onDuplicateDraftPublication: handleDuplicateDraftPublication,
         onDisconnectPublisher: handleDisconnectPublisher,
         onRefreshProject: refreshProject,
         onRenameChannel: handleRenameChannel,
+        onRenameProjectTag: handleRenameProjectTag,
         onRestoreChannel: handleRestoreChannel,
+        onRestoreProjectTag: handleRestoreProjectTag,
         onPostContentChange: setPostContent,
         onPostTitleChange: setPostTitle,
         onPublicationTagIdsChange: setPublicationTagIds,

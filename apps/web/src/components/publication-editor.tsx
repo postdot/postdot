@@ -67,6 +67,7 @@ import {
     type ProjectAccessStatus,
 } from '@/lib/project-access-verification'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { mergeProjectTags } from '@/lib/project-tags'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
 import {
@@ -92,6 +93,7 @@ interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
+    readonly onCreateProjectTag: (name: string) => Promise<ProjectTag>
     readonly onCancel?: () => Promise<boolean>
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => Promise<boolean>
@@ -145,6 +147,7 @@ export function PublicationEditor({
     publisherConnections,
     initialEditor,
     initialPublicationTags,
+    onCreateProjectTag,
     onCancel,
     onPublish,
     onRetry,
@@ -280,14 +283,10 @@ export function PublicationEditor({
             onAccessRefused()
     }
 
-    const availableTags = useMemo(() => {
-        const byId = new Map<string, ProjectTag>()
-        for (const tag of projectTags) {
-            if (tag.state === 'active') byId.set(tag.id, tag)
-        }
-        for (const tag of initialPublicationTags) byId.set(tag.id, tag)
-        return [...byId.values()]
-    }, [initialPublicationTags, projectTags])
+    const availableTags = useMemo(
+        () => mergeProjectTags(projectTags, initialPublicationTags),
+        [initialPublicationTags, projectTags]
+    )
 
     const targetResult = useMemo(() => parseTargetText(targetText), [targetText])
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
@@ -1553,7 +1552,7 @@ export function PublicationEditor({
                     onResolve={reconcilePublication}
                 />
 
-                {availableTags.length > 0 ? (
+                {availableTags.length > 0 || publicationEditable ? (
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                         <PublicationTagPicker
                             ariaLabel={m.taxonomy_select_tags()}
@@ -1568,6 +1567,7 @@ export function PublicationEditor({
                             emptyLabel={m.taxonomy_no_tags()}
                             label={m.taxonomy_tags()}
                             onChange={value => void handlePublicationTagIdsChange(value)}
+                            onCreateTag={publicationEditable ? onCreateProjectTag : undefined}
                             selectedTagIds={publicationTagIds}
                             selectedLabel={count => m.taxonomy_selected_tags({ count })}
                             tags={availableTags}

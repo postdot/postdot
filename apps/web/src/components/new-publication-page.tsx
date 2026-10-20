@@ -41,6 +41,7 @@ import { formatCivilSchedule } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { getNativeEditorProfile, getNativePlatform } from '@/lib/native-presentation'
+import { useProjectTagCatalog } from '@/lib/project-tags'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import {
     clearPublicationRecovery,
@@ -78,6 +79,7 @@ export function NewPublicationPage({
         error,
         onCreatePost,
         onCreateChannel,
+        onCreateProjectTag,
         onPostContentChange,
         onPostTitleChange,
         onPublicationTargetsChange,
@@ -87,12 +89,14 @@ export function NewPublicationPage({
         postTitle,
         project,
         projectRole,
-        projectTags,
+        projectTags: activeProjectTags,
         publicationTagIds,
         publicationTargets,
         sourceMedia,
         onPublicationTagIdsChange,
     } = useProjectDashboard()
+    const tagCatalogQuery = useProjectTagCatalog(project.id)
+    const pickerTags = tagCatalogQuery.data?.tags ?? activeProjectTags
     const hasCurrentComposerContent = hasRecoverablePublicationContent({
         postTitle,
         postContent,
@@ -100,6 +104,7 @@ export function NewPublicationPage({
         sourceMedia,
     })
     const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
+    const canCreateProjectTag = projectRole === 'owner' || projectRole === 'editor'
     const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id))
     const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
     const appliedCalendarSlot = useRef<string | undefined>(undefined)
@@ -1011,22 +1016,22 @@ export function NewPublicationPage({
                                     />
                                 </div>
 
-                                {projectTags.length > 0 ? (
-                                    <div className="mt-5">
-                                        <PublicationTagPicker
-                                            ariaLabel={m.taxonomy_select_tags()}
-                                            disabled={pending}
-                                            emptyLabel={m.taxonomy_no_tags()}
-                                            label={m.taxonomy_tags()}
-                                            onChange={onPublicationTagIdsChange}
-                                            selectedTagIds={publicationTagIds}
-                                            selectedLabel={count =>
-                                                m.taxonomy_selected_tags({ count })
-                                            }
-                                            tags={projectTags}
-                                        />
-                                    </div>
-                                ) : null}
+                                <div className="mt-5">
+                                    <PublicationTagPicker
+                                        ariaLabel={m.taxonomy_select_tags()}
+                                        archivedLabel={m.common_archived()}
+                                        disabled={pending}
+                                        emptyLabel={m.taxonomy_no_tags()}
+                                        label={m.taxonomy_tags()}
+                                        onChange={onPublicationTagIdsChange}
+                                        onCreateTag={
+                                            canCreateProjectTag ? onCreateProjectTag : undefined
+                                        }
+                                        selectedTagIds={publicationTagIds}
+                                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                        tags={pickerTags}
+                                    />
+                                </div>
                             </div>
                         }
                         footer={
