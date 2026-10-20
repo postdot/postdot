@@ -2833,3 +2833,26 @@ export const installationEmailSettings = sqliteTable('installation_email_setting
     ciphertext: blob('ciphertext', { mode: 'buffer' }).notNull(),
     updatedAt: integer('updated_at').notNull(),
 })
+
+export const publicationCommentSnapshots = sqliteTable(
+    'publication_comment_snapshots',
+    {
+        projectId: text('project_id').notNull(),
+        publicationId: text('publication_id').notNull(),
+        rootUri: text('root_uri').notNull(),
+        snapshotJson: text('snapshot_json'),
+        lastAttemptAt: integer('last_attempt_at').notNull(),
+        lastError: text('last_error'),
+    },
+    table => [
+        primaryKey({ columns: [table.projectId, table.publicationId] }),
+        foreignKey({
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        check(
+            'publication_comment_snapshots_attempt_nonnegative',
+            sql`${table.lastAttemptAt} >= 0`
+        ),
+    ]
+)

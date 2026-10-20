@@ -437,3 +437,5 @@ if (import.meta.main) {
 }
 
 export type { SearchResponse } from './modules/projects/search-routes'
+
+export type { PublicationCommentsResponse } from './modules/projects/publication-comments-models'

@@ -1019,3 +1019,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 
 - [x] **[CHANNEL-529]** Load a differing shipped template into a built-in channel draft `Priority: 🟠` `Complexity: S` — CHANNEL-523 identified a missing general entry point. Parent implements neutral comparison/loading wording, protects existing drafts and custom profiles, and reuses explicit impact/activation. [Evidence](worklogs/2026-10-20-PRODUCT-523-525.md).
+
+
+- [x] **[ENGAGEMENT-530]** Expose read-only Bluesky comments in Studio `Priority: 🟠` `Complexity: M` — Owner accepted continuing after BLUESKY-526. Prepare a publication-scoped stored reader and explicit refresh with accurate availability/coverage; Owner selected latest snapshot only, editor refresh and project-member reads; transient failure preserves the previous snapshot. No reply/moderation, automatic collection or real-provider action. [Plan](worklogs/2026-10-20-ENGAGEMENT-530.md).

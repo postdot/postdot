@@ -1,6 +1,6 @@
 import { openapi } from '@elysiajs/openapi'
 import type { PostbotAuth } from '@postbot/auth'
-import type { BlueskyFetcher } from '@postbot/bluesky'
+import type { BlueskyFetcher, BlueskyThreadReader } from '@postbot/bluesky'
 import { ChannelProfileCompiler } from '@postbot/core'
 import type { NotificationEmailStore } from '@postbot/db'
 import {
@@ -9,6 +9,7 @@ import {
     createEventJournalStore,
     createNotificationStore,
     createProviderAnalyticsStore,
+    createPublicationCommentStore,
     createAccessStore,
     createTaxonomyStore,
     type PostbotDatabase,
@@ -88,6 +89,7 @@ export interface PostbotAppOptions {
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
     readonly taxonomy?: TaxonomyStore
+    readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
@@ -118,6 +120,7 @@ function createDomainApp({
     analytics,
     providerAnalytics,
     taxonomy,
+    blueskyCommentsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -296,8 +299,10 @@ function createDomainApp({
                 access: accessStore,
                 notifications: notificationStore,
                 analytics: analyticsStore,
+                publicationComments: createPublicationCommentStore(database),
                 providerAnalytics: providerAnalyticsStore,
                 taxonomy: taxonomyStore,
+                blueskyCommentsReader,
                 blueskyAnalyticsFetcher,
                 blueskyAnalyticsTimeoutMs,
                 blueskyAnalyticsNow,
@@ -339,6 +344,7 @@ export function createApp({
     analytics,
     providerAnalytics,
     taxonomy,
+    blueskyCommentsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -371,6 +377,7 @@ export function createApp({
         analytics,
         providerAnalytics,
         taxonomy,
+        blueskyCommentsReader,
         blueskyAnalyticsFetcher,
         blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,

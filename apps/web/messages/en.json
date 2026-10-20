@@ -2303,5 +2303,22 @@
     "performance_read_failed": "Stored statistics could not be loaded.",
     "performance_read_incomplete": "Some stored metrics are missing from this response.",
     "performance_grouped_description": "Results by source post and destination for loaded publications. Metrics are cumulative provider observations, not combined totals.",
-    "profile_load_shipped_template": "Load shipped template"
+    "profile_load_shipped_template": "Load shipped template",
+    "comments_title": "Comments",
+    "comments_saved_at": "Read on {date}",
+    "comments_not_loaded": "No saved comments yet.",
+    "comments_refresh": "Refresh comments",
+    "comments_read_failed": "Saved comments could not be loaded.",
+    "comments_refresh_failed_saved": "Refresh failed. The previous snapshot is still displayed.",
+    "comments_refresh_failed": "Comments could not be refreshed. Try again.",
+    "comments_start": "Refresh to read the public replies on Bluesky.",
+    "comments_awaiting_editor": "An editor can refresh this thread to make replies available here.",
+    "comments_thread_missing": "This publication was not found on Bluesky.",
+    "comments_thread_blocked": "This thread is blocked in the public Bluesky view.",
+    "comments_thread_unavailable": "This thread is unavailable from Bluesky.",
+    "comments_truncated": "The reading limit was reached. Other replies may be missing.",
+    "comments_limited_view": "Public replies only. Bluesky may omit some replies from this view.",
+    "comments_empty": "No replies in this snapshot.",
+    "comments_reply_unavailable": "This reply is unavailable.",
+    "comments_open_original": "Open on Bluesky"
 }

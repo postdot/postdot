@@ -42,6 +42,7 @@ import type {
     PublicationListQuery as PublicationListQueryResponse,
     BlueskyAnalyticsCollectionResponse,
     DevtoAnalyticsCollectionResponse,
+    PublicationCommentsResponse,
     ProviderAnalyticsObservationPage,
     ProviderAnalyticsObservation,
     ProjectCategoryResponse,
@@ -126,3 +127,5 @@ export type EmailAlertPreference = EmailAlertPreferenceResponse
 export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@postbot/api'
 
 export type { SearchResponse } from '@postbot/api'
+
+export type { PublicationCommentsResponse }

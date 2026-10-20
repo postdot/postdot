@@ -40,6 +40,7 @@ import {
     type ProviderAnalyticsPage,
     type ProjectCategory,
     type ProjectTag,
+    type PublicationCommentsResponse,
 } from '@postbot/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -781,6 +782,26 @@ export const api = {
     async restoreProjectTag(projectId: string, tagId: string): Promise<{ tag: ProjectTag }> {
         return unwrap<{ tag: ProjectTag }>(
             await client.api.projects({ projectId }).tags({ tagId }).restore.post()
+        )
+    },
+
+    async getPublicationComments(
+        projectId: string,
+        publicationId: string
+    ): Promise<PublicationCommentsResponse> {
+        return unwrap<PublicationCommentsResponse>(
+            await client.api.projects({ projectId }).publications({ publicationId }).comments.get()
+        )
+    },
+    async refreshPublicationComments(
+        projectId: string,
+        publicationId: string
+    ): Promise<PublicationCommentsResponse> {
+        return unwrap<PublicationCommentsResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .comments.refresh.post({})
         )
     },
 

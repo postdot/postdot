@@ -1,5 +1,5 @@
 import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postbot/auth'
-import type { BlueskyFetcher } from '@postbot/bluesky'
+import type { BlueskyFetcher, BlueskyThreadReader } from '@postbot/bluesky'
 import type { NotificationEmailStore } from '@postbot/db'
 import type {
     AnalyticsStore,
@@ -8,6 +8,7 @@ import type {
     MediaAssetStore,
     NotificationStore,
     ProviderAnalyticsStore,
+    PublicationCommentStore,
     TaxonomyStore,
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
@@ -39,6 +40,7 @@ import { registerProjectMemberRoutes } from './member-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
+import { registerPublicationCommentsRoutes } from './publication-comments-routes'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
@@ -77,6 +79,8 @@ export interface ProjectModuleOptions {
     }
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
+    readonly publicationComments: PublicationCommentStore
+    readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly providerAnalytics: ProviderAnalyticsStore
     readonly taxonomy: TaxonomyStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
@@ -219,7 +223,14 @@ export function createProjectModule(options: ProjectModuleOptions) {
         }),
         options.access
     )
-    const auditRoutes = registerAuditEventRoutes(providerAnalyticsRoutes, options.manualStore)
+    const commentRoutes = registerPublicationCommentsRoutes(providerAnalyticsRoutes, {
+        store: options.publicationComments,
+        manual: options.manualStore,
+        access: options.access,
+        reader: options.blueskyCommentsReader,
+        now: options.now,
+    })
+    const auditRoutes = registerAuditEventRoutes(commentRoutes, options.manualStore)
     return registerRealtimeRoutes(
         auditRoutes,
         options.eventJournal,

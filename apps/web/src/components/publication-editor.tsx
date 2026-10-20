@@ -18,6 +18,7 @@ import { PostSourceReview } from '@/components/post-source-review'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
 import { PublicationAdoptionHistory } from '@/components/publication-adoption-history'
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
+import { PublicationCommentsPanel } from '@/components/publication-comments-panel'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import {
@@ -1551,6 +1552,19 @@ export function PublicationEditor({
                     publication={editor.publication}
                     onResolve={reconcilePublication}
                 />
+
+                {editor.publication.state === 'published' &&
+                editor.publication.externalId?.startsWith('at://') &&
+                editor.profile.profile.execution.kind === 'built_in' &&
+                editor.profile.profile.execution.contractId === 'bluesky' ? (
+                    <PublicationCommentsPanel
+                        projectId={projectId}
+                        publicationId={editor.publication.id}
+                        canRefresh={!readOnly && !accessWritesBlocked}
+                        timeZone={timeZone}
+                        onAccessRefused={onAccessRefused}
+                    />
+                ) : null}
 
                 {availableTags.length > 0 || publicationEditable ? (
                     <div className="mt-4 flex flex-wrap items-center gap-3">

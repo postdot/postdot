@@ -351,3 +351,6 @@ export { createRecoveryHold, readRecoveryHold, releaseRecoveryHold } from './rec
 export type { RecoveryHold } from './recovery-hold'
 
 export type { SearchResult } from './manual-store/search-store'
+
+export { createPublicationCommentStore } from './publication-comment-store'
+export type { PublicationCommentStore, PublicationCommentRecord } from './publication-comment-store'
