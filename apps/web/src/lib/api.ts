@@ -16,6 +16,7 @@ import {
     type DuePublication,
     type BlueskyAnalyticsCollection,
     type DevtoAnalyticsCollection,
+    type MastodonAnalyticsCollection,
     type ProviderAnalyticsItem as ProviderAnalyticsItemContract,
     type MediaDeletion,
     type MediaDeletionBatch,
@@ -1406,6 +1407,17 @@ export const api = {
         )
     },
 
+    async listLatestMastodonProviderAnalytics(
+        projectId: string,
+        publicationIds: readonly string[]
+    ): Promise<ProviderAnalyticsPage> {
+        return unwrap<ProviderAnalyticsPage>(
+            await client.api.projects({ projectId }).analytics.provider.mastodon.latest.get({
+                query: { publicationIds: [...publicationIds] },
+            })
+        )
+    },
+
     async collectBlueskyProviderAnalytics(
         projectId: string,
         channelId: string,
@@ -1426,6 +1438,19 @@ export const api = {
     ): Promise<DevtoAnalyticsCollection> {
         return unwrap<DevtoAnalyticsCollection>(
             await client.api.projects({ projectId }).analytics.provider.devto.collect.post({
+                channelId,
+                publicationId,
+            })
+        )
+    },
+
+    async collectMastodonProviderAnalytics(
+        projectId: string,
+        channelId: string,
+        publicationId: string
+    ): Promise<MastodonAnalyticsCollection> {
+        return unwrap<MastodonAnalyticsCollection>(
+            await client.api.projects({ projectId }).analytics.provider.mastodon.collect.post({
                 channelId,
                 publicationId,
             })
@@ -2131,6 +2156,7 @@ export type {
     ChannelProfileVersion,
     DuePublication,
     DevtoAnalyticsCollection,
+    MastodonAnalyticsCollection,
     MediaDeletion,
     MediaAssetUsage,
     MediaFinalize,

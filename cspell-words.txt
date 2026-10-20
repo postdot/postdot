@@ -58,6 +58,7 @@ pyyaml
 rebuildable
 reconsiderable
 reconstructable
+reblog
 reblogs
 refetches
 refreshable

@@ -5,6 +5,8 @@ import {
     createPerformanceProviderBatches,
     groupLatestObservations,
     groupPerformancePublications,
+    performanceProvider,
+    performanceProviderForChannel,
     providerAnalyticsBatchSize,
 } from '@/lib/publication-performance'
 
@@ -45,6 +47,8 @@ describe('publication performance reads', () => {
                 publicationId: `bluesky-${index}`,
             })),
             { provider: 'devto' as const, publicationId: 'devto-0' },
+            { provider: 'mastodon' as const, publicationId: 'mastodon-0' },
+            { provider: 'mastodon' as const, publicationId: 'mastodon-0' },
             { provider: 'bluesky' as const, publicationId: 'bluesky-0' },
         ]
 
@@ -54,12 +58,13 @@ describe('publication performance reads', () => {
             ['bluesky', providerAnalyticsBatchSize],
             ['bluesky', 3],
             ['devto', 1],
+            ['mastodon', 1],
         ])
         expect(
             batches.flatMap(batch => batch.publicationIds).every(id => !id.includes('undefined'))
         ).toBe(true)
         expect(new Set(batches.flatMap(batch => batch.publicationIds)).size).toBe(
-            providerAnalyticsBatchSize + 4
+            providerAnalyticsBatchSize + 5
         )
     })
 
@@ -95,5 +100,60 @@ describe('publication performance reads', () => {
             availability: 'not_found',
             value: null,
         })
+    })
+})
+
+describe('performance provider resolution', () => {
+    test('reads Mastodon capability from the native built-in execution', () => {
+        expect(
+            performanceProviderForChannel({
+                profileId: 'mastodon',
+                execution: { kind: 'built_in', contractId: 'mastodon' },
+            })
+        ).toBe('mastodon')
+    })
+
+    test('does not grant Mastodon capability to a custom profile named mastodon', () => {
+        expect(
+            performanceProviderForChannel({
+                profileId: 'mastodon',
+                execution: { kind: 'declarative_http' },
+            })
+        ).toBeNull()
+        expect(
+            performanceProviderForChannel({
+                profileId: 'mastodon',
+                execution: { kind: 'manual' },
+            })
+        ).toBeNull()
+        expect(
+            performanceProviderForChannel({
+                profileId: 'mastodon',
+                execution: undefined,
+            })
+        ).toBeNull()
+    })
+
+    test('keeps the existing Bluesky and DEV.to destinations on their identity', () => {
+        expect(
+            performanceProviderForChannel({
+                profileId: 'bluesky',
+                execution: { kind: 'built_in', contractId: 'bluesky' },
+            })
+        ).toBe('bluesky')
+        expect(
+            performanceProviderForChannel({
+                profileId: 'devto',
+                execution: { kind: 'built_in', contractId: 'devto' },
+            })
+        ).toBe('devto')
+        expect(performanceProvider('bluesky')).toBe('bluesky')
+        expect(performanceProvider('devto')).toBe('devto')
+        expect(performanceProvider('mastodon')).toBeNull()
+        expect(performanceProvider(undefined)).toBeNull()
+    })
+
+    test('reports no provider for a destination that is not in the channel list', () => {
+        expect(performanceProviderForChannel(undefined)).toBeNull()
     })
 })

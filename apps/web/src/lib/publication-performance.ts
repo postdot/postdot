@@ -1,6 +1,7 @@
-import type { ProviderAnalyticsItem, PublicationSummary } from '@/lib/api'
+import type { ChannelListItem, ProviderAnalyticsItem, PublicationSummary } from '@/lib/api'
+import { getNativePlatform } from '@/lib/native-presentation'
 
-export type PerformanceProvider = 'bluesky' | 'devto'
+export type PerformanceProvider = 'bluesky' | 'devto' | 'mastodon'
 
 export const providerAnalyticsBatchSize = 25
 
@@ -14,8 +15,35 @@ export interface PerformancePublicationGroup {
     readonly publications: readonly PublicationSummary[]
 }
 
-export function performanceProvider(profileId: string | undefined): PerformanceProvider | null {
+export interface PerformanceChannelIdentity {
+    readonly profileId: string | undefined
+    readonly execution: ChannelListItem['execution'] | undefined
+}
+
+/**
+ * Resolve the provider whose observations a destination already exposes.
+ *
+ * The destination identity alone grants this capability, so it stays limited to
+ * the providers that have always been read this way.
+ */
+export function performanceProvider(profileId: string | undefined): 'bluesky' | 'devto' | null {
     return profileId === 'bluesky' || profileId === 'devto' ? profileId : null
+}
+
+/**
+ * Resolve the provider whose observations a channel may show.
+ *
+ * Mastodon observations exist only for the native built-in execution, so that
+ * capability is read from the execution summary. A custom profile that happens
+ * to be named `mastodon` describes a different destination and gains no provider
+ * capability from its name.
+ */
+export function performanceProviderForChannel(
+    channel: PerformanceChannelIdentity | undefined
+): PerformanceProvider | null {
+    if (channel === undefined) return null
+    if (getNativePlatform(channel.execution) === 'mastodon') return 'mastodon'
+    return performanceProvider(channel.profileId)
 }
 
 export function createPerformanceProviderBatches(

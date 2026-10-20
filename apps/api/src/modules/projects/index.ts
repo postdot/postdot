@@ -13,7 +13,7 @@ import type {
 } from '@postbot/db'
 import type { DevtoFetcher } from '@postbot/devto'
 import type { DiscordFetcher } from '@postbot/discord'
-import type { MastodonThreadReader } from '@postbot/mastodon'
+import type { MastodonThreadReader, MastodonAnalyticsReader } from '@postbot/mastodon'
 import type { TelegramFetcher } from '@postbot/telegram'
 import type { Logger } from 'pino'
 
@@ -37,6 +37,8 @@ import { registerChannelProfilePresetRoutes } from './channel-profile-preset-rou
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { createDevtoAnalyticsService } from './devto-analytics-service'
+import { registerMastodonAnalyticsRoutes } from './mastodon-analytics-routes'
+import { createMastodonAnalyticsService } from './mastodon-analytics-service'
 import { registerProjectMemberRoutes } from './member-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
@@ -86,6 +88,7 @@ export interface ProjectModuleOptions {
     readonly publicationComments: PublicationCommentStore
     readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly mastodonCommentsReader?: MastodonThreadReader
+    readonly mastodonAnalyticsReader?: MastodonAnalyticsReader
     readonly providerAnalytics: ProviderAnalyticsStore
     readonly taxonomy: TaxonomyStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
@@ -228,7 +231,19 @@ export function createProjectModule(options: ProjectModuleOptions) {
         }),
         options.access
     )
-    const commentRoutes = registerPublicationCommentsRoutes(providerAnalyticsRoutes, {
+    const mastodonAnalyticsRoutes = registerMastodonAnalyticsRoutes(
+        providerAnalyticsRoutes,
+        options.providerAnalytics,
+        createMastodonAnalyticsService({
+            providerAnalytics: options.providerAnalytics,
+            manual: options.manualStore,
+            access: options.access,
+            reader: options.mastodonAnalyticsReader,
+            now: options.now,
+        }),
+        options.access
+    )
+    const commentRoutes = registerPublicationCommentsRoutes(mastodonAnalyticsRoutes, {
         store: options.publicationComments,
         manual: options.manualStore,
         access: options.access,

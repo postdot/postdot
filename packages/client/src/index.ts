@@ -42,6 +42,7 @@ import type {
     PublicationListQuery as PublicationListQueryResponse,
     BlueskyAnalyticsCollectionResponse,
     DevtoAnalyticsCollectionResponse,
+    MastodonAnalyticsCollectionResponse,
     PublicationCommentsResponse,
     ProviderAnalyticsObservationPage,
     ProviderAnalyticsObservation,
@@ -121,6 +122,7 @@ export type ProviderAnalyticsPage = ProviderAnalyticsObservationPage
 export type ProviderAnalyticsItem = ProviderAnalyticsObservation
 export type BlueskyAnalyticsCollection = BlueskyAnalyticsCollectionResponse
 export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse
+export type MastodonAnalyticsCollection = MastodonAnalyticsCollectionResponse
 
 export type EmailAlertPreference = EmailAlertPreferenceResponse
 

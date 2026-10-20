@@ -22,7 +22,7 @@ import {
 } from '@postbot/db'
 import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postbot/discord'
 import { createInstagramPublisher } from '@postbot/instagram'
-import { createMastodonThreadReader } from '@postbot/mastodon'
+import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postbot/mastodon'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -372,6 +372,7 @@ async function startServerWithRuntimeLock(
     const baseApp = createApp({
         publicationReplies,
         mastodonCommentsReader: createMastodonThreadReader({ fetcher: mastodonFetcher }),
+        mastodonAnalyticsReader: createMastodonAnalyticsReader({ fetcher: mastodonFetcher }),
         recovery,
         auth,
         database,
@@ -462,3 +463,5 @@ export type { SearchResponse } from './modules/projects/search-routes'
 export type { PublicationCommentsResponse } from './modules/projects/publication-comments-models'
 
 export type { PublicationRepliesResponse } from './modules/projects/publication-replies-routes'
+
+export type { MastodonAnalyticsCollectionResponse } from './modules/projects/mastodon-analytics-service'

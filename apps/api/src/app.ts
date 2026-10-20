@@ -29,6 +29,7 @@ import { instagramChannelProfileValidationAdapter } from '@postbot/instagram'
 import {
     mastodonChannelProfileValidationAdapter,
     type MastodonThreadReader,
+    type MastodonAnalyticsReader,
 } from '@postbot/mastodon'
 import type { TelegramFetcher } from '@postbot/telegram'
 import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
@@ -101,6 +102,7 @@ export interface PostbotAppOptions {
     readonly publicationReplies?: PublicationRepliesService
     readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly mastodonCommentsReader?: MastodonThreadReader
+    readonly mastodonAnalyticsReader?: MastodonAnalyticsReader
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
@@ -134,6 +136,7 @@ function createDomainApp({
     publicationReplies,
     blueskyCommentsReader,
     mastodonCommentsReader,
+    mastodonAnalyticsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -321,6 +324,7 @@ function createDomainApp({
                     publicationReplies ?? createPublicationRepliesService({ database, publisher }),
                 blueskyCommentsReader,
                 mastodonCommentsReader,
+                mastodonAnalyticsReader,
                 blueskyAnalyticsFetcher,
                 blueskyAnalyticsTimeoutMs,
                 blueskyAnalyticsNow,
@@ -365,6 +369,7 @@ export function createApp({
     publicationReplies,
     blueskyCommentsReader,
     mastodonCommentsReader,
+    mastodonAnalyticsReader,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -400,6 +405,7 @@ export function createApp({
         publicationReplies,
         blueskyCommentsReader,
         mastodonCommentsReader,
+        mastodonAnalyticsReader,
         blueskyAnalyticsFetcher,
         blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,

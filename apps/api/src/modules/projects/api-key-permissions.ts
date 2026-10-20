@@ -204,9 +204,9 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     if (resource === 'analytics') {
         if (detail.length === 0 && normalizedMethod === 'GET') return 'project:read'
         if (
-            detail.length === 2 &&
+            (detail.length === 2 || (detail.length === 3 && detail[2] === 'latest')) &&
             detail[0] === 'provider' &&
-            ['bluesky', 'devto'].includes(detail[1] ?? '') &&
+            ['bluesky', 'devto', 'mastodon'].includes(detail[1] ?? '') &&
             normalizedMethod === 'GET'
         ) {
             return 'project:read'
@@ -214,7 +214,7 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         if (
             detail.length === 3 &&
             detail[0] === 'provider' &&
-            ['bluesky', 'devto'].includes(detail[1] ?? '') &&
+            ['bluesky', 'devto', 'mastodon'].includes(detail[1] ?? '') &&
             detail[2] === 'collect' &&
             normalizedMethod === 'POST'
         ) {

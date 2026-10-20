@@ -24,6 +24,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         ['Bluesky primary', 'bluesky'],
         ['Bluesky secondary', 'bluesky'],
         ['Article', 'devto'],
+        ['Mastodon status', 'mastodon'],
     ]) {
         const response = await page.request.post(`/api/projects/${project.id}/channels`, {
             data: { name, profile },
@@ -60,6 +61,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         releaseReads = resolve
     })
     let failReads = false
+    let mastodonRefreshed = false
     const requested: string[][] = []
     await page.route(`**/api/projects/${project.id}/analytics/provider/*/latest?*`, async route => {
         await held
@@ -71,10 +73,15 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         const url = new URL(route.request().url())
         const ids = url.searchParams.getAll('publicationIds')
         requested.push(ids)
-        const provider = url.pathname.includes('/bluesky/') ? 'bluesky' : 'devto'
+        const provider = url.pathname.includes('/bluesky/')
+            ? 'bluesky'
+            : url.pathname.includes('/mastodon/')
+              ? 'mastodon'
+              : 'devto'
         const id = publications.find(
             (publication: { channelId: string }) =>
-                publication.channelId === channelIds[provider === 'bluesky' ? 0 : 2]
+                publication.channelId ===
+                channelIds[provider === 'bluesky' ? 0 : provider === 'mastodon' ? 3 : 2]
         ).id
         await route.fulfill({
             json: {
@@ -88,27 +95,79 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
                         id: 'observation-' + id,
                         postbotEntityId: id,
                         postbotEntityType: 'publication',
-                        metricName: provider === 'bluesky' ? 'likeCount' : 'page_views',
+                        metricName:
+                            provider === 'bluesky'
+                                ? 'likeCount'
+                                : provider === 'mastodon'
+                                  ? 'favourites_count'
+                                  : 'page_views',
                         availability: 'measured',
-                        value: provider === 'bluesky' ? 0 : 120,
+                        value:
+                            provider === 'bluesky'
+                                ? 0
+                                : provider === 'mastodon'
+                                  ? mastodonRefreshed
+                                      ? 8
+                                      : 0
+                                  : 120,
                         fetchedAt: 1_800_000_000_000,
                     },
                 ],
             },
         })
     })
+    let collectCalls = 0
+    await page.route(
+        `**/api/projects/${project.id}/analytics/provider/mastodon/collect`,
+        async route => {
+            collectCalls++
+            const publication = publications.find(
+                (item: { channelId: string }) => item.channelId === channelIds[3]
+            )
+            expect(route.request().method()).toBe('POST')
+            expect(route.request().postDataJSON()).toEqual({
+                channelId: channelIds[3],
+                publicationId: publication.id,
+            })
+            mastodonRefreshed = true
+            await route.fulfill({
+                json: {
+                    contractVersion: 1,
+                    projectId: project.id,
+                    provider: 'mastodon',
+                    fetchedAt: 1_800_000_000_001,
+                    inserted: 3,
+                    duplicates: 0,
+                    observations: [],
+                },
+            })
+        }
+    )
     await page.goto(`/dashboard/projects/${project.id}/performance`)
     await expect(page.locator('[data-performance-post]')).toHaveCount(1)
     await expect(page.getByText('Not collected', { exact: true })).toHaveCount(0)
     releaseReads()
-    await expect(page.locator('[data-performance-publication]')).toHaveCount(3)
+    await expect(page.locator('[data-performance-publication]')).toHaveCount(4)
     await expect(page.getByRole('heading', { name: 'Shared release', exact: true })).toHaveCount(1)
     const first = page
         .locator('[data-performance-publication]')
         .filter({ has: page.getByRole('link', { name: 'Bluesky primary', exact: true }) })
     await expect(first.getByText('0', { exact: true })).toBeVisible()
     await expect(page.getByText('Not collected', { exact: true })).toHaveCount(1)
-    expect(requested.map(ids => ids.length).sort()).toEqual([1, 2])
+    expect(requested.map(ids => ids.length).sort()).toEqual([1, 1, 2])
+    const mastodon = page
+        .locator('[data-performance-publication]')
+        .filter({ has: page.getByRole('link', { name: 'Mastodon status', exact: true }) })
+    await expect(mastodon.getByText('0', { exact: true })).toBeVisible()
+    await expect(mastodon).toContainText('Favourites')
+    await expect(mastodon).toContainText('Boosts')
+    await mastodon.getByRole('button', { name: 'Refresh: Mastodon status', exact: true }).click()
+    await expect(mastodon.getByText('8', { exact: true })).toBeVisible()
+    expect(collectCalls).toBe(1)
+    await page.screenshot({
+        path: testInfo.outputPath('grouped-performance-en.png'),
+        animations: 'disabled',
+    })
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
@@ -127,7 +186,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
     await page.reload()
     await expect(
         page.getByText(frenchTranslation('performance_read_failed'), { exact: true })
-    ).toHaveCount(3)
+    ).toHaveCount(4)
     await expect(
         page.getByText(frenchTranslation('performance_not_collected'), { exact: true })
     ).toHaveCount(0)

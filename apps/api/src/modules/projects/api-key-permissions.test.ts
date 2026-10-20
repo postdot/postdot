@@ -51,6 +51,12 @@ describe('user API-key capability policy', () => {
         ['DELETE', '/api/projects/project-1/media/asset-1', 'media:manage'],
         ['POST', '/api/projects/project-1/media/asset-1/permanent', 'media:permanently_delete'],
         ['GET', '/api/projects/project-1/analytics/provider/devto', 'project:read'],
+        ['GET', '/api/projects/project-1/analytics/provider/mastodon/latest', 'project:read'],
+        [
+            'POST',
+            '/api/projects/project-1/analytics/provider/mastodon/collect',
+            'analytics:refresh',
+        ],
         ['POST', '/api/projects/project-1/analytics/provider/bluesky/collect', 'analytics:refresh'],
     ] as const)('maps %s %s to %s', (method, path, expected) => {
         expect(requiredApiKeyCapability(method, path)).toBe(expected)

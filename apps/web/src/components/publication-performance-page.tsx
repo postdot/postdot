@@ -13,6 +13,7 @@ import {
     api,
     type BlueskyAnalyticsCollection,
     type DevtoAnalyticsCollection,
+    type MastodonAnalyticsCollection,
     type ProviderAnalyticsItem,
     type PublicationSummary,
 } from '@/lib/api'
@@ -23,7 +24,7 @@ import { projectQueryKeys } from '@/lib/project-realtime'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import {
     createPerformanceProviderBatches,
-    performanceProvider as analyticsProvider,
+    performanceProviderForChannel as analyticsProvider,
     groupPerformancePublications,
     groupLatestObservations,
 } from '@/lib/publication-performance'
@@ -41,6 +42,11 @@ const providerMetrics = {
         { key: 'page_views', label: () => m.performance_views() },
         { key: 'reactions', label: () => m.performance_reactions() },
         { key: 'comments', label: () => m.performance_comments() },
+    ],
+    mastodon: [
+        { key: 'favourites_count', label: () => m.performance_favourites() },
+        { key: 'reblogs_count', label: () => m.performance_boosts() },
+        { key: 'replies_count', label: () => m.performance_replies() },
     ],
 } as const
 
@@ -78,9 +84,29 @@ function collectProviderAnalytics(
     channelId: string,
     publicationId: string
 ) {
-    return provider === 'devto'
-        ? api.collectDevtoProviderAnalytics(projectId, channelId, publicationId)
-        : api.collectBlueskyProviderAnalytics(projectId, channelId, publicationId)
+    switch (provider) {
+        case 'devto':
+            return api.collectDevtoProviderAnalytics(projectId, channelId, publicationId)
+        case 'mastodon':
+            return api.collectMastodonProviderAnalytics(projectId, channelId, publicationId)
+        case 'bluesky':
+            return api.collectBlueskyProviderAnalytics(projectId, channelId, publicationId)
+    }
+}
+
+function listLatestProviderAnalytics(
+    provider: AnalyticsProvider,
+    projectId: string,
+    publicationIds: readonly string[]
+) {
+    switch (provider) {
+        case 'bluesky':
+            return api.listLatestBlueskyProviderAnalytics(projectId, publicationIds)
+        case 'devto':
+            return api.listLatestDevtoProviderAnalytics(projectId, publicationIds)
+        case 'mastodon':
+            return api.listLatestMastodonProviderAnalytics(projectId, publicationIds)
+    }
 }
 
 export function PublicationPerformancePage() {
@@ -108,13 +134,13 @@ export function PublicationPerformancePage() {
     ).filter(
         publication =>
             publication.state === 'published' &&
-            analyticsProvider(channelsById.get(publication.channelId)?.profileId) !== null
+            analyticsProvider(channelsById.get(publication.channelId)) !== null
     )
     const groups = groupPerformancePublications(publications)
     const batches = createPerformanceProviderBatches(
         publications.map(publication => ({
             publicationId: publication.id,
-            provider: analyticsProvider(channelsById.get(publication.channelId)?.profileId)!,
+            provider: analyticsProvider(channelsById.get(publication.channelId))!,
         }))
     )
     const analyticsQueries = useQueries({
@@ -125,9 +151,7 @@ export function PublicationPerformancePage() {
                 ...batch.publicationIds,
             ],
             queryFn: () =>
-                batch.provider === 'bluesky'
-                    ? api.listLatestBlueskyProviderAnalytics(project.id, batch.publicationIds)
-                    : api.listLatestDevtoProviderAnalytics(project.id, batch.publicationIds),
+                listLatestProviderAnalytics(batch.provider, project.id, batch.publicationIds),
             staleTime: Number.POSITIVE_INFINITY,
             retry: 1,
         })),
@@ -141,7 +165,7 @@ export function PublicationPerformancePage() {
         analyticsQueries.flatMap(query => query.data?.observations ?? [])
     )
     const refreshMutation = useMutation<
-        BlueskyAnalyticsCollection | DevtoAnalyticsCollection,
+        BlueskyAnalyticsCollection | DevtoAnalyticsCollection | MastodonAnalyticsCollection,
         Error,
         { provider: AnalyticsProvider; channelId: string; publicationId: string }
     >({
@@ -182,7 +206,7 @@ export function PublicationPerformancePage() {
 
     function renderPublication(publication: PublicationSummary) {
         const channel = channelsById.get(publication.channelId)
-        const provider = analyticsProvider(channel?.profileId)
+        const provider = analyticsProvider(channel)
         const metricObservations =
             provider === null
                 ? new Map<string, ProviderAnalyticsItem>()
