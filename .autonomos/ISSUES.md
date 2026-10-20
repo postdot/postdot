@@ -4330,11 +4330,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: New publication, editing and Queue hide the picker when tags are absent. The shared picker only selects. Static searches found no Studio tag creation form or API wrapper for creation.
 - Desired outcome: Provide a first-tag path and project-scoped creation, rename and archive/restore using existing domain permissions. Retain user-defined meaning without adding a campaign entity. Verify actual empty and populated UI states.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
+- Tasks: PRODUCT-478 (discovery and scope); TAGS-522 (owner-authorized Studio lifecycle implementation, 2026-10-20).
 - Source: owner clarification, 2026-10-16.
 
 ## [ISSUE-174] Verify built-in provider constraint updates across retained work
