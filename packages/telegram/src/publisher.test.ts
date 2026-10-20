@@ -303,3 +303,192 @@ test('verification errors and channel titles cannot return raw or encoded bot to
     expect(JSON.stringify(result)).not.toContain(token)
     expect(JSON.stringify(result)).not.toContain(encodeURIComponent(token))
 })
+
+function pollAcknowledgement(overrides: Record<string, unknown> = {}) {
+    return {
+        id: 'poll-1',
+        question: 'Choose',
+        options: [
+            { text: 'First', voter_count: 0 },
+            { text: 'Second', voter_count: 0 },
+        ],
+        total_voter_count: 0,
+        is_closed: false,
+        is_anonymous: true,
+        type: 'regular',
+        allows_multiple_answers: false,
+        ...overrides,
+    }
+}
+
+test('sends one anonymous regular poll and publishes only a confirmed acknowledgement', async () => {
+    const { client, calls } = fixture([
+        success({ message_id: 42, chat, poll: pollAcknowledgement() }),
+    ])
+    expect(
+        await client.send({
+            token,
+            chatId,
+            text: 'Choose',
+            poll: { options: ['First', 'Second'] },
+        })
+    ).toEqual({
+        type: 'published',
+        externalId: `${chatId}:42`,
+        externalUrl: 'https://t.me/example_channel/42',
+    })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url.endsWith('/sendPoll')).toBe(true)
+    expect(calls[0]?.init?.redirect).toBe('error')
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+        chat_id: chatId,
+        question: 'Choose',
+        options: [{ text: 'First' }, { text: 'Second' }],
+        is_anonymous: true,
+        type: 'regular',
+        allows_multiple_answers: false,
+    })
+})
+
+test('sends multiple answers and an auto-closing period only when they are requested', async () => {
+    const multiple = fixture([
+        success({
+            message_id: 7,
+            chat,
+            poll: pollAcknowledgement({ allows_multiple_answers: true }),
+        }),
+    ])
+    expect(
+        (
+            await multiple.client.send({
+                token,
+                chatId,
+                text: 'Choose',
+                poll: { options: ['First', 'Second'], multiple: true },
+            })
+        ).type
+    ).toBe('published')
+    expect(JSON.parse(String(multiple.calls[0]?.init?.body))).toEqual({
+        chat_id: chatId,
+        question: 'Choose',
+        options: [{ text: 'First' }, { text: 'Second' }],
+        is_anonymous: true,
+        type: 'regular',
+        allows_multiple_answers: true,
+    })
+    const closing = fixture([
+        success({
+            message_id: 8,
+            chat,
+            poll: pollAcknowledgement({ open_period: 60 }),
+        }),
+    ])
+    expect(
+        (
+            await closing.client.send({
+                token,
+                chatId,
+                text: 'Choose',
+                poll: { options: ['First', 'Second'], openPeriod: 60 },
+            })
+        ).type
+    ).toBe('published')
+    expect(JSON.parse(String(closing.calls[0]?.init?.body))).toEqual({
+        chat_id: chatId,
+        question: 'Choose',
+        options: [{ text: 'First' }, { text: 'Second' }],
+        is_anonymous: true,
+        type: 'regular',
+        allows_multiple_answers: false,
+        open_period: 60,
+    })
+})
+
+test('refuses invalid polls and polls with media before any external request', async () => {
+    const invalid = [
+        { text: '', poll: { options: ['First'] } },
+        { text: '   ', poll: { options: ['First'] } },
+        { text: 'x'.repeat(301), poll: { options: ['First'] } },
+        { text: 'Choose', poll: { options: ['', 'Second'] } },
+        { text: 'Choose', poll: { options: ['x'.repeat(101)] } },
+        { text: 'Choose', poll: { options: [] } },
+        { text: 'Choose', poll: { options: Array.from({ length: 13 }, (_, i) => `O${i}`) } },
+        { text: 'Choose', poll: { options: ['First'], multiple: 'true' } },
+        { text: 'Choose', poll: { options: ['First'], openPeriod: 4 } },
+        { text: 'Choose', poll: { options: ['First'], openPeriod: 5.5 } },
+        { text: 'Choose', poll: { options: ['First'], openPeriod: 2628001 } },
+    ]
+    for (const input of invalid) {
+        const { client, calls } = fixture([])
+        expect((await client.send({ token, chatId, ...(input as { text: string }) })).type).toBe(
+            'permanent_failure'
+        )
+        expect(calls).toHaveLength(0)
+    }
+    const withMedia = fixture([])
+    expect(
+        (
+            await withMedia.client.send({
+                token,
+                chatId,
+                text: 'Choose',
+                media: media(),
+                poll: { options: ['First'] },
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(withMedia.calls).toHaveLength(0)
+})
+
+test('treats a lost or different poll acknowledgement as ambiguous and never replays', async () => {
+    for (const response of [
+        success({ message_id: 42, chat }),
+        success({ message_id: 42, chat, poll: pollAcknowledgement({ id: '' }) }),
+        success({ message_id: 42, chat, poll: pollAcknowledgement({ question: 'Other' }) }),
+        success({ message_id: 42, chat, poll: pollAcknowledgement({ is_anonymous: false }) }),
+        success({ message_id: 42, chat, poll: pollAcknowledgement({ type: 'quiz' }) }),
+        success({
+            message_id: 42,
+            chat,
+            poll: pollAcknowledgement({ allows_multiple_answers: true }),
+        }),
+        success({
+            message_id: 42,
+            chat,
+            poll: pollAcknowledgement({ options: [{ text: 'First' }] }),
+        }),
+        success({ message_id: 42, chat, poll: pollAcknowledgement({ id: token }) }),
+        success({ message_id: 42, chat: { ...chat, id: -9 }, poll: pollAcknowledgement() }),
+        new Error(`Fetch failed at /bot${token}`),
+        rejection(500),
+    ]) {
+        const { client, calls } = fixture([response])
+        const outcome = await client.send({
+            token,
+            chatId,
+            text: 'Choose',
+            poll: { options: ['First', 'Second'] },
+        })
+        expect(outcome.type).toBe('ambiguous')
+        expect(JSON.stringify(outcome)).not.toContain(token)
+        expect(calls).toHaveLength(1)
+    }
+})
+
+test('classifies a rejected poll without leaking provider descriptions or tokens', async () => {
+    for (const response of [rejection(400), rejection(401), rejection(403)]) {
+        const { client, calls } = fixture([response])
+        const outcome = await client.send({
+            token,
+            chatId,
+            text: 'Choose',
+            poll: { options: ['First', 'Second'] },
+        })
+        expect(outcome.type).toBe('permanent_failure')
+        if (response.status === 401)
+            expect(outcome).toMatchObject({ code: 'authentication_required' })
+        if (response.status === 403) expect(outcome).toMatchObject({ code: 'forbidden' })
+        expect(JSON.stringify(outcome)).not.toContain(token)
+        expect(calls).toHaveLength(1)
+    }
+})

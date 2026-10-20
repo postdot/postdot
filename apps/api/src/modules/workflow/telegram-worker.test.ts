@@ -35,10 +35,14 @@ const scenarios = [
     { outcome: 'published', media: 'video' },
     { outcome: 'ambiguous', media: 'photo' },
     { outcome: 'retry', media: 'video' },
+    { outcome: 'published', media: null, poll: true },
+    { outcome: 'ambiguous', media: null, poll: true },
 ] as const
 
-for (const { outcome: scenario, media: mediaKind } of scenarios) {
-    test(`Telegram worker persists ${mediaKind ?? 'text'} ${scenario} without replaying completed work`, async () => {
+for (const entry of scenarios) {
+    const { outcome: scenario, media: mediaKind } = entry
+    const poll = 'poll' in entry && entry.poll
+    test(`Telegram worker persists ${poll ? 'poll' : (mediaKind ?? 'text')} ${scenario} without replaying completed work`, async () => {
         const database = createDatabase(':memory:')
         runMigrations(database)
         const now = 1_800_000_000_000
@@ -157,7 +161,19 @@ for (const { outcome: scenario, media: mediaKind } of scenarios) {
                         channelId: channel.id,
                         deliveryMode: 'automatic',
                         scheduledAt: now,
-                        targetContent: { text: 'Hello Telegram', media: references },
+                        targetContent: {
+                            text: 'Hello Telegram',
+                            media: references,
+                            ...(poll
+                                ? {
+                                      poll: {
+                                          options: ['Updates', 'Tutorials'],
+                                          multiple: true,
+                                          openPeriod: 3600,
+                                      },
+                                  }
+                                : {}),
+                        },
                     },
                 ],
             })
@@ -198,6 +214,24 @@ for (const { outcome: scenario, media: mediaKind } of scenarios) {
                                         ok: true,
                                         result: {
                                             message_id: 42,
+                                            ...(poll
+                                                ? {
+                                                      poll: {
+                                                          id: 'poll-42',
+                                                          question: 'Hello Telegram',
+                                                          options: [
+                                                              { text: 'Updates', voter_count: 0 },
+                                                              { text: 'Tutorials', voter_count: 0 },
+                                                          ],
+                                                          is_anonymous: true,
+                                                          type: 'regular',
+                                                          allows_multiple_answers: true,
+                                                          is_closed: false,
+                                                          total_voter_count: 0,
+                                                          open_period: 3600,
+                                                      },
+                                                  }
+                                                : {}),
                                             ...(mediaKind === 'video'
                                                 ? { video: { file_id: 'remote-video-42' } }
                                                 : mediaKind === 'photo'
@@ -283,6 +317,17 @@ for (const { outcome: scenario, media: mediaKind } of scenarios) {
                         expect(file).toBeInstanceOf(Blob)
                         expect(file.type).toBe(mediaKind === 'video' ? 'video/mp4' : 'image/png')
                         expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes)
+                    } else if (poll) {
+                        expect(request.url.endsWith('/sendPoll')).toBe(true)
+                        expect(JSON.parse(String(request.body))).toEqual({
+                            chat_id: '-1001234567890',
+                            question: 'Hello Telegram',
+                            options: [{ text: 'Updates' }, { text: 'Tutorials' }],
+                            is_anonymous: true,
+                            type: 'regular',
+                            allows_multiple_answers: true,
+                            open_period: 3600,
+                        })
                     } else {
                         expect(JSON.parse(String(request.body))).toEqual({
                             chat_id: '-1001234567890',

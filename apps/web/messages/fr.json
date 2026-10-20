@@ -2367,5 +2367,10 @@
     "poll_minutes": "{count} minutes",
     "poll_seconds": "{count} secondes",
     "poll_one_day": "1 jour",
-    "poll_one_hour": "1 heure"
+    "poll_one_hour": "1 heure",
+    "telegram_poll_question_hint": "Le texte du message est la question du sondage.",
+    "telegram_poll_no_media": "Un sondage Telegram ne peut pas être publié avec des pièces jointes.",
+    "telegram_poll_anonymous": "Réponses anonymes",
+    "telegram_poll_no_closing": "Aucune clôture automatique",
+    "telegram_poll_invalid": "Saisissez une question de 300 caractères maximum et 1 à 12 réponses de 100 caractères maximum."
 }

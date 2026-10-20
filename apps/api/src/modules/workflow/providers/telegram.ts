@@ -5,6 +5,8 @@ import {
     createTelegramPublisher,
     isTelegramChannelId,
     TELEGRAM_EXECUTION_REVISION,
+    TELEGRAM_POLL_EXECUTION_REVISION,
+    readTelegramPoll,
     telegramChannelProfileValidationAdapter,
     TELEGRAM_MAX_PHOTO_BYTES,
     TELEGRAM_MAX_VIDEO_BYTES,
@@ -16,18 +18,26 @@ import { openVerifiedPinnedMedia } from './media-integrity'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
 export function createTelegramProviderAdapter(
-    options: { readonly createPublisher?: () => ReturnType<typeof createTelegramPublisher> } = {}
+    options: {
+        readonly revision?:
+            | typeof TELEGRAM_EXECUTION_REVISION
+            | typeof TELEGRAM_POLL_EXECUTION_REVISION
+        readonly createPublisher?: () => ReturnType<typeof createTelegramPublisher>
+    } = {}
 ): BuiltInProviderAdapter {
+    const revision = options.revision ?? TELEGRAM_POLL_EXECUTION_REVISION
     return {
         providerId: 'telegram',
         contractId: 'telegram',
-        revision: TELEGRAM_EXECUTION_REVISION,
-        execute: input => execute(input, options.createPublisher ?? createTelegramPublisher),
+        revision,
+        execute: input =>
+            execute(input, revision, options.createPublisher ?? createTelegramPublisher),
     }
 }
 
 async function execute(
     input: BuiltInProviderExecutionInput,
+    revision: typeof TELEGRAM_EXECUTION_REVISION | typeof TELEGRAM_POLL_EXECUTION_REVISION,
     createPublisher: () => ReturnType<typeof createTelegramPublisher>
 ): Promise<ExternalEffectOutcome> {
     const { target } = input
@@ -35,6 +45,10 @@ async function execute(
     if (destination?.type !== 'channel' || !isTelegramChannelId(destination.id))
         return permanentFailure('The Telegram channel destination is unavailable')
     if (
+        target.profile.execution.kind !== 'built_in' ||
+        target.profile.execution.contractId !== 'telegram' ||
+        target.profile.execution.revision !== revision ||
+        (revision === TELEGRAM_EXECUTION_REVISION && target.content.poll !== undefined) ||
         typeof target.content.text !== 'string' ||
         !Array.isArray(target.content.media) ||
         target.media.length > 1 ||
@@ -43,6 +57,10 @@ async function execute(
         telegramChannelProfileValidationAdapter.validate(target.profile, target.content).length > 0
     )
         return permanentFailure('The Telegram execution content is invalid')
+    const poll =
+        target.content.poll === undefined ? undefined : readTelegramPoll(target.content.poll)
+    if (poll === null || (poll !== undefined && target.media.length > 0))
+        return permanentFailure('The Telegram poll content is invalid')
     const secrets = await input.credentials.resolvePublisherCredentialSecrets(
         target.projectId,
         target.credentialId
@@ -126,6 +144,7 @@ async function execute(
             chatId: destination.id,
             text: target.content.text,
             media,
+            ...(poll === undefined ? {} : { poll }),
         })
     } catch {
         if (deliveryId) failDelivery(input, deliveryId, true, 'unknown_result')

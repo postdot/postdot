@@ -14,6 +14,7 @@ import { mastodonPollDuration } from '@/components/mastodon-poll-control'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { PublicationArticleBody } from '@/components/publication-article-body'
 import { PublicationDiscordBody } from '@/components/publication-discord-body'
+import { TelegramPollPreview } from '@/components/telegram-poll-preview'
 import type { Channel, ChannelListItem, MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getNativePlatform } from '@/lib/native-presentation'
@@ -213,6 +214,7 @@ export function PublicationDraftPreview({
                             ) : null}
                         </div>
                     ) : null}
+                    {platform === 'telegram' ? <TelegramPollPreview poll={pollValue} /> : null}
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"

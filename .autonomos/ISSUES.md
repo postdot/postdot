@@ -4294,7 +4294,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: Existing profiles expose provider-specific fields. MASTODON-533 adds native polls with typed destination controls, preview and instance-limit validation. The owner also requests questions and hashtag integration; broader provider formats remain open.
 - Desired outcome: Discover feasible formats per provider and expose typed editor controls, validation, preview and execution. Distinguish plain questions from native polls and provider hashtags from internal tags; do not force identical support across networks.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery); MASTODON-533 (owner-authorized native Mastodon polls). Other formats remain proposed.
+- Tasks: PRODUCT-477 (discovery); MASTODON-533 (owner-authorized native Mastodon polls); TELEGRAM-541 (ordinary anonymous Telegram polls, typed authoring and durable delivery, synthetic acceptance). [Current provider coverage](../docs/project/provider-capabilities.md). Other formats remain proposed.
 - Source: owner product direction, 2026-10-16.
 
 ## [ISSUE-170] Preserve user-defined organization through free publication tags

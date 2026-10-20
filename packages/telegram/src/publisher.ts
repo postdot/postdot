@@ -1,5 +1,7 @@
 import type { ExternalEffectOutcome } from '@postbot/core'
 
+import { telegramPollError, type TelegramPollInput } from './poll'
+
 export const TELEGRAM_MAX_TEXT_LENGTH = 4096
 export const TELEGRAM_MAX_CAPTION_LENGTH = 1024
 // Conservative decimal byte ceilings within the documented 10/50 MB limits.
@@ -45,6 +47,11 @@ export interface TelegramSendInput {
     readonly chatId: string
     readonly text: string
     readonly media?: TelegramMedia
+    /**
+     * An optional native poll. When present, `text` is the poll question and
+     * media is refused instead of dropped.
+     */
+    readonly poll?: TelegramPollInput
 }
 export type TelegramFetcher = (
     input: string | URL | Request,
@@ -152,6 +159,54 @@ export function createTelegramPublisher(
         }
     }
 
+    /**
+     * Send one native poll.
+     *
+     * The poll replaces the message body, so the publication text is the poll
+     * question and media is refused rather than dropped. The provider
+     * acknowledgement must confirm the poll before the send counts as
+     * published; anything else stays ambiguous because the poll may exist.
+     */
+    async function sendPoll(
+        input: TelegramSendInput,
+        poll: TelegramPollInput
+    ): Promise<TelegramPublishOutcome> {
+        if (input.media !== undefined)
+            return failure('A Telegram poll cannot carry media attachments').outcome
+        const invalid = telegramPollError(input.text, poll)
+        if (invalid !== null) return failure(invalid).outcome
+        const body: Record<string, unknown> = {
+            chat_id: input.chatId,
+            question: input.text,
+            options: poll.options.map(text => ({ text })),
+            is_anonymous: true,
+            type: 'regular',
+            allows_multiple_answers: poll.multiple ?? false,
+            ...(poll.openPeriod === undefined ? {} : { open_period: poll.openPeriod }),
+        }
+        const sent = await call(input.token, 'sendPoll', body, true)
+        if (!sent.ok) return sent.outcome
+        if (
+            !record(sent.value) ||
+            !positiveId(sent.value.message_id) ||
+            !record(sent.value.chat) ||
+            String(sent.value.chat.id) !== input.chatId ||
+            sent.value.chat.type !== 'channel'
+        )
+            return unknownResult(true).outcome
+        if (!acknowledgesPoll(sent.value.poll, input.text, poll, input.token))
+            return unknownResult(true).outcome
+        const messageId = sent.value.message_id
+        const externalUrl = username(sent.value.chat.username)
+            ? `https://t.me/${sent.value.chat.username}/${messageId}`
+            : undefined
+        return {
+            type: 'published',
+            externalId: `${input.chatId}:${messageId}`,
+            ...(externalUrl ? { externalUrl } : {}),
+        }
+    }
+
     return {
         async verifyChannel(
             token: string,
@@ -232,6 +287,8 @@ export function createTelegramPublisher(
             )
                 return failure('Telegram message input is invalid').outcome
             const media = input.media
+            const poll = input.poll
+            if (poll !== undefined) return sendPoll(input, poll)
             // Plain text uses a conservative UTF-16 ceiling, including astral characters.
             if (
                 input.text.length >
@@ -306,6 +363,32 @@ export function createTelegramPublisher(
     }
 }
 
+/**
+ * Confirm that the provider acknowledged the poll that was requested.
+ *
+ * The acknowledgement must carry the poll identity, the same question and
+ * options, and the anonymity, type, and answer mode that were sent. A partial
+ * or different acknowledgement leaves the poll unproven.
+ */
+function acknowledgesPoll(
+    value: unknown,
+    question: string,
+    poll: TelegramPollInput,
+    token: string
+): boolean {
+    if (!record(value)) return false
+    if (typeof value.id !== 'string' || !value.id.trim()) return false
+    if (value.id.includes(token) || value.id.includes(encodeURIComponent(token))) return false
+    if (value.question !== question) return false
+    if (value.is_anonymous !== true) return false
+    if (value.type !== 'regular') return false
+    if (value.allows_multiple_answers !== (poll.multiple ?? false)) return false
+    if (!Array.isArray(value.options)) return false
+    if (value.options.length !== poll.options.length) return false
+    return value.options.every(
+        (option, index) => record(option) && option.text === poll.options[index]
+    )
+}
 function validMedia(media: TelegramMedia) {
     if (!(media.blob instanceof Blob)) return false
     const photo = ['image/jpeg', 'image/png'].includes(media.blob.type)

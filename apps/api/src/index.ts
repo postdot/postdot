@@ -28,6 +28,7 @@ import {
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
 } from '@postbot/mastodon'
+import { TELEGRAM_EXECUTION_REVISION } from '@postbot/telegram'
 
 import { createApp } from './app'
 import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
@@ -296,6 +297,7 @@ async function startServerWithRuntimeLock(
         createDiscordProviderAdapter({ revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION }),
         createDiscordProviderAdapter(),
         createTelegramProviderAdapter(),
+        createTelegramProviderAdapter({ revision: TELEGRAM_EXECUTION_REVISION }),
         createFacebookProviderAdapter(),
         createInstagramProviderAdapter({
             createPublisher: () => createInstagramPublisher({ fetcher: mastodonFetcher }),

@@ -1,4 +1,5 @@
 import { readMastodonPoll } from '@postbot/mastodon/poll'
+import { readTelegramPoll } from '@postbot/telegram/poll'
 import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
 import { Field, FieldLabel } from '@postbot/ui/components/field'
 import { Textarea } from '@postbot/ui/components/textarea'
@@ -8,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { mastodonPollDuration } from '@/components/mastodon-poll-control'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { telegramPollDuration } from '@/components/telegram-poll-control'
 import { useLanguage } from '@/lib/i18n'
 import {
     getTargetEditorFields,
@@ -66,6 +68,14 @@ export function PublicationTargetEditor({
         if (target === null) return
         onTargetChange(updateTargetField(target, field.path, value))
     }
+
+    const question = useMemo(() => {
+        if (target === null) return ''
+        const field = fields.find(candidate => candidate.semantic === 'primary_text')
+        if (field === undefined) return ''
+        const value = readTargetField(target, field.path)
+        return typeof value === 'string' ? value : ''
+    }, [fields, target])
 
     return (
         <div data-target-editor="true" className="min-w-0">
@@ -138,6 +148,7 @@ export function PublicationTargetEditor({
                                 }
                                 disabled={disabled || target === null}
                                 compact={compact}
+                                question={question}
                                 onChange={value => updateField(field, value)}
                             />
                         )
@@ -220,6 +231,19 @@ function formatReadOnlyValue(value: unknown, field: TargetEditorField): string {
                   m.poll_closes_after({ duration: mastodonPollDuration(poll.expiresIn) }),
                   ...(poll.multiple ? [m.poll_multiple()] : []),
                   ...(poll.hideTotals ? [m.poll_hide_totals()] : []),
+              ].join('\n')
+            : '—'
+    }
+    if (field.kind === 'telegram-poll') {
+        const poll = readTelegramPoll(value)
+        return poll
+            ? [
+                  ...poll.options.map((option, index) => `${index + 1}. ${option}`),
+                  m.telegram_poll_anonymous(),
+                  ...(poll.multiple ? [m.poll_multiple()] : []),
+                  poll.openPeriod === undefined
+                      ? m.telegram_poll_no_closing()
+                      : m.poll_closes_after({ duration: telegramPollDuration(poll.openPeriod) }),
               ].join('\n')
             : '—'
     }

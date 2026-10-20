@@ -51,6 +51,7 @@ export function ChannelComposerPreview({
                                 value={readTargetField(target, field.path)}
                                 disabled={disabled}
                                 compact
+                                question={value}
                                 onChange={next =>
                                     onChange(updateTargetField(target, field.path, next))
                                 }

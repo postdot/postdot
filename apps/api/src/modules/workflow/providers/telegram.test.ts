@@ -2,7 +2,12 @@ import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 
 import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postbot/db'
-import { createTelegramPublisher, telegramChannelProfile } from '@postbot/telegram'
+import {
+    createTelegramPublisher,
+    telegramChannelProfile,
+    telegramMessageChannelProfile,
+    TELEGRAM_EXECUTION_REVISION,
+} from '@postbot/telegram'
 
 import type { BuiltInProviderExecutionInput, ProviderMediaDeliveryPort } from './registry'
 import { createTelegramProviderAdapter } from './telegram'
@@ -277,4 +282,42 @@ test('missing media identity and failed completion remain ambiguous without a se
     expect(failed.state.state).toBe('uploading')
     expect((await failed.adapter.execute(failed.input)).type).toBe('ambiguous')
     expect(failed.sends).toBe(1)
+})
+
+test('keeps message-v1 delivery executable and refuses poll content on that revision', async () => {
+    const item = fixture()
+    let sends = 0
+    const legacy = createTelegramProviderAdapter({
+        revision: TELEGRAM_EXECUTION_REVISION,
+        createPublisher: () =>
+            createTelegramPublisher({
+                fetcher: async () => {
+                    sends++
+                    return Response.json({
+                        ok: true,
+                        result: {
+                            message_id: 42,
+                            chat: { id: -1001234567890, type: 'channel' },
+                        },
+                    })
+                },
+            }),
+    })
+    const target = { ...item.input.target, profile: telegramMessageChannelProfile }
+    expect((await legacy.execute({ ...item.input, target })).type).toBe('published')
+    expect(sends).toBe(1)
+    expect(
+        (
+            await legacy.execute({
+                ...item.input,
+                target: {
+                    ...target,
+                    content: { text: 'Question?', media: [], poll: { options: ['Yes', 'No'] } },
+                },
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(sends).toBe(1)
+    expect((await item.adapter.execute({ ...item.input, target })).type).toBe('permanent_failure')
+    expect(item.sends).toBe(0)
 })

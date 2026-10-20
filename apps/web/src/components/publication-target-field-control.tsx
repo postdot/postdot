@@ -17,6 +17,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { MastodonPollControl } from '@/components/mastodon-poll-control'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
+import { TelegramPollControl } from '@/components/telegram-poll-control'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { countComposerText } from '@/lib/composer-text-constraints'
 import { formatNumber } from '@/lib/format'
@@ -44,6 +45,7 @@ interface TargetFieldControlProps {
     readonly value: unknown
     readonly disabled: boolean
     readonly compact?: boolean
+    readonly question?: string
     readonly onChange: (value: unknown | undefined) => void
 }
 
@@ -55,6 +57,7 @@ export function TargetFieldControl({
     value,
     disabled,
     compact = false,
+    question = '',
     onChange,
 }: TargetFieldControlProps) {
     const { locale } = useLanguage()
@@ -84,6 +87,18 @@ export function TargetFieldControl({
                 fieldId={fieldId}
                 value={value}
                 disabled={disabled}
+                onChange={onChange}
+                error={error}
+            />
+        )
+
+    if (field.kind === 'telegram-poll')
+        return (
+            <TelegramPollControl
+                fieldId={fieldId}
+                value={value}
+                disabled={disabled}
+                question={question}
                 onChange={onChange}
                 error={error}
             />

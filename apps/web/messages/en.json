@@ -2367,5 +2367,10 @@
     "poll_minutes": "{count} minutes",
     "poll_seconds": "{count} seconds",
     "poll_one_day": "1 day",
-    "poll_one_hour": "1 hour"
+    "poll_one_hour": "1 hour",
+    "telegram_poll_question_hint": "The message text is the poll question.",
+    "telegram_poll_no_media": "A Telegram poll cannot be published with attachments.",
+    "telegram_poll_anonymous": "Anonymous answers",
+    "telegram_poll_no_closing": "No automatic closing",
+    "telegram_poll_invalid": "Enter a question of up to 300 characters and 1 to 12 answers of up to 100 characters."
 }

@@ -1,6 +1,7 @@
 import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@postbot/x/text'
 
 import { getNativeEditorProfile } from '@/lib/native-presentation'
+import { isTelegramPollProfile } from '@/lib/telegram-poll'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
 
@@ -19,6 +20,7 @@ export function getTargetEditorProfile(profile: unknown) {
 
 export type TargetEditorFieldKind =
     | 'mastodon-poll'
+    | 'telegram-poll'
     | 'text'
     | 'number'
     | 'boolean'
@@ -119,6 +121,25 @@ export function getTargetEditorFields(
                 capabilities
             ),
             kind: 'mastodon-poll',
+            label: m.poll_title({}, { locale }),
+        })
+    }
+
+    if (
+        isTelegramPollProfile(profile) &&
+        schema !== null &&
+        resolveSchemaAtPath(schema, '/poll') !== null
+    ) {
+        for (let index = fields.length - 1; index >= 0; index--)
+            if (fields[index]!.path === '/poll' || fields[index]!.path.startsWith('/poll/'))
+                fields.splice(index, 1)
+        fields.push({
+            ...createField(
+                schema,
+                { id: 'schema:/poll', path: '/poll', semantic: 'provider_field' },
+                capabilities
+            ),
+            kind: 'telegram-poll',
             label: m.poll_title({}, { locale }),
         })
     }
