@@ -48,6 +48,10 @@ import { createPublicMediaRoutes } from './modules/media/public-routes'
 import type { MediaUrlImporter } from './modules/media/url-import'
 import { createMetricsRoutes } from './modules/metrics/routes'
 import { createProjectModule } from './modules/projects'
+import {
+    createPublicationRepliesService,
+    type PublicationRepliesService,
+} from './modules/projects/publication-replies-service'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './modules/projects/realtime-runtime'
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
 import type { PublisherRuntime } from './modules/publishers/runtime'
@@ -90,6 +94,7 @@ export interface PostbotAppOptions {
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
     readonly taxonomy?: TaxonomyStore
+    readonly publicationReplies?: PublicationRepliesService
     readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly mastodonCommentsReader?: MastodonThreadReader
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
@@ -122,6 +127,7 @@ function createDomainApp({
     analytics,
     providerAnalytics,
     taxonomy,
+    publicationReplies,
     blueskyCommentsReader,
     mastodonCommentsReader,
     blueskyAnalyticsFetcher,
@@ -305,6 +311,8 @@ function createDomainApp({
                 publicationComments: createPublicationCommentStore(database),
                 providerAnalytics: providerAnalyticsStore,
                 taxonomy: taxonomyStore,
+                publicationReplies:
+                    publicationReplies ?? createPublicationRepliesService({ database, publisher }),
                 blueskyCommentsReader,
                 mastodonCommentsReader,
                 blueskyAnalyticsFetcher,
@@ -348,6 +356,7 @@ export function createApp({
     analytics,
     providerAnalytics,
     taxonomy,
+    publicationReplies,
     blueskyCommentsReader,
     mastodonCommentsReader,
     blueskyAnalyticsFetcher,
@@ -382,6 +391,7 @@ export function createApp({
         analytics,
         providerAnalytics,
         taxonomy,
+        publicationReplies,
         blueskyCommentsReader,
         mastodonCommentsReader,
         blueskyAnalyticsFetcher,

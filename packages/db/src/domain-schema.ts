@@ -2856,3 +2856,64 @@ export const publicationCommentSnapshots = sqliteTable(
         ),
     ]
 )
+
+/** Outgoing conversation effects are independent from publication drafts and calendar entries. */
+export const publicationCommentReplies = sqliteTable(
+    'publication_comment_replies',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id').notNull(),
+        publicationId: text('publication_id').notNull(),
+        actorId: text('actor_id').notNull(),
+        rootUri: text('root_uri').notNull(),
+        parentUri: text('parent_uri').notNull(),
+        text: text('text').notNull(),
+        connectionId: text('connection_id').notNull(),
+        credentialId: text('credential_id').notNull(),
+        accountDid: text('account_did').notNull(),
+        recordKey: text('record_key').notNull(),
+        state: text('state', {
+            enum: ['pending', 'running', 'sent', 'failed', 'ambiguous'],
+        }).notNull(),
+        attempts: integer('attempts').notNull().default(0),
+        claimToken: text('claim_token'),
+        leaseExpiresAt: integer('lease_expires_at'),
+        effectStartedAt: integer('effect_started_at'),
+        externalId: text('external_id'),
+        externalUrl: text('external_url'),
+        lastError: text('last_error'),
+        createdAt: integer('created_at').notNull(),
+        updatedAt: integer('updated_at').notNull(),
+    },
+    table => [
+        foreignKey({
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.projectId, table.actorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }),
+        index('publication_comment_replies_due').on(table.state, table.createdAt),
+        index('publication_comment_replies_history').on(
+            table.projectId,
+            table.publicationId,
+            table.createdAt
+        ),
+        uniqueIndex('publication_comment_replies_record').on(table.accountDid, table.recordKey),
+        check(
+            'publication_comment_replies_state_valid',
+            sql`${table.state} in ('pending', 'running', 'sent', 'failed', 'ambiguous')`
+        ),
+        check('publication_comment_replies_text_nonblank', sql`length(trim(${table.text})) > 0`),
+        check('publication_comment_replies_attempts_valid', sql`${table.attempts} >= 0`),
+        check(
+            'publication_comment_replies_time_valid',
+            sql`${table.createdAt} >= 0 and ${table.updatedAt} >= ${table.createdAt}`
+        ),
+        check(
+            'publication_comment_replies_claim_valid',
+            sql`(${table.state} = 'running' and ${table.claimToken} is not null and ${table.leaseExpiresAt} is not null) or (${table.state} != 'running' and ${table.claimToken} is null and ${table.leaseExpiresAt} is null)`
+        ),
+    ]
+)

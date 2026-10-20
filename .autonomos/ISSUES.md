@@ -4284,7 +4284,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: Bluesky and DEV.to collectors expose bounded observations. Reply/comment counts do not provide a conversation UI or reply execution path. The owner asks for richer information and comments.
 - Desired outcome: An explicit provider capability/read-access matrix and scoped stored-data workflows for useful metadata, metrics and comments. Treat reading, replying and moderation as distinct permissions and external effects; preserve metric meanings and freshness.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 and ENGAGEMENT-525 (discovery); BLUESKY-526 (public thread reader); ENGAGEMENT-530 (stored latest Bluesky comment snapshot, editor refresh and read-only Studio panel). ENGAGEMENT-531 extends the same public stored-view workflow to Mastodon. Further providers, replies and moderation remain outside the delivered slice.
+- Tasks: PRODUCT-477 and ENGAGEMENT-525 (discovery); BLUESKY-526 (public thread reader); ENGAGEMENT-530 (stored latest Bluesky comment snapshot, editor refresh and read-only Studio panel). ENGAGEMENT-531 extends the same public stored-view workflow to Mastodon. ENGAGEMENT-532 adds public text replies on Bluesky with conversation-owned history and durable send outcomes. Further providers and moderation remain outside the delivered slice.
 - Source: owner product direction, 2026-10-16.
 
 ## [ISSUE-169] Support provider-native publication formats and public text entities

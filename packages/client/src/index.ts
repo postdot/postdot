@@ -129,3 +129,5 @@ export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from 
 export type { SearchResponse } from '@postbot/api'
 
 export type { PublicationCommentsResponse }
+
+export type { PublicationRepliesResponse } from '@postbot/api'

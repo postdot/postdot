@@ -2,6 +2,10 @@ import { Button } from '@postbot/ui/components/button'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import {
+    PublicationRepliesPanel,
+    usePublicationReplies,
+} from '@/components/publication-replies-panel'
 import { api, ApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -23,6 +27,8 @@ export function PublicationCommentsPanel({
 }) {
     const { locale } = useLanguage()
     const [open, setOpen] = useState(false)
+    const [replyTo, setReplyTo] = useState<{ uri: string; handle: string | null } | null>(null)
+    const replies = usePublicationReplies(projectId, publicationId, open && provider === 'bluesky')
     const client = useQueryClient()
     const key = ['project', projectId, 'publication-comments', publicationId] as const
     const query = useQuery({
@@ -158,6 +164,23 @@ export function PublicationCommentsPanel({
                                                             <p className="mt-2 whitespace-pre-wrap break-words text-sm [overflow-wrap:anywhere]">
                                                                 {comment.text}
                                                             </p>
+                                                            {provider === 'bluesky' &&
+                                                            canRefresh &&
+                                                            replies.data?.pages[0]?.canReply &&
+                                                            replyTo === null ? (
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() =>
+                                                                        setReplyTo({
+                                                                            uri: comment.id,
+                                                                            handle: comment.authorHandle,
+                                                                        })
+                                                                    }>
+                                                                    {m.replies_reply()}
+                                                                </Button>
+                                                            ) : null}
                                                             {commentLinkAllowed(
                                                                 comment.externalUrl,
                                                                 provider,
@@ -183,6 +206,16 @@ export function PublicationCommentsPanel({
                             )}
                         </>
                     )}
+                    {provider === 'bluesky' ? (
+                        <PublicationRepliesPanel
+                            history={replies}
+                            projectId={projectId}
+                            publicationId={publicationId}
+                            canSend={canRefresh}
+                            parent={replyTo}
+                            onClose={() => setReplyTo(null)}
+                        />
+                    ) : null}
                 </div>
             ) : null}
         </details>

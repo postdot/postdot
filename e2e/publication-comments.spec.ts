@@ -102,6 +102,10 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             lastError: null,
         }
         await page.route(`**${publicationPath}/comments**`, async route => {
+            if (route.request().url().includes('/replies'))
+                return route.fulfill({
+                    json: { replies: [], nextBefore: null, canReply: false, accountName: null },
+                })
             if (route.request().method() === 'GET') {
                 commentReads++
                 await held

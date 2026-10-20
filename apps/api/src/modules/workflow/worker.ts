@@ -41,6 +41,7 @@ export interface PublicationWorkerRunObservation {
 }
 
 export interface PublicationWorkerOptions {
+    readonly replies?: { getNextEventAt(): number | null; processDueEvents(): Promise<void> }
     readonly database: PostbotDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
@@ -115,6 +116,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                     project.actorId !== null
             )
 
+        await options.replies?.processDueEvents()
         while (true) {
             let processedAny = false
 
@@ -152,7 +154,13 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
     }
 
     const scheduler = new NextEventScheduler({
-        getNextEventAt: workflowStore.getNextEventAt,
+        getNextEventAt: () => {
+            const times = [
+                workflowStore.getNextEventAt(),
+                options.replies?.getNextEventAt() ?? null,
+            ].filter((at): at is number => at !== null)
+            return times.length ? Math.min(...times) : null
+        },
         processDueEvents,
         onError: options.onError ?? defaultWorkerErrorHandler,
         clock: { now },

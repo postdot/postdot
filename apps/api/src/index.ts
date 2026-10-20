@@ -41,6 +41,7 @@ import { createMediaUrlImporter } from './modules/media/url-import'
 import { createPostbotMetrics } from './modules/metrics/metrics'
 import { createNotificationEmailRuntime } from './modules/notifications/email-runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
+import { createPublicationRepliesService } from './modules/projects/publication-replies-service'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
@@ -325,7 +326,9 @@ async function startServerWithRuntimeLock(
     ])
     const metricsConfiguration = config.metrics
     const metrics = metricsConfiguration === undefined ? undefined : createPostbotMetrics()
+    const publicationReplies = createPublicationRepliesService({ database, publisher })
     const worker = createPublicationWorker({
+        replies: publicationReplies,
         database,
         publisherStore: publisher.publisherStore,
         publisherCredentialStore: publisher.credentialStore,
@@ -352,6 +355,7 @@ async function startServerWithRuntimeLock(
         await emailRuntime?.stop()
     }
     const baseApp = createApp({
+        publicationReplies,
         mastodonCommentsReader: createMastodonThreadReader({ fetcher: mastodonFetcher }),
         recovery,
         auth,
@@ -441,3 +445,5 @@ if (import.meta.main) {
 export type { SearchResponse } from './modules/projects/search-routes'
 
 export type { PublicationCommentsResponse } from './modules/projects/publication-comments-models'
+
+export type { PublicationRepliesResponse } from './modules/projects/publication-replies-routes'

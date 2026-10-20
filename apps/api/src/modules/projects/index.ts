@@ -42,6 +42,8 @@ import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
 import { registerPublicationCommentsRoutes } from './publication-comments-routes'
+import { registerPublicationRepliesRoutes } from './publication-replies-routes'
+import type { PublicationRepliesService } from './publication-replies-service'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
@@ -80,6 +82,7 @@ export interface ProjectModuleOptions {
     }
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
+    readonly publicationReplies: PublicationRepliesService
     readonly publicationComments: PublicationCommentStore
     readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly mastodonCommentsReader?: MastodonThreadReader
@@ -233,7 +236,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         mastodonReader: options.mastodonCommentsReader,
         now: options.now,
     })
-    const auditRoutes = registerAuditEventRoutes(commentRoutes, options.manualStore)
+    const replyRoutes = registerPublicationRepliesRoutes(commentRoutes, {
+        replies: options.publicationReplies,
+        access: options.access,
+        onWorkScheduled: options.onWorkScheduled,
+    })
+    const auditRoutes = registerAuditEventRoutes(replyRoutes, options.manualStore)
     return registerRealtimeRoutes(
         auditRoutes,
         options.eventJournal,

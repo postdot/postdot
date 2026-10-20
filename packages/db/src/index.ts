@@ -354,3 +354,4 @@ export type { SearchResult } from './manual-store/search-store'
 
 export { createPublicationCommentStore } from './publication-comment-store'
 export type { PublicationCommentStore, PublicationCommentRecord } from './publication-comment-store'
+export * from './publication-reply-store'

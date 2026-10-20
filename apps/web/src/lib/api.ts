@@ -1,3 +1,4 @@
+import type { PublicationRepliesResponse } from '@postbot/client'
 import {
     createPostbotClient,
     type SearchResponse,
@@ -785,6 +786,30 @@ export const api = {
         )
     },
 
+    async getPublicationReplies(
+        projectId: string,
+        publicationId: string,
+        before?: string
+    ): Promise<PublicationRepliesResponse> {
+        return unwrap<PublicationRepliesResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .comments.replies.get({ query: { before } })
+        )
+    },
+    async sendPublicationReply(
+        projectId: string,
+        publicationId: string,
+        body: { requestId: string; parentUri: string; text: string }
+    ): Promise<PublicationRepliesResponse> {
+        return unwrap<PublicationRepliesResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .comments.replies.post(body)
+        )
+    },
     async getPublicationComments(
         projectId: string,
         publicationId: string
