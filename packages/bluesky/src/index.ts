@@ -1,6 +1,7 @@
 export * from './channel-profile'
 export * from './contract'
 export * from './analytics'
+export * from './thread-reader'
 export * from './oauth'
 export * from './publisher'
 export * from './video'
