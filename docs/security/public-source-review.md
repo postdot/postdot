@@ -108,3 +108,11 @@ Complete BRAND-551's namespace and identity plan alongside launch preparation.
 The owner reports reserving postdot.app, the npm postdot namespace, the GitHub
 postdot organization and Docker Hub ID postdot. None implies a package or image
 release. No serious confirmed exposure currently justifies rewriting history.
+
+## Publication outcome
+
+On 2026-10-22 the owner explicitly authorized the push and visibility change.
+PUBLIC-554 published the reviewed main at 50a781200 on the existing postdot/postdot
+repository, preserving repository identity and history. Public API metadata and
+the repository page were verified without authentication. Site deployment and
+package/image releases remain separate and were not performed.
