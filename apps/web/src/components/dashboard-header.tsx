@@ -1,12 +1,12 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
-import { SidebarTrigger } from '@postbot/ui/components/sidebar'
+} from '@postdot/ui/components/dropdown-menu'
+import { SidebarTrigger } from '@postdot/ui/components/sidebar'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'

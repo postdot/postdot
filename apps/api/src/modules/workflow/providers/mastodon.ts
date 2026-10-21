@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublisherExecutionTarget } from '@postbot/db'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublisherExecutionTarget } from '@postdot/db'
 import {
     MASTODON_EXECUTION_CONTRACT_REVISION,
     type MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
@@ -16,8 +16,8 @@ import {
     type MastodonFetcher,
     type MastodonPublisher,
     type MastodonPublishOutcome,
-} from '@postbot/mastodon'
-import { clientSecretPost, refreshAccessToken } from '@postbot/oauth'
+} from '@postdot/mastodon'
+import { clientSecretPost, refreshAccessToken } from '@postdot/oauth'
 
 import {
     parseProviderSession,

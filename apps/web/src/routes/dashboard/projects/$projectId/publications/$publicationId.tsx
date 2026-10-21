@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useQuery } from '@tanstack/react-query'
 import {

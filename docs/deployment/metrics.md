@@ -1,6 +1,6 @@
 # Prometheus metrics
 
-Postbot's Prometheus endpoint is opt-in and disabled by default. When enabled,
+Postdot's Prometheus endpoint is opt-in and disabled by default. When enabled,
 `GET /metrics` requires a dedicated bearer token; it does not accept a user API
 key or browser session.
 
@@ -15,11 +15,11 @@ POSTBOT_METRICS_TOKEN=<random-secret-token>
 ```
 
 For example, `openssl rand -hex 32` generates a 64-character token. Do not put
-the token in source control, a public URL, or a query parameter. Restart Postbot
+the token in source control, a public URL, or a query parameter. Restart Postdot
 after changing these settings. If metrics are enabled without a valid token,
-Postbot refuses to start.
+Postdot refuses to start.
 
-To disable metrics, set `POSTBOT_METRICS_ENABLED=false` and restart Postbot. The
+To disable metrics, set `POSTBOT_METRICS_ENABLED=false` and restart Postdot. The
 route is then absent and responds with `404`.
 
 ## Network boundary and scraping
@@ -48,7 +48,7 @@ The file named by `credentials_file` contains the same token configured as
 `POSTBOT_METRICS_TOKEN`. An unauthorized scrape receives `401`; a successful
 scrape returns Prometheus text exposition.
 
-## What Postbot records
+## What Postdot records
 
 Metrics are held in process memory and reset when the API restarts. The current
 bounded set covers:

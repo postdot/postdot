@@ -4,7 +4,7 @@ import {
     requireNonBlank,
     type CreateDomainEventInput,
     type DomainEvent,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,

@@ -1,4 +1,4 @@
-import { Field as UiField, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
+import { Field as UiField, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
 import type { ReactNode } from 'react'
 
 export function DashboardFormField({

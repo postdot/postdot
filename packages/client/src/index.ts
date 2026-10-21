@@ -1,5 +1,5 @@
 import { treaty, type Treaty } from '@elysiajs/eden'
-import type { PostbotApp } from '@postbot/api'
+import type { PostbotApp } from '@postdot/api'
 import type {
     AuditEventResponse,
     ChannelResponse,
@@ -48,7 +48,7 @@ import type {
     ProviderAnalyticsObservation,
     ProjectCategoryResponse,
     ProjectTagResponse,
-} from '@postbot/api'
+} from '@postdot/api'
 
 type PostbotFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
@@ -126,12 +126,12 @@ export type MastodonAnalyticsCollection = MastodonAnalyticsCollectionResponse
 
 export type EmailAlertPreference = EmailAlertPreferenceResponse
 
-export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@postbot/api'
+export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@postdot/api'
 
-export type { SearchResponse } from '@postbot/api'
+export type { SearchResponse } from '@postdot/api'
 
 export type { PublicationCommentsResponse }
 
-export type { PublicationRepliesResponse } from '@postbot/api'
+export type { PublicationRepliesResponse } from '@postdot/api'
 
-export type { PublicationFirstCommentResponse, PublicationFirstCommentItem } from '@postbot/api'
+export type { PublicationFirstCommentResponse, PublicationFirstCommentItem } from '@postdot/api'

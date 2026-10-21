@@ -5,7 +5,7 @@ import {
     validateAuthorizationResponse,
     type OAuthAuthorizationServer,
     type OAuthTokenSet,
-} from '@postbot/oauth'
+} from '@postdot/oauth'
 
 import {
     INSTAGRAM_GRAPH_ORIGIN,

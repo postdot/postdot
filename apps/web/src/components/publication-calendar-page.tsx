@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'

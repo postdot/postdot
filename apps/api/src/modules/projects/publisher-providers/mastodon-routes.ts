@@ -1,11 +1,11 @@
-import type { AccessStore } from '@postbot/db'
+import type { AccessStore } from '@postdot/db'
 import {
     MASTODON_PROVIDER,
     MASTODON_REQUIRED_SCOPES,
     createMastodonPublisher,
     normalizeMastodonInstanceOrigin,
     type MastodonFetcher,
-} from '@postbot/mastodon'
+} from '@postdot/mastodon'
 import {
     clientSecretPost,
     createAuthorizationRequest,
@@ -14,7 +14,7 @@ import {
     isAuthorizationDeniedError,
     validateAuthorizationResponse,
     type OAuthAuthorizationServer,
-} from '@postbot/oauth'
+} from '@postdot/oauth'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
@@ -160,7 +160,7 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                     return status(503, {
                         error: {
                             code: 'provider_unavailable',
-                            message: 'The Mastodon instance could not register Postbot',
+                            message: 'The Mastodon instance could not register Postdot',
                         },
                     })
                 }

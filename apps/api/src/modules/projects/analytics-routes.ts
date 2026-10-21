@@ -1,4 +1,4 @@
-import type { AnalyticsStore } from '@postbot/db'
+import type { AnalyticsStore } from '@postdot/db'
 
 import { analyticsQuery, projectAnalyticsSchema } from './analytics-models'
 import { errorResponse, projectParams } from './models'

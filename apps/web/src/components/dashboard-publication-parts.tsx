@@ -1,18 +1,18 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
+} from '@postdot/ui/components/dropdown-menu'
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@postbot/ui/components/tooltip'
-import { cn } from '@postbot/ui/lib/utils'
+} from '@postdot/ui/components/tooltip'
+import { cn } from '@postdot/ui/lib/utils'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'

@@ -14,16 +14,16 @@ export interface PostbotAccountEmailInput {
     readonly url: string
 }
 
-export const emailVerificationSubject = 'Verify your Postbot email address'
+export const emailVerificationSubject = 'Verify your Postdot email address'
 
 export function EmailVerificationEmail({ user, url }: PostbotAccountEmailInput) {
     return (
         <PostbotEmailLayout
-            preview="Confirm your email address to finish setting up your Postbot account."
+            preview="Confirm your email address to finish setting up your Postdot account."
             title={emailVerificationSubject}>
             <Text style={emailStyles.text}>Hello {user.name},</Text>
             <Text style={emailStyles.text}>
-                Confirm your email address to finish setting up your Postbot account.
+                Confirm your email address to finish setting up your Postdot account.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={url} style={emailStyles.button}>

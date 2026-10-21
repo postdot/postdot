@@ -25,7 +25,7 @@ const sourceContent = (text: string) => ({
 })
 
 function createFixture(prefix = 'one') {
-    const project = createProject({ id: `${prefix}-project`, name: 'Postbot', now })
+    const project = createProject({ id: `${prefix}-project`, name: 'Postdot', now })
     const actor = createActor({
         id: `${prefix}-actor`,
         project,
@@ -37,7 +37,7 @@ function createFixture(prefix = 'one') {
         id: `${prefix}-system-actor`,
         project,
         kind: 'system',
-        displayName: 'Postbot worker',
+        displayName: 'Postdot worker',
         now,
     })
     const channel = createChannel({
@@ -196,7 +196,7 @@ describe('domain construction', () => {
             connectedBy: first.actor,
             providerId: ' linkedin ',
             externalAccountId: ' member-1 ',
-            externalAccountName: ' Postbot Operator ',
+            externalAccountName: ' Postdot Operator ',
             scopes: ['w_member_social', 'openid', 'w_member_social'],
             expiresAt: now + 60_000,
             now,
@@ -207,7 +207,7 @@ describe('domain construction', () => {
             connectedByActorId: first.actor.id,
             providerId: 'linkedin',
             externalAccountId: 'member-1',
-            externalAccountName: 'Postbot Operator',
+            externalAccountName: 'Postdot Operator',
             scopes: ['openid', 'w_member_social'],
             state: 'active',
         })

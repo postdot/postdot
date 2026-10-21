@@ -4,7 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@postbot/media'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 import { closeDatabase, createDatabase } from './client'
@@ -73,7 +73,7 @@ describe('SQLite backup and restore', () => {
         }
     })
 
-    it('refuses restore while the Postbot runtime owns the database boundary', async () => {
+    it('refuses restore while the Postdot runtime owns the database boundary', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
         const restoredPath = join(directory, 'restored.sqlite')

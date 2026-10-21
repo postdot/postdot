@@ -1,4 +1,4 @@
-import { publicationTagFilterMaximumIds } from '@postbot/core'
+import { publicationTagFilterMaximumIds } from '@postdot/core'
 
 import type { ChannelListItem, ProviderAnalyticsItem, PublicationSummary } from '@/lib/api'
 import { getNativePlatform } from '@/lib/native-presentation'

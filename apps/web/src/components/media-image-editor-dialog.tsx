@@ -1,12 +1,12 @@
-import { Alert, AlertDescription } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
+import { Alert, AlertDescription } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
+} from '@postdot/ui/components/dialog'
 import { CameraRotateIcon } from '@solar-icons/react/linear/camera-rotate'
 import { CropMinimalisticIcon } from '@solar-icons/react/linear/crop-minimalistic'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'

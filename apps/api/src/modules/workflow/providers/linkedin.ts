@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublisherExecutionTarget } from '@postbot/db'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublisherExecutionTarget } from '@postdot/db'
 import {
     createLinkedInImagePublisher,
     createLinkedInTextPublisher,
@@ -14,12 +14,12 @@ import {
     type LinkedInDestination,
     type LinkedInImagePublisher,
     type LinkedInTextPublisher,
-} from '@postbot/linkedin'
+} from '@postdot/linkedin'
 import {
     refreshAccessToken,
     type OAuthAuthorizationServer,
     type OAuthClientAuthentication,
-} from '@postbot/oauth'
+} from '@postdot/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { publishLinkedInVideo } from './linkedin-video'

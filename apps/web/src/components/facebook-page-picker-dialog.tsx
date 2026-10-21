@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -6,7 +6,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
+} from '@postdot/ui/components/dialog'
 import { useEffect, useRef, useState } from 'react'
 
 import { api, ApiError, formatApiError, type FacebookPageChoices } from '@/lib/api'

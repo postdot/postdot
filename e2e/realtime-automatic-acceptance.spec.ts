@@ -573,7 +573,7 @@ function cursorSequence(cursor: string | null): number {
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`Realtime acceptance ${suffix}`)
     await page.getByLabel('Email').fill(`realtime-acceptance-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('realtime-acceptance-password')

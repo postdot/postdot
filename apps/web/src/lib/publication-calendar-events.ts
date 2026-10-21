@@ -14,7 +14,7 @@ function isPublicationCalendarView(value: unknown): value is PublicationCalendar
 }
 
 /**
- * Adapts Postbot's point-in-time publications to the local ReUI calendar
+ * Adapts Postdot's point-in-time publications to the local ReUI calendar
  * contract. A publication is intentionally a zero-duration event: the
  * calendar should communicate when it is scheduled, not invent a duration.
  */

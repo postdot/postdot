@@ -4,7 +4,7 @@ import {
     createManualChannelProfile,
     validateDeclarativeHttpExecution,
     type DeclarativeHttpExecutionContract,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { compareQuery, editQuery, projectQuery } from './channel-query-builder'
 
@@ -25,7 +25,7 @@ function fixture() {
                     delivery: { kind: 'context', pointer: '/deliveryId' },
                     limit: { kind: 'literal', value: 10 },
                 },
-                headers: { 'X-Source': { kind: 'literal', value: 'Postbot' } },
+                headers: { 'X-Source': { kind: 'literal', value: 'Postdot' } },
                 response: {
                     successStatuses: [201],
                     retryableStatuses: [429],

@@ -3,7 +3,7 @@
 - **Purpose:** Execute the bounded declarative HTTP transport for automatic custom
   channels and expose the shared operator-controlled outbound network boundary
   used by per-instance provider clients.
-- **Boundary:** Interpret only the versioned Postbot webhook, the approved
+- **Boundary:** Interpret only the versioned Postdot webhook, the approved
   structural mapping AST, and its dedicated secret path binding. This package
   must not evaluate scripts, access the database, read process environment, or
   know Better Auth.

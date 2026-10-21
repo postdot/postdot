@@ -3,7 +3,7 @@ import type {
     ChannelProfileValidationAdapter,
     JsonSchema,
     ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     X_MAX_RAW_POST_TEXT_LENGTH,

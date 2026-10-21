@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
 import { expect, test } from '@playwright/test'
-import type { PublicationSummary } from '@postbot/client'
+import type { PublicationSummary } from '@postdot/client'
 
 import { frenchTranslation } from './locale'
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { verifyProductionDashboard } from './production-web-assets'
 
 const dashboardHtml = `<!doctype html>
-<html><head><title>Postbot</title>
+<html><head><title>Postdot</title>
 <script type="module" src="/assets/app.js"></script>
 <link rel="modulepreload" href="/assets/runtime.js">
 <link rel="stylesheet" href="/assets/app.css">
@@ -52,7 +52,7 @@ describe('production dashboard asset verification', () => {
         ).rejects.toThrow('Dashboard asset /assets/runtime.js returned HTTP 404')
     })
 
-    it('rejects an entrypoint that is not the Postbot dashboard shell', async () => {
+    it('rejects an entrypoint that is not the Postdot dashboard shell', async () => {
         await expect(
             verifyProductionDashboard(
                 'http://localhost:3000',
@@ -61,7 +61,7 @@ describe('production dashboard asset verification', () => {
                         headers: { 'content-type': 'text/html' },
                     })
             )
-        ).rejects.toThrow('Dashboard shell is missing the Postbot title or application root')
+        ).rejects.toThrow('Dashboard shell is missing the Postdot title or application root')
     })
 })
 

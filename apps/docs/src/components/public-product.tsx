@@ -10,19 +10,19 @@ const views = [
         name: 'compose',
         label: 'Prepare your next publication.',
         description: 'Prepare one post. Adapt each destination.',
-        alt: 'Postbot Studio composing a post with destination previews',
+        alt: 'Postdot Studio composing a post with destination previews',
     },
     {
         name: 'queue',
         label: 'Know what is going out.',
         description: 'Follow what is ready, scheduled or needs attention.',
-        alt: 'Postbot publication queue with destination states and scheduled times',
+        alt: 'Postdot publication queue with destination states and scheduled times',
     },
     {
         name: 'calendar',
         label: 'Make room for what comes next.',
         description: 'See your publications across the week ahead.',
-        alt: 'Postbot publication calendar showing the publishing schedule',
+        alt: 'Postdot publication calendar showing the publishing schedule',
     },
 ] as const
 
@@ -53,7 +53,7 @@ export function PublicProduct() {
             id="studio-tour"
             role="region"
             className="home-product-scene home-studio-tour"
-            aria-label="Explore three views of Postbot Studio">
+            aria-label="Explore three views of Postdot Studio">
             <div className="home-tour-sticky" data-revealed={revealed}>
                 <div className="home-tour-slides">
                     {views.map((view, index) => (

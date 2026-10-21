@@ -1,14 +1,14 @@
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     createCustomHttpTransport,
     createNetworkControlledBinaryFetcher,
     createNetworkControlledFetcher,
-} from '@postbot/custom-http'
+} from '@postdot/custom-http'
 import {
     createNotificationEmailStore,
     createInstallationEmailSettingsStore,
     createSecretCipher,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     closeDatabase,
     createDatabase,
@@ -19,16 +19,16 @@ import {
     acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
     runMigrations,
-} from '@postbot/db'
-import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postbot/discord'
-import { createInstagramPublisher } from '@postbot/instagram'
-import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postbot/mastodon'
+} from '@postdot/db'
+import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postdot/discord'
+import { createInstagramPublisher } from '@postdot/instagram'
+import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
-} from '@postbot/mastodon'
-import { TELEGRAM_EXECUTION_REVISION, TELEGRAM_POLL_EXECUTION_REVISION } from '@postbot/telegram'
+} from '@postdot/mastodon'
+import { TELEGRAM_EXECUTION_REVISION, TELEGRAM_POLL_EXECUTION_REVISION } from '@postdot/telegram'
 
 import { createApp } from './app'
 import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
@@ -117,8 +117,8 @@ export type {
 } from './modules/projects/models'
 export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
 export type { DevtoAnalyticsCollectionResponse } from './modules/projects/devto-analytics-service'
-export type { ProviderAnalyticsObservation } from '@postbot/core'
-export type { ProviderAnalyticsObservationPage } from '@postbot/db'
+export type { ProviderAnalyticsObservation } from '@postdot/core'
+export type { ProviderAnalyticsObservationPage } from '@postdot/db'
 export type {
     EmailAlertPreferenceResponse,
     NotificationInboxResponse,

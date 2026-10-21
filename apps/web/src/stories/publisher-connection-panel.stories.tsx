@@ -20,18 +20,18 @@ const channels: ChannelListItem[] = [
 const connections: PublisherConnection[] = [
     createConnection({
         channelId: 'facebook-connected',
-        destination: { type: 'channel', id: 'page-1', name: 'Postbot Test' },
+        destination: { type: 'channel', id: 'page-1', name: 'Postdot Test' },
         externalAccountId: 'page-1',
-        externalAccountName: 'Postbot Test',
+        externalAccountName: 'Postdot Test',
         kind: 'facebook',
         providerId: 'facebook',
         state: 'active',
     }),
     createConnection({
         channelId: 'active',
-        destination: { type: 'member', id: 'member-1', name: 'Postbot team' },
+        destination: { type: 'member', id: 'member-1', name: 'Postdot team' },
         externalAccountId: 'member-1',
-        externalAccountName: 'Postbot team',
+        externalAccountName: 'Postdot team',
         kind: 'linkedin',
         providerId: 'linkedin',
         state: 'active',

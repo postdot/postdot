@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import { createAuth } from '@postbot/auth'
-import type { ChannelProfileDefinition } from '@postbot/core'
+import { createAuth } from '@postdot/auth'
+import type { ChannelProfileDefinition } from '@postdot/core'
 import {
     closeDatabase,
     createInstallationEmailSettingsStore,
@@ -13,13 +13,13 @@ import {
     createNotificationStore,
     createNotificationEmailStore,
     runMigrations,
-} from '@postbot/db'
-import { publications, publisherCredentials, user as authUser } from '@postbot/db/schema'
+} from '@postdot/db'
+import { publications, publisherCredentials, user as authUser } from '@postdot/db/schema'
 import {
     createLinkedInMemberProfileClient,
     createLinkedInOrganizationClient,
-} from '@postbot/linkedin'
-import type { OAuthAuthorizationServer } from '@postbot/oauth'
+} from '@postdot/linkedin'
+import type { OAuthAuthorizationServer } from '@postdot/oauth'
 import type { Registry } from '@prometheus-io/client'
 import { eq } from 'drizzle-orm'
 
@@ -191,7 +191,7 @@ async function signUp(app: ReturnType<typeof createApp>, email = 'operator@postb
             },
             body: JSON.stringify({
                 email,
-                name: 'Postbot Operator',
+                name: 'Postdot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })
@@ -261,7 +261,7 @@ async function readStreamChunk(response: Response) {
     }
 }
 
-describe('Postbot API', () => {
+describe('Postdot API', () => {
     it('applies source copy only with the reviewed source and draft revisions', async () => {
         const { app, database } = createFixture()
         try {
@@ -727,7 +727,7 @@ describe('Postbot API', () => {
                         method: 'POST',
                         body: JSON.stringify({
                             providerId,
-                            name: `Postbot ${providerId}`,
+                            name: `Postdot ${providerId}`,
                             clientId:
                                 providerId === 'instagram' ? '123456789' : 'linkedin-client-id',
                             clientSecret: clientSecret,
@@ -851,7 +851,7 @@ describe('Postbot API', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         providerId: 'bluesky',
-                        name: 'Postbot Bluesky local',
+                        name: 'Postdot Bluesky local',
                         clientMetadataUrl: null,
                     }),
                 }
@@ -1063,7 +1063,7 @@ describe('Postbot API', () => {
         })
     })
 
-    it('publishes an OpenAPI inventory for the typed Postbot routes', async () => {
+    it('publishes an OpenAPI inventory for the typed Postdot routes', async () => {
         const { app, database } = createFixture()
 
         try {
@@ -1317,9 +1317,9 @@ describe('Postbot API', () => {
             ).toEqual([{ sessionCookie: [] }])
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
-                    bearerFormat: 'Postbot API key',
+                    bearerFormat: 'Postdot API key',
                     description:
-                        'A user-owned Postbot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
+                        'A user-owned Postdot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
                     scheme: 'bearer',
                     type: 'http',
                 },
@@ -3044,7 +3044,7 @@ describe('Postbot API', () => {
         }
     })
 
-    it('manages project members and invitations through the Postbot access surface', async () => {
+    it('manages project members and invitations through the Postdot access surface', async () => {
         const { access, app, auth, database } = createFixture({
             allowAdditionalSignups: true,
         })
@@ -3790,7 +3790,7 @@ describe('Postbot API', () => {
         }
     })
 
-    it('does not project legacy Better Auth organization invitations into Postbot access', async () => {
+    it('does not project legacy Better Auth organization invitations into Postdot access', async () => {
         const { access, app, auth, database } = createFixture()
 
         try {
@@ -3873,7 +3873,7 @@ describe('Postbot API', () => {
 
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
-                body: JSON.stringify({ name: 'Postbot Launch' }),
+                body: JSON.stringify({ name: 'Postdot Launch' }),
             })
             expect(projectResponse.status).toBe(201)
             const projectBody = (await projectResponse.json()) as {
@@ -3913,7 +3913,7 @@ describe('Postbot API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        title: 'Postbot is ready',
+                        title: 'Postdot is ready',
                         sourceContent: {
                             body: {
                                 text: 'A source post for multiple destinations.',
@@ -4235,7 +4235,7 @@ describe('Postbot API', () => {
                 publication: { id: string; postId: string; state: string }
             }
             expect(duplicateDraftBody).toMatchObject({
-                post: { title: 'Postbot is ready' },
+                post: { title: 'Postdot is ready' },
                 publication: { state: 'draft' },
             })
             expect(duplicateDraftBody.publication.id).not.toBe(secondPublicationId)
@@ -4665,7 +4665,7 @@ describe('Postbot API', () => {
                     expect(request.headers.get('authorization')).toBe(
                         'Bearer linkedin-access-token'
                     )
-                    return Response.json({ sub: 'member-42', name: 'Postbot Operator' })
+                    return Response.json({ sub: 'member-42', name: 'Postdot Operator' })
                 }
                 return new Response('not found', { status: 404 })
             },
@@ -4813,7 +4813,7 @@ describe('Postbot API', () => {
             expect(listBody.connections).toHaveLength(1)
             expect(listBody.connections[0]).toMatchObject({
                 externalAccountId: 'member-42',
-                externalAccountName: 'Postbot Operator',
+                externalAccountName: 'Postdot Operator',
                 kind: 'linkedin',
                 providerId: 'linkedin',
                 scopes: ['openid', 'profile', 'w_member_social'],
@@ -4884,7 +4884,7 @@ describe('Postbot API', () => {
                     })
                 }
                 if (url.pathname === '/v2/userinfo') {
-                    return Response.json({ sub: 'member-42', name: 'Postbot Operator' })
+                    return Response.json({ sub: 'member-42', name: 'Postdot Operator' })
                 }
                 if (url.pathname === '/rest/organizations/12345') {
                     expect(request.headers.get('authorization')).toBe(

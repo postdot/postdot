@@ -1,5 +1,5 @@
-import { Alert, AlertDescription } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
+import { Alert, AlertDescription } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -7,10 +7,10 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
-import { toast } from '@postbot/ui/components/toast'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
+import { toast } from '@postdot/ui/components/toast'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'

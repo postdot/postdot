@@ -1,5 +1,5 @@
-import { readMastodonPoll } from '@postbot/mastodon/poll'
-import { cn } from '@postbot/ui/lib/utils'
+import { readMastodonPoll } from '@postdot/mastodon/poll'
+import { cn } from '@postdot/ui/lib/utils'
 import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
 import { EarthIcon } from '@solar-icons/react/linear/earth'
 import { HeartIcon } from '@solar-icons/react/linear/heart'

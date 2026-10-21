@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { createManualChannelProfile } from '@postbot/core'
+import { createManualChannelProfile } from '@postdot/core'
 
 import { countComposerText, getComposerTextFields } from './composer-text-constraints'
 
@@ -43,7 +43,7 @@ test('distinguishes schema characters from graphemes without shortening the inpu
 
 test('composer exposes optional and required titles but no title for an absent binding', async () => {
     const { setBuilderTitleMode } = await import('./channel-content-builder')
-    const { xChannelProfile } = await import('@postbot/x')
+    const { xChannelProfile } = await import('@postdot/x')
     const manual = createManualChannelProfile()
     const custom = { ...manual, origin: 'custom' as const }
     expect(getComposerTextFields(custom).headline?.field.required).toBe(false)

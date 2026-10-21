@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const DEVTO_PROVIDER = 'devto' as const
 export const DEVTO_API_BASE_URL = 'https://dev.to' as const

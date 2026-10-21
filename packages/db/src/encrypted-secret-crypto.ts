@@ -1,4 +1,4 @@
-import { requireNonBlank } from '@postbot/core'
+import { requireNonBlank } from '@postdot/core'
 
 export const encryptedSecretEnvelopeVersion = 1 as const
 

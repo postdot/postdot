@@ -5,8 +5,8 @@ import type {
     createPublisherCredentialStore,
     createPublisherStore,
     AuthorizationAttempt,
-} from '@postbot/db'
-import { INSTAGRAM_PUBLISH_PERMISSIONS, type createInstagramOAuth } from '@postbot/instagram'
+} from '@postdot/db'
+import { INSTAGRAM_PUBLISH_PERMISSIONS, type createInstagramOAuth } from '@postdot/instagram'
 
 type Binding = {
     readonly projectId: string

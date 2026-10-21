@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { ChannelProfileCompiler } from '@postbot/core'
+import { ChannelProfileCompiler } from '@postdot/core'
 import {
     closeDatabase,
     createDatabase,
@@ -13,14 +13,14 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     createInstagramPublisher,
     instagramChannelProfile,
     instagramChannelProfileValidationAdapter,
     INSTAGRAM_PUBLISH_PERMISSIONS,
-} from '@postbot/instagram'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/instagram'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { instagramPublisherConnectionPolicy } from '../publishers/providers/instagram'
 import { createInstagramProviderAdapter } from './providers/instagram'

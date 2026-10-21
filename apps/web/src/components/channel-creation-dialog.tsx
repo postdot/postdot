@@ -1,22 +1,22 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+} from '@postdot/ui/components/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'

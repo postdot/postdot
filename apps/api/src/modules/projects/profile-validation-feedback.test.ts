@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { ChannelProfileValidationError } from '@postbot/core'
+import { ChannelProfileValidationError } from '@postdot/core'
 
 import { profileValidationFeedback } from './profile-validation-feedback'
 

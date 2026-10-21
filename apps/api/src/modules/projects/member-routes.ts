@@ -1,5 +1,5 @@
-import type { PostbotAuth, PostbotOrganizationInvitation } from '@postbot/auth'
-import type { AccessProjectMembership, AccessStore } from '@postbot/db'
+import type { PostbotAuth, PostbotOrganizationInvitation } from '@postdot/auth'
+import type { AccessProjectMembership, AccessStore } from '@postdot/db'
 
 import {
     sessionSecurity,

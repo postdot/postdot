@@ -1,14 +1,14 @@
 import { expect, test } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     closeDatabase,
     createAccessStore,
     createDatabase,
     createManualStore,
     runMigrations,
-} from '@postbot/db'
-import { createMastodonAnalyticsReader, mastodonChannelProfile } from '@postbot/mastodon'
+} from '@postdot/db'
+import { createMastodonAnalyticsReader, mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'

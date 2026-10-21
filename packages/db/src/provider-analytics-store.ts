@@ -13,7 +13,7 @@ import {
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
     type ProviderAnalyticsSubjectType,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from './client'
 

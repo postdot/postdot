@@ -5,7 +5,7 @@ Checked: 2026-10-18. Related: ISSUE-166, META-505.
 
 ## Recommended delivery order
 
-1. Facebook Pages: text, optional link, then one photo. Keep Postbot responsible
+1. Facebook Pages: text, optional link, then one photo. Keep Postdot responsible
    for scheduling; publish at execution time rather than maintaining a second
    remote schedule. No personal timeline or Group publishing claim.
 2. Instagram professional accounts: one JPEG with optional caption. Treat a
@@ -63,7 +63,7 @@ Do not add a generic Meta connection that conceals different account requirement
 distinguishes own/managed-business Standard Access from serving other businesses
 with Advanced Access. The latter requires review. It also says one app cannot use
 both Instagram login setups. This must be verified in the actual app dashboard
-before deciding whether one or separate Meta app registrations serve Postbot's
+before deciding whether one or separate Meta app registrations serve Postdot's
 Facebook and Instagram integrations. No approval or business-verification result
 has been obtained.
 
@@ -77,7 +77,7 @@ tokens cannot be refreshed. Publishing requests use
 The App Review page spells the latter permission with a different suffix;
 use the current authorization/endpoint reference and actual dashboard grant,
 not an inferred alias. Retain cancellation and missing-permission outcomes.
-PKCE compatibility needs an explicit check: no weakening of Postbot's existing
+PKCE compatibility needs an explicit check: no weakening of Postdot's existing
 state/callback validation is authorized by these examples.
 
 ### Instagram media lifecycle
@@ -96,7 +96,7 @@ verify the selected API version and use `content_publishing_limit` feedback.
 Video resumable-upload support differs by login setup in this guide. Do not
 promise it for direct Instagram Login without endpoint confirmation.
 
-## Fit with current Postbot architecture
+## Fit with current Postdot architecture
 
 These are repository findings and proposed application behavior, not Meta claims.
 

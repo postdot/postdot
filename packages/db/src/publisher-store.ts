@@ -12,7 +12,7 @@ import {
     type ChannelProfileDefinition,
     type Project,
     type Timestamp,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,

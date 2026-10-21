@@ -3,9 +3,9 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "postbot",
+      "name": "postdot",
       "dependencies": {
-        "@postbot/client": "workspace:*",
+        "@postdot/client": "workspace:*",
       },
       "devDependencies": {
         "@autonomos/cli": "^0.6.0",
@@ -28,27 +28,27 @@
       },
     },
     "apps/api": {
-      "name": "@postbot/api",
+      "name": "@postdot/api",
       "dependencies": {
         "@atproto/api": "0.22.0",
         "@elysia/static": "2.0.0-beta.2",
         "@elysiajs/openapi": "2.0.0-exp.0",
-        "@postbot/auth": "workspace:*",
-        "@postbot/bluesky": "workspace:*",
-        "@postbot/core": "workspace:*",
-        "@postbot/custom-http": "workspace:*",
-        "@postbot/db": "workspace:*",
-        "@postbot/devto": "workspace:*",
-        "@postbot/discord": "workspace:*",
-        "@postbot/email": "workspace:*",
-        "@postbot/facebook": "workspace:*",
-        "@postbot/instagram": "workspace:*",
-        "@postbot/linkedin": "workspace:*",
-        "@postbot/mastodon": "workspace:*",
-        "@postbot/media": "workspace:*",
-        "@postbot/oauth": "workspace:*",
-        "@postbot/telegram": "workspace:*",
-        "@postbot/x": "workspace:*",
+        "@postdot/auth": "workspace:*",
+        "@postdot/bluesky": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/custom-http": "workspace:*",
+        "@postdot/db": "workspace:*",
+        "@postdot/devto": "workspace:*",
+        "@postdot/discord": "workspace:*",
+        "@postdot/email": "workspace:*",
+        "@postdot/facebook": "workspace:*",
+        "@postdot/instagram": "workspace:*",
+        "@postdot/linkedin": "workspace:*",
+        "@postdot/mastodon": "workspace:*",
+        "@postdot/media": "workspace:*",
+        "@postdot/oauth": "workspace:*",
+        "@postdot/telegram": "workspace:*",
+        "@postdot/x": "workspace:*",
         "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.3",
@@ -68,10 +68,10 @@
       },
     },
     "apps/docs": {
-      "name": "@postbot/docs",
+      "name": "@postdot/docs",
       "dependencies": {
         "@iconify-icons/logos": "2.0.2",
-        "@postbot/ui": "workspace:*",
+        "@postdot/ui": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@wrksz/themes": "1.1.0",
         "fumadocs-core": "16.17.1",
@@ -97,7 +97,7 @@
       },
     },
     "apps/web": {
-      "name": "@postbot/web",
+      "name": "@postdot/web",
       "dependencies": {
         "@base-ui/react": "1.8.0",
         "@date-fns/tz": "1.5.0",
@@ -106,12 +106,12 @@
         "@iconify-icons/flag": "2.0.0",
         "@iconify-icons/logos": "2.0.2",
         "@iconify/react": "6.0.2",
-        "@postbot/client": "workspace:*",
-        "@postbot/core": "workspace:*",
-        "@postbot/mastodon": "workspace:*",
-        "@postbot/telegram": "workspace:*",
-        "@postbot/ui": "workspace:*",
-        "@postbot/x": "workspace:*",
+        "@postdot/client": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/mastodon": "workspace:*",
+        "@postdot/telegram": "workspace:*",
+        "@postdot/ui": "workspace:*",
+        "@postdot/x": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@tanstack/hotkeys": "0.10.1",
         "@tanstack/query-db-collection": "^1.3.1",
@@ -160,11 +160,11 @@
       },
     },
     "packages/auth": {
-      "name": "@postbot/auth",
+      "name": "@postdot/auth",
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/api-key": "1.7.7",
-        "@postbot/db": "workspace:*",
+        "@postdot/db": "workspace:*",
         "better-auth": "1.7.7",
       },
       "devDependencies": {
@@ -174,7 +174,7 @@
       },
     },
     "packages/bluesky": {
-      "name": "@postbot/bluesky",
+      "name": "@postdot/bluesky",
       "version": "0.0.0",
       "dependencies": {
         "@atproto/api": "0.22.0",
@@ -183,7 +183,7 @@
         "@atproto/jwk-webcrypto": "0.3.4",
         "@atproto/oauth-client": "0.8.8",
         "@atproto/oauth-types": "0.7.7",
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -192,22 +192,22 @@
       },
     },
     "packages/client": {
-      "name": "@postbot/client",
+      "name": "@postdot/client",
       "version": "0.0.0",
       "dependencies": {
         "@elysiajs/eden": "1.4.9",
       },
       "devDependencies": {
-        "@postbot/api": "workspace:*",
-        "@postbot/auth": "workspace:*",
-        "@postbot/db": "workspace:*",
+        "@postdot/api": "workspace:*",
+        "@postdot/auth": "workspace:*",
+        "@postdot/db": "workspace:*",
         "@tala-tools/tsconfig": "0.1.0",
         "@types/bun": "1.4.2",
         "typescript": "7.0.2",
       },
     },
     "packages/core": {
-      "name": "@postbot/core",
+      "name": "@postdot/core",
       "version": "0.0.0",
       "dependencies": {
         "typebox": "1.3.34",
@@ -219,10 +219,10 @@
       },
     },
     "packages/custom-http": {
-      "name": "@postbot/custom-http",
+      "name": "@postdot/custom-http",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -231,11 +231,11 @@
       },
     },
     "packages/db": {
-      "name": "@postbot/db",
+      "name": "@postdot/db",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
-        "@postbot/media": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/media": "workspace:*",
         "drizzle-orm": "0.45.3",
         "mp4box": "2.4.1",
       },
@@ -248,10 +248,10 @@
       },
     },
     "packages/devto": {
-      "name": "@postbot/devto",
+      "name": "@postdot/devto",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -260,10 +260,10 @@
       },
     },
     "packages/discord": {
-      "name": "@postbot/discord",
+      "name": "@postdot/discord",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -272,10 +272,10 @@
       },
     },
     "packages/email": {
-      "name": "@postbot/email",
+      "name": "@postdot/email",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/ui": "workspace:*",
+        "@postdot/ui": "workspace:*",
         "@react-email/body": "0.3.0",
         "@react-email/button": "0.2.1",
         "@react-email/container": "0.0.16",
@@ -302,11 +302,11 @@
       },
     },
     "packages/facebook": {
-      "name": "@postbot/facebook",
+      "name": "@postdot/facebook",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
-        "@postbot/oauth": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/oauth": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -315,11 +315,11 @@
       },
     },
     "packages/instagram": {
-      "name": "@postbot/instagram",
+      "name": "@postdot/instagram",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
-        "@postbot/oauth": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/oauth": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -328,10 +328,10 @@
       },
     },
     "packages/linkedin": {
-      "name": "@postbot/linkedin",
+      "name": "@postdot/linkedin",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -340,10 +340,10 @@
       },
     },
     "packages/mastodon": {
-      "name": "@postbot/mastodon",
+      "name": "@postdot/mastodon",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
         "entities": "4.5.0",
       },
       "devDependencies": {
@@ -353,7 +353,7 @@
       },
     },
     "packages/media": {
-      "name": "@postbot/media",
+      "name": "@postdot/media",
       "version": "0.0.0",
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -362,7 +362,7 @@
       },
     },
     "packages/oauth": {
-      "name": "@postbot/oauth",
+      "name": "@postdot/oauth",
       "version": "0.0.0",
       "dependencies": {
         "oauth4webapi": "3.8.8",
@@ -374,10 +374,10 @@
       },
     },
     "packages/telegram": {
-      "name": "@postbot/telegram",
+      "name": "@postdot/telegram",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
@@ -386,7 +386,7 @@
       },
     },
     "packages/ui": {
-      "name": "@postbot/ui",
+      "name": "@postdot/ui",
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "1.8.0",
@@ -422,10 +422,10 @@
       },
     },
     "packages/x": {
-      "name": "@postbot/x",
+      "name": "@postdot/x",
       "version": "0.0.0",
       "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
         "twitter-text": "3.1.0",
       },
       "devDependencies": {
@@ -1243,47 +1243,47 @@
 
     "@playwright/test": ["@playwright/test@1.63.0", "", { "dependencies": { "playwright": "1.63.0" }, "bin": { "playwright": "cli.js" } }, "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ=="],
 
-    "@postbot/api": ["@postbot/api@workspace:apps/api"],
+    "@postdot/api": ["@postdot/api@workspace:apps/api"],
 
-    "@postbot/auth": ["@postbot/auth@workspace:packages/auth"],
+    "@postdot/auth": ["@postdot/auth@workspace:packages/auth"],
 
-    "@postbot/bluesky": ["@postbot/bluesky@workspace:packages/bluesky"],
+    "@postdot/bluesky": ["@postdot/bluesky@workspace:packages/bluesky"],
 
-    "@postbot/client": ["@postbot/client@workspace:packages/client"],
+    "@postdot/client": ["@postdot/client@workspace:packages/client"],
 
-    "@postbot/core": ["@postbot/core@workspace:packages/core"],
+    "@postdot/core": ["@postdot/core@workspace:packages/core"],
 
-    "@postbot/custom-http": ["@postbot/custom-http@workspace:packages/custom-http"],
+    "@postdot/custom-http": ["@postdot/custom-http@workspace:packages/custom-http"],
 
-    "@postbot/db": ["@postbot/db@workspace:packages/db"],
+    "@postdot/db": ["@postdot/db@workspace:packages/db"],
 
-    "@postbot/devto": ["@postbot/devto@workspace:packages/devto"],
+    "@postdot/devto": ["@postdot/devto@workspace:packages/devto"],
 
-    "@postbot/discord": ["@postbot/discord@workspace:packages/discord"],
+    "@postdot/discord": ["@postdot/discord@workspace:packages/discord"],
 
-    "@postbot/docs": ["@postbot/docs@workspace:apps/docs"],
+    "@postdot/docs": ["@postdot/docs@workspace:apps/docs"],
 
-    "@postbot/email": ["@postbot/email@workspace:packages/email"],
+    "@postdot/email": ["@postdot/email@workspace:packages/email"],
 
-    "@postbot/facebook": ["@postbot/facebook@workspace:packages/facebook"],
+    "@postdot/facebook": ["@postdot/facebook@workspace:packages/facebook"],
 
-    "@postbot/instagram": ["@postbot/instagram@workspace:packages/instagram"],
+    "@postdot/instagram": ["@postdot/instagram@workspace:packages/instagram"],
 
-    "@postbot/linkedin": ["@postbot/linkedin@workspace:packages/linkedin"],
+    "@postdot/linkedin": ["@postdot/linkedin@workspace:packages/linkedin"],
 
-    "@postbot/mastodon": ["@postbot/mastodon@workspace:packages/mastodon"],
+    "@postdot/mastodon": ["@postdot/mastodon@workspace:packages/mastodon"],
 
-    "@postbot/media": ["@postbot/media@workspace:packages/media"],
+    "@postdot/media": ["@postdot/media@workspace:packages/media"],
 
-    "@postbot/oauth": ["@postbot/oauth@workspace:packages/oauth"],
+    "@postdot/oauth": ["@postdot/oauth@workspace:packages/oauth"],
 
-    "@postbot/telegram": ["@postbot/telegram@workspace:packages/telegram"],
+    "@postdot/telegram": ["@postdot/telegram@workspace:packages/telegram"],
 
-    "@postbot/ui": ["@postbot/ui@workspace:packages/ui"],
+    "@postdot/ui": ["@postdot/ui@workspace:packages/ui"],
 
-    "@postbot/web": ["@postbot/web@workspace:apps/web"],
+    "@postdot/web": ["@postdot/web@workspace:apps/web"],
 
-    "@postbot/x": ["@postbot/x@workspace:packages/x"],
+    "@postdot/x": ["@postdot/x@workspace:packages/x"],
 
     "@prometheus-io/client": ["@prometheus-io/client@0.16.1", "", { "dependencies": { "@opentelemetry/api": "^1.4.0", "tdigest": "^0.1.1" } }, "sha512-XkFPsGFGoSs/UMg/vh0QLDpanl/tsrOV5PLHdpGe8Ho+ir/Llhytr15j6y8ZwLrpIGzK9gTVVpIalA6C4UjUZw=="],
 
@@ -3167,7 +3167,7 @@
 
     "@oxc-resolver/binding-wasm32-wasi/@emnapi/runtime": ["@emnapi/runtime@1.11.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg=="],
 
-    "@postbot/web/@wrksz/themes": ["@wrksz/themes@2.0.2", "", { "peerDependencies": { "next": ">=16.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0", "typescript": ">=5.9" }, "optionalPeers": ["next"] }, "sha512-Us7orFtKm+TiTdAZyxUQgpW7yika0+IK4Ao2jN2fJskRVF4kZQhsnFXPCz/yp8kR1ku0bhBfOhic43Dh3xOldw=="],
+    "@postdot/web/@wrksz/themes": ["@wrksz/themes@2.0.2", "", { "peerDependencies": { "next": ">=16.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0", "typescript": ">=5.9" }, "optionalPeers": ["next"] }, "sha512-Us7orFtKm+TiTdAZyxUQgpW7yika0+IK4Ao2jN2fJskRVF4kZQhsnFXPCz/yp8kR1ku0bhBfOhic43Dh3xOldw=="],
 
     "@react-email/ui/esbuild": ["esbuild@0.28.1", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.28.1", "@esbuild/android-arm": "0.28.1", "@esbuild/android-arm64": "0.28.1", "@esbuild/android-x64": "0.28.1", "@esbuild/darwin-arm64": "0.28.1", "@esbuild/darwin-x64": "0.28.1", "@esbuild/freebsd-arm64": "0.28.1", "@esbuild/freebsd-x64": "0.28.1", "@esbuild/linux-arm": "0.28.1", "@esbuild/linux-arm64": "0.28.1", "@esbuild/linux-ia32": "0.28.1", "@esbuild/linux-loong64": "0.28.1", "@esbuild/linux-mips64el": "0.28.1", "@esbuild/linux-ppc64": "0.28.1", "@esbuild/linux-riscv64": "0.28.1", "@esbuild/linux-s390x": "0.28.1", "@esbuild/linux-x64": "0.28.1", "@esbuild/netbsd-arm64": "0.28.1", "@esbuild/netbsd-x64": "0.28.1", "@esbuild/openbsd-arm64": "0.28.1", "@esbuild/openbsd-x64": "0.28.1", "@esbuild/openharmony-arm64": "0.28.1", "@esbuild/sunos-x64": "0.28.1", "@esbuild/win32-arm64": "0.28.1", "@esbuild/win32-ia32": "0.28.1", "@esbuild/win32-x64": "0.28.1" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-HrJrvZv5ayxBzPfwphOoNzkzOIIlifzk0KJrGK2c8R4+LKpMtpYLQeUdjnwjWv/LZlkH2laZk+4w78pi99D4Vw=="],
 

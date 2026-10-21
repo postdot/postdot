@@ -1,4 +1,4 @@
-import type { AccessProjectRole, AccessStore } from '@postbot/db'
+import type { AccessProjectRole, AccessStore } from '@postdot/db'
 
 import {
     sessionSecurity,
@@ -131,7 +131,7 @@ export function registerProjectAccessGrantRoutes<const Routes extends Record<str
                 },
                 detail: {
                     operationId: 'createProjectUserGrant',
-                    summary: 'Grant a Postbot user access to a project',
+                    summary: 'Grant a Postdot user access to a project',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },

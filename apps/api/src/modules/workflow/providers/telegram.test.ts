@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postbot/db'
+import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postdot/db'
 import {
     createTelegramPublisher,
     telegramChannelProfile,
@@ -9,7 +9,7 @@ import {
     telegramPollChannelProfile,
     TELEGRAM_POLL_EXECUTION_REVISION,
     TELEGRAM_EXECUTION_REVISION,
-} from '@postbot/telegram'
+} from '@postdot/telegram'
 
 import type { BuiltInProviderExecutionInput, ProviderMediaDeliveryPort } from './registry'
 import { createTelegramProviderAdapter } from './telegram'

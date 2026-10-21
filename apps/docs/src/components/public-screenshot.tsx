@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -8,7 +8,7 @@ import {
     DialogDescription,
     DialogTitle,
     DialogTrigger,
-} from '@postbot/ui/components/dialog'
+} from '@postdot/ui/components/dialog'
 import { useLenis } from 'lenis/react'
 
 export function PublicScreenshot({
@@ -40,7 +40,7 @@ export function PublicScreenshot({
                 <img
                     className="home-shot home-shot-light"
                     src={`/product/${name}-detail-light.webp`}
-                    alt={`${title} in Postbot, using an example project`}
+                    alt={`${title} in Postdot, using an example project`}
                     width={size[0]}
                     height={size[1]}
                     loading={eager ? 'eager' : 'lazy'}
@@ -48,7 +48,7 @@ export function PublicScreenshot({
                 <img
                     className="home-shot home-shot-dark"
                     src={`/product/${name}-detail-dark.webp`}
-                    alt={`${title} in Postbot in dark mode, using an example project`}
+                    alt={`${title} in Postdot in dark mode, using an example project`}
                     width={size[0]}
                     height={size[1]}
                     loading={eager ? 'eager' : 'lazy'}
@@ -63,7 +63,7 @@ export function PublicScreenshot({
                     </DialogClose>
                 </div>
                 <DialogDescription>
-                    An example project in the real Postbot interface.
+                    An example project in the real Postdot interface.
                 </DialogDescription>
                 <div className="home-screenshot-scroll" data-lenis-prevent>
                     <img

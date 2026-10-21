@@ -1,14 +1,14 @@
-import { Button } from '@postbot/ui/components/button'
-import { Field as UiField, FieldLabel } from '@postbot/ui/components/field'
+import { Button } from '@postdot/ui/components/button'
+import { Field as UiField, FieldLabel } from '@postdot/ui/components/field'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
-import { cn } from '@postbot/ui/lib/utils'
+} from '@postdot/ui/components/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
+import { cn } from '@postdot/ui/lib/utils'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { LayersMinimalisticIcon } from '@solar-icons/react/linear/layers-minimalistic'
 import { Link } from '@tanstack/react-router'

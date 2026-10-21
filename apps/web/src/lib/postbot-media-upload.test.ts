@@ -6,7 +6,7 @@ import type {
     MediaReference,
     MediaReservation,
     MediaUpload,
-} from '@postbot/client'
+} from '@postdot/client'
 
 import { MediaVerificationError } from './media-errors'
 import {
@@ -17,7 +17,7 @@ import {
     type PostbotMediaUploadClient,
 } from './postbot-media-upload'
 
-describe('Postbot media upload orchestration', () => {
+describe('Postdot media upload orchestration', () => {
     it('keeps the reserve, raw upload, and ready finalization sequence', async () => {
         const media = createMedia('asset-ready')
         const reservation = createReservation(media)

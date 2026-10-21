@@ -1,5 +1,5 @@
-import { ChannelProfileValidationError } from '@postbot/core'
-import type { AccessStore } from '@postbot/db'
+import { ChannelProfileValidationError } from '@postdot/core'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'

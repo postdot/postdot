@@ -64,7 +64,7 @@ describe('Bluesky OAuth runtime', () => {
         const client = createBlueskyOAuthClient({
             clientMetadata: {
                 client_id: 'https://postbot.example.com/oauth/client-metadata.json',
-                client_name: 'Postbot',
+                client_name: 'Postdot',
                 client_uri: 'https://postbot.example.com',
                 redirect_uris: ['https://postbot.example.com/api/oauth/bluesky/callback'],
                 scope: 'atproto',

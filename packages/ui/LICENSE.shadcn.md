@@ -2,7 +2,7 @@
 
 The toast component in `src/components/toast.tsx` is adapted from the official
 shadcn/ui base-nova registry. This notice applies to that upstream code, not to
-Postbot as a whole.
+Postdot as a whole.
 
 Source: https://ui.shadcn.com/r/styles/base-nova/toast.json
 

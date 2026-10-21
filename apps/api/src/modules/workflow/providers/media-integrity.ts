@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionMedia } from '@postbot/db'
+import type { PublisherExecutionMedia } from '@postdot/db'
 
 import type { ProviderMediaContentStore } from './registry'
 

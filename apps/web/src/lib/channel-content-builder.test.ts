@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postbot/core'
+import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postdot/core'
 
 import {
     editBuilderField,

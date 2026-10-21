@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
 import {
     Combobox,
     ComboboxEmpty,
@@ -14,7 +14,7 @@ import {
     ComboboxPositioner,
     ComboboxTrigger,
     ComboboxValue,
-} from '@postbot/ui/components/combobox'
+} from '@postdot/ui/components/combobox'
 import {
     Dialog,
     DialogClose,
@@ -23,17 +23,17 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { toast } from '@postbot/ui/components/toast'
+} from '@postdot/ui/components/select'
+import { toast } from '@postdot/ui/components/toast'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'

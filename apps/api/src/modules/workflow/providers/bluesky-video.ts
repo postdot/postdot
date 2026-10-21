@@ -1,11 +1,11 @@
-import type { BlueskyPublisher, BlueskyVideoService } from '@postbot/bluesky'
+import type { BlueskyPublisher, BlueskyVideoService } from '@postdot/bluesky'
 import {
     readBlueskyVideoBlob,
     BLUESKY_MAX_ALT_TEXT_LENGTH,
     BLUESKY_MAX_VIDEO_BYTES,
     BLUESKY_MAX_VIDEO_DURATION_MS,
-} from '@postbot/bluesky'
-import type { ExternalEffectOutcome } from '@postbot/core'
+} from '@postdot/bluesky'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

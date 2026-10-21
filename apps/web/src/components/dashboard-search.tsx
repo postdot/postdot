@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Command,
     CommandDialog,
@@ -7,11 +7,11 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '@postbot/ui/components/command'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@postbot/ui/components/empty'
-import { Kbd } from '@postbot/ui/components/kbd'
-import { Switch } from '@postbot/ui/components/switch'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+} from '@postdot/ui/components/command'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@postdot/ui/components/empty'
+import { Kbd } from '@postdot/ui/components/kbd'
+import { Switch } from '@postdot/ui/components/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'

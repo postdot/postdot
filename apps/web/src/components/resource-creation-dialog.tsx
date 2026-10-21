@@ -1,13 +1,13 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import type { FormEvent } from 'react'
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postbot/core'
-import { xChannelProfile } from '@postbot/x'
+import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postdot/core'
+import { xChannelProfile } from '@postdot/x'
 
 import { channelProfileTemplates, templatesFromPresets } from '../channel-profile-presets'
 import { editProfileTextRule } from './channel-builder-projection'

@@ -1,4 +1,4 @@
-import type { AccessStore } from '@postbot/db'
+import type { AccessStore } from '@postdot/db'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import { errorResponse, publicationParams } from './models'

@@ -1,6 +1,6 @@
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useId, useState, type FormEvent } from 'react'
 

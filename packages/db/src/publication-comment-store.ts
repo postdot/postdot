@@ -1,4 +1,4 @@
-import { requireNonBlank, requireTimestamp } from '@postbot/core'
+import { requireNonBlank, requireTimestamp } from '@postdot/core'
 
 import { createAccessStore } from './access-store'
 import type { PostbotDatabase } from './client'

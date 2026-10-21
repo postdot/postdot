@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { createManualChannelProfile } from '@postbot/core'
+import { createManualChannelProfile } from '@postdot/core'
 
 import { createAuth } from '../../../../packages/auth/src/index'
 import {
@@ -85,7 +85,7 @@ test('persists mapped builder edits through draft review and guarded activation'
                     method: 'POST',
                     path: ['posts', { kind: 'secret' }],
                     query: { delivery: { kind: 'context', pointer: '/deliveryId' } },
-                    headers: { 'X-Source': { kind: 'literal', value: 'Postbot' } },
+                    headers: { 'X-Source': { kind: 'literal', value: 'Postdot' } },
                     response: {
                         successStatuses: [201],
                         retryableStatuses: [429],

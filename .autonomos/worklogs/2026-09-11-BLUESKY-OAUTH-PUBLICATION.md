@@ -21,9 +21,8 @@ through the provider's authorization screen. The requested grant was:
 The connected Bluesky destination was restored in the test project and an
 automatic text publication was scheduled shortly in the future. The worker
 published it successfully; the Postbot queue reported `Published`, the durable
-job reported `succeeded`, and Bluesky exposed the resulting post at:
-
-<https://bsky.app/profile/did:plc:vy2bicc4yrwuy7kbrzlezyjp/post/3mvafvjquos2p>
+job reported `succeeded`, and the resulting post was independently visible on Bluesky. The real account
+and post identifier are omitted from this current record.
 
 The test publication and project are disposable development data. The external
 post was an explicitly approved smoke-test side effect.

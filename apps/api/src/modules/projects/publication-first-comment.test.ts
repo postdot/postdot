@@ -1,15 +1,15 @@
 import { expect, test } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
-import { blueskyChannelProfile } from '@postbot/bluesky'
+import { createAuth } from '@postdot/auth'
+import { blueskyChannelProfile } from '@postdot/bluesky'
 import {
     closeDatabase,
     createDatabase,
     runMigrations,
     createManualStore,
     createAccessStore,
-} from '@postbot/db'
-import { mastodonChannelProfile } from '@postbot/mastodon'
+} from '@postdot/db'
+import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'

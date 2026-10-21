@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldDescription, FieldError, FieldLabel } from '@postbot/ui/components/field'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@postdot/ui/components/field'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Textarea } from '@postbot/ui/components/textarea'
+} from '@postdot/ui/components/select'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 

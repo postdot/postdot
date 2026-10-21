@@ -3,15 +3,15 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     closeDatabase,
     createAccessStore,
     createDatabase,
     createMediaAssetStore,
     runMigrations,
-} from '@postbot/db'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/db'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'

@@ -1,5 +1,5 @@
-import type { ProviderAnalyticsObservation } from '@postbot/core'
-import type { ProviderAnalyticsObservationPage } from '@postbot/db'
+import type { ProviderAnalyticsObservation } from '@postdot/core'
+import type { ProviderAnalyticsObservationPage } from '@postdot/db'
 import { Type } from 'typebox'
 
 import type { BlueskyAnalyticsCollectionResponse } from './bluesky-analytics-service'

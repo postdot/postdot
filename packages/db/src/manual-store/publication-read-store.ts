@@ -4,7 +4,7 @@ import {
     requireNonBlank,
     type Publication,
     type PublicationTagFilter,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from '../client'
 import type {

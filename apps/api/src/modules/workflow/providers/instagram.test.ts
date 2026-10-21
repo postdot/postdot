@@ -19,15 +19,15 @@ import {
     type PublisherExecutionMedia,
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     createInstagramOAuth,
     createInstagramPublisher,
     instagramChannelProfile,
     INSTAGRAM_PUBLISH_PERMISSIONS,
     type InstagramFetcher,
-} from '@postbot/instagram'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/instagram'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { createInstagramProviderAdapter } from './instagram'
 import type { BuiltInProviderExecutionInput } from './registry'

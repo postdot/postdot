@@ -33,7 +33,7 @@ describe('DEV.to API key validation', () => {
 describe('DEV.to publisher', () => {
     it('verifies the account with the Forem API v1 headers', async () => {
         const fixture = createFetcher([
-            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postdot' }),
         ])
         const publisher = createDevtoPublisher({
             baseUrl: 'https://devto.test',
@@ -42,13 +42,13 @@ describe('DEV.to publisher', () => {
 
         await expect(publisher.getMe(API_KEY)).resolves.toEqual({
             kind: 'success',
-            value: { id: '42', username: 'postbot', name: 'Postbot' },
+            value: { id: '42', username: 'postbot', name: 'Postdot' },
         })
         expect(fixture.calls[0]?.input).toBe('https://devto.test/api/users/me')
         const headers = new Headers(fixture.calls[0]?.init?.headers)
         expect(headers.get('accept')).toBe('application/vnd.forem.api-v1+json')
         expect(headers.get('api-key')).toBe(API_KEY)
-        expect(headers.get('user-agent')).toBe('Postbot/0.1')
+        expect(headers.get('user-agent')).toBe('Postdot/0.1')
     })
 
     it('publishes a live Markdown article and maps the returned URL', async () => {
@@ -63,7 +63,7 @@ describe('DEV.to publisher', () => {
 
         const outcome = await publisher.publishArticle({
             apiKey: API_KEY,
-            title: 'A Postbot article',
+            title: 'A Postdot article',
             bodyMarkdown: '# Hello DEV.to',
             mainImageUrl: 'https://media.postbot.test/article.png',
         })
@@ -77,7 +77,7 @@ describe('DEV.to publisher', () => {
         expect(request?.init?.method).toBe('POST')
         expect(JSON.parse(String(request?.init?.body))).toEqual({
             article: {
-                title: 'A Postbot article',
+                title: 'A Postdot article',
                 body_markdown: '# Hello DEV.to',
                 published: true,
                 main_image: 'https://media.postbot.test/article.png',
@@ -150,7 +150,7 @@ describe('DEV.to publisher', () => {
 
         const outcome = await publisher.publishArticle({
             apiKey: API_KEY,
-            title: 'A Postbot article',
+            title: 'A Postdot article',
             bodyMarkdown: 'Body',
         })
 
@@ -170,7 +170,7 @@ describe('DEV.to publisher', () => {
         await expect(
             publisher.publishArticle({
                 apiKey: API_KEY,
-                title: 'A Postbot article',
+                title: 'A Postdot article',
                 bodyMarkdown: 'Body',
             })
         ).resolves.toMatchObject({ type: 'ambiguous', code: 'provider_failure' })

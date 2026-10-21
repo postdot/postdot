@@ -4,7 +4,7 @@ import {
     createExponentialRetryPolicy,
     DomainInvariantError,
     processNextExternalEffect,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { SecretCipherError } from './encrypted-secret-crypto'
@@ -29,7 +29,7 @@ function createFixture() {
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
     const project = manual.createProject({
-        name: 'Postbot',
+        name: 'Postdot',
         subjectId: 'human-1',
         displayName: 'First human',
     })

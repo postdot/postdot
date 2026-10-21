@@ -4,7 +4,7 @@ import {
     requireTimestamp,
     reschedulePublication,
     type Publication,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { ReschedulePublicationsInput } from '../manual-store'

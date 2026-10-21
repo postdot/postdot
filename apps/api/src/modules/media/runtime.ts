@@ -1,5 +1,5 @@
-import type { MediaAssetStore } from '@postbot/db'
-import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postbot/media'
+import type { MediaAssetStore } from '@postdot/db'
+import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postdot/media'
 
 import type { PostbotConfig } from '../../config'
 

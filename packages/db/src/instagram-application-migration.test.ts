@@ -135,7 +135,7 @@ test('Instagram application migration preserves existing encrypted configuration
 
         const instagram = await applications.createProviderApplication({
             providerId: 'instagram',
-            name: 'Postbot Instagram',
+            name: 'Postdot Instagram',
             clientId: '17841400000000000',
             clientSecret: 'instagram-encrypted-secret',
             createdByUserId: 'owner',

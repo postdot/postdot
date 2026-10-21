@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 
@@ -15,7 +15,7 @@ export default meta
 
 type Story = StoryObj
 const pages = [
-    { id: '101', name: 'Postbot — Product updates', hasPublishTask: true },
+    { id: '101', name: 'Postdot — Product updates', hasPublishTask: true },
     { id: '102', name: 'Community', hasPublishTask: false },
     { id: '103', name: 'Studio announcements', hasPublishTask: true },
 ]

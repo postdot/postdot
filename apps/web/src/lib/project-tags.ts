@@ -1,4 +1,4 @@
-import type { ProjectTag } from '@postbot/client'
+import type { ProjectTag } from '@postdot/client'
 import { useQuery, type QueryClient } from '@tanstack/react-query'
 
 import { api, ApiError, formatApiError } from '@/lib/api'

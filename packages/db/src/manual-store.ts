@@ -15,7 +15,7 @@ import {
     type SourceContent,
     type TargetContent,
     type Timestamp,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { recordDatabaseCommitProject, type PostbotDatabase } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'

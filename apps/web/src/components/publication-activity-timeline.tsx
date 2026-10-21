@@ -1,4 +1,4 @@
-import { cn } from '@postbot/ui/lib/utils'
+import { cn } from '@postdot/ui/lib/utils'
 import { useEffect, useState } from 'react'
 
 import type { AuditEvent } from '@/lib/api'

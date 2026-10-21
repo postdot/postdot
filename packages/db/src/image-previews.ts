@@ -1,4 +1,4 @@
-import type { MediaStore } from '@postbot/media'
+import type { MediaStore } from '@postdot/media'
 
 export const imagePreviewProcessor = 'postbot-image-preview'
 export const imagePreviewVersion = '1'

@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublisherExecutionTarget } from '@postbot/db'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublisherExecutionTarget } from '@postdot/db'
 import {
     DISCORD_EXECUTION_CONTRACT_REVISION,
     DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -11,7 +11,7 @@ import {
     isDiscordChannelId,
     readDiscordTextContent,
     type DiscordPublisher,
-} from '@postbot/discord'
+} from '@postdot/discord'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

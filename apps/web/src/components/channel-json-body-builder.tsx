@@ -1,14 +1,14 @@
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Switch } from '@postbot/ui/components/switch'
+} from '@postdot/ui/components/select'
+import { Switch } from '@postdot/ui/components/switch'
 import { useEffect, useId, useState } from 'react'
 
 import {

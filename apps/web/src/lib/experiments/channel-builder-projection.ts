@@ -1,5 +1,5 @@
 /** Isolated feasibility prototype. Not imported by Studio or a runtime package. */
-import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postbot/core'
+import { ChannelProfileCompiler, type ChannelProfileDefinition } from '@postdot/core'
 
 type RecordValue = Record<string, unknown>
 

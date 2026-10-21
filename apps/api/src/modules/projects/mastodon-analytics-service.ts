@@ -5,14 +5,14 @@ import {
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
-} from '@postbot/core'
-import { createNetworkControlledFetcher } from '@postbot/custom-http'
-import type { AccessStore, ProviderAnalyticsStore } from '@postbot/db'
+} from '@postdot/core'
+import { createNetworkControlledFetcher } from '@postdot/custom-http'
+import type { AccessStore, ProviderAnalyticsStore } from '@postdot/db'
 import {
     createMastodonAnalyticsReader,
     resolveMastodonStatusReference,
     type MastodonAnalyticsReader,
-} from '@postbot/mastodon'
+} from '@postdot/mastodon'
 
 import type { ManualStore } from './types'
 

@@ -9,7 +9,7 @@ import {
     type DeliveryMode,
     type Publication,
     type ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,

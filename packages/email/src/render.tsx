@@ -75,7 +75,7 @@ export async function renderPostbotPublicationOutcomeEmail(
 ): Promise<PostbotRenderedEmail> {
     return {
         to: input.email,
-        subject: `Postbot — ${input.title}`,
+        subject: `Postdot — ${input.title}`,
         html: await render(<PublicationOutcomeEmail {...input} />),
         text: await render(<PublicationOutcomeEmail {...input} />, { plainText: true }),
     }

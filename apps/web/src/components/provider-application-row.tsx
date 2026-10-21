@@ -1,6 +1,6 @@
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
-import { DialogTrigger } from '@postbot/ui/components/dialog'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
+import { DialogTrigger } from '@postdot/ui/components/dialog'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 
 import { type ProviderApplication, type ProviderApplicationProvider } from '@/lib/api'

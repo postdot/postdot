@@ -9,13 +9,13 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     createFacebookOAuth,
     createFacebookPublisher,
     facebookChannelProfile,
     FACEBOOK_PUBLISH_PERMISSIONS,
-} from '@postbot/facebook'
+} from '@postdot/facebook'
 
 import { createFacebookConnectionFlow } from './facebook-connection-flow'
 

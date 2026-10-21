@@ -1,5 +1,5 @@
-import { TELEGRAM_MAX_CAPTION_LENGTH, TELEGRAM_MAX_TEXT_LENGTH } from '@postbot/telegram'
-import { TELEGRAM_POLL_LIMITS } from '@postbot/telegram/poll'
+import { TELEGRAM_MAX_CAPTION_LENGTH, TELEGRAM_MAX_TEXT_LENGTH } from '@postdot/telegram'
+import { TELEGRAM_POLL_LIMITS } from '@postdot/telegram/poll'
 
 import { hasTelegramPoll, isNativeTelegramProfile, isTelegramPollProfile } from './telegram-poll'
 

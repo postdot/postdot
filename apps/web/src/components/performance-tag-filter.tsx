@@ -1,6 +1,6 @@
-import type { ProjectTag } from '@postbot/client'
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
+import type { ProjectTag } from '@postdot/client'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
@@ -10,7 +10,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
+} from '@postdot/ui/components/dropdown-menu'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { TagIcon } from '@solar-icons/react/linear/tag'
 import { useState } from 'react'

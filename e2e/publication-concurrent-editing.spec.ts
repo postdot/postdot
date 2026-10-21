@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page, type Request } from '@playwright/test'
-import type { PublicationEditorState } from '@postbot/client'
+import type { PublicationEditorState } from '@postdot/client'
 
 test('rebases a stale sibling draft without replacing destination text or attachments', async ({
     page,
@@ -670,7 +670,7 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
 async function createDraftPair(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Concurrent editor owner')
     await page.getByLabel('Email', { exact: true }).fill(`concurrent-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('concurrent-editor-password')

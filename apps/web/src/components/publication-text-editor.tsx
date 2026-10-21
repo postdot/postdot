@@ -1,7 +1,7 @@
-import { Button } from '@postbot/ui/components/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@postbot/ui/components/popover'
-import { Textarea } from '@postbot/ui/components/textarea'
-import { cn } from '@postbot/ui/lib/utils'
+import { Button } from '@postdot/ui/components/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
+import { Textarea } from '@postdot/ui/components/textarea'
+import { cn } from '@postdot/ui/lib/utils'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
 import { lazy, Suspense, useRef, useState, type ComponentProps } from 'react'
 

@@ -285,7 +285,7 @@ describe('X publisher', () => {
                     {
                         data: {
                             id: '1445880548472328192',
-                            text: 'Hello world from Postbot!',
+                            text: 'Hello world from Postdot!',
                         },
                     },
                     201
@@ -295,7 +295,7 @@ describe('X publisher', () => {
 
             const outcome = await publisher.publishTweet({
                 accessToken: 'test-token',
-                text: 'Hello world from Postbot!',
+                text: 'Hello world from Postdot!',
             })
 
             expect(outcome).toEqual({
@@ -308,7 +308,7 @@ describe('X publisher', () => {
             expect(call?.input).toBe('https://api.x.com/2/tweets')
             expect(call?.init?.method).toBe('POST')
             expect(JSON.parse(call?.init?.body as string)).toEqual({
-                text: 'Hello world from Postbot!',
+                text: 'Hello world from Postdot!',
             })
         })
 

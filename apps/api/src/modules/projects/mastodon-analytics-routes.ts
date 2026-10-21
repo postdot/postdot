@@ -1,4 +1,4 @@
-import type { AccessStore, ProviderAnalyticsStore } from '@postbot/db'
+import type { AccessStore, ProviderAnalyticsStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'

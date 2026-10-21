@@ -9,7 +9,7 @@ import {
     type MediaReservation,
     type MediaUploadPolicy,
     type MediaUrlImport,
-} from '@postbot/client'
+} from '@postdot/client'
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
@@ -691,10 +691,10 @@ function parseProjectIds(value: string | undefined): string[] | null {
 }
 
 function printCliHelp(output: (message: string) => void) {
-    output(`Postbot CLI
+    output(`Postdot CLI
 
 Usage:
-  bun run postbot <resource> <action> [options]
+  bun run postdot <resource> <action> [options]
 
 Resources:
   auth login                         Sign in and print a session cookie
@@ -730,9 +730,9 @@ Resources:
 Options:
   --timeout-ms <n>                    Per-request deadline (default: 30000)
   --json                             Print structured JSON
-  --base-url <url>                   Postbot API URL (default: http://localhost:3000)
+  --base-url <url>                   Postdot API URL (default: http://localhost:3000)
   --cookie <value>                   Session cookie for authenticated requests
-  --token <value>                    Postbot API key for machine requests
+  --token <value>                    Postdot API key for machine requests
   --projects <id,id,...>             Limit a new API key to selected projects
   --expires-at <epoch-ms>            Expiration for a new token
 

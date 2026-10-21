@@ -1,4 +1,4 @@
-import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
+import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
 import type { ReactNode } from 'react'
 
 interface AuthShellProps {
@@ -47,7 +47,7 @@ function BrandLockup({ inverse = false }: { readonly inverse?: boolean }) {
             </span>
             <span
                 className={`font-heading text-lg font-semibold ${inverse ? 'text-primary-foreground' : ''}`}>
-                Postbot
+                Postdot
             </span>
         </div>
     )

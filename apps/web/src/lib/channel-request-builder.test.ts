@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import {
     validateDeclarativeHttpExecution,
     type DeclarativeHttpExecutionContract,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     compareMappedRequests,

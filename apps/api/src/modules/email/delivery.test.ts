@@ -12,7 +12,7 @@ async function waitForDelivery(condition: () => boolean): Promise<void> {
     throw new Error('Timed out waiting for email delivery')
 }
 
-describe('Postbot auth email delivery', () => {
+describe('Postdot auth email delivery', () => {
     it('renders invitation, verification, and reset emails through an injected transport', async () => {
         const sent: SendMailOptions[] = []
         const transport: PostbotEmailTransport = {
@@ -27,7 +27,7 @@ describe('Postbot auth email delivery', () => {
                 host: 'smtp.example.test',
                 port: 587,
                 secure: true,
-                from: 'Postbot <no-reply@example.test>',
+                from: 'Postdot <no-reply@example.test>',
             },
         })
         const invitationURL = delivery.organizationInvitationURL?.({
@@ -65,26 +65,26 @@ describe('Postbot auth email delivery', () => {
         expect(delivery.sendEmailVerificationOnSignUp).toBe(true)
         expect(sent).toHaveLength(3)
         const invitationMessage = sent.find(
-            message => message.subject === 'Invitation to join Project <one> on Postbot'
+            message => message.subject === 'Invitation to join Project <one> on Postdot'
         )
         const verificationMessage = sent.find(
-            message => message.subject === 'Verify your Postbot email address'
+            message => message.subject === 'Verify your Postdot email address'
         )
-        const resetMessage = sent.find(message => message.subject === 'Reset your Postbot password')
+        const resetMessage = sent.find(message => message.subject === 'Reset your Postdot password')
 
         expect(invitationMessage).toMatchObject({
-            from: 'Postbot <no-reply@example.test>',
+            from: 'Postdot <no-reply@example.test>',
             to: 'member@example.test',
-            subject: 'Invitation to join Project <one> on Postbot',
+            subject: 'Invitation to join Project <one> on Postdot',
         })
         expect(invitationMessage?.text).toContain(invitationURL)
         expect(invitationMessage?.html).toContain('Project &lt;one&gt;')
         expect(verificationMessage).toMatchObject({
-            subject: 'Verify your Postbot email address',
+            subject: 'Verify your Postdot email address',
             to: 'member@example.test',
         })
         expect(resetMessage).toMatchObject({
-            subject: 'Reset your Postbot password',
+            subject: 'Reset your Postdot password',
             to: 'member@example.test',
         })
     })

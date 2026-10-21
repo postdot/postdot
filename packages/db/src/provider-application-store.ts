@@ -1,4 +1,4 @@
-import { requireNonBlank, requireTimestamp } from '@postbot/core'
+import { requireNonBlank, requireTimestamp } from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'

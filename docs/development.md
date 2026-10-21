@@ -86,7 +86,7 @@ POSTBOT_EMAIL_SMTP_PORT=587
 POSTBOT_EMAIL_SMTP_SECURE=false
 POSTBOT_EMAIL_SMTP_USERNAME=your-smtp-user
 POSTBOT_EMAIL_SMTP_PASSWORD=your-smtp-password
-POSTBOT_EMAIL_FROM=Postbot <no-reply@example.com>
+POSTBOT_EMAIL_FROM=Postdot <no-reply@example.com>
 ```
 
 The username and password must be supplied together; an unauthenticated local
@@ -119,7 +119,7 @@ POSTBOT_MAILPIT_SMTP_PORT=11025 POSTBOT_MAILPIT_UI_PORT=18025 \
 POSTBOT_EMAIL_SMTP_HOST=127.0.0.1
 POSTBOT_EMAIL_SMTP_PORT=1025
 POSTBOT_EMAIL_SMTP_SECURE=false
-POSTBOT_EMAIL_FROM=Postbot <no-reply@postbot.local>
+POSTBOT_EMAIL_FROM=Postdot <no-reply@postbot.local>
 ```
 
 Inspect captured messages at <http://127.0.0.1:8025> (or the overridden UI port).
@@ -136,7 +136,7 @@ development servers.
 
 The API applies the committed Drizzle migrations at startup. For a local,
 unreleased database whose migration history no longer matches the repository,
-stop the API and move that ignored database file aside before restarting. Postbot
+stop the API and move that ignored database file aside before restarting. Postdot
 will create a fresh database; do not use this procedure for a database containing
 data that must be preserved.
 
@@ -157,7 +157,7 @@ npx --no-install playwright install chromium
 temporary SQLite database, local media directory, loopback ports, and test
 output directory for that invocation. The suite creates only disposable local
 data, never calls a real publisher, and removes only the runtime it owns when it
-finishes. The Playwright runner requires Node.js 20 or newer; Postbot's
+finishes. The Playwright runner requires Node.js 20 or newer; Postdot's
 application processes continue to run on Bun. Set `POSTBOT_E2E_API_PORT` and
 `POSTBOT_E2E_WEB_PORT` when debugging on chosen ports; explicit ports are
 caller-reserved and must not be reused by overlapping runs.
@@ -166,13 +166,13 @@ The HTTP CLI uses the same API as the dashboard. Sign in once, then export the
 session cookie printed by the command:
 
 ```sh
-bun run postbot auth login --email operator@example.com --password 'your-password' --json
+bun run postdot auth login --email operator@example.com --password 'your-password' --json
 export POSTBOT_SESSION_COOKIE='...'
-bun run postbot projects list --json
-bun run postbot publications due --project <project-id> --json
+bun run postdot projects list --json
+bun run postdot publications due --project <project-id> --json
 ```
 
-Use `bun run postbot --help` for the available project, channel, publication, and
+Use `bun run postdot --help` for the available project, channel, publication, and
 audit commands. Set `POSTBOT_URL` or pass `--base-url` when the API is not local.
 
 User-owned API keys are created and revoked through the human session of the user
@@ -182,9 +182,9 @@ is printed only by the create command; copy it into a secret manager before leav
 the command output:
 
 ```sh
-bun run postbot api-keys create --name release-agent --projects <project-id>
-bun run postbot api-keys list --json
-bun run postbot api-keys revoke --key-id <key-id>
+bun run postdot api-keys create --name release-agent --projects <project-id>
+bun run postdot api-keys list --json
+bun run postdot api-keys revoke --key-id <key-id>
 ```
 
 Use a user key for ordinary machine operations through `POSTBOT_API_KEY` or `--token`.
@@ -194,8 +194,8 @@ OAuth flows.
 
 ```sh
 export POSTBOT_API_KEY='paste-the-token-once'
-bun run postbot projects list --json
-bun run postbot publications due --project <project-id> --json
+bun run postdot projects list --json
+bun run postdot publications due --project <project-id> --json
 ```
 
 For JSON source/destination creation, revision-guarded scheduling, inspection,
@@ -223,7 +223,7 @@ part of `bun run check` and must only be run with an operator-owned test account
     LINKEDIN_CLIENT_SECRET=your-client-secret
     ```
 
-4. Open the dashboard, sign in with the local Postbot email/password account,
+4. Open the dashboard, sign in with the local Postdot email/password account,
    create a project and channel, then use **Publisher connections → Connect
    LinkedIn**. Approve the requested access. The callback creates a
    project-owned publisher connection for the LinkedIn member returned by the
@@ -234,7 +234,7 @@ part of `bun run check` and must only be run with an operator-owned test account
 6. Verify the result through the project audit command:
 
     ```sh
-    bun run postbot audit list --project <project-id> --json
+    bun run postdot audit list --project <project-id> --json
     ```
 
     A successful provider call records the provider post identifier in the
@@ -314,7 +314,7 @@ The example reuses the local environment file for convenience; deployment setups
 should provide an equivalent secret-managed environment file and must not commit it.
 
 To generate missing thumbnails for images imported before stored previews were
-introduced, stop Postbot and run the maintenance command against the same data
+introduced, stop Postdot and run the maintenance command against the same data
 volume and media-store configuration:
 
 ```sh
@@ -332,7 +332,7 @@ run `bun run --cwd apps/api src/index.ts media-previews --dry-run` instead.
 The command preserves originals and publication references, generates only
 missing current-version previews, and can be rerun after interruption. It
 reports failures and returns a nonzero exit status when an image fails; completed
-previews remain available. Restart Postbot after maintenance. This command never
+previews remain available. Restart Postdot after maintenance. This command never
 reclaims an existing runtime lock.
 
 Create a complete application backup from a running container by mounting the
@@ -351,7 +351,7 @@ docker run --rm \
 
 Stop the application before restoring. The API owns a sidecar runtime lock next to
 the database while it is running, and restore acquires the same lock before
-validating or replacing anything. A restore therefore fails closed while Postbot
+validating or replacing anything. A restore therefore fails closed while Postdot
 is active; start the application again only after the restore completes:
 
 ```sh
@@ -371,7 +371,7 @@ to use its encrypted publisher connections.
 
 The lock is intentionally not reclaimed automatically after a forced process
 termination. If a restart, restore, or account-recovery command reports an existing
-lock, first verify that no Postbot process is using the database, then remove only the exact
+lock, first verify that no Postdot process is using the database, then remove only the exact
 `<database>.runtime.lock` sidecar before retrying. Never remove the marker to
 override a live process.
 
@@ -380,7 +380,7 @@ not include stored media objects.
 
 ### Local account password recovery
 
-When SMTP recovery is unavailable, stop Postbot and run the local maintenance
+When SMTP recovery is unavailable, stop Postdot and run the local maintenance
 command against the exact database file. It requires an interactive terminal,
 asks you to confirm the absolute database path, and reads the new password without
 echoing it. The command creates a validated, permission-restricted database backup
@@ -396,13 +396,13 @@ docker run --rm -it \
 
 Keep the reported `.before-password-recovery-*` directory under the same protection
 and retention controls as other database backups. It contains `database.sqlite` and
-has owner-only directory/file permissions. Start Postbot again after the command
+has owner-only directory/file permissions. Start Postdot again after the command
 completes. This command resets an existing account password; it does not create an
 account or change instance-admin roles.
 
 ### Publisher encryption key recovery
 
-A complete Postbot recovery consists of the application bundle and the separately
+A complete Postdot recovery consists of the application bundle and the separately
 managed publisher encryption key. The `--media` bundle intentionally does not
 contain `POSTBOT_PUBLISHER_ENCRYPTION_KEY`; it contains encrypted publisher
 credential envelopes that cannot be used without the deployment key.
@@ -420,16 +420,16 @@ Before creating a backup:
 
 To recover publisher credentials:
 
-1. Stop Postbot and restore the database and media bundle.
+1. Stop Postdot and restore the database and media bundle.
 2. Configure the same key and matching `POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID` in
    the deployment environment before starting the application.
-3. Start Postbot and verify `/health` and `/ready`.
+3. Start Postdot and verify `/health` and `/ready`.
 4. Use the dashboard to confirm that the expected project connections are still
    present. These endpoints and the connection list validate runtime and metadata;
    they do not prove that a publisher secret can be decrypted.
 5. If credential recovery must be proven, perform one intentionally approved
    provider operation against a controlled destination and verify its provider
-   acknowledgement and Postbot audit outcome. Do not use a live destination solely
+   acknowledgement and Postdot audit outcome. Do not use a live destination solely
    as a restore probe; if the outcome is uncertain, reconcile it before retrying.
 
 Do not generate a replacement key during restore: a new key cannot decrypt existing
@@ -443,7 +443,7 @@ The current workspace contains:
 
 - `apps/api`: Elysia API process;
 - `apps/web`: React 19 + TanStack Router Vite SPA with Tailwind CSS, shadcn/ui Base UI, and Solar Icons;
-- `packages/ui`: shared Base UI primitives, Postbot design tokens, and Tailwind integration;
+- `packages/ui`: shared Base UI primitives, Postdot design tokens, and Tailwind integration;
 - `packages/auth`: Better Auth configuration and adapter boundary;
 - `packages/client`: typed client helpers shared by the CLI and dashboard;
 - `packages/core`: framework-independent domain and workflow contracts;

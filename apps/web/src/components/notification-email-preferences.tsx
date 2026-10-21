@@ -1,6 +1,6 @@
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldContent, FieldDescription, FieldTitle } from '@postbot/ui/components/field'
-import { Switch } from '@postbot/ui/components/switch'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@postdot/ui/components/field'
+import { Switch } from '@postdot/ui/components/switch'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 

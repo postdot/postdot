@@ -3,9 +3,9 @@
  * publication. The public view belongs to the shared client contract; this
  * module owns only the deterministic Studio behaviour around it.
  */
-import type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postbot/client'
+import type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
-export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postbot/client'
+export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
 /** The lifecycle of one prepared comment, taken from the shared contract. */
 export type PublicationFirstCommentState = PublicationFirstCommentItem['state']

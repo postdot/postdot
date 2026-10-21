@@ -1,12 +1,12 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Field,
     FieldContent,
     FieldGroup,
     FieldLabel,
     FieldTitle,
-} from '@postbot/ui/components/field'
-import { Switch } from '@postbot/ui/components/switch'
+} from '@postdot/ui/components/field'
+import { Switch } from '@postdot/ui/components/switch'
 import { type Dispatch, type FormEvent, type SetStateAction } from 'react'
 
 import { ProviderApplicationFormFields } from '@/components/provider-application-form-fields'

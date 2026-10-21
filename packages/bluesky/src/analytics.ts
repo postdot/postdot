@@ -4,7 +4,7 @@ import {
     requireTimestamp,
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsObservationInput,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { BLUESKY_PROVIDER, type BlueskyFetcher } from './contract'
 

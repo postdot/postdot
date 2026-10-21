@@ -205,7 +205,7 @@ export function validateDeclarativeHttpExecution(
             addIssue(
                 '/execution/request',
                 'execution.webhook_request_forbidden',
-                'A Postbot webhook contract must not define a mapped request'
+                'A Postdot webhook contract must not define a mapped request'
             )
         }
         return issues

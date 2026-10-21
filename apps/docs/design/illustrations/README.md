@@ -10,7 +10,7 @@ connected plate. Draw routes first, then opaque solids from bottom to top.
 
 Actual logo bodies come from the installed Iconify logos package, exported in
 `brands.js`. Do not recreate brand marks with text or approximate their paths.
-Postbot retains its accepted palette and branded diagrams; this intentionally
+Postdot retains its accepted palette and branded diagrams; this intentionally
 is not Hairline's stricter unbranded monochrome illustration style.
 
 `scene.test.ts` samples a complete motion cycle to check attachment and stack

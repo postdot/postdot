@@ -1,7 +1,7 @@
-# H-11 — Postbot landing holdout
+# H-11 — Postdot landing holdout
 
-Archived calibration study for the transition from Postbot's operational
-workspace to a public landing page. This is not a Postbot implementation and
+Archived calibration study for the transition from Postdot's operational
+workspace to a public landing page. This is not a Postdot implementation and
 does not define the final public proposition.
 
 The two compositions keep the accepted H-10 contract constant:

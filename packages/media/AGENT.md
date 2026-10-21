@@ -1,6 +1,6 @@
 # AGENT: packages/media
 
-- **Purpose:** Provide Postbot's object-storage port and Bun-native local and
+- **Purpose:** Provide Postdot's object-storage port and Bun-native local and
   S3-compatible adapters.
 - **Boundary:** `MediaStore` exposes web streams and normalized object metadata;
   Bun file objects, S3 file objects, credentials, buckets, and local paths stay

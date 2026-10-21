@@ -15,7 +15,7 @@ import {
     type PublicationReviewState,
     type ProjectTag,
     type ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {

@@ -1,5 +1,5 @@
-import type { PublisherConnectionPolicy } from '@postbot/db'
-import { isDiscordChannelId } from '@postbot/discord'
+import type { PublisherConnectionPolicy } from '@postdot/db'
+import { isDiscordChannelId } from '@postdot/discord'
 
 export const discordPublisherConnectionPolicy: PublisherConnectionPolicy = {
     validateDestination: destination =>

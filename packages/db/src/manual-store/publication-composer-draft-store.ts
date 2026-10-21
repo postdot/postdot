@@ -1,4 +1,4 @@
-import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postbot/core'
+import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import { canonicalJson, parseJsonObject } from './content-codec'

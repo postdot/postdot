@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import '@postbot/ui/globals.css';
+@import '@postdot/ui/globals.css';
 
 @source './';
 @source '../../../packages/ui/src';

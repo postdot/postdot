@@ -30,7 +30,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     ).toContainText('Enabled')
     await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toHaveCount(0)
 
-    await expect(page.getByRole('form', { name: 'Invite to Postbot', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('form', { name: 'Invite to Postdot', exact: true })).toHaveCount(0)
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -134,7 +134,7 @@ test('a member cannot enter instance administration', async ({ page }) => {
                     id: 'member-membership',
                     userId: 'member-user',
                     email: account.email,
-                    name: 'Invited Postbot member',
+                    name: 'Invited Postdot member',
                     role: 'member',
                     state: 'enabled',
                     createdAt: Date.now(),

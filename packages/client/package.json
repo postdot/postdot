@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/client",
+    "name": "@postdot/client",
     "version": "0.0.0",
     "private": true,
-    "description": "Type-safe HTTP client for the Postbot API",
+    "description": "Type-safe HTTP client for the Postdot API",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -23,9 +23,9 @@
         "@elysiajs/eden": "1.4.9"
     },
     "devDependencies": {
-        "@postbot/api": "workspace:*",
-        "@postbot/auth": "workspace:*",
-        "@postbot/db": "workspace:*",
+        "@postdot/api": "workspace:*",
+        "@postdot/auth": "workspace:*",
+        "@postdot/db": "workspace:*",
         "@tala-tools/tsconfig": "0.1.0",
         "@types/bun": "1.4.2",
         "typescript": "7.0.2"

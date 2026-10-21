@@ -1,9 +1,9 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 import {
     readLinkedInTextContent,
     type LinkedInDestination,
     type LinkedInVideoPublisher,
-} from '@postbot/linkedin'
+} from '@postdot/linkedin'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

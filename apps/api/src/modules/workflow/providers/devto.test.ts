@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postbot/db'
-import type { DevtoPublishOutcome, DevtoPublisher } from '@postbot/devto'
-import { devtoChannelProfile } from '@postbot/devto'
+import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot/db'
+import type { DevtoPublishOutcome, DevtoPublisher } from '@postdot/devto'
+import { devtoChannelProfile } from '@postdot/devto'
 
 import { createDevtoProviderAdapter } from './devto'
 import type {
@@ -26,7 +26,7 @@ function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): Publis
         mediaReferenceCount: 0,
         profile: devtoChannelProfile,
         content: {
-            title: 'Postbot release notes',
+            title: 'Postdot release notes',
             body_markdown: '# A calmer publishing workflow',
             media: [],
         },
@@ -36,7 +36,7 @@ function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): Publis
         kind: 'devto',
         credentialId: 'credential-devto',
         externalAccountId: '42',
-        destination: { type: 'account', id: '42', name: 'Postbot' },
+        destination: { type: 'account', id: '42', name: 'Postdot' },
         providerId: 'devto',
         credentialState: 'active',
         credentialExpiresAt: null,
@@ -95,7 +95,7 @@ function createMedia(): PublisherExecutionMedia {
         position: 0,
         contentPath: '/media/0',
         role: null,
-        accessibilityText: 'A Postbot release notes image',
+        accessibilityText: 'A Postdot release notes image',
         originalFilename: 'release-notes.png',
         contentType: 'image/png',
         family: 'image',
@@ -136,7 +136,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postbot' },
+                    value: { id: '42', username: 'postbot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -155,7 +155,7 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Postbot release notes',
+                    title: 'Postdot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },
@@ -171,7 +171,7 @@ describe('DEV.to provider adapter', () => {
         })
         expect(publishedInput).toEqual({
             apiKey: API_KEY,
-            title: 'Postbot release notes',
+            title: 'Postdot release notes',
             bodyMarkdown: '# A calmer publishing workflow',
             mainImageUrl: 'https://media.example/postbot/signed-image',
         })
@@ -182,7 +182,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postbot' },
+                    value: { id: '42', username: 'postbot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -215,7 +215,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postbot' },
+                    value: { id: '42', username: 'postbot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -234,7 +234,7 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Postbot release notes',
+                    title: 'Postdot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },
@@ -253,7 +253,7 @@ describe('DEV.to provider adapter', () => {
             publisher,
             createTarget({
                 content: {
-                    title: 'Postbot release notes',
+                    title: 'Postdot release notes',
                     body_markdown: '# A calmer publishing workflow',
                     media: [{ assetId: media.assetId }],
                 },

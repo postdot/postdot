@@ -179,7 +179,7 @@ describe('offline local account password recovery', () => {
         }
     })
 
-    it('fails closed while a Postbot server owns the database lock', async () => {
+    it('fails closed while a Postdot server owns the database lock', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postbot-account-recovery-'))
         const databaseFilename = join(directory, 'postbot.sqlite')
 

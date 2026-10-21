@@ -12,13 +12,13 @@ describe('LinkedIn member profile client', () => {
             baseUrl: 'https://linkedin.test',
             fetcher: async (input, init) => {
                 request = { input, init }
-                return Response.json({ sub: 'member-42', name: 'Postbot Operator' })
+                return Response.json({ sub: 'member-42', name: 'Postdot Operator' })
             },
         })
 
         await expect(client.getProfile('access-token')).resolves.toEqual({
             id: 'member-42',
-            name: 'Postbot Operator',
+            name: 'Postdot Operator',
         })
         expect(String(request?.input)).toBe('https://linkedin.test/v2/userinfo')
         expect(new Headers(request?.init?.headers).get('authorization')).toBe('Bearer access-token')

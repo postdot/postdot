@@ -1,6 +1,6 @@
-import { Button } from '@postbot/ui/components/button'
-import { ButtonGroup } from '@postbot/ui/components/button-group'
-import { cn } from '@postbot/ui/lib/utils'
+import { Button } from '@postdot/ui/components/button'
+import { ButtonGroup } from '@postdot/ui/components/button-group'
+import { cn } from '@postdot/ui/lib/utils'
 import type { ReactNode } from 'react'
 
 export type BulkActionVariant =

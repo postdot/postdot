@@ -24,7 +24,7 @@ function createFixture() {
     const project = manualStore.createProject({
         name: 'OAuth Project',
         subjectId: 'user-1',
-        displayName: 'Postbot Operator',
+        displayName: 'Postdot Operator',
     })
     const channel = manualStore.createChannel({
         projectId: project.project.id,

@@ -1,4 +1,4 @@
-import type { createInstallationEmailSettingsStore } from '@postbot/db'
+import type { createInstallationEmailSettingsStore } from '@postdot/db'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 import { Type, type Static } from 'typebox'
 import { Value } from 'typebox/value'
@@ -124,8 +124,8 @@ export async function createEmailSettingsService(options: {
         async test(email: string) {
             await sendMail({
                 to: email,
-                subject: 'Postbot — SMTP test',
-                text: 'Postbot successfully submitted this test email to your SMTP server.',
+                subject: 'Postdot — SMTP test',
+                text: 'Postdot successfully submitted this test email to your SMTP server.',
             })
             return { accepted: true as const }
         },

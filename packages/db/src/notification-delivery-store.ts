@@ -11,7 +11,7 @@ import {
     type ExpiredClaimRecovery,
     type NotificationKind,
     type PersistedEffectOutcome,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'

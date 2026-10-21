@@ -1,1 +1,1 @@
-export { PostbotLogo } from '@postbot/ui/components/postbot-logo'
+export { PostbotLogo } from '@postdot/ui/components/postbot-logo'

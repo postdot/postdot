@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import type { MastodonPollInput, MastodonPollLimits } from './poll'
 

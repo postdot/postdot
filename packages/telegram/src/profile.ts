@@ -2,7 +2,7 @@ import type {
     ChannelProfileDefinition,
     ChannelProfileValidationAdapter,
     ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { TELEGRAM_ALBUM_LIMITS } from './album'
 import { readTelegramPoll, TELEGRAM_POLL_LIMITS, telegramPollError } from './poll'

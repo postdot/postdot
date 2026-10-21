@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/db",
+    "name": "@postdot/db",
     "version": "0.0.0",
     "private": true,
-    "description": "Drizzle ORM database access for Postbot",
+    "description": "Drizzle ORM database access for Postdot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -23,8 +23,8 @@
         "test": "bun test"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*",
-        "@postbot/media": "workspace:*",
+        "@postdot/core": "workspace:*",
+        "@postdot/media": "workspace:*",
         "drizzle-orm": "0.45.3",
         "mp4box": "2.4.1"
     },

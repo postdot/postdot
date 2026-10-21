@@ -1,5 +1,5 @@
 import { jsonToLex, BlobRef, type Agent } from '@atproto/api'
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import { BLUESKY_MAX_VIDEO_BYTES, type BlueskyFetcher } from './contract'
 

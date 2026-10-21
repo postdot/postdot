@@ -1,4 +1,4 @@
-import type { AccessStore } from '@postbot/db'
+import type { AccessStore } from '@postdot/db'
 import {
     DISCORD_PROVIDER,
     DISCORD_TEXT_CHANNEL_TYPES,
@@ -6,7 +6,7 @@ import {
     normalizeDiscordBotToken,
     normalizeDiscordChannelId,
     type DiscordFetcher,
-} from '@postbot/discord'
+} from '@postdot/discord'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

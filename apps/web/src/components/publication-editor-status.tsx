@@ -1,5 +1,5 @@
-import { Button } from '@postbot/ui/components/button'
-import { cn } from '@postbot/ui/lib/utils'
+import { Button } from '@postdot/ui/components/button'
+import { cn } from '@postdot/ui/lib/utils'
 import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 

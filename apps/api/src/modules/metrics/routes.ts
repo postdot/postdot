@@ -50,7 +50,7 @@ export function createMetricsRoutes(options?: MetricsRouteOptions) {
             if (!hasValidBearerToken(request, options.bearerToken)) {
                 return new Response(null, {
                     status: 401,
-                    headers: { 'www-authenticate': 'Bearer realm="Postbot metrics"' },
+                    headers: { 'www-authenticate': 'Bearer realm="Postdot metrics"' },
                 })
             }
 

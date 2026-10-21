@@ -1,6 +1,6 @@
 import { expect, it } from 'bun:test'
 
-import { defaultMediaInspectionLimits } from '@postbot/core'
+import { defaultMediaInspectionLimits } from '@postdot/core'
 
 import { createMp4Inspection } from './mp4-inspection'
 

@@ -1,4 +1,4 @@
-import { inputClassName } from '@postbot/ui/components/input'
+import { inputClassName } from '@postdot/ui/components/input'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { EmojiPicker } from 'frimousse'
 import { createContext, useContext, type ComponentProps } from 'react'

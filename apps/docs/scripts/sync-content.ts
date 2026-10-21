@@ -15,5 +15,5 @@ await mkdir(new URL('../content/docs/(self-hosting)/(deployment)/', import.meta.
 })
 await writeFile(
     new URL('../content/docs/(self-hosting)/(deployment)/installation.mdx', import.meta.url),
-    `---\ntitle: Installation\ndescription: Run Postbot on your own infrastructure.\n---\n${body}`
+    `---\ntitle: Installation\ndescription: Run Postdot on your own infrastructure.\n---\n${body}`
 )

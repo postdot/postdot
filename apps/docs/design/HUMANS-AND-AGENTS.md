@@ -40,7 +40,7 @@ agent, and no publication happens. Local motion does not change product state.
 
 ## Review criterion
 
-The visitor should recognize the range of ways to use Postbot before reading a
+The visitor should recognize the range of ways to use Postdot before reading a
 paragraph or clicking. The owner must still judge whether this visual treatment
 has enough character; correct icons and responsive geometry alone do not establish
 that it is a successful marketing section. Do not integrate into the homepage

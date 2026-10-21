@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublisherCredentialSecrets, PublisherExecutionMedia } from '@postbot/db'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublisherCredentialSecrets, PublisherExecutionMedia } from '@postdot/db'
 import {
     createInstagramPublisher,
     INSTAGRAM_EXECUTION_REVISION,
@@ -11,7 +11,7 @@ import {
     isInstagramImageUrl,
     type createInstagramOAuth,
     type InstagramRefreshedToken,
-} from '@postbot/instagram'
+} from '@postdot/instagram'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { verifyPinnedMediaContent } from './media-integrity'

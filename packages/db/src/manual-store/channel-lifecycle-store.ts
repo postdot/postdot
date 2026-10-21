@@ -3,7 +3,7 @@ import {
     requireNonBlank,
     requireTimestamp,
     type Channel,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,

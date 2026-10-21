@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postbot/db'
-import type { DiscordPublishOutcome, DiscordPublisher } from '@postbot/discord'
-import { discordChannelProfile } from '@postbot/discord'
+import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot/db'
+import type { DiscordPublishOutcome, DiscordPublisher } from '@postdot/discord'
+import { discordChannelProfile } from '@postdot/discord'
 
 import { createDiscordProviderAdapter } from './discord'
 import type {
@@ -85,7 +85,7 @@ function createPublisherStub(outcome: DiscordPublishOutcome, onDispatch: () => v
     let dispatched = false
     const publisher: DiscordPublisher = {
         async getBotUser() {
-            return { kind: 'success', value: { id: BOT_USER_ID, username: 'Postbot' } }
+            return { kind: 'success', value: { id: BOT_USER_ID, username: 'Postdot' } }
         },
         async getChannel() {
             return { kind: 'success', value: { id: CHANNEL_ID, name: 'announcements', type: 0 } }

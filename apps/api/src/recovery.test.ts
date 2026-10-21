@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createRecoveryHold, readRecoveryHold, acquireRuntimeQuiescenceLock } from '@postbot/db'
+import { createRecoveryHold, readRecoveryHold, acquireRuntimeQuiescenceLock } from '@postdot/db'
 
 import { runMaintenanceCommand } from './maintenance'
 import { createRecoveryService, recoveryBlocksRequest } from './recovery'

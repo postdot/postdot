@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/core",
+    "name": "@postdot/core",
     "version": "0.0.0",
     "private": true,
-    "description": "Framework-independent Postbot domain model",
+    "description": "Framework-independent Postdot domain model",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,

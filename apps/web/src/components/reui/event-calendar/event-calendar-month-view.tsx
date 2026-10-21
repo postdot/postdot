@@ -5,9 +5,9 @@
 
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
-import { Popover, PopoverContent, PopoverTrigger } from '@postbot/ui/components/popover'
-import { ScrollArea } from '@postbot/ui/components/scroll-area'
-import { cn } from '@postbot/ui/lib/utils'
+import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
+import { ScrollArea } from '@postdot/ui/components/scroll-area'
+import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { addDays, format, getWeek } from 'date-fns'
 import {

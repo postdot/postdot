@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/media",
+    "name": "@postdot/media",
     "version": "0.0.0",
     "private": true,
-    "description": "Bun-native media object storage for Postbot",
+    "description": "Bun-native media object storage for Postdot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,

@@ -12,8 +12,8 @@ import {
     backupWithMedia,
     restoreDatabase,
     restoreWithMedia,
-} from '@postbot/db'
-import type { MediaStore } from '@postbot/media'
+} from '@postdot/db'
+import type { MediaStore } from '@postdot/media'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
@@ -94,7 +94,7 @@ export async function runMaintenanceCommand(
             } else {
                 createRecoveryHold(databaseFilename, 'external_restore')
                 console.log(
-                    'Recovery hold enabled. Start Postbot to inspect and resume from administration.'
+                    'Recovery hold enabled. Start Postdot to inspect and resume from administration.'
                 )
             }
         } finally {

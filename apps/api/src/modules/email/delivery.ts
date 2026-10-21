@@ -1,10 +1,10 @@
-import type { PostbotAuthEmailOptions, PostbotAuthRuntimeOptions } from '@postbot/auth'
+import type { PostbotAuthEmailOptions, PostbotAuthRuntimeOptions } from '@postdot/auth'
 import {
     renderPostbotEmailVerificationEmail,
     renderPostbotOrganizationInvitationEmail,
     renderPostbotPasswordResetEmail,
     type PostbotRenderedEmail,
-} from '@postbot/email'
+} from '@postdot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
 export type PostbotEmailKind = 'organization_invitation' | 'email_verification' | 'password_reset'

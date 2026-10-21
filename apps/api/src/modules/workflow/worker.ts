@@ -6,13 +6,13 @@ import {
     type Job,
     type RetryPolicy,
     type SchedulerTimers,
-} from '@postbot/core'
+} from '@postdot/core'
 import {
     CUSTOM_HTTP_PUBLISHER_KIND,
     createCustomHttpTransport,
     type CustomHttpMediaDescriptor,
     type CustomHttpTransport,
-} from '@postbot/custom-http'
+} from '@postdot/custom-http'
 import {
     createWorkflowStore,
     createProviderMediaDeliveryStore,
@@ -21,7 +21,7 @@ import {
     type PostbotDatabase,
     type MediaAssetStore,
     type PublisherExecutionTarget,
-} from '@postbot/db'
+} from '@postdot/db'
 
 import { permanentFailure, retryableFailure } from './outcomes'
 import { cancelMediaStream, verifyPinnedMediaContent } from './providers/media-integrity'

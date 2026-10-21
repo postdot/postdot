@@ -1,5 +1,5 @@
-import { telegramChannelProfile } from '@postbot/telegram'
-import { Button } from '@postbot/ui/components/button'
+import { telegramChannelProfile } from '@postdot/telegram'
+import { Button } from '@postdot/ui/components/button'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 

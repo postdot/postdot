@@ -1,13 +1,13 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dropdown-menu'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import { DownloadMinimalisticIcon } from '@solar-icons/react/linear/download-minimalistic'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'

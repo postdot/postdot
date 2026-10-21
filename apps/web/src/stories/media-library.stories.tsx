@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import { SolarProvider } from '@solar-icons/react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
@@ -18,7 +18,7 @@ import type { MediaSelection } from '@/lib/target-media'
 
 const STORY_PROJECT_ID = 'storybook-project'
 const previewUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640"><defs><linearGradient id="sky" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#172554"/><stop offset="0.5" stop-color="#2563eb"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs><rect width="960" height="640" fill="url(#sky)"/><circle cx="720" cy="180" r="92" fill="#fde68a" opacity="0.9"/><path d="M0 520 180 350l140 120 170-210 220 260 110-100 140 100v120H0Z" fill="#111827" opacity="0.9"/><path d="M0 570 210 440l150 75 160-115 160 100 120-70 160 95v115H0Z" fill="#030712" opacity="0.88"/><text x="48" y="92" fill="#fff" font-family="sans-serif" font-size="32" font-weight="700">Postbot media fixture</text></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640"><defs><linearGradient id="sky" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#172554"/><stop offset="0.5" stop-color="#2563eb"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs><rect width="960" height="640" fill="url(#sky)"/><circle cx="720" cy="180" r="92" fill="#fde68a" opacity="0.9"/><path d="M0 520 180 350l140 120 170-210 220 260 110-100 140 100v120H0Z" fill="#111827" opacity="0.9"/><path d="M0 570 210 440l150 75 160-115 160 100 120-70 160 95v115H0Z" fill="#030712" opacity="0.88"/><text x="48" y="92" fill="#fff" font-family="sans-serif" font-size="32" font-weight="700">Postdot media fixture</text></svg>'
 )}`
 
 const assets = [

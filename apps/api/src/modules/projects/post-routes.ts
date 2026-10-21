@@ -1,5 +1,5 @@
-import { sourceContentSchema } from '@postbot/core'
-import type { AccessStore } from '@postbot/db'
+import { sourceContentSchema } from '@postdot/core'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { apiKeyHasCapability } from './api-key-permissions'

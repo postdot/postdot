@@ -1,5 +1,5 @@
-import type { MediaAssetStore } from '@postbot/db'
-import { MediaStoreError } from '@postbot/media'
+import type { MediaAssetStore } from '@postdot/db'
+import { MediaStoreError } from '@postdot/media'
 import { Elysia } from 'elysia'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type } from 'typebox'

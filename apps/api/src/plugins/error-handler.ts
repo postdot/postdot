@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import { DomainInvariantError } from '@postbot/core'
-import { MediaStoreError } from '@postbot/media'
+import { DomainInvariantError } from '@postdot/core'
+import { MediaStoreError } from '@postdot/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
 import type { Logger } from 'pino'
 

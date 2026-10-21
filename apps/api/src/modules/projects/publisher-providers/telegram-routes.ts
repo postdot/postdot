@@ -1,5 +1,5 @@
-import type { AccessStore } from '@postbot/db'
-import { createTelegramPublisher, type TelegramFetcher } from '@postbot/telegram'
+import type { AccessStore } from '@postdot/db'
+import { createTelegramPublisher, type TelegramFetcher } from '@postdot/telegram'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

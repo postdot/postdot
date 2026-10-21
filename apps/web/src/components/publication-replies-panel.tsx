@@ -1,5 +1,5 @@
-import { Button } from '@postbot/ui/components/button'
-import { Textarea } from '@postbot/ui/components/textarea'
+import { Button } from '@postdot/ui/components/button'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 

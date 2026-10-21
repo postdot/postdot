@@ -413,7 +413,7 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     ).not.toContain(long.id)
 })
 
-test('edits profile constraints repeatedly while Postbot owns technical metadata', async ({
+test('edits profile constraints repeatedly while Postdot owns technical metadata', async ({
     page,
 }, info) => {
     const suffix = randomUUID().slice(0, 8)
@@ -506,7 +506,7 @@ async function channelProfileState(page: Page, projectId: string, channelName: s
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-142 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-142-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-142-password')

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
-import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@postbot/custom-http'
+import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@postdot/custom-http'
 import type { LevelWithSilent } from 'pino'
 
 import {

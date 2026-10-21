@@ -35,7 +35,7 @@ function attachmentStream(bytes: readonly number[] = [1, 2, 3]): ReadableStream<
 describe('Discord channel identifiers', () => {
     it('verifies the bot profile and the target channel', async () => {
         const fixture = createFetcher([
-            jsonResponse({ id: '987654321098765432', username: 'Postbot' }),
+            jsonResponse({ id: '987654321098765432', username: 'Postdot' }),
             jsonResponse({ id: CHANNEL_ID, name: 'announcements', type: 0 }),
         ])
         const publisher = createDiscordPublisher({
@@ -45,7 +45,7 @@ describe('Discord channel identifiers', () => {
 
         await expect(publisher.getBotUser(BOT_TOKEN)).resolves.toEqual({
             kind: 'success',
-            value: { id: '987654321098765432', username: 'Postbot' },
+            value: { id: '987654321098765432', username: 'Postdot' },
         })
         await expect(publisher.getChannel(BOT_TOKEN, CHANNEL_ID)).resolves.toEqual({
             kind: 'success',
@@ -79,7 +79,7 @@ describe('Discord publisher', () => {
         const outcome = await publisher.createMessage({
             accessToken: BOT_TOKEN,
             channelId: CHANNEL_ID,
-            content: 'Hello from Postbot',
+            content: 'Hello from Postdot',
             attachments: [],
         })
 
@@ -93,7 +93,7 @@ describe('Discord publisher', () => {
         const headers = new Headers(request?.init?.headers)
         expect(headers.get('authorization')).toBe(`Bot ${BOT_TOKEN}`)
         expect(JSON.parse(String(request?.init?.body))).toEqual({
-            content: 'Hello from Postbot',
+            content: 'Hello from Postdot',
             allowed_mentions: { parse: [] },
         })
     })

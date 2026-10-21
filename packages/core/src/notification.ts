@@ -149,7 +149,7 @@ export function projectNotificationTemplate(
                 kind: 'publication_published',
                 severity: 'success',
                 title: 'Publication delivered',
-                body: 'Postbot confirmed that the publication was delivered.',
+                body: 'Postdot confirmed that the publication was delivered.',
             }
         case 'publication.execution.failed':
             return {
@@ -163,7 +163,7 @@ export function projectNotificationTemplate(
                 kind: 'publication_ambiguous',
                 severity: 'warning',
                 title: 'Publication outcome unknown',
-                body: 'Postbot could not confirm whether the publication was delivered.',
+                body: 'Postdot could not confirm whether the publication was delivered.',
             }
         case 'publication.reconciled':
             return projectReconciliationTemplate(event.payload.toState)

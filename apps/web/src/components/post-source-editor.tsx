@@ -1,11 +1,11 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogFooter,
-} from '@postbot/ui/components/dialog'
+} from '@postdot/ui/components/dialog'
 import { useBlocker } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 

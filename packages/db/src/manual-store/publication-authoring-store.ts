@@ -8,7 +8,7 @@ import {
     type ChannelProfileDefinition,
     type PublicationReviewState,
     type ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {

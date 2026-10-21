@@ -1,4 +1,4 @@
-import type { ChannelProfileValidationError } from '@postbot/core'
+import type { ChannelProfileValidationError } from '@postdot/core'
 import { Type } from 'typebox'
 
 const publicCodes = new Set([

@@ -1,13 +1,13 @@
-import { blueskyChannelProfile } from '@postbot/bluesky'
-import { createManualChannelProfile, type ChannelProfilePreset } from '@postbot/core'
-import { devtoChannelProfile } from '@postbot/devto'
-import { discordChannelProfile } from '@postbot/discord'
-import { facebookChannelProfile } from '@postbot/facebook'
-import { instagramChannelProfile } from '@postbot/instagram'
-import { linkedinChannelProfile } from '@postbot/linkedin'
-import { mastodonChannelProfile } from '@postbot/mastodon'
-import { telegramChannelProfile } from '@postbot/telegram'
-import { xChannelProfile } from '@postbot/x'
+import { blueskyChannelProfile } from '@postdot/bluesky'
+import { createManualChannelProfile, type ChannelProfilePreset } from '@postdot/core'
+import { devtoChannelProfile } from '@postdot/devto'
+import { discordChannelProfile } from '@postdot/discord'
+import { facebookChannelProfile } from '@postdot/facebook'
+import { instagramChannelProfile } from '@postdot/instagram'
+import { linkedinChannelProfile } from '@postdot/linkedin'
+import { mastodonChannelProfile } from '@postdot/mastodon'
+import { telegramChannelProfile } from '@postdot/telegram'
+import { xChannelProfile } from '@postdot/x'
 
 function presetFor(profile: ChannelProfilePreset['profile']): ChannelProfilePreset {
     return {
@@ -18,7 +18,7 @@ function presetFor(profile: ChannelProfilePreset['profile']): ChannelProfilePres
 }
 
 /**
- * Composition-only catalog of the profiles currently shipped by Postbot.
+ * Composition-only catalog of the profiles currently shipped by Postdot.
  * Provider packages remain the owners of the profile definitions; this module
  * only makes those definitions discoverable to the API and profile resolver.
  */

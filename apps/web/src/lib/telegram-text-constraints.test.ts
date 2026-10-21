@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { telegramChannelProfile } from '@postbot/telegram'
+import { telegramChannelProfile } from '@postdot/telegram'
 
 import { getComposerTextFields, countComposerText } from './composer-text-constraints'
 import { getTargetEditorFields } from './target-editor'

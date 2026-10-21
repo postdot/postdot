@@ -14,16 +14,16 @@ export interface PostbotPasswordResetEmailInput {
     readonly url: string
 }
 
-export const passwordResetSubject = 'Reset your Postbot password'
+export const passwordResetSubject = 'Reset your Postdot password'
 
 export function PasswordResetEmail({ user, url }: PostbotPasswordResetEmailInput) {
     return (
         <PostbotEmailLayout
-            preview="A password reset was requested for your Postbot account."
+            preview="A password reset was requested for your Postdot account."
             title={passwordResetSubject}>
             <Text style={emailStyles.text}>Hello {user.name},</Text>
             <Text style={emailStyles.text}>
-                A password reset was requested for your Postbot account.
+                A password reset was requested for your Postdot account.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={url} style={emailStyles.button}>

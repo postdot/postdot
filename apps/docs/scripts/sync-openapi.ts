@@ -25,7 +25,7 @@ for (const [path, item] of Object.entries(schema.paths)) {
                 servers: [
                     {
                         url: 'https://postbot.example',
-                        description: 'Replace with your Postbot instance origin.',
+                        description: 'Replace with your Postdot instance origin.',
                     },
                 ],
                 paths: {

@@ -17,7 +17,7 @@ export interface PostbotOrganizationInvitationEmailInput {
 }
 
 const subject = (organizationName: string): string =>
-    `Invitation to join ${organizationName} on Postbot`
+    `Invitation to join ${organizationName} on Postdot`
 
 export function OrganizationInvitationEmail({
     organizationName,
@@ -31,12 +31,12 @@ export function OrganizationInvitationEmail({
 
     return (
         <PostbotEmailLayout
-            preview={`${inviterName} invited you to join ${organizationName} on Postbot`}
+            preview={`${inviterName} invited you to join ${organizationName} on Postdot`}
             title={subject(organizationName)}>
             <Text style={emailStyles.text}>Hello,</Text>
             <Text style={emailStyles.text}>
                 <strong>{inviterName}</strong> invited you to join{' '}
-                <strong>{organizationName}</strong> on Postbot as {formattedRole}.
+                <strong>{organizationName}</strong> on Postdot as {formattedRole}.
             </Text>
             <Text style={emailStyles.action}>
                 <Button href={invitationURL} style={emailStyles.button}>
@@ -62,7 +62,7 @@ export { subject as organizationInvitationSubject }
 const previewProps: PostbotOrganizationInvitationEmailInput = {
     email: 'new.member@example.test',
     role: 'editor',
-    organizationName: 'Postbot Studio',
+    organizationName: 'Postdot Studio',
     inviterName: 'Alex Martin',
     expiresAt: new Date('2026-09-18T12:00:00.000Z'),
     invitationURL: 'http://localhost:5173/invitations/preview?token=preview-token',

@@ -4,7 +4,7 @@ import {
     adaptSourceContentToProfile,
     applySourceContentToTarget,
     ChannelProfileCompiler,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     INSTAGRAM_EXECUTION_REVISION,

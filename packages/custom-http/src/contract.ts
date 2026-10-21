@@ -4,7 +4,7 @@ import type {
     DeclarativeHttpMultipartMediaPart,
     DeclarativeHttpValueExpression,
     ExternalEffectOutcome,
-} from '@postbot/core'
+} from '@postdot/core'
 
 export const CUSTOM_HTTP_PUBLISHER_KIND = 'custom_http' as const
 export const POSTBOT_WEBHOOK_VERSION = '1' as const

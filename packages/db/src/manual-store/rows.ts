@@ -7,7 +7,7 @@ import type {
     PublicationReviewState,
     MediaRepresentation,
     TargetMediaReference,
-} from '@postbot/core'
+} from '@postdot/core'
 
 export interface ProjectRow {
     readonly id: string

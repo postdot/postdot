@@ -7,9 +7,9 @@ import {
     createBlueskyStateStore,
     createBlueskyStateStoreWithKeyCapture,
     readBlueskySessionTokenSet,
-} from '@postbot/bluesky'
-import type { AccessStore } from '@postbot/db'
-import { digestAuthorizationState, isAuthorizationDeniedError } from '@postbot/oauth'
+} from '@postdot/bluesky'
+import type { AccessStore } from '@postdot/db'
+import { digestAuthorizationState, isAuthorizationDeniedError } from '@postdot/oauth'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

@@ -5,14 +5,14 @@ import {
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
-} from '@postbot/core'
-import type { ProviderAnalyticsStore } from '@postbot/db'
+} from '@postdot/core'
+import type { ProviderAnalyticsStore } from '@postdot/db'
 import {
     DEVTO_PROVIDER,
     createDevtoPublisher,
     type DevtoFetcher,
     type DevtoOperationFailure,
-} from '@postbot/devto'
+} from '@postdot/devto'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 

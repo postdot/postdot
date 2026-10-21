@@ -4,7 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'nod
 import { chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
-import type { MediaStore } from '@postbot/media'
+import type { MediaStore } from '@postdot/media'
 
 import { createRecoveryHold } from './recovery-hold'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
@@ -857,7 +857,7 @@ function assertPostbotDatabase(database: Database, filename: string) {
         .get()
 
     if (!migrationsTable) {
-        throw new Error(`The SQLite file is not a Postbot database: ${filename}`)
+        throw new Error(`The SQLite file is not a Postdot database: ${filename}`)
     }
 }
 

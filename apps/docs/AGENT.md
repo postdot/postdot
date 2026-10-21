@@ -1,4 +1,4 @@
-# Postbot public site
+# Postdot public site
 
 Keep this workspace statically exportable. It has no production Node server,
 authentication, or access to the application database. Search uses the exported

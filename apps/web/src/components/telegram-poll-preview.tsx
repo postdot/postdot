@@ -1,4 +1,4 @@
-import { readTelegramPoll } from '@postbot/telegram/poll'
+import { readTelegramPoll } from '@postdot/telegram/poll'
 
 import { telegramPollDuration } from '@/components/telegram-poll-control'
 import * as m from '@/paraglide/messages.js'

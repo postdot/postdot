@@ -2,9 +2,9 @@ import type {
     BlueskyThreadNode,
     BlueskyThreadRead,
     BlueskyThreadUnavailableAvailability,
-} from '@postbot/bluesky'
-import { requireTimestamp } from '@postbot/core'
-import type { MastodonThreadRead } from '@postbot/mastodon'
+} from '@postdot/bluesky'
+import { requireTimestamp } from '@postdot/core'
+import type { MastodonThreadRead } from '@postdot/mastodon'
 
 export interface PublicationComment {
     readonly id: string

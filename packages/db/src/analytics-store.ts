@@ -7,7 +7,7 @@ import {
     requireTimestamp,
     type DeliveryMode,
     type PublicationState,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 

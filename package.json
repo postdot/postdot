@@ -1,5 +1,5 @@
 {
-    "name": "postbot",
+    "name": "postdot",
     "private": true,
     "description": "Lightweight, self-hosted multichannel publication orchestrator",
     "license": "AGPL-3.0-only",
@@ -35,10 +35,11 @@
         "prepare": "husky",
         "storybook": "bun run --cwd packages/ui storybook",
         "autonomos": "autonomos",
+        "postdot": "bun run scripts/postbot.ts",
         "postbot": "bun run scripts/postbot.ts"
     },
     "dependencies": {
-        "@postbot/client": "workspace:*"
+        "@postdot/client": "workspace:*"
     },
     "devDependencies": {
         "@autonomos/cli": "^0.6.0",

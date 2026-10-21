@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@postbot/core'
+import type { ChannelProfileDefinition } from '@postdot/core'
 
 import {
     DISCORD_EXECUTION_CONTRACT_REVISION,

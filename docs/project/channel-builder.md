@@ -46,7 +46,7 @@ from saved data.
 
 ## Delivery configuration
 
-Manual tracking requires no endpoint. Existing Postbot webhook and mapped HTTP
+Manual tracking requires no endpoint. Existing Postdot webhook and mapped HTTP
 execution keep their current contracts, secret storage and egress restrictions.
 Content changes must preserve delivery configuration byte-for-byte unless the
 operator explicitly edits it. Provider-owned built-in limits remain read-only;
@@ -230,7 +230,7 @@ the full New publication page or provider-native configured editors.
 
 Endpoint and authentication already use structured controls in
 `CustomHttpConnectionDialog`; secrets are connection-owned, never profile fields.
-The dialog loads the active profile before enabling connection. Postbot webhooks
+The dialog loads the active profile before enabling connection. Postdot webhooks
 offer no authentication, bearer or a custom header. Mapped requests with one
 secret path segment require path authentication; requests without it cannot use
 path authentication. Incomplete contracts keep submission disabled. The API
@@ -262,12 +262,12 @@ between outcomes does not require a temporary saved classification. Invalid
 local input blocks profile save, while valid edits use the existing save/review/
 activation flow. Preserved request bodies are not equivalent to an editable body
 mapping. Creation of mappings, segment
-addition/removal and expression authoring remain separate work. Existing manual, built-in and Postbot webhook contracts are not
+addition/removal and expression authoring remain separate work. Existing manual, built-in and Postdot webhook contracts are not
 implicitly converted. No runtime compiler dependency is added to the browser.
 
 CHANNEL-490 adds English/French controls and an isolated Storybook example at
 `Channels/Mapped request`. The form appears only for existing custom mapped
-profiles; manual, built-in and Postbot webhook profiles retain their current
+profiles; manual, built-in and Postdot webhook profiles retain their current
 controls. It does not create a mapped HTTP profile from a new template.
 
 ## Mapped request comparison — CHANNEL-491

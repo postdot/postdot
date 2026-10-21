@@ -73,14 +73,14 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             <img
                                 className="usage-image-light"
                                 src="/product/compose-light.webp"
-                                alt="Postbot Studio: composing a post with an X preview"
+                                alt="Postdot Studio: composing a post with an X preview"
                                 width="1600"
                                 height="1000"
                             />
                             <img
                                 className="usage-image-dark"
                                 src="/product/compose-dark.webp"
-                                alt="Postbot Studio: composing a post with an X preview"
+                                alt="Postdot Studio: composing a post with an X preview"
                                 width="1600"
                                 height="1000"
                             />
@@ -218,13 +218,13 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                         <div key={terminalRun} className="usage-terminal-body">
                             <div className="usage-command-line">
                                 <span aria-hidden="true">$</span>
-                                <code>bun run postbot --help</code>
+                                <code>bun run postdot --help</code>
                                 <span className="usage-terminal-cursor" aria-hidden="true" />
                             </div>
                             <div
                                 className="usage-help-output"
                                 aria-label="Illustrative terminal showing an excerpt from CLI help">
-                                <strong>Postbot CLI</strong>
+                                <strong>Postdot CLI</strong>
                                 <span>Resources:</span>
                                 <div>
                                     <code>projects list</code>
@@ -294,7 +294,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             <strong>
                                 Publish
                                 <br />
-                                with Postbot.
+                                with Postdot.
                             </strong>
                             <div>
                                 <i />
@@ -343,7 +343,7 @@ export function UsageStudy() {
     return (
         <div className="public-home usage-study">
             <header className="usage-study-nav">
-                <Link href="/" aria-label="Postbot home">
+                <Link href="/" aria-label="Postdot home">
                     <PostbotLogo />
                     <span>postbot</span>
                 </Link>

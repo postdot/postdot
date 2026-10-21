@@ -6,7 +6,7 @@ description: Create a draft, review its destination and schedule it from Studio.
 Prepare a short text post for one destination. By the end of this guide, you will
 have a draft you can review in Studio and choose whether to schedule.
 
-You need access to a Postbot installation and permission to edit a project. If you
+You need access to a Postdot installation and permission to edit a project. If you
 are setting up your own instance, follow [installation](/docs/installation/) first.
 The first account becomes the installation administrator.
 
@@ -31,10 +31,10 @@ Open **Channels**, add a built-in channel and select your network. Follow its
 Connect through Studio; keep social account credentials out of agent prompts.
 
 For a local installation, [Bluesky](/docs/providers/bluesky/) supports a connection
-without a developer application or tunnel when the browser and Postbot run on the
+without a developer application or tunnel when the browser and Postdot run on the
 same machine.
 
-To try Postbot without a social account, add a manual channel instead. You can
+To try Postdot without a social account, add a manual channel instead. You can
 prepare drafts and track publications, but you will deliver the content yourself.
 
 </Step>
@@ -64,11 +64,11 @@ Then ask your agent:
 
 <Callout title="Example request to your agent" icon={false}>
     Prepare a short announcement that our new collection is available on Friday. Use the connected
-    Bluesky channel in this project. Save an unscheduled draft in Postbot for me to review. Do not
+    Bluesky channel in this project. Save an unscheduled draft in Postdot for me to review. Do not
     schedule or publish it. Return the post and publication IDs.
 </Callout>
 
-Send this request to your existing agent. Postbot has no embedded chat. The key's
+Send this request to your existing agent. Postdot has no embedded chat. The key's
 permissions prevent scheduling or publication even if the agent attempts it.
 
 </Step>
@@ -93,14 +93,14 @@ scheduled time. You can edit an agent-created draft in the same editor.
 
 You can leave the draft here until you are ready. To schedule it, review the
 destination, choose a future time and confirm scheduling in Studio. For an automatic
-destination, this authorizes Postbot to send the content at that time.
+destination, this authorizes Postdot to send the content at that time.
 
 Use **Queue** to check delivery and **Overview** to see the publication in the
 calendar. A scheduled state confirms the plan, not a successful send. Inspect the
 delivery result before retrying a failed or uncertain attempt.
 
 For a manual channel, publish through the destination yourself and record the
-result through Postbot's manual workflow.
+result through Postdot's manual workflow.
 
 </Step>
 </Steps>

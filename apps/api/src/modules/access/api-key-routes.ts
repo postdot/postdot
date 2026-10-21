@@ -2,8 +2,8 @@ import {
     postbotUserApiKeyConfigId,
     type PostbotApiKeyRecord,
     type PostbotAuth,
-} from '@postbot/auth'
-import type { AccessStore } from '@postbot/db'
+} from '@postdot/auth'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
@@ -183,7 +183,7 @@ function generatedUserApiKeyName() {
     const adjective =
         apiKeyNameAdjectives[Number.parseInt(entropy.slice(0, 8), 16) % apiKeyNameAdjectives.length]
     const noun = apiKeyNameNouns[Number.parseInt(entropy.slice(8, 16), 16) % apiKeyNameNouns.length]
-    return `Postbot ${adjective} ${noun} ${entropy.slice(-6).toUpperCase()}`
+    return `Postdot ${adjective} ${noun} ${entropy.slice(-6).toUpperCase()}`
 }
 
 function invalidProjectAccessResponse() {
@@ -269,7 +269,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'createUserApiKey',
-                    summary: 'Create a user-owned Postbot API key',
+                    summary: 'Create a user-owned Postdot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -328,7 +328,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'updateUserApiKey',
-                    summary: 'Update a user-owned Postbot API key',
+                    summary: 'Update a user-owned Postdot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },
@@ -406,7 +406,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 },
                 detail: {
                     operationId: 'deleteUserApiKey',
-                    summary: 'Delete a user-owned Postbot API key',
+                    summary: 'Delete a user-owned Postdot API key',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },

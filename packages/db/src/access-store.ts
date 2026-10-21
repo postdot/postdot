@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
-import { requireNonBlank } from '@postbot/core'
+import { requireNonBlank } from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 
@@ -111,7 +111,7 @@ export interface AccessProjectTeamGrant {
     readonly updatedAt: number
 }
 
-/** Instance invitations are the only invitation records owned by Postbot. */
+/** Instance invitations are the only invitation records owned by Postdot. */
 export interface AccessInvitation {
     readonly id: string
     readonly targetEmail: string
@@ -1320,7 +1320,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
         setDefaultWorkspaceStatement.run(workspaceId, timestamp)
         const workspace = loadDefaultWorkspaceStatement.get()
-        if (workspace === null) throw new Error('The default Postbot workspace was not persisted')
+        if (workspace === null) throw new Error('The default Postdot workspace was not persisted')
         return toWorkspace(workspace)
     }
 
@@ -1358,7 +1358,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
             const workspace = loadWorkspaceStatement.get(workspaceId)
             if (workspace === null) {
-                throw new Error('The Postbot workspace projection was not persisted')
+                throw new Error('The Postdot workspace projection was not persisted')
             }
             return toWorkspace(workspace)
         }
@@ -1394,7 +1394,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
         ensureDefaultWorkspaceInCurrentTransaction(userId)
         const membership = loadInstanceMembershipStatement.get(userId)
         if (membership === null) {
-            throw new Error('The first account membership could not be read after claiming Postbot')
+            throw new Error('The first account membership could not be read after claiming Postdot')
         }
         return { kind: 'claimed', membership: toInstanceMembership(membership) }
     }
@@ -1537,7 +1537,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
     return {
         getInstanceState(): AccessInstanceStateRecord {
             const row = loadInstanceStateStatement.get()
-            if (row === null) throw new Error('The Postbot instance state row is missing')
+            if (row === null) throw new Error('The Postdot instance state row is missing')
             return toInstanceState(row)
         },
 

@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogClose,
@@ -8,9 +8,9 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { EyeIcon } from '@solar-icons/react/linear/eye'

@@ -1,6 +1,6 @@
-import type { MediaImportSource } from '@postbot/client'
-import { Alert, AlertDescription } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
+import type { MediaImportSource } from '@postdot/client'
+import { Alert, AlertDescription } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
@@ -8,8 +8,8 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Input } from '@postbot/ui/components/input'
+} from '@postdot/ui/components/dialog'
+import { Input } from '@postdot/ui/components/input'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { LinkIcon } from '@solar-icons/react/linear/link'

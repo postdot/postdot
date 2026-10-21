@@ -6,7 +6,7 @@ import {
     createDatabase,
     createManualStore,
     runMigrations,
-} from '@postbot/db'
+} from '@postdot/db'
 import { verifyPassword } from 'better-auth/crypto'
 
 import {
@@ -57,7 +57,7 @@ function createFixture(
     }
 }
 
-describe('Postbot authentication', () => {
+describe('Postdot authentication', () => {
     it('uses Better Auth password hashes for offline recovery', async () => {
         const password = 'recovered-password-123'
         const hash = await hashPostbotPassword(password)
@@ -93,7 +93,7 @@ describe('Postbot authentication', () => {
                     },
                     body: JSON.stringify({
                         email: 'operator@postbot.local',
-                        name: 'Postbot Operator',
+                        name: 'Postdot Operator',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -106,7 +106,7 @@ describe('Postbot authentication', () => {
             }
             expect(signUpBody.user).toMatchObject({
                 email: 'operator@postbot.local',
-                name: 'Postbot Operator',
+                name: 'Postdot Operator',
             })
 
             const sessionCookie = signUpResponse.headers.get('set-cookie')?.split(';', 1)[0]
@@ -144,7 +144,7 @@ describe('Postbot authentication', () => {
                     headers,
                     body: JSON.stringify({
                         email: 'owner@postbot.local',
-                        name: 'Postbot Owner',
+                        name: 'Postdot Owner',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -561,7 +561,7 @@ describe('Postbot authentication', () => {
         }
     })
 
-    it('turns a workspace project invitation into a Postbot project grant', async () => {
+    it('turns a workspace project invitation into a Postdot project grant', async () => {
         const { access, auth, database, manualStore } = createFixture({
             allowAdditionalSignups: true,
         })
@@ -651,7 +651,7 @@ describe('Postbot authentication', () => {
                 body: { organizationId: workspace.organizationId },
                 headers: new Headers({ cookie: memberCookie }),
             })
-            // The Postbot grant remains stored, but project access is scoped to
+            // The Postdot grant remains stored, but project access is scoped to
             // current workspace membership and therefore becomes unavailable.
             expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
         } finally {
@@ -674,7 +674,7 @@ describe('Postbot authentication', () => {
                     headers,
                     body: JSON.stringify({
                         email: 'first@postbot.local',
-                        name: 'First Postbot Operator',
+                        name: 'First Postdot Operator',
                         password,
                     }),
                 })
@@ -687,7 +687,7 @@ describe('Postbot authentication', () => {
                     headers,
                     body: JSON.stringify({
                         email: 'second@postbot.local',
-                        name: 'Second Postbot Operator',
+                        name: 'Second Postdot Operator',
                         password,
                     }),
                 })

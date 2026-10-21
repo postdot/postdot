@@ -1,5 +1,5 @@
-import type { PostbotAuth } from '@postbot/auth'
-import { projectNotificationTemplate } from '@postbot/core'
+import type { PostbotAuth } from '@postdot/auth'
+import { projectNotificationTemplate } from '@postdot/core'
 import {
     eventJournalCursorSequence,
     parseEventJournalCursor,
@@ -8,7 +8,7 @@ import {
     type EventJournalStore,
     type NotificationStore,
     type AccessStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'

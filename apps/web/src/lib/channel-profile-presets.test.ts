@@ -4,7 +4,7 @@ import {
     createManualChannelProfile,
     ChannelProfileCompiler,
     type ChannelProfileDefinition,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { ChannelProfilePreset } from '@/lib/api'
 import {

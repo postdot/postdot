@@ -1,6 +1,6 @@
 {
     "title": "Guides",
-    "description": "Use Postbot and manage your publications.",
+    "description": "Use Postdot and manage your publications.",
     "root": true,
     "pages": ["index", "(getting-started)", "(studio)"],
     "icon": "book"

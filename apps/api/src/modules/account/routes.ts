@@ -1,5 +1,5 @@
-import type { PostbotAuth } from '@postbot/auth'
-import { AvatarValidationError, avatarMaxBytes, type UserAvatarStore } from '@postbot/db'
+import type { PostbotAuth } from '@postdot/auth'
+import { AvatarValidationError, avatarMaxBytes, type UserAvatarStore } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 

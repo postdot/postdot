@@ -25,7 +25,7 @@ This is a snapshot of observable client coverage, not a feature-parity promise o
 
 ## Deliberate boundaries and current gaps
 
-- The CLI is a supported, intentionally smaller operator surface, not a command-for-command copy of the dashboard. Its current commands are discoverable with `bun run postbot --help`; the implementation is in [scripts/postbot.ts](../scripts/postbot.ts).
+- The CLI is a supported, intentionally smaller operator surface, not a command-for-command copy of the dashboard. Its current commands are discoverable with `bun run postdot --help`; the implementation is in [scripts/postbot.ts](../scripts/postbot.ts).
 - MCP is **deferred, not rejected**. The owner asked to stabilize and organize the web workflows first; [ISSUE-036](../.autonomos/ISSUES.md) remains open without an implementation task. This matrix does not authorize starting an MCP client.
 - The HTTP API may expose a capability before the dashboard or CLI does. That difference is recorded as partial or absent coverage, not silently treated as a finished user journey.
 - Playwright evidence proves only the scenarios named by each test. Other route, API, and unit tests add evidence, but do not establish end-to-end coverage for an entire capability.

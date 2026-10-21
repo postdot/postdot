@@ -14,8 +14,8 @@
     "rtl": false,
     "aliases": {
         "components": "@/components",
-        "utils": "@postbot/ui/lib/utils",
-        "ui": "@postbot/ui/components",
+        "utils": "@postdot/ui/lib/utils",
+        "ui": "@postdot/ui/components",
         "lib": "@/lib",
         "hooks": "@/hooks"
     },

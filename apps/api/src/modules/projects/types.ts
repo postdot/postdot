@@ -1,4 +1,4 @@
-import type { createManualStore } from '@postbot/db'
+import type { createManualStore } from '@postdot/db'
 
 import type { AuthenticatedElysia } from '../../plugins/auth'
 import type { PublisherRuntime } from '../publishers/runtime'

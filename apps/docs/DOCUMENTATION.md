@@ -38,12 +38,12 @@ public package distribution.
 
 ## Writing and presentation guidance
 
-Use the project [Postbot writing skill](../../.agents/skills/postbot-writing/SKILL.md)
+Use the project [Postdot writing skill](../../.agents/skills/postbot-writing/SKILL.md)
 for authored documentation. It coordinates `documentation-writer` and `stop-slop`
 and owns the evolving editorial preferences. Its small reference comparison records
 observations and open questions; it does not turn AI drafts into accepted style.
 
-Use [Postbot Fumadocs](../../.agents/skills/postbot-fumadocs/SKILL.md) for documentation
+Use [Postdot Fumadocs](../../.agents/skills/postbot-fumadocs/SKILL.md) for documentation
 mechanics. This document remains the technical source of truth; skills point here
 rather than copying the generation/navigation manual. Owner feedback should update
 the narrowest relevant guidance, replacing outdated rules instead of accumulating
@@ -69,7 +69,7 @@ floating translucent treatment. Neither minimal navigation nor decorative glass
 solves this project's immediate information-architecture problem.
 
 Color themes and layout are separate choices. Keep the existing neutral preset
-and Postbot's accepted font, surfaces and blue links; changing to an unrelated
+and Postdot's accepted font, surfaces and blue links; changing to an unrelated
 stock palette would break continuity without improving navigation. Review actual
 pages before changing a layout or palette again.
 
@@ -168,7 +168,7 @@ processing: a successful compiler run alone does not prove useful Markdown.
 The homepage exports `/og/home.png`. Each documentation page exports its own
 `/og/docs/<page-slugs>/image.png`, including API operation pages. Open Graph and
 Twitter metadata reference the same 1200 by 630 PNG with an alternate description.
-The shared template uses Postbot's logo, Host Grotesk and a fixed blue material
+The shared template uses Postdot's logo, Host Grotesk and a fixed blue material
 field derived from the public site's flowing pigment. The homepage has a stronger
 material field and bundled logos for five supported networks; documentation keeps
 the quieter title-focused composition. No runtime screenshot,

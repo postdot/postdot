@@ -1,5 +1,5 @@
-import { createAccessStore, type AccessStore, type PostbotDatabase } from '@postbot/db'
-import * as schema from '@postbot/db/schema'
+import { createAccessStore, type AccessStore, type PostbotDatabase } from '@postdot/db'
+import * as schema from '@postdot/db/schema'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { hashPassword } from 'better-auth/crypto'
@@ -49,7 +49,7 @@ export interface PostbotAuthRuntimeOptions
         Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins'>,
         PostbotAuthInvitationOptions,
         PostbotAuthEmailOptions {
-    /** Shared Postbot access state used by the Better Auth bootstrap hooks. */
+    /** Shared Postdot access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
     /**
      * Test-only escape hatch for parallel browser fixtures. Production callers
@@ -67,10 +67,10 @@ type PostbotAuthOptions = BetterAuthOptions & {
 }
 
 /**
- * These Better Auth mutations are deliberately server-only in Postbot. Their
- * native handlers do not know about Postbot's instance membership invariants or
+ * These Better Auth mutations are deliberately server-only in Postdot. Their
+ * native handlers do not know about Postdot's instance membership invariants or
  * the actor projection, so exposing them over the public auth mount would let
- * a caller bypass the guarded Postbot routes. The plugin remains the owner of
+ * a caller bypass the guarded Postdot routes. The plugin remains the owner of
  * the underlying records and server-side `auth.api` calls continue to use it.
  */
 const postbotManagedAuthMutationPaths = new Set([
@@ -105,7 +105,7 @@ function isPostbotManagedAuthMutation(path: string): boolean {
 
 /**
  * The Better Auth router type cannot infer endpoints from a tuple assembled by
- * a factory. Keep the small server-only surface Postbot calls explicitly typed
+ * a factory. Keep the small server-only surface Postdot calls explicitly typed
  * instead of spreading an `any` cast into the API layer.
  */
 export interface PostbotOrganizationAuthApi {
@@ -439,7 +439,7 @@ export function createAuth(
                     isPostbotManagedAuthMutation(authContext.path)
                 ) {
                     throw new APIError('FORBIDDEN', {
-                        message: 'Use the corresponding Postbot access route for this operation',
+                        message: 'Use the corresponding Postdot access route for this operation',
                     })
                 }
             },
@@ -519,7 +519,7 @@ export function createAuth(
                     }
 
                     // A Better Auth organization that is not backed by a
-                    // Postbot workspace is legacy data. It must not grant
+                    // Postdot workspace is legacy data. It must not grant
                     // project access after the workspace/grant boundary is
                     // established.
                 },
@@ -529,7 +529,7 @@ export function createAuth(
                     userId,
                     displayName,
                 }) => {
-                    // Only workspace teams can grant Postbot project access.
+                    // Only workspace teams can grant Postdot project access.
                     // Legacy Better Auth organizations are not part of the
                     // product-level group model.
                     if (access.getWorkspaceByOrganizationId(organizationId) === null) return
@@ -558,7 +558,7 @@ export function createAuth(
                         }
 
                         // Better Auth Admin owns the durable instance-admin role.
-                        // Postbot's instance membership remains the installation-level
+                        // Postdot's instance membership remains the installation-level
                         // access boundary while preserving route and audit context.
                         return access.getInstanceState().state === 'claimable'
                             ? { data: { ...data, role: 'admin' } }

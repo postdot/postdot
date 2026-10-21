@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import type { ReactElement } from 'react'
 
 /** Compose primitive triggers into one hit area; keep the action's accessible name on its button. */

@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { SidebarInset, SidebarProvider } from '@postbot/ui/components/sidebar'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { SidebarInset, SidebarProvider } from '@postdot/ui/components/sidebar'
 import { useLocation } from '@tanstack/react-router'
 import { useEffect, useRef, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 

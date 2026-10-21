@@ -1,6 +1,6 @@
-import type { AccessStore, createManualStore } from '@postbot/db'
-import { FacebookOAuthError } from '@postbot/facebook'
-import { digestAuthorizationState } from '@postbot/oauth'
+import type { AccessStore, createManualStore } from '@postdot/db'
+import { FacebookOAuthError } from '@postdot/facebook'
+import { digestAuthorizationState } from '@postdot/oauth'
 import { status as httpStatus } from 'elysia'
 import { Type } from 'typebox'
 

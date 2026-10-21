@@ -12,12 +12,12 @@ export function PublicFooter() {
         <footer className="home-footer">
             <PublicMaterial footer />
             <div className="home-footer-content">
-                <Link href="/" className="home-footer-mark" aria-label="Postbot home">
+                <Link href="/" className="home-footer-mark" aria-label="Postdot home">
                     <PostbotLogo className="home-footer-logo" />
                 </Link>
                 <nav aria-label="Documentation links" className="home-footer-nav">
                     <div>
-                        <h2>Postbot</h2>
+                        <h2>Postdot</h2>
                         <Link href="/#product">Studio</Link>
                         <Link href="/#studio-tour">Studio tour</Link>
                         <Link href="/#automation">For agents</Link>
@@ -30,9 +30,9 @@ export function PublicFooter() {
                         <Link href="/docs/operations/">Operations</Link>
                     </div>
                     <div className="home-footer-social">
-                        <h2>Find Postbot</h2>
+                        <h2>Find Postdot</h2>
                         <a
-                            href="https://github.com/saoudi-h/herald"
+                            href="https://github.com/postdot/postdot"
                             className="home-footer-social-link">
                             <svg
                                 viewBox={`0 0 ${github.width} ${github.height}`}

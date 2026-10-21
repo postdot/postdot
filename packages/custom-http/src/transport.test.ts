@@ -32,7 +32,7 @@ function createInput(
 ): CustomHttpDeliveryInput {
     return {
         execution,
-        content: { body: 'Hello from Postbot', slug: 'hello', media: [] },
+        content: { body: 'Hello from Postdot', slug: 'hello', media: [] },
         context,
         media: [],
         connection: {
@@ -81,7 +81,7 @@ function createRequester(
 }
 
 describe('custom HTTP transport', () => {
-    test('delivers a versioned signed Postbot webhook without internal storage details', async () => {
+    test('delivers a versioned signed Postdot webhook without internal storage details', async () => {
         const { requester, requests } = createRequester()
         const deliveredAt = 1_756_000_001_234
         const transport = createCustomHttpTransport({
@@ -225,7 +225,7 @@ describe('custom HTTP transport', () => {
         )
         expect(request.headers['x-idempotency-key']).toBe('delivery-1')
         expect(JSON.parse(await readBody(request))).toEqual({
-            text: 'Hello from Postbot',
+            text: 'Hello from Postdot',
             publication: 'publication-1',
             mediaUrls: ['https://cdn.example.test/media-1'],
         })

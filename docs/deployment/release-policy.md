@@ -6,7 +6,7 @@ installation. The repository and image visibility remain unchanged.
 
 ## Recommended first distribution
 
-- Registry: GitHub Container Registry, `ghcr.io/saoudi-h/postbot`.
+- Registry: GitHub Container Registry, `ghcr.io/postdot/postdot`.
 - First public version: `v0.1.0-alpha.1`, with image tag `0.1.0-alpha.1`.
 - Target platforms: `linux/amd64` and `linux/arm64`, advertised only after each
   passes production container acceptance. A build alone is not support evidence.

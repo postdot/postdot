@@ -1,4 +1,4 @@
-import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
+import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
 import {
     Sidebar,
     SidebarContent,
@@ -10,7 +10,7 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-} from '@postbot/ui/components/sidebar'
+} from '@postdot/ui/components/sidebar'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -141,7 +141,7 @@ export function DashboardSidebar({
                         </Link>
                     )}
                     <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-                        <p className="truncate text-sm font-semibold">Postbot</p>
+                        <p className="truncate text-sm font-semibold">Postdot</p>
                     </div>
                 </div>
 

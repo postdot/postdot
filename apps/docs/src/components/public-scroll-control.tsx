@@ -1,7 +1,7 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+import { Button } from '@postdot/ui/components/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArrowUpIcon } from '@solar-icons/react/linear/arrow-up'
 import { useLenis } from 'lenis/react'
 import {

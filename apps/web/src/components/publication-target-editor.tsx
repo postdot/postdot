@@ -1,8 +1,8 @@
-import { readMastodonPoll } from '@postbot/mastodon/poll'
-import { readTelegramPoll } from '@postbot/telegram/poll'
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Textarea } from '@postbot/ui/components/textarea'
+import { readMastodonPoll } from '@postdot/mastodon/poll'
+import { readTelegramPoll } from '@postdot/telegram/poll'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { useEffect, useMemo, useState } from 'react'
 

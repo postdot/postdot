@@ -1,5 +1,5 @@
-import type { NetworkControlledBinaryFetcher } from '@postbot/custom-http'
-import type { MediaAssetStore, MediaUploadReservation } from '@postbot/db'
+import type { NetworkControlledBinaryFetcher } from '@postdot/custom-http'
+import type { MediaAssetStore, MediaUploadReservation } from '@postdot/db'
 
 const MAX_MEDIA_URL_LENGTH = 2_048
 const DEFAULT_MAX_REDIRECTS = 3
@@ -183,7 +183,7 @@ async function fetchMediaUrl(
             signal: controller.signal,
             headers: {
                 accept: allowedContentTypes.join(', '),
-                'user-agent': 'Postbot media importer',
+                'user-agent': 'Postdot media importer',
             },
         })
     } catch (error) {

@@ -4,13 +4,13 @@ description: Connect your DEV.to account with an API key.
 ---
 
 You need a DEV.to account, an API key from that account and a DEV.to article channel
-in your Postbot project. This is a token connection, not an OAuth redirect flow.
+in your Postdot project. This is a token connection, not an OAuth redirect flow.
 
 ## Create the provider key
 
 In DEV.to, open **Settings → Extensions** and generate an API key. Store it privately.
-This DEV.to key is different from a Postbot API key: one authorizes the provider
-account, while the other authorizes clients of your Postbot instance.
+This DEV.to key is different from a Postdot API key: one authorizes the provider
+account, while the other authorizes clients of your Postdot instance.
 
 ## Connect in Studio
 
@@ -18,8 +18,8 @@ account, while the other authorizes clients of your Postbot instance.
 2. Enter the **DEV.to API key** and save.
 3. Check the DEV.to account shown after verification.
 
-Postbot verifies the key by reading its account identity before storing the
-connection. There is no global Postbot OAuth application, client secret or callback
+Postdot verifies the key by reading its account identity before storing the
+connection. There is no global Postdot OAuth application, client secret or callback
 to configure for this provider. Credentials remain on the server after submission.
 
 ## Prepare an article

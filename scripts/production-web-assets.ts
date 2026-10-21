@@ -23,8 +23,8 @@ export async function verifyProductionDashboard(
     }
 
     const html = await shellResponse.text()
-    if (!/<title>\s*Postbot\s*<\/title>/i.test(html) || !/id=["']root["']/i.test(html)) {
-        throw new Error('Dashboard shell is missing the Postbot title or application root')
+    if (!/<title>\s*Postdot\s*<\/title>/i.test(html) || !/id=["']root["']/i.test(html)) {
+        throw new Error('Dashboard shell is missing the Postdot title or application root')
     }
 
     const assetUrls = Array.from(html.matchAll(/(?:src|href)=["']([^"']+)["']/gi))

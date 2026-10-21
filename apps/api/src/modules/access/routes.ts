@@ -1,5 +1,5 @@
-import type { PostbotAuth } from '@postbot/auth'
-import type { AccessStore } from '@postbot/db'
+import type { PostbotAuth } from '@postdot/auth'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import {
@@ -246,7 +246,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         await auth.api.banUser({
                             body: {
                                 userId: params.userId,
-                                banReason: 'Disabled by a Postbot instance administrator',
+                                banReason: 'Disabled by a Postdot instance administrator',
                             },
                             headers: request.headers,
                         })
@@ -257,7 +257,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         })
                     }
                 } catch {
-                    // The custom table was updated first so it could enforce Postbot's
+                    // The custom table was updated first so it could enforce Postdot's
                     // last-admin and self-protection invariants. Compensate both
                     // projections if Better Auth rejects the subsequent sync.
                     if (
@@ -284,7 +284,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                             await auth.api.banUser({
                                 body: {
                                     userId: params.userId,
-                                    banReason: 'Disabled by a Postbot instance administrator',
+                                    banReason: 'Disabled by a Postdot instance administrator',
                                 },
                                 headers: request.headers,
                             })
@@ -438,7 +438,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                 }
 
                 // Better Auth handles project invitations separately. This route
-                // accepts only Postbot instance invitations.
+                // accepts only Postdot instance invitations.
                 const result = access.acceptInvitation({
                     token: body.token,
                     userId: user.id,

@@ -1,4 +1,4 @@
-import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postbot/core'
+import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 import type { NotificationDestinationSecretCipher } from './notification-destination-secret-crypto'

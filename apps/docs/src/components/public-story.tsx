@@ -14,20 +14,20 @@ const questions = [
         answer: 'No. You can write, adapt and manage publications entirely in the web app. The CLI and REST API give your existing agents and scripts another way to work with the same posts.',
     },
     {
-        title: 'Does Postbot generate content?',
-        answer: 'Postbot does not contain a built-in AI writer. Your own agent can prepare content and create drafts through the CLI or API. You choose its access and what it is allowed to do.',
+        title: 'Does Postdot generate content?',
+        answer: 'Postdot does not contain a built-in AI writer. Your own agent can prepare content and create drafts through the CLI or API. You choose its access and what it is allowed to do.',
     },
     {
         title: 'Which destinations can I connect?',
         answer: 'Bluesky, Discord, LinkedIn, Mastodon, X and DEV.to, plus manual and custom HTTP destinations. Available content types and connection requirements vary by provider.',
     },
     {
-        title: 'Where does Postbot run?',
+        title: 'Where does Postdot run?',
         answer: 'On infrastructure you manage. The installation guide uses Docker Compose from a source checkout, with local media storage by default and optional S3-compatible storage.',
     },
     {
         title: 'Can I use my existing AI tools?',
-        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postbot does not require a particular model or AI subscription. A dedicated MCP server is not available yet.',
+        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postdot does not require a particular model or AI subscription. A dedicated MCP server is not available yet.',
     },
     {
         title: 'Will creating a draft publish it?',
@@ -43,11 +43,11 @@ const questions = [
     },
     {
         title: 'Can I keep images and videos in S3?',
-        answer: 'Yes. Postbot supports S3-compatible media storage as well as local storage. Display previews are separate from the original files used for publishing.',
+        answer: 'Yes. Postdot supports S3-compatible media storage as well as local storage. Display previews are separate from the original files used for publishing.',
     },
     {
         title: 'Who handles backups?',
-        answer: 'You operate and back up your installation. The operations guide covers the database, media and configuration needed to restore a workspace. Postbot does not replace your infrastructure backup system.',
+        answer: 'You operate and back up your installation. The operations guide covers the database, media and configuration needed to restore a workspace. Postdot does not replace your infrastructure backup system.',
     },
 ]
 
@@ -61,8 +61,8 @@ export function PublicStory() {
                 className="home-chapter home-questions"
                 aria-labelledby="questions-title">
                 <PublicEntrance kind="copy" className="home-questions-intro">
-                    <h2 id="questions-title">About running Postbot.</h2>
-                    <nav className="home-questions-guides" aria-label="Get started with Postbot">
+                    <h2 id="questions-title">About running Postdot.</h2>
+                    <nav className="home-questions-guides" aria-label="Get started with Postdot">
                         <Link href="/docs/installation/">
                             Installation guide
                             <ArrowRightIcon size={17} aria-hidden="true" />

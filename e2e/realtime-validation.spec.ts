@@ -350,7 +350,7 @@ test('shows unread notification count before opening the inbox', async ({ page }
                             id: 'e2e-unread-publication',
                         },
                         title: 'Publication delivered',
-                        body: 'Postbot confirmed that the publication was delivered.',
+                        body: 'Postdot confirmed that the publication was delivered.',
                         readAt: null,
                         archivedAt: null,
                         createdAt: Date.now(),
@@ -385,7 +385,7 @@ test('keeps operational labels localized without changing custom notification co
             'publication_published',
             'success',
             'Publication delivered',
-            'Postbot confirmed that the publication was delivered.',
+            'Postdot confirmed that the publication was delivered.',
         ],
         [
             'publication_failed',
@@ -397,7 +397,7 @@ test('keeps operational labels localized without changing custom notification co
             'publication_ambiguous',
             'warning',
             'Publication outcome unknown',
-            'Postbot could not confirm whether the publication was delivered.',
+            'Postdot could not confirm whether the publication was delivered.',
         ],
         [
             'publication_failed',
@@ -822,7 +822,7 @@ test('opens notification subjects without acknowledgement and handles unavailabl
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E realtime ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-realtime-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-realtime-password')

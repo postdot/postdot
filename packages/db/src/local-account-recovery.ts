@@ -28,7 +28,7 @@ interface RecoverableCredential {
     readonly accountId: string
 }
 
-/** Resets one existing email/password account while the Postbot runtime is stopped. */
+/** Resets one existing email/password account while the Postdot runtime is stopped. */
 export function recoverLocalAccountPassword(
     options: LocalAccountPasswordRecoveryOptions
 ): LocalAccountPasswordRecoveryResult {
@@ -125,7 +125,7 @@ function findRecoverableCredential(database: Database, email: string): Recoverab
         )
         .all(email)
 
-    if (users.length === 0) throw new Error('No Postbot account exists for that email address')
+    if (users.length === 0) throw new Error('No Postdot account exists for that email address')
     if (users.length > 1) {
         throw new Error(
             'More than one account matches that email address; recovery was not applied'
@@ -133,7 +133,7 @@ function findRecoverableCredential(database: Database, email: string): Recoverab
     }
 
     const user = users[0]
-    if (user === undefined) throw new Error('The selected Postbot account could not be read')
+    if (user === undefined) throw new Error('The selected Postdot account could not be read')
 
     const credentials = database
         .query<{ readonly id: string }, [userId: string]>(
@@ -171,7 +171,7 @@ function assertPostbotSchema(database: Database, filename: string): void {
         )
         .get()
     if (migrationsTable === null || migrationsTable === undefined) {
-        throw new Error(`The target file is not a Postbot database: ${filename}`)
+        throw new Error(`The target file is not a Postdot database: ${filename}`)
     }
 }
 

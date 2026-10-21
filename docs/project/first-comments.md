@@ -14,7 +14,7 @@ Bluesky comments accept up to 300 graphemes and 3000 UTF-16 code units. Mastodon
 uses the existing conservative reply limit of 500 UTF-16 code units; an instance
 can impose additional restrictions. Delay presets are immediately after
 confirmation, 5 or 30 minutes, 1 hour, 1 day and 7 days.
-The stored delay is an integer from 0 to 604800 seconds after Postbot confirms
+The stored delay is an integer from 0 to 604800 seconds after Postdot confirms
 native publication success. Zero means eligible after confirmation, without a
 guarantee of immediate delivery.
 
@@ -34,12 +34,12 @@ configuration and independent outcome.
 | Suspended | The enabling editor lost editor access; another editor must review and explicitly enable it |
 | Sent | The comment received a confirmed result and its own remote identity |
 | Failed | Preparation or delivery failed independently of the parent |
-| Ambiguous | The effect may have occurred; Postbot will not resend automatically |
+| Ambiguous | The effect may have occurred; Postdot will not resend automatically |
 | Cancelled | Unsent work was cancelled |
 
 A failed or uncertain parent leaves the comment waiting. Manually recorded or
 reconciled success cannot arm it. A cancelled parent cancels waiting or pending
-work. Restarting Postbot preserves the original due time; overdue work is sent
+work. Restarting Postdot preserves the original due time; overdue work is sent
 after the parent, account and current editor authorization are revalidated.
 Restoring a suspended editor's access alone does not resume the comment.
 

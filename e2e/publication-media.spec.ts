@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page, type Route } from '@playwright/test'
-import type { MediaReference } from '@postbot/client'
+import type { MediaReference } from '@postdot/client'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 
@@ -94,7 +94,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
     await page.getByLabel('Email').fill(`e2e-33-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-33-password')
@@ -107,13 +107,13 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.goto('/dashboard?projectId=none')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
     await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
-    const dashboardLogo = page.locator('a[aria-label="Postbot workspace"] svg')
+    const dashboardLogo = page.locator('a[aria-label="Postdot workspace"] svg')
     await expect(dashboardLogo).toBeVisible()
     await page.goto('/dashboard?projectId=none')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
     await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 128 128')
     await expect(dashboardLogo.locator('[fill="currentColor"]')).toHaveCount(5)
-    await expect(page.locator('a[aria-label="Postbot workspace"]')).toHaveCSS(
+    await expect(page.locator('a[aria-label="Postdot workspace"]')).toHaveCSS(
         'background-color',
         'rgba(0, 0, 0, 0)'
     )
@@ -1713,7 +1713,7 @@ async function createAccountAndProject(page: Page, suffix: string, projectName?:
 
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill('e2e-33-password')

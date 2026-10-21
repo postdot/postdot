@@ -4,7 +4,7 @@ import {
     requireTimestamp,
     type CompleteExternalEffectInput,
     type ExternalEffectExecutorStore,
-} from '@postbot/core'
+} from '@postdot/core'
 import { and, asc, eq, inArray, lte } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'

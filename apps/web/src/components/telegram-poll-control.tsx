@@ -1,13 +1,13 @@
-import { TELEGRAM_POLL_LIMITS, readTelegramPoll, telegramPollError } from '@postbot/telegram/poll'
-import { Button } from '@postbot/ui/components/button'
-import { Input } from '@postbot/ui/components/input'
+import { TELEGRAM_POLL_LIMITS, readTelegramPoll, telegramPollError } from '@postdot/telegram/poll'
+import { Button } from '@postdot/ui/components/button'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
+} from '@postdot/ui/components/select'
 
 import {
     TELEGRAM_POLL_DURATIONS,

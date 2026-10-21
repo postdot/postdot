@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
-import { FACEBOOK_PUBLISH_PERMISSIONS } from '@postbot/facebook'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { FACEBOOK_PUBLISH_PERMISSIONS } from '@postdot/facebook'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'

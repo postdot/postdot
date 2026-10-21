@@ -1,4 +1,4 @@
-import type { ChannelProfileValidationAdapter } from '@postbot/core'
+import type { ChannelProfileValidationAdapter } from '@postdot/core'
 
 export const MASTODON_POLL_LIMITS = {
     maxOptions: 4,

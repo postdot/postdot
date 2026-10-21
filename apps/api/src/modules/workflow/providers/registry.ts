@@ -1,4 +1,4 @@
-import type { ChannelExecutionContract, ExternalEffectOutcome } from '@postbot/core'
+import type { ChannelExecutionContract, ExternalEffectOutcome } from '@postdot/core'
 import type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,
@@ -12,7 +12,7 @@ import type {
     ReserveProviderMediaDeliveryInput,
     RetryProviderMediaDeliveryInput,
     StartProviderMediaDeliveryInput,
-} from '@postbot/db'
+} from '@postdot/db'
 
 export type BuiltInExecutionContract = Extract<
     ChannelExecutionContract,

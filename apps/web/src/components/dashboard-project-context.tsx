@@ -11,19 +11,19 @@ import {
     ComboboxPositioner,
     ComboboxTrigger,
     ComboboxValue,
-} from '@postbot/ui/components/combobox'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Kbd } from '@postbot/ui/components/kbd'
+} from '@postdot/ui/components/combobox'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Kbd } from '@postdot/ui/components/kbd'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { useSidebar } from '@postbot/ui/components/sidebar'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
-import { cn } from '@postbot/ui/lib/utils'
+} from '@postdot/ui/components/select'
+import { useSidebar } from '@postdot/ui/components/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
+import { cn } from '@postdot/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'

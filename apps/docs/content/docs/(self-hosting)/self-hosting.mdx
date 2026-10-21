@@ -3,14 +3,14 @@ title: Self-hosting
 description: Install your instance, preserve its data and plan maintenance.
 ---
 
-Postbot runs the API, Studio, scheduler and publication worker in one Bun process.
+Postdot runs the API, Studio, scheduler and publication worker in one Bun process.
 The default Docker Compose setup uses SQLite and local media storage, with no
 separate database or queue service to operate.
 
 ## Choose your starting point
 
 <Cards>
-    <Card title="Install Postbot" href="/docs/installation/#first-installation">
+    <Card title="Install Postdot" href="/docs/installation/#first-installation">
         Build from a source checkout, configure secrets and start your first instance with Docker
         Compose.
     </Card>
@@ -22,7 +22,7 @@ separate database or queue service to operate.
 
 <Callout title="Source checkout required">
     Public registry images are not published yet. The installation guide builds the image locally
-    from the checkout; it does not require pulling a released Postbot image.
+    from the checkout; it does not require pulling a released Postdot image.
 </Callout>
 
 ## Know what to preserve
@@ -36,7 +36,7 @@ secrets need separate protection.
 | Media storage      | Uploaded originals, derived previews and avatars                 |
 | Deployment secrets | Authentication, media-link signing and publisher encryption keys |
 
-Keep backup copies outside the machine running Postbot. For commands and recovery
+Keep backup copies outside the machine running Postdot. For commands and recovery
 precautions, see [backup and restoration](/docs/installation/#backup-and-restoration).
 
 ## Adapt the installation

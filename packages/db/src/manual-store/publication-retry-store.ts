@@ -5,7 +5,7 @@ import {
     transitionJob,
     transitionPublication,
     type Job,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'

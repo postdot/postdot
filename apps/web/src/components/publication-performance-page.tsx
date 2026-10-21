@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'

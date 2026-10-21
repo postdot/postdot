@@ -8,8 +8,8 @@ import {
     closeDatabase,
     createDatabase,
     runMigrations,
-} from '@postbot/db'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/db'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { runMaintenanceCommand } from './maintenance'
 

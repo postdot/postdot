@@ -2,9 +2,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postbot/db'
-import { createLocalMediaStore } from '@postbot/media'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postdot/db'
+import { createLocalMediaStore } from '@postdot/media'
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { createApp } from './app'

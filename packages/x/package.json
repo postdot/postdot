@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/x",
+    "name": "@postdot/x",
     "version": "0.0.0",
     "private": true,
-    "description": "X (Twitter) publishing adapter for Postbot",
+    "description": "X (Twitter) publishing adapter for Postdot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -21,7 +21,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*",
+        "@postdot/core": "workspace:*",
         "twitter-text": "3.1.0"
     },
     "devDependencies": {

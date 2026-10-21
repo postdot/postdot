@@ -4,8 +4,8 @@ import {
     TELEGRAM_EXECUTION_REVISION,
     TELEGRAM_POLL_EXECUTION_REVISION,
     telegramChannelProfile,
-} from '@postbot/telegram'
-import { TELEGRAM_POLL_LIMITS } from '@postbot/telegram/poll'
+} from '@postdot/telegram'
+import { TELEGRAM_POLL_LIMITS } from '@postdot/telegram/poll'
 
 import { getTargetEditorFields } from './target-editor'
 import {

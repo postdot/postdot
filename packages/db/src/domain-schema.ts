@@ -23,7 +23,7 @@ import {
     type ChannelProfileDefinition,
     type CustomHttpAuthentication,
     type SourceContent,
-} from '@postbot/core'
+} from '@postdot/core'
 import { sql } from 'drizzle-orm'
 import {
     check,
@@ -96,7 +96,7 @@ export const projectCategories = sqliteTable(
 )
 
 /**
- * Postbot's user-facing workspace boundary. Better Auth owns the organization
+ * Postdot's user-facing workspace boundary. Better Auth owns the organization
  * and member rows referenced here; this projection gives the domain model a
  * stable name for the boundary without making projects organizations.
  */
@@ -138,7 +138,7 @@ export const projects = sqliteTable(
 )
 
 /**
- * Direct Postbot project access. Better Auth owns identity and workspace
+ * Direct Postdot project access. Better Auth owns identity and workspace
  * membership; this table owns the project-specific role for an individual.
  */
 export const projectUserGrants = sqliteTable(
@@ -216,7 +216,7 @@ export const actors = sqliteTable(
 )
 
 /**
- * Postbot owns the instance boundary separately from Better Auth identity.
+ * Postdot owns the instance boundary separately from Better Auth identity.
  * There is exactly one row per database, seeded by the access migration.
  */
 export const instanceState = sqliteTable(
@@ -270,10 +270,10 @@ export const instanceMemberships = sqliteTable(
 )
 
 /**
- * Instance invitations are Postbot-owned because the instance itself is not a
+ * Instance invitations are Postdot-owned because the instance itself is not a
  * Better Auth organization. Project invitations use Better Auth workspace
  * invitations with custom project fields and therefore have no duplicate
- * Postbot invitation table.
+ * Postdot invitation table.
  */
 export const instanceAccessInvitations = sqliteTable(
     'instance_access_invitations',

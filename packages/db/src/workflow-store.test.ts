@@ -7,7 +7,7 @@ import {
     createExponentialRetryPolicy,
     NextEventScheduler,
     processNextWorkflowEvent,
-} from '@postbot/core'
+} from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
 import type { PostbotDatabase } from './client'

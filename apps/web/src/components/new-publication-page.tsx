@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Input } from '@postbot/ui/components/input'
-import { cn } from '@postbot/ui/lib/utils'
-import { parseXPostText } from '@postbot/x/text'
+} from '@postdot/ui/components/dialog'
+import { Input } from '@postdot/ui/components/input'
+import { cn } from '@postdot/ui/lib/utils'
+import { parseXPostText } from '@postdot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'

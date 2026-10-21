@@ -4,7 +4,7 @@ import {
     createManualChannelProfile,
     validateDeclarativeHttpExecution,
     type DeclarativeHttpExecutionContract,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     canCreateJsonBody,
@@ -28,7 +28,7 @@ function fixture() {
             request: {
                 method: 'POST',
                 path: ['posts', { kind: 'secret' }],
-                headers: { 'X-Source': { kind: 'literal', value: 'Postbot' } },
+                headers: { 'X-Source': { kind: 'literal', value: 'Postdot' } },
                 body: {
                     kind: 'json',
                     value: {

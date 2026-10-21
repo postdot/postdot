@@ -3,14 +3,14 @@ import {
     publicationTagFilterMaximumIds,
     sourceContentSchema,
     taxonomyLabelMaximumLength,
-} from '@postbot/core'
+} from '@postdot/core'
 import type {
     ChannelProfilePreset,
     ChannelProfileDefinition,
     Publication,
     PublicationApprovalRequest,
-} from '@postbot/core'
-import type { ChannelProfileImpactAssessment } from '@postbot/core'
+} from '@postdot/core'
+import type { ChannelProfileImpactAssessment } from '@postdot/core'
 import type {
     ChannelProfileActivationResult,
     ChannelProfileState,
@@ -21,7 +21,7 @@ import type {
     PublicationSummary,
     PublicationTargetRevision,
     PublicationWorkingDraft,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     auditEvents,
     channels,
@@ -29,7 +29,7 @@ import {
     projects,
     publications,
     publicationApprovalRequests,
-} from '@postbot/db/schema'
+} from '@postdot/db/schema'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'

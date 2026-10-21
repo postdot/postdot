@@ -3,7 +3,7 @@
  * Runtime isolation probe for the SSE defect: does Bun's own HTTP server close
  * a quiet streaming response?
  *
- * This probe deliberately involves no Elysia, no Postbot module, and no product
+ * This probe deliberately involves no Elysia, no Postdot module, and no product
  * code. It writes one frame and then stays silent, so whatever closes the
  * connection belongs to the runtime, not to the application. It changes nothing
  * and listens on an operating-system-assigned loopback port.

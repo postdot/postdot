@@ -1,5 +1,5 @@
-import { mediaImportSourceDefinitions } from '@postbot/core'
-import type { AccessStore, MediaAssetStore } from '@postbot/db'
+import { mediaImportSourceDefinitions } from '@postdot/core'
+import type { AccessStore, MediaAssetStore } from '@postdot/db'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type, type Static } from 'typebox'
 

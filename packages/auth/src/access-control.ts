@@ -2,7 +2,7 @@ import { createAccessControl } from 'better-auth/plugins/access'
 import { defaultStatements, memberAc, ownerAc } from 'better-auth/plugins/organization/access'
 
 /**
- * Postbot keeps the organization plugin's native permissions and adds the
+ * Postdot keeps the organization plugin's native permissions and adds the
  * domain resources that will be used when project authorization moves onto
  * Better Auth. Keeping this in one module makes the server configuration,
  * CLI schema generation, and future client checks share the same vocabulary.

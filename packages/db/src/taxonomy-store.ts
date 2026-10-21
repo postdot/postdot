@@ -8,7 +8,7 @@ import {
     type Project,
     type ProjectCategory,
     type ProjectTag,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,

@@ -1,5 +1,5 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
 import { useState } from 'react'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'

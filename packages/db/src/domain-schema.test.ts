@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createManualChannelProfile } from '@postbot/core'
+import { createManualChannelProfile } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
 import type { PostbotDatabase } from './client'

@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 /** Direct Instagram Login uses its own Graph host, not the Facebook host. */
 export const INSTAGRAM_GRAPH_ORIGIN = 'https://graph.instagram.com'
@@ -56,7 +56,7 @@ export interface InstagramCreateContainerInput {
     readonly accountId: string
     readonly accessToken: string
     /**
-     * Public HTTPS URL of inspected Postbot-owned media. Signed query strings
+     * Public HTTPS URL of inspected Postdot-owned media. Signed query strings
      * are sent verbatim; this package never fetches the image.
      */
     readonly imageUrl: string
@@ -396,7 +396,7 @@ export function createInstagramPublisher(options: InstagramPublisherOptions = {}
 
 /**
  * Requires HTTPS and rejects known local hosts and literal private addresses.
- * Postbot mints these URLs from inspected project-owned media; this check does
+ * Postdot mints these URLs from inspected project-owned media; this check does
  * not resolve DNS or prove public reachability. Signed query strings stay intact,
  * and this package never dereferences the image.
  */

@@ -1,8 +1,8 @@
 import { openapi } from '@elysiajs/openapi'
-import type { PostbotAuth } from '@postbot/auth'
-import type { BlueskyFetcher, BlueskyThreadReader } from '@postbot/bluesky'
-import { ChannelProfileCompiler } from '@postbot/core'
-import type { NotificationEmailStore } from '@postbot/db'
+import type { PostbotAuth } from '@postdot/auth'
+import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
+import { ChannelProfileCompiler } from '@postdot/core'
+import type { NotificationEmailStore } from '@postdot/db'
 import {
     createManualStore,
     createAnalyticsStore,
@@ -21,19 +21,19 @@ import {
     type ProviderAnalyticsStore,
     type TaxonomyStore,
     type UserAvatarStore,
-} from '@postbot/db'
-import type { DevtoFetcher } from '@postbot/devto'
-import type { DiscordFetcher } from '@postbot/discord'
-import { facebookChannelProfileValidationAdapter } from '@postbot/facebook'
-import { instagramChannelProfileValidationAdapter } from '@postbot/instagram'
+} from '@postdot/db'
+import type { DevtoFetcher } from '@postdot/devto'
+import type { DiscordFetcher } from '@postdot/discord'
+import { facebookChannelProfileValidationAdapter } from '@postdot/facebook'
+import { instagramChannelProfileValidationAdapter } from '@postdot/instagram'
 import {
     mastodonChannelProfileValidationAdapter,
     type MastodonThreadReader,
     type MastodonAnalyticsReader,
-} from '@postbot/mastodon'
-import type { TelegramFetcher } from '@postbot/telegram'
-import { telegramChannelProfileValidationAdapter } from '@postbot/telegram'
-import { xChannelProfileValidationAdapter } from '@postbot/x'
+} from '@postdot/mastodon'
+import type { TelegramFetcher } from '@postdot/telegram'
+import { telegramChannelProfileValidationAdapter } from '@postdot/telegram'
+import { xChannelProfileValidationAdapter } from '@postdot/x'
 import type { Registry } from '@prometheus-io/client'
 import { Elysia, setupTypebox } from 'elysia'
 import { Type } from 'typebox'
@@ -91,7 +91,7 @@ export interface PostbotAppOptions {
     readonly telegramFetcher?: TelegramFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
-    /** The shared Postbot instance access store. */
+    /** The shared Postdot instance access store. */
     readonly access?: AccessStore
     readonly recovery?: RecoveryService
     readonly emailSettings?: EmailSettingsService
@@ -208,7 +208,7 @@ function createDomainApp({
                         error: {
                             code: 'recovery_hold',
                             message:
-                                'Postbot is in recovery mode; an administrator must authorize resumption',
+                                'Postdot is in recovery mode; an administrator must authorize resumption',
                         },
                     },
                     { status: 503 }
@@ -227,19 +227,19 @@ function createDomainApp({
             openapi({
                 documentation: {
                     info: {
-                        title: 'Postbot API',
+                        title: 'Postdot API',
                         version: '0.1.0',
                         description:
-                            'The HTTP API for the lightweight, self-hosted Postbot publication orchestrator.',
+                            'The HTTP API for the lightweight, self-hosted Postdot publication orchestrator.',
                     },
                     components: {
                         securitySchemes: {
                             bearerAuth: {
                                 type: 'http',
                                 scheme: 'bearer',
-                                bearerFormat: 'Postbot API key',
+                                bearerFormat: 'Postdot API key',
                                 description:
-                                    'A user-owned Postbot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
+                                    'A user-owned Postdot API key sent as `Authorization: Bearer <token>`. Its project scope is limited by the creator’s current access.',
                             },
                             sessionCookie: {
                                 type: 'apiKey',
@@ -256,7 +256,7 @@ function createDomainApp({
                                           scheme: 'bearer',
                                           bearerFormat: 'monitoring token',
                                           description:
-                                              'A dedicated monitoring token configured with POSTBOT_METRICS_TOKEN. It is separate from Postbot user API keys.',
+                                              'A dedicated monitoring token configured with POSTBOT_METRICS_TOKEN. It is separate from Postdot user API keys.',
                                       },
                                   }),
                         },
@@ -346,7 +346,7 @@ function createDomainApp({
 }
 
 /**
- * The Eden contract intentionally covers the typed Postbot API routes only.
+ * The Eden contract intentionally covers the typed Postdot API routes only.
  * Better Auth's mounted handler is dynamically routed and would otherwise
  * make `/api` ambiguous in Eden's generated path tree.
  */

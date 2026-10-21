@@ -1,16 +1,16 @@
 import { expect, test } from 'bun:test'
 
 import type { ComAtprotoRepoCreateRecord } from '@atproto/api'
-import { createAuth } from '@postbot/auth'
-import { blueskyChannelProfile, type restoreBlueskySession } from '@postbot/bluesky'
+import { createAuth } from '@postdot/auth'
+import { blueskyChannelProfile, type restoreBlueskySession } from '@postdot/bluesky'
 import {
     createAccessStore,
     createDatabase,
     createManualStore,
     runMigrations,
     closeDatabase,
-} from '@postbot/db'
-import { mastodonChannelProfile } from '@postbot/mastodon'
+} from '@postdot/db'
+import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'

@@ -1,11 +1,11 @@
-# Postbot public positioning and page narrative
+# Postdot public positioning and page narrative
 
 Status: owner-directed product priorities, updated 2026-10-15. Section composition,
 headlines and final copy remain proposals. No publication or release is authorized.
 
 ## Product and audience
 
-Postbot is an open-source, lightweight, self-hosted social publishing tool for
+Postdot is an open-source, lightweight, self-hosted social publishing tool for
 humans and their existing AI agents. Entrepreneurs, community managers, artists
 and teams should recognize their work before encountering technical terminology.
 Do not narrow the audience to developers or independent software maintainers.
@@ -13,7 +13,7 @@ Do not narrow the audience to developers or independent software maintainers.
 One product has multiple access paths. Studio supports direct human use; agents
 work through supported tools with the same project permissions and publication
 boundaries. An agent conversation uses the person's natural language, rather than
-requiring the website visitor to understand shell commands. Postbot is not an
+requiring the website visitor to understand shell commands. Postdot is not an
 embedded AI chat product and does not require a particular model subscription.
 
 Self-hosting starts with one service, SQLite and local media; S3-compatible storage
@@ -30,7 +30,7 @@ a separate section that merely adds an hour would repeat it. Do not imply that
 source editing rewrites published destinations or that every platform supports
 identical content types.
 
-### Humans and agents use the same Postbot
+### Humans and agents use the same Postdot
 
 This is a primary product message, not a technical appendix. Show a common
 publication/workspace with recognizable entry points: Studio, agent conversation,

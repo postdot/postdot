@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition } from '@postbot/core'
+import type { ChannelProfileDefinition } from '@postdot/core'
 
 import { LINKEDIN_MAX_IMAGES, LINKEDIN_PROVIDER } from './contract'
 

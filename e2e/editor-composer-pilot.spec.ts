@@ -1059,7 +1059,7 @@ async function createMediaAsset(page: Page, projectId: string, filename: string)
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Editor pilot owner')
     await page.getByLabel('Email', { exact: true }).fill(`pilot-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('editor-pilot-password')

@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postbot/media'
+import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postdot/media'
 
 import { backupWithMedia, restoreWithMedia } from './backup'
 import { createDatabase, closeDatabase } from './client'

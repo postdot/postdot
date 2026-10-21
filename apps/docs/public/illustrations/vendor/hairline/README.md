@@ -6,5 +6,5 @@ Retrieved 2026-10-15. MIT license by Lucas Marques; retained in LICENSE.
 
 The engine implementation is retained. Local changes are repository formatting,
 file-level generated-vendor lint/spelling comments and an ES module export of HL.
-No upstream style sheet is injected: the Postbot study defines its own palette.
+No upstream style sheet is injected: the Postdot study defines its own palette.
 This is an experimental illustration dependency, not part of the Studio bundle.

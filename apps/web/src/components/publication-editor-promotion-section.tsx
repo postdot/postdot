@@ -1,5 +1,5 @@
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { CheckIcon } from '@solar-icons/react/linear/check'

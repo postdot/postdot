@@ -1,10 +1,10 @@
-import type { AccessStore } from '@postbot/db'
+import type { AccessStore } from '@postdot/db'
 import {
     DEVTO_PROVIDER,
     createDevtoPublisher,
     normalizeDevtoApiKey,
     type DevtoFetcher,
-} from '@postbot/devto'
+} from '@postdot/devto'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

@@ -1,5 +1,5 @@
-import { DomainInvariantError } from '@postbot/core'
-import type { AccessStore } from '@postbot/db'
+import { DomainInvariantError } from '@postdot/core'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'

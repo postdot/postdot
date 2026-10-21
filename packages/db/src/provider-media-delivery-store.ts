@@ -4,7 +4,7 @@ import {
     requireNonBlank,
     requireTimestamp,
     type ProviderMediaDeliveryState,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 

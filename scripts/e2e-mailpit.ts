@@ -7,7 +7,7 @@ export async function startE2EMailpit(
     environment: NodeJS.ProcessEnv = process.env
 ): Promise<() => Promise<void>> {
     if (!isSafeE2EDataDirectory(runtime.dataDirectory) || runtime.mailpit === undefined) {
-        throw new Error('Mailpit requires an isolated Postbot E2E runtime directory')
+        throw new Error('Mailpit requires an isolated Postdot E2E runtime directory')
     }
 
     const projectName = `postbot-${basename(runtime.dataDirectory).toLowerCase()}`

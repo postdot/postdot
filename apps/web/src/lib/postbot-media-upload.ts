@@ -1,5 +1,5 @@
-import type { MediaFinalize, MediaReference, MediaReservation, MediaUpload } from '@postbot/client'
-import { defaultMediaUploadContentTypes } from '@postbot/core'
+import type { MediaFinalize, MediaReference, MediaReservation, MediaUpload } from '@postdot/client'
+import { defaultMediaUploadContentTypes } from '@postdot/core'
 import Uppy, { type Meta, type UppyFile } from '@uppy/core'
 import GoldenRetriever from '@uppy/golden-retriever'
 

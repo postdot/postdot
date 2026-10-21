@@ -4,7 +4,7 @@ import {
     type ProviderApplicationProvider,
     type ProviderApplicationState,
     type AccessStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'

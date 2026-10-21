@@ -8,7 +8,7 @@ import { Elysia } from 'elysia'
 import { createAuthRoutes } from './auth'
 import { createWebAssets } from './web-assets'
 
-describe('Postbot web assets', () => {
+describe('Postdot web assets', () => {
     it('serves static files and falls back to the SPA for browser routes', async () => {
         await withAssetFixture(async directory => {
             const app = await createWebAssets(directory)
@@ -16,11 +16,11 @@ describe('Postbot web assets', () => {
             const rootResponse = await app.handle(new Request('http://localhost/'))
             expect(rootResponse.status).toBe(200)
             expect(rootResponse.headers.get('content-type')).toContain('text/html')
-            expect(await rootResponse.text()).toContain('<title>Postbot fixture</title>')
+            expect(await rootResponse.text()).toContain('<title>Postdot fixture</title>')
 
             const browserRouteResponse = await app.handle(new Request('http://localhost/dashboard'))
             expect(browserRouteResponse.status).toBe(200)
-            expect(await browserRouteResponse.text()).toContain('<title>Postbot fixture</title>')
+            expect(await browserRouteResponse.text()).toContain('<title>Postdot fixture</title>')
 
             const assetResponse = await app.handle(new Request('http://localhost/assets/app.js'))
             expect(assetResponse.status).toBe(200)
@@ -80,7 +80,7 @@ describe('Postbot web assets', () => {
             })
             const dashboard = await app.handle(new Request('http://localhost/dashboard'))
             expect(dashboard.status).toBe(200)
-            expect(await dashboard.text()).toContain('<title>Postbot fixture</title>')
+            expect(await dashboard.text()).toContain('<title>Postdot fixture</title>')
         })
     })
 
@@ -102,7 +102,7 @@ async function withAssetFixture(run: (directory: string) => Promise<void>) {
         await mkdir(join(directory, 'assets'))
         await writeFile(
             join(directory, 'index.html'),
-            '<!doctype html><html><head><title>Postbot fixture</title></head></html>'
+            '<!doctype html><html><head><title>Postdot fixture</title></head></html>'
         )
         await writeFile(join(directory, 'assets/app.js'), 'console.log("fixture")')
         await run(directory)

@@ -4,14 +4,14 @@ import {
     createBlueskyAnalyticsReader,
     type BlueskyAnalyticsCoverage,
     type BlueskyFetcher,
-} from '@postbot/bluesky'
+} from '@postdot/bluesky'
 import {
     providerAnalyticsContractVersion,
     requireNonBlank,
     requireTimestamp,
     type ProviderAnalyticsObservation,
-} from '@postbot/core'
-import type { ProviderAnalyticsStore } from '@postbot/db'
+} from '@postdot/core'
+import type { ProviderAnalyticsStore } from '@postdot/db'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 

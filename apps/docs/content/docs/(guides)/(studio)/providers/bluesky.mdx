@@ -3,7 +3,7 @@ title: Bluesky
 description: Connect a Bluesky account using local loopback or public HTTPS OAuth.
 ---
 
-Connect your Bluesky account through OAuth; you do not need to give Postbot your
+Connect your Bluesky account through OAuth; you do not need to give Postdot your
 account password.
 
 You need a Bluesky channel in your project and permission to edit it. An installation
@@ -12,18 +12,18 @@ already done, go to [authorize your account](#authorize-your-account).
 
 ## Configure the installation
 
-Choose the mode that matches where Postbot runs. This setup belongs to the
+Choose the mode that matches where Postdot runs. This setup belongs to the
 installation administrator; editors can then use it to connect their channels.
 
 ### Browser and server on the same machine
 
 Configure a Bluesky OAuth application in **Local loopback** mode. Leave **Client metadata URL** empty. Use
-`127.0.0.1` consistently for Postbot's origin and the address opened in the browser.
+`127.0.0.1` consistently for Postdot's origin and the address opened in the browser.
 The default local Docker address is `http://127.0.0.1:3000`.
 
 This mode needs no public metadata endpoint, tunnel or provider developer app.
 A 404 at `/oauth/bluesky/client-metadata.json` is expected in loopback mode.
-Do not switch between `localhost` and `127.0.0.1` during authorization: the Postbot
+Do not switch between `localhost` and `127.0.0.1` during authorization: the Postdot
 session is tied to its host. A remote server opened from your laptop is not this
 local-loopback arrangement.
 
@@ -38,7 +38,7 @@ Callback: https://postbot.example/api/oauth/bluesky/callback
 ```
 
 Replace the example origin. The metadata URL must be publicly fetchable and describe
-the callback of the same deployment. Postbot serves this document; it does not need
+the callback of the same deployment. Postdot serves this document; it does not need
 a separate metadata server or a Bluesky client secret. Save and activate the OAuth
 application before connecting a channel.
 
@@ -54,7 +54,7 @@ application before connecting a channel.
 
 - Metadata cannot be fetched: check the public URL and HTTPS reachability, or use
   loopback only when the browser and server are actually local.
-- Callback loses your Postbot session: check the host and origin used throughout
+- Callback loses your Postdot session: check the host and origin used throughout
   the flow, including reverse-proxy configuration.
 - Authorization was declined, expired or already used: start again from the channel.
 

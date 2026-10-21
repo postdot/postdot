@@ -157,7 +157,7 @@ async function populateBundleWorkspace(root: string): Promise<BundleWorkspace> {
     }
     writeFileSync(
         join(assetsDirectory, 'index.html'),
-        '<!doctype html><html><head><title>Postbot</title></head><body><div id="root"></div></body></html>'
+        '<!doctype html><html><head><title>Postdot</title></head><body><div id="root"></div></body></html>'
     )
 
     const build = await Bun.build({

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     closeDatabase,
     createAccessStore,
     createDatabase,
     createTaxonomyStore,
     runMigrations,
-} from '@postbot/db'
+} from '@postdot/db'
 
 import { createApp } from '../../app'
 import { requiredApiKeyCapability } from '../projects/api-key-permissions'
@@ -207,7 +207,7 @@ describe('access HTTP routes', () => {
             }
             expect(createdAll.key.projectAccess).toBe('all')
             expect(createdAll.key.name).toMatch(
-                /^Postbot (Amber|Bright|Calm|Clever|Golden|Gentle|Noble|Quiet|Silver|Sunny|Swift|Warm) (Cedar|Comet|Fox|Horizon|Maple|Meadow|Orbit|Pine|River|Sparrow|Stone|Willow) [0-9A-F]{6}$/
+                /^Postdot (Amber|Bright|Calm|Clever|Golden|Gentle|Noble|Quiet|Silver|Sunny|Swift|Warm) (Cedar|Comet|Fox|Horizon|Maple|Meadow|Orbit|Pine|River|Sparrow|Stone|Willow) [0-9A-F]{6}$/
             )
             expect(createdAll.token).toMatch(/^postbot_pat_/)
 
@@ -226,7 +226,7 @@ describe('access HTTP routes', () => {
             const createSelectedResponse = await jsonRequest(app, '/api/api-keys', cookie, {
                 method: 'POST',
                 body: JSON.stringify({
-                    name: 'Postbot MCP',
+                    name: 'Postdot MCP',
                     projectIds: [firstProject.project.id],
                 }),
             })
@@ -235,7 +235,7 @@ describe('access HTTP routes', () => {
                 key: { name: string; projectAccess: string[] }
                 token: string
             }
-            expect(createdSelected.key.name).toBe('Postbot MCP')
+            expect(createdSelected.key.name).toBe('Postdot MCP')
             expect(createdSelected.key.projectAccess).toEqual([firstProject.project.id])
 
             const selectedProjectsResponse = await bearerRequest(

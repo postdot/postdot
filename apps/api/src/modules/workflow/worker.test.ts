@@ -9,13 +9,13 @@ import {
     readBlueskyVideoBlob,
     type BlueskyPublisher,
     type BlueskyVideoService,
-} from '@postbot/bluesky'
+} from '@postdot/bluesky'
 import type {
     ChannelProfileDefinition,
     DeclarativeHttpExecutionContract,
     SchedulerTimers,
-} from '@postbot/core'
-import { createCustomHttpTransport } from '@postbot/custom-http'
+} from '@postdot/core'
+import { createCustomHttpTransport } from '@postdot/custom-http'
 import {
     closeDatabase,
     createDatabase,
@@ -27,26 +27,26 @@ import {
     createPublisherStore,
     createProviderMediaDeliveryStore,
     runMigrations,
-} from '@postbot/db'
-import { auditEvents, providerMediaDeliveries, publications } from '@postbot/db/schema'
+} from '@postdot/db'
+import { auditEvents, providerMediaDeliveries, publications } from '@postdot/db/schema'
 import {
     createDiscordPublisher,
     discordChannelProfile,
     discordImageChannelProfile,
-} from '@postbot/discord'
+} from '@postdot/discord'
 import {
     createLinkedInImagePublisher,
     createLinkedInVideoPublisher,
     createLinkedInTextPublisher,
     linkedinChannelProfile,
-} from '@postbot/linkedin'
+} from '@postdot/linkedin'
 import {
     createMastodonPublisher,
     mastodonChannelProfile,
     mastodonImageChannelProfile,
-} from '@postbot/mastodon'
-import { createLocalMediaStore } from '@postbot/media'
-import { clientSecretPost, type OAuthAuthorizationServer } from '@postbot/oauth'
+} from '@postdot/mastodon'
+import { createLocalMediaStore } from '@postdot/media'
+import { clientSecretPost, type OAuthAuthorizationServer } from '@postdot/oauth'
 import { eq } from 'drizzle-orm'
 
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
@@ -276,7 +276,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'LinkedIn Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -509,7 +509,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Retry Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -681,7 +681,7 @@ describe('publication worker', () => {
                 const project = manualStore.createProject({
                     name,
                     subjectId: 'user-1',
-                    displayName: 'Postbot Operator',
+                    displayName: 'Postdot Operator',
                 })
                 const channel = manualStore.createChannel({
                     projectId: project.project.id,
@@ -804,7 +804,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Worker Clock Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -930,7 +930,7 @@ describe('publication worker', () => {
                 const project = manualStore.createProject({
                     name: 'LinkedIn Image Worker Project',
                     subjectId: 'user-1',
-                    displayName: 'Postbot Operator',
+                    displayName: 'Postdot Operator',
                 })
                 const profile = JSON.parse(JSON.stringify(linkedinChannelProfile))
                 if (imageCount === 1) {
@@ -980,7 +980,7 @@ describe('publication worker', () => {
                         projectId: project.project.id,
                         subjectId: 'user-1',
                         originalFilename: `announcement-${index}.png`,
-                        defaultAccessibilityText: `Postbot image ${index}`,
+                        defaultAccessibilityText: `Postdot image ${index}`,
                         expectedSize: bytes.byteLength,
                         contentType: 'image/png',
                     })
@@ -1124,11 +1124,11 @@ describe('publication worker', () => {
                 expect(last?.input).toBe('https://linkedin.test/rest/posts')
                 const expectedImages =
                     imageCount === 1
-                        ? [{ id: 'urn:li:image:worker-1', altText: 'Postbot image 0' }]
+                        ? [{ id: 'urn:li:image:worker-1', altText: 'Postdot image 0' }]
                         : [
-                              { id: 'urn:li:image:worker-1', altText: 'Postbot image 0' },
-                              { id: 'urn:li:image:worker-3', altText: 'Postbot image 1' },
-                              { id: 'urn:li:image:worker-4', altText: 'Postbot image 2' },
+                              { id: 'urn:li:image:worker-1', altText: 'Postdot image 0' },
+                              { id: 'urn:li:image:worker-3', altText: 'Postdot image 1' },
+                              { id: 'urn:li:image:worker-4', altText: 'Postdot image 2' },
                           ]
                 expect(JSON.parse(String(last?.init?.body))).toMatchObject({
                     author: 'urn:li:person:member-42',
@@ -1194,7 +1194,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -1349,7 +1349,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Worker Scheduler Sandbox Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -1605,7 +1605,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Mapped Public Media Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const bytes = createPng()
             const reservation = media.reserveUpload({
@@ -1776,7 +1776,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Custom HTTP Checksum Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const bytes = createPng()
             const reservation = media.reserveUpload({
@@ -1927,7 +1927,7 @@ describe('publication worker', () => {
             const project = manualStore.createProject({
                 name: 'Refresh Worker Project',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const channel = manualStore.createChannel({
                 projectId: project.project.id,
@@ -2932,7 +2932,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             oauth: {
                 clientMetadata: {
                     client_id: 'https://postbot.example.com/oauth/client-metadata.json',
-                    client_name: 'Postbot',
+                    client_name: 'Postdot',
                     redirect_uris: ['https://postbot.example.com/callback'],
                     grant_types: ['authorization_code', 'refresh_token'],
                     response_types: ['code'],

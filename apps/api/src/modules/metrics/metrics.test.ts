@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import { createPostbotMetrics } from './metrics'
 
-describe('Postbot Prometheus metrics', () => {
+describe('Postdot Prometheus metrics', () => {
     it('collects process data and fixed-cardinality publication worker metrics', async () => {
         const metrics = createPostbotMetrics()
         metrics.bindScheduler({ state: 'running' })

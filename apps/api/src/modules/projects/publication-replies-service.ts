@@ -4,20 +4,20 @@ import {
     blueskyPostDid,
     blueskyReplyTextValid,
     type restoreBlueskySession,
-} from '@postbot/bluesky'
-import { processNextExternalEffect, type ExternalEffectOutcome } from '@postbot/core'
+} from '@postdot/bluesky'
+import { processNextExternalEffect, type ExternalEffectOutcome } from '@postdot/core'
 import {
     createAccessStore,
     createManualStore,
     createPublicationReplyStore,
     type PostbotDatabase,
     type PublicationReplyWork,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     resolveMastodonStatusReference,
     mastodonReplyStatusId,
     mastodonReplyTextValid,
-} from '@postbot/mastodon'
+} from '@postdot/mastodon'
 import { Value } from 'typebox/value'
 
 import type { PublisherRuntime } from '../publishers/runtime'

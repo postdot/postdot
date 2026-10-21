@@ -1,21 +1,21 @@
-import { Button } from '@postbot/ui/components/button'
-import { ButtonGroup } from '@postbot/ui/components/button-group'
+import { Button } from '@postdot/ui/components/button'
+import { ButtonGroup } from '@postdot/ui/components/button-group'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from '@postbot/ui/components/dialog'
-import { Field, FieldLabel } from '@postbot/ui/components/field'
-import { Kbd } from '@postbot/ui/components/kbd'
-import { Textarea } from '@postbot/ui/components/textarea'
+} from '@postdot/ui/components/dialog'
+import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Kbd } from '@postdot/ui/components/kbd'
+import { Textarea } from '@postdot/ui/components/textarea'
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '@postbot/ui/components/tooltip'
+} from '@postdot/ui/components/tooltip'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/linear/close'

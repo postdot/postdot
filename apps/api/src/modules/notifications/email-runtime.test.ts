@@ -10,7 +10,7 @@ import {
     createEventJournalStore,
     createNotificationEmailStore,
     createNotificationDeliveryStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import type { SendMailOptions } from 'nodemailer'
 
 import { classifySmtpFailure, createNotificationEmailRuntime } from './email-runtime'

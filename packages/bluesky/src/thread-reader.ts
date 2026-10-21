@@ -1,4 +1,4 @@
-import { DomainInvariantError } from '@postbot/core'
+import { DomainInvariantError } from '@postdot/core'
 
 import { BLUESKY_PUBLIC_API_ORIGIN } from './analytics'
 import type { BlueskyFetcher } from './contract'

@@ -4,7 +4,7 @@ import {
     adaptSourceContentToProfile,
     applySourceContentToTarget,
     ChannelProfileCompiler,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { facebookChannelProfile, facebookChannelProfileValidationAdapter } from './profile'
 import { FACEBOOK_MAX_PHOTO_BYTES } from './publisher'

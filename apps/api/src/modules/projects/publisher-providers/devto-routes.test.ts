@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
-import type { DevtoFetcher } from '@postbot/devto'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import type { DevtoFetcher } from '@postdot/devto'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
@@ -65,7 +65,7 @@ async function signUp(app: ReturnType<typeof createApp>, email: string) {
             headers: { 'content-type': 'application/json', origin: baseURL },
             body: JSON.stringify({
                 email,
-                name: 'Postbot Operator',
+                name: 'Postdot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })
@@ -115,7 +115,7 @@ async function createDevtoChannel(app: ReturnType<typeof createApp>, cookie: str
 describe('DEV.to publisher connection routes', () => {
     it('verifies and stores a project-owned API key without exposing it', async () => {
         const devto = createDevtoFetcher([
-            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postdot' }),
         ])
         const { app, database } = createFixture(devto.fetcher)
 
@@ -135,7 +135,7 @@ describe('DEV.to publisher connection routes', () => {
                 kind: 'devto',
                 providerId: 'devto',
                 externalAccountId: '42',
-                destination: { type: 'account', id: '42', name: 'Postbot' },
+                destination: { type: 'account', id: '42', name: 'Postdot' },
             })
             expect(JSON.stringify(body)).not.toContain(apiKey)
 
@@ -169,8 +169,8 @@ describe('DEV.to publisher connection routes', () => {
 
     it('reconnects a channel after its credential requires reconnection', async () => {
         const devto = createDevtoFetcher([
-            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
-            jsonResponse({ id: 42, username: 'postbot', name: 'Postbot' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postdot' }),
+            jsonResponse({ id: 42, username: 'postbot', name: 'Postdot' }),
         ])
         const { app, database, publisher } = createFixture(devto.fetcher)
 

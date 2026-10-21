@@ -3,7 +3,7 @@ title: Authentication
 description: Choose API-key access, understand its limits and identify session-only operations.
 ---
 
-Use a Postbot API key for a script, agent or integration. Studio authenticates
+Use a Postdot API key for a script, agent or integration. Studio authenticates
 people through a session. Both methods remain subject to the server's access
 checks; an API key does not replace the project permissions of its owner.
 
@@ -55,9 +55,9 @@ API-key management, access administration and built-in provider account
 connections require a human session. Complete these through Studio; an API key
 cannot perform them even if it has all available actions.
 
-Provider credentials are separate from Postbot API keys. A Bluesky authorization
+Provider credentials are separate from Postdot API keys. A Bluesky authorization
 or a Discord bot token connects a publishing destination; it does not authenticate
-a script to the Postbot API. See [provider connections](/docs/providers/) for those
+a script to the Postdot API. See [provider connections](/docs/providers/) for those
 workflows.
 
 ## Read authentication in the reference
@@ -68,7 +68,7 @@ credential.
 
 | Security declaration            | Meaning                                                                                                        |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `bearerAuth` or `sessionCookie` | Either a Postbot API key or a session can authenticate; authorization checks still apply                       |
+| `bearerAuth` or `sessionCookie` | Either a Postdot API key or a session can authenticate; authorization checks still apply                       |
 | `sessionCookie` only            | A human session is required; an API key is insufficient                                                        |
 | Empty security requirements     | The operation does not require these authentication schemes; it may still validate signed URLs or other inputs |
 

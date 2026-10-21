@@ -1,5 +1,5 @@
 # cspell:words ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
-# Isolated from application sources so normal Postbot builds reuse this layer.
+# Isolated from application sources so normal Postdot builds reuse this layer.
 FROM oven/bun:1.4.2-slim AS poster
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential xz-utils curl ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -45,7 +45,7 @@ RUN HUSKY=0 bun install --frozen-lockfile
 
 COPY . .
 
-RUN bunx --no-install turbo run build --filter=@postbot/api --filter=@postbot/web
+RUN bunx --no-install turbo run build --filter=@postdot/api --filter=@postdot/web
 RUN mkdir -p /out/migrations /out/public
 RUN cp apps/api/dist/index.js /out/postbot.js
 RUN cp -R packages/db/drizzle/. /out/migrations/

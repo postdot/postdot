@@ -4,8 +4,8 @@ description: Authorize an account on its Mastodon instance.
 ---
 
 You need an account on a Mastodon instance and a Mastodon channel in your project.
-Postbot registers its OAuth application with the chosen instance during connection;
-you do not need to manually create a global provider application in Postbot.
+Postdot registers its OAuth application with the chosen instance during connection;
+you do not need to manually create a global provider application in Postdot.
 
 ## Connect
 
@@ -15,12 +15,12 @@ you do not need to manually create a global provider application in Postbot.
 3. Continue to Mastodon and authorize the account you want to publish from.
 4. Return to Studio and verify the connected account and instance.
 
-Postbot requests `read:accounts`, `write:media` and `write:statuses`. These cover
+Postdot requests `read:accounts`, `write:media` and `write:statuses`. These cover
 account verification, attachment upload and status publication. The instance must
 allow application registration and the requested access.
 
-For a public installation, configure Postbot's HTTPS origin before connecting.
-The callback is `/api/oauth/mastodon/callback` on that origin; Postbot registers
+For a public installation, configure Postdot's HTTPS origin before connecting.
+The callback is `/api/oauth/mastodon/callback` on that origin; Postdot registers
 it as part of the flow. Changing the instance's public origin afterwards can
 require a new connection.
 
@@ -28,7 +28,7 @@ require a new connection.
 
 An invalid instance error usually means the input includes something other than
 an origin. Application registration can also fail because the instance is
-unreachable, rejects the registration or is refused by Postbot's network policy.
+unreachable, rejects the registration or is refused by Postdot's network policy.
 Do not weaken that policy to make an untrusted address work.
 
 If you selected the wrong account, disconnect that channel's publisher and connect

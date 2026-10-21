@@ -1,4 +1,4 @@
-import type { NextEventScheduler } from '@postbot/core'
+import type { NextEventScheduler } from '@postdot/core'
 import { Counter, Gauge, Histogram, Registry } from '@prometheus-io/client'
 
 import type { PublicationWorkerRunObservation } from '../workflow/worker'
@@ -17,7 +17,7 @@ export function createPostbotMetrics(): PostbotMetrics {
 
     new Counter<'mode'>({
         name: 'postbot_process_cpu_seconds_total',
-        help: 'The cumulative CPU time used by this Postbot process in seconds.',
+        help: 'The cumulative CPU time used by this Postdot process in seconds.',
         labelNames: ['mode'],
         registers: [registry],
         collect() {
@@ -31,7 +31,7 @@ export function createPostbotMetrics(): PostbotMetrics {
     })
     new Gauge<'type'>({
         name: 'postbot_process_memory_bytes',
-        help: 'The current memory usage of this Postbot process in bytes.',
+        help: 'The current memory usage of this Postdot process in bytes.',
         labelNames: ['type'],
         registers: [registry],
         collect() {
@@ -45,7 +45,7 @@ export function createPostbotMetrics(): PostbotMetrics {
     })
     new Gauge({
         name: 'postbot_process_uptime_seconds',
-        help: 'The time this Postbot process has been running in seconds.',
+        help: 'The time this Postdot process has been running in seconds.',
         registers: [registry],
         collect() {
             this.set(process.uptime())

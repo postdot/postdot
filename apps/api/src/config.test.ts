@@ -10,7 +10,7 @@ const secret = 'postbot-test-secret-with-at-least-32-characters'
 const mediaPublicUrlSecret = 'postbot-media-public-url-secret-with-at-least-32-characters'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 
-describe('Postbot configuration', () => {
+describe('Postdot configuration', () => {
     it('parses environment variables into one normalized configuration', () => {
         expect(
             createPostbotConfig({
@@ -27,7 +27,7 @@ describe('Postbot configuration', () => {
                 POSTBOT_EMAIL_SMTP_SECURE: 'true',
                 POSTBOT_EMAIL_SMTP_USERNAME: 'smtp-user',
                 POSTBOT_EMAIL_SMTP_PASSWORD: 'smtp-password',
-                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
+                POSTBOT_EMAIL_FROM: 'Postdot <no-reply@example.test>',
                 POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 POSTBOT_WEB_ORIGIN: 'http://localhost:5173/dashboard',
@@ -62,7 +62,7 @@ describe('Postbot configuration', () => {
                     host: 'smtp.example.test',
                     port: 2525,
                     secure: true,
-                    from: 'Postbot <no-reply@example.test>',
+                    from: 'Postdot <no-reply@example.test>',
                     username: 'smtp-user',
                     password: 'smtp-password',
                 },
@@ -157,7 +157,7 @@ describe('Postbot configuration', () => {
                 BETTER_AUTH_SECRET: secret,
                 POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
+                POSTBOT_EMAIL_FROM: 'Postdot <no-reply@example.test>',
             })
         ).toThrow('POSTBOT_EMAIL_SMTP_HOST')
 
@@ -177,7 +177,7 @@ describe('Postbot configuration', () => {
                 POSTBOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 POSTBOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 POSTBOT_EMAIL_SMTP_HOST: 'smtp.example.test',
-                POSTBOT_EMAIL_FROM: 'Postbot <no-reply@example.test>',
+                POSTBOT_EMAIL_FROM: 'Postdot <no-reply@example.test>',
                 POSTBOT_EMAIL_SMTP_USERNAME: 'smtp-user',
             })
         ).toThrow('POSTBOT_EMAIL_SMTP_USERNAME and POSTBOT_EMAIL_SMTP_PASSWORD')
@@ -432,7 +432,7 @@ describe('Postbot configuration', () => {
     })
 })
 
-describe('Postbot maintenance configuration', () => {
+describe('Postdot maintenance configuration', () => {
     it('loads database and local media settings without requiring server secrets', () => {
         expect(
             createPostbotMaintenanceConfig({

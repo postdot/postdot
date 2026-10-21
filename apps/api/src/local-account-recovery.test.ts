@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@postbot/db'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@postdot/db'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 

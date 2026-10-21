@@ -4,7 +4,7 @@ import {
     ChannelProfileValidationError,
     type ChannelProfileDraftDefinition,
     createManualChannelProfile,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'

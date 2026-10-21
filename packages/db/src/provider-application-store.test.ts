@@ -15,7 +15,7 @@ function createFixture() {
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
-        .run('user-1', 'Postbot Operator', 'operator@postbot.test', now)
+        .run('user-1', 'Postdot Operator', 'operator@postbot.test', now)
 
     let timestamp = now
     let sequence = 0
@@ -40,7 +40,7 @@ describe('provider application store', () => {
             const secret = 'unique-provider-client-secret-for-file-scan'
             const result = await fixture.store.createProviderApplication({
                 providerId: 'linkedin',
-                name: 'Postbot LinkedIn',
+                name: 'Postdot LinkedIn',
                 clientId: 'linkedin-client-id',
                 clientSecret: secret,
                 createdByUserId: 'user-1',
@@ -130,7 +130,7 @@ describe('provider application store', () => {
         try {
             const loopback = await fixture.store.createProviderApplication({
                 providerId: 'bluesky',
-                name: 'Postbot Bluesky local',
+                name: 'Postdot Bluesky local',
                 clientMetadataUrl: null,
                 createdByUserId: 'user-1',
             })
@@ -155,7 +155,7 @@ describe('provider application store', () => {
 
             const result = await fixture.store.createProviderApplication({
                 providerId: 'bluesky',
-                name: 'Postbot Bluesky',
+                name: 'Postdot Bluesky',
                 clientMetadataUrl: 'https://postbot.example.test/client-metadata.json',
                 createdByUserId: 'user-1',
             })
@@ -228,7 +228,7 @@ it('encrypts Instagram application secrets and only exposes safe metadata', asyn
         const secret = 'instagram-encrypted-secret'
         const saved = await store.createProviderApplication({
             providerId: 'instagram',
-            name: 'Postbot Instagram',
+            name: 'Postdot Instagram',
             clientId: '17841400000000000',
             clientSecret: secret,
             createdByUserId: 'user-1',

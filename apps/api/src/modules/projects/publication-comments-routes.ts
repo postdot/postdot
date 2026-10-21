@@ -1,11 +1,11 @@
-import { createBlueskyThreadReader, type BlueskyThreadReader } from '@postbot/bluesky'
-import { createNetworkControlledFetcher } from '@postbot/custom-http'
-import type { AccessStore, PublicationCommentStore } from '@postbot/db'
+import { createBlueskyThreadReader, type BlueskyThreadReader } from '@postdot/bluesky'
+import { createNetworkControlledFetcher } from '@postdot/custom-http'
+import type { AccessStore, PublicationCommentStore } from '@postdot/db'
 import {
     createMastodonThreadReader,
     resolveMastodonStatusReference,
     type MastodonThreadReader,
-} from '@postbot/mastodon'
+} from '@postdot/mastodon'
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
 

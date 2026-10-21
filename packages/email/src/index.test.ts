@@ -11,7 +11,7 @@ import EmailVerificationEmailPreview from './templates/EmailVerificationEmail'
 import OrganizationInvitationEmailPreview from './templates/OrganizationInvitationEmail'
 import PasswordResetEmailPreview from './templates/PasswordResetEmail'
 
-describe('Postbot email templates', () => {
+describe('Postdot email templates', () => {
     it('renders a safe invitation with HTML and plain-text alternatives', async () => {
         const result = await renderPostbotOrganizationInvitationEmail({
             email: 'member@example.test',
@@ -23,7 +23,7 @@ describe('Postbot email templates', () => {
         })
 
         expect(result.to).toBe('member@example.test')
-        expect(result.subject).toBe('Invitation to join Project <one> on Postbot')
+        expect(result.subject).toBe('Invitation to join Project <one> on Postdot')
         expect(result.html).toContain('Project &lt;one&gt;')
         expect(result.html).toContain('Project Owner &amp; team')
         expect(result.html).toContain('Recursive Variable')
@@ -34,7 +34,7 @@ describe('Postbot email templates', () => {
         expect(result.html).toContain(
             'href="https://app.example.test/invite?id=one&amp;source=email"'
         )
-        expect(result.text).toContain('INVITATION TO JOIN PROJECT <ONE> ON POSTBOT')
+        expect(result.text).toContain('INVITATION TO JOIN PROJECT <ONE> ON POSTDOT')
         expect(result.text).toContain('https://app.example.test/invite?id=one&source=email')
     })
 
@@ -50,10 +50,10 @@ describe('Postbot email templates', () => {
             }),
         ])
 
-        expect(verification.subject).toBe('Verify your Postbot email address')
+        expect(verification.subject).toBe('Verify your Postdot email address')
         expect(verification.html).toContain('Verify email address')
         expect(verification.text).toContain('https://api.example.test/verify?token=verification-1')
-        expect(reset.subject).toBe('Reset your Postbot password')
+        expect(reset.subject).toBe('Reset your Postdot password')
         expect(reset.html).toContain('Reset password')
         expect(reset.text).toContain('https://api.example.test/reset?token=reset-1')
     })
@@ -66,8 +66,8 @@ describe('Postbot email templates', () => {
         ])
 
         expect(verification).toContain('Alex Martin')
-        expect(invitation).toContain('Postbot Studio')
+        expect(invitation).toContain('Postdot Studio')
         expect(invitation).toContain('Accept invitation')
-        expect(reset).toContain('Reset your Postbot password')
+        expect(reset).toContain('Reset your Postdot password')
     })
 })

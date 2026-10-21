@@ -7,7 +7,7 @@ import {
     type Project,
     type PublisherCredential,
     type PublisherCredentialState,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 import {

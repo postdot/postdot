@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 
@@ -51,7 +51,7 @@ function RequestExample({ withoutBody = false }: { readonly withoutBody?: boolea
                                 priority: { kind: 'literal', value: 1 },
                                 metadata: {
                                     kind: 'object',
-                                    properties: { source: { kind: 'literal', value: 'Postbot' } },
+                                    properties: { source: { kind: 'literal', value: 'Postdot' } },
                                 },
                             },
                         },

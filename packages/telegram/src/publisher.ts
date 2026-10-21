@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import { planTelegramAlbum, readTelegramAlbumAcknowledgement, TELEGRAM_ALBUM_LIMITS } from './album'
 import { telegramPollError, type TelegramPollInput } from './poll'

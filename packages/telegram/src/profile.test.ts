@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { ChannelProfileCompiler } from '@postbot/core'
+import { ChannelProfileCompiler } from '@postdot/core'
 
 import {
     TELEGRAM_ALBUM_EXECUTION_REVISION,

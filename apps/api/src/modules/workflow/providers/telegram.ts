@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 import {
     createTelegramPublisher,
     isTelegramChannelId,
@@ -12,7 +12,7 @@ import {
     TELEGRAM_MAX_PHOTO_BYTES,
     TELEGRAM_MAX_VIDEO_BYTES,
     type TelegramMedia,
-} from '@postbot/telegram'
+} from '@postdot/telegram'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

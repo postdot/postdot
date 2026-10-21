@@ -1,5 +1,5 @@
-import type { SchedulerState } from '@postbot/core'
-import type { PostbotDatabase } from '@postbot/db'
+import type { SchedulerState } from '@postdot/core'
+import type { PostbotDatabase } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 

@@ -1,14 +1,14 @@
 import flagFr from '@iconify-icons/flag/fr-4x3'
 import flagGb from '@iconify-icons/flag/gb-4x3'
 import { Icon } from '@iconify/react'
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+} from '@postdot/ui/components/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'

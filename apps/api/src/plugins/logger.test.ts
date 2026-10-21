@@ -12,7 +12,7 @@ const logging = {
     pretty: false,
 }
 
-describe('Postbot request logger', () => {
+describe('Postdot request logger', () => {
     it('logs successful requests with status and duration', async () => {
         const records: Array<Record<string, unknown>> = []
         const logger = pino(

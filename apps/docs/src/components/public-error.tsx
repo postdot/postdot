@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import Link from 'next/link'
 
 import { PublicFooter } from './public-footer'

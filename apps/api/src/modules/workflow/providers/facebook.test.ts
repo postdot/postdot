@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 
-import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postbot/db'
-import { createFacebookPublisher, facebookChannelProfile } from '@postbot/facebook'
+import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postdot/db'
+import { createFacebookPublisher, facebookChannelProfile } from '@postdot/facebook'
 
 import { createFacebookProviderAdapter } from './facebook'
 import type { BuiltInProviderExecutionInput, ProviderMediaDeliveryPort } from './registry'

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     closeDatabase,
     createAccessStore,
     createDatabase,
     createManualStore,
     runMigrations,
-} from '@postbot/db'
-import { devtoChannelProfile } from '@postbot/devto'
+} from '@postdot/db'
+import { devtoChannelProfile } from '@postdot/devto'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'

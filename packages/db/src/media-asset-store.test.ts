@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@postbot/media'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { closeDatabase, createDatabase } from './client'
 import { previewFixturePng } from './image-preview-fixture'
@@ -455,7 +455,7 @@ describe('project media lifecycle', () => {
                 projectId,
                 subjectId,
                 originalFilename: 'cover.png',
-                defaultAccessibilityText: 'Postbot cover',
+                defaultAccessibilityText: 'Postdot cover',
                 expectedSize: bytes.byteLength,
                 contentType: 'text/plain',
             })

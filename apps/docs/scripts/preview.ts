@@ -57,4 +57,4 @@ const server = Bun.serve({
         })
     },
 })
-console.info(`Postbot static preview: ${server.url}`)
+console.info(`Postdot static preview: ${server.url}`)

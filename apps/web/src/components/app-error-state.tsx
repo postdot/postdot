@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 

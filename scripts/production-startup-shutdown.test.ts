@@ -97,7 +97,7 @@ test('the production bundle releases its runtime marker when a termination lands
         // index document, so the isolated asset directory carries one.
         await writeFile(
             join(webAssetsDirectory, 'index.html'),
-            '<!doctype html><html><head><title>Postbot</title></head><body><div id="root"></div></body></html>'
+            '<!doctype html><html><head><title>Postdot</title></head><body><div id="root"></div></body></html>'
         )
 
         // The production artifact is built here, so the test never depends on

@@ -1,4 +1,4 @@
-# Postbot isometric illustration method — research proposal
+# Postdot isometric illustration method — research proposal
 
 Status: proposed, not an accepted style or instruction to replace product imagery.
 Owner supplied Anatomy and Hairline to establish a repeatable production method.
@@ -21,7 +21,7 @@ No illustration library, skill or Blender extension installed in this pass.
   is currently configured or required for the proposed first SVG trial.
 
 Both figure resources are substantive: public implementations, examples and
-methodology exist. That is not proof that they produce good Postbot imagery without
+methodology exist. That is not proof that they produce good Postdot imagery without
 art direction. Hairline is the better small-scale restraint reference; Anatomy
 is useful for solid construction and depth. Its mandatory minimum of forty parts
 and long mechanical audits should not become our marketing-art default.
@@ -75,7 +75,7 @@ publishing control, with a recognizable composition rather than a fake interface
 The scene is a candidate to discuss, not a new homepage section or imposed metaphor.
 First deliverable is a refined still in both themes, not an animated assembly line.
 Use it to test the method, including whether this object vocabulary feels right
-for Postbot. Only a successful pilot should become a reusable design-system skill.
+for Postdot. Only a successful pilot should become a reusable design-system skill.
 
 Do not claim that an illustration system removes the need for per-scene judgment.
 Consistent camera, materials and construction reduce drift; they do not choose a

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import type { BlueskyThreadPost } from '@postbot/bluesky'
+import type { BlueskyThreadPost } from '@postdot/bluesky'
 
 import { presentPublicationComments } from './publication-comments-view'
 

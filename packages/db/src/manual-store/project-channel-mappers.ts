@@ -1,4 +1,4 @@
-import type { Channel, Project } from '@postbot/core'
+import type { Channel, Project } from '@postdot/core'
 
 import type { ChannelRow, ProjectRow } from './rows'
 

@@ -18,8 +18,8 @@ import {
     type MediaUploadPolicy,
     type MediaUploadIntent,
     type PublicationState,
-} from '@postbot/core'
-import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postbot/media'
+} from '@postdot/core'
+import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postdot/media'
 
 import { createDatabaseTransaction, type PostbotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'

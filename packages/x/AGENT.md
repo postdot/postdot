@@ -2,7 +2,7 @@
 
 This package owns X-specific protocol knowledge: OAuth 2.0 PKCE requests, account profile verification, tweet payload mapping, the documented v2 media upload on `https://api.x.com`, weighted post-text validation, and provider error classification.
 
-- Keep the package independent from Elysia, the database, Better Auth, and Postbot persistence.
+- Keep the package independent from Elysia, the database, Better Auth, and Postdot persistence.
 - Inject fetchers and timing boundaries in tests; never use a real X account or real external API from the test suite.
 - Never log, return, or place access tokens, refresh tokens, client secrets, or authorization codes in provider errors or public metadata.
 - Treat a response or exception after a tweet/media effect may have started as ambiguous unless the provider explicitly proves no effect.

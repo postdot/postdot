@@ -39,7 +39,7 @@ export const Setup: Story = {
 export const Invitation: Story = {
     render: args => <AuthPreview {...args} />,
     args: {
-        description: 'You’ve been invited to join Postbot.',
+        description: 'You’ve been invited to join Postdot.',
         emailReadOnly: true,
         initialEmail: 'operator@example.com',
         mode: 'sign-up',
@@ -49,7 +49,7 @@ export const Invitation: Story = {
         },
         onSubmit: () => undefined,
         showSetupAction: true,
-        title: 'Join Postbot',
+        title: 'Join Postdot',
     },
 }
 

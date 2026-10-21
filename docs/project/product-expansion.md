@@ -73,7 +73,7 @@ Show units explicitly: provider-weighted length, graphemes and plain string leng
 are different constraints in the existing model. Avoid a single universal
 “characters” field that changes meaning by destination.
 
-Separate the optional execution setup: manual tracking, a Postbot webhook contract
+Separate the optional execution setup: manual tracking, a Postdot webhook contract
 or mapped HTTP delivery. Endpoint mapping, authentication and secret handling do
 not belong beside title and media checkboxes. This separation must not remove the
 existing restricted egress, signing or encrypted credential boundaries.
@@ -184,7 +184,7 @@ evidence. See ISSUE-171 and ISSUE-172.
 - [OpenPost analytics guide](https://docs.openpo.st/guides/analytics) separates
   account and content metrics, including eligible externally published content.
   Its [coverage reference](https://docs.openpo.st/usage/analytics) publishes
-  provider-specific metrics and access limitations. Postbot currently has
+  provider-specific metrics and access limitations. Postdot currently has
   narrower collectors (Bluesky and DEV.to); provider coverage, shared-post
   reports and tag reports need separate acceptance evidence.
 

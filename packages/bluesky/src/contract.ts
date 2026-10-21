@@ -1,5 +1,5 @@
 import type { BlobRef } from '@atproto/api'
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const BLUESKY_PROVIDER = 'bluesky' as const
 export const BLUESKY_IMAGE_EXECUTION_CONTRACT_REVISION = 'post-v1'
@@ -12,7 +12,7 @@ export const BLUESKY_VIDEO_SCOPES = [
     'rpc:app.bsky.video.getUploadLimits?aud=*',
 ] as const
 /**
- * The minimum AT Protocol permissions required by Postbot's Bluesky adapter.
+ * The minimum AT Protocol permissions required by Postdot's Bluesky adapter.
  *
  * `atproto` only authenticates the account. Publishing requires permission to
  * create `app.bsky.feed.post` records, and image posts additionally require

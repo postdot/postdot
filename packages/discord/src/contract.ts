@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const DISCORD_PROVIDER = 'discord' as const
 export const DISCORD_API_BASE_URL = 'https://discord.com' as const

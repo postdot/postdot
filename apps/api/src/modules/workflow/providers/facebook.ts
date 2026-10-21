@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto'
 
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 import {
     createFacebookPublisher,
     FACEBOOK_EXECUTION_REVISION,
     facebookChannelProfileValidationAdapter,
     FACEBOOK_MAX_PHOTO_BYTES,
     type FacebookPhoto,
-} from '@postbot/facebook'
+} from '@postdot/facebook'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

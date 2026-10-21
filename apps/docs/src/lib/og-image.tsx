@@ -6,7 +6,7 @@ import discord from '@iconify-icons/logos/discord-icon'
 import linkedin from '@iconify-icons/logos/linkedin-icon'
 import mastodon from '@iconify-icons/logos/mastodon-icon'
 import x from '@iconify-icons/logos/x'
-import { PostbotLogo } from '@postbot/ui/components/postbot-logo'
+import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
 import { ImageResponse } from 'next/og'
 
 let assets:
@@ -38,7 +38,7 @@ function loadAssets() {
 export async function generateOGImage({
     title,
     description,
-    section = 'Postbot',
+    section = 'Postdot',
     home = false,
 }: {
     title: string

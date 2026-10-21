@@ -14,13 +14,13 @@ not their copy, customer claims, scale or features.
 
 ## Voice
 
-Address the person using Postbot. Name what they or their agent can do, then show
+Address the person using Postdot. Name what they or their agent can do, then show
 what appears in the workspace. Use a short heading and at most two explanatory
 sentences per scene. Prefer review, draft, destination, schedule and result over
 vague productivity language. Avoid internal launch status, superlatives, fake
 customer proof and claims that imply an embedded content-generating AI.
 
-An agent acts through the existing CLI/API. Postbot does not currently ship a MCP
+An agent acts through the existing CLI/API. Postdot does not currently ship a MCP
 server; do not illustrate a working MCP connection. Draft creation is distinct
 from promotion and delivery. Demo data must be visibly labeled as an example.
 Open source is a product characteristic, not a license sales pitch.
@@ -127,7 +127,7 @@ idea. Do not impose Silk Waves as the predetermined solution.
 Research candidates (not implemented or accepted):
 
 - Scroll Expand: a media scene gains prominence as the reader enters it. For
-  Postbot, explore a continuous studio presentation rather than another tiled
+  Postdot, explore a continuous studio presentation rather than another tiled
   material. Reserve geometry in HTML; scroll motion must not cause load shifts.
 - Accordion Gallery: visitors explore several views within a single composition.
   Could connect a shared post to its network adaptations, using deliberate click
@@ -165,7 +165,7 @@ a deliberate editorial composition exists; neither its text nor SITE-419's galle
 is approved. The owner considers the visual foundations clean but insufficiently
 distinctive, and wants continued design exploration rather than more filler.
 
-Postbot started as a lighter self-hosted alternative: one running service,
+Postdot started as a lighter self-hosted alternative: one running service,
 SQLite-owned orchestration and local media, with S3-compatible storage optional.
 Keep an accessible first installation; do not require a distributed topology.
 A hosted service remains a possible future business, not a present commitment.

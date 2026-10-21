@@ -3,9 +3,9 @@ import {
     createExponentialRetryPolicy,
     processNextExternalEffect,
     type ExternalEffectOutcome,
-} from '@postbot/core'
-import type { NotificationEmailStore } from '@postbot/db'
-import { renderPostbotPublicationOutcomeEmail } from '@postbot/email'
+} from '@postdot/core'
+import type { NotificationEmailStore } from '@postdot/db'
+import { renderPostbotPublicationOutcomeEmail } from '@postdot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
 import type { PostbotSmtpConfig } from '../email/delivery'

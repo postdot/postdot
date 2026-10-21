@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import Link from 'next/link'
 
 import { PublicDestinations } from './public-destinations'
@@ -50,7 +50,7 @@ export function PublicHome() {
                                 content, adapt each destination and manage what goes live.
                             </p>
                             <div className="home-actions">
-                                <Action href="/docs/installation/">Self-host Postbot</Action>
+                                <Action href="/docs/installation/">Self-host Postdot</Action>
                                 <Action secondary href="/docs/">
                                     Explore the docs
                                 </Action>

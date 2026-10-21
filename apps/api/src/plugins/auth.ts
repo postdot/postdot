@@ -1,4 +1,4 @@
-import type { PostbotApiKeyRecord, PostbotAuth } from '@postbot/auth'
+import type { PostbotApiKeyRecord, PostbotAuth } from '@postdot/auth'
 import { Elysia } from 'elysia'
 
 type PostbotApiKeyPermissions = PostbotApiKeyRecord['permissions']

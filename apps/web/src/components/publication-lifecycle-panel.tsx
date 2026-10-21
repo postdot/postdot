@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'

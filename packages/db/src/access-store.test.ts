@@ -12,7 +12,7 @@ describe('instance access store', () => {
             database.$client
                 .query(
                     `insert into user (id, name, email, email_verified, created_at, updated_at)
-                     values ('user-1', 'Postbot Operator', 'operator@postbot.local', 0, 1, 1)`
+                     values ('user-1', 'Postdot Operator', 'operator@postbot.local', 0, 1, 1)`
                 )
                 .run()
 
@@ -167,7 +167,7 @@ describe('instance access store', () => {
         }
     })
 
-    it('does not treat workspace membership as project access without a Postbot grant', () => {
+    it('does not treat workspace membership as project access without a Postdot grant', () => {
         const database = createDatabase(':memory:')
 
         try {

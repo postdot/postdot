@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/telegram",
+    "name": "@postdot/telegram",
     "version": "0.0.0",
     "private": true,
-    "description": "Telegram bot publishing protocol for Postbot",
+    "description": "Telegram bot publishing protocol for Postdot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -21,7 +21,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*"
+        "@postdot/core": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

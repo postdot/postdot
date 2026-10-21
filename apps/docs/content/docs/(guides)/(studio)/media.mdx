@@ -5,7 +5,7 @@ description: Import images and videos, reuse them in publications and manage the
 
 The **Media** library holds the files for your current project. You can import a
 file there before writing, or add it while preparing a publication. Each asset
-has one library entry, even when Postbot creates several previews for it.
+has one library entry, even when Postdot creates several previews for it.
 
 ## Add a file to a publication
 
@@ -53,7 +53,7 @@ other drafts without uploading it again.
 
 ## Previews and original files
 
-Postbot creates smaller image previews and a compact loading placeholder for
+Postdot creates smaller image previews and a compact loading placeholder for
 browsing. Video posters are generated in the background when the preview processor
 is available. Until a poster is ready, Studio can show a placeholder.
 
@@ -63,12 +63,12 @@ is available. Until a poster is ready, Studio can show a placeholder.
 | Video poster                      | Showing a still image before playback               |
 | Original file                     | The media source used for publication               |
 
-You do not manage previews as separate library entries. Postbot keeps them linked
+You do not manage previews as separate library entries. Postdot keeps them linked
 to their asset and includes them in its deletion lifecycle. It does not substitute
 a thumbnail for the original sent to a provider.
 
 <Callout title="Prepare videos before importing" type="info">
-    Video support currently targets H.264 MP4 files that are ready to publish. Postbot does not
+    Video support currently targets H.264 MP4 files that are ready to publish. Postdot does not
     transcode them into another format. Check the destination's requirements as well as the
     installation's upload limit.
 </Callout>
@@ -78,7 +78,7 @@ a thumbnail for the original sent to a provider.
 Use a file's **Information** action to inspect its details and usage. **Download**
 retrieves the original file.
 
-Postbot checks usage before allowing deletion. Files referenced by content,
+Postdot checks usage before allowing deletion. Files referenced by content,
 publication history or audit records cannot be deleted. Removing an attachment
 from one draft does not necessarily remove all references to the file.
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
-import type { DiscordFetcher } from '@postbot/discord'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import type { DiscordFetcher } from '@postdot/discord'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
@@ -40,7 +40,7 @@ function createDiscordFetcher(responses: readonly Response[]): {
 }
 
 function botUserResponse(): Response {
-    return jsonResponse({ id: '987654321098765432', username: 'Postbot' })
+    return jsonResponse({ id: '987654321098765432', username: 'Postdot' })
 }
 
 function channelResponse(type = 0): Response {
@@ -76,7 +76,7 @@ async function signUp(app: ReturnType<typeof createApp>, email: string) {
             headers: { 'content-type': 'application/json', origin: baseURL },
             body: JSON.stringify({
                 email,
-                name: 'Postbot Operator',
+                name: 'Postdot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })

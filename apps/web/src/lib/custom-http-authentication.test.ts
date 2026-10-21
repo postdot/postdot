@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test'
 import {
     validateCustomHttpAuthenticationBinding,
     type DeclarativeHttpExecutionContract,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { customHttpAuthenticationKinds } from './custom-http-authentication'
 

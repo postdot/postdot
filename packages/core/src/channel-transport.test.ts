@@ -67,7 +67,7 @@ describe('custom HTTP authentication binding', () => {
         ])
     })
 
-    test('does not allow path authentication for the Postbot webhook mode', () => {
+    test('does not allow path authentication for the Postdot webhook mode', () => {
         const execution: DeclarativeHttpExecutionContract = {
             kind: 'declarative_http',
             contractId: 'custom-webhook',

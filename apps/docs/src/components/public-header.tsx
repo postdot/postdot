@@ -1,12 +1,12 @@
 'use client'
 
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
+} from '@postdot/ui/components/dropdown-menu'
 import { useMotionValueEvent, useScroll } from 'motion/react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -32,7 +32,7 @@ export function PublicHeader() {
                 Skip to content
             </a>
             <div className="home-header">
-                <Link href="/" className="home-brand" aria-label="Postbot home">
+                <Link href="/" className="home-brand" aria-label="Postdot home">
                     <PostbotLogo className="home-logo" />
                     <PublicWordmark />
                 </Link>

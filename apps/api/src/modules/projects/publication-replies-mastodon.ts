@@ -1,11 +1,11 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublicationReplyWork } from '@postbot/db'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublicationReplyWork } from '@postdot/db'
 import {
     createMastodonPublisher,
     resolveMastodonReplyContext,
     type MastodonFetcher,
-} from '@postbot/mastodon'
-import { clientSecretPost, refreshAccessToken } from '@postbot/oauth'
+} from '@postdot/mastodon'
+import { clientSecretPost, refreshAccessToken } from '@postdot/oauth'
 
 import {
     parseProviderSession,

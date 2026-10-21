@@ -3,7 +3,7 @@ import {
     type ChannelProfileDefinition,
     type ChannelProfileImpactAssessment,
     type ValidationIssue,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type { PostbotDatabase } from '../client'
 import { invalidProfileError, parseJsonObject } from './content-codec'

@@ -8,7 +8,7 @@ import {
     type DeclarativeHttpRequestMapping,
     type DeclarativeHttpValueExpression,
     type ExternalEffectOutcome,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     customHttpLimits,

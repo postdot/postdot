@@ -1,4 +1,4 @@
-import type { PublisherConnectionPolicy } from '@postbot/db'
+import type { PublisherConnectionPolicy } from '@postdot/db'
 
 /**
  * The Instagram destination is the professional account that publishes, not

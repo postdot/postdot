@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChannelProfileDefinition } from '@postbot/core'
-import { createLocalMediaStore } from '@postbot/media'
+import type { ChannelProfileDefinition } from '@postdot/core'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { backupWithMedia, restoreWithMedia } from '../backup'
 import { closeDatabase, createDatabase } from '../client'

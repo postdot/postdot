@@ -40,7 +40,7 @@ export function readRecoveryHold(databaseFilename: string): RecoveryHold | null 
         (value.reason !== 'restore' && value.reason !== 'external_restore')
     )
         throw new Error(
-            'Invalid Postbot recovery hold; keep the server stopped and inspect the marker'
+            'Invalid Postdot recovery hold; keep the server stopped and inspect the marker'
         )
     return value as RecoveryHold
 }

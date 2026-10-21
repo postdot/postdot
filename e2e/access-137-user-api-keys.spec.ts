@@ -46,14 +46,14 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await submitCreateKey(allProjectsDialog, page)
 
     const generatedKeyHeading = page.getByRole('heading', {
-        name: /^API key created for Postbot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/,
+        name: /^API key created for Postdot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/,
     })
     await expect(generatedKeyHeading).toBeVisible()
     const generatedName = (await generatedKeyHeading.textContent())?.replace(
         /^API key created for /,
         ''
     )
-    expect(generatedName).toMatch(/^Postbot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/)
+    expect(generatedName).toMatch(/^Postdot [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/)
     await page.context().grantPermissions(['clipboard-write'])
     await page.getByRole('button', { name: 'Copy API key', exact: true }).click()
     const copiedToast = page.locator('[data-slot="toast"]')

@@ -1,4 +1,4 @@
-import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@postbot/x/text'
+import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@postdot/x/text'
 
 import { getNativeEditorProfile } from '@/lib/native-presentation'
 import { isTelegramPollProfile } from '@/lib/telegram-poll'

@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import { MoonIcon } from '@solar-icons/react/linear/moon'
 import { SunIcon } from '@solar-icons/react/linear/sun'
 import type { ComponentProps } from 'react'

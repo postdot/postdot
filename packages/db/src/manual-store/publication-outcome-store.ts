@@ -4,7 +4,7 @@ import {
     requireTimestamp,
     transitionPublication,
     type Publication,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {

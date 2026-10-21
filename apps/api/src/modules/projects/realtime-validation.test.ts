@@ -15,7 +15,7 @@ import {
     type EventJournalCursor,
     type EventJournalEntry,
     type PostbotDatabase,
-} from '@postbot/db'
+} from '@postdot/db'
 
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'

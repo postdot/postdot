@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/email",
+    "name": "@postdot/email",
     "version": "0.0.0",
     "private": true,
-    "description": "React Email templates for Postbot transactional messages",
+    "description": "React Email templates for Postdot transactional messages",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -22,7 +22,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/ui": "workspace:*",
+        "@postdot/ui": "workspace:*",
         "@react-email/body": "0.3.0",
         "@react-email/button": "0.2.1",
         "@react-email/container": "0.0.16",

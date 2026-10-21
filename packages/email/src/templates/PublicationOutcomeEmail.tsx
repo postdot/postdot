@@ -22,7 +22,7 @@ export function PublicationOutcomeEmail({ title, body, url }: PostbotPublication
                 </Button>
             </Text>
             <Text style={emailStyles.notice}>
-                You enabled outcome emails for this project. Manage them in Postbot notification
+                You enabled outcome emails for this project. Manage them in Postdot notification
                 preferences.
             </Text>
         </PostbotEmailLayout>

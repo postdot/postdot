@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ChannelProfileDefinition } from '@postbot/core'
-import { DomainInvariantError } from '@postbot/core'
+import type { ChannelProfileDefinition } from '@postdot/core'
+import { DomainInvariantError } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
 import { createAnalyticsStore } from './analytics-store'

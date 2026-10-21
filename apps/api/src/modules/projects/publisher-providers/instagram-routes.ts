@@ -1,6 +1,6 @@
-import type { AccessStore, createManualStore } from '@postbot/db'
-import { InstagramOAuthError } from '@postbot/instagram'
-import { digestAuthorizationState } from '@postbot/oauth'
+import type { AccessStore, createManualStore } from '@postdot/db'
+import { InstagramOAuthError } from '@postdot/instagram'
+import { digestAuthorizationState } from '@postdot/oauth'
 import { status as httpStatus } from 'elysia'
 import { Type } from 'typebox'
 

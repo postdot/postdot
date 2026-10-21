@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@postbot/core'
+import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@postdot/core'
 
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'

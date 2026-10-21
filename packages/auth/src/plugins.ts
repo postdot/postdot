@@ -112,7 +112,7 @@ function readPostbotApiKey(request: Request | undefined): string | null {
     return request.headers.get('x-api-key')
 }
 
-/** Default configuration used by Postbot's user-owned API keys. */
+/** Default configuration used by Postdot's user-owned API keys. */
 export const postbotUserApiKeyConfigId = 'default'
 
 /** Shared plugin configuration for the runtime auth instance and CLI schema generation. */
@@ -152,7 +152,7 @@ export function createPostbotAuthPlugins(
                     },
                 },
             },
-            // Workspace groups are provisioned by Postbot. Organizations that
+            // Workspace groups are provisioned by Postdot. Organizations that
             // exist only in legacy development data must not silently get a
             // new default group.
             teams: { enabled: true, defaultTeam: { enabled: false } },

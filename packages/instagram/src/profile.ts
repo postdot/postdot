@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition, ChannelProfileValidationAdapter } from '@postbot/core'
+import type { ChannelProfileDefinition, ChannelProfileValidationAdapter } from '@postdot/core'
 
 import {
     INSTAGRAM_MAX_ACCESSIBILITY_TEXT_LENGTH,

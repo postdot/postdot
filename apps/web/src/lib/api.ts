@@ -1,4 +1,4 @@
-import type { PublicationRepliesResponse } from '@postbot/client'
+import type { PublicationRepliesResponse } from '@postdot/client'
 import {
     createPostbotClient,
     type SearchResponse,
@@ -44,17 +44,17 @@ import {
     type ProjectTag,
     type PublicationCommentsResponse,
     type PublicationFirstCommentResponse,
-} from '@postbot/client'
+} from '@postdot/client'
 
 import * as m from '@/paraglide/messages.js'
 
 import { formatChannelLifecycleConflict } from './channel-lifecycle-feedback'
 
-export type { MediaImportSource } from '@postbot/client'
+export type { MediaImportSource } from '@postdot/client'
 export type PublicationSummary = PublicationSummaryPage['publications'][number]
 export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
 
-export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postbot/client'
+export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
 import type { PublicationComposerDraftContent } from '@/lib/publication-recovery'
 
@@ -2223,7 +2223,7 @@ export type {
     Notification,
     NotificationInbox,
     NotificationPreference,
-} from '@postbot/client'
+} from '@postdot/client'
 
 export function formatApiError(error: unknown): string {
     if (!(error instanceof ApiError)) return m.api_request_failed()

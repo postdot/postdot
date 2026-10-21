@@ -1,6 +1,6 @@
-# Install Postbot with Docker Compose
+# Install Postdot with Docker Compose
 
-Postbot runs its API, dashboard, publication worker and scheduler in one Bun
+Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. This guide uses a
 source checkout; no public registry image or released upgrade path is available yet.
 
@@ -9,7 +9,7 @@ source checkout; no public registry image or released upgrade path is available 
 Before starting, have these available:
 
 - Docker Engine with Compose v2.20 or newer.
-- Git and a Postbot source checkout.
+- Git and a Postdot source checkout.
 - OpenSSL to generate the deployment secrets.
 
 Run the commands below from the root of that checkout.
@@ -119,12 +119,12 @@ alone does not migrate existing media. No S3 service is required for first use.
 ## Backup and restoration
 
 Backup scheduling, off-host storage and retention belong to the administrator.
-Postbot offers a consistent portable bundle containing SQLite and stored media.
+Postdot offers a consistent portable bundle containing SQLite and stored media.
 Preserve deployment secrets separately; they are not included in the bundle.
 
 ### Create and copy a backup
 
-Create a uniquely named backup while Postbot is running, then copy it outside the
+Create a uniquely named backup while Postdot is running, then copy it outside the
 application volume:
 
 ```sh

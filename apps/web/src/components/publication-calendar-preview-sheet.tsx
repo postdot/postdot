@@ -1,4 +1,4 @@
-import { Button } from '@postbot/ui/components/button'
+import { Button } from '@postdot/ui/components/button'
 import {
     Sheet,
     SheetClose,
@@ -6,7 +6,7 @@ import {
     SheetFooter,
     SheetHeader,
     SheetTitle,
-} from '@postbot/ui/components/sheet'
+} from '@postdot/ui/components/sheet'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { LinkIcon } from '@solar-icons/react/linear/link'

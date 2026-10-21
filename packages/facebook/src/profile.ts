@@ -1,4 +1,4 @@
-import type { ChannelProfileDefinition, ChannelProfileValidationAdapter } from '@postbot/core'
+import type { ChannelProfileDefinition, ChannelProfileValidationAdapter } from '@postdot/core'
 
 import { FACEBOOK_MAX_PHOTO_BYTES, isFacebookLink } from './publisher'
 

@@ -11,13 +11,13 @@ operations; a working member connection does not grant organization access.
 
 Create or use your LinkedIn developer application. Enable the products and
 permissions appropriate to your intended destination. In the application's OAuth
-configuration, register this callback using your Postbot API origin:
+configuration, register this callback using your Postdot API origin:
 
 ```text
 https://postbot.example/api/oauth/linkedin/callback
 ```
 
-In Postbot's **OAuth applications**, save the LinkedIn **Client ID** and **Client
+In Postdot's **OAuth applications**, save the LinkedIn **Client ID** and **Client
 secret**, activate the application and make it the default if appropriate. Keep
 the configured origin and registered callback identical to the deployment you use.
 
@@ -25,7 +25,7 @@ The implemented member flow requests `openid`, `profile` and `w_member_social`.
 The organization flow requests `openid`, `profile`, `w_organization_social` and
 `rw_organization_admin`. Availability depends on LinkedIn's product access and
 the authorizing account's organization permissions; entering these scope names
-in Postbot cannot grant access to a product your developer app does not have.
+in Postdot cannot grant access to a product your developer app does not have.
 
 ## Connect the destination
 
@@ -36,7 +36,7 @@ check the destination shown when you return.
 
 For a page, use its numeric organization ID when Studio asks for the identifier,
 not its public URL or an `urn:` value. The authorizing account must have the
-required page access; Postbot verifies the requested destination with LinkedIn.
+required page access; Postdot verifies the requested destination with LinkedIn.
 
 ## If authorization or delivery fails
 

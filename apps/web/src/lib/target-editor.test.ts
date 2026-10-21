@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createManualChannelProfile } from '@postbot/core'
+import { createManualChannelProfile } from '@postdot/core'
 
 import * as m from '@/paraglide/messages.js'
 

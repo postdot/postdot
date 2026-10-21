@@ -1,5 +1,5 @@
-import { normalizeMastodonInstanceOrigin } from '@postbot/mastodon'
-import type { OAuthAuthorizationServer } from '@postbot/oauth'
+import { normalizeMastodonInstanceOrigin } from '@postdot/mastodon'
+import type { OAuthAuthorizationServer } from '@postdot/oauth'
 
 interface MastodonProviderSession {
     readonly version: 1

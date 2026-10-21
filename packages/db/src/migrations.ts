@@ -27,7 +27,7 @@ export function runMigrations(
             if (!hasExistingSchemaObject(error)) throw error
 
             throw new Error(
-                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Postbot and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
+                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Postdot and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
                 { cause: error }
             )
         }

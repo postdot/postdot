@@ -60,7 +60,7 @@ describe('network-controlled fetcher', () => {
         const response = await fetcher('https://example.social/api/v1/statuses', {
             method: 'POST',
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ status: 'Hello from Postbot' }),
+            body: new URLSearchParams({ status: 'Hello from Postdot' }),
         })
 
         expect(response.status).toBe(201)
@@ -71,7 +71,7 @@ describe('network-controlled fetcher', () => {
         expect(request?.url.toString()).toBe('https://example.social/api/v1/statuses')
         expect(request?.address).toEqual({ address: '8.8.8.8', family: 4 })
         expect(new TextDecoder().decode(await readBody(request!))).toContain(
-            'status=Hello+from+Postbot'
+            'status=Hello+from+Postdot'
         )
     })
 

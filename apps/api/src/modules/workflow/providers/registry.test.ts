@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import { createBuiltInProviderRegistry, type BuiltInProviderAdapter } from './registry'
 

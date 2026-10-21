@@ -3,9 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postbot/db'
-import { createLocalMediaStore, type MediaStore } from '@postbot/media'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postdot/db'
+import { createLocalMediaStore, type MediaStore } from '@postdot/media'
 
 import { previewFixturePng } from '../../../../../packages/db/src/image-preview-fixture'
 import { createApp } from '../../app'
@@ -176,7 +176,7 @@ describe('media HTTP routes', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         originalFilename: 'cover.png',
-                        defaultAccessibilityText: 'Postbot cover',
+                        defaultAccessibilityText: 'Postdot cover',
                         expectedSize: bytes.byteLength,
                         contentType: 'text/plain',
                     }),

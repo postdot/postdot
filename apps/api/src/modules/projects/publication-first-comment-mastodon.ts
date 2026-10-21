@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import { createMastodonPublisher, resolveMastodonFirstCommentContext } from '@postbot/mastodon'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import { createMastodonPublisher, resolveMastodonFirstCommentContext } from '@postdot/mastodon'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 import { prepareMastodonReplyAccount } from './publication-replies-mastodon'

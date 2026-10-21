@@ -14,7 +14,7 @@ import {
     type Channel,
     type ChannelProfileDefinition,
     type Project,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,
@@ -293,7 +293,7 @@ export function createProjectChannelStore(
                 project,
                 kind: 'system',
                 subjectId: null,
-                displayName: 'Postbot Worker',
+                displayName: 'Postdot Worker',
                 now: timestamp,
             })
 

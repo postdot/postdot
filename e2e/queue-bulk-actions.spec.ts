@@ -296,7 +296,7 @@ function publicationFixture(input: {
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E queue bulk ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-queue-bulk-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-queue-bulk-password')

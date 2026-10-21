@@ -1,5 +1,5 @@
-import type { PublisherConnectionPolicy } from '@postbot/db'
-import { isTelegramChannelId } from '@postbot/telegram'
+import type { PublisherConnectionPolicy } from '@postdot/db'
+import { isTelegramChannelId } from '@postdot/telegram'
 
 export const telegramPublisherConnectionPolicy: PublisherConnectionPolicy = {
     validateDestination: destination =>

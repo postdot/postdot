@@ -1,11 +1,11 @@
 # Provider deployment requirements
 
-Postbot does not impose one global DNS or HTTPS requirement. The requirement is
+Postdot does not impose one global DNS or HTTPS requirement. The requirement is
 defined by the provider flow being used. The application can remain a simple
 single-process self-hosted deployment while a particular provider may require a
 public callback or a public client document.
 
-## Common Postbot requirements
+## Common Postdot requirements
 
 - Keep the database, `BETTER_AUTH_SECRET`, media signing secret, and publisher
   encryption key in the deployment environment.
@@ -23,7 +23,7 @@ requires a public web client or callback.
 
 ## Optional account email delivery
 
-Postbot can deliver project invitations, signup verification, and password-reset
+Postdot can deliver project invitations, signup verification, and password-reset
 messages through an operator-supplied SMTP relay. Configure
 `POSTBOT_EMAIL_SMTP_HOST` and `POSTBOT_EMAIL_FROM` in the API environment; port `587`
 is the default, `POSTBOT_EMAIL_SMTP_SECURE` selects TLS mode, and username/password
@@ -38,16 +38,16 @@ guarantees, retries, bounces, and provider webhooks are outside this boundary.
 
 For local development, `docker-compose.dev.yml` starts a Mailpit relay on
 `127.0.0.1:1025` and its inspection UI on `127.0.0.1:8025`. The React Email
-templates are owned by the `@postbot/email` workspace package; the API owns only
+templates are owned by the `@postdot/email` workspace package; the API owns only
 the SMTP transport and deployment configuration.
 
 ## Bluesky / AT Protocol
 
-Postbot supports two OAuth deployment profiles:
+Postdot supports two OAuth deployment profiles:
 
 ### Local loopback development
 
-Select **Local loopback** when the Postbot API and browser run on the same
+Select **Local loopback** when the Postdot API and browser run on the same
 machine. This uses the AT Protocol's official native loopback client ID
 (`http://localhost`) and a callback on a loopback IP. No tunnel, DNS record,
 public metadata URL, or Bluesky developer application is required.
@@ -65,7 +65,7 @@ POSTBOT_API_ORIGIN=http://127.0.0.1:3000
 ```
 
 Open the dashboard at `http://127.0.0.1:5173`, not `http://localhost:5173`.
-This consistency is required because the Postbot session cookie is host-bound.
+This consistency is required because the Postdot session cookie is host-bound.
 The same arrangement can use `[::1]` consistently instead of `127.0.0.1`.
 
 The **Client metadata URL** field must be left empty in this mode. A 404 from
@@ -81,9 +81,9 @@ authorization server. The metadata URL must remain fetchable at that exact
 URL, and its redirect URI must match the deployed callback exactly.
 
 This mode requires a public DNS name and HTTPS for the web OAuth boundary. It
-does not require a separate proxy service: the Postbot API serves the metadata
+does not require a separate proxy service: the Postdot API serves the metadata
 route itself. A reverse proxy or tunnel is only one way to make that API
-origin reachable; it is not a Postbot runtime dependency.
+origin reachable; it is not a Postdot runtime dependency.
 
 Analytics through Bluesky's public API does not require OAuth or either of these
 web deployment profiles. Only account authorization and authenticated
@@ -105,4 +105,4 @@ Provider setup remains provider-specific:
 
 When a new provider is added, its adapter must document its own callback,
 credential, destination, and reachability requirements. Adding that provider
-must not silently turn DNS or HTTPS into a global requirement for Postbot.
+must not silently turn DNS or HTTPS into a global requirement for Postdot.

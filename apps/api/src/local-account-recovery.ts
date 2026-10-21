@@ -1,8 +1,8 @@
 import { statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { hashPostbotPassword, postbotPasswordPolicy } from '@postbot/auth'
-import { recoverLocalAccountPassword } from '@postbot/db'
+import { hashPostbotPassword, postbotPasswordPolicy } from '@postdot/auth'
+import { recoverLocalAccountPassword } from '@postdot/db'
 
 export interface AccountRecoveryPromptOptions {
     readonly hidden?: boolean

@@ -1,14 +1,14 @@
 import { it, expect } from 'bun:test'
 
 import { expect as browserExpect } from '@playwright/test'
-import { createAuth } from '@postbot/auth'
+import { createAuth } from '@postdot/auth'
 import {
     createDatabase,
     closeDatabase,
     runMigrations,
     createSecretCipher,
     createInstallationEmailSettingsStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import type { SendMailOptions } from 'nodemailer'
 
 import { createPostbotAuthEmailDelivery } from './delivery'

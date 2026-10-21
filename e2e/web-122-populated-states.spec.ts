@@ -775,7 +775,7 @@ function currentMonthAt(hour: number, minute = 0) {
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-122 populated ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-122-populated-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-122-password')

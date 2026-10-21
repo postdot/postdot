@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { ChannelProfileCompiler } from '@postbot/core'
+import { ChannelProfileCompiler } from '@postdot/core'
 import {
     createDatabase,
     closeDatabase,
@@ -13,14 +13,14 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
-} from '@postbot/db'
-import { publications } from '@postbot/db/schema'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/db'
+import { publications } from '@postdot/db/schema'
+import { createLocalMediaStore } from '@postdot/media'
 import {
     createTelegramPublisher,
     telegramChannelProfile,
     telegramChannelProfileValidationAdapter,
-} from '@postbot/telegram'
+} from '@postdot/telegram'
 
 import { telegramPublisherConnectionPolicy } from '../publishers/providers/telegram'
 import { createBuiltInProviderRegistry } from './providers/registry'

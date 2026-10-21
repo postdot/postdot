@@ -2,8 +2,8 @@ import {
     TELEGRAM_EXECUTION_REVISION,
     TELEGRAM_POLL_EXECUTION_REVISION,
     TELEGRAM_ALBUM_EXECUTION_REVISION,
-} from '@postbot/telegram'
-import type { TelegramPollInput } from '@postbot/telegram/poll'
+} from '@postdot/telegram'
+import type { TelegramPollInput } from '@postdot/telegram/poll'
 
 /**
  * Relative closing periods offered by default.

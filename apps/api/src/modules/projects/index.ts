@@ -1,6 +1,6 @@
-import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postbot/auth'
-import type { BlueskyFetcher, BlueskyThreadReader } from '@postbot/bluesky'
-import type { NotificationEmailStore } from '@postbot/db'
+import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postdot/auth'
+import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
+import type { NotificationEmailStore } from '@postdot/db'
 import type {
     AnalyticsStore,
     AccessStore,
@@ -10,11 +10,11 @@ import type {
     ProviderAnalyticsStore,
     PublicationCommentStore,
     TaxonomyStore,
-} from '@postbot/db'
-import type { DevtoFetcher } from '@postbot/devto'
-import type { DiscordFetcher } from '@postbot/discord'
-import type { MastodonThreadReader, MastodonAnalyticsReader } from '@postbot/mastodon'
-import type { TelegramFetcher } from '@postbot/telegram'
+} from '@postdot/db'
+import type { DevtoFetcher } from '@postdot/devto'
+import type { DiscordFetcher } from '@postdot/discord'
+import type { MastodonThreadReader, MastodonAnalyticsReader } from '@postdot/mastodon'
+import type { TelegramFetcher } from '@postdot/telegram'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'

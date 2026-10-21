@@ -1,5 +1,5 @@
 {
-    "name": "@postbot/docs",
+    "name": "@postdot/docs",
     "private": true,
     "license": "AGPL-3.0-only",
     "type": "module",
@@ -20,7 +20,7 @@
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",
-        "@postbot/ui": "workspace:*",
+        "@postdot/ui": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@wrksz/themes": "1.1.0",
         "fumadocs-core": "16.17.1",

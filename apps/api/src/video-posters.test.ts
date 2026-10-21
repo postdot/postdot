@@ -3,7 +3,7 @@ import { mkdtemp, rm, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { createLocalMediaStore } from '@postbot/media'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-posters'
 

@@ -1,4 +1,4 @@
-import { DomainInvariantError, requireNonBlank, type Publication } from '@postbot/core'
+import { DomainInvariantError, requireNonBlank, type Publication } from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'

@@ -10,7 +10,7 @@ while switching between three different tasks
 ## Frozen inputs
 
 - Prompt/request: keep the H-09 direction constant and make three different
-  Postbot jobs legible
+  Postdot jobs legible
 - Data/content fixture: one source post, four destinations, four channels,
   queued/due/draft/published states
 - Viewport/device: 1280 × 720, pointer

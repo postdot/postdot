@@ -1,4 +1,4 @@
-import { Skeleton } from '@postbot/ui/components/skeleton'
+import { Skeleton } from '@postdot/ui/components/skeleton'
 
 import * as m from '@/paraglide/messages.js'
 

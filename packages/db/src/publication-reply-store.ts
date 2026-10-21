@@ -3,7 +3,7 @@ import {
     type ExternalEffectExecutorStore,
     requireNonBlank,
     requireTimestamp,
-} from '@postbot/core'
+} from '@postdot/core'
 import { and, asc, desc, eq, lt, or, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'

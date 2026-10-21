@@ -1,4 +1,4 @@
-import type { PublisherConnectionPolicy } from '@postbot/db'
+import type { PublisherConnectionPolicy } from '@postdot/db'
 
 export const devtoPublisherConnectionPolicy: PublisherConnectionPolicy = {
     defaultDestination: credential => ({

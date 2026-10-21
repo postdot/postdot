@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { MediaInspectionRegistry } from '@postbot/core'
-import type { MediaStore } from '@postbot/media'
+import { MediaInspectionRegistry } from '@postdot/core'
+import type { MediaStore } from '@postdot/media'
 
 import type { PostbotDatabase } from './client'
 

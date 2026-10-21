@@ -4,7 +4,7 @@ import {
     ChannelProfileCompiler,
     type ChannelProfileDefinition,
     type JsonSchema,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import { xChannelProfile } from './profile'
 import { xChannelProfileValidationAdapter } from './profile-validation'

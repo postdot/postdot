@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { UploadIcon } from '@solar-icons/react/linear/upload'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'

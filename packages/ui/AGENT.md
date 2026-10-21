@@ -2,7 +2,7 @@
 
 ## Scope
 
-`@postbot/ui` is Postbot's shared React UI package. It owns reusable design
+`@postdot/ui` is Postdot's shared React UI package. It owns reusable design
 tokens, the shared Tailwind stylesheet, Base UI-based shadcn components, and
 small styling utilities such as `cn`.
 
@@ -18,7 +18,7 @@ application-specific page composition.
   examples and defaults.
 - Keep Tailwind class candidates statically discoverable.
 - Prefer direct public subpath imports such as
-  `@postbot/ui/components/button`.
+  `@postdot/ui/components/button`.
 - Keep product brand source assets under `src/assets/brand` and use the shared
   inline brand components when a mark must inherit `currentColor`.
 
@@ -29,10 +29,10 @@ styles. A consuming app imports it from its own Tailwind entrypoint and declares
 its own `@source` roots, including this package. Do not hardcode an app path in
 the shared stylesheet.
 
-Add a component here only when it is reusable across Postbot surfaces or is part
+Add a component here only when it is reusable across Postdot surfaces or is part
 of the shared visual language. Keep one-off product composition in the app.
 
-## Postbot composition guardrails
+## Postdot composition guardrails
 
 - Shared primitives provide behavior and geometry; consuming pages provide
   product meaning, labels, and task-specific composition.

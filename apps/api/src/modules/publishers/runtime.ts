@@ -1,4 +1,4 @@
-import { createBlueskyClientMetadata, createBlueskyLoopbackClientMetadata } from '@postbot/bluesky'
+import { createBlueskyClientMetadata, createBlueskyLoopbackClientMetadata } from '@postdot/bluesky'
 import {
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
@@ -7,13 +7,13 @@ import {
     createProviderApplicationStore,
     createSecretCipher,
     type PostbotDatabase,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     createFacebookOAuth,
     createFacebookPublisher,
     type FacebookFetcher,
-} from '@postbot/facebook'
-import { createInstagramOAuth, type InstagramFetcher } from '@postbot/instagram'
+} from '@postdot/facebook'
+import { createInstagramOAuth, type InstagramFetcher } from '@postdot/instagram'
 import {
     LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     LINKEDIN_OAUTH_ISSUER,
@@ -22,21 +22,21 @@ import {
     createLinkedInMemberProfileClient,
     type LinkedInMemberProfileClient,
     type LinkedInOrganizationClient,
-} from '@postbot/linkedin'
-import type { MastodonFetcher } from '@postbot/mastodon'
+} from '@postdot/linkedin'
+import type { MastodonFetcher } from '@postdot/mastodon'
 import {
     clientSecretBasic,
     clientSecretPost,
     validateReturnPath,
     type OAuthAuthorizationServer,
-} from '@postbot/oauth'
+} from '@postdot/oauth'
 import {
     X_OAUTH_AUTHORIZATION_ENDPOINT,
     X_OAUTH_ISSUER,
     X_OAUTH_TOKEN_ENDPOINT,
     createXPublisher,
     type XPublisher,
-} from '@postbot/x'
+} from '@postdot/x'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { devtoPublisherConnectionPolicy } from './providers/devto'
@@ -141,7 +141,7 @@ function createBlueskyApplication(options: {
         callbackUri: options.callbackUri,
         clientMetadata: createBlueskyClientMetadata({
             clientId: options.clientMetadataUrl,
-            clientName: 'Postbot',
+            clientName: 'Postdot',
             clientUri: options.webOrigin,
             redirectUri: options.callbackUri,
         }),
@@ -220,7 +220,7 @@ export function createPublisherRuntime(
                   callbackUri: blueskyCallbackUri,
                   clientMetadata: createBlueskyClientMetadata({
                       clientId: options.bluesky.clientMetadataUrl,
-                      clientName: 'Postbot',
+                      clientName: 'Postdot',
                       clientUri: options.webOrigin,
                       redirectUri: blueskyCallbackUri,
                   }),
@@ -230,7 +230,7 @@ export function createPublisherRuntime(
 
     const mastodon = {
         callbackUri: mastodonCallbackUri,
-        clientName: options.mastodon?.clientName ?? 'Postbot',
+        clientName: options.mastodon?.clientName ?? 'Postdot',
         ...(options.mastodon?.fetcher === undefined ? {} : { fetcher: options.mastodon.fetcher }),
     }
 

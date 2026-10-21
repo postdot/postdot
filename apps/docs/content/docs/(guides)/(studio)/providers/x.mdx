@@ -5,20 +5,20 @@ description: Connect an X account through OAuth 2.0 with PKCE.
 
 You need an X developer application with access to the APIs used for publishing.
 An installation administrator configures it before project members connect their
-accounts. Provider access and usage charges are controlled by X, not Postbot;
+accounts. Provider access and usage charges are controlled by X, not Postdot;
 check the current terms for your developer account.
 
 ## Configure the application
 
 Enable **OAuth 2.0 Authorization Code with PKCE** in the X application and allow
-the intended write access. Register the callback shown by Postbot. For a public
+the intended write access. Register the callback shown by Postdot. For a public
 installation it takes this form:
 
 ```text
 https://postbot.example/api/oauth/x/callback
 ```
 
-Replace the origin with your deployment's API origin. In Postbot's **OAuth
+Replace the origin with your deployment's API origin. In Postdot's **OAuth
 applications**, save the OAuth 2.0 **Client ID** and **Client secret**, activate the
 application and choose its default status. Do not substitute OAuth 1.0 consumer
 keys or an app-only bearer token for these fields.

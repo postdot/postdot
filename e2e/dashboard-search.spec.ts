@@ -48,9 +48,9 @@ test('searches across projects, opens source posts and keeps failures inside the
     const mediaName = `search-photo-${suffix}.png`
     const mediaId = await createMediaAsset(page, projectId, mediaName)
     await page.goto(`/dashboard/projects/${projectId}/overview`)
-    await page.getByRole('button', { name: 'Search Postbot', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Search Postbot', exact: true })
-    const input = dialog.getByRole('combobox', { name: 'Search Postbot', exact: true })
+    await page.getByRole('button', { name: 'Search Postdot', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Search Postdot', exact: true })
+    const input = dialog.getByRole('combobox', { name: 'Search Postdot', exact: true })
     await expect(input).toHaveAttribute('placeholder', 'Search…')
     await expect(dialog.getByText(/Navigate/)).toBeVisible()
     let releaseSearch!: () => void

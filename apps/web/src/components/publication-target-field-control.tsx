@@ -1,15 +1,15 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldDescription, FieldError, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@postbot/x/text'
+} from '@postdot/ui/components/select'
+import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@postdot/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'

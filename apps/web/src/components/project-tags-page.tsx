@@ -1,15 +1,15 @@
-import type { ProjectTag } from '@postbot/client'
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
+import type { ProjectTag } from '@postdot/client'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
-import { Skeleton } from '@postbot/ui/components/skeleton'
+} from '@postdot/ui/components/dropdown-menu'
+import { Skeleton } from '@postdot/ui/components/skeleton'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'

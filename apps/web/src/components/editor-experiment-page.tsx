@@ -1,5 +1,5 @@
-import { Button } from '@postbot/ui/components/button'
-import { Textarea } from '@postbot/ui/components/textarea'
+import { Button } from '@postdot/ui/components/button'
+import { Textarea } from '@postdot/ui/components/textarea'
 import { useState } from 'react'
 
 import { ConfiguredPublicationEditor } from '@/components/configured-publication-editor'

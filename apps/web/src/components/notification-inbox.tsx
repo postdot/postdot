@@ -1,15 +1,15 @@
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
-import { Field, FieldContent, FieldDescription, FieldTitle } from '@postbot/ui/components/field'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@postdot/ui/components/field'
 import {
     Popover,
     PopoverClose,
     PopoverContent,
     PopoverTitle,
     PopoverTrigger,
-} from '@postbot/ui/components/popover'
-import { ScrollArea } from '@postbot/ui/components/scroll-area'
-import { Switch } from '@postbot/ui/components/switch'
+} from '@postdot/ui/components/popover'
+import { ScrollArea } from '@postdot/ui/components/scroll-area'
+import { Switch } from '@postdot/ui/components/switch'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
 import { BellIcon } from '@solar-icons/react/linear/bell'

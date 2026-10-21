@@ -5,8 +5,8 @@ import {
     readBlueskySessionTokenSet,
     restoreBlueskySession,
     type BlueskyFetcher,
-} from '@postbot/bluesky'
-import type { ExternalEffectOutcome } from '@postbot/core'
+} from '@postdot/bluesky'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 

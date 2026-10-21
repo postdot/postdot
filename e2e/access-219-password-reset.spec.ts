@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const resetSubject = 'Reset your Postbot password'
+const resetSubject = 'Reset your Postdot password'
 
 test('requests and completes a password reset through the configured mail relay', async ({
     page,
@@ -194,7 +194,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             ).json()
             for (const message of messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Verify your Postbot email address' &&
+                    message.Subject === 'Verify your Postdot email address' &&
                     message.To.some(to => to.Address === email)
             )) {
                 const detail = await (
@@ -232,7 +232,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             const { messages } = await response.json()
             return messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Postbot — Publication failed' &&
+                    message.Subject === 'Postdot — Publication failed' &&
                     message.To.some(to => to.Address === email)
             ).length
         })
@@ -287,7 +287,7 @@ test('configures SMTP in administration and sends a real test without exposing c
             ).json()
             return body.messages.filter(
                 (message: { Subject: string; To: { Address: string }[] }) =>
-                    message.Subject === 'Postbot — SMTP test' &&
+                    message.Subject === 'Postdot — SMTP test' &&
                     message.To.some(to => to.Address === email)
             ).length
         })

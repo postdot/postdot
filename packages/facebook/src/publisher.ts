@@ -1,4 +1,4 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
+import type { ExternalEffectOutcome } from '@postdot/core'
 
 export const FACEBOOK_GRAPH_VERSION = 'v26.0'
 export const FACEBOOK_MAX_PHOTO_BYTES = 10_000_000

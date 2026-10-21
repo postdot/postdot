@@ -24,7 +24,7 @@ function createFixture() {
     const project = manualStore.createProject({
         name: 'Credential Project',
         subjectId: 'user-1',
-        displayName: 'Postbot Operator',
+        displayName: 'Postdot Operator',
     })
     const cipher = createPublisherCredentialCipher({
         keyId: 'primary',
@@ -52,7 +52,7 @@ describe('publisher credential store', () => {
             const project = manualStore.createProject({
                 name: 'Credential File',
                 subjectId: 'user-1',
-                displayName: 'Postbot Operator',
+                displayName: 'Postdot Operator',
             })
             const store = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({
@@ -99,7 +99,7 @@ describe('publisher credential store', () => {
                 connectedByActorId: fixture.project.actor.id,
                 providerId: 'linkedin',
                 externalAccountId: 'member-1',
-                externalAccountName: 'Postbot Operator',
+                externalAccountName: 'Postdot Operator',
                 scopes: ['w_member_social', 'openid'],
                 accessToken: 'access-token-plaintext',
                 refreshToken: 'refresh-token-plaintext',

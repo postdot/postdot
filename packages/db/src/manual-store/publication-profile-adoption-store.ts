@@ -1,4 +1,4 @@
-import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postbot/core'
+import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postdot/core'
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { AdoptPublicationDraftProfileInput } from '../manual-store'

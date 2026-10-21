@@ -4392,10 +4392,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Type: proposal
 - Status: accepted
-- Evidence: On 2026-10-21 the owner selected Postdot and reported reserving postdot.app. The current product is named Postbot while the local checkout still uses Herald. The owner also reports reserving the npm postdot namespace and GitHub postdot organization; these are future publication targets, not evidence of package/image releases. The owner requested durable planning, without starting the rename immediately.
+- Evidence: On 2026-10-21 the owner selected Postdot and reported reserving postdot.app. The current product is named Postbot while the local checkout still uses Herald. The owner also reports reserving the npm postdot namespace, GitHub postdot organization and Docker Hub ID postdot; these are future publication targets, not evidence of package/image releases. The owner requested durable planning, without starting the rename immediately.
 - Impact: Mixed active names confuse users, contributors and release operators.
 - Desired outcome: Adopt Postdot consistently across active branding, packages, executable/configuration names, docs, workspace and checkout identity, GitHub repository and release artifacts. Inventory internal, external and persisted identifiers before changing them; explicitly resolve compatibility and data migration needs. Preserve factual historical records and third-party attribution rather than rewriting evidence blindly.
-- Tasks: BRAND-551 (queued; no rename executed).
+- Tasks: BRAND-551 (namespace/display/repository/checkout delivered; deployment compatibility transition remains); PUBLIC-553 (history-preserving preparation complete).
 
 ## [ISSUE-180] Evaluate site and documentation hosting after the reference migration
 
@@ -4412,4 +4412,4 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: open
 - Evidence: The owner anticipates making the repository public and publishing the site/docs under postdot.app, but explicitly deferred both actions.
 - Desired outcome: Coordinate final identity, hosting readiness and existing release/license requirements before an owner-authorized public launch. Do not change repository visibility, DNS, deployment or registry publication during routine product work.
-- Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Repository visibility and publication-history strategy remain undecided until review close-out.
+- Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Owner selected preserving history, branches and PRs; PUBLIC-553 prepares the existing repository transition with targeted current-record corrections.

@@ -4,7 +4,7 @@ import {
     type Post,
     type Publication,
     type Publisher,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import type {
     AuditEvent,

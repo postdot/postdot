@@ -1,16 +1,16 @@
-# Contributing to Postbot
+# Contributing to Postdot
 
-This document defines the working agreement for changes to Postbot.
+This document defines the working agreement for changes to Postdot.
 
 ## Contribution licensing
 
-By submitting an original contribution for inclusion in Postbot, you agree to
+By submitting an original contribution for inclusion in Postdot, you agree to
 license it under AGPL-3.0-only. You retain copyright in your contribution; no
 copyright transfer or commercial relicensing permission is requested. Submit only
 work you have the right to license, and preserve the licenses and attribution of
 third-party material. Identify such material explicitly in the contribution.
 
-Postbot currently has no commercial dual-license program. Any future proposal
+Postdot currently has no commercial dual-license program. Any future proposal
 requires a separate decision and sufficient rights from the relevant copyright
 holders; this contribution policy does not grant those rights automatically.
 

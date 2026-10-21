@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { MediaStore } from '@postbot/media'
+import type { MediaStore } from '@postdot/media'
 
 /** One optional decoder, isolated from publication and upload success. */
 export function createVideoPosterExtractor(

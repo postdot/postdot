@@ -3,16 +3,16 @@ import {
     createBlueskyReplyRecordKey,
     type BlueskyFetcher,
     type restoreBlueskySession,
-} from '@postbot/bluesky'
-import { processNextExternalEffect, type ExternalEffectOutcome } from '@postbot/core'
+} from '@postdot/bluesky'
+import { processNextExternalEffect, type ExternalEffectOutcome } from '@postdot/core'
 import {
     createAccessStore,
     createManualStore,
     createPublicationFirstCommentStore,
     type PostbotDatabase,
     type PublicationFirstComment,
-} from '@postbot/db'
-import { mastodonReplyTextValid, resolveMastodonStatusReference } from '@postbot/mastodon'
+} from '@postdot/db'
+import { mastodonReplyTextValid, resolveMastodonStatusReference } from '@postdot/mastodon'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 import { performMastodonFirstComment } from './publication-first-comment-mastodon'

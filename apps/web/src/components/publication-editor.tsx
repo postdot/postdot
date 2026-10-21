@@ -1,12 +1,12 @@
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
     DialogTitle,
     DialogDescription,
     DialogFooter,
-} from '@postbot/ui/components/dialog'
-import { X_MAX_WEIGHTED_POST_LENGTH } from '@postbot/x/text'
+} from '@postdot/ui/components/dialog'
+import { X_MAX_WEIGHTED_POST_LENGTH } from '@postdot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'

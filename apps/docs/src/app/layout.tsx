@@ -8,8 +8,8 @@ import { getSocialMetadata } from '@/lib/social-metadata'
 
 export const metadata: Metadata = {
     metadataBase: new URL(process.env.POSTBOT_SITE_URL ?? 'http://127.0.0.1:5174'),
-    ...getSocialMetadata('Postbot', 'Social publishing. For you and your agents.', '/og/home.png'),
-    title: { default: 'Postbot', template: '%s | Postbot' },
+    ...getSocialMetadata('Postdot', 'Social publishing. For you and your agents.', '/og/home.png'),
+    title: { default: 'Postdot', template: '%s | Postdot' },
     description:
         'Prepare, adapt and schedule social posts in your own workspace. Self-hosted publishing for people, agents and scripts.',
     robots: { index: false, follow: false },

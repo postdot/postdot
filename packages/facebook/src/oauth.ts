@@ -5,7 +5,7 @@ import {
     validateAuthorizationResponse,
     type OAuthAuthorizationServer,
     type OAuthTokenSet,
-} from '@postbot/oauth'
+} from '@postdot/oauth'
 
 import {
     FACEBOOK_GRAPH_VERSION,

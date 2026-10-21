@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { ChannelProfileCompiler } from '@postbot/core'
+import { ChannelProfileCompiler } from '@postdot/core'
 import {
     createDatabase,
     closeDatabase,
@@ -13,13 +13,13 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     createFacebookPublisher,
     facebookChannelProfile,
     facebookChannelProfileValidationAdapter,
-} from '@postbot/facebook'
-import { createLocalMediaStore } from '@postbot/media'
+} from '@postdot/facebook'
+import { createLocalMediaStore } from '@postdot/media'
 
 import { facebookPublisherConnectionPolicy } from '../publishers/providers/facebook'
 import { createFacebookProviderAdapter } from './providers/facebook'

@@ -1,14 +1,14 @@
-import { Badge } from '@postbot/ui/components/badge'
-import { Button, buttonVariants } from '@postbot/ui/components/button'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button, buttonVariants } from '@postdot/ui/components/button'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Tabs, TabsList, TabsTrigger } from '@postbot/ui/components/tabs'
-import { cn } from '@postbot/ui/lib/utils'
+} from '@postdot/ui/components/select'
+import { Tabs, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
+import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { PenIcon } from '@solar-icons/react/linear/pen'

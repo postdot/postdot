@@ -31,7 +31,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     const collapsedSidebar = page.locator('[data-slot="sidebar-container"]')
     await expect(collapsedSidebar).toHaveCSS('width', '48px')
     const collapsedSidebarBox = await collapsedSidebar.boundingBox()
-    const compactLogoBox = await page.locator('a[aria-label="Postbot workspace"]').boundingBox()
+    const compactLogoBox = await page.locator('a[aria-label="Postdot workspace"]').boundingBox()
     if (collapsedSidebarBox === null || compactLogoBox === null) {
         throw new Error('Expected the compact sidebar and its logo to be visible')
     }
@@ -294,7 +294,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-121 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-121-${suffix}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-121-password')

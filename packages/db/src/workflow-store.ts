@@ -11,7 +11,7 @@ import {
     type TargetContent,
     type ChannelProfileDefinition,
     type PublicationState,
-} from '@postbot/core'
+} from '@postdot/core'
 
 import {
     createDatabaseTransaction,
@@ -1198,7 +1198,7 @@ export function createWorkflowStore(database: PostbotDatabase) {
             if (existing !== null) return existing.id
 
             const actorId = `system:${projectId}`
-            insertSystemActorStatement.run(actorId, projectId, 'Postbot Worker', now)
+            insertSystemActorStatement.run(actorId, projectId, 'Postdot Worker', now)
 
             const inserted = loadSystemActorStatement.get(projectId)
             if (inserted === null) {

@@ -1,13 +1,13 @@
-import { Badge } from '@postbot/ui/components/badge'
-import { Button } from '@postbot/ui/components/button'
+import { Badge } from '@postdot/ui/components/badge'
+import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@postbot/ui/components/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@postbot/ui/components/tooltip'
+} from '@postdot/ui/components/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'

@@ -9,7 +9,7 @@ function requestFromInput(input: string | URL | Request, init?: RequestInit) {
     return input instanceof Request ? new Request(input, init) : new Request(String(input), init)
 }
 
-describe('Postbot CLI', () => {
+describe('Postdot CLI', () => {
     it('documents user API keys and machine authentication', async () => {
         const output: string[] = []
 
@@ -30,7 +30,7 @@ describe('Postbot CLI', () => {
             {
                 fetcher: async (input, init) => {
                     requests.push(requestFromInput(input, init))
-                    return Response.json({ projects: [{ id: 'project-1', name: 'Postbot' }] })
+                    return Response.json({ projects: [{ id: 'project-1', name: 'Postdot' }] })
                 },
                 output: message => output.push(message),
             }
@@ -40,7 +40,7 @@ describe('Postbot CLI', () => {
             'Bearer postbot_pat_machine-secret'
         )
         expect(requests[0]?.headers.get('cookie')).toBeNull()
-        expect(output).toEqual(['project-1\tPostbot'])
+        expect(output).toEqual(['project-1\tPostdot'])
     })
 
     it('creates a user-owned API key with a selected project scope', async () => {
@@ -89,7 +89,7 @@ describe('machine publication workflow', () => {
         const { createAuth } = await import('../packages/auth/src/index')
         const { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } =
             await import('../packages/db/src/index')
-        const { createPostbotClient } = await import('@postbot/client')
+        const { createPostbotClient } = await import('@postdot/client')
         const root = await mkdtemp(join(tmpdir(), 'postbot-cli-media-'))
         const { createLocalMediaStore } = await import('../packages/media/src/index')
         const { createMediaUrlImporter } = await import('../apps/api/src/modules/media/url-import')
@@ -213,6 +213,7 @@ describe('machine publication workflow', () => {
                 bluesky: 'not_configured',
                 x: 'not_configured',
                 facebook: 'not_configured',
+                instagram: 'not_configured',
             })
             const connectionChannel = await client.api
                 .projects({ projectId: project.id })

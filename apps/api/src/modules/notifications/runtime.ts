@@ -1,4 +1,4 @@
-import type { NotificationStore } from '@postbot/db'
+import type { NotificationStore } from '@postdot/db'
 
 const maximumBatchesPerProject = 10
 const continuationDelayMs = 0

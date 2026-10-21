@@ -1,13 +1,13 @@
-import type { PublisherConnectionDestination } from '@postbot/db'
-import type { AccessStore } from '@postbot/db'
+import type { PublisherConnectionDestination } from '@postdot/db'
+import type { AccessStore } from '@postdot/db'
 import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
     isAuthorizationDeniedError,
     validateAuthorizationResponse,
-} from '@postbot/oauth'
-import { X_PROVIDER, X_REQUIRED_SCOPES, type XUser } from '@postbot/x'
+} from '@postdot/oauth'
+import { X_PROVIDER, X_REQUIRED_SCOPES, type XUser } from '@postdot/x'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 

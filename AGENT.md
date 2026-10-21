@@ -1,23 +1,23 @@
 ---
-name: 'postbot'
+name: 'postdot'
 type: 'project'
 status: 'active'
 ---
 
-# AGENT CONTEXT: Postbot
+# AGENT CONTEXT: Postdot
 
 ## 🧠 Context & Objectives
 
-Postbot is a lightweight, self-hosted orchestrator for multichannel publications.
+Postdot is a lightweight, self-hosted orchestrator for multichannel publications.
 It provides one source of truth for automated and manual destinations. It does not
 replace project-specific communications repositories or act as an embedded AI
 content generator.
 
 - **License review scope (owner direction, 2026-10-11):** Preserve upstream declarations and available notices with minimal attribution. Do not pursue exhaustive transitive-license investigations during product work; keep unresolved release facts recorded without adding user-facing reading requirements.
 
-- **Naming and hosting direction (owner, 2026-10-21):** The accepted future name is Postdot, with postdot.app as its domain. Coordinated removal of active Herald/Postbot branding is queued in BRAND-551; this record does not rename the checkout, repository or artifacts. Any TanStack Start/Cloudflare port must wait for the owner's successful solar-icons.dev migration report and a scoped plan (ISSUE-180). Making the repository public and deploying the site/docs remain deferred (ISSUE-181). Preserve the self-hosted runtime boundary.
+- **Naming and hosting direction (owner, 2026-10-21):** The accepted future name is Postdot, with postdot.app as its domain. Coordinated removal of active Herald/Postdot branding is queued in BRAND-551; this record does not rename the checkout, repository or artifacts. Any TanStack Start/Cloudflare port must wait for the owner's successful solar-icons.dev migration report and a scoped plan (ISSUE-180). History-preserving repository publication is being prepared in PUBLIC-553 (ISSUE-181); site/docs deployment remains deferred. Preserve the self-hosted runtime boundary.
 
-- **Licensing:** Original Postbot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
+- **Licensing:** Original Postdot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
 
 ## ⚙️ Workflow & Preferences
 
@@ -55,8 +55,9 @@ content generator.
 - **Public documentation:** Use `.agents/skills/postbot-writing/SKILL.md` for authored reader-facing documentation. Use `.agents/skills/postbot-fumadocs/SKILL.md` when changing its MDX presentation, navigation or generation. These project skills coordinate the installed writing skills; routine worklogs and generated endpoint files are not prose-rewrite targets.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
-- **IDE workspace:** Update `postbot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
+- **IDE workspace:** Update `postdot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.
 - **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
+- **Publication scope (owner, 2026-10-21):** Preserve accumulated commits, branches and pull requests. Apply proportionate current-record corrections; no orphan history, bulk removal of Autonomos or history rewrite for harmless identifiers/local context. Revisit history only for a confirmed serious exposure. PUBLIC-553 prepares the existing repository transition. The owner reports reserving postdot.app, npm/GitHub postdot and Docker Hub ID postdot.
 - **Repository hygiene:** Treat user conversations, personal context, and one-off analysis as private by default. Track only durable, implementation-relevant, public-ready guidance. Comparative research is allowed only when it is deliberately scoped to a repository artifact.
 
 ### Parallel Agent Protocol (Operational policy)
@@ -89,7 +90,7 @@ content generator.
 
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
-- **Authentication boundary:** Better Auth authenticates people into Postbot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
+- **Authentication boundary:** Better Auth authenticates people into Postdot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Channel connections and their credentials belong to a project. The actor who connects one is audit attribution, not its owner; actor departure or account deletion does not revoke the project connection.
 
 ## 📁 Key Directories

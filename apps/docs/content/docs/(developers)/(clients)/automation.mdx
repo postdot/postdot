@@ -8,8 +8,8 @@ An agent that can run commands can prepare a draft for you; a script can use the
 same commands without reconstructing HTTP requests.
 
 A dedicated MCP server and packaged agent skills are planned, not available yet.
-The CLI walkthrough below works from a Postbot source checkout with Bun installed.
-It does not require a separate CLI service or a model subscription from Postbot.
+The CLI walkthrough below works from a Postdot source checkout with Bun installed.
+It does not require a separate CLI service or a model subscription from Postdot.
 
 ## Create a draft for review
 
@@ -49,22 +49,22 @@ Set `POSTBOT_URL` to your installation's origin, for example
 ### Find your project and channel
 
 ```sh
-bun run postbot projects list --json
+bun run postdot projects list --json
 ```
 
 Copy the selected project's ID into `PROJECT_ID`, then inspect its channels:
 
 ```sh
 export PROJECT_ID="REPLACE_WITH_PROJECT_ID"
-bun run postbot channels list --project "$PROJECT_ID" --json
+bun run postdot channels list --project "$PROJECT_ID" --json
 ```
 
 Use the ID of a channel you already connected in Studio:
 
 ```sh
 export CHANNEL_ID="REPLACE_WITH_CHANNEL_ID"
-bun run postbot channels profile --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
-bun run postbot publishers list --project "$PROJECT_ID" --json
+bun run postdot channels profile --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
+bun run postdot publishers list --project "$PROJECT_ID" --json
 ```
 
 `channels profile` describes the destination's accepted content under
@@ -105,7 +105,7 @@ For a built-in Bluesky channel, save this as `post.json`, replacing
 ```
 
 ```sh
-bun run postbot posts create --project "$PROJECT_ID" --input post.json --json
+bun run postdot posts create --project "$PROJECT_ID" --input post.json --json
 ```
 
 </Step>
@@ -118,7 +118,7 @@ publication ID to inspect it:
 
 ```sh
 export PUBLICATION_ID="REPLACE_WITH_PUBLICATION_ID"
-bun run postbot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
+bun run postdot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
 ```
 
 There is deliberately no `scheduledAt` in the input. `automatic` selects the
@@ -144,7 +144,7 @@ server saved the draft but the response was lost. Inspect the current publicatio
 before submitting the same content again:
 
 ```sh
-bun run postbot publications list --project "$PROJECT_ID" --json
+bun run postdot publications list --project "$PROJECT_ID" --json
 ```
 
 Lists are paginated. When `nextCursor` is present, pass its value with `--cursor`
@@ -153,7 +153,7 @@ to read the next page.
 ## Go further
 
 ```sh
-bun run postbot --help
+bun run postdot --help
 ```
 
 The CLI also supports media upload/import, draft updates and explicit publication

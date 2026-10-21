@@ -1,5 +1,5 @@
-import type { PostbotAuth } from '@postbot/auth'
-import type { AccessStore } from '@postbot/db'
+import type { PostbotAuth } from '@postdot/auth'
+import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
@@ -317,7 +317,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                 },
                 detail: {
                     operationId: 'createWorkspace',
-                    summary: 'Create a workspace for the Postbot instance',
+                    summary: 'Create a workspace for the Postdot instance',
                     tags: ['Access'],
                     security: sessionSecurity,
                 },

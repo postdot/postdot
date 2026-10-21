@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createApp, createPublisherRuntime } from '@postbot/api'
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, runMigrations } from '@postbot/db'
+import { createApp, createPublisherRuntime } from '@postdot/api'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, runMigrations } from '@postdot/db'
 
 import { createPostbotClient } from './index'
 
-describe('Postbot client', () => {
+describe('Postdot client', () => {
     it('exposes the typed project route tree', () => {
         const client = createPostbotClient('http://localhost:3000', {
             cookie: 'postbot_session=test',
@@ -93,7 +93,7 @@ describe('Postbot client', () => {
                     },
                     body: JSON.stringify({
                         email: 'client@postbot.local',
-                        name: 'Postbot Client',
+                        name: 'Postdot Client',
                         password: 'correct-horse-battery-staple',
                     }),
                 })

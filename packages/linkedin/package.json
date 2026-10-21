@@ -1,8 +1,8 @@
 {
-    "name": "@postbot/linkedin",
+    "name": "@postdot/linkedin",
     "version": "0.0.0",
     "private": true,
-    "description": "LinkedIn publishing adapter for Postbot",
+    "description": "LinkedIn publishing adapter for Postdot",
     "license": "AGPL-3.0-only",
     "type": "module",
     "sideEffects": false,
@@ -20,7 +20,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@postbot/core": "workspace:*"
+        "@postdot/core": "workspace:*"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

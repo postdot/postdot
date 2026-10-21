@@ -11,12 +11,12 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
     createSecretCipher,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     INSTAGRAM_PUBLISH_PERMISSIONS,
     instagramChannelProfile,
     type createInstagramOAuth,
-} from '@postbot/instagram'
+} from '@postdot/instagram'
 
 import { createInstagramConnectionFlow } from './instagram-connection-flow'
 import { instagramPublisherConnectionPolicy } from './providers/instagram'

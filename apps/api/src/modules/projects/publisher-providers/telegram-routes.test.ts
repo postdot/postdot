@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createAuth } from '@postbot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postbot/db'
-import type { TelegramFetcher } from '@postbot/telegram'
+import { createAuth } from '@postdot/auth'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import type { TelegramFetcher } from '@postdot/telegram'
 
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
@@ -88,7 +88,7 @@ async function signUp(app: ReturnType<typeof createApp>, email: string) {
             headers: { 'content-type': 'application/json', origin: baseURL },
             body: JSON.stringify({
                 email,
-                name: 'Postbot Operator',
+                name: 'Postdot Operator',
                 password: 'correct-horse-battery-staple',
             }),
         })

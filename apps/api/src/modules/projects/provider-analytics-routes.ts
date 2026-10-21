@@ -1,4 +1,4 @@
-import type { AccessStore, ProviderAnalyticsStore } from '@postbot/db'
+import type { AccessStore, ProviderAnalyticsStore } from '@postdot/db'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import type { BlueskyAnalyticsService } from './bluesky-analytics-service'

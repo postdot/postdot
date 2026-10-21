@@ -1,14 +1,14 @@
-import { Alert, AlertDescription, AlertTitle } from '@postbot/ui/components/alert'
-import { Field, FieldDescription, FieldLabel } from '@postbot/ui/components/field'
-import { Input } from '@postbot/ui/components/input'
+import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
+import { Field, FieldDescription, FieldLabel } from '@postdot/ui/components/field'
+import { Input } from '@postdot/ui/components/input'
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@postbot/ui/components/select'
-import { Switch } from '@postbot/ui/components/switch'
+} from '@postdot/ui/components/select'
+import { Switch } from '@postdot/ui/components/switch'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { ChannelComposerPreview } from '@/components/channel-composer-preview'

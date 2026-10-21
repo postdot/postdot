@@ -10,9 +10,9 @@ import {
     readBlueskySessionTokenSet,
     restoreBlueskySession,
     type BlueskyOAuthClientMetadata,
-} from '@postbot/bluesky'
-import type { ExternalEffectOutcome } from '@postbot/core'
-import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postbot/db'
+} from '@postdot/bluesky'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot/db'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { publishBlueskyVideo } from './bluesky-video'

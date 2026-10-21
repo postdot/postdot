@@ -5,12 +5,12 @@ import type {
     createPublisherCredentialStore,
     createPublisherStore,
     AuthorizationAttempt,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     FACEBOOK_PUBLISH_PERMISSIONS,
     type createFacebookOAuth,
     type createFacebookPublisher,
-} from '@postbot/facebook'
+} from '@postdot/facebook'
 
 type Binding = {
     readonly projectId: string

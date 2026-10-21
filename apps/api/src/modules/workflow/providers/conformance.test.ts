@@ -7,32 +7,32 @@ import {
     createBlueskyClientMetadata,
     type BlueskyPublishOutcome,
     type BlueskyPublisher,
-} from '@postbot/bluesky'
-import type { ChannelProfileDefinition, ExternalEffectOutcome } from '@postbot/core'
+} from '@postdot/bluesky'
+import type { ChannelProfileDefinition, ExternalEffectOutcome } from '@postdot/core'
 import type {
     PublisherConnectionDestination,
     PublisherExecutionMedia,
     PublisherExecutionTarget,
-} from '@postbot/db'
+} from '@postdot/db'
 import {
     DEVTO_PROVIDER,
     devtoChannelProfile,
     type DevtoPublishOutcome,
     type DevtoPublisher,
-} from '@postbot/devto'
+} from '@postdot/devto'
 import {
     DISCORD_PROVIDER,
     discordChannelProfile,
     type DiscordPublishOutcome,
     type DiscordPublisher,
-} from '@postbot/discord'
+} from '@postdot/discord'
 import {
     linkedinChannelProfile,
     type LinkedInImagePublisher,
     type LinkedInMediaUploadOutcome,
     type LinkedInPublishOutcome,
     type LinkedInTextPublisher,
-} from '@postbot/linkedin'
+} from '@postdot/linkedin'
 import {
     MASTODON_PROVIDER,
     createMastodonPublisher,
@@ -41,8 +41,8 @@ import {
     mastodonChannelProfile,
     type MastodonPublishOutcome,
     type MastodonPublisher,
-} from '@postbot/mastodon'
-import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@postbot/x'
+} from '@postdot/mastodon'
+import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@postdot/x'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
 import { createDevtoProviderAdapter } from './devto'
@@ -73,7 +73,7 @@ const blueskySession = JSON.stringify({
 const blueskyOAuth: NonNullable<BlueskyProviderAdapterOptions['oauth']> = {
     clientMetadata: createBlueskyClientMetadata({
         clientId: 'https://postbot.test/oauth/bluesky/client-metadata.json',
-        clientName: 'Postbot conformance test',
+        clientName: 'Postdot conformance test',
         clientUri: 'https://postbot.test',
         redirectUri: 'https://postbot.test/api/oauth/bluesky/callback',
     }),
@@ -86,7 +86,7 @@ const outcomes = [
         type: 'retryable_failure',
         effectOccurred: false,
         code: 'rate_limited',
-        errorMessage: 'The provider asked Postbot to retry later',
+        errorMessage: 'The provider asked Postdot to retry later',
     },
     {
         type: 'permanent_failure',
@@ -281,7 +281,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 async getBotUser() {
                     return {
                         kind: 'success',
-                        value: { id: '987654321098765432', username: 'Postbot' },
+                        value: { id: '987654321098765432', username: 'Postdot' },
                     }
                 },
                 async getChannel() {
@@ -302,8 +302,8 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         name: 'DEV.to',
         providerId: DEVTO_PROVIDER,
         profile: devtoChannelProfile,
-        content: { title: 'A Postbot article', body_markdown: 'A conformance article', media: [] },
-        destination: { type: 'account', id: '42', name: 'Postbot' },
+        content: { title: 'A Postdot article', body_markdown: 'A conformance article', media: [] },
+        destination: { type: 'account', id: '42', name: 'Postdot' },
         externalAccountId: '42',
         providerSession: null,
         endpointUrl: null,
@@ -312,7 +312,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 async getMe() {
                     return {
                         kind: 'success',
-                        value: { id: '42', username: 'postbot', name: 'Postbot' },
+                        value: { id: '42', username: 'postbot', name: 'Postdot' },
                     }
                 },
                 async getArticleAnalytics() {

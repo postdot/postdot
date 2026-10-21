@@ -16,7 +16,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 title: (
                     <span className="brand">
                         <PostbotLogo className="brand-mark" />
-                        Postbot
+                        Postdot
                     </span>
                 ),
             }}

@@ -3,8 +3,8 @@ import {
     requireNonBlank,
     requireTimestamp,
     type PublicationApprovalRequest,
-} from '@postbot/core'
-import type { Publication } from '@postbot/core'
+} from '@postdot/core'
+import type { Publication } from '@postdot/core'
 
 import {
     createDatabaseTransaction,

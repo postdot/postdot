@@ -1,5 +1,5 @@
-import type { ExternalEffectOutcome } from '@postbot/core'
-import { MASTODON_MAX_VIDEO_BYTES, type MastodonPublisher } from '@postbot/mastodon'
+import type { ExternalEffectOutcome } from '@postdot/core'
+import { MASTODON_MAX_VIDEO_BYTES, type MastodonPublisher } from '@postdot/mastodon'
 
 import { ambiguousFailure, permanentFailure } from '../outcomes'
 import { openVerifiedPinnedMedia } from './media-integrity'

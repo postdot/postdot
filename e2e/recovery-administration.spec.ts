@@ -10,7 +10,7 @@ test('requires explicit recovery acknowledgement and keeps a refused resumption 
     await page.addInitScript(() => localStorage.setItem('postbot-locale', 'en'))
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Set up Postbot', exact: true }).click()
+    await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Recovery operator')
     await page.getByLabel('Email', { exact: true }).fill(`recovery-${randomUUID()}@postbot.local`)
     await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple')

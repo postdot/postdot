@@ -1,4 +1,4 @@
-import { cn } from '@postbot/ui/lib/utils'
+import { cn } from '@postdot/ui/lib/utils'
 
 import type { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { formatNumber } from '@/lib/format'

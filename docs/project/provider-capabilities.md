@@ -1,7 +1,7 @@
 # Implemented provider capabilities
 
 Repository review: 2026-10-21, including TELEGRAM-549, ENGAGEMENT-543/544 and ANALYTICS-550. Use this reference to choose
-product work and understand current Postbot coverage. It describes implemented
+product work and understand current Postdot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
 
@@ -14,7 +14,7 @@ serves notifications and is not a publishing destination.
 
 ## Current coverage
 
-“Absent” means Postbot has no implementation for that workflow. It does not mean
+“Absent” means Postdot has no implementation for that workflow. It does not mean
 the platform prohibits it. “Stored snapshot” means an editor explicitly refreshes
 provider data and project members read the saved result. Counts alone do not
 provide comment bodies or a reply interface.

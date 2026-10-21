@@ -37,7 +37,7 @@ export interface RuntimeQuiescenceLock {
  * Acquires the process-level boundary shared by the API runtime and recovery
  * commands. The marker is deliberately fail-closed: a leftover marker is not
  * reclaimed based on a possibly reused PID. An operator must verify that no
- * Postbot process is using the database before removing such a marker.
+ * Postdot process is using the database before removing such a marker.
  */
 export function acquireRuntimeQuiescenceLock(
     databaseFilename: string,
@@ -57,7 +57,7 @@ export function acquireRuntimeQuiescenceLock(
     } catch (error) {
         if (errorCode(error) === 'EEXIST') {
             throw new Error(
-                `Cannot acquire Postbot runtime lock for ${databasePath}: ${lockFilename} is already held. Stop the active Postbot runtime, or verify and remove this exact stale marker after a forced stop, before retrying.`
+                `Cannot acquire Postdot runtime lock for ${databasePath}: ${lockFilename} is already held. Stop the active Postdot runtime, or verify and remove this exact stale marker after a forced stop, before retrying.`
             )
         }
         throw error

@@ -1,6 +1,6 @@
-# Postbot Custom HTTP
+# Postdot Custom HTTP
 
-`@postbot/custom-http` executes automatic delivery for runtime-defined Postbot
+`@postdot/custom-http` executes automatic delivery for runtime-defined Postdot
 channels. It accepts a versioned declarative contract and never evaluates code
 from a channel profile.
 
@@ -35,7 +35,7 @@ JSON Pointer values from target content and execution context into:
 - JSON, URL-encoded form, or multipart bodies;
 - bounded arrays and objects;
 - short-lived signed media URLs supplied by the application or streamed multipart
-  media. Postbot's application layer owns the URL authority; this package never
+  media. Postdot's application layer owns the URL authority; this package never
   constructs a storage URL.
 
 The connection owns the fixed origin and authentication secret. A mapped profile
@@ -64,7 +64,7 @@ For example, a path-authenticated profile can use:
 
 The connection still stores only the origin in `endpointUrl`; the secret remains
 in the encrypted publisher credential. The exact encoded request URL is never
-included in Postbot envelopes, mapped content, errors, or logs.
+included in Postdot envelopes, mapped content, errors, or logs.
 
 ## Network boundary
 

@@ -1,6 +1,6 @@
 # Public source preparation review
 
-Date: 2026-10-21. Scope: PUBLIC-552. Publication status: **not cleared**.
+Date: 2026-10-21. Scope: PUBLIC-552. Review result: **no major disclosure blocker identified**. Transfer/publication preparation continues in PUBLIC-553.
 
 ## Outcome
 
@@ -9,11 +9,12 @@ file or SQLite database was confirmed in the examined source and history. This
 is a finding from bounded inspection, not a guarantee that arbitrary secrets or
 sensitive prose cannot remain.
 
-The main obstacle is disclosure of operational context: historical worklogs link
-real provider accounts to acceptance tests, describe authentication difficulties,
-and expose unrelated local project paths. Deleting a current file does not remove
-it from earlier commits. The owner must choose the public history and records
-policy before changing visibility.
+On 2026-10-21 the owner chose to preserve the existing repository history, branches
+and pull requests. Public account identifiers, local paths and working preferences
+are low-sensitivity context, not reasons to reset history. Apply useful corrections
+to current records without attempting to erase every earlier occurrence. Revisit
+history only if a concrete serious exposure, such as an exploitable secret, is
+confirmed. The earlier new-initial-history proposal was rejected.
 
 ## Examined surfaces
 
@@ -58,12 +59,12 @@ privacy and the README; the parent reviewed both reports and retained their limi
 
 | Finding | Assessment | Disposition |
 | --- | --- | --- |
-| Real social handles, permanent account identifiers and test-post URLs in worklogs | Unnecessary personal-account correlation; not credentials | Exclude from a public snapshot, or redact every reachable historical occurrence under an explicitly accepted history plan |
-| Account recovery and secret-reveal difficulties in worklogs | Personal operational state | Keep the original evidence private; publish only the technical prerequisite |
-| Home directories, unrelated project paths, internal session IDs | Mostly low sensitivity, unnecessary operational detail | Generalize useful technical evidence; keep raw execution records private |
-| Deleted handover still in Git history | Current-tree deletion does not remove the historical context | Include in the history decision |
+| Real social handles, permanent account identifiers and test-post URLs in worklogs | Unnecessary personal-account correlation; not credentials | Generalize unnecessary current account references; preserve earlier commits under the owner-accepted policy |
+| Account recovery and secret-reveal difficulties in worklogs | Personal operational state | Reduce current wording to the technical prerequisite; do not rewrite history for low-sensitivity context |
+| Home directories, unrelated project paths, internal session IDs | Mostly low sensitivity, unnecessary operational detail | Generalize unrelated private paths where useful; retain ordinary technical records |
+| Deleted handover still in Git history | Current-tree deletion does not remove the historical context | Accepted as low-sensitivity historical context; no history rewrite |
 | Historical security audit reproductions | Evidence of prior defects, not proof of an unfixed current flaw | Preserve useful transparency with accurate fix/version context; do not erase known defects to imply safety |
-| Commit author identities | Names and email addresses are public with commit history | Review the author identity on any new public initial commit |
+| Commit author identities | Names and email addresses are public with commit history | Preserve existing authorship and contributions |
 | Runtime/credential file variants | Existing ignores covered ordinary .env and SQLite files | Extended Git ignores for SQLite3, .db and private-key/certificate-store formats; templates remain visible |
 
 The independent reviewer assigned some public identifiers a higher risk than the
@@ -71,42 +72,39 @@ parent accepts. An OAuth client ID, a public domain or an orchestration UUID is
 not an access credential by itself. The actionable concern is unnecessary personal
 correlation and operational context, not an invented authentication bypass.
 
-## Proposed publication boundary
+## Accepted publication boundary
 
-**Recommendation, not an adopted migration:** keep the present repository private
-and create postdot/postdot from a reviewed source snapshot with a new initial
-history. Preserve copyright notices, third-party licenses and provenance. Keep
-reviewed architecture, accepted contracts and contributor instructions available;
-keep raw worklogs, private acceptance evidence and conversational handovers in a
-separate private store. Curate task/issue records and documentation links rather
-than publishing or deleting the entire Autonomos tree mechanically.
+Preserve the existing repository and its history. Prepare its rename and transfer
+to postdot/postdot, retaining commits, branches, pull requests and useful Autonomos
+records. Do not create a replacement repository with a new initial history, squash
+the accumulated work, force push, or delete agent records wholesale.
 
-Before using that snapshot, resolve links to excluded evidence and ensure a fresh
-checkout can build and follow the public instructions. The repository should have
-one clearly identified canonical development path after migration; do not create
-an indefinitely diverging public mirror. Existing private collaborators, branches
-and issues remain intact until a deliberate transition.
+Current-document corrections can remove unnecessary personal-account correlations
+and unrelated private paths while retaining acceptance outcomes and technical
+rationale. Their earlier versions remain in Git by design. This is proportionate
+to the observed low sensitivity; it is not a claim of historical erasure.
 
-The alternative is a coordinated cleanup of the existing repository and its
-reachable history, branches, pull-request surfaces and associated metadata before
-changing visibility. That keeps more history but changes commit identities and
-requires more coordination. GitHub documents the [effects of history rewriting](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository).
+GitHub documents that [repository transfers](https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository)
+preserve Git history and associated pull requests, issues, stars and watchers.
+Check actual permissions, destination availability and integrations before transfer.
+The code rename must preserve persisted cryptographic/data identities rather than
+blindly replacing every historical byte. Making source public does not authorize
+publishing packages/images or deploying the site.
 
-Neither strategy has been executed. No force push, repository transfer, visibility
-change, package/image publication, external account creation or deployment occurred.
+No reset or history rewrite was performed. PUBLIC-553 records actual subsequent
+preparation and any external changes; this report records the disclosure review.
 
-## Limits and next decision
+## Limits and next steps
 
 This was a disclosure review, not a penetration test, exhaustive authorization
 review or legal clearance. Pattern scanning cannot prove the absence of secrets
 in arbitrary formats or private prose. Ignored runtime stores were not copied or
 opened for this audit. Historical Actions logs were not downloaded (584 runs were
-listed); retained logs would need review under an existing-repository visibility
-change. GitHub-internal inaccessible refs, caches and attachments not represented
+listed). Their contents are outside the evidence of this review; absent a concrete
+signal, this does not mandate an exhaustive historical-log cleanup. GitHub-internal inaccessible refs, caches and attachments not represented
 by the fetched metadata are not cleared by this review.
 
-The new-snapshot recommendation avoids exposing those old remote surfaces; it
-still requires inspecting the exact final snapshot before publication. Complete
-BRAND-551's namespace and identity plan alongside that launch preparation. The
-owner reports reserving postdot.app, the npm postdot namespace and the GitHub
-postdot organization; no package or registry image publication is implied.
+Complete BRAND-551's namespace and identity plan alongside launch preparation.
+The owner reports reserving postdot.app, the npm postdot namespace, the GitHub
+postdot organization and Docker Hub ID postdot. None implies a package or image
+release. No serious confirmed exposure currently justifies rewriting history.
