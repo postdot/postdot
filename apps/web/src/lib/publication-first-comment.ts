@@ -1,5 +1,5 @@
 /**
- * Studio rules for the prepared first comment of a native Bluesky
+ * Studio rules for the prepared first comment of a native
  * publication. The public view belongs to the shared client contract; this
  * module owns only the deterministic Studio behaviour around it.
  */
@@ -50,9 +50,14 @@ export function countFirstCommentGraphemes(text: string): number {
  * most 3000 UTF-16 code units. The unit ceiling is reached by emoji sequences
  * that stay inside the grapheme limit.
  */
-export function firstCommentTextProblem(text: string): FirstCommentTextProblem | null {
+export function firstCommentTextProblem(
+    text: string,
+    providerId: 'bluesky' | 'mastodon' = 'bluesky',
+    textLimit = providerId === 'mastodon' ? 500 : firstCommentMaxGraphemes
+): FirstCommentTextProblem | null {
     if (text.trim().length === 0) return 'empty'
-    if (countFirstCommentGraphemes(text) > firstCommentMaxGraphemes) return 'too_long'
+    if (providerId === 'mastodon') return text.length > textLimit ? 'too_long_units' : null
+    if (countFirstCommentGraphemes(text) > textLimit) return 'too_long'
     if (text.length > firstCommentMaxTextLength) return 'too_long_units'
     return null
 }
@@ -121,12 +126,17 @@ export function firstCommentCancellable(
     return item !== null && isFirstCommentEditableState(item.state)
 }
 
-/** Only a Bluesky permalink may be presented as the published comment. */
-export function firstCommentExternalLinkAllowed(url: string | null): url is string {
+/** A published comment link stays on its known provider origin. */
+export function firstCommentExternalLinkAllowed(
+    url: string | null,
+    providerId: 'bluesky' | 'mastodon' = 'bluesky',
+    instanceOrigin: string | null = null
+): url is string {
     if (url === null) return false
     try {
         const parsed = new URL(url)
-        if (parsed.protocol !== 'https:' || parsed.origin !== 'https://bsky.app') return false
+        const origin = providerId === 'mastodon' ? instanceOrigin : 'https://bsky.app'
+        if (parsed.protocol !== 'https:' || parsed.origin !== origin) return false
         // A permalink never carries credentials; userinfo would disguise the
         // real destination in the address bar.
         return parsed.username === '' && parsed.password === ''

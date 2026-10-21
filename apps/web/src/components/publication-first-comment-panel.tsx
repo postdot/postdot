@@ -26,7 +26,6 @@ import {
     firstCommentEditState,
     firstCommentExternalLinkAllowed,
     firstCommentFormEditable,
-    firstCommentMaxGraphemes,
     firstCommentMaxTextLength,
     firstCommentReloaded,
     firstCommentSubmitRevision,
@@ -267,8 +266,9 @@ export function PublicationFirstCommentPanel({
     const readOnlyOutcome = item !== null && !editable
     const stateNotice = item === null ? null : firstCommentStateNotice(item.state)
     const cancellable = firstCommentCancellable(response, disabled)
-    const graphemes = countFirstCommentGraphemes(text)
-    const textProblem = firstCommentTextProblem(text)
+    const characterCount =
+        response.providerId === 'mastodon' ? text.length : countFirstCommentGraphemes(text)
+    const textProblem = firstCommentTextProblem(text, response.providerId, response.textLimit)
     const textInvalid = attempted && textProblem !== null
     const expectedRevision = firstCommentSubmitRevision(edit, live)
 
@@ -333,7 +333,11 @@ export function PublicationFirstCommentPanel({
                                 <p className="mt-1 break-words">{item.lastError}</p>
                             </details>
                         ) : null}
-                        {firstCommentExternalLinkAllowed(item.externalUrl) ? (
+                        {firstCommentExternalLinkAllowed(
+                            item.externalUrl,
+                            response.providerId,
+                            response.instanceOrigin
+                        ) ? (
                             <a
                                 href={item.externalUrl}
                                 target="_blank"
@@ -421,7 +425,7 @@ export function PublicationFirstCommentPanel({
                                 }}
                             />
                             <FieldDescription id={counterId} className="text-xs">
-                                {graphemes}/{firstCommentMaxGraphemes}
+                                {characterCount}/{response.textLimit}
                             </FieldDescription>
                             {textInvalid ? (
                                 <FieldError id={textErrorId}>
@@ -429,10 +433,14 @@ export function PublicationFirstCommentPanel({
                                         ? m.first_comment_text_empty()
                                         : textProblem === 'too_long'
                                           ? m.first_comment_text_too_long({
-                                                limit: String(firstCommentMaxGraphemes),
+                                                limit: String(response.textLimit),
                                             })
                                           : m.first_comment_text_too_long_units({
-                                                limit: String(firstCommentMaxTextLength),
+                                                limit: String(
+                                                    response.providerId === 'mastodon'
+                                                        ? response.textLimit
+                                                        : firstCommentMaxTextLength
+                                                ),
                                             })}
                                 </FieldError>
                             ) : null}

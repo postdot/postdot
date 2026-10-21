@@ -53,7 +53,7 @@ export function registerPublicationFirstCommentRoutes<const Routes extends Recor
                 response,
                 detail: {
                     operationId: 'savePublicationFirstComment',
-                    summary: 'Save and enable a prepared Bluesky first comment',
+                    summary: 'Save and enable a prepared first comment',
                     tags: ['Publications'],
                 },
             },

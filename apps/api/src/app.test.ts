@@ -1156,6 +1156,8 @@ describe('Postbot API', () => {
                 '/api/oauth/facebook/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/facebook/pages',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/facebook/select',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/instagram/connect',
+                '/api/oauth/instagram/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
                 '/api/oauth/linkedin/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/telegram/connect',
@@ -1218,13 +1220,34 @@ describe('Postbot API', () => {
                 '/api/projects/{projectId}/notification-preferences/{kind}',
                 '/api/projects/{projectId}/analytics',
                 '/api/projects/{projectId}/analytics/provider/bluesky',
+                '/api/projects/{projectId}/analytics/provider/bluesky/latest',
                 '/api/projects/{projectId}/analytics/provider/bluesky/collect',
                 '/api/projects/{projectId}/analytics/provider/devto',
+                '/api/projects/{projectId}/analytics/provider/devto/latest',
                 '/api/projects/{projectId}/analytics/provider/devto/collect',
+                '/api/projects/{projectId}/analytics/provider/mastodon',
+                '/api/projects/{projectId}/analytics/provider/mastodon/latest',
+                '/api/projects/{projectId}/analytics/provider/mastodon/collect',
+                '/api/projects/{projectId}/publications/{publicationId}/comments',
+                '/api/projects/{projectId}/publications/{publicationId}/comments/refresh',
+                '/api/projects/{projectId}/publications/{publicationId}/comments/replies',
+                '/api/projects/{projectId}/publications/{publicationId}/first-comment',
+                '/api/projects/{projectId}/publications/{publicationId}/first-comment/cancel',
                 '/api/projects/{projectId}/audit-events',
                 '/api/projects/{projectId}/events',
                 '/api/notifications/events',
             ])
+            const firstCommentPath =
+                '/api/projects/{projectId}/publications/{publicationId}/first-comment'
+            expect(specification.paths[firstCommentPath]?.get?.operationId).toBe(
+                'getPublicationFirstComment'
+            )
+            expect(specification.paths[firstCommentPath]?.put?.operationId).toBe(
+                'savePublicationFirstComment'
+            )
+            expect(specification.paths[`${firstCommentPath}/cancel`]?.post?.operationId).toBe(
+                'cancelPublicationFirstComment'
+            )
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
             expect(specification.paths['/api/channel-profile-presets']?.get?.operationId).toBe(

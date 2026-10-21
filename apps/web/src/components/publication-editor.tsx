@@ -349,7 +349,7 @@ export function PublicationEditor({
     // delivery of this publication, never a channel name.
     const firstCommentSupported =
         editor.profile.profile.execution.kind === 'built_in' &&
-        editor.profile.profile.execution.contractId === 'bluesky' &&
+        ['bluesky', 'mastodon'].includes(editor.profile.profile.execution.contractId) &&
         editor.publication.deliveryMode === 'automatic'
 
     useEffect(() => {

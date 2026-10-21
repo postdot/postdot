@@ -358,14 +358,19 @@ export {
     createPublicationFirstCommentStore,
     firstCommentMaximumDelaySeconds,
     firstCommentMaximumGraphemes,
+    firstCommentMaximumMastodonTextLength,
     firstCommentMaximumTextLength,
 } from './publication-first-comment-store'
 export type {
     CancelPublicationFirstCommentInput,
+    MastodonStatusReference,
+    MastodonStatusReferenceResolver,
     PublicationFirstComment,
     PublicationFirstCommentMutation,
+    PublicationFirstCommentProvider,
     PublicationFirstCommentState,
     PublicationFirstCommentStore,
+    PublicationFirstCommentStoreOptions,
     PublicationFirstCommentView,
     SavePublicationFirstCommentInput,
 } from './publication-first-comment-store'

@@ -18,9 +18,46 @@ export const firstCommentMaximumDelaySeconds = 604_800
 export const firstCommentMaximumGraphemes = 300
 /** Longest first comment accepted by the Bluesky contract in UTF-16 code units. */
 export const firstCommentMaximumTextLength = 3_000
+/** Longest first comment accepted by the Mastodon contract in UTF-16 code units. */
+export const firstCommentMaximumMastodonTextLength = 500
 
 const editableStates = ['waiting', 'pending', 'suspended'] as const
 const reconcilableStates = ['waiting', 'pending'] as const
+
+/** The provider that owns a prepared first comment. */
+export type PublicationFirstCommentProvider = 'bluesky' | 'mastodon'
+
+/**
+ * The instance-local identity of a Mastodon status.
+ *
+ * The shape mirrors the Mastodon protocol package so the application can
+ * inject its reference parser without the database depending on a provider
+ * package.
+ */
+export interface MastodonStatusReference {
+    readonly origin: string
+    readonly statusId: string
+    readonly rootUri: string
+}
+
+/**
+ * Resolves the instance-local identity of a Mastodon status from the local
+ * status identifier and the retained permalink of a publication.
+ */
+export type MastodonStatusReferenceResolver = (
+    externalId: string | null,
+    externalUrl: string | null
+) => MastodonStatusReference | null
+
+export interface PublicationFirstCommentStoreOptions {
+    /**
+     * Parses the retained Mastodon permalink of a published parent into its
+     * instance-local status identity. Without it a Mastodon comment fails
+     * closed instead of waiting for a reference that can never be resolved.
+     * Bluesky comments never use it.
+     */
+    readonly mastodonStatusReference?: MastodonStatusReferenceResolver
+}
 
 export type PublicationFirstComment = typeof firstComments.$inferSelect
 export type PublicationFirstCommentState = PublicationFirstComment['state']
@@ -75,6 +112,7 @@ interface PublicationRow {
     readonly deliveryMode: string
     readonly publishedAt: number | null
     readonly externalId: string | null
+    readonly externalUrl: string | null
 }
 
 /**
@@ -92,8 +130,10 @@ interface NativeReceiptRow {
 /** The publisher identity currently able to act for a channel. */
 interface ReceiptIdentityRow {
     readonly connectionId: string
+    readonly endpointUrl: string | null
     readonly credentialId: string
     readonly accountId: string
+    readonly scopes: string
     readonly credentialState: string
 }
 
@@ -108,6 +148,7 @@ interface CredentialRow {
     readonly id: string
     readonly providerId: string
     readonly externalAccountId: string
+    readonly scopes: string
     readonly state: string
 }
 
@@ -115,6 +156,7 @@ interface ConnectionRow {
     readonly id: string
     readonly publisherId: string
     readonly credentialId: string
+    readonly endpointUrl: string | null
 }
 
 interface PublisherRow {
@@ -126,7 +168,7 @@ interface PublisherRow {
 /**
  * A native parent receipt exists only when the publication was delivered by a
  * succeeded automatic job whose completion is the recorded publication time,
- * and the executed profile is the built-in Bluesky contract.
+ * and the executed profile is the built-in contract of the pinned provider.
  *
  * The proof never joins the publisher connection. The receipt is a property of
  * the publication, so removing a connection cannot hide a delivery that already
@@ -157,11 +199,14 @@ const nativeReceiptProof = `
           and proof_profiles.state <> 'disabled'
           and proof_profiles.origin = 'built_in'
           and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = 'bluesky'
+          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = publication_first_comments.provider_id
     )
 `
 
-export function createPublicationFirstCommentStore(database: PostbotDatabase) {
+export function createPublicationFirstCommentStore(
+    database: PostbotDatabase,
+    options: PublicationFirstCommentStoreOptions = {}
+) {
     const client = database.$client
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
@@ -173,12 +218,13 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                state,
                delivery_mode as deliveryMode,
                published_at as publishedAt,
-               external_id as externalId
+               external_id as externalId,
+               external_url as externalUrl
         from publications
         where project_id = ?1
           and id = ?2
     `)
-    const loadNativeReceiptStatement = client.query<NativeReceiptRow, [string, string]>(`
+    const loadNativeReceiptStatement = client.query<NativeReceiptRow, [string, string, string]>(`
         select proof_executions.id as executionRevisionId,
                proof_publications.external_id as externalId,
                proof_publications.published_at as publishedAt
@@ -204,14 +250,19 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
           and proof_profiles.state <> 'disabled'
           and proof_profiles.origin = 'built_in'
           and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = 'bluesky'
+          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = ?3
         order by proof_jobs.completed_at desc, proof_executions.created_at desc
         limit 1
     `)
-    const loadReceiptIdentityStatement = client.query<ReceiptIdentityRow, [string, string]>(`
+    const loadReceiptIdentityStatement = client.query<
+        ReceiptIdentityRow,
+        [string, string, string]
+    >(`
         select proof_connections.id as connectionId,
+               proof_connections.endpoint_url as endpointUrl,
                proof_credentials.id as credentialId,
                proof_credentials.external_account_id as accountId,
+               proof_credentials.scopes as scopes,
                proof_credentials.state as credentialState
         from publishers as proof_publishers
         inner join publisher_connections as proof_connections
@@ -220,12 +271,15 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         inner join publisher_credentials as proof_credentials
             on proof_credentials.project_id = proof_connections.project_id
            and proof_credentials.id = proof_connections.credential_id
-           and proof_credentials.provider_id = 'bluesky'
+           and proof_credentials.provider_id = ?3
         where proof_publishers.project_id = ?1
           and proof_publishers.channel_id = ?2
-          and proof_publishers.kind = 'bluesky'
+          and proof_publishers.kind = ?3
     `)
-    const loadPinnedReceiptStatement = client.query<PinnedReceiptRow, [string, string, string]>(`
+    const loadPinnedReceiptStatement = client.query<
+        PinnedReceiptRow,
+        [string, string, string, string]
+    >(`
         select proof_executions.id as executionRevisionId,
                proof_publications.external_id as externalId,
                proof_publications.published_at as publishedAt
@@ -245,7 +299,7 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
            and proof_profiles.state <> 'disabled'
            and proof_profiles.origin = 'built_in'
            and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-           and json_extract(proof_profiles.profile_json, '$.execution.contractId') = 'bluesky'
+           and json_extract(proof_profiles.profile_json, '$.execution.contractId') = ?4
         where proof_executions.project_id = ?1
           and proof_executions.id = ?2
           and proof_executions.publication_id = ?3
@@ -255,6 +309,7 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         select id,
                provider_id as providerId,
                external_account_id as externalAccountId,
+               scopes,
                state
         from publisher_credentials
         where project_id = ?1
@@ -263,7 +318,8 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
     const loadConnectionStatement = client.query<ConnectionRow, [string, string]>(`
         select id,
                publisher_id as publisherId,
-               credential_id as credentialId
+               credential_id as credentialId,
+               endpoint_url as endpointUrl
         from publisher_connections
         where project_id = ?1
           and id = ?2
@@ -276,11 +332,11 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         where project_id = ?1
           and id = ?2
     `)
-    const isNativeBlueskyChannelStatement = client.query<
-        { readonly id: string },
+    const nativeChannelProviderStatement = client.query<
+        { readonly contractId: string },
         [string, string]
     >(`
-        select channels.id
+        select json_extract(channel_profile_versions.profile_json, '$.execution.contractId') as contractId
         from channels
         inner join channel_profile_versions
             on channel_profile_versions.project_id = channels.project_id
@@ -290,7 +346,7 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
           and channel_profile_versions.state <> 'disabled'
           and channel_profile_versions.origin = 'built_in'
           and json_extract(channel_profile_versions.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(channel_profile_versions.profile_json, '$.execution.contractId') = 'bluesky'
+          and json_extract(channel_profile_versions.profile_json, '$.execution.contractId') in ('bluesky', 'mastodon')
     `)
     const nextEventStatement = client.query<{ readonly eventAt: number | null }, [number]>(`
         select min(event_at) as eventAt
@@ -358,6 +414,37 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         if (actor === undefined || actor === null || actor.subjectId === null) return false
         return access.canAccessProject(projectId, actor.subjectId, 'editor')
     }
+
+    /**
+     * The provider that publishes a channel natively, or null when the channel
+     * has no explicit built-in execution contract.
+     */
+    function nativeProviderForChannel(
+        projectId: string,
+        channelId: string
+    ): PublicationFirstCommentProvider | null {
+        const contractId = nativeChannelProviderStatement.get(projectId, channelId)?.contractId
+        return contractId === 'bluesky' || contractId === 'mastodon' ? contractId : null
+    }
+
+    /**
+     * Resolves the instance-local identity of a Mastodon parent through the
+     * injected protocol parser. A missing or failing parser resolves to
+     * nothing, so the caller fails the comment closed instead of waiting for
+     * a reference that can never be bound.
+     */
+    function resolveMastodonReference(
+        externalId: string | null,
+        externalUrl: string | null
+    ): MastodonStatusReference | null {
+        const resolver = options.mastodonStatusReference
+        if (resolver === undefined) return null
+        try {
+            return resolver(externalId, externalUrl)
+        } catch {
+            return null
+        }
+    }
     function event(
         rowValue: PublicationFirstComment,
         name: string,
@@ -391,6 +478,11 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
      * parent, and the parent must still expose the pinned root. A parent that
      * was reconciled or re-published under another receipt is rejected instead
      * of being followed.
+     *
+     * A Mastodon comment is pinned to the instance that published the parent,
+     * so its account identifier is only meaningful together with that
+     * instance: the connection must still point at the pinned origin and the
+     * credential must still be allowed to write statuses.
      */
     function identityFailureReason(rowValue: PublicationFirstComment): string | null {
         const publication = loadPublicationStatement.get(rowValue.projectId, rowValue.publicationId)
@@ -407,24 +499,45 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         ) {
             return 'The confirmed publication receipt is incomplete'
         }
+        if (rowValue.providerId === 'mastodon' && rowValue.instanceOrigin === null) {
+            return 'The confirmed publication receipt is incomplete'
+        }
         const receipt = loadPinnedReceiptStatement.get(
             rowValue.projectId,
             rowValue.executionRevisionId,
-            rowValue.publicationId
+            rowValue.publicationId,
+            rowValue.providerId
         )
         if (receipt === null || receipt.publishedAt !== publication.publishedAt) {
             return 'The confirmed publication receipt is no longer available'
         }
-        if (publication.externalId !== rowValue.rootUri) {
+        if (rowValue.providerId === 'mastodon') {
+            // The parent is re-resolved from its current permalink so a
+            // republished or moved status is never followed silently.
+            const current = resolveMastodonReference(
+                publication.externalId,
+                publication.externalUrl
+            )
+            if (
+                current === null ||
+                current.rootUri !== rowValue.rootUri ||
+                current.origin !== rowValue.instanceOrigin
+            ) {
+                return 'The confirmed parent publication changed'
+            }
+        } else if (publication.externalId !== rowValue.rootUri) {
             return 'The confirmed parent publication changed'
         }
         const credential = loadCredentialStatement.get(rowValue.projectId, rowValue.credentialId)
         if (
             credential === null ||
-            credential.providerId !== 'bluesky' ||
+            credential.providerId !== rowValue.providerId ||
             credential.externalAccountId !== rowValue.accountId ||
             credential.state !== 'active'
         ) {
+            return 'The original account is no longer available'
+        }
+        if (rowValue.providerId === 'mastodon' && !hasWriteScope(credential.scopes)) {
             return 'The original account is no longer available'
         }
         const connection = loadConnectionStatement.get(rowValue.projectId, rowValue.connectionId)
@@ -434,12 +547,21 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         const publisher = loadPublisherStatement.get(rowValue.projectId, connection.publisherId)
         if (
             publisher === null ||
-            publisher.kind !== 'bluesky' ||
+            publisher.kind !== rowValue.providerId ||
             publisher.channelId !== publication.channelId
         ) {
             return 'The original connection is no longer available'
         }
-        if (accountDidFromRootUri(rowValue.rootUri) !== rowValue.accountId) {
+        if (
+            rowValue.providerId === 'mastodon' &&
+            connection.endpointUrl !== rowValue.instanceOrigin
+        ) {
+            return 'The original connection is no longer available'
+        }
+        if (
+            rowValue.providerId === 'bluesky' &&
+            accountDidFromRootUri(rowValue.rootUri) !== rowValue.accountId
+        ) {
             return 'The confirmed publication does not belong to the connected account'
         }
         return null
@@ -697,9 +819,10 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
         },
 
         /**
-         * A comment can be configured for a native automatic Bluesky
-         * publication before delivery, or for a publication that already owns a
-         * prepared comment. Terminal and claimed comments are frozen.
+         * A comment can be configured for a native automatic Bluesky or
+         * Mastodon publication before delivery, or for a publication that
+         * already owns a prepared comment. Terminal and claimed comments are
+         * frozen.
          */
         canConfigure(projectId: string, publicationId: string): boolean {
             const publication = loadPublicationStatement.get(projectId, publicationId)
@@ -708,7 +831,7 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
             if (existing !== null) return isEditableState(existing.state)
             if (publication.deliveryMode !== 'automatic') return false
             if (publication.state !== 'draft' && publication.state !== 'scheduled') return false
-            return isNativeBlueskyChannelStatement.get(projectId, publication.channelId) !== null
+            return nativeProviderForChannel(projectId, publication.channelId) !== null
         },
 
         /**
@@ -721,12 +844,15 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
          * + 1` even when the row has since been armed or suspended, and a
          * duplicated request returns the same row instead of a second
          * configuration.
+         *
+         * The provider is pinned when the comment is first configured and never
+         * changes afterwards: an edit that would move the comment to another
+         * provider is refused instead of silently changing what it publishes.
          */
         save(input: SavePublicationFirstCommentInput): PublicationFirstCommentMutation {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const publicationId = requireNonBlank(input.publicationId, 'publicationId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const text = normalizeText(input.text)
             const delaySeconds = normalizeDelaySeconds(input.delaySeconds)
             const expectedRevision = normalizeExpectedRevision(input.expectedRevision)
             const recordKey = requireNonBlank(input.recordKey, 'recordKey')
@@ -739,15 +865,24 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                     return { kind: 'not_found' }
                 }
                 const existing = row(projectId, publicationId)
+                const publication = loadPublicationStatement.get(projectId, publicationId)
+                const channelProvider =
+                    publication === null
+                        ? null
+                        : nativeProviderForChannel(projectId, publication.channelId)
+                // A configured comment keeps the provider it was pinned to. A
+                // new one adopts the provider of the channel it will publish
+                // on, and an unknown provider falls back to the strictest
+                // text envelope until the configuration is refused.
+                const providerId = existing?.providerId ?? channelProvider ?? 'bluesky'
+                const text = normalizeText(input.text, providerId)
                 if (existing === null) {
                     if (expectedRevision !== 0) return { kind: 'conflict' }
-                    const publication = loadPublicationStatement.get(projectId, publicationId)
                     if (publication === null) return { kind: 'not_found' }
                     if (
                         publication.deliveryMode !== 'automatic' ||
                         (publication.state !== 'draft' && publication.state !== 'scheduled') ||
-                        isNativeBlueskyChannelStatement.get(projectId, publication.channelId) ===
-                            null
+                        channelProvider === null
                     ) {
                         return { kind: 'conflict' }
                     }
@@ -759,6 +894,8 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                         text,
                         delaySeconds,
                         state: 'waiting',
+                        providerId: channelProvider,
+                        instanceOrigin: null,
                         revision: 1,
                         dueAt: null,
                         rootUri: null,
@@ -782,6 +919,12 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                     return { kind: 'saved', firstComment: created }
                 }
 
+                // The provider is pinned: a channel that now publishes with
+                // another provider never moves a prepared comment.
+                if (channelProvider !== null && channelProvider !== existing.providerId) {
+                    return { kind: 'conflict' }
+                }
+
                 const identicalConfiguration =
                     existing.text === text && existing.delaySeconds === delaySeconds
                 const suspended = existing.state === 'suspended'
@@ -801,7 +944,6 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                 if (existing.revision !== expectedRevision) return { kind: 'conflict' }
 
                 const armed = existing.executionRevisionId !== null
-                const publication = loadPublicationStatement.get(projectId, publicationId)
                 const dueAt = armed
                     ? computeDueAt(publication?.publishedAt ?? null, delaySeconds, existing.dueAt)
                     : null
@@ -932,11 +1074,6 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                     }
                     let armed = current
                     if (current.state === 'waiting') {
-                        const receipt = loadNativeReceiptStatement.get(
-                            current.projectId,
-                            current.publicationId
-                        )
-                        if (receipt === null) continue
                         const failWaiting = (reason: string): void => {
                             transition(
                                 current,
@@ -951,54 +1088,128 @@ export function createPublicationFirstCommentStore(database: PostbotDatabase) {
                                 timestamp
                             )
                         }
-                        const rootUri = receipt.externalId
-                        if (rootUri === null || rootUri.trim().length === 0) {
-                            failWaiting('The confirmed publication receipt is incomplete')
-                            continue
-                        }
-                        const accountDid = accountDidFromRootUri(rootUri)
-                        if (accountDid === null) {
-                            failWaiting(
-                                'The confirmed publication does not belong to the connected account'
-                            )
-                            continue
-                        }
-                        const identity = loadReceiptIdentityStatement.get(
+                        // A channel that now publishes with another provider can
+                        // never confirm this comment, so it fails closed
+                        // instead of waiting forever.
+                        const channelProvider = nativeProviderForChannel(
                             current.projectId,
                             publication.channelId
                         )
-                        if (identity === null) {
-                            failWaiting('The original connection is no longer available')
-                            continue
-                        }
-                        if (identity.credentialState !== 'active') {
-                            failWaiting('The original account is no longer available')
-                            continue
-                        }
-                        if (identity.accountId !== accountDid) {
+                        if (channelProvider !== null && channelProvider !== current.providerId) {
                             failWaiting(
-                                'The confirmed publication does not belong to the connected account'
+                                'The configured channel no longer publishes with this provider'
                             )
                             continue
                         }
-                        const bound = transition(
-                            current,
-                            {
-                                state: 'pending',
-                                dueAt: receipt.publishedAt + current.delaySeconds * 1_000,
-                                rootUri,
-                                executionRevisionId: receipt.executionRevisionId,
-                                connectionId: identity.connectionId,
-                                credentialId: identity.credentialId,
-                                accountId: identity.accountId,
-                                updatedAt: timestamp,
-                                lastError: null,
-                            },
-                            'publication_first_comment.armed',
-                            timestamp
+                        const receipt = loadNativeReceiptStatement.get(
+                            current.projectId,
+                            current.publicationId,
+                            current.providerId
                         )
-                        if (bound === null) continue
-                        armed = bound
+                        if (receipt === null) continue
+                        if (current.providerId === 'mastodon') {
+                            // The Mastodon receipt carries no account identity:
+                            // the local status is resolved from the retained
+                            // permalink and bound to the instance that owns it.
+                            const reference = resolveMastodonReference(
+                                publication.externalId,
+                                publication.externalUrl
+                            )
+                            if (reference === null) {
+                                failWaiting('The confirmed publication could not be resolved')
+                                continue
+                            }
+                            const identity = loadReceiptIdentityStatement.get(
+                                current.projectId,
+                                publication.channelId,
+                                current.providerId
+                            )
+                            if (identity === null) {
+                                failWaiting('The original connection is no longer available')
+                                continue
+                            }
+                            if (identity.credentialState !== 'active') {
+                                failWaiting('The original account is no longer available')
+                                continue
+                            }
+                            if (identity.endpointUrl !== reference.origin) {
+                                failWaiting('The original connection is no longer available')
+                                continue
+                            }
+                            if (!hasWriteScope(identity.scopes)) {
+                                failWaiting('The original account is no longer available')
+                                continue
+                            }
+                            const bound = transition(
+                                current,
+                                {
+                                    state: 'pending',
+                                    dueAt: receipt.publishedAt + current.delaySeconds * 1_000,
+                                    rootUri: reference.rootUri,
+                                    instanceOrigin: reference.origin,
+                                    executionRevisionId: receipt.executionRevisionId,
+                                    connectionId: identity.connectionId,
+                                    credentialId: identity.credentialId,
+                                    accountId: identity.accountId,
+                                    updatedAt: timestamp,
+                                    lastError: null,
+                                },
+                                'publication_first_comment.armed',
+                                timestamp
+                            )
+                            if (bound === null) continue
+                            armed = bound
+                        } else {
+                            const rootUri = receipt.externalId
+                            if (rootUri === null || rootUri.trim().length === 0) {
+                                failWaiting('The confirmed publication receipt is incomplete')
+                                continue
+                            }
+                            const accountDid = accountDidFromRootUri(rootUri)
+                            if (accountDid === null) {
+                                failWaiting(
+                                    'The confirmed publication does not belong to the connected account'
+                                )
+                                continue
+                            }
+                            const identity = loadReceiptIdentityStatement.get(
+                                current.projectId,
+                                publication.channelId,
+                                current.providerId
+                            )
+                            if (identity === null) {
+                                failWaiting('The original connection is no longer available')
+                                continue
+                            }
+                            if (identity.credentialState !== 'active') {
+                                failWaiting('The original account is no longer available')
+                                continue
+                            }
+                            if (identity.accountId !== accountDid) {
+                                failWaiting(
+                                    'The confirmed publication does not belong to the connected account'
+                                )
+                                continue
+                            }
+                            const bound = transition(
+                                current,
+                                {
+                                    state: 'pending',
+                                    dueAt: receipt.publishedAt + current.delaySeconds * 1_000,
+                                    rootUri,
+                                    executionRevisionId: receipt.executionRevisionId,
+                                    connectionId: identity.connectionId,
+                                    credentialId: identity.credentialId,
+                                    accountId: identity.accountId,
+                                    updatedAt: timestamp,
+                                    lastError: null,
+                                },
+                                'publication_first_comment.armed',
+                                timestamp
+                            )
+                            if (bound === null) continue
+                            armed = bound
+                        }
                     }
                     const failureReason = identityFailureReason(armed)
                     if (failureReason !== null) {
@@ -1052,21 +1263,48 @@ function isEditableState(state: PublicationFirstCommentState): boolean {
     return (editableStates as readonly string[]).includes(state)
 }
 
-function normalizeText(value: string): string {
+/**
+ * Validates the comment text against the envelope of its provider.
+ *
+ * Bluesky keeps its grapheme and UTF-16 limits. Mastodon accepts the
+ * conservative reply envelope of 500 UTF-16 code units.
+ */
+function normalizeText(value: string, providerId: PublicationFirstCommentProvider): string {
     const text = requireNonBlank(value, 'first comment text')
-    if (text.length > firstCommentMaximumTextLength) {
+    const maximumTextLength =
+        providerId === 'mastodon'
+            ? firstCommentMaximumMastodonTextLength
+            : firstCommentMaximumTextLength
+    if (text.length > maximumTextLength) {
         throw new DomainInvariantError(
             'invalid_input',
-            `first comment text must not exceed ${String(firstCommentMaximumTextLength)} UTF-16 code units`
+            `first comment text must not exceed ${String(maximumTextLength)} UTF-16 code units`
         )
     }
-    if (graphemeCount(text) > firstCommentMaximumGraphemes) {
+    if (providerId === 'bluesky' && graphemeCount(text) > firstCommentMaximumGraphemes) {
         throw new DomainInvariantError(
             'invalid_input',
             `first comment text must not exceed ${String(firstCommentMaximumGraphemes)} graphemes`
         )
     }
     return text
+}
+
+/**
+ * Reports whether a credential is still allowed to publish statuses.
+ *
+ * A Mastodon credential needs either the broad write scope or the status
+ * write scope; anything else can never publish a comment.
+ */
+function hasWriteScope(scopes: string): boolean {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(scopes)
+    } catch {
+        return false
+    }
+    if (!Array.isArray(parsed)) return false
+    return parsed.some(scope => scope === 'write' || scope === 'write:statuses')
 }
 
 function normalizeDelaySeconds(value: number): number {

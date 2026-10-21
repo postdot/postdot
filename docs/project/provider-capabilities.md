@@ -1,6 +1,6 @@
 # Implemented provider capabilities
 
-Repository review: 2026-10-21, including TELEGRAM-541 and ENGAGEMENT-543. Use this reference to choose
+Repository review: 2026-10-21, including TELEGRAM-541 and ENGAGEMENT-543/544. Use this reference to choose
 product work and understand current Postbot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
@@ -44,7 +44,7 @@ The [comment routes](../../apps/api/src/modules/projects/publication-comments-ro
 and [reply service](../../apps/api/src/modules/projects/publication-replies-service.ts)
 support only Bluesky and Mastodon. Reads retain the latest bounded public
 snapshot; replies retain conversation-owned send history and outcomes. These
-are not an account-wide inbox or moderation tools. Native automatic Bluesky
+are not an account-wide inbox or moderation tools. Native automatic Bluesky and Mastodon
 publications also support a separately prepared [first comment](first-comments.md)
 with a delay after confirmed publication and an independent delivery outcome.
 
@@ -83,9 +83,10 @@ closing leaves the poll open. This does not collect votes or results.
 
 ## Next product gap
 
-Extend prepared first comments to Mastodon after confirming its direct-root
-context validation. Reuse the accepted delay, suspension and independent-outcome
-contract; keep provider preparation separate from incoming conversation replies.
+Choose attribution rules for shared-post and tag-based performance reports
+(ISSUE-172) before implementing aggregation. Existing provider observations can
+support that slice without another account or collector. Keep unlike provider
+metrics separate and make incomplete coverage explicit.
 
 X post counters are an alternative, but existing OAuth scopes do not prove
 endpoint entitlement or free access. The current

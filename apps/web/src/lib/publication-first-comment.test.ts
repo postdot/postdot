@@ -45,6 +45,9 @@ function response(
     overrides: Partial<PublicationFirstCommentResponse> = {}
 ): PublicationFirstCommentResponse {
     return {
+        providerId: 'bluesky',
+        textLimit: 300,
+        instanceOrigin: null,
         firstComment: null,
         canConfigure: false,
         canManage: false,
@@ -362,6 +365,42 @@ describe('first comment external link', () => {
         ).toBe(false)
         expect(
             firstCommentExternalLinkAllowed('https://user:pass@bsky.app/profile/did/post/1')
+        ).toBe(false)
+    })
+})
+
+describe('Mastodon prepared comment envelope', () => {
+    test('uses its conservative UTF-16 limit without the Bluesky grapheme ceiling', () => {
+        expect(firstCommentTextProblem('a'.repeat(500), 'mastodon')).toBeNull()
+        expect(firstCommentTextProblem('a'.repeat(501), 'mastodon')).toBe('too_long_units')
+        expect(firstCommentTextProblem('👋'.repeat(250), 'mastodon')).toBeNull()
+        expect(firstCommentTextProblem('👋'.repeat(251), 'mastodon')).toBe('too_long_units')
+        expect(firstCommentTextProblem(' ', 'mastodon')).toBe('empty')
+    })
+    test('only opens a Mastodon link on the pinned instance origin', () => {
+        expect(
+            firstCommentExternalLinkAllowed(
+                'https://social.example/@owner/123',
+                'mastodon',
+                'https://social.example'
+            )
+        ).toBe(true)
+        expect(
+            firstCommentExternalLinkAllowed(
+                'https://other.example/@owner/123',
+                'mastodon',
+                'https://social.example'
+            )
+        ).toBe(false)
+        expect(
+            firstCommentExternalLinkAllowed(
+                'https://user@social.example/@owner/123',
+                'mastodon',
+                'https://social.example'
+            )
+        ).toBe(false)
+        expect(
+            firstCommentExternalLinkAllowed('https://social.example/@owner/123', 'mastodon', null)
         ).toBe(false)
     })
 })

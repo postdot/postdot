@@ -2966,6 +2966,14 @@ export const publicationFirstComments = sqliteTable(
         text: text('text').notNull(),
         delaySeconds: integer('delay_seconds').notNull(),
         state: text('state', { enum: publicationFirstCommentStates }).notNull(),
+        // The provider is pinned when the comment is configured. Historical
+        // rows predate the Mastodon extension and stay Bluesky.
+        providerId: text('provider_id', { enum: ['bluesky', 'mastodon'] })
+            .notNull()
+            .default('bluesky'),
+        // The instance that owns the pinned Mastodon status. Bluesky has no
+        // instance boundary, so it stays null.
+        instanceOrigin: text('instance_origin'),
         // Configuration revision: it advances on an editor save or cancel and
         // never on a lifecycle transition such as arming or suspension.
         revision: integer('revision').default(1).notNull(),

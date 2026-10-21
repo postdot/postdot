@@ -1,17 +1,19 @@
 # Scheduled first comments
 
-Implementation: ENGAGEMENT-543, 2026-10-21. Scope: native automatic Bluesky
-publications. Mastodon and other providers remain outside this first slice.
+Implementation: ENGAGEMENT-543/544, 2026-10-21. Scope: native automatic Bluesky
+and Mastodon publications. Other providers remain outside this slice.
 
 ## Prepare a comment in Studio
 
-Open a draft or scheduled Bluesky publication and expand **First comment**.
+Open a draft or scheduled Bluesky or Mastodon publication and expand **First comment**.
 Enter plain text, choose **Send after**, and select **Save and enable**.
 Preparing the comment does not require a connected account; publishing and
-sending it require a valid Bluesky connection.
+sending it require a valid connection to its provider.
 
-The comment accepts up to 300 graphemes and 3000 UTF-16 code units. Delay presets
-are immediately after confirmation, 5 or 30 minutes, 1 hour, 1 day and 7 days.
+Bluesky comments accept up to 300 graphemes and 3000 UTF-16 code units. Mastodon
+uses the existing conservative reply limit of 500 UTF-16 code units; an instance
+can impose additional restrictions. Delay presets are immediately after
+confirmation, 5 or 30 minutes, 1 hour, 1 day and 7 days.
 The stored delay is an integer from 0 to 604800 seconds after Postbot confirms
 native publication success. Zero means eligible after confirmation, without a
 guarantee of immediate delivery.
@@ -57,13 +59,19 @@ through the [durable effect fence](../../.autonomos/decisions/ADR-009-fence-exte
 Interrupted work before the effect boundary can recover; uncertainty after that
 boundary remains ambiguous.
 
-Arming checks the root record's account against the current project connection.
+Arming checks the Bluesky root record's account against the current project
+connection. Mastodon binds the local status identifier and retained permalink
+to the original instance, account and connection. Live account verification and
+an anonymous read must confirm that account owns the Mastodon parent. Only
+public and unlisted parents are supported; the comment retains their visibility.
+A numeric account identifier from a different instance cannot authorize a send.
 Execution revisions do not retain the original connection identifier, so a
 connection recreated for the same account before arming cannot be distinguished
 from the prior connection. Once armed, the connection, credential, account,
 execution and parent identity are pinned and rechecked before sending. A changed
 account or parent fails closed. Live Bluesky context validation supplies strong
-references immediately before the send.
+references immediately before the send. Mastodon resolves the owned parent
+directly, without requiring an incoming descendant or comment snapshot.
 
 The dedicated first-comment routes preserve the eligibility rules of existing
 conversation replies. GET requires project read access; save/enable and cancel

@@ -12,8 +12,10 @@ import {
     type PostbotDatabase,
     type PublicationFirstComment,
 } from '@postbot/db'
+import { mastodonReplyTextValid, resolveMastodonStatusReference } from '@postbot/mastodon'
 
 import type { PublisherRuntime } from '../publishers/runtime'
+import { performMastodonFirstComment } from './publication-first-comment-mastodon'
 import type {
     PublicationFirstCommentResponse,
     PublicationFirstCommentSave,
@@ -38,7 +40,9 @@ export function createPublicationFirstCommentService(options: {
         signal: AbortSignal
     ) => Promise<ExternalEffectOutcome>
 }) {
-    const store = createPublicationFirstCommentStore(options.database)
+    const store = createPublicationFirstCommentStore(options.database, {
+        mastodonStatusReference: resolveMastodonStatusReference,
+    })
     const access = createAccessStore(options.database)
     const manual = createManualStore(options.database)
     const now = options.now ?? Date.now
@@ -51,11 +55,17 @@ export function createPublicationFirstCommentService(options: {
         if (!editor) return null
         const row = store.get(projectId, publicationId, subjectId)
         const execution = editor.profile.profile.execution
-        const supported =
+        const nativeProvider =
             execution.kind === 'built_in' &&
-            execution.contractId === 'bluesky' &&
+            (execution.contractId === 'bluesky' || execution.contractId === 'mastodon')
+                ? execution.contractId
+                : null
+        const providerId = row?.providerId ?? nativeProvider
+        const supported =
+            nativeProvider !== null &&
+            nativeProvider === providerId &&
             editor.publication.deliveryMode === 'automatic'
-        if (!supported && row === null) return null
+        if ((!supported && row === null) || !providerId) return null
         const canManage = access.canAccessProject(projectId, subjectId, 'editor')
         const canConfigure =
             canManage &&
@@ -72,6 +82,9 @@ export function createPublicationFirstCommentService(options: {
                       )
                       .get(projectId, row.actorId)
         return {
+            providerId,
+            textLimit: providerId === 'mastodon' ? 500 : 300,
+            instanceOrigin: row?.instanceOrigin ?? null,
             firstComment:
                 row === null
                     ? null
@@ -108,6 +121,23 @@ export function createPublicationFirstCommentService(options: {
             if (options.performComment) {
                 dispatched = true
                 return await options.performComment(work, signal)
+            }
+            if (work.providerId === 'mastodon') {
+                return await performMastodonFirstComment({
+                    work: {
+                        ...work,
+                        rootUri: work.rootUri,
+                        credentialId: work.credentialId,
+                        accountId: work.accountId,
+                    },
+                    publisher: options.publisher,
+                    signal,
+                    now: now(),
+                    stillEligible: () => store.claimCurrent(work, now()),
+                    onDispatch: () => {
+                        dispatched = true
+                    },
+                })
             }
             return await performBlueskyReply({
                 publisher: options.publisher,
@@ -151,7 +181,12 @@ export function createPublicationFirstCommentService(options: {
         ) {
             const current = get(input.projectId, input.publicationId, input.subjectId)
             if (!current) return { kind: 'not_found' } as const
-            if (!current.canConfigure || !blueskyReplyTextValid(input.text))
+            if (
+                !current.canConfigure ||
+                !(current.providerId === 'mastodon'
+                    ? mastodonReplyTextValid(input.text)
+                    : blueskyReplyTextValid(input.text))
+            )
                 return { kind: 'conflict' } as const
             return store.save({ ...input, recordKey: createBlueskyReplyRecordKey(), now: now() })
         },

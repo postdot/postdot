@@ -9,6 +9,7 @@ import {
     createManualStore,
     createAccessStore,
 } from '@postbot/db'
+import { mastodonChannelProfile } from '@postbot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -18,12 +19,21 @@ import { createPublicationFirstCommentService } from './publication-first-commen
 
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa'
 const parentUri = `at://${did}/app.bsky.feed.post/parent`
-async function fixture() {
+async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production = false) {
+    const profile = provider === 'mastodon' ? mastodonChannelProfile : blueskyChannelProfile
+    const receiptId = provider === 'mastodon' ? '100' : parentUri
+    const receiptUrl =
+        provider === 'mastodon'
+            ? 'https://social.example/@owner/100'
+            : 'https://bsky.app/profile/owner.test/post/parent'
+    const accountId = provider === 'mastodon' ? '10' : did
     const database = createDatabase(':memory:')
     runMigrations(database)
     let clock = Date.now()
     let parentFails = false
     let commentThrows = false
+    let liveAccount = '10'
+    let beforeContext: (() => void) | undefined
     let parentEffects = 0
     const commentEffects: string[] = []
     const baseURL = 'http://localhost:3000'
@@ -32,6 +42,44 @@ async function fixture() {
         webOrigin: 'http://localhost:5173',
         publisherEncryptionKey: new Uint8Array(32).fill(1),
         publisherEncryptionKeyId: 'test',
+        mastodon: {
+            fetcher: async (url, init) => {
+                const parsed = new URL(String(url))
+                expect(parsed.origin).toBe('https://social.example')
+                if (parsed.pathname === '/api/v1/accounts/verify_credentials') {
+                    expect(new Headers(init?.headers).get('authorization')).toBe(
+                        'Bearer synthetic-access-token'
+                    )
+                    return Response.json({ id: liveAccount })
+                }
+                if (parsed.pathname === '/api/v1/statuses/100') {
+                    expect(new Headers(init?.headers).has('authorization')).toBe(false)
+                    beforeContext?.()
+                    return Response.json({
+                        id: '100',
+                        account: { id: '10' },
+                        visibility: 'unlisted',
+                    })
+                }
+                if (parsed.pathname === '/api/v1/statuses' && init?.method === 'POST') {
+                    const body = init.body as URLSearchParams
+                    expect(body.get('in_reply_to_id')).toBe('100')
+                    expect(body.get('visibility')).toBe('unlisted')
+                    const key = new Headers(init.headers).get('idempotency-key')!
+                    expect(key).toStartWith('first-comment:')
+                    commentEffects.push(key.slice('first-comment:'.length))
+                    if (commentThrows) throw new Error('synthetic secret diagnostic')
+                    return Response.json({
+                        id: '200',
+                        url: 'https://social.example/@owner/200',
+                        account: { id: '10' },
+                        in_reply_to_id: '100',
+                        visibility: 'unlisted',
+                    })
+                }
+                throw new Error('Unexpected synthetic Mastodon path')
+            },
+        },
         bluesky: {
             clientMetadataUrl: 'https://postbot.example/client-metadata.json',
             handleResolver: 'https://resolver.example',
@@ -41,17 +89,23 @@ async function fixture() {
         database,
         publisher,
         now: () => clock,
-        performComment: async work => {
-            commentEffects.push(work.recordKey)
-            expect(work.rootUri).toBe(parentUri)
-            expect(work.accountId).toBe(did)
-            if (commentThrows) throw new Error('synthetic secret diagnostic')
-            return {
-                type: 'published',
-                externalId: `at://${did}/app.bsky.feed.post/${work.recordKey}`,
-                externalUrl: `https://bsky.app/profile/${did}/post/${work.recordKey}`,
-            }
-        },
+        performComment: production
+            ? undefined
+            : async work => {
+                  commentEffects.push(work.recordKey)
+                  expect(work.rootUri).toBe(
+                      provider === 'mastodon'
+                          ? 'https://social.example/api/v1/statuses/100'
+                          : parentUri
+                  )
+                  expect(work.accountId).toBe(accountId)
+                  if (commentThrows) throw new Error('synthetic secret diagnostic')
+                  return {
+                      type: 'published',
+                      externalId: `at://${did}/app.bsky.feed.post/${work.recordKey}`,
+                      externalUrl: `https://bsky.app/profile/${did}/post/${work.recordKey}`,
+                  }
+              },
     })
     const auth = createAuth(database, {
         baseURL,
@@ -101,18 +155,25 @@ async function fixture() {
         projectId: project.id,
         subjectId: owner.id,
         name: 'Bluesky',
-        profile: blueskyChannelProfile,
+        profile,
     })!
     const credential = await publisher.credentialStore.createPublisherCredential({
         projectId: project.id,
         connectedByActorId: publisher.publisherStore.getProjectActorId(project.id, owner.id)!,
-        providerId: 'bluesky',
-        externalAccountId: did,
-        scopes: [],
+        providerId: provider,
+        externalAccountId: accountId,
+        scopes: provider === 'mastodon' ? ['read:accounts', 'write:statuses'] : [],
         accessToken: 'synthetic-access-token',
-        providerSession: JSON.stringify({
-            tokenSet: { sub: did, access_token: 'synthetic-access-token' },
-        }),
+        providerSession: JSON.stringify(
+            provider === 'mastodon'
+                ? {
+                      version: 1,
+                      instanceUrl: 'https://social.example',
+                      clientId: 'synthetic-client',
+                      clientSecret: 'synthetic-secret',
+                  }
+                : { tokenSet: { sub: did, access_token: 'synthetic-access-token' } }
+        ),
     })
     if (credential.kind !== 'created') throw new Error('Fixture credential unavailable')
     expect(
@@ -120,8 +181,9 @@ async function fixture() {
             projectId: project.id,
             channelId: channel.id,
             subjectId: owner.id,
-            kind: 'bluesky',
+            kind: provider,
             credentialId: credential.credential.id,
+            ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
         }).kind
     ).toBe('created')
     const post = manual.createPost({
@@ -131,8 +193,7 @@ async function fixture() {
         publications: [{ channelId: channel.id, deliveryMode: 'automatic' }],
     })!
     const publicationId = post.publications[0]!.id
-    if (blueskyChannelProfile.execution.kind !== 'built_in')
-        throw new Error('Expected native profile')
+    if (profile.execution.kind !== 'built_in') throw new Error('Expected native profile')
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
@@ -141,9 +202,9 @@ async function fixture() {
         now: () => clock,
         builtInProviderRegistry: createBuiltInProviderRegistry([
             {
-                providerId: 'bluesky',
-                contractId: 'bluesky',
-                revision: blueskyChannelProfile.execution.revision,
+                providerId: provider,
+                contractId: provider,
+                revision: profile.execution.revision,
                 execute: async () => {
                     parentEffects++
                     return parentFails
@@ -154,8 +215,8 @@ async function fixture() {
                           }
                         : {
                               type: 'published',
-                              externalId: parentUri,
-                              externalUrl: 'https://bsky.app/profile/owner.test/post/parent',
+                              externalId: receiptId,
+                              externalUrl: receiptUrl,
                           }
                 },
             },
@@ -186,6 +247,13 @@ async function fixture() {
         },
         failParent() {
             parentFails = true
+        },
+        credentialId: credential.credential.id,
+        setLiveAccount(id: string) {
+            liveAccount = id
+        },
+        beforeContext(callback: () => void) {
+            beforeContext = callback
         },
         loseCommentResponse() {
             commentThrows = true
@@ -377,6 +445,119 @@ test('reads with viewer access, rejects viewer writes and suspends until another
         expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
             'sent'
         )
+    } finally {
+        await f.close()
+    }
+})
+
+test('Mastodon prepares 500 units and sends one direct first comment on its original instance without a snapshot', async () => {
+    const f = await fixture('mastodon', true)
+    try {
+        const saved = await f.request(f.path, f.owner.cookie, 'PUT', {
+            text: 'a'.repeat(500),
+            delaySeconds: 300,
+            expectedRevision: 0,
+        })
+        expect(saved.status).toBe(200)
+        expect(await saved.json()).toMatchObject({
+            providerId: 'mastodon',
+            textLimit: 500,
+            firstComment: { state: 'waiting' },
+        })
+        expect(
+            (
+                await f.request(f.path, f.owner.cookie, 'PUT', {
+                    text: 'a'.repeat(501),
+                    delaySeconds: 300,
+                    expectedRevision: 1,
+                })
+            ).status
+        ).toBe(409)
+        await f.publish()
+        await f.service.processDueEvents()
+        expect(f.commentEffects).toHaveLength(0)
+        const pinned = f.service.store.get(f.project.id, f.publicationId, f.owner.id)!
+        expect(pinned).toMatchObject({
+            providerId: 'mastodon',
+            instanceOrigin: 'https://social.example',
+            rootUri: 'https://social.example/api/v1/statuses/100',
+            state: 'pending',
+        })
+        f.advance(900_000)
+        await f.worker.processDueEvents(f.now)
+        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)).toMatchObject({
+            instanceOrigin: 'https://social.example',
+            firstComment: { state: 'sent', externalUrl: 'https://social.example/@owner/200' },
+        })
+        await f.worker.processDueEvents(f.now)
+        expect(f.commentEffects).toEqual([pinned.recordKey])
+    } finally {
+        await f.close()
+    }
+})
+
+test('Mastodon first comments recheck the account and the instance immediately before sending', async () => {
+    for (const mismatch of ['account', 'instance'] as const) {
+        const f = await fixture('mastodon', true)
+        try {
+            expect(
+                (
+                    await f.request(f.path, f.owner.cookie, 'PUT', {
+                        text: 'Follow-up',
+                        delaySeconds: 0,
+                        expectedRevision: 0,
+                    })
+                ).status
+            ).toBe(200)
+            await f.publish()
+            if (mismatch === 'account') f.setLiveAccount('99')
+            else
+                f.beforeContext(() =>
+                    f.database.$client
+                        .query(
+                            "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
+                        )
+                        .run(f.credentialId)
+                )
+            await f.service.processDueEvents()
+            expect(f.commentEffects).toHaveLength(0)
+            expect(
+                f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state
+            ).toBe('failed')
+        } finally {
+            await f.close()
+        }
+    }
+})
+
+test('Mastodon first-comment uncertainty remains independent and is never resent', async () => {
+    const f = await fixture('mastodon', true)
+    try {
+        expect(
+            (
+                await f.request(f.path, f.owner.cookie, 'PUT', {
+                    text: 'Follow-up',
+                    delaySeconds: 0,
+                    expectedRevision: 0,
+                })
+            ).status
+        ).toBe(200)
+        await f.publish()
+        f.loseCommentResponse()
+        await f.service.processDueEvents()
+        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
+            'ambiguous'
+        )
+        expect(
+            JSON.stringify(f.service.get(f.project.id, f.publicationId, f.owner.id))
+        ).not.toContain('secret diagnostic')
+        f.advance(900_000)
+        await f.worker.processDueEvents(f.now)
+        expect(f.commentEffects).toHaveLength(1)
+        expect(
+            f.manual.getPublicationEditorState(f.project.id, f.publicationId, f.owner.id)
+                ?.publication.state
+        ).toBe('published')
     } finally {
         await f.close()
     }

@@ -4314,7 +4314,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The owner distinguishes a prepared first comment from replying to an incoming comment. Postiz documents delayed first-comment publishing.
 - Desired outcome: Verify support and constraints per provider. Design a dependent delivery after confirmed parent publication, with remote parent identity, explicit timing, independent failure state, retry safety and duplicate prevention. A failed parent cannot trigger its comment. Do not imply an inbox or AI author is required.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-478 (discovery); ENGAGEMENT-542 scoped the first slice. The owner selected Bluesky, overdue catch-up after revalidation and suspension on enabling-editor access loss. ENGAGEMENT-543 implements that [first-comment workflow](../docs/project/first-comments.md); other providers remain open. Local injected/browser acceptance does not claim live delivery.
+- Tasks: PRODUCT-478 (discovery); ENGAGEMENT-542 scoped the first slice. The owner selected Bluesky, overdue catch-up after revalidation and suspension on enabling-editor access loss. ENGAGEMENT-543/544 implement that [first-comment workflow](../docs/project/first-comments.md) for Bluesky and Mastodon; other providers remain open. Local injected/browser acceptance does not claim live delivery.
 - Source: owner clarification, 2026-10-16.
 
 ## [ISSUE-172] Define shared-post and tag-based performance reports

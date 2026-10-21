@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { eq } from 'drizzle-orm'
 
@@ -29,6 +32,11 @@ const now = 1_800_000_000_000
 const accountDid = 'did:plc:bluesky-operator'
 const rootUri = `at://${accountDid}/app.bsky.feed.post/comment1`
 const leaseDuration = 60_000
+const mastodonOrigin = 'https://social.example'
+const mastodonAccountId = '10'
+const mastodonStatusId = '100'
+const mastodonPermalink = `${mastodonOrigin}/@owner/${mastodonStatusId}`
+const mastodonRootUri = `${mastodonOrigin}/api/v1/statuses/${mastodonStatusId}`
 
 const blueskyProfile = {
     id: 'bluesky',
@@ -59,8 +67,69 @@ const blueskyProfile = {
     execution: { kind: 'built_in' as const, contractId: 'bluesky', revision: 'post-v2' },
 }
 
+const mastodonProfile = {
+    id: 'mastodon',
+    version: 1,
+    profileHash: 'sha256:postbot-mastodon-status-v1',
+    schemaHash: 'sha256:postbot-mastodon-status-schema-v1',
+    origin: 'built_in' as const,
+    contentSchema: {
+        type: 'object' as const,
+        properties: { text: { type: 'string' as const, minLength: 1, maxLength: 500 } },
+        required: ['text'],
+        additionalProperties: false,
+    },
+    fieldBindings: [{ id: 'text', semantic: 'primary_text' as const, path: '/text' }],
+    capabilities: {
+        revision: 'mastodon-status-v1',
+        textFields: [
+            {
+                bindingId: 'text',
+                acceptedSourceFormats: ['plain_text' as const],
+                maxLength: 500,
+            },
+        ],
+        mediaFields: [],
+        relations: [],
+    },
+    execution: { kind: 'built_in' as const, contractId: 'mastodon', revision: 'status-v1' },
+}
+
+/**
+ * A stand-in for the Mastodon protocol reference parser.
+ *
+ * The database package never depends on a provider package, so the protocol
+ * parser is injected by the application. The double mirrors the contract the
+ * store relies on: a numeric local status identifier and a retained permalink
+ * identify one status of one instance.
+ */
+function resolveMastodonStatusReference(
+    externalId: string | null,
+    externalUrl: string | null
+): { readonly origin: string; readonly statusId: string; readonly rootUri: string } | null {
+    if (externalId === null || !/^\d+$/.test(externalId) || externalUrl === null) return null
+    try {
+        const url = new URL(externalUrl)
+        if (url.username || url.password || url.search || url.hash) return null
+        if (
+            !new RegExp(`^/(?:@[^/]+/${externalId}|users/[^/]+/statuses/${externalId})$`).test(
+                url.pathname
+            )
+        )
+            return null
+        return {
+            origin: url.origin,
+            statusId: externalId,
+            rootUri: `${url.origin}/api/v1/statuses/${externalId}`,
+        }
+    } catch {
+        return null
+    }
+}
+
 interface Fixture {
     readonly database: ReturnType<typeof createDatabase>
+    readonly provider: 'bluesky' | 'mastodon'
     readonly projectId: string
     readonly editorSubjectId: string
     readonly editorActorId: string
@@ -90,9 +159,14 @@ function seedAccess(
         .run()
 }
 
-function createFixture(suffix = 'one'): Fixture {
+function createFixture(
+    suffix = 'one',
+    provider: 'bluesky' | 'mastodon' = 'bluesky',
+    options: { readonly migrationsFolder?: string } = {}
+): Fixture {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    if (options.migrationsFolder === undefined) runMigrations(database)
+    else runMigrations(database, options.migrationsFolder)
 
     const projectId = `project-${suffix}`
     const editorSubjectId = 'editor-user'
@@ -172,9 +246,15 @@ function createFixture(suffix = 'one'): Fixture {
             },
         ])
         .run()
+    const profile = provider === 'bluesky' ? blueskyProfile : mastodonProfile
     database
         .insert(channels)
-        .values({ id: channelId, projectId, name: 'Bluesky channel', profileVersionId })
+        .values({
+            id: channelId,
+            projectId,
+            name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
+            profileVersionId,
+        })
         .run()
     database
         .insert(channelProfileVersions)
@@ -182,29 +262,29 @@ function createFixture(suffix = 'one'): Fixture {
             id: profileVersionId,
             projectId,
             channelId,
-            profileId: blueskyProfile.id,
-            version: blueskyProfile.version,
-            origin: blueskyProfile.origin,
+            profileId: profile.id,
+            version: profile.version,
+            origin: profile.origin,
             state: 'active',
-            profileJson: blueskyProfile,
-            profileHash: blueskyProfile.profileHash,
-            schemaHash: blueskyProfile.schemaHash,
+            profileJson: profile,
+            profileHash: profile.profileHash,
+            schemaHash: profile.schemaHash,
             createdByActorId: editorActorId,
         })
         .run()
     database
         .insert(publishers)
-        .values({ id: `publisher-${suffix}`, projectId, channelId, kind: 'bluesky' })
+        .values({ id: `publisher-${suffix}`, projectId, channelId, kind: provider })
         .run()
     database
         .insert(publisherCredentials)
         .values({
             id: credentialId,
             projectId,
-            providerId: 'bluesky',
-            externalAccountId: accountDid,
-            externalAccountName: 'Bluesky Operator',
-            scopes: ['atproto'],
+            providerId: provider,
+            externalAccountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
+            externalAccountName: provider === 'bluesky' ? 'Bluesky Operator' : 'Mastodon Operator',
+            scopes: provider === 'bluesky' ? ['atproto'] : ['read:accounts', 'write:statuses'],
             state: 'active',
             connectedByActorId: editorActorId,
             encryptionVersion: 1,
@@ -220,6 +300,7 @@ function createFixture(suffix = 'one'): Fixture {
             projectId,
             publisherId: `publisher-${suffix}`,
             credentialId,
+            endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
             connectedByActorId: editorActorId,
         })
         .run()
@@ -262,8 +343,8 @@ function createFixture(suffix = 'one'): Fixture {
             deliveryMode: 'automatic',
             contentJson: { text: 'Parent post' },
             contentHash: `sha256:target-${suffix}`,
-            profileHash: blueskyProfile.profileHash,
-            schemaHash: blueskyProfile.schemaHash,
+            profileHash: profile.profileHash,
+            schemaHash: profile.schemaHash,
             validationIssuesJson: [],
             createdByActorId: editorActorId,
         })
@@ -271,6 +352,7 @@ function createFixture(suffix = 'one'): Fixture {
 
     return {
         database,
+        provider,
         projectId,
         editorSubjectId,
         editorActorId,
@@ -296,8 +378,11 @@ function publishNatively(
         readonly publishedAt: number
         readonly jobState?: 'succeeded' | 'failed'
         readonly deliveryMode?: 'automatic' | 'manual'
+        readonly statusId?: string
+        readonly permalink?: string
     }
 ): void {
+    const profile = fixture.provider === 'bluesky' ? blueskyProfile : mastodonProfile
     fixture.database
         .update(publications)
         .set({
@@ -305,8 +390,12 @@ function publishNatively(
             publishedAt: options.publishedAt,
             publishedByActorId: fixture.editorActorId,
             stateChangedByActorId: fixture.editorActorId,
-            externalId: rootUri,
-            externalUrl: `https://bsky.app/profile/${accountDid}/app.bsky.feed.post/comment1`,
+            externalId:
+                fixture.provider === 'bluesky' ? rootUri : (options.statusId ?? mastodonStatusId),
+            externalUrl:
+                fixture.provider === 'bluesky'
+                    ? `https://bsky.app/profile/${accountDid}/app.bsky.feed.post/comment1`
+                    : (options.permalink ?? mastodonPermalink),
             deliveryMode: options.deliveryMode ?? 'automatic',
             scheduledAt: null,
             scheduledByActorId: null,
@@ -342,10 +431,24 @@ function publishNatively(
             mediaReferenceCount: 0,
             contentJson: { text: 'Parent post' },
             contentHash: `sha256:target-${fixture.targetRevisionId}`,
-            profileHash: blueskyProfile.profileHash,
-            schemaHash: blueskyProfile.schemaHash,
+            profileHash: profile.profileHash,
+            schemaHash: profile.schemaHash,
         })
         .run()
+}
+
+/**
+ * Creates the store of a fixture.
+ *
+ * A Mastodon fixture always receives the protocol reference parser, unless the
+ * test asks for a store without it.
+ */
+function createStore(fixture: Fixture, options: { readonly withParser?: boolean } = {}) {
+    const withParser = options.withParser ?? true
+    return createPublicationFirstCommentStore(
+        fixture.database,
+        withParser ? { mastodonStatusReference: resolveMastodonStatusReference } : {}
+    )
 }
 
 function saveComment(
@@ -359,7 +462,7 @@ function saveComment(
         readonly at?: number
     } = {}
 ) {
-    return createPublicationFirstCommentStore(fixture.database).save({
+    return createStore(fixture).save({
         projectId: fixture.projectId,
         publicationId: fixture.publicationId,
         subjectId: options.subjectId ?? fixture.editorSubjectId,
@@ -1314,6 +1417,625 @@ describe('publication first comment store', () => {
             })
         } finally {
             closeDatabase(fixture.database)
+        }
+    })
+})
+
+describe('publication first comment store (mastodon)', () => {
+    it('prepares a Mastodon comment without any publisher connection', () => {
+        const fixture = createFixture('mastodon-prepare', 'mastodon')
+
+        try {
+            fixture.database
+                .delete(publisherConnections)
+                .where(eq(publisherConnections.id, fixture.connectionId))
+                .run()
+
+            const store = createStore(fixture)
+            expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
+
+            const created = saveComment(fixture)
+            expect(created.kind).toBe('saved')
+            if (created.kind !== 'saved') return
+            expect(created.firstComment).toMatchObject({
+                providerId: 'mastodon',
+                instanceOrigin: null,
+                state: 'waiting',
+                dueAt: null,
+                rootUri: null,
+                executionRevisionId: null,
+                connectionId: null,
+                credentialId: null,
+                accountId: null,
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('arms a native Mastodon receipt and binds the publishing instance', () => {
+        const fixture = createFixture('mastodon-native', 'mastodon')
+
+        try {
+            const store = createStore(fixture)
+            saveComment(fixture, { delaySeconds: 300 })
+
+            const publishedAt = now + 1_000
+            publishNatively(fixture, { publishedAt })
+
+            // The confirmed receipt must wake the worker even though the
+            // comment is still waiting.
+            expect(store.getNextEventAt(now)).toBe(now)
+
+            store.reconcile(publishedAt)
+
+            expect(readRow(fixture)).toMatchObject({
+                state: 'pending',
+                providerId: 'mastodon',
+                instanceOrigin: mastodonOrigin,
+                rootUri: mastodonRootUri,
+                accountId: mastodonAccountId,
+                connectionId: fixture.connectionId,
+                credentialId: fixture.credentialId,
+                executionRevisionId: fixture.executionRevisionId,
+                dueAt: publishedAt + 300_000,
+                revision: 1,
+            })
+            expect(store.getNextEventAt(now)).toBe(publishedAt + 300_000)
+            expect(journalActions(fixture)).toEqual([
+                'publication_first_comment.requested',
+                'publication_first_comment.armed',
+            ])
+            expect(fixture.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('refuses a parent that belongs to another instance', () => {
+        const fixture = createFixture('mastodon-instance', 'mastodon')
+
+        try {
+            const store = createStore(fixture)
+            saveComment(fixture)
+
+            const publishedAt = now + 1_000
+            // The same numeric status and account exist on another instance.
+            publishNatively(fixture, {
+                publishedAt,
+                statusId: mastodonStatusId,
+                permalink: `https://other.example/@owner/${mastodonStatusId}`,
+            })
+
+            store.reconcile(publishedAt)
+            expect(readRow(fixture)).toMatchObject({
+                state: 'failed',
+                lastError: 'The original connection is no longer available',
+                rootUri: null,
+                instanceOrigin: null,
+                accountId: null,
+                connectionId: null,
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('fails a replaced account and a credential that cannot write statuses', () => {
+        const replaced = createFixture('mastodon-replaced', 'mastodon')
+
+        try {
+            const store = createStore(replaced)
+            saveComment(replaced)
+            const publishedAt = now + 1_000
+            publishNatively(replaced, { publishedAt })
+            store.reconcile(publishedAt)
+            expect(readRow(replaced)).toMatchObject({
+                state: 'pending',
+                accountId: mastodonAccountId,
+            })
+
+            replaced.database
+                .update(publisherCredentials)
+                .set({ externalAccountId: '11' })
+                .where(eq(publisherCredentials.id, replaced.credentialId))
+                .run()
+
+            store.reconcile(publishedAt + 1)
+            expect(readRow(replaced)).toMatchObject({
+                state: 'failed',
+                lastError: 'The original account is no longer available',
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(replaced.database)
+        }
+
+        const scoped = createFixture('mastodon-scope', 'mastodon')
+
+        try {
+            const store = createStore(scoped)
+            saveComment(scoped)
+            scoped.database
+                .update(publisherCredentials)
+                .set({ scopes: ['read:accounts'] })
+                .where(eq(publisherCredentials.id, scoped.credentialId))
+                .run()
+
+            const publishedAt = now + 1_000
+            publishNatively(scoped, { publishedAt })
+
+            store.reconcile(publishedAt)
+            expect(readRow(scoped)).toMatchObject({
+                state: 'failed',
+                lastError: 'The original account is no longer available',
+                rootUri: null,
+                accountId: null,
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(scoped.database)
+        }
+    })
+
+    it('fails closed without a reference parser instead of waiting for one', () => {
+        const fixture = createFixture('mastodon-parser', 'mastodon')
+
+        try {
+            const store = createStore(fixture, { withParser: false })
+            const saved = store.save({
+                projectId: fixture.projectId,
+                publicationId: fixture.publicationId,
+                subjectId: fixture.editorSubjectId,
+                text: 'Thanks for the update',
+                delaySeconds: 300,
+                expectedRevision: 0,
+                recordKey: 'comment1',
+                now,
+            })
+            expect(saved.kind).toBe('saved')
+
+            const publishedAt = now + 1_000
+            publishNatively(fixture, { publishedAt })
+            expect(store.getNextEventAt(now)).toBe(now)
+
+            store.reconcile(publishedAt)
+            expect(readRow(fixture)).toMatchObject({
+                state: 'failed',
+                lastError: 'The confirmed publication could not be resolved',
+                rootUri: null,
+                instanceOrigin: null,
+                accountId: null,
+            })
+            // The terminal comment leaves the schedule instead of waking the
+            // worker forever.
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('stops the timer when the receipt or the connection disappears', () => {
+        const receipt = createFixture('mastodon-receipt', 'mastodon')
+
+        try {
+            const store = createStore(receipt)
+            saveComment(receipt)
+            const publishedAt = now + 1_000
+            publishNatively(receipt, { publishedAt })
+            store.reconcile(publishedAt)
+            expect(readRow(receipt)).toMatchObject({ state: 'pending' })
+
+            receipt.database
+                .update(jobs)
+                .set({ state: 'failed', errorMessage: 'The delivery was retried' })
+                .where(eq(jobs.id, receipt.jobId))
+                .run()
+
+            store.reconcile(publishedAt + 1)
+            expect(readRow(receipt)).toMatchObject({
+                state: 'failed',
+                lastError: 'The confirmed publication receipt is no longer available',
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(receipt.database)
+        }
+
+        const connection = createFixture('mastodon-connection', 'mastodon')
+
+        try {
+            const store = createStore(connection)
+            saveComment(connection)
+            const publishedAt = now + 1_000
+            publishNatively(connection, { publishedAt })
+            store.reconcile(publishedAt)
+            expect(readRow(connection)).toMatchObject({ state: 'pending' })
+
+            connection.database
+                .delete(publisherConnections)
+                .where(eq(publisherConnections.id, connection.connectionId))
+                .run()
+
+            store.reconcile(publishedAt + 1)
+            expect(readRow(connection)).toMatchObject({
+                state: 'failed',
+                lastError: 'The original connection is no longer available',
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(connection.database)
+        }
+    })
+
+    it('accepts the conservative 500 unit reply envelope', () => {
+        const fixture = createFixture('mastodon-text', 'mastodon')
+
+        try {
+            // Mastodon keeps its own envelope, so a comment that the Bluesky
+            // grapheme limit would refuse is accepted here.
+            expect(saveComment(fixture, { text: 'a'.repeat(400) }).kind).toBe('saved')
+            expect(() => saveComment(fixture, { text: 'a'.repeat(501) })).toThrow(
+                'must not exceed 500 UTF-16 code units'
+            )
+            expect(() => saveComment(fixture, { text: '   ' })).toThrow('must not be blank')
+        } finally {
+            closeDatabase(fixture.database)
+        }
+
+        const bluesky = createFixture('bluesky-text')
+
+        try {
+            expect(() => saveComment(bluesky, { text: 'a'.repeat(400) })).toThrow(
+                'must not exceed 300 graphemes'
+            )
+        } finally {
+            closeDatabase(bluesky.database)
+        }
+    })
+
+    it('re-enables a suspended Mastodon comment from the current revision', () => {
+        const fixture = createFixture('mastodon-suspend', 'mastodon')
+
+        try {
+            const store = createStore(fixture)
+            saveComment(fixture)
+            const publishedAt = now + 1_000
+            publishNatively(fixture, { publishedAt })
+            store.reconcile(publishedAt)
+            expect(readRow(fixture)).toMatchObject({
+                state: 'pending',
+                instanceOrigin: mastodonOrigin,
+                rootUri: mastodonRootUri,
+            })
+
+            fixture.database
+                .delete(projectUserGrants)
+                .where(
+                    eq(
+                        projectUserGrants.id,
+                        `grant:${fixture.projectId}:${fixture.editorSubjectId}`
+                    )
+                )
+                .run()
+            store.reconcile(publishedAt + 1)
+            expect(readRow(fixture)).toMatchObject({ state: 'suspended', revision: 1 })
+
+            // A stale revision can never lift the suspension.
+            expect(
+                saveComment(fixture, {
+                    subjectId: fixture.otherEditorSubjectId,
+                    expectedRevision: 0,
+                    text: 'An edited comment',
+                }).kind
+            ).toBe('conflict')
+
+            const reenabled = saveComment(fixture, {
+                subjectId: fixture.otherEditorSubjectId,
+                expectedRevision: 1,
+                text: 'An edited comment',
+            })
+            expect(reenabled.kind).toBe('saved')
+            if (reenabled.kind !== 'saved') return
+            expect(reenabled.firstComment).toMatchObject({
+                state: 'pending',
+                revision: 2,
+                providerId: 'mastodon',
+                instanceOrigin: mastodonOrigin,
+                rootUri: mastodonRootUri,
+                accountId: mastodonAccountId,
+                actorId: fixture.otherEditorActorId,
+                recordKey: 'comment1',
+                lastError: null,
+            })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('keeps the claim fence, the cancellation and the uncertainty of a send', () => {
+        const fixture = createFixture('mastodon-fence', 'mastodon')
+
+        try {
+            const store = createStore(fixture)
+            saveComment(fixture)
+            publishNatively(fixture, { publishedAt: now + 1 })
+            store.reconcile(now + 1)
+            const dueAt = now + 1 + 300_000
+
+            const claimed = store.deliveries.claimNextDueJob({
+                actorId: fixture.editorActorId,
+                claimToken: 'claim-mastodon',
+                now: dueAt,
+                leaseExpiresAt: dueAt + leaseDuration,
+            })
+            expect(claimed).not.toBeNull()
+            if (claimed === null) return
+
+            // A cancellation cannot take a claimed comment.
+            expect(
+                store.cancel({
+                    projectId: fixture.projectId,
+                    publicationId: fixture.publicationId,
+                    subjectId: fixture.editorSubjectId,
+                    expectedRevision: 1,
+                    now: dueAt + 1,
+                })
+            ).toEqual({ kind: 'conflict' })
+
+            expect(
+                store.deliveries.startExternalEffect(claimed.id, 'claim-mastodon', dueAt + 1)
+            ).toBe(true)
+            expect(
+                store.deliveries.completeExternalEffect({
+                    jobId: claimed.id,
+                    claimToken: 'claim-mastodon',
+                    completedAt: dueAt + 2,
+                    outcome: {
+                        type: 'ambiguous',
+                        errorMessage: 'The provider response was lost',
+                    },
+                })
+            ).toBe('ambiguous')
+            expect(readRow(fixture)).toMatchObject({
+                state: 'ambiguous',
+                lastError: 'The provider response was lost',
+            })
+            expect(
+                store.deliveries.claimNextDueJob({
+                    actorId: fixture.editorActorId,
+                    claimToken: 'claim-after-ambiguous',
+                    now: dueAt + 3,
+                    leaseExpiresAt: dueAt + 3 + leaseDuration,
+                })
+            ).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+
+        const cancelled = createFixture('mastodon-cancel', 'mastodon')
+
+        try {
+            const store = createStore(cancelled)
+            saveComment(cancelled)
+            const cancelledRow = store.cancel({
+                projectId: cancelled.projectId,
+                publicationId: cancelled.publicationId,
+                subjectId: cancelled.editorSubjectId,
+                expectedRevision: 1,
+                now: now + 2,
+            })
+            expect(cancelledRow.kind).toBe('saved')
+            expect(
+                store.deliveries.claimNextDueJob({
+                    actorId: cancelled.editorActorId,
+                    claimToken: 'claim-after-cancel',
+                    now: now + 1 + 300_000,
+                    leaseExpiresAt: now + 1 + 300_000 + leaseDuration,
+                })
+            ).toBeNull()
+        } finally {
+            closeDatabase(cancelled.database)
+        }
+    })
+
+    it('pins the provider and refuses an edit that would change it', () => {
+        const fixture = createFixture('mastodon-provider', 'mastodon')
+
+        try {
+            const created = saveComment(fixture)
+            expect(created.kind).toBe('saved')
+            if (created.kind !== 'saved') return
+            expect(created.firstComment.providerId).toBe('mastodon')
+
+            // The channel now publishes with another contract.
+            fixture.database
+                .update(channelProfileVersions)
+                .set({
+                    profileId: blueskyProfile.id,
+                    profileJson: blueskyProfile,
+                    profileHash: blueskyProfile.profileHash,
+                    schemaHash: blueskyProfile.schemaHash,
+                })
+                .where(eq(channelProfileVersions.id, fixture.profileVersionId))
+                .run()
+
+            expect(
+                saveComment(fixture, { expectedRevision: 1, text: 'An edited comment' })
+            ).toEqual({ kind: 'conflict' })
+            expect(readRow(fixture)).toMatchObject({
+                providerId: 'mastodon',
+                revision: 1,
+                text: 'Thanks for the update',
+            })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('never arms a receipt produced by another provider', () => {
+        const fixture = createFixture('mastodon-wrong-receipt', 'mastodon')
+
+        try {
+            const store = createStore(fixture)
+            saveComment(fixture)
+
+            const blueskyProfileVersionId = 'profile-bluesky-wrong-receipt'
+            fixture.database
+                .insert(channelProfileVersions)
+                .values({
+                    id: blueskyProfileVersionId,
+                    projectId: fixture.projectId,
+                    channelId: fixture.channelId,
+                    profileId: blueskyProfile.id,
+                    version: 3,
+                    origin: blueskyProfile.origin,
+                    state: 'superseded',
+                    profileJson: blueskyProfile,
+                    profileHash: blueskyProfile.profileHash,
+                    schemaHash: blueskyProfile.schemaHash,
+                    createdByActorId: fixture.editorActorId,
+                })
+                .run()
+
+            const publishedAt = now + 1_000
+            publishNatively(fixture, { publishedAt })
+            fixture.database
+                .update(publicationExecutionRevisions)
+                .set({ profileVersionId: blueskyProfileVersionId })
+                .where(eq(publicationExecutionRevisions.id, fixture.executionRevisionId))
+                .run()
+
+            store.reconcile(publishedAt)
+            expect(readRow(fixture)).toMatchObject({
+                state: 'waiting',
+                rootUri: null,
+                instanceOrigin: null,
+                accountId: null,
+            })
+            expect(store.getNextEventAt(now)).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('leaves Bluesky comments untouched by the Mastodon parser', () => {
+        const fixture = createFixture('bluesky-parser')
+
+        try {
+            let parserCalls = 0
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                mastodonStatusReference: (externalId, externalUrl) => {
+                    parserCalls += 1
+                    return resolveMastodonStatusReference(externalId, externalUrl)
+                },
+            })
+            store.save({
+                projectId: fixture.projectId,
+                publicationId: fixture.publicationId,
+                subjectId: fixture.editorSubjectId,
+                text: 'Thanks for the update',
+                delaySeconds: 300,
+                expectedRevision: 0,
+                recordKey: 'comment1',
+                now,
+            })
+            const publishedAt = now + 1_000
+            publishNatively(fixture, { publishedAt })
+            store.reconcile(publishedAt)
+
+            expect(readRow(fixture)).toMatchObject({
+                state: 'pending',
+                providerId: 'bluesky',
+                instanceOrigin: null,
+                rootUri,
+                accountId: accountDid,
+            })
+            expect(parserCalls).toBe(0)
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('keeps historical Bluesky comments when the provider column is added', () => {
+        const folder = mkdtempSync(join(tmpdir(), 'postbot-first-comment-migration-'))
+
+        try {
+            // The committed history without the provider column.
+            const journal = JSON.parse(
+                readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')
+            ) as { entries: { idx: number; tag: string }[] }
+            const historical = {
+                ...journal,
+                entries: journal.entries.filter(entry => entry.idx < 18),
+            }
+            mkdirSync(join(folder, 'meta'))
+            for (const entry of historical.entries) {
+                writeFileSync(
+                    join(folder, `${entry.tag}.sql`),
+                    readFileSync(new URL(`../drizzle/${entry.tag}.sql`, import.meta.url))
+                )
+            }
+            writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify(historical))
+
+            const fixture = createFixture('historical', 'bluesky', {
+                migrationsFolder: folder,
+            })
+
+            fixture.database.$client
+                .query(
+                    `insert into publication_first_comments
+                        (id, project_id, publication_id, actor_id, text, delay_seconds, state,
+                         revision, record_key, attempts, created_at, updated_at)
+                     values (?1, ?2, ?3, ?4, ?5, ?6, 'sent', 1, ?7, 1, ?8, ?8)`
+                )
+                .run(
+                    'historical-comment',
+                    fixture.projectId,
+                    fixture.publicationId,
+                    fixture.editorActorId,
+                    'A historical Bluesky comment',
+                    300,
+                    'historical-comment',
+                    now
+                )
+
+            // The provider column is added by the committed migration.
+            runMigrations(fixture.database)
+
+            const row = fixture.database.$client
+                .query<
+                    {
+                        readonly providerId: string
+                        readonly instanceOrigin: string | null
+                        readonly text: string
+                        readonly state: string
+                        readonly revision: number
+                    },
+                    [string]
+                >(
+                    `select provider_id as providerId,
+                            instance_origin as instanceOrigin,
+                            text,
+                            state,
+                            revision
+                     from publication_first_comments
+                     where id = ?1`
+                )
+                .get('historical-comment')
+
+            expect(row).toEqual({
+                providerId: 'bluesky',
+                instanceOrigin: null,
+                text: 'A historical Bluesky comment',
+                state: 'sent',
+                revision: 1,
+            })
+            expect(fixture.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        } finally {
+            rmSync(folder, { recursive: true, force: true })
         }
     })
 })

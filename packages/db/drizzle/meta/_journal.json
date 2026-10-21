@@ -127,6 +127,13 @@
             "when": 1792561864667,
             "tag": "0017_publication_first_comments",
             "breakpoints": true
+        },
+        {
+            "idx": 18,
+            "version": "6",
+            "when": 1792565282774,
+            "tag": "0018_publication_first_comment_providers",
+            "breakpoints": true
         }
     ]
 }
