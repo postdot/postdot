@@ -1,6 +1,6 @@
 # Implemented provider capabilities
 
-Repository review: 2026-10-21, including TELEGRAM-549, ENGAGEMENT-543/544 and ANALYTICS-547. Use this reference to choose
+Repository review: 2026-10-21, including TELEGRAM-549, ENGAGEMENT-543/544 and ANALYTICS-550. Use this reference to choose
 product work and understand current Postbot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
@@ -47,6 +47,15 @@ and collection times. Changing tags changes current report membership; this is
 not a reconstruction of tags at publication or collection time. Archived tags
 are available through an explicit filter action. Browsing uses stored metrics
 and does not collect provider data.
+
+Export CSV reads saved results across all pages matching the current tag filter.
+Each row identifies one publication, destination and metric with its availability,
+unit and collection time. Missing values stay blank and measured zero stays zero.
+The export does not refresh provider data or combine metrics. Failed or incomplete
+reads produce an error instead of a partial file; cancelling discards the result.
+Rows reflect saved data read during the export, not a transactional historical
+snapshot. CSV headers use stable English keys; spreadsheet-sensitive text receives
+an apostrophe prefix where needed.
 
 The [comment routes](../../apps/api/src/modules/projects/publication-comments-routes.ts)
 and [reply service](../../apps/api/src/modules/projects/publication-replies-service.ts)

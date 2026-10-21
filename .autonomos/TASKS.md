@@ -1060,3 +1060,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[WEB-548]** Clarify the OAuth feedback channel anchor `Priority: 🟡` `Complexity: S` — owner reported View connection as a no-op. The action navigates to the existing channel row and does not start a connection; label it Go to channel in EN/FR. [Evidence](worklogs/2026-10-21-ENGAGEMENT-545.md).
 
 - [x] **[TELEGRAM-549]** Publish ordered Telegram photo and video albums `Priority: 🟠` `Complexity: M` — owner accepted the recommended next format. Preserve historical profiles, support 2–10 inspected photos/videos with one caption and durable message identities, and verify locally without real bot credentials. [Mission](worklogs/2026-10-21-TELEGRAM-549.md).
+
+- [x] **[ANALYTICS-550]** Export filtered stored publication performance as CSV `Priority: 🟠` `Complexity: M` — owner accepted the recommended export. Include all matching pages, separate destination metrics, availability and collection time without new provider collection or aggregate totals. [Mission](worklogs/2026-10-21-ANALYTICS-550.md).

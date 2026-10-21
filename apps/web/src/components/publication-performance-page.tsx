@@ -4,7 +4,7 @@ import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
@@ -32,6 +32,7 @@ import {
     normalizePerformanceTagSelection,
     performanceTagSelectionKey,
 } from '@/lib/publication-performance'
+import { readPerformanceCsv } from '@/lib/publication-performance-export'
 import * as m from '@/paraglide/messages.js'
 
 const providerMetrics = {
@@ -136,6 +137,15 @@ export function PublicationPerformancePage({
         )
     }, [initialTagIdsKey])
     const selectedTagIds = useMemo(() => normalizePerformanceTagSelection(tagIds), [tagIds])
+    const [exportState, setExportState] = useState<'idle' | 'pending' | 'failed'>('idle')
+    const exportAbort = useRef<AbortController | null>(null)
+    const exportTagKey = performanceTagSelectionKey(selectedTagIds)
+    useEffect(() => {
+        setExportState('idle')
+        return () => {
+            exportAbort.current?.abort()
+        }
+    }, [project.id, exportTagKey])
     const tagCatalogQuery = useProjectTagCatalog(project.id)
     const catalogTags = tagCatalogQuery.data?.tags ?? []
     const publicationsQuery = useInfiniteQuery({
@@ -228,6 +238,43 @@ export function PublicationPerformancePage({
             })
         },
     })
+
+    async function exportCsv() {
+        exportAbort.current?.abort()
+        const controller = new AbortController()
+        exportAbort.current = controller
+        setExportState('pending')
+        const exportedAt = Date.now()
+        try {
+            const csv = await readPerformanceCsv(
+                {
+                    projectId: project.id,
+                    tagIds: selectedTagIds,
+                    channels,
+                    signal: controller.signal,
+                    exportedAt,
+                },
+                api
+            )
+            if (controller.signal.aborted) return
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+            try {
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `postbot-performance-${project.id}-${new Date(exportedAt).toISOString().slice(0, 10)}.csv`
+                document.body.append(link)
+                link.click()
+                link.remove()
+            } finally {
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+            }
+            setExportState('idle')
+        } catch {
+            if (!controller.signal.aborted) setExportState('failed')
+        } finally {
+            if (exportAbort.current === controller) exportAbort.current = null
+        }
+    }
 
     function formatDate(timestamp: number): string {
         return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(timestamp)
@@ -371,8 +418,42 @@ export function PublicationPerformancePage({
                         <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
                     </Link>
                 }
+                action={
+                    <div className="flex items-center gap-2">
+                        {exportState === 'pending' ? (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    exportAbort.current?.abort()
+                                    setExportState('idle')
+                                }}>
+                                {m.performance_export_cancel()}
+                            </Button>
+                        ) : null}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            aria-busy={exportState === 'pending'}
+                            disabled={
+                                exportState === 'pending' ||
+                                publicationsQuery.isPending ||
+                                publicationsQuery.isError
+                            }
+                            onClick={() => void exportCsv()}>
+                            {exportState === 'pending'
+                                ? m.performance_export_pending()
+                                : m.performance_export_csv()}
+                        </Button>
+                    </div>
+                }
                 title={m.performance_title()}
             />
+            {exportState === 'failed' ? (
+                <p role="alert" className="mt-2 text-sm text-state-failed">
+                    {m.performance_export_failed()}
+                </p>
+            ) : null}
             <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
                 {tagCatalogQuery.isError ? (
                     <div className="flex flex-wrap items-center gap-2">

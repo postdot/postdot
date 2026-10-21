@@ -2426,5 +2426,9 @@
     "first_comment_ambiguous_notice": "Postbot could not confirm whether this comment was posted, and it will not be sent again automatically.",
     "first_comment_cancelled_notice": "This first comment was cancelled and will not be sent.",
     "first_comment_delivery_details": "Delivery details",
-    "first_comment_open_original": "Open comment"
+    "first_comment_open_original": "Open comment",
+    "performance_export_csv": "Export CSV",
+    "performance_export_pending": "Exporting…",
+    "performance_export_cancel": "Cancel export",
+    "performance_export_failed": "The CSV could not be exported. Try again."
 }

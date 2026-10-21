@@ -2426,5 +2426,9 @@
     "first_comment_ambiguous_notice": "Postbot n'a pas pu confirmer si ce commentaire a été publié, et il ne sera pas renvoyé automatiquement.",
     "first_comment_cancelled_notice": "Ce premier commentaire a été annulé et ne sera pas envoyé.",
     "first_comment_delivery_details": "Détails de l'envoi",
-    "first_comment_open_original": "Ouvrir le commentaire"
+    "first_comment_open_original": "Ouvrir le commentaire",
+    "performance_export_csv": "Exporter le CSV",
+    "performance_export_pending": "Export en cours…",
+    "performance_export_cancel": "Annuler l’export",
+    "performance_export_failed": "Le CSV n’a pas pu être exporté. Réessayez."
 }
