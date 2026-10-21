@@ -4314,7 +4314,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The owner distinguishes a prepared first comment from replying to an incoming comment. Postiz documents delayed first-comment publishing.
 - Desired outcome: Verify support and constraints per provider. Design a dependent delivery after confirmed parent publication, with remote parent identity, explicit timing, independent failure state, retry safety and duplicate prevention. A failed parent cannot trigger its comment. Do not imply an inbox or AI author is required.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-478 (discovery and scope); implementation remains pending.
+- Tasks: PRODUCT-478 (discovery and scope); ENGAGEMENT-542 provides a [reviewed first-slice proposal](../docs/project/first-comments.md). Provider, catch-up and automation authorization choices remain pending owner acceptance; no first-comment implementation yet.
 - Source: owner clarification, 2026-10-16.
 
 ## [ISSUE-172] Define shared-post and tag-based performance reports

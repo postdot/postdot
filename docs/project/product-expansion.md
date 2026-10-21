@@ -188,3 +188,7 @@ evidence. See ISSUE-171 and ISSUE-172.
 
 These are competitor-authored claims and documentation, not live account tests.
 They justify further discovery, not copying every feature or promising parity.
+
+Current first-comment proposal: [scheduled first comments](first-comments.md),
+ENGAGEMENT-542. This remains a proposed lifecycle until the owner accepts the
+provider, overdue and authorization policies.
