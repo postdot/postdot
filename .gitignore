@@ -24,12 +24,19 @@ test-results/
 data/
 *.sqlite
 *.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
 *.sqlite.runtime.lock
 
 # Local files
 .DS_Store
 *.log
 *.pem
+*.key
+*.p12
+*.pfx
 
 # Static documentation build
 apps/docs/.next/
