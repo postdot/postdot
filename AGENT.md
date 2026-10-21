@@ -15,6 +15,8 @@ content generator.
 
 - **License review scope (owner direction, 2026-10-11):** Preserve upstream declarations and available notices with minimal attribution. Do not pursue exhaustive transitive-license investigations during product work; keep unresolved release facts recorded without adding user-facing reading requirements.
 
+- **Naming and hosting direction (owner, 2026-10-21):** The accepted future name is Postdot, with postdot.app as its domain. Coordinated removal of active Herald/Postbot branding is queued in BRAND-551; this record does not rename the checkout, repository or artifacts. Any TanStack Start/Cloudflare port must wait for the owner's successful solar-icons.dev migration report and a scoped plan (ISSUE-180). Making the repository public and deploying the site/docs remain deferred (ISSUE-181). Preserve the self-hosted runtime boundary.
+
 - **Licensing:** Original Postbot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
 
 ## ⚙️ Workflow & Preferences

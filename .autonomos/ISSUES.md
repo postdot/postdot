@@ -4387,3 +4387,29 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Establish the actual token type, validity and expiration semantics of this provider response, then support or explicitly classify it without guessing a lifetime or treating missing expiration as proof of non-expiration. Preserve OAuth state, actor/project checks and single-use attempts.
 - Context: The [official long-lived-token guide](https://developers.facebook.com/documentation/facebook-login/guides/access-tokens/get-long-lived) describes a typical long-lived User token duration and a separate Page-token lifecycle; neither alone establishes the identity or lifetime of this observed response. At observation time the guards in `packages/facebook/src/oauth.ts` and the connection flow required a known bounded User-token lifetime for pending Page selection. ADR-087 supersedes that refusal for omitted metadata.
 - Resolution: Owner adopted [ADR-087](decisions/ADR-087-unknown-facebook-pending-token-expiration.md) on 2026-10-19. FACEBOOK-521 integrated explicit unknown expiration under existing encrypted attempt TTL and permission checks, with 30 focused tests and parent mutation controls. FACEBOOK-519 then verified live permission discovery, the exact Page connection and two successful real deliveries. Actual exchanged-token class/lifetime remains explicitly unknown; success does not imply non-expiration.
+
+## [ISSUE-179] Coordinate the final product identity as Postdot
+
+- Type: proposal
+- Status: accepted
+- Evidence: On 2026-10-21 the owner selected Postdot and reported reserving postdot.app. The current product is named Postbot while the local checkout still uses Herald. The owner requested durable planning, without starting the rename immediately.
+- Impact: Mixed active names confuse users, contributors and release operators.
+- Desired outcome: Adopt Postdot consistently across active branding, packages, executable/configuration names, docs, workspace and checkout identity, GitHub repository and release artifacts. Inventory internal, external and persisted identifiers before changing them; explicitly resolve compatibility and data migration needs. Preserve factual historical records and third-party attribution rather than rewriting evidence blindly.
+- Tasks: BRAND-551 (queued; no rename executed).
+
+## [ISSUE-180] Evaluate site and documentation hosting after the reference migration
+
+- Type: proposal
+- Status: open
+- Evidence: The owner intends to validate TanStack Start with Cloudflare on solar-icons.dev first, then report whether that recipe should be reused here. Avoid additional OCI compute allocation for the site/docs. No migration is authorized to start now.
+- Impact: Public site/docs hosting needs a sustainable path before launch.
+- Desired outcome: After the owner's successful reference result, scope a suitable deployment and framework plan. apps/docs currently uses Next.js/Fumadocs; apps/web Studio already uses Vite/TanStack Router. Distinguish these surfaces and preserve the self-hosted API, SQLite, scheduler and worker boundary. Validate documentation capabilities and actual hosting constraints at that time; owner-provided quota expectations are not verified deployment guarantees.
+- Tasks: none; wait for the reference migration result before selecting implementation.
+
+## [ISSUE-181] Prepare a separately authorized public repository and site launch
+
+- Type: proposal
+- Status: open
+- Evidence: The owner anticipates making the repository public and publishing the site/docs under postdot.app, but explicitly deferred both actions.
+- Desired outcome: Coordinate final identity, hosting readiness and existing release/license requirements before an owner-authorized public launch. Do not change repository visibility, DNS, deployment or registry publication during routine product work.
+- Tasks: none; links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work.

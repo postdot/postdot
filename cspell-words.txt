@@ -5,6 +5,7 @@ DEVto
 Drizzle
 Elysia
 Postbot
+Postdot
 Mailpit
 Mastodon
 Paraglide
