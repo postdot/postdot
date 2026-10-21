@@ -21,6 +21,7 @@ jobs:
                       runner: ubuntu-24.04-arm
         env:
             POSTBOT_CONTAINER_TEST_IMAGE: postbot:candidate
+            EXPECTED_ARCH: ${{ matrix.arch }}
         steps:
             - name: Check out selected source
               uses: actions/checkout@v6.0.2
@@ -31,28 +32,40 @@ jobs:
                   bun-version-file: package.json
 
             - name: Verify native Docker architecture
-              env:
-                  EXPECTED_ARCH: ${{ matrix.arch }}
               run: test "$(docker version --format '{{.Server.Arch}}')" = "$EXPECTED_ARCH"
 
             - name: Build candidate without publication
               run: |
-                  docker build --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
+                  docker build --platform "linux/$EXPECTED_ARCH" --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
                     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
                     --label "org.opencontainers.image.revision=$GITHUB_SHA" \
                     --label "org.opencontainers.image.licenses=AGPL-3.0-only" .
 
+            - name: Verify candidate identity
+              id: identity
+              run: |
+                  image_id="$(docker image inspect --format '{{.Id}}' "$POSTBOT_CONTAINER_TEST_IMAGE")"
+                  platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image_id")"
+                  revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id")"
+                  test "$platform" = "linux/$EXPECTED_ARCH"
+                  test "$revision" = "$GITHUB_SHA"
+                  echo "image=$image_id" >> "$GITHUB_OUTPUT"
+                  echo "platform=$platform" >> "$GITHUB_OUTPUT"
+
             - name: Verify the exact candidate image
+              env:
+                  POSTBOT_CONTAINER_TEST_IMAGE: ${{ steps.identity.outputs.image }}
               run: bun run test:container:recovery
 
             - name: Record accepted candidate
               env:
-                  EXPECTED_ARCH: ${{ matrix.arch }}
+                  CANDIDATE_IMAGE_ID: ${{ steps.identity.outputs.image }}
+                  CANDIDATE_PLATFORM: ${{ steps.identity.outputs.platform }}
               run: |
                   {
                     echo '## Accepted container candidate'
                     echo "Source: $GITHUB_SHA"
-                    echo "Platform: linux/$EXPECTED_ARCH"
-                    echo "Local image ID: $(docker image inspect --format '{{.Id}}' "$POSTBOT_CONTAINER_TEST_IMAGE")"
+                    echo "Platform: $CANDIDATE_PLATFORM"
+                    echo "Local image ID: $CANDIDATE_IMAGE_ID"
                     echo 'Container acceptance passed. No image was pushed; this is not a published release or a complete integration validation.'
                   } >> "$GITHUB_STEP_SUMMARY"

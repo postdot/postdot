@@ -11,6 +11,9 @@ const repositoryRoot = resolve(import.meta.dir, '..')
 const runId = randomUUID().replaceAll('-', '').slice(0, 12)
 const suppliedImage = process.env.POSTBOT_CONTAINER_TEST_IMAGE
 const imageTag = suppliedImage ?? `postbot-recovery:${runId}`
+let executionImage = imageTag
+let imageArchitecture: string | undefined
+let acceptanceProjectId: string | undefined
 const containerName = `postbot-recovery-${runId}`
 
 /**
@@ -107,7 +110,7 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
         '--publish',
         '127.0.0.1::3000',
         ...serverEnvironment(dataDirectory),
-        imageTag,
+        executionImage,
     ])
     containerStarted = true
 
@@ -119,21 +122,35 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
 
     try {
         await waitForReadiness(port)
-        const executable = runDocker([
-            'exec',
-            containerName,
-            'bun',
-            '-e',
-            "console.log(await import('node:fs/promises').then(fs => fs.readlink('/proc/1/exe')))",
-        ])
-        if (!executable.endsWith('/bun')) {
-            throw new Error(`The production server is not running Bun: ${executable}`)
-        }
-        if (stage === 'source') {
-            const session = await fetch(`http://127.0.0.1:${port}/api/auth/get-session`)
-            if (!session.ok || (await session.json()) !== null)
-                throw new Error('Production session route did not return an anonymous session')
-        }
+        const runtime = JSON.parse(
+            runDocker([
+                'exec',
+                containerName,
+                'bun',
+                '-e',
+                "const fs = await import('node:fs/promises'); console.log(JSON.stringify({executable:await fs.readlink('/proc/1/exe'),command:(await fs.readFile('/proc/1/cmdline','utf8')).split(String.fromCharCode(0)).filter(Boolean),architecture:process.arch,bun:Bun.version}))",
+            ])
+        ) as { executable: string; command: string[]; architecture: string; bun: string }
+        const runtimeArchitecture = runtime.architecture === 'x64' ? 'amd64' : runtime.architecture
+        const emulated =
+            runtime.executable.endsWith('/qemu-aarch64') &&
+            imageArchitecture === 'arm64' &&
+            runtime.architecture === 'arm64' &&
+            runtime.command[0] === runtime.executable &&
+            runtime.command[1] === '/usr/local/bin/bun'
+        const command = emulated ? runtime.command.slice(2) : runtime.command
+        if (
+            (!runtime.executable.endsWith('/bun') && !emulated) ||
+            runtimeArchitecture !== imageArchitecture ||
+            command.length !== 2 ||
+            !['bun', '/usr/local/bin/bun'].includes(command[0]!) ||
+            command[1] !== '/app/postbot.js'
+        )
+            throw new Error('The production entrypoint is not the expected Bun application')
+        console.log(
+            `The ${stage} production container runs Bun ${runtime.bun} on ${runtime.architecture}${emulated ? ' under QEMU emulation' : ''}.`
+        )
+        if (stage === 'source') await verifyAuthenticatedProject(port)
         const recoveryStatus = await fetch(`http://127.0.0.1:${port}/api/recovery/status`)
         const recoveryBody = (await recoveryStatus.json()) as { held: boolean }
         if (recoveryBody.held !== (stage === 'restored'))
@@ -186,6 +203,49 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
     containerStarted = false
 }
 
+async function verifyAuthenticatedProject(port: number): Promise<void> {
+    const origin = `http://127.0.0.1:${port}`
+    const anonymous = await fetch(`${origin}/api/auth/get-session`)
+    if (!anonymous.ok || (await anonymous.json()) !== null)
+        throw new Error('Production session route did not return an anonymous session')
+    const denied = await fetch(`${origin}/api/projects`)
+    if (denied.status !== 401)
+        throw new Error('Production project reads did not require authentication')
+    const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+        body: JSON.stringify({
+            name: 'Container acceptance operator',
+            email: `container-${runId}@postbot.local`,
+            password: 'production-container-test-password',
+        }),
+    })
+    if (!signup.ok) throw new Error(`Production account setup failed: HTTP ${signup.status}`)
+    const cookie = signup.headers
+        .getSetCookie()
+        .map(value => value.split(';', 1)[0])
+        .join('; ')
+    if (!cookie) throw new Error('Production account setup returned no session cookie')
+    const session = await fetch(`${origin}/api/auth/get-session`, { headers: { cookie } })
+    const sessionBody = (await session.json()) as { user?: { id?: string } } | null
+    if (!session.ok || !sessionBody?.user?.id)
+        throw new Error('Production authenticated session is unavailable')
+    const created = await fetch(`${origin}/api/projects`, {
+        method: 'POST',
+        headers: { cookie, origin: 'http://localhost:3000', 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Container recovery acceptance', timeZone: 'UTC' }),
+    })
+    const body = (await created.json()) as { project?: { id?: string } }
+    if (created.status !== 201 || !body.project?.id)
+        throw new Error('Production authenticated project creation failed')
+    acceptanceProjectId = body.project.id
+    const list = await fetch(`${origin}/api/projects`, { headers: { cookie } })
+    const projects = (await list.json()) as { projects?: { id: string }[] }
+    if (!list.ok || !projects.projects?.some(project => project.id === acceptanceProjectId))
+        throw new Error('Production authenticated project read failed')
+    console.log('Production authentication and authenticated project create/read passed.')
+}
+
 function serverEnvironment(dataDirectory: string): string[] {
     return [
         '--mount',
@@ -227,7 +287,7 @@ async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void>
         '--publish',
         '127.0.0.1::3000',
         ...serverEnvironment(dataDirectory),
-        imageTag,
+        executionImage,
     ])
     containerStarted = true
 
@@ -263,7 +323,7 @@ async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void>
         '--publish',
         '127.0.0.1::3000',
         ...serverEnvironment(dataDirectory),
-        imageTag,
+        executionImage,
     ])
     try {
         const deadline = Date.now() + 20_000
@@ -498,7 +558,7 @@ async function runStartupTerminationAttempt(
         '--network',
         'none',
         ...serverEnvironment(dataDirectory),
-        imageTag,
+        executionImage,
     ])
 
     try {
@@ -678,6 +738,16 @@ try {
     } else {
         runDocker(['image', 'inspect', imageTag])
     }
+    const identity = JSON.parse(
+        runDocker(['image', 'inspect', '--format', '{{json .}}', imageTag])
+    ) as { Id: string; Os: string; Architecture: string }
+    if (identity.Os !== 'linux' || !identity.Id.startsWith('sha256:'))
+        throw new Error('Production acceptance requires an identifiable Linux image')
+    executionImage = identity.Id
+    imageArchitecture = identity.Architecture
+    console.log(
+        `Accepting immutable image ${executionImage} (${identity.Os}/${imageArchitecture}).`
+    )
     imageAvailable = true
 
     // The container-level startup termination check runs in every scenario.
@@ -697,7 +767,7 @@ try {
             `type=bind,source=${join(repositoryRoot, 'packages/db/src/fixtures/video-h264.mp4')},target=/fixture.mp4,readonly`,
             '--entrypoint',
             'bun',
-            imageTag,
+            executionImage,
             '-e',
             `const child = Bun.spawn(['/usr/local/bin/postbot-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
         const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
@@ -722,7 +792,7 @@ try {
             `type=bind,source=${sourceData},target=/data`,
             '--mount',
             `type=bind,source=${backupDirectory},target=/backups`,
-            imageTag,
+            executionImage,
             'backup',
             '--media',
             '--output',
@@ -736,7 +806,7 @@ try {
             `type=bind,source=${restoredData},target=/data`,
             '--mount',
             `type=bind,source=${backupDirectory},target=/backups`,
-            imageTag,
+            executionImage,
             'restore',
             '--media',
             '--input',
@@ -744,6 +814,20 @@ try {
         ])
 
         await startServer(restoredData, 'restored')
+        const restoredProject = runDocker([
+            'run',
+            '--rm',
+            '--mount',
+            `type=bind,source=${restoredData},target=/data`,
+            '--entrypoint',
+            'bun',
+            executionImage,
+            '-e',
+            `const {Database}=await import('bun:sqlite'); const db=new Database('/data/postbot.sqlite',{readonly:true}); const row=db.query('select id from projects where id = ?').get(${JSON.stringify(acceptanceProjectId)}); db.close(); if(!row)process.exit(1); console.log(row.id)`,
+        ])
+        if (restoredProject !== acceptanceProjectId)
+            throw new Error('Restored authenticated project was not preserved')
+        console.log('The authenticated project survived backup and held restoration.')
         await verifyForcedStopRetainsLock(restoredData)
         console.log(
             'Production image started, created a media backup without server secrets, restored it, became ready, stopped gracefully with exit 0 and a released lock, and kept forced termination visible and fail-closed.'
@@ -774,7 +858,7 @@ try {
                 '/usr/bin/rm',
                 '--mount',
                 `type=bind,source=${testRoot},target=/test-root`,
-                imageTag,
+                executionImage,
                 '-rf',
                 '/test-root/source-data',
                 '/test-root/restored-data',

@@ -80,11 +80,17 @@ launching with AMD64 only; do not silently reduce the advertised platforms.
 has read-only repository permissions. Select the intended branch or tag when
 starting it. Both native jobs build from that selected commit, check the packaged
 H.264 decoder and Bun image generation, and run production recovery acceptance
-against the exact local image. The job summary records the source and local image
-ID; this ID is not a registry manifest digest. No login or push step exists.
+against the exact local image. The build selects its platform explicitly. Before
+acceptance, the job compares the inspected image platform and revision label
+with the selected target and source commit. It passes the immutable image ID
+to the harness and records that same ID and platform in the job summary. This
+ID is not a registry manifest digest. No login or push step exists.
 
 GitHub runner execution has not yet been performed from this private checkout.
-Local AMD64 evidence does not establish ARM64 support. The workflow is a candidate
+Local full acceptance has passed for AMD64 natively and ARM64 under QEMU
+emulation on the same application source; see the
+[acceptance record](../../.autonomos/worklogs/2026-10-21-RELEASE-303.md).
+This does not establish native ARM64 runner execution. The workflow is a candidate
 check, not a substitute for the integration gate before the eventual release.
 Images are not exported as large Actions artifacts in this preparation step.
 Publication and multi-platform manifest assembly remain separate work.
@@ -95,9 +101,19 @@ For local checks against an already-built image:
 POSTBOT_CONTAINER_TEST_IMAGE=postbot:local bun run test:container:recovery
 ```
 
-The supplied image must exist locally. The harness creates isolated disposable
-containers and directories but retains that image. Without this variable, the
-existing command still builds and removes its own uniquely tagged image.
+The supplied image must exist locally. The harness pins its immutable ID and
+reports its inspected platform before execution. It tests the image supplied by
+the caller; it does not imply that an arbitrary image matches the current
+checkout. The candidate workflow performs the source-label check separately.
+The harness creates isolated disposable containers and directories but retains
+that image. Without this variable, the existing command still builds and
+removes its own uniquely tagged image.
+
+The full scenario checks a disposable local account, an authenticated session
+and project create/read. It confirms that project survives backup and held
+restoration. Runtime checks distinguish native Bun from a confirmed ARM64 Bun
+application executed through QEMU; the harness does not install an emulator or
+change host configuration.
 
 The focused scenario runs only the container startup-termination check against
 the supplied image:
