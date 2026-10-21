@@ -1,6 +1,6 @@
 # Implemented provider capabilities
 
-Repository review: 2026-10-21, including TELEGRAM-541, ENGAGEMENT-543/544 and ANALYTICS-547. Use this reference to choose
+Repository review: 2026-10-21, including TELEGRAM-549, ENGAGEMENT-543/544 and ANALYTICS-547. Use this reference to choose
 product work and understand current Postbot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
@@ -27,7 +27,7 @@ provide comment bodies or a reply interface.
 | [Discord](../../packages/discord/src/profile.ts) | Text, images or one MP4 | Absent | Absent / absent | Bot token and destination channel |
 | [X](../../packages/x/src/profile.ts) | Weighted text with up to four images | Absent | Absent / absent | Project OAuth application and account |
 | [LinkedIn](../../packages/linkedin/src/channel-profile.ts) | Text with up to twenty images, or one MP4; member or organization | Absent | Absent / absent | Project OAuth application and authorized identity |
-| [Telegram](../../packages/telegram/src/profile.ts) | Text, or one image/MP4 with optional caption; ordinary anonymous text-answer polls exclude media | Absent | Absent / absent | Bot token and destination chat |
+| [Telegram](../../packages/telegram/src/profile.ts) | Text, a single image/MP4 or an ordered album of up to ten photos/videos with one optional caption; ordinary anonymous text-answer polls exclude media | Absent | Absent / absent | Bot token and destination chat |
 | [Facebook](../../packages/facebook/src/profile.ts) | Page text, link or one photo; link and photo exclude each other | Absent | Absent / absent | Project application, user authorization and Page selection |
 | [Instagram](../../packages/instagram/src/profile.ts) | One JPEG with optional caption and accessibility text | Absent | Absent / absent | Distinct Instagram configuration and direct professional-account login |
 | [Manual](../../packages/core/src/profile-presets.ts) | Operator records the publication outcome | No native collector | Absent / absent | No publisher or provider credentials |
@@ -79,8 +79,8 @@ credentials, accounts or publications were used during this inventory.
 
 TELEGRAM-541 adds ordinary anonymous polls with single or multiple selections,
 text answers and optional relative automatic closing. The publication text is
-the question. New channels use message-v2; existing message-v1 publications stay
-executable. Polls preserve the same durable send outcomes as ordinary messages.
+the question. New channels use message-v3; existing message-v1 and message-v2
+publications stay executable. Polls preserve the same durable send outcomes as ordinary messages.
 The typed editor, preview and delivery use local synthetic acceptance; real
 delivery still needs an authorized bot and chat.
 
@@ -90,6 +90,20 @@ outside the owner-approved first slice. The implemented conservative limits are
 a question of up to 300 UTF-16 units, one to twelve answers of up to 100 units,
 and optional closing from 5 to 2628000 seconds after provider creation. Omitted
 closing leaves the poll open. This does not collect votes or results.
+
+## Telegram albums
+
+TELEGRAM-549 adds ordered albums of two to ten JPEG/PNG photos and MP4 videos,
+including mixed albums. One attachment still uses the existing single-media
+path. Arrange attachments with the existing media controls; the publication
+text supplies one caption on the first album item, up to 1024 UTF-16 units.
+Polls exclude attachments.
+
+The adapter sends one [sendMediaGroup request](https://core.telegram.org/bots/api#sendmediagroup),
+keeps every returned message ID in the publication receipt and retains each
+media file identity. A lost or incomplete acknowledgement remains ambiguous
+and cannot cause an automatic resend. Protocol, worker and Studio validation
+use local fixtures; real album delivery still needs an authorized bot and chat.
 
 ## Next product gap
 

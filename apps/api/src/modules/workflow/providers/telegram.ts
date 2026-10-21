@@ -5,7 +5,8 @@ import {
     createTelegramPublisher,
     isTelegramChannelId,
     TELEGRAM_EXECUTION_REVISION,
-    TELEGRAM_POLL_EXECUTION_REVISION,
+    type TELEGRAM_POLL_EXECUTION_REVISION,
+    TELEGRAM_ALBUM_EXECUTION_REVISION,
     readTelegramPoll,
     telegramChannelProfileValidationAdapter,
     TELEGRAM_MAX_PHOTO_BYTES,
@@ -17,15 +18,18 @@ import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcome
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
+type TelegramRevision =
+    | typeof TELEGRAM_EXECUTION_REVISION
+    | typeof TELEGRAM_POLL_EXECUTION_REVISION
+    | typeof TELEGRAM_ALBUM_EXECUTION_REVISION
+
 export function createTelegramProviderAdapter(
     options: {
-        readonly revision?:
-            | typeof TELEGRAM_EXECUTION_REVISION
-            | typeof TELEGRAM_POLL_EXECUTION_REVISION
+        readonly revision?: TelegramRevision
         readonly createPublisher?: () => ReturnType<typeof createTelegramPublisher>
     } = {}
 ): BuiltInProviderAdapter {
-    const revision = options.revision ?? TELEGRAM_POLL_EXECUTION_REVISION
+    const revision = options.revision ?? TELEGRAM_ALBUM_EXECUTION_REVISION
     return {
         providerId: 'telegram',
         contractId: 'telegram',
@@ -37,7 +41,7 @@ export function createTelegramProviderAdapter(
 
 async function execute(
     input: BuiltInProviderExecutionInput,
-    revision: typeof TELEGRAM_EXECUTION_REVISION | typeof TELEGRAM_POLL_EXECUTION_REVISION,
+    revision: TelegramRevision,
     createPublisher: () => ReturnType<typeof createTelegramPublisher>
 ): Promise<ExternalEffectOutcome> {
     const { target } = input
@@ -51,9 +55,16 @@ async function execute(
         (revision === TELEGRAM_EXECUTION_REVISION && target.content.poll !== undefined) ||
         typeof target.content.text !== 'string' ||
         !Array.isArray(target.content.media) ||
-        target.media.length > 1 ||
+        target.media.length > (revision === TELEGRAM_ALBUM_EXECUTION_REVISION ? 10 : 1) ||
+        new Set(target.media.map(item => item.id)).size !== target.media.length ||
         target.mediaReferenceCount !== target.media.length ||
         target.content.media.length !== target.media.length ||
+        target.media.some(
+            (item, index) =>
+                item.position !== index ||
+                item.contentPath !== `/media/${index}` ||
+                (target.content.media as { assetId?: unknown }[])[index]?.assetId !== item.assetId
+        ) ||
         telegramChannelProfileValidationAdapter.validate(target.profile, target.content).length > 0
     )
         return permanentFailure('The Telegram execution content is invalid')
@@ -66,10 +77,10 @@ async function execute(
         target.credentialId
     )
     if (!secrets) return permanentFailure('The Telegram credential is unavailable')
-    let media: TelegramMedia | undefined
-    let deliveryId: string | undefined
-    const pinned = target.media[0]
-    if (pinned) {
+    const media: TelegramMedia[] = []
+    const deliveries: { id: string }[] = []
+    // Preflight every ledger entry before claiming any member of the album.
+    for (const pinned of target.media) {
         const photo =
             pinned.family === 'image' && ['image/png', 'image/jpeg'].includes(pinned.contentType)
         if (
@@ -107,33 +118,45 @@ async function execute(
             if (!retried) return permanentFailure('The Telegram media delivery cannot be retried')
             delivery = retried
         }
-        deliveryId = delivery.id
+        deliveries.push({ id: delivery.id })
+    }
+    const startedIds: string[] = []
+    const failAll = (ambiguous: boolean, code: string) => {
+        for (const id of startedIds) failDelivery(input, id, ambiguous, code)
+    }
+    for (const delivery of deliveries) {
         const started = input.providerMediaDeliveryStore.start({
             projectId: target.projectId,
-            deliveryId,
+            deliveryId: delivery.id,
             at: input.now,
         })
-        if (!started || started.state !== 'uploading')
+        if (!started || started.state !== 'uploading') {
+            // No request has been issued; other members can safely be retried.
+            failAll(false, 'claim_failed')
             return ambiguousFailure('The Telegram media delivery could not be claimed')
+        }
+        startedIds.push(delivery.id)
+    }
+    // Read and hash all members before issuing the single provider request.
+    for (const pinned of target.media) {
         try {
-            const opened = await openVerifiedPinnedMedia(input.media, target.projectId, pinned)
+            const opened = await openVerifiedPinnedMedia(input.media!, target.projectId, pinned)
             if (!opened) {
-                failDelivery(input, deliveryId, false, 'media_unavailable')
+                failAll(false, 'media_unavailable')
                 return permanentFailure('The pinned Telegram media changed or is unavailable')
             }
-            // Preserve the inspected MIME explicitly: Bun may omit Response.blob() type.
             const blob = new Blob([await new Response(opened.stream).arrayBuffer()], {
                 type: pinned.contentType,
             })
             const hash = createHash('sha256')
             for await (const bytes of blob.stream()) hash.update(bytes)
             if (blob.size !== pinned.byteSize || hash.digest('hex') !== pinned.sha256) {
-                failDelivery(input, deliveryId, false, 'media_changed')
+                failAll(false, 'media_changed')
                 return permanentFailure('The pinned Telegram media changed while reading')
             }
-            media = { blob, width: pinned.width, height: pinned.height }
+            media.push({ blob, width: pinned.width!, height: pinned.height! })
         } catch {
-            failDelivery(input, deliveryId, false, 'media_read_failed')
+            failAll(false, 'media_read_failed')
             return retryableFailure('The pinned Telegram media could not be read; retry is safe')
         }
     }
@@ -143,23 +166,25 @@ async function execute(
             token: secrets.accessToken,
             chatId: destination.id,
             text: target.content.text,
-            media,
+            ...(media.length > 1 ? { album: media } : { media: media[0] }),
             ...(poll === undefined ? {} : { poll }),
         })
     } catch {
-        if (deliveryId) failDelivery(input, deliveryId, true, 'unknown_result')
+        failAll(true, 'unknown_result')
         return ambiguousFailure('The Telegram publication outcome is unknown')
     }
     if (outcome.type === 'published') {
-        if (deliveryId) {
-            if (!outcome.mediaId) {
-                failDelivery(input, deliveryId, true, 'missing_media_id')
-                return ambiguousFailure('Telegram returned no durable media identity')
-            }
+        const mediaIds =
+            media.length > 1 ? outcome.mediaIds : outcome.mediaId ? [outcome.mediaId] : []
+        if (!mediaIds || mediaIds.length !== deliveries.length || mediaIds.some(id => !id.trim())) {
+            failAll(true, 'missing_media_id')
+            return ambiguousFailure('Telegram returned no durable media identity')
+        }
+        for (const [index, delivery] of deliveries.entries()) {
             const completed = input.providerMediaDeliveryStore.complete({
                 projectId: target.projectId,
-                deliveryId,
-                remoteMediaId: outcome.mediaId,
+                deliveryId: delivery.id,
+                remoteMediaId: mediaIds[index]!,
                 at: input.now,
             })
             if (completed?.state !== 'uploaded')
@@ -177,7 +202,7 @@ async function execute(
             target.projectId,
             target.credentialId
         )
-    if (deliveryId) failDelivery(input, deliveryId, outcome.type === 'ambiguous', outcome.code)
+    failAll(outcome.type === 'ambiguous', outcome.code)
     return outcome
 }
 function failDelivery(

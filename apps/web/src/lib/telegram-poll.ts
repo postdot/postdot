@@ -1,4 +1,8 @@
-import { TELEGRAM_EXECUTION_REVISION, TELEGRAM_POLL_EXECUTION_REVISION } from '@postbot/telegram'
+import {
+    TELEGRAM_EXECUTION_REVISION,
+    TELEGRAM_POLL_EXECUTION_REVISION,
+    TELEGRAM_ALBUM_EXECUTION_REVISION,
+} from '@postbot/telegram'
 import type { TelegramPollInput } from '@postbot/telegram/poll'
 
 /**
@@ -14,7 +18,7 @@ export const TELEGRAM_POLL_DURATIONS = [3600, 86400, 604800, 2592000] as const
  * Execution identity, including its supported revision, owns native authoring
  * rules.
  *
- * Both Telegram revisions are native and share one message budget. A profile
+ * All supported Telegram revisions are native and share one message budget. A profile
  * that does not declare a native Telegram execution never reaches the Telegram
  * editor.
  */
@@ -23,19 +27,23 @@ export function isNativeTelegramProfile(profile: unknown): boolean {
     if (execution === null) return false
     return (
         execution.revision === TELEGRAM_EXECUTION_REVISION ||
-        execution.revision === TELEGRAM_POLL_EXECUTION_REVISION
+        execution.revision === TELEGRAM_POLL_EXECUTION_REVISION ||
+        execution.revision === TELEGRAM_ALBUM_EXECUTION_REVISION
     )
 }
 
 /**
- * The poll-capable revision is the only one that publishes a poll, and only a
+ * The poll-capable revisions publish a poll, and only a
  * built-in profile may carry it.
  */
 export function isTelegramPollProfile(profile: unknown): boolean {
     if (!isRecord(profile) || profile.origin !== 'built_in') return false
     const execution = telegramExecution(profile)
     if (execution === null) return false
-    return execution.revision === TELEGRAM_POLL_EXECUTION_REVISION
+    return (
+        execution.revision === TELEGRAM_POLL_EXECUTION_REVISION ||
+        execution.revision === TELEGRAM_ALBUM_EXECUTION_REVISION
+    )
 }
 
 /** A target carries a poll when the destination field holds a poll value. */

@@ -6,6 +6,8 @@ import {
     createTelegramPublisher,
     telegramChannelProfile,
     telegramMessageChannelProfile,
+    telegramPollChannelProfile,
+    TELEGRAM_POLL_EXECUTION_REVISION,
     TELEGRAM_EXECUTION_REVISION,
 } from '@postbot/telegram'
 
@@ -320,4 +322,141 @@ test('keeps message-v1 delivery executable and refuses poll content on that revi
     expect(sends).toBe(1)
     expect((await item.adapter.execute({ ...item.input, target })).type).toBe('permanent_failure')
     expect(item.sends).toBe(0)
+})
+
+function albumFixture(response?: () => Promise<Response>) {
+    const item = fixture(
+        true,
+        response ??
+            (async () =>
+                Response.json({
+                    ok: true,
+                    result: [42, 43].map(message_id => ({
+                        message_id,
+                        chat: { id: -1001234567890, type: 'channel' },
+                        media_group_id: 'album-group',
+                        photo: [{ file_id: `remote-${message_id}` }],
+                    })),
+                }))
+    )
+    const first = item.input.target.media[0]!
+    const target = {
+        ...item.input.target,
+        mediaReferenceCount: 2,
+        content: { text: 'Album', media: [{ assetId: first.assetId }, { assetId: 'asset-two' }] },
+        media: [
+            first,
+            {
+                ...first,
+                id: 'execution-media-two',
+                assetId: 'asset-two',
+                position: 1,
+                contentPath: '/media/1',
+            },
+        ],
+    }
+    const states = new Map(
+        target.media.map(pinned => [
+            pinned.id,
+            { ...item.state, id: `delivery-${pinned.id}`, executionMediaId: pinned.id },
+        ])
+    )
+    const byId = (id: string) => [...states.values()].find(state => state.id === id)!
+    const ledger: ProviderMediaDeliveryPort = {
+        reserve: input => states.get(input.executionMediaId)!,
+        retry: input => {
+            const value = byId(input.deliveryId)
+            value.state = 'pending'
+            return value
+        },
+        start: input => {
+            const value = byId(input.deliveryId)
+            value.state = 'uploading'
+            return value
+        },
+        complete: input => {
+            const value = byId(input.deliveryId)
+            value.state = 'uploaded'
+            value.remoteMediaId = input.remoteMediaId
+            return value
+        },
+        recordRemoteMediaId: () => {
+            throw new Error('Unexpected checkpoint')
+        },
+        fail: input => {
+            const value = byId(input.deliveryId)
+            value.state = input.ambiguous ? 'ambiguous' : 'failed'
+            return value
+        },
+    }
+    item.input = { ...item.input, providerMediaDeliveryStore: ledger }
+    return { item, target, states }
+}
+
+test('persists each album media identity and refuses replay after any member completed', async () => {
+    const { item, target, states } = albumFixture()
+    expect(await item.adapter.execute({ ...item.input, target })).toEqual({
+        type: 'published',
+        externalId: '-1001234567890:42,43',
+    })
+    expect([...states.values()].map(state => [state.state, state.remoteMediaId])).toEqual([
+        ['uploaded', 'remote-42'],
+        ['uploaded', 'remote-43'],
+    ])
+    expect((await item.adapter.execute({ ...item.input, target })).type).toBe('ambiguous')
+    expect(item.sends).toBe(1)
+})
+
+test('an uncertain album acknowledgement fences every member and cannot resend', async () => {
+    const { item, target, states } = albumFixture(async () => {
+        throw new Error('Synthetic response loss')
+    })
+    expect((await item.adapter.execute({ ...item.input, target })).type).toBe('ambiguous')
+    expect([...states.values()].map(state => state.state)).toEqual(['ambiguous', 'ambiguous'])
+    expect((await item.adapter.execute({ ...item.input, target })).type).toBe('ambiguous')
+    expect(item.sends).toBe(1)
+})
+
+test('does not start or send an album when a later member already has an uncertain effect', async () => {
+    const { item, target, states } = albumFixture()
+    states.get('execution-media-two')!.state = 'ambiguous'
+    expect((await item.adapter.execute({ ...item.input, target })).type).toBe('ambiguous')
+    expect(states.get('execution-media')!.state).toBe('pending')
+    expect(item.sends).toBe(0)
+})
+
+test('keeps the historical poll profile executable without granting album delivery', async () => {
+    const { item, target } = albumFixture()
+    let calls = 0
+    const legacy = createTelegramProviderAdapter({
+        revision: TELEGRAM_POLL_EXECUTION_REVISION,
+        createPublisher: () =>
+            createTelegramPublisher({
+                fetcher: async () => {
+                    calls++
+                    return Response.json({
+                        ok: true,
+                        result: { message_id: 42, chat: { id: -1001234567890, type: 'channel' } },
+                    })
+                },
+            }),
+    })
+    expect(
+        (
+            await legacy.execute({
+                ...item.input,
+                target: { ...target, profile: telegramPollChannelProfile },
+            })
+        ).type
+    ).toBe('permanent_failure')
+    expect(calls).toBe(0)
+    expect(
+        (
+            await legacy.execute({
+                ...item.input,
+                target: createTarget({ profile: telegramPollChannelProfile }),
+            })
+        ).type
+    ).toBe('published')
+    expect(calls).toBe(1)
 })

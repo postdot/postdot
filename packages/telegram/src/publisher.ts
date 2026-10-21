@@ -1,5 +1,6 @@
 import type { ExternalEffectOutcome } from '@postbot/core'
 
+import { planTelegramAlbum, readTelegramAlbumAcknowledgement, TELEGRAM_ALBUM_LIMITS } from './album'
 import { telegramPollError, type TelegramPollInput } from './poll'
 
 export const TELEGRAM_MAX_TEXT_LENGTH = 4096
@@ -24,6 +25,8 @@ export type TelegramPublishOutcome =
     | (Extract<ExternalEffectOutcome, { readonly type: 'published' }> & {
           readonly externalId: string
           readonly mediaId?: string
+          /** The durable media identities of an album, in request order. */
+          readonly mediaIds?: readonly string[]
       })
     | TelegramFailure
 export type TelegramResult<T> =
@@ -47,6 +50,12 @@ export interface TelegramSendInput {
     readonly chatId: string
     readonly text: string
     readonly media?: TelegramMedia
+    /**
+     * An optional media album of 2 to 10 photos or videos. It is mutually
+     * exclusive with `media` and `poll`, and the text becomes the caption of
+     * the first album item.
+     */
+    readonly album?: readonly TelegramMedia[]
     /**
      * An optional native poll. When present, `text` is the poll question and
      * media is refused instead of dropped.
@@ -207,6 +216,57 @@ export function createTelegramPublisher(
         }
     }
 
+    /**
+     * Send one media album.
+     *
+     * The album carries 2 to 10 photos or videos in one `sendMediaGroup`
+     * request. Every item is uploaded as its own multipart field, the text is
+     * the caption of the first item only, and the request is refused locally
+     * when the count, the media or the caption break the contract. The
+     * provider acknowledgement must prove every item of the album, otherwise
+     * the send stays ambiguous because the album may exist.
+     */
+    async function sendAlbum(
+        input: TelegramSendInput,
+        album: readonly TelegramMedia[]
+    ): Promise<TelegramPublishOutcome> {
+        if (
+            album.length < TELEGRAM_ALBUM_LIMITS.minItems ||
+            album.length > TELEGRAM_ALBUM_LIMITS.maxItems
+        )
+            return failure('A Telegram album needs between 2 and 10 media files').outcome
+        if (!Array.from(album).every(item => validAlbumItem(item)))
+            return failure('Telegram media is invalid or exceeds its limits').outcome
+        const plan = planTelegramAlbum(album, input.text)
+        if (plan === null) return failure('Telegram media is invalid or exceeds its limits').outcome
+        if (input.text.length > TELEGRAM_MAX_CAPTION_LENGTH)
+            return failure('Telegram message exceeds its text or caption constraints').outcome
+        const form = new FormData()
+        form.set('chat_id', input.chatId)
+        form.set('media', JSON.stringify(plan.media))
+        for (const attachment of plan.attachments)
+            form.set(attachment.field, attachment.blob, attachment.fileName)
+        const sent = await call(input.token, 'sendMediaGroup', form, true)
+        if (!sent.ok) return sent.outcome
+        const acknowledgement = readTelegramAlbumAcknowledgement(sent.value, {
+            chatId: input.chatId,
+            token: input.token,
+            kinds: plan.kinds,
+        })
+        if (acknowledgement === null) return unknownResult(true).outcome
+        const firstMessageId = acknowledgement.messageIds[0]
+        if (firstMessageId === undefined) return unknownResult(true).outcome
+        const externalUrl = username(acknowledgement.chatUsername)
+            ? `https://t.me/${acknowledgement.chatUsername}/${firstMessageId}`
+            : undefined
+        return {
+            type: 'published',
+            externalId: `${input.chatId}:${acknowledgement.messageIds.join(',')}`,
+            mediaIds: acknowledgement.mediaIds,
+            ...(externalUrl ? { externalUrl } : {}),
+        }
+    }
+
     return {
         async verifyChannel(
             token: string,
@@ -283,12 +343,21 @@ export function createTelegramPublisher(
             if (
                 !validToken(input.token) ||
                 !isTelegramChannelId(input.chatId) ||
-                typeof input.text !== 'string'
+                typeof input.text !== 'string' ||
+                (input.album !== undefined && !Array.isArray(input.album))
             )
                 return failure('Telegram message input is invalid').outcome
             const media = input.media
+            const album = input.album
             const poll = input.poll
-            if (poll !== undefined) return sendPoll(input, poll)
+            if (poll !== undefined) {
+                if (album !== undefined)
+                    return failure('A Telegram poll cannot carry media attachments').outcome
+                return sendPoll(input, poll)
+            }
+            if (media !== undefined && album !== undefined)
+                return failure('Telegram media and album cannot be combined').outcome
+            if (album !== undefined) return sendAlbum(input, album)
             // Plain text uses a conservative UTF-16 ceiling, including astral characters.
             if (
                 input.text.length >
@@ -404,6 +473,11 @@ function validMedia(media: TelegramMedia) {
             (media.width + media.height <= 10000 &&
                 Math.max(media.width / media.height, media.height / media.width) <= 20))
     )
+}
+/** Guard one album item against a caller that ignores the declared shape. */
+function validAlbumItem(item: unknown): boolean {
+    if (item === null || typeof item !== 'object') return false
+    return validMedia(item as TelegramMedia)
 }
 function validToken(token: string) {
     return typeof token === 'string' && token.length <= 512 && /^\d+:[A-Za-z0-9_-]+$/.test(token)

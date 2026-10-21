@@ -4,6 +4,7 @@ import type {
     ValidationIssue,
 } from '@postbot/core'
 
+import { TELEGRAM_ALBUM_LIMITS } from './album'
 import { readTelegramPoll, TELEGRAM_POLL_LIMITS, telegramPollError } from './poll'
 import {
     TELEGRAM_MAX_TEXT_LENGTH,
@@ -14,6 +15,17 @@ import {
 
 export const TELEGRAM_EXECUTION_REVISION = 'message-v1'
 export const TELEGRAM_POLL_EXECUTION_REVISION = 'message-v2'
+export const TELEGRAM_ALBUM_EXECUTION_REVISION = 'message-v3'
+
+const telegramMediaItemSchema = {
+    type: 'object',
+    properties: {
+        assetId: { type: 'string', minLength: 1 },
+        accessibilityText: { type: 'string' },
+    },
+    required: ['assetId'],
+    additionalProperties: false,
+}
 
 /** The historical Telegram message profile, kept immutable for existing channels. */
 export const telegramMessageChannelProfile: ChannelProfileDefinition = {
@@ -29,15 +41,7 @@ export const telegramMessageChannelProfile: ChannelProfileDefinition = {
             media: {
                 type: 'array',
                 maxItems: 1,
-                items: {
-                    type: 'object',
-                    properties: {
-                        assetId: { type: 'string', minLength: 1 },
-                        accessibilityText: { type: 'string' },
-                    },
-                    required: ['assetId'],
-                    additionalProperties: false,
-                },
+                items: telegramMediaItemSchema,
             },
         },
         required: ['text', 'media'],
@@ -101,13 +105,14 @@ const telegramPollContentSchema = {
 }
 
 /**
- * The current Telegram profile.
+ * The Telegram poll profile.
  *
  * It keeps the message contract of `telegramMessageChannelProfile` and adds an
  * optional poll. When a poll is present the root text carries the poll
  * question, media is excluded, and only anonymous regular polls are allowed.
+ * It stays immutable beside the album profile that follows it.
  */
-export const telegramChannelProfile: ChannelProfileDefinition = {
+export const telegramPollChannelProfile: ChannelProfileDefinition = {
     ...telegramMessageChannelProfile,
     version: 2,
     profileHash: 'sha256:postbot-telegram-message-v2',
@@ -131,19 +136,63 @@ export const telegramChannelProfile: ChannelProfileDefinition = {
     },
 }
 
+/**
+ * The current Telegram profile.
+ *
+ * It keeps the poll contract of `telegramPollChannelProfile` and accepts a
+ * media album of up to ten photos or videos. The text is the caption of the
+ * album, and an optional poll still excludes every media attachment.
+ */
+export const telegramChannelProfile: ChannelProfileDefinition = {
+    ...telegramPollChannelProfile,
+    version: 3,
+    profileHash: 'sha256:postbot-telegram-message-v3',
+    schemaHash: 'sha256:postbot-telegram-message-schema-v3',
+    contentSchema: {
+        ...telegramPollChannelProfile.contentSchema,
+        properties: {
+            ...((telegramPollChannelProfile.contentSchema as Readonly<Record<string, unknown>>)
+                .properties as Record<string, unknown>),
+            media: {
+                type: 'array',
+                maxItems: TELEGRAM_ALBUM_LIMITS.maxItems,
+                items: telegramMediaItemSchema,
+            },
+        },
+    },
+    capabilities: {
+        ...telegramPollChannelProfile.capabilities,
+        revision: 'telegram-message-v3',
+        mediaFields: telegramPollChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            maxItems: TELEGRAM_ALBUM_LIMITS.maxItems,
+            allowMixedFamilies: true,
+        })),
+    },
+    execution: {
+        kind: 'built_in',
+        contractId: 'telegram',
+        revision: TELEGRAM_ALBUM_EXECUTION_REVISION,
+    },
+}
+
 export const telegramChannelProfileValidationAdapter: ChannelProfileValidationAdapter = {
     contractId: 'telegram',
     validate(profile, content) {
         if (profile.execution.kind !== 'built_in') return []
         const revision = profile.execution.revision
         if (revision === TELEGRAM_EXECUTION_REVISION) return validateMessageContent(content)
-        if (revision !== TELEGRAM_POLL_EXECUTION_REVISION) return []
+        if (
+            revision !== TELEGRAM_POLL_EXECUTION_REVISION &&
+            revision !== TELEGRAM_ALBUM_EXECUTION_REVISION
+        )
+            return []
         if (content.poll === undefined) return validateMessageContent(content)
         return validatePollContent(content)
     },
 }
 
-/** The ordinary Telegram message contract: text, or one media file with a caption. */
+/** The ordinary Telegram message contract: text, or media files with a caption. */
 function validateMessageContent(
     content: Readonly<Record<string, unknown>>
 ): readonly ValidationIssue[] {
@@ -176,7 +225,7 @@ function validateMessageContent(
 }
 
 /**
- * The poll contract of the current profile.
+ * The poll contract of the poll and album profiles.
  *
  * A poll replaces the message body: the root text is the question and media is
  * refused instead of dropped. A malformed poll never falls back to an ordinary

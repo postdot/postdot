@@ -492,3 +492,173 @@ test('classifies a rejected poll without leaking provider descriptions or tokens
         expect(calls).toHaveLength(1)
     }
 })
+
+function albumAcknowledgement(overrides: readonly Record<string, unknown>[] = []) {
+    return [
+        {
+            message_id: 11,
+            chat,
+            media_group_id: 'group-1',
+            photo: [{ file_id: 'photo-file-1' }],
+            ...overrides[0],
+        },
+        {
+            message_id: 12,
+            chat,
+            media_group_id: 'group-1',
+            video: { file_id: 'video-file-1' },
+            ...overrides[1],
+        },
+        {
+            message_id: 13,
+            chat,
+            media_group_id: 'group-1',
+            photo: [{ file_id: 'photo-file-2' }],
+            ...overrides[2],
+        },
+    ]
+}
+
+test('sends one ordered mixed album with a single caption and keeps every media identity', async () => {
+    const { client, calls } = fixture([success(albumAcknowledgement())])
+    expect(
+        await client.send({
+            token,
+            chatId,
+            text: 'Album caption',
+            album: [media('image/png'), media('video/mp4'), media('image/jpeg')],
+        })
+    ).toEqual({
+        type: 'published',
+        externalId: `${chatId}:11,12,13`,
+        mediaIds: ['photo-file-1', 'video-file-1', 'photo-file-2'],
+        externalUrl: 'https://t.me/example_channel/11',
+    })
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url.endsWith('/sendMediaGroup')).toBe(true)
+    expect(calls[0]?.init?.redirect).toBe('error')
+    const form = calls[0]?.init?.body as FormData
+    expect(form.get('chat_id')).toBe(chatId)
+    expect(JSON.parse(String(form.get('media')))).toEqual([
+        { type: 'photo', media: 'attach://item0', caption: 'Album caption' },
+        { type: 'video', media: 'attach://item1' },
+        { type: 'photo', media: 'attach://item2' },
+    ])
+    expect([...form.keys()].sort()).toEqual(['chat_id', 'item0', 'item1', 'item2', 'media'])
+    expect((form.get('item0') as Blob).type).toBe('image/png')
+    expect((form.get('item1') as Blob).type).toBe('video/mp4')
+    expect((form.get('item2') as Blob).type).toBe('image/jpeg')
+    expect(JSON.stringify(form.get('media'))).not.toContain('http')
+})
+
+test('sends an album without a caption and without a public link', async () => {
+    const { client, calls } = fixture([
+        success(
+            albumAcknowledgement([
+                { chat: { ...chat, username: undefined } },
+                { chat: { ...chat, username: undefined } },
+                { chat: { ...chat, username: undefined } },
+            ])
+        ),
+    ])
+    expect(
+        await client.send({
+            token,
+            chatId,
+            text: '',
+            album: [media(), media('video/mp4'), media()],
+        })
+    ).toEqual({
+        type: 'published',
+        externalId: `${chatId}:11,12,13`,
+        mediaIds: ['photo-file-1', 'video-file-1', 'photo-file-2'],
+    })
+    const form = calls[0]?.init?.body as FormData
+    expect(JSON.parse(String(form.get('media')))).toEqual([
+        { type: 'photo', media: 'attach://item0' },
+        { type: 'video', media: 'attach://item1' },
+        { type: 'photo', media: 'attach://item2' },
+    ])
+})
+
+test('refuses an invalid album before any external request', async () => {
+    const invalid = [
+        { text: 'Caption', album: [media()] },
+        { text: 'Caption', album: Array(2) },
+        { text: 'Caption', album: Array.from({ length: 11 }, () => media()) },
+        { text: 'Caption', album: [media(), media('image/gif')] },
+        { text: 'Caption', album: [media(), media('image/png', 0)] },
+        { text: 'Caption', album: [media(), media('image/png', TELEGRAM_MAX_PHOTO_BYTES + 1)] },
+        { text: 'Caption', album: [media(), media('video/mp4', TELEGRAM_MAX_VIDEO_BYTES + 1)] },
+        { text: 'x'.repeat(1025), album: [media(), media()] },
+        { text: 'Caption', album: [media(), media()], media: media() },
+        { text: 'Choose', album: [media(), media()], poll: { options: ['First'] } },
+    ]
+    for (const input of invalid) {
+        const { client, calls } = fixture([])
+        expect((await client.send({ token, chatId, ...input })).type).toBe('permanent_failure')
+        expect(calls).toHaveLength(0)
+    }
+})
+
+test('treats a partial, mismatching or duplicated album acknowledgement as ambiguous', async () => {
+    for (const response of [
+        success(albumAcknowledgement().slice(0, 2)),
+        success([...albumAcknowledgement(), albumAcknowledgement()[0]]),
+        success(albumAcknowledgement([{ message_id: 12 }, {}, { message_id: 12 }])),
+        success(albumAcknowledgement([{ media_group_id: 'group-2' }])),
+        success(albumAcknowledgement([{ media_group_id: '' }])),
+        success(albumAcknowledgement([{ media_group_id: undefined }])),
+        success(albumAcknowledgement([{ media_group_id: token }])),
+        success(albumAcknowledgement([{ chat: { ...chat, id: -9 } }])),
+        success(albumAcknowledgement([{ chat: { ...chat, type: 'supergroup' } }])),
+        success(albumAcknowledgement([{ photo: undefined }])),
+        success(albumAcknowledgement([{ photo: [{ file_id: '' }] }])),
+        success(albumAcknowledgement([{ photo: [{ file_id: token }] }])),
+        success(albumAcknowledgement([{}, { video: undefined }])),
+        success(albumAcknowledgement([{}, { video: { file_id: token } }])),
+        success(albumAcknowledgement([{ message_id: 0 }])),
+        success('album'),
+        new Error(`Fetch failed at /bot${token}`),
+        rejection(500),
+    ]) {
+        const { client, calls } = fixture([response])
+        const outcome = await client.send({
+            token,
+            chatId,
+            text: 'Caption',
+            album: [media(), media('video/mp4'), media()],
+        })
+        expect(outcome.type).toBe('ambiguous')
+        expect(JSON.stringify(outcome)).not.toContain(token)
+        expect(calls).toHaveLength(1)
+    }
+})
+
+test('classifies a rejected album without leaking provider descriptions or tokens', async () => {
+    for (const response of [rejection(400), rejection(401), rejection(403)]) {
+        const { client, calls } = fixture([response])
+        const outcome = await client.send({
+            token,
+            chatId,
+            text: 'Caption',
+            album: [media(), media('video/mp4')],
+        })
+        expect(outcome.type).toBe('permanent_failure')
+        if (response.status === 401)
+            expect(outcome).toMatchObject({ code: 'authentication_required' })
+        if (response.status === 403) expect(outcome).toMatchObject({ code: 'forbidden' })
+        expect(JSON.stringify(outcome)).not.toContain(token)
+        expect(calls).toHaveLength(1)
+    }
+    const limited = fixture([rejection(429, { retry_after: 90 })])
+    expect(
+        await limited.client.send({
+            token,
+            chatId,
+            text: 'Caption',
+            album: [media(), media('video/mp4')],
+        })
+    ).toMatchObject({ type: 'deferred', effectOccurred: false, resumeAfterMs: 90000 })
+    expect(limited.calls).toHaveLength(1)
+})

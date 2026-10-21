@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 
-import { TELEGRAM_EXECUTION_REVISION, TELEGRAM_POLL_EXECUTION_REVISION } from '@postbot/telegram'
+import {
+    TELEGRAM_EXECUTION_REVISION,
+    TELEGRAM_POLL_EXECUTION_REVISION,
+    telegramChannelProfile,
+} from '@postbot/telegram'
 import { TELEGRAM_POLL_LIMITS } from '@postbot/telegram/poll'
 
 import { getTargetEditorFields } from './target-editor'
@@ -186,4 +190,22 @@ describe('Telegram poll values', () => {
         }
         expect([...TELEGRAM_POLL_DURATIONS]).toEqual([3600, 86400, 604800, 2592000])
     })
+})
+
+it('retains native poll controls and caption budgets on the album profile', () => {
+    expect(isNativeTelegramProfile(telegramChannelProfile)).toBe(true)
+    expect(isTelegramPollProfile(telegramChannelProfile)).toBe(true)
+    expect(
+        getTargetEditorFields(telegramChannelProfile, 'en').filter(
+            field => field.kind === 'telegram-poll'
+        )
+    ).toHaveLength(1)
+    expect(
+        telegramTextLimit(telegramChannelProfile, {
+            media: [{ assetId: 'photo' }, { assetId: 'video' }],
+        })
+    ).toBe(1024)
+    expect(
+        telegramTextLimit(telegramChannelProfile, { media: [], poll: { options: ['A', 'B'] } })
+    ).toBe(300)
 })

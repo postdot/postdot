@@ -111,7 +111,7 @@ test('authors a Telegram poll, retains it through reload and selects an immutabl
         animations: 'disabled',
     })
     const selected = await (await page.request.get(path + '/editor')).json()
-    expect(selected.editor.profile.profile.execution.revision).toBe('message-v2')
+    expect(selected.editor.profile.profile.execution.revision).toBe('message-v3')
     const promoted = await page.request.post(path + '/draft/promote', {
         data: { expectedRevision: selected.editor.draft.revision, scheduledAt: null },
     })

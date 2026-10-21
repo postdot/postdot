@@ -37,6 +37,9 @@ const scenarios = [
     { outcome: 'retry', media: 'video' },
     { outcome: 'published', media: null, poll: true },
     { outcome: 'ambiguous', media: null, poll: true },
+    { outcome: 'published', media: 'album' },
+    { outcome: 'ambiguous', media: 'album' },
+    { outcome: 'retry', media: 'album' },
 ] as const
 
 for (const entry of scenarios) {
@@ -121,14 +124,25 @@ for (const entry of scenarios) {
                               'base64'
                           )
                       )
-            let assetId: string | undefined
-            if (mediaKind) {
+            const references: { assetId: string }[] = []
+            const members =
+                mediaKind === 'album' ? ['photo', 'video'] : mediaKind ? [mediaKind] : []
+            for (const member of members) {
+                const memberBytes =
+                    member === 'video'
+                        ? await Bun.file(
+                              new URL(
+                                  '../../../../../packages/db/src/fixtures/video-h264.mp4',
+                                  import.meta.url
+                              )
+                          ).bytes()
+                        : bytes
                 const reservation = media.reserveUpload({
                     projectId: project.project.id,
                     subjectId: 'operator',
-                    originalFilename: mediaKind === 'video' ? 'clip.mp4' : 'photo.png',
-                    contentType: mediaKind === 'video' ? 'video/mp4' : 'image/png',
-                    expectedSize: bytes.length,
+                    originalFilename: member === 'video' ? 'clip.mp4' : 'photo.png',
+                    contentType: member === 'video' ? 'video/mp4' : 'image/png',
+                    expectedSize: memberBytes.length,
                 })!
                 expect(reservation).not.toBeNull()
                 expect(
@@ -136,7 +150,7 @@ for (const entry of scenarios) {
                         projectId: project.project.id,
                         subjectId: 'operator',
                         intentId: reservation.intent.id,
-                        source: new Blob([bytes]).stream(),
+                        source: new Blob([memberBytes]).stream(),
                     })
                 ).toMatchObject({ kind: 'uploaded' })
                 expect(
@@ -146,9 +160,8 @@ for (const entry of scenarios) {
                         intentId: reservation.intent.id,
                     })
                 ).toMatchObject({ kind: 'ready' })
-                assetId = reservation.asset.id
+                references.push({ assetId: reservation.asset.id })
             }
-            const references = assetId ? [{ assetId }] : []
             const post = store.createPost({
                 projectId: project.project.id,
                 subjectId: 'operator',
@@ -210,6 +223,18 @@ for (const entry of scenarios) {
                                             { ok: false, error_code: 401 },
                                             { status: 401 }
                                         )
+                                    if (mediaKind === 'album')
+                                        return Response.json({
+                                            ok: true,
+                                            result: members.map((member, index) => ({
+                                                message_id: 42 + index,
+                                                chat: { id: -1001234567890, type: 'channel' },
+                                                media_group_id: 'album-42',
+                                                ...(member === 'photo'
+                                                    ? { photo: [{ file_id: 'remote-photo-42' }] }
+                                                    : { video: { file_id: 'remote-video-43' } }),
+                                            })),
+                                        })
                                     return Response.json({
                                         ok: true,
                                         result: {
@@ -254,7 +279,7 @@ for (const entry of scenarios) {
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
-                    ).toEqual([{ state: 'failed', remoteId: null }])
+                    ).toEqual(members.map(() => ({ state: 'failed', remoteId: null })))
                     clock += 2000
                     await worker.processDueEvents(clock)
                 }
@@ -273,7 +298,9 @@ for (const entry of scenarios) {
                                   : scenario,
                         externalId:
                             scenario === 'published' || scenario === 'retry'
-                                ? '-1001234567890:42'
+                                ? mediaKind === 'album'
+                                    ? '-1001234567890:42,43'
+                                    : '-1001234567890:42'
                                 : null,
                     },
                 ])
@@ -284,26 +311,38 @@ for (const entry of scenarios) {
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
-                    ).toEqual([
-                        {
+                    ).toEqual(
+                        members.map((member, index) => ({
                             state: scenario === 'ambiguous' ? 'ambiguous' : 'uploaded',
-                            remoteId: scenario === 'ambiguous' ? null : `remote-${mediaKind}-42`,
-                        },
-                    ])
+                            remoteId:
+                                scenario === 'ambiguous' ? null : `remote-${member}-${42 + index}`,
+                        }))
+                    )
                     expect(
                         database.$client
                             .query(
                                 'select count(*) as count from publication_execution_revision_media'
                             )
                             .get()
-                    ).toEqual({ count: 1 })
+                    ).toEqual({ count: members.length })
                 }
                 clock = now + 60_000
                 await worker.processDueEvents(clock)
                 expect(calls).toBe(scenario === 'retry' ? 2 : 1)
                 // Assert outside the provider callback: uncertain-response handling catches errors.
                 for (const request of requests) {
-                    if (mediaKind) {
+                    if (mediaKind === 'album') {
+                        expect(request.url.endsWith('/sendMediaGroup')).toBe(true)
+                        expect(request.body).toBeInstanceOf(FormData)
+                        const body = request.body as FormData
+                        const attachments = JSON.parse(String(body.get('media')))
+                        expect(attachments.map((item: { type: string }) => item.type)).toEqual([
+                            'photo',
+                            'video',
+                        ])
+                        expect(attachments[0].caption).toBe('Hello Telegram')
+                        expect(attachments[1].caption).toBeUndefined()
+                    } else if (mediaKind) {
                         expect(
                             request.url.endsWith(
                                 mediaKind === 'video' ? '/sendVideo' : '/sendPhoto'
