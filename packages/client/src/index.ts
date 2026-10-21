@@ -133,3 +133,5 @@ export type { SearchResponse } from '@postbot/api'
 export type { PublicationCommentsResponse }
 
 export type { PublicationRepliesResponse } from '@postbot/api'
+
+export type { PublicationFirstCommentResponse, PublicationFirstCommentItem } from '@postbot/api'

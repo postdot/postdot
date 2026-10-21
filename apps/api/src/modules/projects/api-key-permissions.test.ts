@@ -10,6 +10,17 @@ import {
 describe('user API-key capability policy', () => {
     it.each([
         ['GET', '/api/projects', 'project:read'],
+        ['GET', '/api/projects/project-1/publications/publication-1/first-comment', 'project:read'],
+        [
+            'PUT',
+            '/api/projects/project-1/publications/publication-1/first-comment',
+            'publication:dispatch',
+        ],
+        [
+            'POST',
+            '/api/projects/project-1/publications/publication-1/first-comment/cancel',
+            'publication:dispatch',
+        ],
         ['GET', '/api/projects/project-1/channels', 'project:read'],
         ['PUT', '/api/projects/project-1/publication-composer-draft', 'publication:manage'],
         ['POST', '/api/projects/project-1/posts', 'publication:manage'],
@@ -63,6 +74,9 @@ describe('user API-key capability policy', () => {
     })
 
     it.each([
+        ['PUT', '/api/projects/project-1/publications/publication-1/first-comment/extra'],
+        ['POST', '/api/projects/project-1/publications/publication-1/first-comment'],
+        ['POST', '/api/projects/project-1/publications/publication-1/first-comment/cancel/extra'],
         ['POST', '/api/projects'],
         ['PATCH', '/api/projects/project-1'],
         ['GET', '/api/projects/project-1/members'],

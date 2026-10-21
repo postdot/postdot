@@ -43,6 +43,7 @@ import {
     type ProjectCategory,
     type ProjectTag,
     type PublicationCommentsResponse,
+    type PublicationFirstCommentResponse,
 } from '@postbot/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -52,6 +53,8 @@ import { formatChannelLifecycleConflict } from './channel-lifecycle-feedback'
 export type { MediaImportSource } from '@postbot/client'
 export type PublicationSummary = PublicationSummaryPage['publications'][number]
 export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
+
+export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postbot/client'
 
 import type { PublicationComposerDraftContent } from '@/lib/publication-recovery'
 
@@ -831,6 +834,52 @@ export const api = {
                 .projects({ projectId })
                 .publications({ publicationId })
                 .comments.refresh.post({})
+        )
+    },
+
+    /**
+     * The prepared first comment of one native publication, through the typed
+     * first-comment route.
+     */
+    async getPublicationFirstComment(
+        projectId: string,
+        publicationId: string
+    ): Promise<PublicationFirstCommentResponse> {
+        return unwrap<PublicationFirstCommentResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['first-comment'].get()
+        )
+    },
+
+    async savePublicationFirstComment(
+        projectId: string,
+        publicationId: string,
+        body: {
+            readonly text: string
+            readonly delaySeconds: number
+            readonly expectedRevision: number
+        }
+    ): Promise<PublicationFirstCommentResponse> {
+        return unwrap<PublicationFirstCommentResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['first-comment'].put(body)
+        )
+    },
+
+    async cancelPublicationFirstComment(
+        projectId: string,
+        publicationId: string,
+        body: { readonly expectedRevision: number }
+    ): Promise<PublicationFirstCommentResponse> {
+        return unwrap<PublicationFirstCommentResponse>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['first-comment'].cancel.post(body)
         )
     },
 

@@ -44,6 +44,8 @@ import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
 import { registerPublicationCommentsRoutes } from './publication-comments-routes'
+import { registerPublicationFirstCommentRoutes } from './publication-first-comment-routes'
+import type { PublicationFirstCommentService } from './publication-first-comment-service'
 import { registerPublicationRepliesRoutes } from './publication-replies-routes'
 import type { PublicationRepliesService } from './publication-replies-service'
 import { registerPublicationRoutes } from './publication-routes'
@@ -84,6 +86,7 @@ export interface ProjectModuleOptions {
     }
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
+    readonly publicationFirstComments: PublicationFirstCommentService
     readonly publicationReplies: PublicationRepliesService
     readonly publicationComments: PublicationCommentStore
     readonly blueskyCommentsReader?: BlueskyThreadReader
@@ -256,7 +259,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         access: options.access,
         onWorkScheduled: options.onWorkScheduled,
     })
-    const auditRoutes = registerAuditEventRoutes(replyRoutes, options.manualStore)
+    const firstCommentRoutes = registerPublicationFirstCommentRoutes(replyRoutes, {
+        firstComments: options.publicationFirstComments,
+        access: options.access,
+        onWorkScheduled: options.onWorkScheduled,
+    })
+    const auditRoutes = registerAuditEventRoutes(firstCommentRoutes, options.manualStore)
     return registerRealtimeRoutes(
         auditRoutes,
         options.eventJournal,

@@ -1,13 +1,9 @@
-import { Agent } from '@atproto/api'
 import {
     createBlueskyReplyRecordKey,
     type BlueskyFetcher,
     blueskyPostDid,
     blueskyReplyTextValid,
-    createBlueskyReplyPublisher,
-    resolveBlueskyReplyContext,
-    readBlueskySessionTokenSet,
-    restoreBlueskySession,
+    type restoreBlueskySession,
 } from '@postbot/bluesky'
 import { processNextExternalEffect, type ExternalEffectOutcome } from '@postbot/core'
 import {
@@ -26,6 +22,7 @@ import { Value } from 'typebox/value'
 
 import type { PublisherRuntime } from '../publishers/runtime'
 import { publicationCommentSnapshotSchema } from './publication-comments-models'
+import { performBlueskyReply } from './publication-replies-bluesky'
 import { performMastodonReply } from './publication-replies-mastodon'
 
 export function createPublicationRepliesService(options: {
@@ -144,82 +141,17 @@ export function createPublicationRepliesService(options: {
                     now: now(),
                 })
             }
-            const oauth = await options.publisher.resolveBlueskyOAuth(
-                options.publisher.credentialStore.getPublisherCredential(
-                    work.projectId,
-                    work.credentialId
-                )?.providerApplicationId ?? null
-            )
-            const secrets =
-                await options.publisher.credentialStore.resolvePublisherCredentialSecrets(
-                    work.projectId,
-                    work.credentialId
-                )
-            if (!oauth || !secrets?.providerSession)
-                return failed('Reconnect the original Bluesky account to reply')
-            const restored = await (options.restoreSession ?? restoreBlueskySession)({
-                sub: work.accountId,
-                serializedSession: secrets.providerSession,
-                client: oauth,
-            })
-            const grant = await restored.session.getTokenInfo()
-            if (
-                restored.session.did !== work.accountId ||
-                !grant.scope
-                    .split(/\s+/)
-                    .some(
-                        scope =>
-                            scope === 'repo:app.bsky.feed.post?action=create' ||
-                            scope === 'transition:generic'
-                    )
-            )
-                return failed('The Bluesky account has not granted permission to create replies')
-            const serialized = restored.getSerializedSession()
-            const token = readBlueskySessionTokenSet(serialized)
-            if (!token || token.sub !== work.accountId)
-                return failed('The Bluesky session is invalid')
-            if (serialized !== secrets.providerSession) {
-                const result =
-                    await options.publisher.credentialStore.replacePublisherCredentialTokens({
-                        projectId: work.projectId,
-                        credentialId: work.credentialId,
-                        accessToken: token.accessToken,
-                        refreshToken: token.refreshToken ?? undefined,
-                        providerSession: serialized,
-                        expiresAt:
-                            token.expiresAt === null
-                                ? null
-                                : Number.isSafeInteger(Date.parse(token.expiresAt))
-                                  ? Date.parse(token.expiresAt)
-                                  : null,
-                    })
-                if (result.kind !== 'updated')
-                    return failed('The refreshed Bluesky session could not be saved')
-            }
-            const context = await resolveBlueskyReplyContext({
-                rootUri: work.rootUri,
-                parentUri: work.parentUri,
+            return await performBlueskyReply({
+                work,
+                publisher: options.publisher,
+                restoreSession: options.restoreSession,
+                contextFetcher: options.contextFetcher,
                 signal,
-                fetcher: options.contextFetcher,
-            })
-            if (!context) return failed('The comment or its conversation is no longer available')
-            if (signal.aborted || !store.claimCurrent(work, now()))
-                return failed('The reply is no longer eligible for dispatch')
-            const agent = new Agent(restored.session)
-            dispatched = true
-            return await createBlueskyReplyPublisher({
-                did: agent.did,
-                createRecord: (input, callOptions) =>
-                    agent.com.atproto.repo.createRecord(input, callOptions),
-            }).publish(
-                {
-                    ...context,
-                    text: work.text,
-                    recordKey: work.recordKey,
-                    createdAt: work.createdAt,
+                stillEligible: () => store.claimCurrent(work, now()),
+                onDispatch: () => {
+                    dispatched = true
                 },
-                signal
-            )
+            })
         } catch {
             if (dispatched)
                 return {

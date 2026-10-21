@@ -120,6 +120,13 @@
             "when": 1792502569446,
             "tag": "0016_instagram_application_provider",
             "breakpoints": true
+        },
+        {
+            "idx": 17,
+            "version": "6",
+            "when": 1792561864667,
+            "tag": "0017_publication_first_comments",
+            "breakpoints": true
         }
     ]
 }

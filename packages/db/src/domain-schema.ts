@@ -2925,3 +2925,120 @@ export const publicationCommentReplies = sqliteTable(
         ),
     ]
 )
+
+/**
+ * Lifecycle of a prepared first comment.
+ *
+ * `waiting` means the parent publication is not confirmed yet, `pending` means
+ * the comment is armed against an exact parent receipt, `running` means a
+ * worker claimed it, `suspended` means the enabling editor lost access, and
+ * the remaining states are terminal outcomes of the send itself.
+ */
+export const publicationFirstCommentStates = [
+    'waiting',
+    'pending',
+    'running',
+    'suspended',
+    'sent',
+    'failed',
+    'ambiguous',
+    'cancelled',
+] as const
+
+/**
+ * A prepared first comment is publication-owned: it exists before the remote
+ * parent does, and it is independent from the conversation reply ledger.
+ *
+ * Foreign keys use the same project scoping as the reply store. The pinned
+ * receipt, connection, credential and account are validated with scoped
+ * queries instead of foreign keys because those tables are owned by the
+ * publisher lifecycle, not by the comment.
+ */
+export const publicationFirstComments = sqliteTable(
+    'publication_first_comments',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        actorId: text('actor_id').notNull(),
+        text: text('text').notNull(),
+        delaySeconds: integer('delay_seconds').notNull(),
+        state: text('state', { enum: publicationFirstCommentStates }).notNull(),
+        // Configuration revision: it advances on an editor save or cancel and
+        // never on a lifecycle transition such as arming or suspension.
+        revision: integer('revision').default(1).notNull(),
+        dueAt: integer('due_at'),
+        rootUri: text('root_uri'),
+        executionRevisionId: text('execution_revision_id'),
+        connectionId: text('connection_id'),
+        credentialId: text('credential_id'),
+        accountId: text('account_id'),
+        recordKey: text('record_key').notNull(),
+        attempts: integer('attempts').notNull().default(0),
+        claimToken: text('claim_token'),
+        leaseExpiresAt: integer('lease_expires_at'),
+        effectStartedAt: integer('effect_started_at'),
+        externalId: text('external_id'),
+        externalUrl: text('external_url'),
+        lastError: text('last_error'),
+        ...timestamps(),
+    },
+    table => [
+        foreignKey({
+            name: 'publication_first_comments_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_first_comments_project_actor_fk',
+            columns: [table.projectId, table.actorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        uniqueIndex('publication_first_comments_project_publication_uidx').on(
+            table.projectId,
+            table.publicationId
+        ),
+        uniqueIndex('publication_first_comments_project_record_key_uidx').on(
+            table.projectId,
+            table.recordKey
+        ),
+        index('publication_first_comments_state_due_at_idx').on(table.state, table.dueAt),
+        index('publication_first_comments_project_publication_idx').on(
+            table.projectId,
+            table.publicationId
+        ),
+        check(
+            'publication_first_comments_state_valid',
+            sql`${table.state} in ('waiting', 'pending', 'running', 'suspended', 'sent', 'failed', 'ambiguous', 'cancelled')`
+        ),
+        check('publication_first_comments_text_nonblank', sql`length(trim(${table.text})) > 0`),
+        check(
+            'publication_first_comments_delay_seconds_valid',
+            sql`${table.delaySeconds} >= 0 and ${table.delaySeconds} <= 604800`
+        ),
+        check('publication_first_comments_attempts_valid', sql`${table.attempts} >= 0`),
+        check('publication_first_comments_revision_valid', sql`${table.revision} > 0`),
+        check(
+            'publication_first_comments_record_key_nonblank',
+            sql`length(trim(${table.recordKey})) > 0`
+        ),
+        check(
+            'publication_first_comments_time_valid',
+            sql`${table.createdAt} >= 0 and ${table.updatedAt} >= ${table.createdAt}`
+        ),
+        check(
+            'publication_first_comments_claim_valid',
+            sql`(${table.state} = 'running' and ${table.claimToken} is not null and ${table.leaseExpiresAt} is not null) or (${table.state} != 'running' and ${table.claimToken} is null and ${table.leaseExpiresAt} is null)`
+        ),
+        check(
+            'publication_first_comments_armed_identity',
+            sql`${table.state} not in ('pending', 'running') or (${table.dueAt} is not null and ${table.rootUri} is not null and ${table.executionRevisionId} is not null and ${table.connectionId} is not null and ${table.credentialId} is not null and ${table.accountId} is not null)`
+        ),
+        check(
+            'publication_first_comments_external_result_only_sent',
+            sql`(${table.externalId} is null and ${table.externalUrl} is null) or ${table.state} = 'sent'`
+        ),
+    ]
+)

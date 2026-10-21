@@ -666,3 +666,43 @@ describe('stream shutdown', () => {
         expect(shutdownUnsubscribed).toBe(true)
     })
 })
+
+describe('prepared first-comment realtime events', () => {
+    it('streams each supported transition without comment text or provider material', () => {
+        const transitions = [
+            'requested',
+            'enabled',
+            'cancelled',
+            'armed',
+            'failed',
+            'suspended',
+            'started',
+            'sent',
+            'ambiguous',
+            'recovered',
+        ] as const
+        for (const transition of transitions) {
+            const entry = journalEntry({
+                id: 'first-comment-event',
+                sequence: 1,
+                name: `publication_first_comment.${transition}`,
+            })
+            const event = toProjectRealtimeEvent({
+                ...entry,
+                subject: { type: 'publication_first_comment', id: 'first-comment' },
+                payload: {
+                    ...entry.payload,
+                    text: 'private comment text',
+                    credentialId: 'private credential',
+                },
+            })
+            expect(event?.type).toBe(`publication_first_comment.${transition}`)
+            expect(event?.entity).toEqual({
+                type: 'publication_first_comment',
+                id: 'first-comment',
+            })
+            expect(event?.payload).toEqual({})
+            expect(JSON.stringify(event)).not.toContain('private')
+        }
+    })
+})

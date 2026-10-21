@@ -354,4 +354,19 @@ export type { SearchResult } from './manual-store/search-store'
 
 export { createPublicationCommentStore } from './publication-comment-store'
 export type { PublicationCommentStore, PublicationCommentRecord } from './publication-comment-store'
+export {
+    createPublicationFirstCommentStore,
+    firstCommentMaximumDelaySeconds,
+    firstCommentMaximumGraphemes,
+    firstCommentMaximumTextLength,
+} from './publication-first-comment-store'
+export type {
+    CancelPublicationFirstCommentInput,
+    PublicationFirstComment,
+    PublicationFirstCommentMutation,
+    PublicationFirstCommentState,
+    PublicationFirstCommentStore,
+    PublicationFirstCommentView,
+    SavePublicationFirstCommentInput,
+} from './publication-first-comment-store'
 export * from './publication-reply-store'

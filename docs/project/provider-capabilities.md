@@ -1,6 +1,6 @@
 # Implemented provider capabilities
 
-Repository review: 2026-10-20, including TELEGRAM-541. Use this reference to choose
+Repository review: 2026-10-21, including TELEGRAM-541 and ENGAGEMENT-543. Use this reference to choose
 product work and understand current Postbot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
@@ -44,7 +44,9 @@ The [comment routes](../../apps/api/src/modules/projects/publication-comments-ro
 and [reply service](../../apps/api/src/modules/projects/publication-replies-service.ts)
 support only Bluesky and Mastodon. Reads retain the latest bounded public
 snapshot; replies retain conversation-owned send history and outcomes. These
-are not an account-wide inbox, moderation tools or scheduled first comments.
+are not an account-wide inbox or moderation tools. Native automatic Bluesky
+publications also support a separately prepared [first comment](first-comments.md)
+with a delay after confirmed publication and an independent delivery outcome.
 
 ## Verification and external prerequisites
 
@@ -81,16 +83,13 @@ closing leaves the poll open. This does not collect votes or results.
 
 ## Next product gap
 
-Scope scheduled first comments beneath owned publications (ISSUE-171), starting
-with an existing reply-capable provider. Decide timing relative to confirmed
-parent delivery, editing/cancellation and independent failure visibility before
-implementing dependent delivery. This remains proposed and adds no automatic
-comment behavior to the current reply workflow.
+Extend prepared first comments to Mastodon after confirming its direct-root
+context validation. Reuse the accepted delay, suspension and independent-outcome
+contract; keep provider preparation separate from incoming conversation replies.
 
 X post counters are an alternative, but existing OAuth scopes do not prove
 endpoint entitlement or free access. The current
 [X pricing documentation](https://docs.x.com/x-api/getting-started/pricing)
 charges for API reads. Do not describe X metrics as an access-free integration.
-Scheduled first comments require dependent-delivery semantics (ISSUE-171), and
-tag reports still require an attribution decision (ISSUE-172). Instagram stays
+Tag reports still require an attribution decision (ISSUE-172). Instagram stays
 deferred. Additional locales need the owner's language selection.

@@ -147,6 +147,18 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     }
 
     if (resource === 'publications') {
+        if (detail.length === 2 && detail[1] === 'first-comment') {
+            if (normalizedMethod === 'GET') return 'project:read'
+            return normalizedMethod === 'PUT' ? 'publication:dispatch' : null
+        }
+        if (
+            detail.length === 3 &&
+            detail[1] === 'first-comment' &&
+            detail[2] === 'cancel' &&
+            normalizedMethod === 'POST'
+        )
+            return 'publication:dispatch'
+
         if (detail.length === 0 && normalizedMethod === 'GET') return 'project:read'
         if (detail.length === 1 && detail[0] === 'due' && normalizedMethod === 'GET') {
             return 'project:read'

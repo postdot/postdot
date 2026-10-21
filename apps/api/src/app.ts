@@ -54,6 +54,10 @@ import type { MediaUrlImporter } from './modules/media/url-import'
 import { createMetricsRoutes } from './modules/metrics/routes'
 import { createProjectModule } from './modules/projects'
 import {
+    createPublicationFirstCommentService,
+    type PublicationFirstCommentService,
+} from './modules/projects/publication-first-comment-service'
+import {
     createPublicationRepliesService,
     type PublicationRepliesService,
 } from './modules/projects/publication-replies-service'
@@ -99,6 +103,7 @@ export interface PostbotAppOptions {
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
     readonly taxonomy?: TaxonomyStore
+    readonly publicationFirstComments?: PublicationFirstCommentService
     readonly publicationReplies?: PublicationRepliesService
     readonly blueskyCommentsReader?: BlueskyThreadReader
     readonly mastodonCommentsReader?: MastodonThreadReader
@@ -134,6 +139,7 @@ function createDomainApp({
     providerAnalytics,
     taxonomy,
     publicationReplies,
+    publicationFirstComments,
     blueskyCommentsReader,
     mastodonCommentsReader,
     mastodonAnalyticsReader,
@@ -322,6 +328,9 @@ function createDomainApp({
                 taxonomy: taxonomyStore,
                 publicationReplies:
                     publicationReplies ?? createPublicationRepliesService({ database, publisher }),
+                publicationFirstComments:
+                    publicationFirstComments ??
+                    createPublicationFirstCommentService({ database, publisher }),
                 blueskyCommentsReader,
                 mastodonCommentsReader,
                 mastodonAnalyticsReader,
@@ -367,6 +376,7 @@ export function createApp({
     providerAnalytics,
     taxonomy,
     publicationReplies,
+    publicationFirstComments,
     blueskyCommentsReader,
     mastodonCommentsReader,
     mastodonAnalyticsReader,
@@ -403,6 +413,7 @@ export function createApp({
         providerAnalytics,
         taxonomy,
         publicationReplies,
+        publicationFirstComments,
         blueskyCommentsReader,
         mastodonCommentsReader,
         mastodonAnalyticsReader,

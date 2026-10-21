@@ -44,6 +44,7 @@ import { createMediaUrlImporter } from './modules/media/url-import'
 import { createPostbotMetrics } from './modules/metrics/metrics'
 import { createNotificationEmailRuntime } from './modules/notifications/email-runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
+import { createPublicationFirstCommentService } from './modules/projects/publication-first-comment-service'
 import { createPublicationRepliesService } from './modules/projects/publication-replies-service'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
@@ -344,8 +345,10 @@ async function startServerWithRuntimeLock(
     const metricsConfiguration = config.metrics
     const metrics = metricsConfiguration === undefined ? undefined : createPostbotMetrics()
     const publicationReplies = createPublicationRepliesService({ database, publisher })
+    const publicationFirstComments = createPublicationFirstCommentService({ database, publisher })
     const worker = createPublicationWorker({
         replies: publicationReplies,
+        firstComments: publicationFirstComments,
         database,
         publisherStore: publisher.publisherStore,
         publisherCredentialStore: publisher.credentialStore,
@@ -373,6 +376,7 @@ async function startServerWithRuntimeLock(
     }
     const baseApp = createApp({
         publicationReplies,
+        publicationFirstComments,
         mastodonCommentsReader: createMastodonThreadReader({ fetcher: mastodonFetcher }),
         mastodonAnalyticsReader: createMastodonAnalyticsReader({ fetcher: mastodonFetcher }),
         recovery,
@@ -467,3 +471,8 @@ export type { PublicationCommentsResponse } from './modules/projects/publication
 export type { PublicationRepliesResponse } from './modules/projects/publication-replies-routes'
 
 export type { MastodonAnalyticsCollectionResponse } from './modules/projects/mastodon-analytics-service'
+
+export type {
+    PublicationFirstCommentResponse,
+    PublicationFirstCommentItem,
+} from './modules/projects/publication-first-comment-models'

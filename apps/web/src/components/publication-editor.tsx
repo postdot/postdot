@@ -36,6 +36,7 @@ import {
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
 import { PublicationEditorTargetSection } from '@/components/publication-editor-target-section'
+import { PublicationFirstCommentPanel } from '@/components/publication-first-comment-panel'
 import { PublicationLifecyclePanel } from '@/components/publication-lifecycle-panel'
 import {
     PublicationOutcomePanel,
@@ -343,6 +344,13 @@ export function PublicationEditor({
         draftRequiresReview ||
         saveState !== 'saved' ||
         draftDiffersFromTarget
+
+    // A prepared first comment follows the native execution and the automatic
+    // delivery of this publication, never a channel name.
+    const firstCommentSupported =
+        editor.profile.profile.execution.kind === 'built_in' &&
+        editor.profile.profile.execution.contractId === 'bluesky' &&
+        editor.publication.deliveryMode === 'automatic'
 
     useEffect(() => {
         if (sourceConflict || saveState === 'conflict') setTechnicalDetailsOpen(true)
@@ -1570,6 +1578,17 @@ export function PublicationEditor({
                         projectId={projectId}
                         publicationId={editor.publication.id}
                         canRefresh={!readOnly && !accessWritesBlocked}
+                        timeZone={timeZone}
+                        onAccessRefused={onAccessRefused}
+                    />
+                ) : null}
+
+                {firstCommentSupported ? (
+                    <PublicationFirstCommentPanel
+                        projectId={projectId}
+                        publicationId={editor.publication.id}
+                        publicationState={editor.publication.state}
+                        disabled={readOnly || accessWritesBlocked}
                         timeZone={timeZone}
                         onAccessRefused={onAccessRefused}
                     />
