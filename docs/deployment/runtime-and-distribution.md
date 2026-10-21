@@ -38,9 +38,10 @@ recovery step and a local `bun run test:container:recovery` command.
 
 The recovery check uses a fresh image and isolated temporary data. It checks the
 production executable, readiness, dashboard assets, database/media backup and
-restored startup. It also checks graceful shutdown and forced-termination visibility. It does not
-prove real publisher delivery, multi-architecture support or an upgrade from a
-previously released image.
+restored startup. It also checks graceful shutdown and forced-termination visibility.
+The [candidate workflow](release-policy.md#candidate-workflow) passed this acceptance
+on native AMD64 and ARM64 hosted runners. This does not prove real publisher
+delivery or an upgrade from a previously released image.
 
 The October 4 review reproduced and corrected a web build failure in the Bun
 container. Browser loading, web compilation and module hot updates also passed

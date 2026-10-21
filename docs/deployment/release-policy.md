@@ -2,7 +2,8 @@
 
 Status: accepted by the owner on 2026-10-11. Related task: RELEASE-303.
 This document does not authorize publication or change the current source-build
-installation. The repository and image visibility remain unchanged.
+installation. The source repository is now public; no versioned registry image
+has been published.
 
 ## Recommended first distribution
 
@@ -57,8 +58,9 @@ requests in this test or claim that image rollback reverses schema migrations.
 
 Preparing or accepting this policy does not open the repository or publish an
 image. After acceptance, implement and validate the build workflow without
-external publication. Owner authorization of public opening and first publication
-remains a separate final step. Preserve the current local Compose path meanwhile.
+external publication. Public source opening was completed under PUBLIC-554. The
+first image publication still requires separate owner authorization. Preserve the
+current local Compose path meanwhile.
 
 ## Accepted scope and remaining evidence
 
@@ -86,14 +88,18 @@ with the selected target and source commit. It passes the immutable image ID
 to the harness and records that same ID and platform in the job summary. This
 ID is not a registry manifest digest. No login or push step exists.
 
-GitHub runner execution has not yet been performed from this private checkout.
-Local full acceptance has passed for AMD64 natively and ARM64 under QEMU
-emulation on the same application source; see the
-[acceptance record](../../.autonomos/worklogs/2026-10-21-RELEASE-303.md).
-This does not establish native ARM64 runner execution. The workflow is a candidate
-check, not a substitute for the integration gate before the eventual release.
-Images are not exported as large Actions artifacts in this preparation step.
-Publication and multi-platform manifest assembly remain separate work.
+[GitHub run 39684993689](https://github.com/postdot/postdot/actions/runs/39684993689)
+passed full acceptance on native AMD64 and ARM64 hosted runners, both built from
+`485a11bb7efca1d532575fd5e319a55f4f2c7c0b`. The jobs verified native Docker
+architecture, image platform and source revision before testing each immutable
+local image ID. See the [native acceptance record](../../.autonomos/worklogs/2026-10-22-RELEASE-303.md).
+The earlier [local acceptance record](../../.autonomos/worklogs/2026-10-21-RELEASE-303.md)
+covers native AMD64 and emulated ARM64; the hosted run now supplies native ARM64
+evidence without a dedicated OCI runner.
+
+This candidate check does not replace the final source integration gate.
+Images are not exported as large Actions artifacts. Multi-platform manifest
+assembly and separately authorized versioned image publication remain pending.
 
 For local checks against an already-built image:
 
