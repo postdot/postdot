@@ -1,6 +1,6 @@
 # Implemented provider capabilities
 
-Repository review: 2026-10-21, including TELEGRAM-541 and ENGAGEMENT-543/544. Use this reference to choose
+Repository review: 2026-10-21, including TELEGRAM-541, ENGAGEMENT-543/544 and ANALYTICS-547. Use this reference to choose
 product work and understand current Postbot coverage. It describes implemented
 workflows, not everything an upstream API might permit. Limits and supported
 file types remain in each linked provider profile.
@@ -40,6 +40,14 @@ Bluesky, DEV.to and Mastodon. It does not combine their metrics into totals or
 expose Bluesky account counters as publication results. Operational publication
 counts are separate from provider engagement.
 
+Performance can filter publications by their current project tags. Selecting
+several tags requires all of them; the server filters before pagination. A
+publication appears once, and its destination metrics retain their own meanings
+and collection times. Changing tags changes current report membership; this is
+not a reconstruction of tags at publication or collection time. Archived tags
+are available through an explicit filter action. Browsing uses stored metrics
+and does not collect provider data.
+
 The [comment routes](../../apps/api/src/modules/projects/publication-comments-routes.ts)
 and [reply service](../../apps/api/src/modules/projects/publication-replies-service.ts)
 support only Bluesky and Mastodon. Reads retain the latest bounded public
@@ -59,8 +67,10 @@ and [Facebook text/photo](../../.autonomos/worklogs/2026-10-18-FACEBOOK-512.md),
 with [later Facebook text acceptance](../../.autonomos/worklogs/2026-10-19-FACEBOOK-519.md).
 Those examples do not verify every format or grant on those providers.
 
-The Mastodon analytics and conversation work has local synthetic evidence;
-this review adds no live acceptance. Instagram implementation is present but
+Mastodon analytics and incoming-conversation replies retain local synthetic
+evidence. [Native Mastodon first-comment acceptance](../../.autonomos/worklogs/2026-10-21-ENGAGEMENT-545.md)
+verified one real parent and its delayed comment; it does not verify polls,
+media or other reply intents. Instagram implementation is present but
 [live acceptance is owner-deferred](../../.autonomos/worklogs/2026-10-20-INSTAGRAM-538.md).
 An absent live record is not evidence of a broken implementation. No provider
 credentials, accounts or publications were used during this inventory.
@@ -83,14 +93,13 @@ closing leaves the poll open. This does not collect votes or results.
 
 ## Next product gap
 
-Choose attribution rules for shared-post and tag-based performance reports
-(ISSUE-172) before implementing aggregation. Existing provider observations can
-support that slice without another account or collector. Keep unlike provider
-metrics separate and make incomplete coverage explicit.
+Current-tag filtering now covers the first tag-selected performance view.
+Historical attribution, metric aggregation and additional collectors remain
+separate product decisions; current membership must not imply historical facts.
 
 X post counters are an alternative, but existing OAuth scopes do not prove
 endpoint entitlement or free access. The current
 [X pricing documentation](https://docs.x.com/x-api/getting-started/pricing)
 charges for API reads. Do not describe X metrics as an access-free integration.
-Tag reports still require an attribution decision (ISSUE-172). Instagram stays
-deferred. Additional locales need the owner's language selection.
+Historical tag reporting still requires a snapshot contract (ISSUE-172).
+Instagram live acceptance stays deferred. Additional locales need the owner's language selection.

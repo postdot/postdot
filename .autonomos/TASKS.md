@@ -1050,3 +1050,11 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[ENGAGEMENT-543]** Implement prepared Bluesky first comments with confirmed-parent timing and durable outcomes `Priority: 🟠` `Complexity: L` — ISSUE-171; accepted ENGAGEMENT-542 scope, overdue catch-up after revalidation and suspension on enabling-editor access loss. One text comment per native publication, pre-claim editing/cancellation, no calendar item or live provider actions. [Mission](worklogs/2026-10-21-ENGAGEMENT-543.md).
 
 - [x] **[ENGAGEMENT-544]** Extend prepared first comments to native Mastodon publications `Priority: 🟠` `Complexity: M` — ISSUE-171; preserve confirmed-parent timing, explicit enable, access-loss suspension and no automatic replay. Public/unlisted plain text using the existing Mastodon reply envelope. Local injected and Studio acceptance; no real provider effects. [Mission](worklogs/2026-10-21-ENGAGEMENT-544.md).
+
+- [x] **[ENGAGEMENT-545]** Validate a real Mastodon parent and prepared first comment on the owner-authorized test account `Priority: 🟠` `Complexity: M` — isolated private runtime, normal OAuth, one text parent plus delayed comment and remote/DB receipt verification; account and publication effects explicitly authorized by owner. [Mission](worklogs/2026-10-21-ENGAGEMENT-545.md).
+
+- [x] **[ANALYTICS-546]** Resolve the smallest useful tag performance report and its attribution choice `Priority: 🟠` `Complexity: S` — ISSUE-172; scoped read-only MiniMax research, separate from live Mastodon acceptance. No implementation before attribution approval. [Mission](worklogs/2026-10-21-ANALYTICS-546.md).
+
+- [x] **[ANALYTICS-547]** Filter publication performance by current project tags `Priority: 🟠` `Complexity: M` — ISSUE-172; owner selected current assignment. Reuse typed server-side tag filtering and per-destination observations, without historical attribution or metric totals. [Mission](worklogs/2026-10-21-ANALYTICS-547.md).
+
+- [x] **[WEB-548]** Clarify the OAuth feedback channel anchor `Priority: 🟡` `Complexity: S` — owner reported View connection as a no-op. The action navigates to the existing channel row and does not start a connection; label it Go to channel in EN/FR. [Evidence](worklogs/2026-10-21-ENGAGEMENT-545.md).

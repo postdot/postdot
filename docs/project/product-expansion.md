@@ -160,8 +160,10 @@ source post and tag-selected publications. Define compatible metrics, coverage,
 freshness and denominators before aggregation. Do not sum audience reach into
 unique people, sum follower counts across repeated posts or average rates without
 their denominators. Overlapping tags must not duplicate a publication within one
-report. Historical versus current tag attribution remains an explicit design
-question.
+report. The owner selected current assignment for the first tag-selected
+Performance view (ANALYTICS-547): present tag membership, last stored metrics per
+destination, no summed totals. Historical attribution remains outside that
+contract and requires an explicit history/snapshot decision.
 
 Scheduled comments under our own published item are a separate publishing
 capability from reading and replying to external comments. Neither requires an

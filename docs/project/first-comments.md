@@ -78,5 +78,9 @@ conversation replies. GET requires project read access; save/enable and cancel
 require editor access. API-key writes additionally require publication dispatch
 capability because enabling authorizes an automatic external effect.
 
-Acceptance uses injected provider responses and isolated Studio scenarios.
-No real-provider delivery is claimed for this feature.
+Acceptance includes injected provider responses and isolated Studio scenarios.
+[ENGAGEMENT-545](../../.autonomos/worklogs/2026-10-21-ENGAGEMENT-545.md) also
+verified a real native Mastodon parent and its first comment on an explicitly
+authorized test account. The comment was attempted once, after the configured
+30-second delay, and its remote parent/account identity was independently read.
+That acceptance does not establish live delivery for other providers or formats.

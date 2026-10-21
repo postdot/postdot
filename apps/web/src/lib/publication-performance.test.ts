@@ -5,8 +5,12 @@ import {
     createPerformanceProviderBatches,
     groupLatestObservations,
     groupPerformancePublications,
+    normalizePerformanceTagSelection,
+    parsePerformanceTagSelection,
     performanceProvider,
     performanceProviderForChannel,
+    performanceTagSelectionKey,
+    performanceTagSelectionLimit,
     providerAnalyticsBatchSize,
 } from '@/lib/publication-performance'
 
@@ -155,5 +159,43 @@ describe('performance provider resolution', () => {
 
     test('reports no provider for a destination that is not in the channel list', () => {
         expect(performanceProviderForChannel(undefined)).toBeNull()
+    })
+})
+
+describe('performance tag selection', () => {
+    test('treats the selection as a sorted set and drops blank values', () => {
+        expect(normalizePerformanceTagSelection(['tag-b', ' tag-a ', 'tag-b', '  '])).toEqual([
+            'tag-a',
+            'tag-b',
+        ])
+    })
+
+    test('keeps the selection within the transport bound', () => {
+        const selection = normalizePerformanceTagSelection(
+            Array.from({ length: performanceTagSelectionLimit + 5 }, (_, index) => `tag-${index}`)
+        )
+
+        expect(selection).toHaveLength(performanceTagSelectionLimit)
+        expect(selection).toEqual([...selection].toSorted())
+    })
+
+    test('reads a selection from an array, a comma list or an unknown value', () => {
+        expect(parsePerformanceTagSelection(['tag-b', 'tag-a'])).toEqual(['tag-a', 'tag-b'])
+        expect(parsePerformanceTagSelection('tag-b,tag-a')).toEqual(['tag-a', 'tag-b'])
+        expect(parsePerformanceTagSelection(['tag-a', 'tag-a'])).toEqual(['tag-a'])
+        expect(parsePerformanceTagSelection(undefined)).toBeUndefined()
+        expect(parsePerformanceTagSelection('')).toBeUndefined()
+        expect(parsePerformanceTagSelection(['', '   '])).toBeUndefined()
+        expect(parsePerformanceTagSelection(42)).toBeUndefined()
+    })
+
+    test('gives the same query key to the same selection whatever its order', () => {
+        expect(performanceTagSelectionKey(['tag-b', 'tag-a'])).toBe(
+            performanceTagSelectionKey(['tag-a', 'tag-b'])
+        )
+        expect(performanceTagSelectionKey(['tag-a', 'tag-a'])).toBe(
+            performanceTagSelectionKey(['tag-a'])
+        )
+        expect(performanceTagSelectionKey([])).toBe('')
     })
 })

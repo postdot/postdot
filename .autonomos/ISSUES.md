@@ -4324,7 +4324,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: Current collectors cover bounded Bluesky and DEV.to observations. The owner requests destination, shared-post and tag views.
 - Desired outcome: Compare documented competitor metrics with stored Postbot observations. Define aggregation, compatible metrics, coverage and freshness; avoid double-counting fan-out or overlapping tags. Resolve current versus historical tag attribution before implementing reports. Keep account metrics separate from post metrics.
 - Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-478 and ANALYTICS-524 (scope); ANALYTICS-527/528 deliver bounded latest observations and source-post grouping. ANALYTICS-539 adds Mastodon favourites, boosts and replies to the same destination/source view without combined totals. Tag attribution and tag reports remain undecided.
+- Tasks: PRODUCT-478 and ANALYTICS-524 (scope); ANALYTICS-527/528 deliver bounded latest observations and source-post grouping. ANALYTICS-539 adds Mastodon favourites, boosts and replies to the same destination/source view without combined totals. Owner selected current-tag attribution; ANALYTICS-547 adds the corresponding Performance filter without summed metrics or historical claims. Historical attribution and aggregation remain separate decisions.
 - Source: owner clarification, 2026-10-16.
 
 ## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio

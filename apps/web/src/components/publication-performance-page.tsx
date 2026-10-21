@@ -3,11 +3,12 @@ import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQueries, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { PerformanceTagFilter } from '@/components/performance-tag-filter'
 import { QueryErrorState } from '@/components/query-error-state'
 import {
     api,
@@ -21,12 +22,15 @@ import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { useProjectTagCatalog } from '@/lib/project-tags'
 import { publicationIdentityLabel } from '@/lib/publication-identity'
 import {
     createPerformanceProviderBatches,
     performanceProviderForChannel as analyticsProvider,
     groupPerformancePublications,
     groupLatestObservations,
+    normalizePerformanceTagSelection,
+    performanceTagSelectionKey,
 } from '@/lib/publication-performance'
 import * as m from '@/paraglide/messages.js'
 
@@ -109,19 +113,43 @@ function listLatestProviderAnalytics(
     }
 }
 
-export function PublicationPerformancePage() {
+export function PublicationPerformancePage({
+    initialTagIds = [],
+}: {
+    readonly initialTagIds?: readonly string[]
+}) {
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
     const queryClient = useQueryClient()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/performance' })
     const [refreshErrors, setRefreshErrors] = useState<Record<string, true>>({})
     const canRefresh = projectRole === 'owner' || projectRole === 'editor'
+    const [tagIds, setTagIds] = useState<string[]>(() =>
+        normalizePerformanceTagSelection(initialTagIds)
+    )
+    const initialTagIdsKey = initialTagIds.join('\u0000')
+    useEffect(() => {
+        setTagIds(
+            normalizePerformanceTagSelection(
+                initialTagIdsKey === '' ? [] : initialTagIdsKey.split('\u0000')
+            )
+        )
+    }, [initialTagIdsKey])
+    const selectedTagIds = useMemo(() => normalizePerformanceTagSelection(tagIds), [tagIds])
+    const tagCatalogQuery = useProjectTagCatalog(project.id)
+    const catalogTags = tagCatalogQuery.data?.tags ?? []
     const publicationsQuery = useInfiniteQuery({
-        queryKey: [...projectQueryKeys.publicationQueues(project.id), 'performance'],
+        queryKey: [
+            ...projectQueryKeys.publicationQueues(project.id),
+            'performance',
+            performanceTagSelectionKey(selectedTagIds),
+        ],
         queryFn: ({ pageParam }) =>
             api.listPublications(project.id, {
                 cursor: pageParam,
                 limit: 100,
                 sort: 'updated_desc',
+                tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
             }),
         initialPageParam: undefined as string | undefined,
         getNextPageParam: page => page.nextCursor ?? undefined,
@@ -129,13 +157,14 @@ export function PublicationPerformancePage() {
         retry: 1,
     })
     const channelsById = new Map(channels.map(channel => [channel.id, channel]))
-    const publications = (
+    const matchedPublications =
         publicationsQuery.data?.pages.flatMap(page => page.publications) ?? []
-    ).filter(
+    const publications = matchedPublications.filter(
         publication =>
             publication.state === 'published' &&
             analyticsProvider(channelsById.get(publication.channelId)) !== null
     )
+    const hasNoTagMatch = selectedTagIds.length > 0 && matchedPublications.length === 0
     const groups = groupPerformancePublications(publications)
     const batches = createPerformanceProviderBatches(
         publications.map(publication => ({
@@ -202,6 +231,17 @@ export function PublicationPerformancePage() {
 
     function formatDate(timestamp: number): string {
         return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(timestamp)
+    }
+
+    function handleTagChange(nextTagIds: string[]) {
+        const normalized = normalizePerformanceTagSelection(nextTagIds)
+        setTagIds(normalized)
+        void navigate({
+            search: current => ({
+                ...current,
+                tagIds: normalized.length > 0 ? normalized : undefined,
+            }),
+        })
     }
 
     function renderPublication(publication: PublicationSummary) {
@@ -333,6 +373,38 @@ export function PublicationPerformancePage() {
                 }
                 title={m.performance_title()}
             />
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                {tagCatalogQuery.isError ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p role="alert" className="text-xs text-state-failed">
+                            {m.performance_tag_filter_catalog_failed()}
+                        </p>
+                        <Button
+                            onClick={() => void tagCatalogQuery.refetch()}
+                            size="sm"
+                            variant="ghost">
+                            {m.common_retry()}
+                        </Button>
+                    </div>
+                ) : null}
+                {catalogTags.length > 0 || selectedTagIds.length > 0 ? (
+                    <PerformanceTagFilter
+                        disabled={tagCatalogQuery.isPending}
+                        onChange={handleTagChange}
+                        selectedTagIds={selectedTagIds}
+                        tags={catalogTags}
+                    />
+                ) : tagCatalogQuery.isSuccess ? (
+                    <p className="text-xs text-muted-foreground">
+                        {m.performance_tag_filter_no_tags()}
+                    </p>
+                ) : null}
+            </div>
+            {selectedTagIds.length > 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                    {m.performance_tag_filter_scope()}
+                </p>
+            ) : null}
             {publicationsQuery.isError ? (
                 <QueryErrorState
                     className="mt-4"
@@ -345,12 +417,24 @@ export function PublicationPerformancePage() {
             ) : publications.length === 0 ? (
                 <EmptyState
                     className="mt-4"
-                    description={m.performance_empty_description()}
+                    description={
+                        hasNoTagMatch
+                            ? m.performance_tag_filter_no_matches_description()
+                            : m.performance_empty_description()
+                    }
                     icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
                     layout="compact"
-                    title={m.performance_empty_title()}
+                    title={
+                        hasNoTagMatch
+                            ? m.performance_tag_filter_no_matches_title()
+                            : m.performance_empty_title()
+                    }
                     action={
-                        publicationsQuery.hasNextPage ? (
+                        hasNoTagMatch ? (
+                            <Button onClick={() => handleTagChange([])} size="sm" variant="ghost">
+                                {m.taxonomy_clear_tags()}
+                            </Button>
+                        ) : publicationsQuery.hasNextPage ? (
                             <Button
                                 disabled={publicationsQuery.isFetchingNextPage}
                                 onClick={() => void publicationsQuery.fetchNextPage()}
@@ -375,7 +459,7 @@ export function PublicationPerformancePage() {
                             }}
                         />
                     ) : null}
-                    <section aria-label={m.performance_title()} className="space-y-1">
+                    <section aria-label={m.performance_title()} className="mt-4 space-y-1">
                         <p className="mb-4 text-sm text-muted-foreground">
                             {m.performance_grouped_description()}
                         </p>
