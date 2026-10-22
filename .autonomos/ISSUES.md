@@ -878,6 +878,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   application and its workflows are sufficiently organized and stable. This is
   a deferral, not a permanent rejection. Do not create an implementation task
   until the owner reopens this scope.
+- Review evidence (2026-10-22): the public README now positions the product for people and their agents; ISSUE-190 links the timing of this surface to provider tiering and product positioning. The deferral stands until the owner reopens it.
 
 - Owner direction (2026-10-15): Humans and external agents are first-class audiences
   from launch. Present MCP as a planned access surface alongside Studio, CLI and
@@ -4396,6 +4397,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Mixed active names confuse users, contributors and release operators.
 - Desired outcome: Adopt Postdot consistently across active branding, packages, executable/configuration names, docs, workspace and checkout identity, GitHub repository and release artifacts. Inventory internal, external and persisted identifiers before changing them; explicitly resolve compatibility and data migration needs. Preserve factual historical records and third-party attribution rather than rewriting evidence blindly.
 - Tasks: BRAND-551 (namespace/display/repository/checkout delivered; deployment compatibility transition remains); PUBLIC-553 (history-preserving preparation complete).
+- Review evidence (2026-10-22): outside `.autonomos/`, 2,426 case-insensitive `postbot` occurrences remain in tracked files, including exported types (`PostbotDatabase`, `createPostbotClient`), `POSTBOT_*` environment variables, the Compose service, image and volume names, and the `postbot` script. The repository is already public, so external dependence on these identifiers can start before the compatibility transition completes.
 
 ## [ISSUE-180] Evaluate site and documentation hosting after the reference migration
 
@@ -4415,3 +4417,93 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Owner selected preserving history, branches and PRs; PUBLIC-553 prepares the existing repository transition with targeted current-record corrections.
 
 - ISSUE-181 source-publication update (2026-10-22): owner explicitly authorized PUBLIC-554. Pushed the reviewed local main and made the existing postdot/postdot repository public; repository identity and history are preserved, anonymous API/page access verified. Site/docs deployment remains deferred under ISSUE-180, so the broader launch issue remains open.
+
+## [ISSUE-182] Keep Autonomos artifacts proportionate to active work
+
+- Type: problem
+- Status: open
+- Evidence: On 2026-10-22 a fresh-eyes review measured `.autonomos/` at 5.3 MB. `TASKS.md` is 231 KB with 581 tasks, of which 572 are done and 8 are active or open; `ISSUES.md` is about 4,400 lines with 26 open issues; `worklogs/` holds 634 files; 88 decision records were accepted in about eight weeks (more than one per day). Several records cover UI interaction choices (for example ADR-071 to ADR-073 for calendar affordances) rather than costly-to-reverse technical boundaries. The protocol defines creation rules for tasks, issues, worklogs and decisions but no archival lifecycle once work is complete.
+- Impact: Every session bootstrap reads or searches artifacts dominated by completed history, which consumes agent context, slows orientation and dilutes the records that still constrain work (for example ADR-001, ADR-002, ADR-009, ADR-037). Low-threshold decision records also make it harder to tell which choices are structural.
+- Desired outcome: Current-state artifacts stay small enough for routine sessions to read entirely, completed history remains preserved and traceable without being loaded by default, and the threshold for a decision record distinguishes structural choices from local design choices. Because Autonomos is owner-designed, the outcome may include protocol-level doctrine changes (lifecycle, archival, thresholds), not only a one-time cleanup.
+- Related: ISSUE-183, ISSUE-109
+- Tasks: none
+
+## [ISSUE-183] Prevent AGENT.md files from accumulating journal-style entries
+
+- Type: problem
+- Status: open
+- Evidence: PROTOCOL.md requires AGENT.md to contain only stable guidance and to replace obsolete entries instead of appending history. The root AGENT.md (13.6 KB) nevertheless mixes stable rules with dated owner directives and situational status, for example naming/hosting progress tied to BRAND-551, ISSUE-180, ISSUE-181 and PUBLIC-554, the stopped delegation experiment, GHCR and licensing review scope. The owner reports repeatedly observing agents turning AGENT.md files into journals.
+- Impact: Guidance read at every session grows with transient context, which lowers signal and leaves agents unsure which directives are still current. The format rule exists but is neither enforced nor easy to apply when a directive is both dated and still in force.
+- Desired outcome: Root and local AGENT.md files contain only current, stable guidance with a clear place for time-bound owner directives and their expiry, and the protocol makes drift detectable (for example during `/crystallize` or `/reconcile`) rather than relying on agent discipline alone. Existing files are brought back to that standard without losing still-active directives.
+- Related: ISSUE-182
+- Tasks: none
+
+## [ISSUE-184] Validate the product with sustained real use before widening scope
+
+- Type: problem
+- Status: open
+- Evidence: SPEC-001 defined a falsifiable hypothesis: one real project uses Postbot as its only publication source of truth for four consecutive weeks, including an automatic and a manual channel. SPEC-005 superseded the release framing with continuous development and did not carry over a validation milestone. No task, issue or worklog records that test being run. In about eight weeks the repository reached roughly 1,000 commits, nine built-in providers, analytics, replies, first comments, approvals, workspaces/groups, an image editor and webcam capture.
+- Impact: Scope grows from internal design logic rather than observed demand, and every feature added before real use increases maintenance and later rework. Real friction (onboarding, provider setup, daily workflow) remains unknown.
+- Desired outcome: A recorded, time-boxed period of real operation (for example the Postdot launch communication itself) produces evidence that drives prioritization, and an explicit owner decision states how new scope is admitted relative to that evidence.
+- Related: ISSUE-181, ISSUE-190
+- Tasks: none
+
+## [ISSUE-185] Provider-specific knowledge leaks into shared API and web layers
+
+- Type: problem
+- Status: open
+- Evidence: SPEC-005 requires each provider or channel module to own its destination-specific knowledge. On 2026-10-22, 52 non-test files in `apps/api/src`, `apps/web/src`, `packages/db/src` and `packages/core/src` branch on literal provider names. Commits for the Telegram provider touched 34 non-test source files outside `packages/telegram`, including API routes, publisher runtime, `models.ts`, and about 20 web files (composer, previews, target editor, connection panel, dashboard context). `ProjectDashboardContextValue` in `apps/web/src/lib/dashboard-context.tsx` exposes provider-specific callbacks (`onStartLinkedInConnection`, `onStartBlueskyConnection`, `onStartXConnection`, `onConnectDiscordPublisher`, ...) alongside composer draft state. A server-side `BuiltInProviderRegistry` already exists for execution.
+- Impact: The cost and regression risk of each additional provider grows with the number of providers, and the shared layers become a de facto central catalog that SPEC-005 explicitly rejects.
+- Desired outcome: Adding or changing a provider is confined to that provider's module plus a minimal registration point on the server and in the web client, and shared layers consume provider capabilities through a described contract rather than name checks. Measure progress by the files outside the provider module that a new provider must touch.
+- Related: ISSUE-188, SPEC-005
+- Tasks: none
+
+## [ISSUE-186] Serial publication execution and unrenewed claim leases
+
+- Type: problem
+- Status: open
+- Evidence: `createPublicationWorker` in `apps/api/src/modules/workflow/worker.ts` awaits each external effect sequentially across all projects (one job per project per round, rounds repeated until idle), after first awaiting replies and first-comment processing. The default lease is 5 minutes and no code path renews a lease while an effect is running. Expired claims are classified as requeue or ambiguous by `classifyExpiredClaim` during subsequent claims.
+- Impact: A slow effect, such as a large video upload or provider processing poll, delays every other due publication in every project, so scheduled times are not met under load. Effects that legitimately exceed the lease duration have undefined or unverified outcomes. They may end up ambiguous, or the completion may be fenced out even though the provider succeeded.
+- Desired outcome: Investigate and document the actual behavior when an effect outlives its lease. Then make one slow destination unable to delay unrelated publications beyond a stated bound, keep long effects owned by their claim for their whole duration, and preserve the single-process constraint (ADR-003) and fencing semantics (ADR-009). Any change to execution semantics needs an explicit owner decision.
+- Related: ADR-003, ADR-006, ADR-009
+- Tasks: none
+
+## [ISSUE-187] Main SQLite connection lacks WAL and busy-timeout configuration
+
+- Type: problem
+- Status: open
+- Evidence: `createDatabase` in `packages/db/src/client.ts`, used by the API runtime, maintenance and migrations, only sets `PRAGMA foreign_keys = ON`. No runtime path sets `journal_mode` or `synchronous`; `busy_timeout` is set only on dedicated backup and local-account-recovery connections. The default rollback journal therefore applies to the main process.
+- Impact: Writers block readers (including heavier analytics queries) in the main process. A second connection (CLI, backup, maintenance) can make the main connection fail immediately with `SQLITE_BUSY` instead of waiting. Durability and throughput settings are implicit rather than chosen.
+- Desired outcome: The main connection's journal mode, synchronous level and busy timeout are deliberate, documented and covered by tests, and remain compatible with the existing backup, restore, quiescence lock (ADR-068) and container recovery acceptance.
+- Related: ADR-005, ADR-068, ISSUE-175
+- Tasks: none
+
+## [ISSUE-188] Web client structure has outgrown its boundaries
+
+- Type: problem
+- Status: open
+- Evidence: `apps/web/src` holds about 55,000 hand-written TypeScript lines, excluding generated Paraglide output. Several components exceed 1,000 lines (`media-attachment-picker.tsx` 2,047; `publication-editor.tsx` 1,953; `event-calendar.tsx` 1,830). `lib/api.ts` is a 2,345-line wrapper over the already typed Eden client from `@postdot/client`. `dashboard-context.tsx` (876 lines) loads project-wide data and exposes mutations, provider-specific actions and composer draft state through one context used by 14 modules. TanStack Query and TanStack DB (0.x) coexist. The `realtime-prototype` project route is reachable in production builds; `/editor-lab` is gated to development.
+- Impact: Large shared modules increase review and regression cost, and re-render scope. Duplicated client typing can drift from the API contract. Prototype surfaces ship to users.
+- Desired outcome: Data loading and mutations are scoped to the routes and features that need them, the typed client is used without a parallel hand-maintained contract, the client data layer is a deliberate single choice, and prototype surfaces are either removed or excluded from production.
+- Related: ISSUE-185, ADR-047, ADR-057
+- Tasks: none
+
+## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
+
+- Type: question
+- Status: open
+- Evidence: The runtime and client depend on pre-stable or very recent major versions: Elysia 2 beta (API), TypeScript 7.0, TanStack DB 0.x with its query collection, and Bun 1.4. The product promises a durable self-hosted runtime and an upgrade path (RELEASE-303).
+- Impact: Breaking upstream changes, regressions or abandonment can force unplanned migrations on a product that self-hosters expect to upgrade safely.
+- Desired outcome: An explicit, recorded position for each pre-stable dependency (accepted risk with an exit path, pin, or replacement), reviewed before the first published release.
+- Related: RELEASE-303
+- Tasks: none
+
+## [ISSUE-190] Tier providers by self-hosting setup friction
+
+- Type: proposal
+- Status: open
+- Evidence: LinkedIn, X, Facebook and Instagram require each self-hosted operator to register a developer application, sometimes pass a platform review, and for X use a paid API tier (see `docs/deployment/provider-requirements.md` and ADR-056). Bluesky, Mastodon, Telegram, Discord, DEV.to and custom HTTP can be connected without an operator-owned developer application review. The README positions Postdot as self-hosted publishing for people and their agents. ISSUE-036 records a deferred MCP surface.
+- Impact: First-run success for a self-hoster depends heavily on which providers they try first; presenting all providers equally hides the setup cost and invites support load. Positioning on provider count competes on the weakest axis for a self-hosted product.
+- Desired outcome: An owner decision on how providers are presented and supported by tier, and on the product's differentiating axis (manual and custom channels, reliable publication ledger, agent-facing surfaces) relative to provider breadth. Revisit ISSUE-036 timing in light of that decision.
+- Related: ISSUE-036, ISSUE-184, ISSUE-185
+- Tasks: none
