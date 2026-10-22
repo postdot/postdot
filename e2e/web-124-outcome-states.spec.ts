@@ -871,8 +871,8 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
         route.fulfill({ json: { publications, nextCursor: null } })
     )
     let availability: 'measured' | 'not_configured' | 'empty' = 'empty'
-    await page.route(`**/api/projects/${projectId}/analytics/provider/*?*`, route => {
-        const devto = route.request().url().includes('/devto?')
+    await page.route(`**/api/projects/${projectId}/analytics/provider/*/latest?*`, route => {
+        const devto = route.request().url().includes('/devto/latest?')
         return route.fulfill({
             json: {
                 observations:
@@ -935,7 +935,7 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
     await expect(second.getByText('—', { exact: true })).toHaveCount(4)
     await first
         .getByRole('button', {
-            name: `${en.performance_refresh}: Provider publication 0`,
+            name: `${en.performance_refresh}: Performance devto`,
             exact: true,
         })
         .click()
@@ -944,7 +944,7 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
     await expect(first.getByText('123', { exact: true })).toBeVisible()
     await second
         .getByRole('button', {
-            name: `${en.performance_refresh}: Provider publication 1`,
+            name: `${en.performance_refresh}: Performance bluesky`,
             exact: true,
         })
         .click()
@@ -953,7 +953,7 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
     collectSucceeds = true
     await first
         .getByRole('button', {
-            name: `${en.performance_refresh}: Provider publication 0`,
+            name: `${en.performance_refresh}: Performance devto`,
             exact: true,
         })
         .click()
@@ -973,7 +973,7 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
             await page.setViewportSize({ width, height: 844 })
             if (width === 390) {
                 const refresh = second.getByRole('button', {
-                    name: `${en.performance_refresh}: Provider publication 1`,
+                    name: `${en.performance_refresh}: Performance bluesky`,
                     exact: true,
                 })
                 await expect(refresh).toHaveCSS('width', '44px')

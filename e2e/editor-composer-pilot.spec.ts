@@ -1590,7 +1590,7 @@ test('keeps partial tag-assignment feedback visible after reaching the created p
     await page
         .getByRole('textbox', { name: 'Content', exact: true })
         .fill('A created post with a tag warning')
-    await page.getByRole('button', { name: 'No tags', exact: true }).click()
+    await page.getByRole('button', { name: 'Select tags', exact: true }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Campaign', exact: true }).click()
     await page.keyboard.press('Escape')
     let creations = 0
