@@ -1,0 +1,254 @@
+name: Publish container release
+
+on:
+    workflow_dispatch:
+        inputs:
+            image_tag:
+                description: Type the accepted image tag to authorize publication
+                required: true
+                type: string
+            source_sha:
+                description: Full commit SHA with a successful push CI run on main
+                required: true
+                type: string
+            release_notes:
+                description: Concise user-facing notes for this image release
+                required: true
+                type: string
+            public_visibility_acknowledged:
+                description: Confirm public visibility is approved; a public GHCR package cannot be made private again
+                required: true
+                default: false
+                type: boolean
+
+concurrency:
+    group: postdot-container-release
+    cancel-in-progress: false
+
+jobs:
+    preflight:
+        name: Verify release authorization and source
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        permissions:
+            actions: read
+            contents: read
+            packages: read
+        steps:
+            - name: Validate release input and existing CI
+              uses: actions/github-script@v9.0.0
+              env:
+                  IMAGE_TAG: ${{ inputs.image_tag }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  PUBLIC_VISIBILITY_ACKNOWLEDGED: ${{ inputs.public_visibility_acknowledged }}
+              with:
+                  script: |
+                      const sourceSha = process.env.SOURCE_SHA?.trim()
+                      const imageTag = process.env.IMAGE_TAG?.trim()
+
+                      if (context.ref !== 'refs/heads/main') {
+                          core.setFailed('Run this workflow from the main branch.')
+                          return
+                      }
+                      if (!/^[0-9a-f]{40}$/.test(sourceSha ?? '')) {
+                          core.setFailed('source_sha must be a full 40-character commit SHA.')
+                          return
+                      }
+                      if (imageTag !== '0.1.0-alpha.1') {
+                          core.setFailed('The only accepted first-release image tag is 0.1.0-alpha.1.')
+                          return
+                      }
+                      if (process.env.PUBLIC_VISIBILITY_ACKNOWLEDGED !== 'true') {
+                          core.setFailed('Confirm public visibility before publishing; GitHub cannot make a public package private again.')
+                          return
+                      }
+
+                      const runs = await github.paginate(
+                          'GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs',
+                          {
+                              owner: context.repo.owner,
+                              repo: context.repo.repo,
+                              workflow_id: 'ci.yml',
+                              head_sha: sourceSha,
+                              event: 'push',
+                              per_page: 100,
+                          }
+                      )
+                      const acceptedCi = runs.some(run =>
+                          run.head_sha === sourceSha &&
+                          run.status === 'completed' &&
+                          run.conclusion === 'success'
+                      )
+                      if (!acceptedCi) {
+                          core.setFailed(`No successful push CI run exists for ${sourceSha}.`)
+                          return
+                      }
+
+                      let versions = []
+                      try {
+                          versions = await github.paginate(
+                              'GET /orgs/{org}/packages/{package_type}/{package_name}/versions',
+                              {
+                                  org: 'postdot',
+                                  package_type: 'container',
+                                  package_name: 'postdot',
+                                  per_page: 100,
+                              }
+                          )
+                      } catch (error) {
+                          if (error.status !== 404) throw error
+                      }
+                      const tagExists = versions.some(version =>
+                          version.metadata?.container?.tags?.includes(imageTag)
+                      )
+                      if (tagExists) {
+                          core.setFailed(`GHCR tag ${imageTag} already exists; version tags are immutable.`)
+                          return
+                      }
+                      core.notice(`Source ${sourceSha} passed CI; GHCR tag ${imageTag} is unused.`)
+
+            - name: Check out main history
+              uses: actions/checkout@v6.0.2
+              with:
+                  ref: main
+                  fetch-depth: 0
+
+            - name: Require the tested commit to belong to main
+              env:
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+              run: |
+                  git fetch --no-tags origin "$SOURCE_SHA"
+                  git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+
+    accept:
+        name: Accept native AMD64 and ARM64 images
+        needs: preflight
+        permissions:
+            contents: read
+        uses: ./.github/workflows/container-candidate.yml
+        with:
+            source_ref: ${{ inputs.source_sha }}
+
+    publish:
+        name: Build and publish GHCR image
+        needs:
+            - preflight
+            - accept
+        runs-on: ubuntu-24.04
+        timeout-minutes: 120
+        permissions:
+            contents: read
+            packages: write
+        steps:
+            - name: Check out the accepted source
+              uses: actions/checkout@v6.0.2
+              with:
+                  ref: ${{ inputs.source_sha }}
+
+            - name: Set up QEMU for the multi-platform image build
+              uses: docker/setup-qemu-action@v4.4.0
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v4.4.1
+
+            - name: Log in to GHCR
+              uses: docker/login-action@v4.6.0
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and publish the versioned multi-platform image
+              id: build
+              uses: docker/build-push-action@v7.4.0
+              with:
+                  context: .
+                  platforms: linux/amd64,linux/arm64
+                  push: true
+                  tags: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
+                  labels: |
+                      org.opencontainers.image.title=Postdot
+                      org.opencontainers.image.source=https://github.com/postdot/postdot
+                      org.opencontainers.image.revision=${{ inputs.source_sha }}
+                      org.opencontainers.image.version=${{ inputs.image_tag }}
+                      org.opencontainers.image.licenses=AGPL-3.0-only
+
+            - name: Verify both platforms in the published manifest
+              id: manifest
+              env:
+                  IMAGE: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
+              run: |
+                  docker buildx imagetools inspect "$IMAGE" --raw > manifest.json
+                  jq -e 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64")' manifest.json
+                  jq -e 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "arm64")' manifest.json
+
+            - name: Read the resulting GHCR package visibility
+              id: visibility
+              uses: actions/github-script@v9.0.0
+              with:
+                  script: |
+                      const response = await github.request(
+                          'GET /orgs/{org}/packages/{package_type}/{package_name}',
+                          {
+                              org: 'postdot',
+                              package_type: 'container',
+                              package_name: 'postdot',
+                          }
+                      )
+                      core.setOutput('visibility', response.data.visibility)
+                      core.notice(`GHCR package visibility: ${response.data.visibility}`)
+
+            - name: Verify anonymous GHCR access
+              id: anonymous_pull
+              if: steps.visibility.outputs.visibility == 'public'
+              env:
+                  IMAGE: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
+              run: |
+                  docker logout ghcr.io
+                  docker buildx imagetools inspect "$IMAGE" --raw > /dev/null
+
+            - name: Record the image publication
+              if: always()
+              env:
+                  IMAGE: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
+                  IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+                  RELEASE_NOTES: ${{ inputs.release_notes }}
+                  SOURCE_SHA: ${{ inputs.source_sha }}
+                  PACKAGE_VISIBILITY: ${{ steps.visibility.outputs.visibility }}
+                  MANIFEST_CHECK_OUTCOME: ${{ steps.manifest.outcome }}
+                  ANONYMOUS_PULL_OUTCOME: ${{ steps.anonymous_pull.outcome }}
+              run: |
+                  docker logout ghcr.io
+                  {
+                    echo '# Postdot container image'
+                    echo
+                    echo "Version: v${{ inputs.image_tag }}"
+                    echo "Source commit: $SOURCE_SHA"
+                    echo "Image: $IMAGE"
+                    if [ -n "$IMAGE_DIGEST" ]; then
+                      echo "Manifest digest: $IMAGE_DIGEST"
+                    else
+                      echo 'Manifest digest: unavailable; check the build and package page to confirm whether the tag was pushed.'
+                    fi
+                    if [ "$MANIFEST_CHECK_OUTCOME" = 'success' ]; then
+                      echo 'Platforms: linux/amd64, linux/arm64 (verified).'
+                    elif [ "$MANIFEST_CHECK_OUTCOME" = 'failure' ]; then
+                      echo 'Platform manifest check: failed; inspect the workflow logs before treating this as a release.'
+                    else
+                      echo 'Platform manifest check: not completed.'
+                    fi
+                    echo "Visibility: ${PACKAGE_VISIBILITY:-unverified}"
+                    if [ "$PACKAGE_VISIBILITY" = 'public' ] && [ "$ANONYMOUS_PULL_OUTCOME" = 'success' ]; then
+                      echo 'Anonymous pull: verified.'
+                    elif [ "$PACKAGE_VISIBILITY" = 'public' ]; then
+                      echo 'Anonymous pull: not verified; inspect the workflow logs before treating this as publicly available.'
+                    elif [ "$PACKAGE_VISIBILITY" = 'private' ]; then
+                      echo 'Anonymous pull: unavailable while the package remains private.'
+                      echo 'To make it public, open the package settings in the postdot organization and choose Change visibility > Public. GitHub does not allow a public package to become private again.'
+                    else
+                      echo 'Public availability: unverified; inspect package settings and verify an anonymous pull.'
+                    fi
+                    echo
+                    echo '## Release notes'
+                    printf '%s\n' "$RELEASE_NOTES"
+                  } >> "$GITHUB_STEP_SUMMARY"

@@ -62,6 +62,27 @@ external publication. Public source opening was completed under PUBLIC-554. The
 first image publication still requires separate owner authorization. Preserve the
 current local Compose path meanwhile.
 
+The manual release workflow requires the accepted image tag, a full source SHA
+with a successful push CI run on `main`, release notes and explicit confirmation
+that public visibility is approved. It checks the source, native acceptance,
+tag availability and both platforms before pushing the image. It does not run
+on pushes to `main`.
+
+GitHub may create the first organization package with private visibility. After
+the push, the workflow records the package's actual visibility and verifies an
+anonymous pull only when GitHub reports it as public. If it remains private, an
+organization owner must open **postdot > Packages > postdot > Package settings**
+and choose **Change visibility > Public**, then verify an anonymous pull. GitHub
+does not allow a public package to become private again. The workflow does not
+change package visibility or claim public availability while it is private.
+
+Run this after changing visibility to check anonymous access to the first image:
+
+```bash
+docker logout ghcr.io
+docker buildx imagetools inspect ghcr.io/postdot/postdot:0.1.0-alpha.1 --raw
+```
+
 ## Accepted scope and remaining evidence
 
 The owner accepted GHCR, the alpha version and two target architectures. A Docker
@@ -74,18 +95,21 @@ launching with AMD64 only; do not silently reduce the advertised platforms.
 
 - [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Package visibility](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)
+- [GitHub Packages REST API](https://docs.github.com/en/rest/packages/packages)
 - [Docker multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
 
 ## Candidate workflow
 
 `.github/workflows/container-candidate.yml` is manual (`workflow_dispatch`) and
 has read-only repository permissions. Select the intended branch or tag when
-starting it. Both native jobs build from that selected commit, check the packaged
-H.264 decoder and Bun image generation, and run production recovery acceptance
-against the exact local image. The build selects its platform explicitly. Before
-acceptance, the job compares the inspected image platform and revision label
-with the selected target and source commit. It passes the immutable image ID
-to the harness and records that same ID and platform in the job summary. This
+starting it. The workflow also supports `workflow_call`; the release workflow
+uses that entry point to accept the exact source SHA. Both native jobs build from
+that selected commit, check the packaged H.264 decoder and Bun image generation,
+and run production recovery acceptance against the exact local image. The build
+selects its platform explicitly. Before acceptance, the job compares the
+inspected image platform and revision label with the selected target and source
+commit. It passes the immutable image ID to the harness and records that same
+ID and platform in the job summary. This
 ID is not a registry manifest digest. No login or push step exists.
 
 [GitHub run 39684993689](https://github.com/postdot/postdot/actions/runs/39684993689)
@@ -99,7 +123,13 @@ evidence without a dedicated OCI runner.
 
 This candidate check does not replace the final source integration gate.
 Images are not exported as large Actions artifacts. Multi-platform manifest
-assembly and separately authorized versioned image publication remain pending.
+assembly and separately authorized versioned image publication are handled by
+`.github/workflows/container-release.yml`. The workflow is manual and has not
+been dispatched; no image has been published. It uses Buildx/QEMU to build the
+final multi-platform image on AMD64 after the exact source passes native
+acceptance on AMD64 and ARM64. If emulation makes the release build fail or
+exceed its limit, use native build jobs and manifest assembly rather than
+reducing the advertised platforms.
 
 For local checks against an already-built image:
 

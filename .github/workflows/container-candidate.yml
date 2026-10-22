@@ -2,6 +2,17 @@ name: Container candidate
 
 on:
     workflow_dispatch:
+        inputs:
+            source_ref:
+                description: Optional branch, tag, or commit to accept
+                required: false
+                type: string
+    workflow_call:
+        inputs:
+            source_ref:
+                description: Commit, branch, or tag to build and accept
+                required: true
+                type: string
 
 permissions:
     contents: read
@@ -24,7 +35,10 @@ jobs:
             EXPECTED_ARCH: ${{ matrix.arch }}
         steps:
             - name: Check out selected source
+              id: checkout
               uses: actions/checkout@v6.0.2
+              with:
+                  ref: ${{ inputs.source_ref || github.sha }}
 
             - name: Set up Bun
               uses: oven-sh/setup-bun@v2.2.0
@@ -38,7 +52,7 @@ jobs:
               run: |
                   docker build --platform "linux/$EXPECTED_ARCH" --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
                     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
-                    --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+                    --label "org.opencontainers.image.revision=${{ steps.checkout.outputs.commit }}" \
                     --label "org.opencontainers.image.licenses=AGPL-3.0-only" .
 
             - name: Verify candidate identity
@@ -48,7 +62,7 @@ jobs:
                   platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image_id")"
                   revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id")"
                   test "$platform" = "linux/$EXPECTED_ARCH"
-                  test "$revision" = "$GITHUB_SHA"
+                  test "$revision" = "${{ steps.checkout.outputs.commit }}"
                   echo "image=$image_id" >> "$GITHUB_OUTPUT"
                   echo "platform=$platform" >> "$GITHUB_OUTPUT"
 
@@ -64,7 +78,7 @@ jobs:
               run: |
                   {
                     echo '## Accepted container candidate'
-                    echo "Source: $GITHUB_SHA"
+                    echo "Source: ${{ steps.checkout.outputs.commit }}"
                     echo "Platform: $CANDIDATE_PLATFORM"
                     echo "Local image ID: $CANDIDATE_IMAGE_ID"
                     echo 'Container acceptance passed. No image was pushed; this is not a published release or a complete integration validation.'
