@@ -32,7 +32,10 @@ import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { useProjectPublicationActions } from '@/lib/project-publication-actions'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { useProjectPublicationData, useProjectPublicationPagination } from '@/lib/project-resources'
+import { useProjectTagCatalog } from '@/lib/project-tags'
 import {
     defaultPublicationQueueSort,
     filterQueueByTags,
@@ -57,10 +60,15 @@ export function PublicationQueuePage({
     readonly initialTagIds?: readonly string[]
 }) {
     const { locale } = useLanguage()
+    const { project, projectRole } = useProjectDashboard()
+    const { due, publications, publicationsNextCursor, publicationSummary } =
+        useProjectPublicationData(project.id)
+    const { loadingMorePublications, onLoadMorePublications } = useProjectPublicationPagination(
+        project.id
+    )
+    const catalogQuery = useProjectTagCatalog(project.id)
+    const projectTags = catalogQuery.data?.tags.filter(tag => tag.state === 'active') ?? []
     const {
-        due,
-        loadingMorePublications,
-        onLoadMorePublications,
         onCancelPublications,
         onDeleteDraftPublication,
         onDuplicateDraftPublication,
@@ -68,13 +76,7 @@ export function PublicationQueuePage({
         onRetryPublication,
         onReschedulePublications,
         pending,
-        project,
-        projectRole,
-        projectTags,
-        publications,
-        publicationsNextCursor,
-        publicationSummary,
-    } = useProjectDashboard()
+    } = useProjectPublicationActions()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [view, setView] = useState(initialView)

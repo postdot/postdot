@@ -1,5 +1,5 @@
 import type { ProjectTag } from '@postdot/client'
-import { useQuery, type QueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 
 import { api, ApiError, formatApiError } from '@/lib/api'
 import { projectQueryKeys } from '@/lib/project-realtime'
@@ -73,4 +73,23 @@ export function formatProjectTagMutationError(error: unknown): string {
     if (error.code === 'write_conflict') return m.project_tags_error_duplicate()
     if (error.code === 'forbidden') return m.api_forbidden()
     return formatApiError(error)
+}
+
+/** Catalog writes are shared by tag management, composition and publication editing. */
+export function useProjectTagActions(projectId: string) {
+    const queryClient = useQueryClient()
+    async function mutate(action: () => Promise<{ tag: ProjectTag }>) {
+        const { tag } = await action()
+        updateProjectTagCatalog(queryClient, projectId, tag)
+        return tag
+    }
+    return {
+        onCreateProjectTag: (name: string) => mutate(() => api.createProjectTag(projectId, name)),
+        onRenameProjectTag: (tagId: string, name: string) =>
+            mutate(() => api.renameProjectTag(projectId, tagId, name)),
+        onArchiveProjectTag: (tagId: string) =>
+            mutate(() => api.archiveProjectTag(projectId, tagId)),
+        onRestoreProjectTag: (tagId: string) =>
+            mutate(() => api.restoreProjectTag(projectId, tagId)),
+    }
 }

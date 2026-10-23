@@ -20,6 +20,8 @@ import { PublisherConnectionPanel } from '@/components/publisher-connection-pane
 import type { Channel } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import { useProjectChannelActions } from '@/lib/project-channel-actions'
+import { usePublicationComposer } from '@/lib/publication-composer-context'
 import {
     hasRecoverablePublicationContent,
     readPublicationRecovery,
@@ -43,9 +45,9 @@ export function ChannelManagementPage({
 }: ChannelManagementPageProps) {
     useLanguage()
     const { isInstanceAdmin } = useDashboardGlobal()
+    const { channels, connections, project, projectRole } = useProjectDashboard()
+    const { postContent, postTitle, publicationTargets, sourceMedia } = usePublicationComposer()
     const {
-        channels,
-        connections,
         error,
         onArchiveChannel,
         onConnectCustomHttpPublisher,
@@ -63,13 +65,7 @@ export function ChannelManagementPage({
         onConnectTelegramPublisher,
         onConnectDevtoPublisher,
         pending,
-        postContent,
-        postTitle,
-        publicationTargets,
-        sourceMedia,
-        project,
-        projectRole,
-    } = useProjectDashboard()
+    } = useProjectChannelActions()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const canResumeComposition =
         canEditProject &&

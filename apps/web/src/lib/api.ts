@@ -1477,6 +1477,7 @@ export const api = {
 }
 
 export type {
+    WebApiRequests,
     MediaListOptions,
     MediaListSort,
     MediaListFamilyFilter,

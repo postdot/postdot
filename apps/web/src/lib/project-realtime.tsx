@@ -2,29 +2,10 @@ import type { PublicationEditorState } from '@postdot/client'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { projectRefreshKeys, projectEventRefreshScope } from './project-query-invalidation'
+import { projectQueryKeys } from './project-query-keys'
 import { createRealtimeRefreshQueue } from './realtime-refresh'
-
-export const projectQueryKeys = {
-    data: (projectId: string) => ['project', projectId, 'data'] as const,
-    calendarPublications: (projectId: string) =>
-        ['project', projectId, 'calendar-publications'] as const,
-    publicationQueues: (projectId: string) => ['project', projectId, 'publication-queues'] as const,
-    publicationEditors: (projectId: string) =>
-        ['project', projectId, 'publication-editor'] as const,
-    projectTagsCatalog: (projectId: string) =>
-        [...projectQueryKeys.data(projectId), 'project-tags', 'catalog'] as const,
-    publicationApprovals: (projectId: string) =>
-        ['project', projectId, 'publication-approval-requests'] as const,
-    providerAnalytics: (projectId: string, provider: 'bluesky' | 'devto' | 'mastodon') =>
-        ['project', projectId, 'provider-analytics', provider] as const,
-    publicationEditor: (projectId: string, publicationId: string) =>
-        [...projectQueryKeys.publicationEditors(projectId), publicationId] as const,
-    publicationEditorInstance: (projectId: string, publicationId: string, instanceId: string) =>
-        [...projectQueryKeys.publicationEditor(projectId, publicationId), instanceId] as const,
-    notifications: (projectId: string) => ['project', projectId, 'notifications'] as const,
-    notificationPreferences: (projectId: string) =>
-        ['project', projectId, 'notification-preferences'] as const,
-} as const
+export { projectQueryKeys } from './project-query-keys'
 
 const projectRealtimeEventTypes = [
     'project.created',
@@ -454,30 +435,18 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 for (const delay of reconnectRefreshDelays) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
-                    if (key === 'project') {
-                        const invalidations = [
-                            queryClient.invalidateQueries({
-                                queryKey: projectQueryKeys.data(projectId),
-                                refetchType: full ? 'all' : 'active',
-                            }),
-                            queryClient.invalidateQueries({
-                                queryKey: projectQueryKeys.calendarPublications(projectId),
-                                refetchType: full ? 'all' : 'active',
-                            }),
-                            queryClient.invalidateQueries({
-                                queryKey: projectQueryKeys.publicationQueues(projectId),
-                                refetchType: full ? 'all' : 'active',
-                            }),
-                            queryClient.invalidateQueries({
-                                queryKey: projectQueryKeys.publicationApprovals(projectId),
-                                refetchType: full ? 'all' : 'active',
-                            }),
-                        ]
+                    if (key !== 'notifications') {
+                        const invalidations = projectRefreshKeys(
+                            projectId,
+                            full ? 'project' : key
+                        ).map(queryKey =>
+                            queryClient.invalidateQueries({ queryKey, refetchType: 'active' })
+                        )
                         if (includePublicationEditors) {
                             invalidations.push(
                                 queryClient.invalidateQueries({
                                     queryKey: projectQueryKeys.publicationEditors(projectId),
-                                    refetchType: full ? 'all' : 'active',
+                                    refetchType: 'active',
                                 })
                             )
                         }
@@ -486,11 +455,11 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                         await Promise.all([
                             queryClient.invalidateQueries({
                                 queryKey: projectQueryKeys.notifications(projectId),
-                                refetchType: full ? 'all' : 'active',
+                                refetchType: 'active',
                             }),
                             queryClient.invalidateQueries({
                                 queryKey: ['notifications', projectId],
-                                refetchType: full ? 'all' : 'active',
+                                refetchType: 'active',
                             }),
                         ])
                     }
@@ -575,9 +544,10 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     return
                 }
                 const resource = eventResource(signal.event.type)
-                if (resource === 'project') void refresh('project')
+                if (resource === 'project')
+                    void refresh(projectEventRefreshScope(signal.event.type))
                 else {
-                    void refresh('project', false, true)
+                    void refresh('publications', false, true)
                     void refresh('notifications')
                 }
             },

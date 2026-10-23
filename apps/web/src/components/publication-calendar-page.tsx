@@ -18,7 +18,9 @@ import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import { useProjectPublicationActions } from '@/lib/project-publication-actions'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { useProjectPublicationData } from '@/lib/project-resources'
 import {
     calendarDateFromKey,
     getCalendarViewportTimestampRange,
@@ -40,16 +42,10 @@ export function PublicationCalendarPage({
     readonly initialCalendarView?: PublicationCalendarView
 } = {}) {
     const { locale } = useLanguage()
-    const {
-        channels,
-        due,
-        onCancelPublications,
-        onReschedulePublications,
-        pending,
-        project,
-        projectRole,
-        publications,
-    } = useProjectDashboard()
+    const { channels, project, projectRole } = useProjectDashboard()
+    const { due, publications } = useProjectPublicationData(project.id)
+    const { onCancelPublications, onReschedulePublications, pending } =
+        useProjectPublicationActions()
     const queryClient = useQueryClient()
     const todayDate = toDateKey(new Date(), project.timeZone)
     const calendarDateKey = initialCalendarDateKey ?? todayDate
