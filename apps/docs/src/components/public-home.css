@@ -137,34 +137,119 @@
     display: none;
 }
 .public-home .home-menu-trigger {
-    height: 36px;
-    padding: 8px 10px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     color: var(--home-ink);
     background: transparent;
-    border: 1px solid var(--home-edge);
+    border: 1px solid transparent;
     border-radius: 3px;
-    font-size: 13px;
+}
+.public-home .home-menu-trigger:hover,
+.public-home .home-menu-trigger[data-popup-open] {
+    background: var(--home-card);
+    border-color: var(--home-edge);
+}
+/* Three bars that fold into a cross while the menu is open. */
+.home-burger {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 12px;
+}
+.home-burger i {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 1.5px;
+    border-radius: 1px;
+    background: currentColor;
+    transition:
+        top 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.18s ease;
+}
+.home-burger i:nth-child(1) {
+    top: 0;
+}
+.home-burger i:nth-child(2) {
+    top: 5px;
+}
+.home-burger i:nth-child(3) {
+    top: 10px;
+}
+[data-popup-open] > .home-burger i:nth-child(1) {
+    top: 5px;
+    transform: rotate(45deg);
+}
+[data-popup-open] > .home-burger i:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0.2);
+}
+[data-popup-open] > .home-burger i:nth-child(3) {
+    top: 5px;
+    transform: rotate(-45deg);
 }
 .home-navigation-popup {
-    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(280px, calc(100vw - 32px));
     padding: 8px;
     border: 1px solid var(--color-fd-border);
     background: var(--color-fd-popover);
     color: var(--color-fd-foreground);
     border-radius: 3px;
-    box-shadow: 0 12px 30px rgb(0 0 0 / 12%);
+    box-shadow: 0 16px 40px rgb(0 0 0 / 16%);
     font:
-        14px/1.5 'Host Grotesk',
+        15px/1.5 'Host Grotesk',
         sans-serif;
+    transform-origin: top right;
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.home-navigation-popup[data-starting-style],
+.home-navigation-popup[data-ending-style] {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+}
+.home-navigation-list {
+    display: flex;
+    flex-direction: column;
 }
 .home-navigation-item {
-    display: block;
-    padding: 12px;
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 12px;
     border-radius: 3px;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     text-decoration: none;
 }
-.home-navigation-item[data-highlighted] {
+.home-navigation-item:hover,
+.home-navigation-item:focus-visible {
     background: var(--color-fd-muted);
+}
+.home-navigation-popup .home-navigation-install {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--color-fd-foreground);
+    border-radius: 3px;
+    background: var(--color-fd-foreground);
+    color: var(--color-fd-background);
+    font:
+        500 15px/1.4 'Host Grotesk',
+        sans-serif;
+    text-decoration: none;
+}
+.home-navigation-popup .home-navigation-install:hover {
+    opacity: 0.85;
 }
 .home-hero {
     overflow: hidden;
@@ -898,6 +983,7 @@
 @media (prefers-reduced-motion: reduce) {
     .home-faq *,
     .home-navigation-popup,
+    .home-burger i,
     .home-screenshot-dialog {
         transition-duration: 0s !important;
         animation-duration: 0s !important;
