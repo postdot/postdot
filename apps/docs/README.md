@@ -14,7 +14,8 @@ Installation
 content is generated from the canonical deployment guide. Other pages are in
 `content/docs/`.
 
-This is a private launch preparation. The domain, public release claims, and
-indexing remain to be configured before publication; nothing is deployed. The current metadata asks
-search engines not to index the site. The production Postdot image excludes this
-site.
+The site is public at https://postdot.app and indexable (`public/robots.txt`,
+`/sitemap.xml`, canonical links). GitHub Actions deploys it from `main`
+(`.github/workflows/docs-deploy.yml`); `/usage-study` is a `noindex` prototype.
+Public release claims remain unapproved. The production Postdot image excludes
+this site.

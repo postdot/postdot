@@ -46,6 +46,7 @@ export default defineConfig({
                     path: '/llms-full-txt',
                     prerender: { enabled: true, outputPath: '/llms-full.txt' },
                 },
+                { path: '/sitemap-xml', prerender: { enabled: true, outputPath: '/sitemap.xml' } },
                 { path: '/api-search', prerender: { enabled: true, outputPath: '/api/search' } },
                 ...slugs.flatMap(slug => [
                     { path: `/docs${slug ? `/${slug}` : ''}`, prerender: { enabled: true } },

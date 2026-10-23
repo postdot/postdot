@@ -1,6 +1,4 @@
-# The site is not published yet.
 /*
-  X-Robots-Tag: noindex, nofollow
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
@@ -9,6 +7,9 @@
 
 /api/search
   Content-Type: application/json; charset=utf-8
+
+/sitemap.xml
+  Content-Type: application/xml; charset=utf-8
 
 /llms.txt
   Content-Type: text/plain; charset=utf-8

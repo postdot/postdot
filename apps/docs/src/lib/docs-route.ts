@@ -19,13 +19,17 @@ export function docsHead(slugs: string[] | undefined) {
     const page = slugs ? source.getPage(slugs) : undefined
     if (!page) return {}
     const path = page.url
+    const head = seo({
+        title: page.data.title,
+        description: page.data.description ?? '',
+        image: getOGImageUrl(page.slugs),
+        path,
+    })
     return {
-        ...seo({
-            title: page.data.title,
-            description: page.data.description ?? '',
-            image: getOGImageUrl(page.slugs),
-            path,
-        }),
-        links: [{ rel: 'alternate', type: 'text/markdown', href: getPageMarkdownUrl(page) }],
+        ...head,
+        links: [
+            ...head.links,
+            { rel: 'alternate', type: 'text/markdown', href: getPageMarkdownUrl(page) },
+        ],
     }
 }
