@@ -1,4 +1,4 @@
-import { treaty, type Treaty } from '@elysiajs/eden'
+import { treaty, type Treaty } from '@elysia/eden'
 import type { PostbotApp } from '@postdot/api'
 import type {
     AuditEventResponse,

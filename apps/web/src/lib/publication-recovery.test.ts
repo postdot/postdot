@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { hasRecoverablePublicationContent } from './publication-recovery'
+import {
+    hasRecoverablePublicationContent,
+    isPublicationComposerDraftContent,
+} from './publication-recovery'
 
 function target(content = '') {
     return {
@@ -60,5 +63,44 @@ describe('new publication recovery', () => {
                 sourceMedia: [{ assetId: 'asset-1' }],
             })
         ).toBe(true)
+    })
+})
+
+describe('server composer draft content validation', () => {
+    const content = {
+        postTitle: 'Retained draft',
+        postContent: '',
+        sourceMedia: [],
+        publicationTargets: [target('Destination copy')],
+        publicationTagIds: ['tag-1'],
+        defaultDeliveryMode: 'manual',
+        defaultScheduledAt: '',
+        customizedTargetIds: [],
+        customizedContentTargetIds: [],
+        activePublicationTabId: 'target-1',
+    }
+
+    test('accepts complete server content and optional content scope without requiring local metadata', () => {
+        expect(isPublicationComposerDraftContent(content)).toBe(true)
+        expect(
+            isPublicationComposerDraftContent({ ...content, activeContentScopeId: 'source' })
+        ).toBe(true)
+        expect(
+            isPublicationComposerDraftContent({ ...content, postTitle: '', publicationTargets: [] })
+        ).toBe(true)
+    })
+
+    test('rejects opaque or malformed server content before the editor treats it as a draft', () => {
+        for (const value of [
+            null,
+            {},
+            { unrelated: 'record' },
+            { ...content, sourceMedia: [{ assetId: 42 }] },
+            { ...content, publicationTargets: [{ ...target(), deliveryMode: 'invalid' }] },
+            { ...content, publicationTagIds: [42] },
+            { ...content, activeContentScopeId: 42 },
+        ]) {
+            expect(isPublicationComposerDraftContent(value)).toBe(false)
+        }
     })
 })

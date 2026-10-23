@@ -125,30 +125,32 @@ function getStorage(): Storage | null {
 }
 
 function isPublicationRecoveryState(value: unknown): value is PublicationRecoveryState {
-    if (!isRecord(value)) return false
-    if (
-        value.version !== recoveryVersion ||
-        !isSafeTimestamp(value.savedAt) ||
-        typeof value.postTitle !== 'string' ||
-        typeof value.postContent !== 'string' ||
-        !isMediaSelectionArray(value.sourceMedia) ||
-        !isPublicationTargetArray(value.publicationTargets) ||
-        !isStringArray(value.publicationTagIds) ||
-        !isDeliveryMode(value.defaultDeliveryMode) ||
-        typeof value.defaultScheduledAt !== 'string' ||
-        !isStringArray(value.customizedTargetIds) ||
-        !isStringArray(value.customizedContentTargetIds) ||
-        typeof value.activePublicationTabId !== 'string' ||
-        (value.activeContentScopeId !== undefined && typeof value.activeContentScopeId !== 'string')
-    ) {
-        return false
-    }
-    return hasRecoverablePublicationContent({
-        postTitle: value.postTitle,
-        postContent: value.postContent,
-        publicationTargets: value.publicationTargets,
-        sourceMedia: value.sourceMedia,
-    })
+    return (
+        isRecord(value) &&
+        value.version === recoveryVersion &&
+        isSafeTimestamp(value.savedAt) &&
+        isPublicationComposerDraftContent(value) &&
+        hasRecoverablePublicationContent(value)
+    )
+}
+
+export function isPublicationComposerDraftContent(
+    value: unknown
+): value is PublicationComposerDraftContent {
+    return (
+        isRecord(value) &&
+        typeof value.postTitle === 'string' &&
+        typeof value.postContent === 'string' &&
+        isMediaSelectionArray(value.sourceMedia) &&
+        isPublicationTargetArray(value.publicationTargets) &&
+        isStringArray(value.publicationTagIds) &&
+        isDeliveryMode(value.defaultDeliveryMode) &&
+        typeof value.defaultScheduledAt === 'string' &&
+        isStringArray(value.customizedTargetIds) &&
+        isStringArray(value.customizedContentTargetIds) &&
+        typeof value.activePublicationTabId === 'string' &&
+        (value.activeContentScopeId === undefined || typeof value.activeContentScopeId === 'string')
+    )
 }
 
 function isMediaSelectionArray(value: unknown): value is MediaSelection[] {
