@@ -4,7 +4,7 @@ import { createApp, createPublisherRuntime } from '@postdot/api'
 import { createAuth } from '@postdot/auth'
 import { closeDatabase, createDatabase, runMigrations } from '@postdot/db'
 
-import { createPostbotClient } from './index'
+import { createAccessInvitationClient, createPostbotClient } from './index'
 
 describe('Postdot client', () => {
     it('exposes the typed project route tree', () => {
@@ -63,6 +63,52 @@ describe('Postdot client', () => {
                 .projects({ projectId: 'project-1' })
                 .publications({ publicationId: 'publication-1' }).publish.post
         ).toBeFunction()
+    })
+
+    it('keeps invitation token previews and id revocations on distinct encoded paths', async () => {
+        const requests: { method: string; path: string }[] = []
+        const server = Bun.serve({
+            hostname: '127.0.0.1',
+            port: 0,
+            fetch(request) {
+                requests.push({ method: request.method, path: new URL(request.url).pathname })
+                return request.method === 'GET'
+                    ? Response.json({ targetEmail: 'invited@postbot.local', expiresAt: 123 })
+                    : Response.json(
+                          {
+                              error: {
+                                  code: 'invitation_not_pending',
+                                  message: 'Invitation is not pending',
+                              },
+                          },
+                          { status: 409 }
+                      )
+            },
+        })
+        try {
+            const client = createAccessInvitationClient(server.url.origin)
+            const preview = await client.preview('token/with?reserved#characters')
+            expect(preview.data).toEqual({ targetEmail: 'invited@postbot.local', expiresAt: 123 })
+            expect(preview.error).toBeNull()
+            const revoked = await client.revoke('id/with?reserved#characters')
+            expect(revoked.data).toBeNull()
+            expect(revoked.status).toBe(409)
+            expect(revoked.error?.value).toEqual({
+                error: { code: 'invitation_not_pending', message: 'Invitation is not pending' },
+            })
+            expect(requests).toEqual([
+                {
+                    method: 'GET',
+                    path: '/api/access/invitations/token%2Fwith%3Freserved%23characters',
+                },
+                {
+                    method: 'DELETE',
+                    path: '/api/access/invitations/id%2Fwith%3Freserved%23characters',
+                },
+            ])
+        } finally {
+            server.stop(true)
+        }
     })
 
     it('calls typed routes through a custom fetcher', async () => {

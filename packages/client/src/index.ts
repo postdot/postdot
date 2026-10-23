@@ -1,4 +1,4 @@
-import { treaty, type Treaty } from '@elysia/eden'
+import { edenFetch, treaty, type Treaty } from '@elysia/eden'
 import type { PostbotApp } from '@postdot/api'
 import type {
     AuditEventResponse,
@@ -77,6 +77,63 @@ export function createPostbotClient(
 }
 
 export type PostbotClient = ReturnType<typeof createPostbotClient>
+
+type AccessRoute = PostbotClient['api']['access']
+
+export type InstanceSetupStatus = NonNullable<
+    Awaited<ReturnType<PostbotClient['api']['instance']['status']['get']>>['data']
+>
+export type AccessSummary = NonNullable<Awaited<ReturnType<AccessRoute['get']>>['data']>
+export type AccessInstanceStateRecord = AccessSummary['instance']
+export type AccessInstanceState = AccessInstanceStateRecord['state']
+export type AccessInstanceMembership = NonNullable<AccessSummary['membership']>
+export type AccessInstanceRole = AccessInstanceMembership['role']
+export type AccessInstanceMembershipState = AccessInstanceMembership['state']
+export type AccessInstanceMembershipUpdate = NonNullable<
+    Parameters<ReturnType<AccessRoute['members']>['patch']>[0]
+>
+export type CreatedAccessInvitation = NonNullable<
+    Awaited<ReturnType<AccessRoute['invitations']['post']>>['data']
+>
+export type AccessInvitation = CreatedAccessInvitation['invitation']
+export type AccessInvitationState = AccessInvitation['state']
+type InvitationRoutes = PostbotApp['~Routes']['api']['access']['invitations']
+type InvitationResult<ResponseSchema extends Record<number, unknown>> = Pick<
+    Treaty.TreatyResponse<ResponseSchema>,
+    'data' | 'error' | 'status'
+>
+
+/** Explicit paths keep the public token GET distinct from the invitation-id DELETE. */
+export function createAccessInvitationClient(baseURL: string): {
+    preview(token: string): Promise<InvitationResult<InvitationRoutes[':token']['get']['response']>>
+    revoke(
+        invitationId: string
+    ): Promise<InvitationResult<InvitationRoutes[':invitationId']['delete']['response']>>
+} {
+    const request = edenFetch<PostbotApp>(baseURL)
+    return {
+        preview(token: string) {
+            return request('/api/access/invitations/:token', {
+                method: 'GET',
+                credentials: 'same-origin',
+                params: { token: encodeURIComponent(token) },
+            })
+        },
+        revoke(invitationId: string) {
+            return request('/api/access/invitations/:invitationId', {
+                method: 'DELETE',
+                headers: {},
+                body: {},
+                credentials: 'same-origin',
+                params: { invitationId: encodeURIComponent(invitationId) },
+            })
+        },
+    }
+}
+
+export type AccessInvitationPreview = NonNullable<
+    Awaited<ReturnType<ReturnType<typeof createAccessInvitationClient>['preview']>>['data']
+>
 
 type WorkspaceRoute = ReturnType<PostbotClient['api']['workspaces']>
 type WorkspaceTeamRoute = ReturnType<WorkspaceRoute['teams']>
