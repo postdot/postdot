@@ -1924,3 +1924,16 @@
 #main-content:focus {
     outline: none;
 }
+.home-footer-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.home-footer-bottom a,
+.home-footer-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}

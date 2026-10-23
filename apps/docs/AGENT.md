@@ -28,7 +28,11 @@ by name is the usual cause; use its default import. `vite.config.ts` dedupes the
 Fumadocs packages and React, otherwise links silently become full page loads (bun
 installs several copies of `fumadocs-core`, and `tsconfig.json` pins one for types).
 The site is live at postdot.app and indexable.
-Feedback goes through the Worker in `worker/` to GitHub discussions (GitHub App
+Analytics: anonymous audience (`/s.js`) always; session replay and heatmaps
+(`/p.js`, `/r.js`) only after the reader allows them (`src/lib/consent.ts`,
+banner reopened from the footer); a change of choice reloads the page. Legal
+pages (`/legal`, `/privacy`) read their facts from `src/lib/legal.ts`; keep the
+privacy text in step with what the site collects. Feedback goes through the Worker in `worker/` to GitHub discussions (GitHub App
 `postdot-docs`, secret `GITHUB_APP_PRIVATE_KEY` set with `wrangler secret put`
 from a file, never pasted). Deploys run from `main` in CI; do not deploy from a
 stale checkout.
