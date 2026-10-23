@@ -4490,7 +4490,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Large shared modules increase review and regression cost, and re-render scope. Duplicated client typing can drift from the API contract. Prototype surfaces ship to users.
 - Desired outcome: Data loading and mutations are scoped to the routes and features that need them, the typed client is used without a parallel hand-maintained contract, the client data layer is a deliberate single choice, and prototype surfaces are either removed or excluded from production.
 - Related: ISSUE-185, ADR-047, ADR-057
-- Tasks: WEB-557 (development-only prototype slice); WEB-558 (Eden response typing and project tags); WEB-559 (workspace reads and derived workspace types); WEB-560 (workspace writes); WEB-561 (project user/group grants). Broader client structure remains open.
+- Tasks: WEB-557 (development-only prototype slice); WEB-558 (Eden response typing and project tags); WEB-559 (workspace reads and derived workspace types); WEB-560 (workspace writes); WEB-561 (project user/group grants); WEB-562 (project members and invitations). Broader client structure remains open.
 
 - Partial resolution (2026-10-23): WEB-557 gates the realtime prototype to development, redirects production access to the same project overview and conditionally imports the experimental component so production assets omit it. Both browser modes, an audit of 173 production JavaScript assets, 283 web tests and static gates pass. The wider data-loading, typed-client and dependency-boundary questions remain open. [Evidence](worklogs/2026-10-23-WEB-557.md).
 
@@ -4501,6 +4501,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Workspace-write progress (2026-10-23): WEB-560 migrates all nine workspace mutation wrappers to Eden/unwrap, retaining their inputs and error semantics. Ten compile-time contracts, 301 web/client/access tests, production build, static gates and four browser scenarios pass. A temporary browser acceptance exercises every migrated method, a single forbidden write and protected-owner rejection. Better Auth invitation acceptance and project grant wrappers remain separate; broader client boundaries stay open. [Evidence](worklogs/2026-10-23-WEB-560.md).
 
 - Project-grant progress (2026-10-23): WEB-561 derives the two grant entity types from Eden and migrates eight read/write wrappers with inferred responses. Twelve type checks preserve the result shapes and editor/viewer write inputs. The production build, static gates, 298 selected tests and five browser scenarios pass. Browser acceptance verifies all eight methods, direct/group access fallback, final revocation, foreign-workspace rejection, forbidden elevation and workspace-admin management. Project members/invitations and broader client architecture remain open. [Evidence](worklogs/2026-10-23-WEB-561.md).
+
+- Project-membership progress (2026-10-23): WEB-562 derives four member/invitation types from Eden and migrates eight wrappers with inferred responses. Thirteen type contracts preserve roles, states and response shapes. The production build, static gates, 298 selected tests and five browser scenarios pass, including invitation resend/cancellation, self-membership rejection and live revocation. Better Auth invitation acceptance remains on its existing transport. Instance-access contracts and broader client architecture remain open. [Evidence](worklogs/2026-10-23-WEB-562.md).
 
 ## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
 
