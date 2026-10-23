@@ -22,8 +22,8 @@ function Legal() {
             <h2>Publisher</h2>
             <p>
                 The website postdot.app is published by {legal.publisher}, who is also the
-                publication director. Contact:{' '}
-                <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>.
+                publication director. Contact: open a discussion in the{' '}
+                <a href={legal.contactUrl}>Postdot repository</a>.
             </p>
 
             <h2>Hosting</h2>
