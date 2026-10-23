@@ -13,8 +13,6 @@ export const Route = createRootRoute({
             { charSet: 'utf-8' },
             { name: 'viewport', content: 'width=device-width, initial-scale=1' },
             { name: 'description', content: siteDescription },
-            // The site is not published yet; see the AGENT.md of this workspace.
-            { name: 'robots', content: 'noindex, nofollow' },
         ],
         links: [
             { rel: 'stylesheet', href: appCss },
