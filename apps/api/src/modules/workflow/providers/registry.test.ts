@@ -73,3 +73,22 @@ describe('built-in provider registry', () => {
         ).toThrow('Duplicate built-in provider execution contract')
     })
 })
+
+it('adds a synthetic versioned executor without changing dispatch rules', () => {
+    const synthetic = adapter({ providerId: 'synthetic', contractId: 'synthetic', revision: 'v1' })
+    const registry = createBuiltInProviderRegistry([synthetic])
+    expect(
+        registry.resolve({
+            providerId: 'synthetic',
+            kind: 'synthetic',
+            execution: { kind: 'built_in', contractId: 'synthetic', revision: 'v1' },
+        })
+    ).toBe(synthetic)
+    expect(
+        registry.resolve({
+            providerId: 'synthetic',
+            kind: 'synthetic',
+            execution: { kind: 'built_in', contractId: 'synthetic', revision: 'v2' },
+        })
+    ).toBeNull()
+})

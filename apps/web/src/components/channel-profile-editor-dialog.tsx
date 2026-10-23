@@ -28,6 +28,7 @@ import { templatesFromPresets } from '@/lib/channel-profile-presets'
 import { useLanguage } from '@/lib/i18n'
 import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
+import { providerForProfile } from '@/providers/registry'
 
 export function ChannelProfileEditorDialog({
     channel,
@@ -110,9 +111,10 @@ export function ChannelProfileEditorDialog({
                         'kind' in execution &&
                         execution.kind === 'built_in' &&
                         'contractId' in execution &&
-                        execution.contractId === 'linkedin' &&
+                        providerForProfile(version.profile)?.templateUpgrade !== undefined &&
                         'revision' in execution &&
-                        execution.revision === 'member-post-v2'
+                        execution.revision ===
+                            providerForProfile(version.profile)?.templateUpgrade?.revision
                 )
                 setDraftId(state.draft?.id ?? null)
                 setDraftRevision(state.draft?.revision)
@@ -290,8 +292,9 @@ export function ChannelProfileEditorDialog({
         try {
             const { presets } = await api.listChannelProfilePresets()
             if (epoch !== session.current) return
-            const preset = presets.find(item => item.id === 'linkedin')
-            if (preset === undefined) throw new Error('LinkedIn template unavailable')
+            const presetId = providerForProfile(activeDefinition)?.templateUpgrade?.presetId
+            const preset = presets.find(item => item.id === presetId)
+            if (preset === undefined) throw new Error('Provider template unavailable')
             setProfileText(profilePresentation(templatesFromPresets([preset])[0]!.profile).text)
             setAssessment(null)
             setBuilderValid(true)

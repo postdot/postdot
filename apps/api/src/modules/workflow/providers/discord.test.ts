@@ -5,7 +5,7 @@ import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot
 import type { DiscordPublishOutcome, DiscordPublisher } from '@postdot/discord'
 import { discordChannelProfile } from '@postdot/discord'
 
-import { createDiscordProviderAdapter } from './discord'
+import { createDiscordProviderAdapter } from '../../../providers/discord/worker'
 import type {
     BuiltInProviderExecutionInput,
     ProviderMediaDeliveryPort,

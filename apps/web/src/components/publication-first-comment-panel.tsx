@@ -17,7 +17,6 @@ import { api, ApiError, type Publication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import {
-    countFirstCommentGraphemes,
     firstCommentAccepted,
     firstCommentCancellable,
     firstCommentConflicted,
@@ -26,7 +25,6 @@ import {
     firstCommentEditState,
     firstCommentExternalLinkAllowed,
     firstCommentFormEditable,
-    firstCommentMaxTextLength,
     firstCommentReloaded,
     firstCommentSubmitRevision,
     firstCommentTextProblem,
@@ -36,6 +34,7 @@ import {
     type PublicationFirstCommentState,
 } from '@/lib/publication-first-comment'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 /** A first comment is only prepared while the publication can still be changed. */
 const creatablePublicationStates = new Set<Publication['state']>(['draft', 'scheduled'])
@@ -266,8 +265,7 @@ export function PublicationFirstCommentPanel({
     const readOnlyOutcome = item !== null && !editable
     const stateNotice = item === null ? null : firstCommentStateNotice(item.state)
     const cancellable = firstCommentCancellable(response, disabled)
-    const characterCount =
-        response.providerId === 'mastodon' ? text.length : countFirstCommentGraphemes(text)
+    const characterCount = providerRegistry.get(response.providerId)?.comments?.count(text) ?? 0
     const textProblem = firstCommentTextProblem(text, response.providerId, response.textLimit)
     const textInvalid = attempted && textProblem !== null
     const expectedRevision = firstCommentSubmitRevision(edit, live)
@@ -437,9 +435,8 @@ export function PublicationFirstCommentPanel({
                                             })
                                           : m.first_comment_text_too_long_units({
                                                 limit: String(
-                                                    response.providerId === 'mastodon'
-                                                        ? response.textLimit
-                                                        : firstCommentMaxTextLength
+                                                    providerRegistry.get(response.providerId)
+                                                        ?.comments?.maxLength ?? response.textLimit
                                                 ),
                                             })}
                                 </FieldError>

@@ -4,9 +4,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useState } from 'react'
 
 import { ChannelComposerPreview } from '@/components/channel-composer-preview'
-import { TelegramConnectionDialog } from '@/components/telegram-connection-dialog'
 import type { Channel } from '@/lib/api'
 import { LanguageProvider } from '@/lib/i18n'
+import { TelegramConnectionDialog } from '@/providers/telegram/connection-dialog'
 
 const channel: Channel = {
     id: 'telegram-story',

@@ -87,14 +87,8 @@ export const ConnectionStates: Story = {
                             onEditProfile={() => undefined}
                             onLifecycleAction={() => undefined}
                             onConnectCustomHttpPublisher={async () => false}
-                            onConnectDiscordPublisher={async () => false}
-                            onConnectTelegramPublisher={async () => false}
-                            onConnectDevtoPublisher={async () => false}
+                            onPublisherConnected={async () => false}
                             onDisconnectPublisher={async () => undefined}
-                            onStartBlueskyConnection={async () => undefined}
-                            onStartLinkedInConnection={async () => undefined}
-                            onStartMastodonConnection={async () => undefined}
-                            onStartXConnection={async () => undefined}
                         />
                     </div>
                 </div>

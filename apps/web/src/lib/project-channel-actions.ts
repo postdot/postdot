@@ -6,7 +6,6 @@ import {
     formatApiError,
     type ChannelCreationOutcome,
     type ChannelCreationProfile,
-    type LinkedInConnectionDestination,
     type WebApiRequests,
 } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -76,66 +75,11 @@ export function useProjectChannelActions(onCreated?: (channelId: string) => void
         await onRefreshProject()
         return true
     }
-    const onConnectDiscordPublisher = (
-        channelId: string,
-        input: WebApiRequests['connectDiscordPublisher']
-    ) => connect(() => api.connectDiscordPublisher(project.id, channelId, input))
-    const onConnectTelegramPublisher = (
-        channelId: string,
-        input: WebApiRequests['connectTelegramPublisher']
-    ) => connect(() => api.connectTelegramPublisher(project.id, channelId, input))
-    const onConnectDevtoPublisher = (channelId: string, apiKey: string) =>
-        connect(() => api.connectDevtoPublisher(project.id, channelId, apiKey))
     const onConnectCustomHttpPublisher = (
         channelId: string,
         input: WebApiRequests['connectCustomHttpPublisher']
     ) => connect(() => api.connectCustomHttpPublisher(project.id, channelId, input))
-    async function onStartLinkedInConnection(
-        channelId: string,
-        destination?: LinkedInConnectionDestination,
-        providerApplicationId?: string
-    ) {
-        setError(null)
-        const { authorizationUrl } = await api.startLinkedInPublisherConnection(
-            project.id,
-            channelId,
-            destination,
-            providerApplicationId
-        )
-        window.location.assign(authorizationUrl)
-    }
-    async function onStartBlueskyConnection(
-        channelId: string,
-        handle: string,
-        providerApplicationId?: string
-    ) {
-        setError(null)
-        const { authorizationUrl } = await api.startBlueskyPublisherConnection(
-            project.id,
-            channelId,
-            handle,
-            providerApplicationId
-        )
-        window.location.assign(authorizationUrl)
-    }
-    async function onStartMastodonConnection(channelId: string, instanceUrl: string) {
-        setError(null)
-        const { authorizationUrl } = await api.startMastodonPublisherConnection(
-            project.id,
-            channelId,
-            instanceUrl
-        )
-        window.location.assign(authorizationUrl)
-    }
-    async function onStartXConnection(channelId: string, providerApplicationId?: string) {
-        setError(null)
-        const { authorizationUrl } = await api.startXPublisherConnection(
-            project.id,
-            channelId,
-            providerApplicationId
-        )
-        window.location.assign(authorizationUrl)
-    }
+    const onPublisherConnected = () => connect(async () => undefined)
     return {
         error: error ?? shellError,
         pending,
@@ -146,13 +90,7 @@ export function useProjectChannelActions(onCreated?: (channelId: string) => void
         onDeleteChannel,
         onDisconnectPublisher,
         onRefreshProject,
-        onConnectDiscordPublisher,
-        onConnectTelegramPublisher,
-        onConnectDevtoPublisher,
         onConnectCustomHttpPublisher,
-        onStartLinkedInConnection,
-        onStartBlueskyConnection,
-        onStartMastodonConnection,
-        onStartXConnection,
+        onPublisherConnected,
     }
 }

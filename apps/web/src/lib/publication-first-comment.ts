@@ -5,6 +5,8 @@
  */
 import type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
+import { providerRegistry } from '@/providers/registry'
+
 export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
 /** The lifecycle of one prepared comment, taken from the shared contract. */
@@ -52,13 +54,15 @@ export function countFirstCommentGraphemes(text: string): number {
  */
 export function firstCommentTextProblem(
     text: string,
-    providerId: 'bluesky' | 'mastodon' = 'bluesky',
-    textLimit = providerId === 'mastodon' ? 500 : firstCommentMaxGraphemes
+    providerId: string = 'bluesky',
+    textLimit = providerRegistry.get(providerId)?.comments?.textLimit ?? 0
 ): FirstCommentTextProblem | null {
     if (text.trim().length === 0) return 'empty'
-    if (providerId === 'mastodon') return text.length > textLimit ? 'too_long_units' : null
-    if (countFirstCommentGraphemes(text) > textLimit) return 'too_long'
-    if (text.length > firstCommentMaxTextLength) return 'too_long_units'
+    const rules = providerRegistry.get(providerId)?.comments
+    if (!rules) return 'too_long_units'
+    if (rules.count(text) > textLimit)
+        return rules.countUnit === 'utf16' ? 'too_long_units' : 'too_long'
+    if (text.length > rules.maxLength) return 'too_long_units'
     return null
 }
 
@@ -129,20 +133,13 @@ export function firstCommentCancellable(
 /** A published comment link stays on its known provider origin. */
 export function firstCommentExternalLinkAllowed(
     url: string | null,
-    providerId: 'bluesky' | 'mastodon' = 'bluesky',
+    providerId: string = 'bluesky',
     instanceOrigin: string | null = null
 ): url is string {
-    if (url === null) return false
-    try {
-        const parsed = new URL(url)
-        const origin = providerId === 'mastodon' ? instanceOrigin : 'https://bsky.app'
-        if (parsed.protocol !== 'https:' || parsed.origin !== origin) return false
-        // A permalink never carries credentials; userinfo would disguise the
-        // real destination in the address bar.
-        return parsed.username === '' && parsed.password === ''
-    } catch {
-        return false
-    }
+    return (
+        url !== null &&
+        providerRegistry.get(providerId)?.comments?.linkAllowed(url, instanceOrigin) === true
+    )
 }
 
 /**

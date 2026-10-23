@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import type { PublisherExecutionTarget, ProviderMediaDelivery } from '@postdot/db'
 import { createFacebookPublisher, facebookChannelProfile } from '@postdot/facebook'
 
-import { createFacebookProviderAdapter } from './facebook'
+import { createFacebookProviderAdapter } from '../../../providers/facebook/worker'
 import type { BuiltInProviderExecutionInput, ProviderMediaDeliveryPort } from './registry'
 const now = 1_800_000_000_000
 function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): PublisherExecutionTarget {

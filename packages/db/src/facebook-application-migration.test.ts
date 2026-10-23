@@ -3,6 +3,7 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { providerApplicationPolicies } from '../../../apps/api/src/providers/registry'
 import { closeDatabase, createDatabase } from './client'
 import { createSecretCipher } from './encrypted-secret-crypto'
 import { createManualStore } from './manual-store'
@@ -35,6 +36,7 @@ test('Facebook application migration preserves encrypted configurations and refe
             .run('owner', 'Owner', 'owner@example.test', now)
         const key = new Uint8Array(32).fill(9)
         const applications = createProviderApplicationStore(database, {
+            policies: providerApplicationPolicies,
             cipher: createSecretCipher({
                 domain: 'postbot.provider-application',
                 keyId: 'test',

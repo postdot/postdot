@@ -29,7 +29,7 @@ import {
 } from '@postdot/instagram'
 import { createLocalMediaStore } from '@postdot/media'
 
-import { createInstagramProviderAdapter } from './instagram'
+import { createInstagramProviderAdapter } from '../../../providers/instagram/worker'
 import type { BuiltInProviderExecutionInput } from './registry'
 
 const now = 1_800_000_000_000

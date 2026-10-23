@@ -11,8 +11,8 @@ import {
     TELEGRAM_EXECUTION_REVISION,
 } from '@postdot/telegram'
 
+import { createTelegramProviderAdapter } from '../../../providers/telegram/worker'
 import type { BuiltInProviderExecutionInput, ProviderMediaDeliveryPort } from './registry'
-import { createTelegramProviderAdapter } from './telegram'
 const now = 1_800_000_000_000
 function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): PublisherExecutionTarget {
     return {

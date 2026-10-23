@@ -21,8 +21,8 @@ import {
 } from '@postdot/facebook'
 import { createLocalMediaStore } from '@postdot/media'
 
-import { facebookPublisherConnectionPolicy } from '../publishers/providers/facebook'
-import { createFacebookProviderAdapter } from './providers/facebook'
+import { facebookPublisherConnectionPolicy } from '../../providers/facebook/connection-policy'
+import { createFacebookProviderAdapter } from '../../providers/facebook/worker'
 import { createBuiltInProviderRegistry } from './providers/registry'
 import { createPublicationWorker } from './worker'
 

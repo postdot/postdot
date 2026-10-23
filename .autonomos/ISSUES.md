@@ -4453,12 +4453,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-185] Provider-specific knowledge leaks into shared API and web layers
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: SPEC-005 requires each provider or channel module to own its destination-specific knowledge. On 2026-10-22, 52 non-test files in `apps/api/src`, `apps/web/src`, `packages/db/src` and `packages/core/src` branch on literal provider names. Commits for the Telegram provider touched 34 non-test source files outside `packages/telegram`, including API routes, publisher runtime, `models.ts`, and about 20 web files (composer, previews, target editor, connection panel, dashboard context). `ProjectDashboardContextValue` in `apps/web/src/lib/dashboard-context.tsx` exposes provider-specific callbacks (`onStartLinkedInConnection`, `onStartBlueskyConnection`, `onStartXConnection`, `onConnectDiscordPublisher`, ...) alongside composer draft state. A server-side `BuiltInProviderRegistry` already exists for execution.
 - Impact: The cost and regression risk of each additional provider grows with the number of providers, and the shared layers become a de facto central catalog that SPEC-005 explicitly rejects.
 - Desired outcome: Adding or changing a provider is confined to that provider's module plus a minimal registration point on the server and in the web client, and shared layers consume provider capabilities through a described contract rather than name checks. Measure progress by the files outside the provider module that a new provider must touch.
 - Related: ISSUE-188, SPEC-005
-- Tasks: none
+- Tasks: PROV-569
+
+- Resolution (2026-10-23): PROV-569 implements owner-approved ADR-091 across all nine integrations. Static browser/server modules own connection setup, application and engagement policies, authoring, preview, analytics and exact worker revisions. Shared features consume capabilities while SQLite retains authorization, encryption, transaction and claim fences. Synthetic browser/worker/store extension proofs pass without network calls or weakened migrations. A comparable literal-equality audit drops from 34 common source files to one development-sandbox label. All 134 main browser cases, four SMTP cases, two automatic-delivery cases, static gates, 21 builds and production-container recovery pass. [Evidence](worklogs/2026-10-23-PROV-569.md).
 
 ## [ISSUE-186] Serial publication execution and unrenewed claim leases
 

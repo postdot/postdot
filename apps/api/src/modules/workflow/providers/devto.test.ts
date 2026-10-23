@@ -5,7 +5,7 @@ import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot
 import type { DevtoPublishOutcome, DevtoPublisher } from '@postdot/devto'
 import { devtoChannelProfile } from '@postdot/devto'
 
-import { createDevtoProviderAdapter } from './devto'
+import { createDevtoProviderAdapter } from '../../../providers/devto/worker'
 import type {
     BuiltInProviderExecutionInput,
     ProviderMediaDeliveryPort,

@@ -10,14 +10,7 @@ import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { PerformanceTagFilter } from '@/components/performance-tag-filter'
 import { QueryErrorState } from '@/components/query-error-state'
-import {
-    api,
-    type BlueskyAnalyticsCollection,
-    type DevtoAnalyticsCollection,
-    type MastodonAnalyticsCollection,
-    type ProviderAnalyticsItem,
-    type PublicationSummary,
-} from '@/lib/api'
+import { api, type ProviderAnalyticsItem, type PublicationSummary } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -34,29 +27,10 @@ import {
 } from '@/lib/publication-performance'
 import { readPerformanceCsv } from '@/lib/publication-performance-export'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
-const providerMetrics = {
-    bluesky: [
-        { key: 'likeCount', label: () => m.performance_likes() },
-        { key: 'replyCount', label: () => m.performance_replies() },
-        { key: 'repostCount', label: () => m.performance_reposts() },
-        { key: 'quoteCount', label: () => m.performance_quotes() },
-        { key: 'bookmarkCount', label: () => m.performance_bookmarks() },
-    ],
-    devto: [
-        { key: 'page_views', label: () => m.performance_views() },
-        { key: 'reactions', label: () => m.performance_reactions() },
-        { key: 'comments', label: () => m.performance_comments() },
-    ],
-    mastodon: [
-        { key: 'favourites_count', label: () => m.performance_favourites() },
-        { key: 'reblogs_count', label: () => m.performance_boosts() },
-        { key: 'replies_count', label: () => m.performance_replies() },
-    ],
-} as const
-
-type AnalyticsProvider = keyof typeof providerMetrics
-type MetricKey = (typeof providerMetrics)[AnalyticsProvider][number]['key']
+type AnalyticsProvider = string
+type MetricKey = string
 
 function availabilityMessage(availability: ProviderAnalyticsItem['availability']): string {
     switch (availability) {
@@ -89,14 +63,9 @@ function collectProviderAnalytics(
     channelId: string,
     publicationId: string
 ) {
-    switch (provider) {
-        case 'devto':
-            return api.collectDevtoProviderAnalytics(projectId, channelId, publicationId)
-        case 'mastodon':
-            return api.collectMastodonProviderAnalytics(projectId, channelId, publicationId)
-        case 'bluesky':
-            return api.collectBlueskyProviderAnalytics(projectId, channelId, publicationId)
-    }
+    const capability = providerRegistry.get(provider)?.analytics
+    if (!capability) throw new Error('Provider analytics capability is unavailable')
+    return capability.collect(api, projectId, channelId, publicationId)
 }
 
 function listLatestProviderAnalytics(
@@ -104,14 +73,9 @@ function listLatestProviderAnalytics(
     projectId: string,
     publicationIds: readonly string[]
 ) {
-    switch (provider) {
-        case 'bluesky':
-            return api.listLatestBlueskyProviderAnalytics(projectId, publicationIds)
-        case 'devto':
-            return api.listLatestDevtoProviderAnalytics(projectId, publicationIds)
-        case 'mastodon':
-            return api.listLatestMastodonProviderAnalytics(projectId, publicationIds)
-    }
+    const capability = providerRegistry.get(provider)?.analytics
+    if (!capability) throw new Error('Provider analytics capability is unavailable')
+    return capability.listLatest(api, projectId, publicationIds)
 }
 
 export function PublicationPerformancePage({
@@ -204,7 +168,7 @@ export function PublicationPerformancePage({
         analyticsQueries.flatMap(query => query.data?.observations ?? [])
     )
     const refreshMutation = useMutation<
-        BlueskyAnalyticsCollection | DevtoAnalyticsCollection | MastodonAnalyticsCollection,
+        unknown,
         Error,
         { provider: AnalyticsProvider; channelId: string; publicationId: string }
     >({
@@ -299,7 +263,7 @@ export function PublicationPerformancePage({
                 ? new Map<string, ProviderAnalyticsItem>()
                 : (latestObservations.get(publication.id) ?? new Map())
         const metrics: readonly { key: MetricKey; label: () => string }[] =
-            provider === null ? [] : providerMetrics[provider]
+            provider === null ? [] : (providerRegistry.get(provider)?.analytics?.metrics ?? [])
         const read = readsByPublication.get(publication.id)
         const latestFetch = [...metricObservations.values()].reduce<number | null>(
             (latest, observation) =>

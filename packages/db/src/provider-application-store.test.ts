@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
+import { providerApplicationPolicies } from '../../../apps/api/src/providers/registry'
 import { closeDatabase, createDatabase } from './client'
 import { createSecretCipher } from './encrypted-secret-crypto'
 import { runMigrations } from './migrations'
@@ -20,6 +21,7 @@ function createFixture() {
     let timestamp = now
     let sequence = 0
     const store = createProviderApplicationStore(database, {
+        policies: providerApplicationPolicies,
         cipher: createSecretCipher({
             domain: 'postbot.provider-application',
             keyId: 'primary',

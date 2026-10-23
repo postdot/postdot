@@ -3,8 +3,9 @@ import { Button } from '@postdot/ui/components/button'
 import { DialogTrigger } from '@postdot/ui/components/dialog'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 
-import { type ProviderApplication, type ProviderApplicationProvider } from '@/lib/api'
+import { type ProviderApplication } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 export function ProviderApplicationRow({
     application,
@@ -42,15 +43,10 @@ export function ProviderApplicationRow({
                     ) : null}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    {providerLabel(application.providerId)}
+                    {providerRegistry.get(application.providerId)?.application?.label() ??
+                        application.providerId}
                     {' · '}
-                    {application.providerId === 'bluesky'
-                        ? application.oauthMode === 'loopback'
-                            ? m.provider_apps_loopback_oauth()
-                            : m.provider_apps_public_metadata()
-                        : application.hasClientSecret
-                          ? m.provider_apps_configured()
-                          : m.provider_apps_not_configured()}
+                    {providerRegistry.get(application.providerId)?.application?.status(application)}
                 </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -83,12 +79,4 @@ export function ProviderApplicationRow({
             </div>
         </article>
     )
-}
-
-function providerLabel(provider: ProviderApplicationProvider) {
-    if (provider === 'instagram') return m.provider_apps_provider_instagram()
-    if (provider === 'facebook') return m.provider_apps_provider_facebook()
-    if (provider === 'linkedin') return m.provider_apps_provider_linkedin()
-    if (provider === 'bluesky') return m.provider_apps_provider_bluesky()
-    return m.provider_apps_provider_x()
 }

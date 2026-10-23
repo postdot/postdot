@@ -5,6 +5,8 @@ import { join } from 'node:path'
 
 import { eq } from 'drizzle-orm'
 
+import { createMastodonCommentPolicy } from '../../../apps/api/src/providers/mastodon/comment-policy'
+import { providerCommentPolicies } from '../../../apps/api/src/providers/registry'
 import { user as users } from './auth-schema'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
@@ -445,10 +447,13 @@ function publishNatively(
  */
 function createStore(fixture: Fixture, options: { readonly withParser?: boolean } = {}) {
     const withParser = options.withParser ?? true
-    return createPublicationFirstCommentStore(
-        fixture.database,
-        withParser ? { mastodonStatusReference: resolveMastodonStatusReference } : {}
-    )
+    return createPublicationFirstCommentStore(fixture.database, {
+        policies: providerCommentPolicies.map(policy =>
+            policy.id === 'mastodon'
+                ? createMastodonCommentPolicy(withParser ? resolveMastodonStatusReference : null)
+                : policy
+        ),
+    })
 }
 
 function saveComment(
@@ -496,7 +501,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('permissions')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
 
             expect(saveComment(fixture, { subjectId: fixture.viewerSubjectId })).toEqual({
                 kind: 'not_found',
@@ -561,10 +568,9 @@ describe('publication first comment store', () => {
 
             expect(saveComment(manual)).toEqual({ kind: 'conflict' })
             expect(
-                createPublicationFirstCommentStore(manual.database).canConfigure(
-                    manual.projectId,
-                    manual.publicationId
-                )
+                createPublicationFirstCommentStore(manual.database, {
+                    policies: providerCommentPolicies,
+                }).canConfigure(manual.projectId, manual.publicationId)
             ).toBe(false)
         } finally {
             closeDatabase(manual.database)
@@ -596,7 +602,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('native')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             const created = saveComment(fixture, { delaySeconds: 300 })
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
@@ -656,7 +664,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('overdue')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture, { delaySeconds: 3_600 })
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
@@ -687,7 +697,9 @@ describe('publication first comment store', () => {
         const manual = createFixture('manual')
 
         try {
-            const store = createPublicationFirstCommentStore(manual.database)
+            const store = createPublicationFirstCommentStore(manual.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(manual)
             publishNatively(manual, { publishedAt: now + 1, deliveryMode: 'manual' })
 
@@ -701,7 +713,9 @@ describe('publication first comment store', () => {
         const failed = createFixture('failed')
 
         try {
-            const store = createPublicationFirstCommentStore(failed.database)
+            const store = createPublicationFirstCommentStore(failed.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(failed)
             publishNatively(failed, { publishedAt: now + 1, jobState: 'failed' })
 
@@ -717,7 +731,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('parent-cancelled')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             fixture.database
                 .update(publications)
@@ -768,7 +784,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('missing-connection')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
@@ -803,7 +821,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('replaced-account')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
@@ -833,7 +853,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('changed-parent')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
@@ -873,7 +895,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('lost-receipt')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
@@ -903,7 +927,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('capability')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
 
             saveComment(fixture)
@@ -933,7 +959,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('suspended-enable')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             const edited = saveComment(fixture, {
                 expectedRevision: 1,
@@ -1040,7 +1068,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('cancel')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1071,7 +1101,9 @@ describe('publication first comment store', () => {
         const cancelled = createFixture('cancel-before-claim')
 
         try {
-            const store = createPublicationFirstCommentStore(cancelled.database)
+            const store = createPublicationFirstCommentStore(cancelled.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(cancelled)
             publishNatively(cancelled, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1101,7 +1133,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('suspend')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1164,7 +1198,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('rebind')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1190,7 +1226,9 @@ describe('publication first comment store', () => {
         const disconnected = createFixture('disconnected')
 
         try {
-            const store = createPublicationFirstCommentStore(disconnected.database)
+            const store = createPublicationFirstCommentStore(disconnected.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(disconnected)
             publishNatively(disconnected, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1216,7 +1254,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('recovery')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1273,7 +1313,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('ambiguity')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1330,7 +1372,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('sent')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1384,7 +1428,9 @@ describe('publication first comment store', () => {
         const fixture = createFixture('claim-suspend')
 
         try {
-            const store = createPublicationFirstCommentStore(fixture.database)
+            const store = createPublicationFirstCommentStore(fixture.database, {
+                policies: providerCommentPolicies,
+            })
             saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
             store.reconcile(now + 1)
@@ -1927,10 +1973,14 @@ describe('publication first comment store (mastodon)', () => {
         try {
             let parserCalls = 0
             const store = createPublicationFirstCommentStore(fixture.database, {
-                mastodonStatusReference: (externalId, externalUrl) => {
-                    parserCalls += 1
-                    return resolveMastodonStatusReference(externalId, externalUrl)
-                },
+                policies: providerCommentPolicies.map(policy =>
+                    policy.id === 'mastodon'
+                        ? createMastodonCommentPolicy((externalId, externalUrl) => {
+                              parserCalls += 1
+                              return resolveMastodonStatusReference(externalId, externalUrl)
+                          })
+                        : policy
+                ),
             })
             store.save({
                 projectId: fixture.projectId,
@@ -2038,4 +2088,70 @@ describe('publication first comment store (mastodon)', () => {
             rmSync(folder, { recursive: true, force: true })
         }
     })
+})
+
+it('uses a synthetic provider policy while retaining access, receipt and claim fences', () => {
+    const fixture = createFixture('synthetic-policy')
+    try {
+        const baseline = providerCommentPolicies.find(policy => policy.id === 'bluesky')!
+        const policy = {
+            ...baseline,
+            id: 'synthetic',
+            normalizeText: (text: string) => baseline.normalizeText(text.toUpperCase()),
+        }
+        const store = createPublicationFirstCommentStore(fixture.database, { policies: [policy] })
+        const profile = {
+            ...blueskyProfile,
+            execution: { ...blueskyProfile.execution, contractId: policy.id },
+        }
+        fixture.database
+            .update(channelProfileVersions)
+            .set({ profileJson: profile })
+            .where(eq(channelProfileVersions.id, fixture.profileVersionId))
+            .run()
+        fixture.database.update(publishers).set({ kind: policy.id }).run()
+        fixture.database.update(publisherCredentials).set({ providerId: policy.id }).run()
+        const input = {
+            projectId: fixture.projectId,
+            publicationId: fixture.publicationId,
+            subjectId: fixture.editorSubjectId,
+            text: 'A synthetic comment',
+            delaySeconds: 0,
+            expectedRevision: 0,
+            recordKey: 'synthetic-key',
+            now,
+        }
+        expect(store.save({ ...input, subjectId: fixture.viewerSubjectId })).toEqual({
+            kind: 'not_found',
+        })
+        const saved = store.save(input)
+        expect(saved.kind).toBe('saved')
+        expect(readRow(fixture)).toMatchObject({
+            providerId: 'synthetic',
+            text: 'A SYNTHETIC COMMENT',
+            state: 'waiting',
+        })
+        publishNatively(fixture, { publishedAt: now + 1 })
+        store.reconcile(now + 1)
+        expect(readRow(fixture)).toMatchObject({
+            providerId: 'synthetic',
+            state: 'pending',
+            rootUri,
+            accountId: accountDid,
+        })
+        const claim = store.deliveries.claimNextDueJob({
+            actorId: fixture.editorActorId,
+            claimToken: 'synthetic-claim',
+            now: now + 1,
+            leaseExpiresAt: now + 1 + leaseDuration,
+        })
+        expect(claim).not.toBeNull()
+        if (!claim) return
+        expect(store.claimCurrent(claim, now + 2)).toBe(true)
+        fixture.database.update(publisherCredentials).set({ state: 'reconnect_required' }).run()
+        expect(store.claimCurrent(claim, now + 3)).toBe(false)
+        expect(fixture.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+    } finally {
+        closeDatabase(fixture.database)
+    }
 })

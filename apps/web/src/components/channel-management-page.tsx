@@ -51,19 +51,13 @@ export function ChannelManagementPage({
         error,
         onArchiveChannel,
         onConnectCustomHttpPublisher,
+        onPublisherConnected,
         onCreateChannel,
         onDeleteChannel,
         onDisconnectPublisher,
         onRefreshProject,
         onRenameChannel,
         onRestoreChannel,
-        onStartLinkedInConnection,
-        onStartBlueskyConnection,
-        onStartMastodonConnection,
-        onStartXConnection,
-        onConnectDiscordPublisher,
-        onConnectTelegramPublisher,
-        onConnectDevtoPublisher,
         pending,
     } = useProjectChannelActions()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
@@ -185,14 +179,8 @@ export function ChannelManagementPage({
                         pending={pending}
                         onEditProfile={setProfileChannel}
                         onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
+                        onPublisherConnected={onPublisherConnected}
                         onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
-                        onStartLinkedInConnection={onStartLinkedInConnection}
-                        onStartBlueskyConnection={onStartBlueskyConnection}
-                        onStartMastodonConnection={onStartMastodonConnection}
-                        onStartXConnection={onStartXConnection}
-                        onConnectDiscordPublisher={onConnectDiscordPublisher}
-                        onConnectTelegramPublisher={onConnectTelegramPublisher}
-                        onConnectDevtoPublisher={onConnectDevtoPublisher}
                         onDisconnectPublisher={onDisconnectPublisher}
                         isInstanceAdmin={isInstanceAdmin}
                         readOnly={!canEditProject}

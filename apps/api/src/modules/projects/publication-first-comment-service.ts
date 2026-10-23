@@ -1,9 +1,4 @@
-import {
-    blueskyReplyTextValid,
-    createBlueskyReplyRecordKey,
-    type BlueskyFetcher,
-    type restoreBlueskySession,
-} from '@postdot/bluesky'
+import type { BlueskyFetcher, restoreBlueskySession } from '@postdot/bluesky'
 import { processNextExternalEffect, type ExternalEffectOutcome } from '@postdot/core'
 import {
     createAccessStore,
@@ -12,15 +7,14 @@ import {
     type PostbotDatabase,
     type PublicationFirstComment,
 } from '@postdot/db'
-import { mastodonReplyTextValid, resolveMastodonStatusReference } from '@postdot/mastodon'
 
+import { providerEngagement } from '../../providers/engagement-registry'
+import { providerCommentPolicies, commentPolicy } from '../../providers/registry'
 import type { PublisherRuntime } from '../publishers/runtime'
-import { performMastodonFirstComment } from './publication-first-comment-mastodon'
 import type {
     PublicationFirstCommentResponse,
     PublicationFirstCommentSave,
 } from './publication-first-comment-models'
-import { performBlueskyReply } from './publication-replies-bluesky'
 
 const editableStates = new Set(['waiting', 'pending', 'suspended'])
 const failed = (errorMessage: string): ExternalEffectOutcome => ({
@@ -41,7 +35,7 @@ export function createPublicationFirstCommentService(options: {
     ) => Promise<ExternalEffectOutcome>
 }) {
     const store = createPublicationFirstCommentStore(options.database, {
-        mastodonStatusReference: resolveMastodonStatusReference,
+        policies: providerCommentPolicies,
     })
     const access = createAccessStore(options.database)
     const manual = createManualStore(options.database)
@@ -56,11 +50,10 @@ export function createPublicationFirstCommentService(options: {
         const row = store.get(projectId, publicationId, subjectId)
         const execution = editor.profile.profile.execution
         const nativeProvider =
-            execution.kind === 'built_in' &&
-            (execution.contractId === 'bluesky' || execution.contractId === 'mastodon')
-                ? execution.contractId
-                : null
-        const providerId = row?.providerId ?? nativeProvider
+            execution.kind === 'built_in' ? (commentPolicy(execution.contractId)?.id ?? null) : null
+        const capability = commentPolicy(row?.providerId ?? nativeProvider ?? undefined)
+        if (!capability) return null
+        const providerId = capability.id
         const supported =
             nativeProvider !== null &&
             nativeProvider === providerId &&
@@ -83,7 +76,7 @@ export function createPublicationFirstCommentService(options: {
                       .get(projectId, row.actorId)
         return {
             providerId,
-            textLimit: providerId === 'mastodon' ? 500 : 300,
+            textLimit: capability.textLimit,
             instanceOrigin: row?.instanceOrigin ?? null,
             firstComment:
                 row === null
@@ -122,43 +115,27 @@ export function createPublicationFirstCommentService(options: {
                 dispatched = true
                 return await options.performComment(work, signal)
             }
-            if (work.providerId === 'mastodon') {
-                return await performMastodonFirstComment({
-                    work: {
-                        ...work,
-                        rootUri: work.rootUri,
-                        credentialId: work.credentialId,
-                        accountId: work.accountId,
-                    },
+            const provider = providerEngagement(work.providerId)
+            if (!provider) return failed('The comment provider is unavailable')
+            return await provider.firstComment(
+                {
+                    ...work,
+                    rootUri: work.rootUri,
+                    credentialId: work.credentialId,
+                    accountId: work.accountId,
+                },
+                {
                     publisher: options.publisher,
+                    restoreSession: options.restoreSession,
+                    contextFetcher: options.contextFetcher,
                     signal,
                     now: now(),
                     stillEligible: () => store.claimCurrent(work, now()),
                     onDispatch: () => {
                         dispatched = true
                     },
-                })
-            }
-            return await performBlueskyReply({
-                publisher: options.publisher,
-                restoreSession: options.restoreSession,
-                contextFetcher: options.contextFetcher,
-                work: {
-                    projectId: work.projectId,
-                    rootUri: work.rootUri,
-                    parentUri: work.rootUri,
-                    accountId: work.accountId,
-                    credentialId: work.credentialId,
-                    text: work.text,
-                    recordKey: work.recordKey,
-                    createdAt: now(),
-                },
-                signal,
-                stillEligible: () => store.claimCurrent(work, now()),
-                onDispatch: () => {
-                    dispatched = true
-                },
-            })
+                }
+            )
         } catch {
             return dispatched
                 ? {
@@ -198,12 +175,14 @@ export function createPublicationFirstCommentService(options: {
             if (!current) return { kind: 'not_found' } as const
             if (
                 !current.canConfigure ||
-                !(current.providerId === 'mastodon'
-                    ? mastodonReplyTextValid(input.text)
-                    : blueskyReplyTextValid(input.text))
+                providerEngagement(current.providerId)?.textValid(input.text) !== true
             )
                 return { kind: 'conflict' } as const
-            return store.save({ ...input, recordKey: createBlueskyReplyRecordKey(), now: now() })
+            return store.save({
+                ...input,
+                recordKey: providerEngagement(current.providerId)!.recordKey(crypto.randomUUID()),
+                now: now(),
+            })
         },
         cancel(input: {
             projectId: string

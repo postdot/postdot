@@ -6,7 +6,6 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@postdot/ui/components/dialog'
-import { X_MAX_WEIGHTED_POST_LENGTH } from '@postdot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
@@ -85,6 +84,7 @@ import {
 import { recoveryProfileMatches } from '@/lib/publication-recovery-profile'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
+import { providerForProfile } from '@/providers/registry'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
@@ -350,7 +350,7 @@ export function PublicationEditor({
     // delivery of this publication, never a channel name.
     const firstCommentSupported =
         editor.profile.profile.execution.kind === 'built_in' &&
-        ['bluesky', 'mastodon'].includes(editor.profile.profile.execution.contractId) &&
+        providerForProfile(editor.profile.profile)?.comments !== undefined &&
         editor.publication.deliveryMode === 'automatic'
 
     useEffect(() => {
@@ -1563,16 +1563,12 @@ export function PublicationEditor({
                 {editor.publication.state === 'published' &&
                 editor.publication.externalId &&
                 editor.profile.profile.execution.kind === 'built_in' &&
-                ((editor.profile.profile.execution.contractId === 'bluesky' &&
-                    editor.publication.externalId.startsWith('at://')) ||
-                    (editor.profile.profile.execution.contractId === 'mastodon' &&
-                        editor.publication.externalUrl)) ? (
+                providerForProfile(editor.profile.profile)?.comments?.inspectable(
+                    editor.publication.externalId,
+                    editor.publication.externalUrl
+                ) ? (
                     <PublicationCommentsPanel
-                        provider={
-                            editor.profile.profile.execution.contractId === 'mastodon'
-                                ? 'mastodon'
-                                : 'bluesky'
-                        }
+                        provider={editor.profile.profile.execution.contractId}
                         projectId={projectId}
                         publicationId={editor.publication.id}
                         canRefresh={!readOnly && !accessWritesBlocked}
@@ -1847,8 +1843,7 @@ function sourceContentIssue(source: SourceContent): string | null {
 
 function getCapabilitySummary(profile: Profile): CapabilitySummary {
     if (!isRecord(profile.capabilities)) return { textFields: [], mediaFieldCount: 0 }
-    const execution = isRecord(profile.execution) ? profile.execution : null
-    const legacyXProfile = execution?.kind === 'built_in' && execution.contractId === 'x'
+    const legacyText = providerForProfile(profile)?.legacyText
     const textFields = Array.isArray(profile.capabilities.textFields)
         ? profile.capabilities.textFields.flatMap(value => {
               if (!isRecord(value) || typeof value.bindingId !== 'string') return []
@@ -1857,7 +1852,7 @@ function getCapabilitySummary(profile: Profile): CapabilitySummary {
                       bindingId: value.bindingId,
                       maxLength:
                           typeof value.maxWeightedLength === 'number' ||
-                          (legacyXProfile && value.bindingId === 'text')
+                          (legacyText && value.bindingId === legacyText.bindingId)
                               ? null
                               : typeof value.maxLength === 'number'
                                 ? value.maxLength
@@ -1865,8 +1860,8 @@ function getCapabilitySummary(profile: Profile): CapabilitySummary {
                       maxWeightedLength:
                           typeof value.maxWeightedLength === 'number'
                               ? value.maxWeightedLength
-                              : legacyXProfile && value.bindingId === 'text'
-                                ? X_MAX_WEIGHTED_POST_LENGTH
+                              : legacyText && value.bindingId === legacyText.bindingId
+                                ? legacyText.maxWeightedLength
                                 : null,
                       acceptedSourceFormats: Array.isArray(value.acceptedSourceFormats)
                           ? value.acceptedSourceFormats.filter(

@@ -11,7 +11,7 @@ import {
 } from '@postdot/db'
 import { linkedinChannelProfile } from '@postdot/linkedin'
 
-import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
+import { linkedInPublisherConnectionPolicy } from '../../providers/linkedin/connection-policy'
 import { createPublicationWorker } from './worker'
 
 function gate() {

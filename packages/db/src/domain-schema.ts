@@ -2870,9 +2870,7 @@ export const publicationCommentReplies = sqliteTable(
         text: text('text').notNull(),
         connectionId: text('connection_id').notNull(),
         credentialId: text('credential_id').notNull(),
-        providerId: text('provider_id', { enum: ['bluesky', 'mastodon'] })
-            .notNull()
-            .default('bluesky'),
+        providerId: text('provider_id').notNull().default('bluesky'),
         accountId: text('account_id').notNull(),
         instanceOrigin: text('instance_origin'),
         recordKey: text('record_key').notNull(),
@@ -2968,9 +2966,7 @@ export const publicationFirstComments = sqliteTable(
         state: text('state', { enum: publicationFirstCommentStates }).notNull(),
         // The provider is pinned when the comment is configured. Historical
         // rows predate the Mastodon extension and stay Bluesky.
-        providerId: text('provider_id', { enum: ['bluesky', 'mastodon'] })
-            .notNull()
-            .default('bluesky'),
+        providerId: text('provider_id').notNull().default('bluesky'),
         // The instance that owns the pinned Mastodon status. Bluesky has no
         // instance boundary, so it stays null.
         instanceOrigin: text('instance_origin'),

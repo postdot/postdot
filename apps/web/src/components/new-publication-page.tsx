@@ -9,7 +9,6 @@ import {
 } from '@postdot/ui/components/dialog'
 import { Input } from '@postdot/ui/components/input'
 import { cn } from '@postdot/ui/lib/utils'
-import { parseXPostText } from '@postdot/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
@@ -33,14 +32,13 @@ import {
 } from '@/components/publication-target-list'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
-import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatCivilSchedule } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
-import { getNativeEditorProfile, getNativePlatform } from '@/lib/native-presentation'
+import { getNativeEditorProfile } from '@/lib/native-presentation'
 import { useProjectTagCatalog } from '@/lib/project-tags'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import {
@@ -56,6 +54,7 @@ import {
     type PublicationRecoveryState,
 } from '@/lib/publication-recovery'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 import { ActionTooltip } from './action-tooltip'
 
@@ -225,12 +224,14 @@ export function NewPublicationPage({
     const headlineCount = textFields?.headline
         ? countComposerText(postTitle, textFields.headline)
         : null
-    const usesXTextRules = getNativePlatform(activePreviewChannel?.execution) === 'x'
+    const textRule = providerRegistry.forExecution(activePreviewChannel?.execution)?.text
+    const TextCount = textRule?.Count
+    const usesWeightedTextRules = textRule !== undefined
     const activeText =
         activeContentTarget !== undefined && !activeContentTargetUsesSharedContent
             ? activeContentTarget.content
             : postContent
-    const activeTextValidation = usesXTextRules ? parseXPostText(activeText) : null
+    const activeTextValidation = usesWeightedTextRules ? textRule!.parse(activeText) : null
     const bodyCount = textFields?.body ? countComposerText(activeText, textFields.body) : null
     const activeTextInvalid =
         bodyCount?.invalid === true ||
@@ -946,7 +947,7 @@ export function NewPublicationPage({
                                                                     }
                                                                     describedBy={
                                                                         visible &&
-                                                                        (usesXTextRules ||
+                                                                        (usesWeightedTextRules ||
                                                                             bodyCount !== null)
                                                                             ? 'new-post-content-weighted-count'
                                                                             : undefined
@@ -976,7 +977,7 @@ export function NewPublicationPage({
                                                         : m.publication_new_channel_copy()
                                                 }
                                                 aria-describedby={
-                                                    usesXTextRules || bodyCount !== null
+                                                    usesWeightedTextRules || bodyCount !== null
                                                         ? 'new-post-content-weighted-count'
                                                         : undefined
                                                 }
@@ -988,9 +989,9 @@ export function NewPublicationPage({
                                                 rows={9}
                                             />
                                         )}
-                                        {activeTextValidation !== null ? (
+                                        {activeTextValidation !== null && TextCount ? (
                                             <div className="px-4 pb-3">
-                                                <XWeightedTextCount
+                                                <TextCount
                                                     id="new-post-content-weighted-count"
                                                     invalid={activeTextInvalid}
                                                     result={activeTextValidation}

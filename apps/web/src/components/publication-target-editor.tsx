@@ -1,15 +1,11 @@
-import { readMastodonPoll } from '@postdot/mastodon/poll'
-import { readTelegramPoll } from '@postdot/telegram/poll'
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Textarea } from '@postdot/ui/components/textarea'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { useEffect, useMemo, useState } from 'react'
 
-import { mastodonPollDuration } from '@/components/mastodon-poll-control'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
-import { telegramPollDuration } from '@/components/telegram-poll-control'
 import { useLanguage } from '@/lib/i18n'
 import {
     getTargetEditorFields,
@@ -21,6 +17,7 @@ import {
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
+import { providerField } from '@/providers/registry'
 
 interface PublicationTargetEditorProps {
     readonly previewOnly?: boolean
@@ -223,30 +220,8 @@ function AdvancedSummary() {
 }
 
 function formatReadOnlyValue(value: unknown, field: TargetEditorField): string {
-    if (field.kind === 'mastodon-poll') {
-        const poll = readMastodonPoll(value)
-        return poll
-            ? [
-                  ...poll.options.map((option, index) => `${index + 1}. ${option}`),
-                  m.poll_closes_after({ duration: mastodonPollDuration(poll.expiresIn) }),
-                  ...(poll.multiple ? [m.poll_multiple()] : []),
-                  ...(poll.hideTotals ? [m.poll_hide_totals()] : []),
-              ].join('\n')
-            : '—'
-    }
-    if (field.kind === 'telegram-poll') {
-        const poll = readTelegramPoll(value)
-        return poll
-            ? [
-                  ...poll.options.map((option, index) => `${index + 1}. ${option}`),
-                  m.telegram_poll_anonymous(),
-                  ...(poll.multiple ? [m.poll_multiple()] : []),
-                  poll.openPeriod === undefined
-                      ? m.telegram_poll_no_closing()
-                      : m.poll_closes_after({ duration: telegramPollDuration(poll.openPeriod) }),
-              ].join('\n')
-            : '—'
-    }
+    const extension = providerField(field.kind)
+    if (extension) return extension.summarize(value)
     if (field.kind === 'media' && Array.isArray(value)) {
         return m.editor_target_selected({ count: value.length })
     }

@@ -17,6 +17,7 @@ import {
     type EditorProfile,
 } from '@/lib/editor-experiment/configuration'
 import * as m from '@/paraglide/messages.js'
+import { providerEditorDialect } from '@/providers/editor-dialects'
 
 import { ActionTooltip } from './action-tooltip'
 import { ArticleImageControl } from './article-image-control'
@@ -131,15 +132,19 @@ export function ConfiguredPublicationEditor({
     const state = useEditorState({
         editor,
         selector: ({ editor: current }) => ({
+            providerMarks: Object.fromEntries(
+                (providerEditorDialect(profile)?.marks ?? []).map(mark => [
+                    mark.name,
+                    current?.isActive(mark.name) ?? false,
+                ])
+            ),
             bold: current?.isActive('bold') ?? false,
             italic: current?.isActive('italic') ?? false,
-            underline: current?.isActive('discordUnderline') ?? false,
             link: current?.isActive('link') ?? false,
             heading: current?.isActive('heading', { level: 2 }) ?? false,
             list: current?.isActive('bulletList') ?? false,
             strike: current?.isActive('strike') ?? false,
             code: current?.isActive('code') ?? false,
-            spoiler: current?.isActive('discordSpoiler') ?? false,
         }),
     })
     useEffect(() => {
@@ -239,22 +244,12 @@ export function ConfiguredPublicationEditor({
             active: state?.code,
             run: () => editor.chain().focus().toggleCode().run(),
         },
-        ...(profile === 'discord'
-            ? [
-                  {
-                      label: m.editor_lab_underline(),
-                      glyph: <u>U</u>,
-                      active: state?.underline,
-                      run: () => editor.chain().focus().toggleMark('discordUnderline').run(),
-                  },
-                  {
-                      label: m.editor_lab_spoiler(),
-                      glyph: '||',
-                      active: state?.spoiler,
-                      run: () => editor.chain().focus().toggleMark('discordSpoiler').run(),
-                  },
-              ]
-            : []),
+        ...(providerEditorDialect(profile)?.marks ?? []).map(mark => ({
+            label: mark.label(),
+            glyph: mark.glyph,
+            active: state?.providerMarks[mark.name],
+            run: () => editor.chain().focus().toggleMark(mark.name).run(),
+        })),
         ...(profile === 'article'
             ? [
                   {

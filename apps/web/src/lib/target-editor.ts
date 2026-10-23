@@ -1,11 +1,7 @@
-import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@postdot/x/text'
-
 import { getNativeEditorProfile } from '@/lib/native-presentation'
-import { isTelegramPollProfile } from '@/lib/telegram-poll'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
-
-import { telegramTextLimit } from './telegram-text-constraints'
+import { providerForProfile } from '@/providers/registry'
 
 /** Keep generic field controls when the profile does not declare native execution. */
 export function getTargetEditorProfile(profile: unknown) {
@@ -19,8 +15,7 @@ export function getTargetEditorProfile(profile: unknown) {
 }
 
 export type TargetEditorFieldKind =
-    | 'mastodon-poll'
-    | 'telegram-poll'
+    | `provider:${string}`
     | 'text'
     | 'number'
     | 'boolean'
@@ -103,53 +98,41 @@ export function getTargetEditorFields(
         emittedBindingIds.add(binding.id)
     }
 
-    const execution = isRecord(profile.execution) ? profile.execution : null
-    if (
-        execution?.kind === 'built_in' &&
-        execution.contractId === 'mastodon' &&
-        execution.revision === 'status-v3' &&
-        schema !== null &&
-        resolveSchemaAtPath(schema, '/poll') !== null
-    ) {
-        for (let index = fields.length - 1; index >= 0; index--)
-            if (fields[index]!.path === '/poll' || fields[index]!.path.startsWith('/poll/'))
+    const provider = providerForProfile(profile)
+    for (const extension of provider?.fields ?? []) {
+        if (
+            schema === null ||
+            !extension.supports(profile) ||
+            resolveSchemaAtPath(schema, extension.path) === null
+        )
+            continue
+        for (let index = fields.length - 1; index >= 0; index--) {
+            if (
+                fields[index]!.path === extension.path ||
+                fields[index]!.path.startsWith(`${extension.path}/`)
+            )
                 fields.splice(index, 1)
+        }
         fields.push({
             ...createField(
                 schema,
-                { id: 'schema:/poll', path: '/poll', semantic: 'provider_field' },
+                {
+                    id: `schema:${extension.path}`,
+                    path: extension.path,
+                    semantic: 'provider_field',
+                },
                 capabilities
             ),
-            kind: 'mastodon-poll',
-            label: m.poll_title({}, { locale }),
+            kind: extension.kind,
+            label: extension.label(locale),
         })
     }
-
-    if (
-        isTelegramPollProfile(profile) &&
-        schema !== null &&
-        resolveSchemaAtPath(schema, '/poll') !== null
-    ) {
-        for (let index = fields.length - 1; index >= 0; index--)
-            if (fields[index]!.path === '/poll' || fields[index]!.path.startsWith('/poll/'))
-                fields.splice(index, 1)
-        fields.push({
-            ...createField(
-                schema,
-                { id: 'schema:/poll', path: '/poll', semantic: 'provider_field' },
-                capabilities
-            ),
-            kind: 'telegram-poll',
-            label: m.poll_title({}, { locale }),
-        })
-    }
-
-    const telegramLimit = telegramTextLimit(profile, target)
+    const limit = provider?.textLimit?.(profile, target) ?? null
     const nativeFields = fields.map(field =>
-        telegramLimit !== null && field.semantic === 'primary_text' && field.kind === 'text'
+        limit !== null && field.semantic === 'primary_text' && field.kind === 'text'
             ? {
                   ...field,
-                  maxLength: Math.min(field.maxLength ?? telegramLimit, telegramLimit),
+                  maxLength: Math.min(field.maxLength ?? limit, limit),
                   textLengthUnit: 'utf16' as const,
               }
             : field
@@ -419,8 +402,7 @@ function readCapabilities(profile: Record<string, unknown>): CapabilitySummary {
     const text = new Map<string, TextCapability>()
     const media = new Map<string, MediaCapability>()
     const capabilities = isRecord(profile.capabilities) ? profile.capabilities : null
-    const execution = isRecord(profile.execution) ? profile.execution : null
-    const legacyXProfile = execution?.kind === 'built_in' && execution.contractId === 'x'
+    const legacyText = providerForProfile(profile)?.legacyText
 
     if (capabilities !== null && Array.isArray(capabilities.textFields)) {
         for (const value of capabilities.textFields) {
@@ -430,13 +412,13 @@ function readCapabilities(profile: Record<string, unknown>): CapabilitySummary {
                 maxLength: numberOrUndefined(value.maxLength),
                 maxWeightedLength:
                     numberOrUndefined(value.maxWeightedLength) ??
-                    (legacyXProfile && value.bindingId === 'text'
-                        ? X_MAX_WEIGHTED_POST_LENGTH
+                    (legacyText && value.bindingId === legacyText.bindingId
+                        ? legacyText.maxWeightedLength
                         : undefined),
                 weightedLengthAlgorithm:
                     stringOrUndefined(value.weightedLengthAlgorithm) ??
-                    (legacyXProfile && value.bindingId === 'text'
-                        ? X_TEXT_COUNTING_ALGORITHM
+                    (legacyText && value.bindingId === legacyText.bindingId
+                        ? legacyText.weightedLengthAlgorithm
                         : undefined),
                 acceptedSourceFormats: Array.isArray(value.acceptedSourceFormats)
                     ? value.acceptedSourceFormats.filter(

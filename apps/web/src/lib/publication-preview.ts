@@ -1,4 +1,5 @@
 import { getTargetEditorFields, readTargetField } from '@/lib/target-editor'
+import { providerRegistry } from '@/providers/registry'
 
 export interface DraftPreviewInput {
     readonly platform: string
@@ -33,7 +34,7 @@ export function getDraftPreviewModel({
     return {
         body,
         hasText: body.trim() !== '',
-        showTitle: platform === 'devto',
+        showTitle: providerRegistry.get(platform)?.editor === 'article',
         title,
     }
 }
