@@ -1,25 +1,15 @@
-import mcp from '@iconify-icons/logos/model-context-protocol-icon'
-import n8n from '@iconify-icons/logos/n8n-icon'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { useRef, useState } from 'react'
+import Mcp from '~icons/logos/model-context-protocol-icon'
+import N8n from '~icons/logos/n8n-icon'
 
 import { PostbotLogo } from './brand'
 
 import './public-home.css'
 import './usage-study.css'
 import { ProductImage } from './product-image'
-
-function BrandMark({ data }: { data: { width?: number; height?: number; body: string } }) {
-    return (
-        <svg
-            viewBox={`0 0 ${data.width ?? 16} ${data.height ?? 16}`}
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: data.body }}
-        />
-    )
-}
 
 export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
     const [terminalRun, setTerminalRun] = useState(0)
@@ -98,7 +88,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                     <motion.div
                         className="usage-mcp-mark"
                         style={{ rotate: reduced ? 0 : protocolRotate }}>
-                        <BrandMark data={mcp} />
+                        <Mcp aria-hidden="true" />
                     </motion.div>
                     <div className="usage-agent-prompt">
                         <span aria-hidden="true">“</span>Prepare next week’s posts.
@@ -153,14 +143,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             height="92"
                             rx="3"
                         />
-                        <svg
-                            x="148"
-                            y="114"
-                            width="104"
-                            height="52"
-                            viewBox={`0 0 ${n8n.width} ${n8n.height}`}
-                            dangerouslySetInnerHTML={{ __html: n8n.body }}
-                        />
+                        <N8n x="148" y="114" width="104" height="52" />
                         <rect
                             className="usage-flow-node usage-flow-end"
                             x="297"

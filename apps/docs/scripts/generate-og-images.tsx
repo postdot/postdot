@@ -6,16 +6,25 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-import bluesky from '@iconify-icons/logos/bluesky'
-import discord from '@iconify-icons/logos/discord-icon'
-import linkedin from '@iconify-icons/logos/linkedin-icon'
-import mastodon from '@iconify-icons/logos/mastodon-icon'
-import x from '@iconify-icons/logos/x'
+import logos from '@iconify-json/logos/icons.json'
+import { getIconData } from '@iconify/utils'
 import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
 import { Resvg } from '@resvg/resvg-js'
 import satori from 'satori'
 
 import { appRoot, collectDocsSlugs } from './docs-paths'
+
+/** Network logos from the same Iconify set the pages use, read from the local package. */
+const logo = (name: string) => {
+    const data = getIconData(logos, name)
+    if (!data) throw new Error(`Missing logo: ${name}`)
+    return data
+}
+const bluesky = logo('bluesky')
+const discord = logo('discord-icon')
+const linkedin = logo('linkedin-icon')
+const mastodon = logo('mastodon-icon')
+const x = logo('x')
 
 const outputRoot = join(appRoot, 'public/og')
 const fontFile = (name: string) =>
