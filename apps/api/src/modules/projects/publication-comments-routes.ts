@@ -1,14 +1,10 @@
-import { createBlueskyThreadReader, type BlueskyThreadReader } from '@postdot/bluesky'
-import { createNetworkControlledFetcher } from '@postdot/custom-http'
+import type { BlueskyThreadReader } from '@postdot/bluesky'
 import type { AccessStore, PublicationCommentStore } from '@postdot/db'
-import {
-    createMastodonThreadReader,
-    resolveMastodonStatusReference,
-    type MastodonThreadReader,
-} from '@postdot/mastodon'
+import type { MastodonThreadReader } from '@postdot/mastodon'
 import { Type } from 'typebox'
 import { Value } from 'typebox/value'
 
+import { createProviderCommentsReaders } from '../../providers/comments-readers'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import { errorResponse, publicationParams } from './models'
 import {
@@ -17,7 +13,6 @@ import {
     commentFailureSchema,
     type PublicationCommentsResponse,
 } from './publication-comments-models'
-import { presentPublicationComments, presentMastodonComments } from './publication-comments-view'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerPublicationCommentsRoutes<const Routes extends Record<string, unknown>>(
@@ -31,10 +26,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
         now?: () => number
     }
 ) {
-    const reader = options.reader ?? createBlueskyThreadReader()
-    const mastodonReader =
-        options.mastodonReader ??
-        createMastodonThreadReader({ fetcher: createNetworkControlledFetcher() })
+    const readers = createProviderCommentsReaders(options)
     const now = options.now ?? Date.now
     function identity(projectId: string, publicationId: string, subjectId: string) {
         const editor = options.manual.getPublicationEditorState(projectId, publicationId, subjectId)
@@ -43,26 +35,17 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
         const rootUri = editor.publication.externalId
         if (execution.kind !== 'built_in' || rootUri === null) return null
         const base = { projectId, publicationId, subjectId, externalId: rootUri }
-        if (
-            execution.contractId === 'bluesky' &&
-            /^at:\/\/did:[^/\s]+\/app\.bsky\.feed\.post\/[^/\s]+$/.test(rootUri)
-        )
-            return { ...base, provider: 'bluesky' as const, rootUri }
-        if (execution.contractId === 'mastodon') {
-            const reference = resolveMastodonStatusReference(
-                rootUri,
-                editor.publication.externalUrl
-            )
-            if (reference !== null)
-                return {
-                    ...base,
-                    provider: 'mastodon' as const,
-                    rootUri: reference.rootUri,
-                    externalUrl: editor.publication.externalUrl!,
-                    reference,
-                }
-        }
-        return null
+        const reader = readers.find(reader => reader.id === execution.contractId)
+        const source = reader?.resolve(rootUri, editor.publication.externalUrl)
+        return reader && source
+            ? {
+                  ...base,
+                  provider: reader.id,
+                  rootUri: source.rootUri,
+                  ...('externalUrl' in source ? { externalUrl: source.externalUrl } : {}),
+                  refresh: source.refresh,
+              }
+            : null
     }
 
     function stored(
@@ -157,16 +140,7 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                         },
                     })
                 const attemptedAt = now()
-                const refreshed =
-                    input.provider === 'mastodon'
-                        ? await mastodonReader.getPostThread(input.reference).then(read => ({
-                              read,
-                              snapshot: presentMastodonComments(read, attemptedAt),
-                          }))
-                        : await reader.getPostThread(input.rootUri).then(read => ({
-                              read,
-                              snapshot: presentPublicationComments(read, attemptedAt),
-                          }))
+                const refreshed = await input.refresh(attemptedAt)
                 const { read, snapshot } = refreshed
                 const keepSnapshot =
                     read.kind === 'unavailable' &&

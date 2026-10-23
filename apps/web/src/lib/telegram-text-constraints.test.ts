@@ -2,9 +2,10 @@ import { expect, test } from 'bun:test'
 
 import { telegramChannelProfile } from '@postdot/telegram'
 
+import { telegramTextLimit } from '@/providers/telegram/text-rules'
+
 import { getComposerTextFields, countComposerText } from './composer-text-constraints'
 import { getTargetEditorFields } from './target-editor'
-import { telegramTextLimit } from './telegram-text-constraints'
 
 test('Telegram execution revision controls conditional limits in the shared editor', () => {
     expect(telegramTextLimit(telegramChannelProfile)).toBe(4096)

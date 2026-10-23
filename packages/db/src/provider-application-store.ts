@@ -1,16 +1,14 @@
-import { requireNonBlank, requireTimestamp } from '@postdot/core'
+import {
+    requireNonBlank,
+    requireTimestamp,
+    type ProviderApplicationPolicy,
+    type ProviderApplicationFields,
+} from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
-export const providerApplicationProviders = [
-    'linkedin',
-    'bluesky',
-    'x',
-    'facebook',
-    'instagram',
-] as const
-export type ProviderApplicationProvider = (typeof providerApplicationProviders)[number]
+export type ProviderApplicationProvider = string
 
 export const providerApplicationStates = ['active', 'disabled'] as const
 export type ProviderApplicationState = (typeof providerApplicationStates)[number]
@@ -18,9 +16,9 @@ export type ProviderApplicationState = (typeof providerApplicationStates)[number
 export const providerApplicationOAuthModes = ['loopback', 'web'] as const
 export type ProviderApplicationOAuthMode = (typeof providerApplicationOAuthModes)[number]
 
-export interface ProviderApplicationConfiguration {
+export interface ProviderApplicationConfiguration<Id extends string = string> {
     readonly id: string
-    readonly providerId: ProviderApplicationProvider
+    readonly providerId: Id
     readonly name: string
     readonly clientId: string | null
     readonly clientMetadataUrl: string | null
@@ -35,12 +33,14 @@ export interface ProviderApplicationConfiguration {
     readonly updatedAt: number
 }
 
-export interface ResolvedProviderApplication extends ProviderApplicationConfiguration {
+export interface ResolvedProviderApplication<
+    Id extends string = string,
+> extends ProviderApplicationConfiguration<Id> {
     readonly clientSecret: string | null
 }
 
-export interface CreateProviderApplicationInput {
-    readonly providerId: ProviderApplicationProvider
+export interface CreateProviderApplicationInput<Id extends string = string> {
+    readonly providerId: Id
     readonly name: string
     readonly clientId?: string | null
     readonly clientMetadataUrl?: string | null
@@ -63,16 +63,17 @@ export interface UpdateProviderApplicationInput {
     readonly isDefault?: boolean
 }
 
-export type CreateProviderApplicationResult =
-    | { readonly kind: 'created'; readonly configuration: ProviderApplicationConfiguration }
+export type CreateProviderApplicationResult<Id extends string = string> =
+    | { readonly kind: 'created'; readonly configuration: ProviderApplicationConfiguration<Id> }
     | { readonly kind: 'conflict' }
 
-export type UpdateProviderApplicationResult =
-    | { readonly kind: 'updated'; readonly configuration: ProviderApplicationConfiguration }
+export type UpdateProviderApplicationResult<Id extends string = string> =
+    | { readonly kind: 'updated'; readonly configuration: ProviderApplicationConfiguration<Id> }
     | { readonly kind: 'not_found' }
     | { readonly kind: 'conflict' }
 
-export interface ProviderApplicationStoreOptions {
+export interface ProviderApplicationStoreOptions<Id extends string = string> {
+    readonly policies: readonly ProviderApplicationPolicy<Id>[]
     readonly cipher: SecretCipher
     readonly now?: () => number
     readonly createId?: () => string
@@ -80,7 +81,7 @@ export interface ProviderApplicationStoreOptions {
 
 interface ProviderApplicationRow {
     readonly id: string
-    readonly providerId: ProviderApplicationProvider
+    readonly providerId: string
     readonly name: string
     readonly clientId: string | null
     readonly clientMetadataUrl: string | null
@@ -114,113 +115,11 @@ const applicationColumns = `
     updated_at as updatedAt
 `
 
-function provider(value: string): ProviderApplicationProvider {
-    if (!(providerApplicationProviders as readonly string[]).includes(value)) {
-        throw new Error(`Unsupported provider application provider: ${value}`)
-    }
-    return value as ProviderApplicationProvider
-}
-
 function state(value: string): ProviderApplicationState {
     if (!(providerApplicationStates as readonly string[]).includes(value)) {
         throw new Error(`Unsupported provider application state: ${value}`)
     }
     return value as ProviderApplicationState
-}
-
-function url(value: string, field: string): string {
-    const normalized = requireNonBlank(value, field)
-    let parsed: URL
-    try {
-        parsed = new URL(normalized)
-    } catch {
-        throw new Error(`${field} must be a valid HTTPS URL`)
-    }
-    if (parsed.protocol !== 'https:') {
-        throw new Error(`${field} must use HTTPS`)
-    }
-    return parsed.toString()
-}
-
-function optionalUrl(value: string | null | undefined, field: string): string | null {
-    return value === null || value === undefined ? null : url(value, field)
-}
-
-const numericApplicationIdLabels: Partial<Record<ProviderApplicationProvider, string>> = {
-    facebook: 'Facebook',
-    instagram: 'Instagram',
-}
-
-function requireNumericApplicationId(
-    providerId: ProviderApplicationProvider,
-    clientId: string | null
-): void {
-    const label = numericApplicationIdLabels[providerId]
-    if (label === undefined) return
-    if (!/^[1-9]\d*$/.test(clientId ?? ''))
-        throw new Error(`${label} application ID must be numeric`)
-}
-
-function normalizeApplication(
-    input: {
-        readonly providerId: ProviderApplicationProvider
-        readonly name: string
-        readonly clientId?: string | null
-        readonly clientMetadataUrl?: string | null
-        readonly handleResolver?: string | null
-        readonly clientSecret?: string | null
-    },
-    options: { readonly preserveMissingSecret?: boolean } = {}
-): {
-    readonly providerId: ProviderApplicationProvider
-    readonly name: string
-    readonly clientId: string | null
-    readonly clientMetadataUrl: string | null
-    readonly handleResolver: string | null
-    readonly clientSecret: string | null
-} {
-    const name = requireNonBlank(input.name, 'name')
-    if (input.providerId === 'bluesky') {
-        if (input.clientId !== undefined && input.clientId !== null) {
-            throw new Error('Bluesky application configuration does not accept clientId')
-        }
-        if (input.clientSecret !== undefined && input.clientSecret !== null) {
-            throw new Error('Bluesky application configuration does not accept clientSecret')
-        }
-        return {
-            providerId: input.providerId,
-            name,
-            clientId: null,
-            // A missing public metadata URL is the explicit AT Protocol
-            // loopback mode. Public deployments use the HTTPS web mode.
-            clientMetadataUrl: optionalUrl(input.clientMetadataUrl, 'clientMetadataUrl'),
-            handleResolver: url(input.handleResolver ?? 'https://bsky.social', 'handleResolver'),
-            clientSecret: null,
-        }
-    }
-
-    if (input.clientMetadataUrl !== undefined && input.clientMetadataUrl !== null) {
-        throw new Error(
-            `${input.providerId} application configuration does not accept clientMetadataUrl`
-        )
-    }
-    if (input.handleResolver !== undefined && input.handleResolver !== null) {
-        throw new Error(
-            `${input.providerId} application configuration does not accept handleResolver`
-        )
-    }
-    requireNumericApplicationId(input.providerId, input.clientId ?? null)
-    return {
-        providerId: input.providerId,
-        name,
-        clientId: requireNonBlank(input.clientId ?? '', 'clientId'),
-        clientMetadataUrl: null,
-        handleResolver: null,
-        clientSecret:
-            input.clientSecret === undefined && options.preserveMissingSecret === true
-                ? null
-                : requireNonBlank(input.clientSecret ?? '', 'clientSecret'),
-    }
 }
 
 function envelope(row: ProviderApplicationRow): EncryptedSecretEnvelope | null {
@@ -248,34 +147,48 @@ function envelope(row: ProviderApplicationRow): EncryptedSecretEnvelope | null {
     }
 }
 
-function toConfiguration(row: ProviderApplicationRow): ProviderApplicationConfiguration {
-    const clientSecret = envelope(row)
-    return {
-        id: row.id,
-        providerId: provider(row.providerId),
-        name: row.name,
-        clientId: row.clientId,
-        clientMetadataUrl: row.clientMetadataUrl,
-        handleResolver: row.handleResolver,
-        oauthMode:
-            row.providerId === 'bluesky'
-                ? row.clientMetadataUrl === null
-                    ? 'loopback'
-                    : 'web'
-                : null,
-        state: state(row.state),
-        isDefault: row.isDefault === 1,
-        createdByUserId: row.createdByUserId,
-        hasClientSecret: clientSecret !== null,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-export function createProviderApplicationStore(
+export function createProviderApplicationStore<const Id extends string>(
     database: PostbotDatabase,
-    options: ProviderApplicationStoreOptions
+    options: ProviderApplicationStoreOptions<Id>
 ) {
+    function policy(id: string): ProviderApplicationPolicy<Id> {
+        const found = options.policies.find(candidate => candidate.id === id)
+        if (!found) throw new Error(`Unsupported provider application provider: ${id}`)
+        return found
+    }
+    function provider(id: string): Id {
+        return policy(id).id
+    }
+    function normalizeApplication(
+        input: ProviderApplicationFields & { readonly providerId: string; readonly name: string },
+        normalizationOptions: { readonly preserveMissingSecret?: boolean } = {}
+    ) {
+        const selected = policy(input.providerId)
+        return {
+            providerId: selected.id,
+            name: requireNonBlank(input.name, 'name'),
+            ...selected.normalize(input, normalizationOptions),
+        }
+    }
+    function toConfiguration(row: ProviderApplicationRow): ProviderApplicationConfiguration<Id> {
+        const clientSecret = envelope(row)
+        return {
+            id: row.id,
+            providerId: provider(row.providerId),
+            name: row.name,
+            clientId: row.clientId,
+            clientMetadataUrl: row.clientMetadataUrl,
+            handleResolver: row.handleResolver,
+            oauthMode: policy(row.providerId).oauthMode(row),
+            state: state(row.state),
+            isDefault: row.isDefault === 1,
+            createdByUserId: row.createdByUserId,
+            hasClientSecret: clientSecret !== null,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+        }
+    }
+
     const client = database.$client
     const cipher = options.cipher
     const now = options.now ?? Date.now
@@ -308,7 +221,7 @@ export function createProviderApplicationStore(
         { readonly changes: number },
         [
             id: string,
-            providerId: ProviderApplicationProvider,
+            providerId: Id,
             name: string,
             clientId: string | null,
             clientMetadataUrl: string | null,
@@ -388,7 +301,7 @@ export function createProviderApplicationStore(
     }
 
     function requireDefaultPolicy(
-        providerId: ProviderApplicationProvider,
+        providerId: Id,
         requestedDefault: boolean | undefined,
         requestedState: ProviderApplicationState
     ): boolean {
@@ -399,7 +312,7 @@ export function createProviderApplicationStore(
 
     async function encryptSecret(
         id: string,
-        providerId: ProviderApplicationProvider,
+        providerId: Id,
         clientSecret: string | null
     ): Promise<EncryptedSecretEnvelope | null> {
         if (clientSecret === null) return null
@@ -410,7 +323,7 @@ export function createProviderApplicationStore(
     }
 
     return {
-        listProviderApplicationConfigurations(providerId?: ProviderApplicationProvider) {
+        listProviderApplicationConfigurations(providerId?: Id) {
             return (
                 providerId === undefined
                     ? listStatement.all()
@@ -418,19 +331,21 @@ export function createProviderApplicationStore(
             ).map(toConfiguration)
         },
 
-        getProviderApplicationConfiguration(id: string): ProviderApplicationConfiguration | null {
+        getProviderApplicationConfiguration(
+            id: string
+        ): ProviderApplicationConfiguration<Id> | null {
             const row = load(id)
             return row === null ? null : toConfiguration(row)
         },
 
-        hasProviderApplication(providerId: ProviderApplicationProvider): boolean {
+        hasProviderApplication(providerId: Id): boolean {
             return listProviderStatement.all(providerId).length > 0
         },
 
         async resolveProviderApplication(
-            providerId: ProviderApplicationProvider,
+            providerId: Id,
             id?: string | null
-        ): Promise<ResolvedProviderApplication | null> {
+        ): Promise<ResolvedProviderApplication<Id> | null> {
             const row =
                 id === undefined || id === null ? loadDefaultStatement.get(providerId) : load(id)
             if (row === null || row.providerId !== providerId || row.state !== 'active') return null
@@ -452,8 +367,8 @@ export function createProviderApplicationStore(
         },
 
         async createProviderApplication(
-            input: CreateProviderApplicationInput
-        ): Promise<CreateProviderApplicationResult> {
+            input: CreateProviderApplicationInput<Id>
+        ): Promise<CreateProviderApplicationResult<Id>> {
             const normalized = normalizeApplication(input)
             const createdByUserId = requireNonBlank(input.createdByUserId, 'createdByUserId')
             const applicationId = createId()
@@ -497,7 +412,7 @@ export function createProviderApplicationStore(
 
         async updateProviderApplication(
             input: UpdateProviderApplicationInput
-        ): Promise<UpdateProviderApplicationResult> {
+        ): Promise<UpdateProviderApplicationResult<Id>> {
             const existing = load(input.id)
             if (existing === null) return { kind: 'not_found' }
             const hasOwn = (key: keyof UpdateProviderApplicationInput) =>
@@ -519,14 +434,18 @@ export function createProviderApplicationStore(
             )
             const applicationState = input.state ?? existing.state
             const isDefault = requireDefaultPolicy(
-                existing.providerId,
+                provider(existing.providerId),
                 input.isDefault ?? existing.isDefault === 1,
                 applicationState
             )
             const secret =
                 input.clientSecret === undefined
                     ? envelope(existing)
-                    : await encryptSecret(existing.id, existing.providerId, normalized.clientSecret)
+                    : await encryptSecret(
+                          existing.id,
+                          provider(existing.providerId),
+                          normalized.clientSecret
+                      )
             const timestamp = requireTimestamp(now(), 'now')
             const transaction = client.transaction(() => {
                 if (isDefault) clearDefaultsStatement.run(existing.providerId)

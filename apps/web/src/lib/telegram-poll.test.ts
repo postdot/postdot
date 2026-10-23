@@ -7,7 +7,6 @@ import {
 } from '@postdot/telegram'
 import { TELEGRAM_POLL_LIMITS } from '@postdot/telegram/poll'
 
-import { getTargetEditorFields } from './target-editor'
 import {
     TELEGRAM_POLL_DURATIONS,
     hasTelegramPoll,
@@ -15,8 +14,10 @@ import {
     isTelegramPollProfile,
     telegramPollOptionLength,
     telegramPollValue,
-} from './telegram-poll'
-import { telegramTextLimit } from './telegram-text-constraints'
+} from '@/providers/telegram/poll'
+import { telegramTextLimit } from '@/providers/telegram/text-rules'
+
+import { getTargetEditorFields } from './target-editor'
 
 const pollProfile = {
     id: 'telegram',
@@ -97,8 +98,12 @@ describe('Telegram poll profile gating', () => {
     it('offers the poll control only to the poll-capable built-in revision', () => {
         const fields = getTargetEditorFields(pollProfile, 'en')
 
-        expect(fields.filter(field => field.kind === 'telegram-poll')).toEqual([
-            expect.objectContaining({ path: '/poll', kind: 'telegram-poll', label: 'Poll' }),
+        expect(fields.filter(field => field.kind === 'provider:telegram:poll')).toEqual([
+            expect.objectContaining({
+                path: '/poll',
+                kind: 'provider:telegram:poll',
+                label: 'Poll',
+            }),
         ])
         expect(fields.some(field => field.path.startsWith('/poll/'))).toBe(false)
     })
@@ -107,11 +112,13 @@ describe('Telegram poll profile gating', () => {
         expect(isTelegramPollProfile(legacyProfile)).toBe(false)
         expect(isTelegramPollProfile({ ...pollProfile, origin: 'custom' })).toBe(false)
         expect(
-            getTargetEditorFields(legacyProfile, 'en').some(field => field.kind === 'telegram-poll')
+            getTargetEditorFields(legacyProfile, 'en').some(
+                field => field.kind === 'provider:telegram:poll'
+            )
         ).toBe(false)
         expect(
             getTargetEditorFields({ ...pollProfile, origin: 'custom' }, 'en').some(
-                field => field.kind === 'telegram-poll'
+                field => field.kind === 'provider:telegram:poll'
             )
         ).toBe(false)
         expect(
@@ -121,7 +128,7 @@ describe('Telegram poll profile gating', () => {
                     execution: { kind: 'built_in', contractId: 'telegram', revision: 'future' },
                 },
                 'en'
-            ).some(field => field.kind === 'telegram-poll')
+            ).some(field => field.kind === 'provider:telegram:poll')
         ).toBe(false)
     })
 
@@ -197,7 +204,7 @@ it('retains native poll controls and caption budgets on the album profile', () =
     expect(isTelegramPollProfile(telegramChannelProfile)).toBe(true)
     expect(
         getTargetEditorFields(telegramChannelProfile, 'en').filter(
-            field => field.kind === 'telegram-poll'
+            field => field.kind === 'provider:telegram:poll'
         )
     ).toHaveLength(1)
     expect(

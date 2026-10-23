@@ -3,6 +3,7 @@ import {
     type ExternalEffectExecutorStore,
     requireNonBlank,
     requireTimestamp,
+    type ProviderCommentPolicy,
 } from '@postdot/core'
 import { and, asc, desc, eq, gt, lt, lte, or, sql } from 'drizzle-orm'
 
@@ -29,7 +30,10 @@ export type CreatePublicationReply = Pick<
     | 'recordKey'
 > & { subjectId: string; now: number }
 
-export function createPublicationReplyStore(database: PostbotDatabase) {
+export function createPublicationReplyStore(
+    database: PostbotDatabase,
+    options: { readonly policies: readonly ProviderCommentPolicy[] }
+) {
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
     const get = (id: string) =>
@@ -61,6 +65,10 @@ export function createPublicationReplyStore(database: PostbotDatabase) {
     function eligible(row: PublicationReply): boolean {
         const subjectId = actor(row)?.subjectId
         if (!subjectId || !access.canAccessProject(row.projectId, subjectId, 'editor')) return false
+        const policy = options.policies.find(candidate => candidate.id === row.providerId)
+        if (!policy || (policy.requiresInstanceOrigin && row.instanceOrigin === null)) return false
+        const externalId = policy.publicationId(row.rootUri)
+        if (externalId === null) return false
         return (
             database.$client
                 .query<
@@ -74,17 +82,17 @@ export function createPublicationReplyStore(database: PostbotDatabase) {
             where p.project_id = ?1 and p.id = ?2 and p.state = 'published' and p.external_id = ?3
               and c.id = ?4 and c.credential_id = ?5 and b.kind = ?7 and k.provider_id = ?7
               and k.external_account_id = ?6 and k.state = 'active'
-              and (?7 = 'bluesky' or (c.endpoint_url = ?8 and ?8 is not null))
+              and (?8 is null or c.endpoint_url = ?8)
         `)
                 .get(
                     row.projectId,
                     row.publicationId,
-                    row.providerId === 'mastodon' ? row.rootUri.split('/').at(-1)! : row.rootUri,
+                    externalId,
                     row.connectionId,
                     row.credentialId,
                     row.accountId,
                     row.providerId,
-                    row.instanceOrigin
+                    policy.requiresInstanceOrigin ? row.instanceOrigin : null
                 ) !== null
         )
     }

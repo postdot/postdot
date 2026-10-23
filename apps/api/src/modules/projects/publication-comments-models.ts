@@ -1,5 +1,7 @@
 import { Type, type Static } from 'typebox'
 
+import { providerCommentIds } from '../../providers/registry'
+
 const nullableText = Type.Union([Type.String(), Type.Null()])
 export const commentFailureSchema = Type.Union([
     Type.Literal('blocked'),
@@ -39,7 +41,7 @@ export const publicationCommentSnapshotSchema = Type.Object({
 })
 export const publicationCommentsResponseSchema = Type.Object({
     publicationId: Type.String(),
-    provider: Type.Union([Type.Literal('bluesky'), Type.Literal('mastodon')]),
+    provider: Type.Enum(providerCommentIds),
     snapshot: Type.Union([publicationCommentSnapshotSchema, Type.Null()]),
     lastAttemptAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
     lastError: Type.Union([commentFailureSchema, Type.Null()]),

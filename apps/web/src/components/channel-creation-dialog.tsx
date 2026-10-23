@@ -48,19 +48,9 @@ import {
 import { useLanguage } from '@/lib/i18n'
 import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
+import { installedProviders, providerRegistry, type BuiltInProviderId } from '@/providers/registry'
 
-type ProfileChoice =
-    | 'manual-message'
-    | 'linkedin'
-    | 'bluesky'
-    | 'mastodon'
-    | 'x'
-    | 'discord'
-    | 'telegram'
-    | 'facebook'
-    | 'instagram'
-    | 'devto'
-    | 'custom'
+type ProfileChoice = 'manual-message' | BuiltInProviderId | 'custom'
 
 export function ChannelCreationDialog({
     onCreate,
@@ -197,33 +187,19 @@ export function ChannelCreationDialog({
 
     const profileChoices: readonly { value: ProfileChoice; label: string }[] = [
         { value: 'manual-message', label: m.channel_manual_profile() },
-        { value: 'linkedin', label: m.channel_linkedin_profile() },
-        { value: 'bluesky', label: m.channel_bluesky_profile() },
-        { value: 'mastodon', label: m.channel_mastodon_profile() },
-        { value: 'x', label: m.channel_x_profile() },
-        { value: 'discord', label: m.channel_discord_profile() },
-        { value: 'telegram', label: m.channel_telegram_profile() },
-        { value: 'facebook', label: m.provider_apps_provider_facebook() },
-        { value: 'instagram', label: m.channel_instagram_profile() },
-        { value: 'devto', label: m.channel_devto_profile() },
+        ...installedProviders.map(provider => ({
+            value: provider.id,
+            label: provider.profileLabel(),
+        })),
         { value: 'custom', label: m.channel_custom_profile() },
     ]
 
     function suggestedName(profile: ProfileChoice) {
         if (profile === 'custom') return ''
-        const platformNames = {
-            linkedin: 'LinkedIn',
-            bluesky: 'Bluesky',
-            mastodon: 'Mastodon',
-            x: 'X.com',
-            discord: 'Discord',
-            telegram: 'Telegram',
-            facebook: 'Facebook',
-            instagram: 'Instagram',
-            devto: 'DEV.to',
-            'manual-message': m.channel_default_manual_name(),
-        }
-        const label = platformNames[profile]
+        const label =
+            profile === 'manual-message'
+                ? m.channel_default_manual_name()
+                : (providerRegistry.get(profile)?.suggestedName ?? profile)
         return suggestChannelName(
             label,
             channels.map(channel => channel.name),
@@ -524,15 +500,7 @@ function templateLabel(templateId: string) {
     if (templateId === 'custom-webhook') return m.channel_template_custom_webhook_label()
     if (templateId.startsWith(builtInChannelProfileTemplatePrefix)) {
         const profileId = templateId.slice(builtInChannelProfileTemplatePrefix.length)
-        if (profileId === 'linkedin') return m.channel_linkedin_profile()
-        if (profileId === 'bluesky') return m.channel_bluesky_profile()
-        if (profileId === 'mastodon') return m.channel_mastodon_profile()
-        if (profileId === 'discord') return m.channel_discord_profile()
-        if (profileId === 'facebook') return m.provider_apps_provider_facebook()
-        if (profileId === 'instagram') return m.channel_instagram_profile()
-        if (profileId === 'telegram') return m.channel_telegram_profile()
-        if (profileId === 'devto') return m.channel_devto_profile()
-        if (profileId === 'x') return m.channel_x_profile()
+        return providerRegistry.get(profileId)?.profileLabel() ?? templateId
     }
     return templateId
 }

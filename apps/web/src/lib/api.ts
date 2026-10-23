@@ -1,5 +1,10 @@
+import { providerApi } from '@/providers/api'
+
+import { client, unwrap, ApiError, errorFrom } from './api-transport'
+import type { ProfileDefinitionIssue } from './api-transport'
+export { ApiError } from './api-transport'
+export type { ProfileDefinitionIssue } from './api-transport'
 import {
-    createPostbotClient,
     createAccessInvitationClient,
     type EmailSettings,
     type EmailSettingsInput,
@@ -18,7 +23,6 @@ import {
     type WorkspaceRole,
     type PublicationComposerDraftResponse,
     type MediaListOptions,
-    type LinkedInConnectionDestination,
     type ChannelCreationProfile,
     type DraftProfileAdoptionInput,
 } from '@postdot/client'
@@ -38,7 +42,6 @@ import {
     type PublicationComposerDraftContent,
 } from '@/lib/publication-recovery'
 
-const client = createPostbotClient(window.location.origin)
 const accessInvitationClient = createAccessInvitationClient(window.location.origin)
 
 export interface Session {
@@ -72,71 +75,6 @@ export type ChannelLifecycleBlocker =
     | 'publisher'
     | 'must_be_archived'
 
-export interface ProfileDefinitionIssue {
-    readonly code: string
-    readonly path: string
-}
-
-export class ApiError extends Error {
-    readonly status: number
-    readonly code: string
-    readonly blockers: readonly string[]
-
-    constructor(
-        status: number,
-        code: string,
-        message: string,
-        blockers: readonly string[] = [],
-        readonly profileIssues: readonly ProfileDefinitionIssue[] = [],
-        readonly profileIssueCount: number = profileIssues.length
-    ) {
-        super(message)
-        this.name = 'ApiError'
-        this.status = status
-        this.code = code
-        this.blockers = blockers
-    }
-}
-
-function errorFrom(status: number, value: unknown) {
-    const envelope =
-        typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
-    const payload =
-        envelope?.value !== null && typeof envelope?.value === 'object'
-            ? (envelope.value as Record<string, unknown>)
-            : envelope
-    const details =
-        payload?.error !== null && typeof payload?.error === 'object'
-            ? (payload.error as Record<string, unknown>)
-            : payload
-    const blockers = Array.isArray(details?.blockers)
-        ? details.blockers.filter((blocker): blocker is string => typeof blocker === 'string')
-        : []
-    return new ApiError(
-        status,
-        typeof details?.code === 'string' ? details.code : 'request_failed',
-        typeof details?.message === 'string' ? details.message : '',
-        blockers,
-        Array.isArray(details?.issues)
-            ? details.issues
-                  .filter(
-                      (issue): issue is ProfileDefinitionIssue =>
-                          typeof issue === 'object' &&
-                          issue !== null &&
-                          typeof issue.code === 'string' &&
-                          typeof issue.path === 'string' &&
-                          issue.path.length <= 512
-                  )
-                  .slice(0, 20)
-            : [],
-        typeof details?.issueCount === 'number' &&
-            Number.isSafeInteger(details.issueCount) &&
-            details.issueCount > 0
-            ? details.issueCount
-            : 0
-    )
-}
-
 type UntypedBoundaryPath =
     | `/api/auth/${string}`
     | '/api/account/avatar'
@@ -162,16 +100,6 @@ function jsonBody(value: unknown, method: 'POST' | 'PATCH' = 'POST'): RequestIni
     return { method, body: JSON.stringify(value) }
 }
 
-function unwrap<T>(result: {
-    readonly data: T | null
-    readonly error: unknown
-    readonly status: number
-}): T {
-    if (result.error !== null) throw errorFrom(result.status, result.error)
-    if (result.data === null) throw new ApiError(result.status, 'empty_response', '')
-    return result.data
-}
-
 function parsePublicationComposerDraft(
     draft: Omit<PublicationComposerDraft, 'content'> & { readonly content: unknown }
 ): PublicationComposerDraft {
@@ -183,6 +111,7 @@ function parsePublicationComposerDraft(
 }
 
 export const api = {
+    ...providerApi,
     async getRecoveryStatus() {
         return unwrap(await client.api.recovery.status.get())
     },
@@ -828,94 +757,6 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).publishers.get())
     },
 
-    async listBlueskyProviderAnalytics(
-        projectId: string,
-        options: WebApiRequests['listBlueskyProviderAnalytics'] = {}
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.bluesky.get({
-                query: options,
-            })
-        )
-    },
-
-    async listDevtoProviderAnalytics(
-        projectId: string,
-        options: WebApiRequests['listDevtoProviderAnalytics'] = {}
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.devto.get({
-                query: options,
-            })
-        )
-    },
-
-    async listLatestBlueskyProviderAnalytics(projectId: string, publicationIds: readonly string[]) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.bluesky.latest.get({
-                query: { publicationIds: [...publicationIds] },
-            })
-        )
-    },
-
-    async listLatestDevtoProviderAnalytics(projectId: string, publicationIds: readonly string[]) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.devto.latest.get({
-                query: { publicationIds: [...publicationIds] },
-            })
-        )
-    },
-
-    async listLatestMastodonProviderAnalytics(
-        projectId: string,
-        publicationIds: readonly string[]
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.mastodon.latest.get({
-                query: { publicationIds: [...publicationIds] },
-            })
-        )
-    },
-
-    async collectBlueskyProviderAnalytics(
-        projectId: string,
-        channelId: string,
-        publicationId: string
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.bluesky.collect.post({
-                channelId,
-                publicationIds: [publicationId],
-            })
-        )
-    },
-
-    async collectDevtoProviderAnalytics(
-        projectId: string,
-        channelId: string,
-        publicationId: string
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.devto.collect.post({
-                channelId,
-                publicationId,
-            })
-        )
-    },
-
-    async collectMastodonProviderAnalytics(
-        projectId: string,
-        channelId: string,
-        publicationId: string
-    ) {
-        return unwrap(
-            await client.api.projects({ projectId }).analytics.provider.mastodon.collect.post({
-                channelId,
-                publicationId,
-            })
-        )
-    },
-
     async listNotifications(projectId: string, options: WebApiRequests['listNotifications'] = {}) {
         return unwrap(
             await client.api.projects({ projectId }).notifications.get({ query: options })
@@ -992,159 +833,6 @@ export const api = {
     ) {
         return unwrap(
             await client.api['notification-preferences']({ kind }).patch({ inAppEnabled })
-        )
-    },
-
-    async startFacebookPublisherConnection(
-        projectId: string,
-        channelId: string,
-        providerApplicationId?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.facebook.connect.post({ providerApplicationId })
-        )
-    },
-    /**
-     * Start the direct Instagram professional account authorization. The
-     * provider redirects to Instagram, so the caller sends the browser to the
-     * returned URL and the shared callback completes the connection.
-     */
-    async startInstagramConnection(
-        projectId: string,
-        channelId: string,
-        providerApplicationId?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.instagram.connect.post(
-                    providerApplicationId === undefined ? {} : { providerApplicationId }
-                )
-        )
-    },
-    async listFacebookPages(
-        projectId: string,
-        channelId: string,
-        selection: string,
-        after?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.facebook.pages.get({ query: { selection, after } })
-        )
-    },
-    async selectFacebookPage(
-        projectId: string,
-        channelId: string,
-        input: WebApiRequests['selectFacebookPage']
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.facebook.select.post(input)
-        )
-    },
-    async startLinkedInPublisherConnection(
-        projectId: string,
-        channelId: string,
-        destination?: LinkedInConnectionDestination,
-        providerApplicationId?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.linkedin.connect.post({
-                    ...(destination === undefined ? {} : { destination }),
-                    ...(providerApplicationId === undefined ? {} : { providerApplicationId }),
-                })
-        )
-    },
-
-    async startBlueskyPublisherConnection(
-        projectId: string,
-        channelId: string,
-        handle: string,
-        providerApplicationId?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.bluesky.connect.post({
-                    handle,
-                    ...(providerApplicationId === undefined ? {} : { providerApplicationId }),
-                })
-        )
-    },
-
-    async startXPublisherConnection(
-        projectId: string,
-        channelId: string,
-        providerApplicationId?: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.x.connect.post(
-                    providerApplicationId === undefined ? {} : { providerApplicationId }
-                )
-        )
-    },
-
-    async startMastodonPublisherConnection(
-        projectId: string,
-        channelId: string,
-        instanceUrl: string
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.mastodon.connect.post({ instanceUrl })
-        )
-    },
-
-    async connectDiscordPublisher(
-        projectId: string,
-        channelId: string,
-        input: WebApiRequests['connectDiscordPublisher']
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.discord.connect.post(input)
-        )
-    },
-
-    async connectTelegramPublisher(
-        projectId: string,
-        channelId: string,
-        input: WebApiRequests['connectTelegramPublisher']
-    ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.telegram.connect.post(input)
-        )
-    },
-
-    async connectDevtoPublisher(projectId: string, channelId: string, apiKey: string) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.devto.connect.post({ apiKey })
         )
     },
 

@@ -44,11 +44,15 @@ import {
 } from '@postdot/mastodon'
 import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@postdot/x'
 
-import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
-import { createDevtoProviderAdapter } from './devto'
-import { createDiscordProviderAdapter } from './discord'
-import { createLinkedInProviderAdapter } from './linkedin'
-import { createMastodonProviderAdapter } from './mastodon'
+import {
+    createBlueskyProviderAdapter,
+    type BlueskyProviderAdapterOptions,
+} from '../../../providers/bluesky/worker'
+import { createDevtoProviderAdapter } from '../../../providers/devto/worker'
+import { createDiscordProviderAdapter } from '../../../providers/discord/worker'
+import { createLinkedInProviderAdapter } from '../../../providers/linkedin/worker'
+import { createMastodonProviderAdapter } from '../../../providers/mastodon/worker'
+import { createXProviderAdapter } from '../../../providers/x/worker'
 import {
     createBuiltInProviderRegistry,
     type BuiltInProviderAdapter,
@@ -56,7 +60,6 @@ import {
     type ProviderMediaDeliveryPort,
     type PublisherCredentialExecutionPort,
 } from './registry'
-import { createXProviderAdapter } from './x'
 
 const now = 1_800_000_000_000
 const credentialSecret = 'conformance-secret-that-must-not-become-domain-data'

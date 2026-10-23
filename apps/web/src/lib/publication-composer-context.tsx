@@ -26,6 +26,7 @@ import { useProjectTagActions } from '@/lib/project-tags'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 export type PublicationCreationMode = 'draft' | 'schedule'
 
@@ -155,13 +156,16 @@ function useComposerSession() {
                     const channel = activeChannels.find(item => item.id === input.channelId)!
                     const copy = target.content.trim()
                     // Preserve the existing article override, including title-only drafts.
-                    if (copy === '' && channel.profileId !== 'devto') return input
+                    const preserveEmptyHeadline =
+                        providerRegistry.forExecution(channel.execution)?.authoring
+                            ?.preserveEmptyHeadline === true
+                    if (copy === '' && !preserveEmptyHeadline) return input
                     const { active } = await api.getChannelProfileState(project.id, input.channelId)
                     return {
                         ...input,
                         targetContent: adaptSourceContentToProfile(
                             {
-                                ...(postTitle.trim() === '' && channel.profileId !== 'devto'
+                                ...(postTitle.trim() === '' && !preserveEmptyHeadline
                                     ? {}
                                     : { headline: postTitle.trim() }),
                                 body: {

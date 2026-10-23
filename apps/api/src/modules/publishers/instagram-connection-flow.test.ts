@@ -18,8 +18,9 @@ import {
     type createInstagramOAuth,
 } from '@postdot/instagram'
 
-import { createInstagramConnectionFlow } from './instagram-connection-flow'
-import { instagramPublisherConnectionPolicy } from './providers/instagram'
+import { createInstagramConnectionFlow } from '../../providers/instagram/connection-flow'
+import { instagramPublisherConnectionPolicy } from '../../providers/instagram/connection-policy'
+import { providerApplicationPolicies } from '../../providers/registry'
 
 const callbackUri = 'https://postbot.example/api/oauth/instagram/callback'
 const professionalAccountId = '987654321'
@@ -48,6 +49,7 @@ async function fixture(
         .run('owner', 'Owner', 'owner@example.test', timestamp)
     const key = new Uint8Array(32).fill(5)
     const applications = createProviderApplicationStore(database, {
+        policies: providerApplicationPolicies,
         cipher: createSecretCipher({
             domain: 'postbot.provider-application',
             keyId: 'test',

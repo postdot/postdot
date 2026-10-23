@@ -22,8 +22,8 @@ import {
 } from '@postdot/instagram'
 import { createLocalMediaStore } from '@postdot/media'
 
-import { instagramPublisherConnectionPolicy } from '../publishers/providers/instagram'
-import { createInstagramProviderAdapter } from './providers/instagram'
+import { instagramPublisherConnectionPolicy } from '../../providers/instagram/connection-policy'
+import { createInstagramProviderAdapter } from '../../providers/instagram/worker'
 import { createBuiltInProviderRegistry } from './providers/registry'
 import { createPublicationWorker } from './worker'
 

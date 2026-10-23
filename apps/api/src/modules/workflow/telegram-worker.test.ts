@@ -22,9 +22,9 @@ import {
     telegramChannelProfileValidationAdapter,
 } from '@postdot/telegram'
 
-import { telegramPublisherConnectionPolicy } from '../publishers/providers/telegram'
+import { telegramPublisherConnectionPolicy } from '../../providers/telegram/connection-policy'
+import { createTelegramProviderAdapter } from '../../providers/telegram/worker'
 import { createBuiltInProviderRegistry } from './providers/registry'
-import { createTelegramProviderAdapter } from './providers/telegram'
 import { createPublicationWorker } from './worker'
 
 const scenarios = [

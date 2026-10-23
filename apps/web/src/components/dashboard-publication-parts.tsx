@@ -32,6 +32,7 @@ import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import { groupQueuePublicationsByPost } from '@/lib/publication-queue'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 import { EmptyState, type EmptyStateIllustration, type EmptyStateLayout } from './empty-state'
 
@@ -715,18 +716,15 @@ export function PublicationStatus({
 }
 
 export function channelMarkerClass(profileId: string) {
-    if (profileId === 'linkedin') return 'text-primary'
+    const marker = providerRegistry.get(profileId)?.markerClassName
+    if (marker) return marker
     if (profileId === 'manual-message') return 'text-state-queued'
     return 'text-primary'
 }
 
 export function channelProfileLabel(profileId: string) {
-    if (profileId === 'linkedin') return m.channel_linkedin_profile()
-    if (profileId === 'bluesky') return m.channel_bluesky_profile()
-    if (profileId === 'mastodon') return m.channel_mastodon_profile()
-    if (profileId === 'discord') return m.channel_discord_profile()
-    if (profileId === 'telegram') return m.channel_telegram_profile()
-    if (profileId === 'devto') return m.channel_devto_profile()
+    const provider = providerRegistry.get(profileId)
+    if (provider) return provider.profileLabel()
     if (profileId === 'manual-message') return m.channel_manual_profile()
     if (profileId === 'custom') return m.channel_custom_profile()
     return m.channel_profile()

@@ -20,13 +20,7 @@ import {
     setDatabaseCommitObserver,
     runMigrations,
 } from '@postdot/db'
-import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postdot/discord'
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
-import {
-    MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
-    MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
-} from '@postdot/mastodon'
-import { TELEGRAM_EXECUTION_REVISION, TELEGRAM_POLL_EXECUTION_REVISION } from '@postdot/telegram'
 
 import { createApp } from './app'
 import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
@@ -46,18 +40,10 @@ import { createPublicationFirstCommentService } from './modules/projects/publica
 import { createPublicationRepliesService } from './modules/projects/publication-replies-service'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
-import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
-import { createDevtoProviderAdapter } from './modules/workflow/providers/devto'
-import { createDiscordProviderAdapter } from './modules/workflow/providers/discord'
-import { createFacebookProviderAdapter } from './modules/workflow/providers/facebook'
-import { createInstagramProviderAdapter } from './modules/workflow/providers/instagram'
-import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
-import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
-import { createTelegramProviderAdapter } from './modules/workflow/providers/telegram'
-import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
+import { providerWorkerFactories } from './providers/registry'
 import { createRecoveryService } from './recovery'
 import { registerServingHandle } from './serving'
 import {
@@ -113,8 +99,8 @@ export type {
     ProjectCategoryResponse,
     ProjectTagResponse,
 } from './modules/projects/models'
-export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
-export type { DevtoAnalyticsCollectionResponse } from './modules/projects/devto-analytics-service'
+export type { BlueskyAnalyticsCollectionResponse } from './providers/bluesky/analytics'
+export type { DevtoAnalyticsCollectionResponse } from './providers/devto/analytics'
 export type { ProviderAnalyticsObservation } from '@postdot/core'
 export type { ProviderAnalyticsObservationPage } from '@postdot/db'
 export type {
@@ -283,58 +269,11 @@ async function startServerWithRuntimeLock(
     const customHttpTransport = createCustomHttpTransport({
         privateDestinations: config.network.privateDestinations,
     })
-    const builtInProviderRegistry = createBuiltInProviderRegistry([
-        createBlueskyProviderAdapter({
-            revision: 'post-v1',
-            oauth: publisher.bluesky,
-            resolveOAuth: publisher.resolveBlueskyOAuth,
-        }),
-        createBlueskyProviderAdapter({
-            oauth: publisher.bluesky,
-            resolveOAuth: publisher.resolveBlueskyOAuth,
-        }),
-        createDiscordProviderAdapter({ revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION }),
-        createDiscordProviderAdapter(),
-        createTelegramProviderAdapter(),
-        createTelegramProviderAdapter({ revision: TELEGRAM_POLL_EXECUTION_REVISION }),
-        createTelegramProviderAdapter({ revision: TELEGRAM_EXECUTION_REVISION }),
-        createFacebookProviderAdapter(),
-        createInstagramProviderAdapter({
-            fetcher: mastodonFetcher,
-            resolveOAuth: async applicationId =>
-                (await publisher.resolveInstagramApplication(applicationId))?.oauth,
-        }),
-        createDevtoProviderAdapter(),
-        createLinkedInProviderAdapter({
-            revision: 'member-post-v2',
-            oauth: publisher.linkedin,
-            resolveOAuth: publisher.resolveLinkedInOAuth,
-        }),
-        createLinkedInProviderAdapter({
-            revision: 'member-post-v3',
-            oauth: publisher.linkedin,
-            resolveOAuth: publisher.resolveLinkedInOAuth,
-        }),
-        createLinkedInProviderAdapter({
-            oauth: publisher.linkedin,
-            resolveOAuth: publisher.resolveLinkedInOAuth,
-        }),
-        createMastodonProviderAdapter({
-            revision: MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
-            fetcher: mastodonFetcher,
-        }),
-        createMastodonProviderAdapter({
-            revision: MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
-            fetcher: mastodonFetcher,
-        }),
-        createMastodonProviderAdapter({
-            fetcher: mastodonFetcher,
-        }),
-        createXProviderAdapter({
-            oauth: publisher.x,
-            resolveOAuth: publisher.resolveXOAuth,
-        }),
-    ])
+    const builtInProviderRegistry = createBuiltInProviderRegistry(
+        providerWorkerFactories.flatMap(createAdapters =>
+            createAdapters({ publisher, fetcher: mastodonFetcher })
+        )
+    )
     const metricsConfiguration = config.metrics
     const metrics = metricsConfiguration === undefined ? undefined : createPostbotMetrics()
     const publicationReplies = createPublicationRepliesService({ database, publisher })
@@ -463,7 +402,7 @@ export type { PublicationCommentsResponse } from './modules/projects/publication
 
 export type { PublicationRepliesResponse } from './modules/projects/publication-replies-routes'
 
-export type { MastodonAnalyticsCollectionResponse } from './modules/projects/mastodon-analytics-service'
+export type { MastodonAnalyticsCollectionResponse } from './providers/mastodon/analytics'
 
 export type {
     PublicationFirstCommentResponse,

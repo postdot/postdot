@@ -16,6 +16,7 @@ import {
     type ProviderApplicationProvider,
 } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 export type BlueskyOAuthMode = 'loopback' | 'web'
 
@@ -66,14 +67,10 @@ export function ProviderApplicationForm({
     readonly facebookCallbackUri?: string
     readonly xCallbackUri: string
 }) {
-    const requiresSecret =
-        form.providerId !== 'bluesky' &&
-        (editingApplication === undefined || !editingApplication.hasClientSecret)
     const canSubmit =
         form.name.trim() !== '' &&
-        (form.providerId === 'bluesky'
-            ? form.blueskyOAuthMode === 'loopback' || form.clientMetadataUrl.trim() !== ''
-            : form.clientId.trim() !== '' && (!requiresSecret || form.clientSecret.trim() !== ''))
+        providerRegistry.get(form.providerId)?.application?.canSubmit(form, editingApplication) ===
+            true
 
     return (
         <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={onSubmit}>
@@ -136,22 +133,12 @@ export function providerApplicationInput(
     form: ProviderApplicationFormState,
     includeProvider: boolean
 ): ProviderApplicationInput | Omit<ProviderApplicationInput, 'providerId'> {
-    if (form.providerId === 'bluesky') {
-        return {
-            ...(includeProvider ? { providerId: form.providerId } : {}),
-            name: form.name.trim(),
-            clientMetadataUrl:
-                form.blueskyOAuthMode === 'loopback' ? null : form.clientMetadataUrl.trim(),
-            handleResolver: form.handleResolver.trim() || 'https://bsky.social',
-            isDefault: form.isDefault,
-        }
-    }
-
+    const application = providerRegistry.get(form.providerId)?.application
+    if (!application) throw new Error('Provider application is not installed')
     return {
         ...(includeProvider ? { providerId: form.providerId } : {}),
         name: form.name.trim(),
-        clientId: form.clientId.trim(),
-        ...(form.clientSecret.trim() === '' ? {} : { clientSecret: form.clientSecret.trim() }),
         isDefault: form.isDefault,
+        ...application.input(form),
     }
 }

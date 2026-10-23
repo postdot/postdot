@@ -7,6 +7,8 @@ import {
     type PerformanceProvider,
     type PerformanceProviderBatch,
 } from '@/lib/publication-performance'
+import type { ProviderAnalyticsPage } from '@/providers/contract'
+import { providerRegistry } from '@/providers/registry'
 
 /**
  * The reads the export needs.
@@ -21,7 +23,8 @@ export type PerformanceExportReader = Pick<
     | 'listLatestBlueskyProviderAnalytics'
     | 'listLatestDevtoProviderAnalytics'
     | 'listLatestMastodonProviderAnalytics'
->
+> &
+    Partial<typeof api>
 
 export interface PerformanceCsvExportOptions {
     readonly projectId: string
@@ -66,11 +69,6 @@ export const performanceExportHeaders = [
  * A destination always produces one row per expected metric, so an absent
  * observation stays visible as a gap instead of disappearing from the export.
  */
-const performanceExportMetrics = {
-    bluesky: ['likeCount', 'replyCount', 'repostCount', 'quoteCount', 'bookmarkCount'],
-    devto: ['page_views', 'reactions', 'comments'],
-    mastodon: ['favourites_count', 'reblogs_count', 'replies_count'],
-} as const satisfies Record<PerformanceProvider, readonly string[]>
 
 /** The publication read bound already used by the Performance page. */
 const publicationPageSize = 100
@@ -81,9 +79,7 @@ const notCollectedAvailability = 'not_collected'
 /** The byte order mark a spreadsheet expects in front of a UTF-8 CSV. */
 const utf8ByteOrderMark = '\uFEFF'
 
-type PerformanceExportPage = Awaited<
-    ReturnType<PerformanceExportReader['listLatestBlueskyProviderAnalytics']>
->
+type PerformanceExportPage = ProviderAnalyticsPage
 
 interface PerformanceExportPublication {
     readonly publication: PublicationSummary
@@ -139,7 +135,9 @@ export async function readPerformanceCsv(
     for (const entry of publications) {
         const publication = entry.publication
         const metrics = grouped.get(publication.id)
-        for (const metricName of performanceExportMetrics[entry.provider]) {
+        const expectedMetrics = providerRegistry.get(entry.provider)?.analytics?.metrics
+        if (!expectedMetrics) throw new Error('Provider analytics capability is unavailable')
+        for (const { key: metricName } of expectedMetrics) {
             rows.push(
                 buildRow({
                     exportedAt,
@@ -251,14 +249,9 @@ function readLatestProviderAnalytics(
     projectId: string,
     publicationIds: readonly string[]
 ): Promise<PerformanceExportPage> {
-    switch (provider) {
-        case 'bluesky':
-            return reader.listLatestBlueskyProviderAnalytics(projectId, publicationIds)
-        case 'devto':
-            return reader.listLatestDevtoProviderAnalytics(projectId, publicationIds)
-        case 'mastodon':
-            return reader.listLatestMastodonProviderAnalytics(projectId, publicationIds)
-    }
+    const capability = providerRegistry.get(provider)?.analytics
+    if (!capability) throw new Error('Provider analytics capability is unavailable')
+    return capability.listLatest(reader, projectId, publicationIds)
 }
 
 /**

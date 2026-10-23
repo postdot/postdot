@@ -1,9 +1,9 @@
 import { publicationTagFilterMaximumIds } from '@postdot/core'
 
 import type { ChannelListItem, ProviderAnalyticsItem, PublicationSummary } from '@/lib/api'
-import { getNativePlatform } from '@/lib/native-presentation'
+import { providerRegistry } from '@/providers/registry'
 
-export type PerformanceProvider = 'bluesky' | 'devto' | 'mastodon'
+export type PerformanceProvider = string
 
 export const providerAnalyticsBatchSize = 25
 
@@ -36,8 +36,9 @@ export interface PerformanceChannelIdentity {
  * The destination identity alone grants this capability, so it stays limited to
  * the providers that have always been read this way.
  */
-export function performanceProvider(profileId: string | undefined): 'bluesky' | 'devto' | null {
-    return profileId === 'bluesky' || profileId === 'devto' ? profileId : null
+export function performanceProvider(profileId: string | undefined): string | null {
+    const provider = providerRegistry.get(profileId)
+    return provider?.analytics?.legacyProfileIdentity ? provider.id : null
 }
 
 /**
@@ -52,7 +53,8 @@ export function performanceProviderForChannel(
     channel: PerformanceChannelIdentity | undefined
 ): PerformanceProvider | null {
     if (channel === undefined) return null
-    if (getNativePlatform(channel.execution) === 'mastodon') return 'mastodon'
+    const native = providerRegistry.forExecution(channel.execution)
+    if (native?.analytics && !native.analytics.legacyProfileIdentity) return native.id
     return performanceProvider(channel.profileId)
 }
 

@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { api, ApiError } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 export function PublicationRepliesPanel({
     provider,
@@ -15,7 +16,7 @@ export function PublicationRepliesPanel({
     onClose,
     history,
 }: {
-    provider: 'bluesky' | 'mastodon'
+    provider: string
     projectId: string
     publicationId: string
     canSend: boolean
@@ -32,12 +33,9 @@ export function PublicationRepliesPanel({
         text: string
     } | null>(null)
     const first = history.data?.pages[0]
-    const limit = first?.textLimit ?? (provider === 'mastodon' ? 500 : 300)
-    const count =
-        provider === 'mastodon'
-            ? text.length
-            : [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)].length
-    const platform = provider === 'mastodon' ? 'Mastodon' : 'Bluesky'
+    const limit = first?.textLimit ?? providerRegistry.get(provider)?.comments?.textLimit ?? 0
+    const count = providerRegistry.get(provider)?.comments?.count(text) ?? text.length
+    const platform = providerRegistry.get(provider)?.name ?? provider
     const send = useMutation({
         mutationFn: (body: { requestId: string; parentUri: string; text: string }) =>
             api.sendPublicationReply(projectId, publicationId, body),
@@ -75,7 +73,7 @@ export function PublicationRepliesPanel({
                         autoFocus
                         id={`reply-${publicationId}`}
                         value={text}
-                        maxLength={provider === 'mastodon' ? 500 : 3000}
+                        maxLength={providerRegistry.get(provider)?.comments?.maxLength ?? 0}
                         disabled={send.isPending || request !== null}
                         onChange={event => {
                             setText(event.target.value)
@@ -242,20 +240,9 @@ export function usePublicationReplies(projectId: string, publicationId: string, 
 
 function replyLinkAllowed(
     url: string | null,
-    provider: 'bluesky' | 'mastodon',
+    provider: string,
     origin: string | null
 ): url is string {
     if (!url) return false
-    if (provider === 'bluesky') return url.startsWith('https://bsky.app/')
-    try {
-        const parsed = new URL(url)
-        return (
-            parsed.protocol === 'https:' &&
-            !parsed.username &&
-            !parsed.password &&
-            parsed.origin === origin
-        )
-    } catch {
-        return false
-    }
+    return providerRegistry.get(provider)?.comments?.linkAllowed(url, origin) ?? false
 }

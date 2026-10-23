@@ -8,15 +8,10 @@ import {
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import { providerApplicationIds } from '../../providers/registry'
 import type { PublisherRuntime } from './runtime'
 
-const providerIdSchema = Type.Union([
-    Type.Literal('linkedin'),
-    Type.Literal('bluesky'),
-    Type.Literal('x'),
-    Type.Literal('facebook'),
-    Type.Literal('instagram'),
-])
+const providerIdSchema = Type.Enum(providerApplicationIds)
 const stateSchema = Type.Union([Type.Literal('active'), Type.Literal('disabled')])
 
 const applicationSchema = Type.Object({

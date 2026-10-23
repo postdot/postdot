@@ -4,21 +4,14 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
 import type { ChannelLifecycleAction } from '@/components/channel-lifecycle-dialog'
 import { ChannelActionsMenu, ChannelRow } from '@/components/channel-row'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
-import { DevtoConnectionDialog } from '@/components/devto-connection-dialog'
-import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
 import { ChannelAvatar } from '@/components/identity-visuals'
-import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
-import { OAuthConnectionDialog } from '@/components/oauth-connection-dialog'
-import { TelegramConnectionDialog } from '@/components/telegram-connection-dialog'
 import type {
     Channel,
     ChannelListItem,
     CustomHttpAuthentication,
-    LinkedInConnectionDestination,
     ProviderApplication,
     ProviderApplicationProvider,
     PublisherConnection,
@@ -26,6 +19,8 @@ import type {
 import { api } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
+import { ProviderConnection } from '@/providers/connection'
+import { providerRegistry, installedProviders } from '@/providers/registry'
 
 interface PublisherConnectionPanelProps {
     readonly channels: readonly ChannelListItem[]
@@ -42,30 +37,7 @@ interface PublisherConnectionPanelProps {
             secret: string
         }
     ) => Promise<boolean>
-    readonly onStartLinkedInConnection: (
-        channelId: string,
-        destination?: LinkedInConnectionDestination,
-        providerApplicationId?: string
-    ) => Promise<void>
-    readonly onStartBlueskyConnection: (
-        channelId: string,
-        handle: string,
-        providerApplicationId?: string
-    ) => Promise<void>
-    readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
-    readonly onStartXConnection: (
-        channelId: string,
-        providerApplicationId?: string
-    ) => Promise<void>
-    readonly onConnectDiscordPublisher: (
-        channelId: string,
-        input: { botToken: string; channelId: string }
-    ) => Promise<boolean>
-    readonly onConnectTelegramPublisher: (
-        channelId: string,
-        input: { botToken: string; chatReference: string }
-    ) => Promise<boolean>
-    readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
+    readonly onPublisherConnected: () => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
     readonly isInstanceAdmin?: boolean
     readonly readOnly?: boolean
@@ -78,13 +50,7 @@ export function PublisherConnectionPanel({
     onEditProfile,
     onLifecycleAction,
     onConnectCustomHttpPublisher,
-    onStartLinkedInConnection,
-    onStartBlueskyConnection,
-    onStartMastodonConnection,
-    onStartXConnection,
-    onConnectDiscordPublisher,
-    onConnectTelegramPublisher,
-    onConnectDevtoPublisher,
+    onPublisherConnected,
     onDisconnectPublisher,
     isInstanceAdmin = false,
     readOnly = false,
@@ -106,13 +72,16 @@ export function PublisherConnectionPanel({
             })
             .catch(() => {
                 if (!cancelled)
-                    setOauthReadiness({
-                        linkedin: 'unavailable',
-                        bluesky: 'unavailable',
-                        x: 'unavailable',
-                        facebook: 'unavailable',
-                        instagram: 'unavailable',
-                    })
+                    setOauthReadiness(
+                        Object.fromEntries(
+                            installedProviders.flatMap(definition => {
+                                const provider = providerRegistry.get(
+                                    definition.id
+                                )?.applicationProvider
+                                return provider ? [[provider, 'unavailable' as const]] : []
+                            })
+                        )
+                    )
             })
         return () => {
             cancelled = true
@@ -130,7 +99,7 @@ export function PublisherConnectionPanel({
         connectableChannels.some(channel => {
             if (
                 channel.execution.kind !== 'built_in' ||
-                !oauthProviderIds.includes(channel.execution.contractId)
+                !isProviderApplicationProvider(channel.execution.contractId)
             )
                 return false
             const connection = connections.find(item => item.channelId === channel.id)
@@ -185,14 +154,6 @@ export function PublisherConnectionPanel({
         setSelectedProviderApplications(current => ({ ...current, [provider]: applicationId }))
     }
 
-    const linkedInApplications = applicationsFor('linkedin')
-    const linkedInApplicationId = selectedApplicationId('linkedin')
-    const blueskyApplications = applicationsFor('bluesky')
-    const blueskyApplicationId = selectedApplicationId('bluesky')
-    const xApplications = applicationsFor('x')
-    const xApplicationId = selectedApplicationId('x') ?? xApplications[0]?.id
-    const instagramApplications = applicationsFor('instagram')
-    const instagramApplicationId = selectedApplicationId('instagram')
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -208,7 +169,7 @@ export function PublisherConnectionPanel({
                       )
                           return []
                       const provider = channel.execution.contractId
-                      return oauthProviderIds.includes(provider) &&
+                      return isProviderApplicationProvider(provider) &&
                           oauthReadiness[provider as ProviderApplicationProvider] ===
                               'not_configured' &&
                           applicationsFor(provider as ProviderApplicationProvider).length === 0
@@ -259,6 +220,7 @@ export function PublisherConnectionPanel({
                         channel.execution.kind === 'built_in'
                             ? channel.execution.contractId
                             : 'custom_http'
+                    const definition = providerRegistry.forExecution(channel.execution)
                     const canConnect = connection === undefined || connection.state !== 'active'
                     const needsSetup =
                         canConnect &&
@@ -320,103 +282,43 @@ export function PublisherConnectionPanel({
                                         </p>
                                     ) : connection === undefined &&
                                       channel.execution.kind === 'built_in' &&
-                                      connectionKind === 'instagram' ? (
+                                      definition?.connectionHint !== undefined ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
-                                            {m.publisher_instagram_professional_account()}
+                                            {definition.connectionHint()}
                                         </p>
                                     ) : connection === undefined &&
                                       channel.execution.kind === 'built_in' &&
-                                      ![
-                                          'linkedin',
-                                          'bluesky',
-                                          'mastodon',
-                                          'discord',
-                                          'telegram',
-                                          'facebook',
-                                          'instagram',
-                                          'devto',
-                                          'x',
-                                      ].includes(connectionKind) ? (
+                                      definition === undefined ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
                                             {m.publisher_unsupported_contract()}
                                         </p>
                                     ) : connection === undefined ? null : connection.kind !==
                                       'custom_http' ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
-                                            {connection.providerId === 'bluesky'
-                                                ? m.publisher_account({
-                                                      provider: 'Bluesky',
-                                                      account:
-                                                          connection.destination?.name ??
-                                                          connection.externalAccountName ??
-                                                          connection.externalAccountId,
-                                                  })
-                                                : connection.providerId === 'mastodon'
-                                                  ? m.publisher_account({
-                                                        provider: 'Mastodon',
-                                                        account:
-                                                            connection.destination?.name ??
-                                                            connection.externalAccountName ??
-                                                            connection.externalAccountId,
-                                                    })
-                                                  : ['discord', 'telegram'].includes(
-                                                          connection.providerId
-                                                      )
-                                                    ? m.publisher_channel({
-                                                          provider:
-                                                              connection.providerId === 'telegram'
-                                                                  ? 'Telegram'
-                                                                  : 'Discord',
+                                            {providerRegistry
+                                                .get(connection.providerId)
+                                                ?.accountLabel(connection) ??
+                                                (connection.destination?.type === 'organization'
+                                                    ? m.publisher_page({
                                                           account:
-                                                              connection.destination?.name ??
-                                                              connection.destination?.id ??
-                                                              connection.externalAccountId,
+                                                              connection.destination.name ??
+                                                              connection.destination.id,
                                                       })
-                                                    : connection.providerId === 'facebook'
-                                                      ? m.publisher_facebook_page({
-                                                            account:
-                                                                connection.destination?.name ??
-                                                                connection.externalAccountName ??
-                                                                connection.externalAccountId,
-                                                        })
-                                                      : connection.providerId === 'instagram'
-                                                        ? m.publisher_instagram_account({
-                                                              username:
-                                                                  connection.destination?.name ??
-                                                                  connection.externalAccountName ??
-                                                                  connection.externalAccountId,
-                                                          })
-                                                        : connection.providerId === 'devto'
-                                                          ? m.publisher_account({
-                                                                provider: 'DEV.to',
-                                                                account:
-                                                                    connection.destination?.name ??
-                                                                    connection.externalAccountName ??
-                                                                    connection.externalAccountId,
-                                                            })
-                                                          : connection.destination?.type ===
-                                                              'organization'
-                                                            ? m.publisher_page({
-                                                                  account:
-                                                                      connection.destination.name ??
-                                                                      connection.destination.id,
-                                                              })
-                                                            : m.publisher_member({
-                                                                  account:
-                                                                      connection.externalAccountName ??
-                                                                      connection.externalAccountId,
-                                                              })}
+                                                    : m.publisher_member({
+                                                          account:
+                                                              connection.externalAccountName ??
+                                                              connection.externalAccountId,
+                                                      }))}
                                         </p>
                                     ) : null}
                                     {connection !== undefined &&
                                     connection.kind !== 'custom_http' &&
-                                    connection.providerId === 'instagram' ? (
+                                    providerRegistry.get(connection.providerId)?.accountDetails !==
+                                        undefined ? (
                                         <p className="mt-1 break-all text-xs text-muted-foreground">
-                                            {m.publisher_instagram_account_id({
-                                                id:
-                                                    connection.destination?.id ??
-                                                    connection.externalAccountId,
-                                            })}
+                                            {providerRegistry
+                                                .get(connection.providerId)
+                                                ?.accountDetails?.(connection)}
                                         </p>
                                     ) : null}
                                     {connection !== undefined &&
@@ -444,7 +346,7 @@ export function PublisherConnectionPanel({
                             </div>
 
                             {readOnly || channel.state === 'archived' ? null : canConnect &&
-                              oauthProviderIds.includes(connectionKind) &&
+                              isProviderApplicationProvider(connectionKind) &&
                               oauthReadiness[connectionKind as ProviderApplicationProvider] !==
                                   'ready' &&
                               applicationsFor(connectionKind as ProviderApplicationProvider)
@@ -472,109 +374,27 @@ export function PublisherConnectionPanel({
                                         ) : null}
                                     </div>
                                 )
-                            ) : connectionKind === 'facebook' && canConnect ? (
-                                <OAuthConnectionDialog
+                            ) : definition !== undefined && canConnect ? (
+                                <ProviderConnection
+                                    definition={definition}
                                     channel={channel}
-                                    provider="Facebook"
                                     disabled={pending}
                                     reconnect={connection !== undefined}
-                                    applications={applicationsFor('facebook')}
-                                    applicationId={selectedApplicationId('facebook')}
-                                    onApplicationChange={id => selectApplication('facebook', id)}
-                                    onConnect={async () => {
-                                        const result = await api.startFacebookPublisherConnection(
-                                            channel.projectId,
-                                            channel.id,
-                                            selectedApplicationId('facebook')
-                                        )
-                                        window.location.assign(result.url)
-                                    }}
-                                />
-                            ) : connectionKind === 'instagram' && canConnect ? (
-                                <OAuthConnectionDialog
-                                    channel={channel}
-                                    provider="Instagram"
-                                    disabled={pending}
-                                    reconnect={connection !== undefined}
-                                    applications={instagramApplications}
-                                    applicationId={instagramApplicationId}
-                                    onApplicationChange={id => selectApplication('instagram', id)}
-                                    onConnect={async () => {
-                                        const result = await api.startInstagramConnection(
-                                            channel.projectId,
-                                            channel.id,
-                                            instagramApplicationId
-                                        )
-                                        window.location.assign(result.url)
-                                    }}
-                                />
-                            ) : connectionKind === 'linkedin' && canConnect ? (
-                                <OAuthConnectionDialog
-                                    channel={channel}
-                                    provider="LinkedIn"
-                                    disabled={pending}
-                                    reconnect={connection !== undefined}
-                                    applications={linkedInApplications}
-                                    applicationId={linkedInApplicationId}
-                                    onApplicationChange={id => selectApplication('linkedin', id)}
-                                    onConnect={destination =>
-                                        onStartLinkedInConnection(
-                                            channel.id,
-                                            destination,
-                                            linkedInApplicationId
-                                        )
+                                    applications={
+                                        definition.applicationProvider
+                                            ? applicationsFor(definition.applicationProvider)
+                                            : []
                                     }
-                                />
-                            ) : connectionKind === 'bluesky' && canConnect ? (
-                                <BlueskyConnectionDialog
-                                    channel={channel}
-                                    disabled={pending}
-                                    onConnect={onStartBlueskyConnection}
-                                    onProviderApplicationChange={applicationId =>
-                                        selectApplication('bluesky', applicationId)
+                                    applicationId={
+                                        definition.applicationProvider
+                                            ? selectedApplicationId(definition.applicationProvider)
+                                            : undefined
                                     }
-                                    providerApplicationId={blueskyApplicationId}
-                                    providerApplications={blueskyApplications}
-                                    reconnect={connection !== undefined}
-                                />
-                            ) : connectionKind === 'mastodon' && canConnect ? (
-                                <MastodonConnectionDialog
-                                    channel={channel}
-                                    disabled={pending}
-                                    onConnect={onStartMastodonConnection}
-                                    reconnect={connection !== undefined}
-                                />
-                            ) : connectionKind === 'x' && canConnect ? (
-                                <OAuthConnectionDialog
-                                    channel={channel}
-                                    provider="X"
-                                    disabled={pending}
-                                    reconnect={connection !== undefined}
-                                    applications={xApplications}
-                                    applicationId={xApplicationId}
-                                    onApplicationChange={id => selectApplication('x', id)}
-                                    onConnect={() => onStartXConnection(channel.id, xApplicationId)}
-                                />
-                            ) : connectionKind === 'telegram' && canConnect ? (
-                                <TelegramConnectionDialog
-                                    channel={channel}
-                                    disabled={pending}
-                                    onConnect={onConnectTelegramPublisher}
-                                    reconnect={connection !== undefined}
-                                />
-                            ) : connectionKind === 'discord' && canConnect ? (
-                                <DiscordConnectionDialog
-                                    channel={channel}
-                                    disabled={pending}
-                                    onConnect={onConnectDiscordPublisher}
-                                    reconnect={connection !== undefined}
-                                />
-                            ) : connectionKind === 'devto' && canConnect ? (
-                                <DevtoConnectionDialog
-                                    channel={channel}
-                                    disabled={pending}
-                                    onConnect={onConnectDevtoPublisher}
-                                    reconnect={connection !== undefined}
+                                    onApplicationChange={id => {
+                                        if (definition.applicationProvider)
+                                            selectApplication(definition.applicationProvider, id)
+                                    }}
+                                    onConnected={onPublisherConnected}
                                 />
                             ) : channel.execution.kind === 'declarative_http' && canConnect ? (
                                 <CustomHttpConnectionDialog
@@ -610,24 +430,10 @@ export function PublisherConnectionPanel({
     )
 }
 
-/** Providers whose authorization is configured as an installation application. */
-const oauthProviderIds: readonly string[] = ['linkedin', 'bluesky', 'x', 'facebook', 'instagram']
-
+/** Installation application identities are supplied by provider modules. */
 function isProviderApplicationProvider(value: string): value is ProviderApplicationProvider {
-    return oauthProviderIds.includes(value)
+    return providerRegistry.get(value)?.applicationProvider !== undefined
 }
-
 function providerLabel(provider: ProviderApplicationProvider): string {
-    switch (provider) {
-        case 'linkedin':
-            return 'LinkedIn'
-        case 'bluesky':
-            return 'Bluesky'
-        case 'x':
-            return 'X'
-        case 'facebook':
-            return 'Facebook'
-        case 'instagram':
-            return 'Instagram'
-    }
+    return providerRegistry.get(provider)?.name ?? provider
 }

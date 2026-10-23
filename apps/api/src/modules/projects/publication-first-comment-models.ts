@@ -1,5 +1,7 @@
 import { Type, type Static } from 'typebox'
 
+import { providerCommentIds } from '../../providers/registry'
+
 const nullableText = Type.Union([Type.String(), Type.Null()])
 const nullableTime = Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])
 export const publicationFirstCommentItemSchema = Type.Object({
@@ -25,7 +27,7 @@ export const publicationFirstCommentItemSchema = Type.Object({
     authorName: Type.String(),
 })
 export const publicationFirstCommentResponseSchema = Type.Object({
-    providerId: Type.Union([Type.Literal('bluesky'), Type.Literal('mastodon')]),
+    providerId: Type.Enum(providerCommentIds),
     textLimit: Type.Integer({ minimum: 1, maximum: 3000 }),
     instanceOrigin: nullableText,
     firstComment: Type.Union([publicationFirstCommentItemSchema, Type.Null()]),

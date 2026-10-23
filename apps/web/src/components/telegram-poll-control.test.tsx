@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { TelegramPollControl } from './telegram-poll-control'
+import { TelegramPollControl } from '@/providers/telegram/poll-control'
 
 test('offers the poll as an opt-in control that starts with two answers', () => {
     const html = renderToStaticMarkup(

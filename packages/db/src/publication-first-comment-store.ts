@@ -4,6 +4,7 @@ import {
     requireTimestamp,
     type CompleteExternalEffectInput,
     type ExternalEffectExecutorStore,
+    type ProviderCommentPolicy,
 } from '@postdot/core'
 import { and, asc, eq, gt, inArray, lte } from 'drizzle-orm'
 
@@ -14,49 +15,13 @@ import { createEventJournalStore } from './event-journal-store'
 
 /** Longest relative delay a prepared comment may wait after parent confirmation. */
 export const firstCommentMaximumDelaySeconds = 604_800
-/** Longest first comment accepted by the Bluesky contract. */
-export const firstCommentMaximumGraphemes = 300
-/** Longest first comment accepted by the Bluesky contract in UTF-16 code units. */
-export const firstCommentMaximumTextLength = 3_000
-/** Longest first comment accepted by the Mastodon contract in UTF-16 code units. */
-export const firstCommentMaximumMastodonTextLength = 500
-
 const editableStates = ['waiting', 'pending', 'suspended'] as const
 const reconcilableStates = ['waiting', 'pending'] as const
 
-/** The provider that owns a prepared first comment. */
-export type PublicationFirstCommentProvider = 'bluesky' | 'mastodon'
-
-/**
- * The instance-local identity of a Mastodon status.
- *
- * The shape mirrors the Mastodon protocol package so the application can
- * inject its reference parser without the database depending on a provider
- * package.
- */
-export interface MastodonStatusReference {
-    readonly origin: string
-    readonly statusId: string
-    readonly rootUri: string
-}
-
-/**
- * Resolves the instance-local identity of a Mastodon status from the local
- * status identifier and the retained permalink of a publication.
- */
-export type MastodonStatusReferenceResolver = (
-    externalId: string | null,
-    externalUrl: string | null
-) => MastodonStatusReference | null
-
+/** Persisted provider identities are accepted only through the installed policy registry. */
+export type PublicationFirstCommentProvider = string
 export interface PublicationFirstCommentStoreOptions {
-    /**
-     * Parses the retained Mastodon permalink of a published parent into its
-     * instance-local status identity. Without it a Mastodon comment fails
-     * closed instead of waiting for a reference that can never be resolved.
-     * Bluesky comments never use it.
-     */
-    readonly mastodonStatusReference?: MastodonStatusReferenceResolver
+    readonly policies: readonly ProviderCommentPolicy[]
 }
 
 export type PublicationFirstComment = typeof firstComments.$inferSelect
@@ -205,7 +170,7 @@ const nativeReceiptProof = `
 
 export function createPublicationFirstCommentStore(
     database: PostbotDatabase,
-    options: PublicationFirstCommentStoreOptions = {}
+    options: PublicationFirstCommentStoreOptions
 ) {
     const client = database.$client
     const access = createAccessStore(database)
@@ -346,7 +311,6 @@ export function createPublicationFirstCommentStore(
           and channel_profile_versions.state <> 'disabled'
           and channel_profile_versions.origin = 'built_in'
           and json_extract(channel_profile_versions.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(channel_profile_versions.profile_json, '$.execution.contractId') in ('bluesky', 'mastodon')
     `)
     const nextEventStatement = client.query<{ readonly eventAt: number | null }, [number]>(`
         select min(event_at) as eventAt
@@ -424,27 +388,9 @@ export function createPublicationFirstCommentStore(
         channelId: string
     ): PublicationFirstCommentProvider | null {
         const contractId = nativeChannelProviderStatement.get(projectId, channelId)?.contractId
-        return contractId === 'bluesky' || contractId === 'mastodon' ? contractId : null
+        return options.policies.find(policy => policy.id === contractId)?.id ?? null
     }
 
-    /**
-     * Resolves the instance-local identity of a Mastodon parent through the
-     * injected protocol parser. A missing or failing parser resolves to
-     * nothing, so the caller fails the comment closed instead of waiting for
-     * a reference that can never be bound.
-     */
-    function resolveMastodonReference(
-        externalId: string | null,
-        externalUrl: string | null
-    ): MastodonStatusReference | null {
-        const resolver = options.mastodonStatusReference
-        if (resolver === undefined) return null
-        try {
-            return resolver(externalId, externalUrl)
-        } catch {
-            return null
-        }
-    }
     function event(
         rowValue: PublicationFirstComment,
         name: string,
@@ -499,7 +445,9 @@ export function createPublicationFirstCommentStore(
         ) {
             return 'The confirmed publication receipt is incomplete'
         }
-        if (rowValue.providerId === 'mastodon' && rowValue.instanceOrigin === null) {
+        const policy = options.policies.find(candidate => candidate.id === rowValue.providerId)
+        if (!policy) return 'The original provider is no longer available'
+        if (policy.requiresInstanceOrigin && rowValue.instanceOrigin === null) {
             return 'The confirmed publication receipt is incomplete'
         }
         const receipt = loadPinnedReceiptStatement.get(
@@ -511,23 +459,17 @@ export function createPublicationFirstCommentStore(
         if (receipt === null || receipt.publishedAt !== publication.publishedAt) {
             return 'The confirmed publication receipt is no longer available'
         }
-        if (rowValue.providerId === 'mastodon') {
-            // The parent is re-resolved from its current permalink so a
-            // republished or moved status is never followed silently.
-            const current = resolveMastodonReference(
-                publication.externalId,
-                publication.externalUrl
-            )
-            if (
-                current === null ||
-                current.rootUri !== rowValue.rootUri ||
-                current.origin !== rowValue.instanceOrigin
-            ) {
-                return 'The confirmed parent publication changed'
-            }
-        } else if (publication.externalId !== rowValue.rootUri) {
+        const currentParent = policy.resolveParent({
+            externalId: publication.externalId,
+            externalUrl: publication.externalUrl,
+            receiptExternalId: publication.externalId,
+        })
+        if (
+            !currentParent ||
+            currentParent.rootUri !== rowValue.rootUri ||
+            currentParent.instanceOrigin !== rowValue.instanceOrigin
+        )
             return 'The confirmed parent publication changed'
-        }
         const credential = loadCredentialStatement.get(rowValue.projectId, rowValue.credentialId)
         if (
             credential === null ||
@@ -535,9 +477,6 @@ export function createPublicationFirstCommentStore(
             credential.externalAccountId !== rowValue.accountId ||
             credential.state !== 'active'
         ) {
-            return 'The original account is no longer available'
-        }
-        if (rowValue.providerId === 'mastodon' && !hasWriteScope(credential.scopes)) {
             return 'The original account is no longer available'
         }
         const connection = loadConnectionStatement.get(rowValue.projectId, rowValue.connectionId)
@@ -552,18 +491,16 @@ export function createPublicationFirstCommentStore(
         ) {
             return 'The original connection is no longer available'
         }
-        if (
-            rowValue.providerId === 'mastodon' &&
-            connection.endpointUrl !== rowValue.instanceOrigin
-        ) {
-            return 'The original connection is no longer available'
-        }
-        if (
-            rowValue.providerId === 'bluesky' &&
-            accountDidFromRootUri(rowValue.rootUri) !== rowValue.accountId
-        ) {
+        const failure = policy.identityFailure(currentParent, {
+            accountId: rowValue.accountId,
+            endpointUrl: connection.endpointUrl,
+            scopes: credential.scopes,
+        })
+        if (failure === 'connection') return 'The original connection is no longer available'
+        if (failure === 'authorization') return 'The original account is no longer available'
+        if (failure === 'account')
             return 'The confirmed publication does not belong to the connected account'
-        }
+
         return null
     }
 
@@ -900,12 +837,10 @@ export function createPublicationFirstCommentStore(
                     publication === null
                         ? null
                         : nativeProviderForChannel(projectId, publication.channelId)
-                // A configured comment keeps the provider it was pinned to. A
-                // new one adopts the provider of the channel it will publish
-                // on, and an unknown provider falls back to the strictest
-                // text envelope until the configuration is refused.
-                const providerId = existing?.providerId ?? channelProvider ?? 'bluesky'
-                const text = normalizeText(input.text, providerId)
+                const providerId = existing?.providerId ?? channelProvider
+                const policy = options.policies.find(candidate => candidate.id === providerId)
+                if (!policy) return { kind: 'conflict' }
+                const text = policy.normalizeText(input.text)
                 if (existing === null) {
                     if (expectedRevision !== 0) return { kind: 'conflict' }
                     if (publication === null) return { kind: 'not_found' }
@@ -1137,109 +1072,65 @@ export function createPublicationFirstCommentStore(
                             current.providerId
                         )
                         if (receipt === null) continue
-                        if (current.providerId === 'mastodon') {
-                            // The Mastodon receipt carries no account identity:
-                            // the local status is resolved from the retained
-                            // permalink and bound to the instance that owns it.
-                            const reference = resolveMastodonReference(
-                                publication.externalId,
-                                publication.externalUrl
-                            )
-                            if (reference === null) {
-                                failWaiting('The confirmed publication could not be resolved')
-                                continue
-                            }
-                            const identity = loadReceiptIdentityStatement.get(
-                                current.projectId,
-                                publication.channelId,
-                                current.providerId
-                            )
-                            if (identity === null) {
-                                failWaiting('The original connection is no longer available')
-                                continue
-                            }
-                            if (identity.credentialState !== 'active') {
-                                failWaiting('The original account is no longer available')
-                                continue
-                            }
-                            if (identity.endpointUrl !== reference.origin) {
-                                failWaiting('The original connection is no longer available')
-                                continue
-                            }
-                            if (!hasWriteScope(identity.scopes)) {
-                                failWaiting('The original account is no longer available')
-                                continue
-                            }
-                            const bound = transition(
-                                current,
-                                {
-                                    state: 'pending',
-                                    dueAt: receipt.publishedAt + current.delaySeconds * 1_000,
-                                    rootUri: reference.rootUri,
-                                    instanceOrigin: reference.origin,
-                                    executionRevisionId: receipt.executionRevisionId,
-                                    connectionId: identity.connectionId,
-                                    credentialId: identity.credentialId,
-                                    accountId: identity.accountId,
-                                    updatedAt: timestamp,
-                                    lastError: null,
-                                },
-                                'publication_first_comment.armed',
-                                timestamp
-                            )
-                            if (bound === null) continue
-                            armed = bound
-                        } else {
-                            const rootUri = receipt.externalId
-                            if (rootUri === null || rootUri.trim().length === 0) {
-                                failWaiting('The confirmed publication receipt is incomplete')
-                                continue
-                            }
-                            const accountDid = accountDidFromRootUri(rootUri)
-                            if (accountDid === null) {
-                                failWaiting(
-                                    'The confirmed publication does not belong to the connected account'
-                                )
-                                continue
-                            }
-                            const identity = loadReceiptIdentityStatement.get(
-                                current.projectId,
-                                publication.channelId,
-                                current.providerId
-                            )
-                            if (identity === null) {
-                                failWaiting('The original connection is no longer available')
-                                continue
-                            }
-                            if (identity.credentialState !== 'active') {
-                                failWaiting('The original account is no longer available')
-                                continue
-                            }
-                            if (identity.accountId !== accountDid) {
-                                failWaiting(
-                                    'The confirmed publication does not belong to the connected account'
-                                )
-                                continue
-                            }
-                            const bound = transition(
-                                current,
-                                {
-                                    state: 'pending',
-                                    dueAt: receipt.publishedAt + current.delaySeconds * 1_000,
-                                    rootUri,
-                                    executionRevisionId: receipt.executionRevisionId,
-                                    connectionId: identity.connectionId,
-                                    credentialId: identity.credentialId,
-                                    accountId: identity.accountId,
-                                    updatedAt: timestamp,
-                                    lastError: null,
-                                },
-                                'publication_first_comment.armed',
-                                timestamp
-                            )
-                            if (bound === null) continue
-                            armed = bound
+                        const policy = options.policies.find(
+                            candidate => candidate.id === current.providerId
+                        )
+                        if (!policy) {
+                            failWaiting('The original provider is no longer available')
+                            continue
                         }
+                        const parent = policy.resolveParent({
+                            externalId: publication.externalId,
+                            externalUrl: publication.externalUrl,
+                            receiptExternalId: receipt.externalId,
+                        })
+                        if (!parent) {
+                            failWaiting('The confirmed publication could not be resolved')
+                            continue
+                        }
+                        const identity = loadReceiptIdentityStatement.get(
+                            current.projectId,
+                            publication.channelId,
+                            current.providerId
+                        )
+                        if (!identity) {
+                            failWaiting('The original connection is no longer available')
+                            continue
+                        }
+                        if (identity.credentialState !== 'active') {
+                            failWaiting('The original account is no longer available')
+                            continue
+                        }
+                        const identityFailure = policy.identityFailure(parent, identity)
+                        if (identityFailure) {
+                            failWaiting(
+                                identityFailure === 'connection'
+                                    ? 'The original connection is no longer available'
+                                    : identityFailure === 'authorization'
+                                      ? 'The original account is no longer available'
+                                      : 'The confirmed publication does not belong to the connected account'
+                            )
+                            continue
+                        }
+                        const bound = transition(
+                            current,
+                            {
+                                state: 'pending',
+                                dueAt: receipt.publishedAt + current.delaySeconds * 1000,
+                                rootUri: parent.rootUri,
+                                instanceOrigin: parent.instanceOrigin,
+                                executionRevisionId: receipt.executionRevisionId,
+                                connectionId: identity.connectionId,
+                                credentialId: identity.credentialId,
+                                accountId: identity.accountId,
+                                updatedAt: timestamp,
+                                lastError: null,
+                            },
+                            'publication_first_comment.armed',
+                            timestamp
+                        )
+                        if (!bound) continue
+                        armed = bound
                     }
                     const failureReason = identityFailureReason(armed)
                     if (failureReason !== null) {
@@ -1293,50 +1184,6 @@ function isEditableState(state: PublicationFirstCommentState): boolean {
     return (editableStates as readonly string[]).includes(state)
 }
 
-/**
- * Validates the comment text against the envelope of its provider.
- *
- * Bluesky keeps its grapheme and UTF-16 limits. Mastodon accepts the
- * conservative reply envelope of 500 UTF-16 code units.
- */
-function normalizeText(value: string, providerId: PublicationFirstCommentProvider): string {
-    const text = requireNonBlank(value, 'first comment text')
-    const maximumTextLength =
-        providerId === 'mastodon'
-            ? firstCommentMaximumMastodonTextLength
-            : firstCommentMaximumTextLength
-    if (text.length > maximumTextLength) {
-        throw new DomainInvariantError(
-            'invalid_input',
-            `first comment text must not exceed ${String(maximumTextLength)} UTF-16 code units`
-        )
-    }
-    if (providerId === 'bluesky' && graphemeCount(text) > firstCommentMaximumGraphemes) {
-        throw new DomainInvariantError(
-            'invalid_input',
-            `first comment text must not exceed ${String(firstCommentMaximumGraphemes)} graphemes`
-        )
-    }
-    return text
-}
-
-/**
- * Reports whether a credential is still allowed to publish statuses.
- *
- * A Mastodon credential needs either the broad write scope or the status
- * write scope; anything else can never publish a comment.
- */
-function hasWriteScope(scopes: string): boolean {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(scopes)
-    } catch {
-        return false
-    }
-    if (!Array.isArray(parsed)) return false
-    return parsed.some(scope => scope === 'write' || scope === 'write:statuses')
-}
-
 function normalizeDelaySeconds(value: number): number {
     if (!Number.isSafeInteger(value) || value < 0 || value > firstCommentMaximumDelaySeconds) {
         throw new DomainInvariantError(
@@ -1364,20 +1211,4 @@ function computeDueAt(
 ): number | null {
     if (publishedAt === null) return fallback
     return publishedAt + delaySeconds * 1_000
-}
-
-function graphemeCount(value: string): number {
-    return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)].length
-}
-
-/**
- * Extracts the account identifier of an AT Protocol record URI so a prepared
- * comment can prove it belongs to the connected account.
- */
-function accountDidFromRootUri(rootUri: string): string | null {
-    if (!rootUri.startsWith('at://')) return null
-    const remainder = rootUri.slice('at://'.length)
-    const separator = remainder.indexOf('/')
-    if (separator <= 0) return null
-    return remainder.slice(0, separator)
 }

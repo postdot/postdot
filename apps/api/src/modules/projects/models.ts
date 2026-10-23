@@ -34,6 +34,7 @@ import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
 
+import { serverProviders } from '../../providers/registry'
 import { resolveBuiltInChannelProfile } from './channel-profile-presets'
 
 const { createSelectSchema: createDrizzleSelectSchema } = createSchemaFactory({
@@ -658,16 +659,7 @@ export const createChannelBody = Type.Object({
     name: Type.String({ minLength: 1 }),
     profile: Type.Optional(
         Type.Union([
-            Type.Literal('manual-message'),
-            Type.Literal('linkedin'),
-            Type.Literal('bluesky'),
-            Type.Literal('mastodon'),
-            Type.Literal('discord'),
-            Type.Literal('telegram'),
-            Type.Literal('facebook'),
-            Type.Literal('instagram'),
-            Type.Literal('devto'),
-            Type.Literal('x'),
+            Type.Enum(['manual-message' as const, ...serverProviders.map(provider => provider.id)]),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
@@ -860,73 +852,6 @@ export const publisherConnectionSchema = Type.Object({
 
 export type PublisherConnectionResponse = Static<typeof publisherConnectionSchema>
 
-export const linkedInConnectionSchema = Type.Object({
-    provider: Type.Literal('linkedin'),
-    scopes: Type.Array(Type.String({ minLength: 1 })),
-    authorizationUrl: Type.String({ minLength: 1 }),
-})
-
-export const linkedInConnectionBody = Type.Object({
-    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-    destination: Type.Optional(
-        Type.Union([
-            Type.Object({ type: Type.Literal('member') }),
-            Type.Object({
-                type: Type.Literal('organization'),
-                id: Type.String({ minLength: 1, maxLength: 64 }),
-            }),
-        ])
-    ),
-})
-
-export const blueskyConnectionSchema = Type.Object({
-    provider: Type.Literal('bluesky'),
-    scopes: Type.Array(Type.String({ minLength: 1 })),
-    authorizationUrl: Type.String({ minLength: 1 }),
-})
-
-export const blueskyConnectionBody = Type.Object({
-    handle: Type.String({ minLength: 1, maxLength: 253 }),
-    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-})
-
-export const mastodonConnectionSchema = Type.Object({
-    provider: Type.Literal('mastodon'),
-    scopes: Type.Array(Type.String({ minLength: 1 })),
-    authorizationUrl: Type.String({ minLength: 1 }),
-})
-
-export const mastodonConnectionBody = Type.Object({
-    instanceUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
-})
-
-export const discordConnectionBody = Type.Object({
-    botToken: Type.String({ minLength: 32, maxLength: 4_096, writeOnly: true }),
-    channelId: Type.String({ minLength: 17, maxLength: 20 }),
-})
-
-export const discordConnectionResponse = Type.Object({
-    connection: publisherConnectionSchema,
-})
-
-export const devtoConnectionBody = Type.Object({
-    apiKey: Type.String({ minLength: 1, maxLength: 4_096, writeOnly: true }),
-})
-
-export const devtoConnectionResponse = Type.Object({
-    connection: publisherConnectionSchema,
-})
-
-export const xConnectionSchema = Type.Object({
-    provider: Type.Literal('x'),
-    scopes: Type.Array(Type.String({ minLength: 1 })),
-    authorizationUrl: Type.String({ minLength: 1 }),
-})
-
-export const xConnectionBody = Type.Object({
-    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-})
-
 export const customHttpConnectionBody = Type.Object({
     endpointUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
     authentication: Type.Union([
@@ -991,9 +916,3 @@ export const errorResponse = Type.Object({
         message: Type.String(),
     }),
 })
-
-export const telegramConnectionBody = Type.Object({
-    botToken: Type.String({ minLength: 1, maxLength: 512, writeOnly: true }),
-    chatReference: Type.String({ minLength: 1, maxLength: 128 }),
-})
-export const telegramConnectionResponse = Type.Object({ connection: publisherConnectionSchema })

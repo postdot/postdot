@@ -1,6 +1,7 @@
 import type { AccessStore } from '@postdot/db'
 import { Type, type Static } from 'typebox'
 
+import { providerCommentIds } from '../../providers/registry'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import { errorResponse, publicationParams } from './models'
 import type { PublicationRepliesService } from './publication-replies-service'
@@ -30,7 +31,7 @@ export const publicationRepliesResponseSchema = Type.Object({
     nextBefore: nullableText,
     canReply: Type.Boolean(),
     accountName: nullableText,
-    provider: Type.Union([Type.Literal('bluesky'), Type.Literal('mastodon')]),
+    provider: Type.Enum(providerCommentIds),
     textLimit: Type.Integer(),
     instanceOrigin: nullableText,
 })

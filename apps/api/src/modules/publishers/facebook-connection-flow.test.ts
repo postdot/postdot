@@ -17,7 +17,7 @@ import {
     FACEBOOK_PUBLISH_PERMISSIONS,
 } from '@postdot/facebook'
 
-import { createFacebookConnectionFlow } from './facebook-connection-flow'
+import { createFacebookConnectionFlow } from '../../providers/facebook/connection-flow'
 
 const callbackUri = 'https://postbot.example/api/oauth/facebook/callback'
 type PermissionMode = 'granted' | 'declined' | 'missing' | 'revoked'

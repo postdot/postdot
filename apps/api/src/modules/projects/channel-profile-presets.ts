@@ -1,13 +1,6 @@
-import { blueskyChannelProfile } from '@postdot/bluesky'
 import { createManualChannelProfile, type ChannelProfilePreset } from '@postdot/core'
-import { devtoChannelProfile } from '@postdot/devto'
-import { discordChannelProfile } from '@postdot/discord'
-import { facebookChannelProfile } from '@postdot/facebook'
-import { instagramChannelProfile } from '@postdot/instagram'
-import { linkedinChannelProfile } from '@postdot/linkedin'
-import { mastodonChannelProfile } from '@postdot/mastodon'
-import { telegramChannelProfile } from '@postdot/telegram'
-import { xChannelProfile } from '@postdot/x'
+
+import { serverProviders } from '../../providers/registry'
 
 function presetFor(profile: ChannelProfilePreset['profile']): ChannelProfilePreset {
     return {
@@ -24,15 +17,7 @@ function presetFor(profile: ChannelProfilePreset['profile']): ChannelProfilePres
  */
 export const builtInChannelProfilePresets = [
     presetFor(createManualChannelProfile()),
-    presetFor(linkedinChannelProfile),
-    presetFor(blueskyChannelProfile),
-    presetFor(mastodonChannelProfile),
-    presetFor(discordChannelProfile),
-    presetFor(telegramChannelProfile),
-    presetFor(facebookChannelProfile),
-    presetFor(instagramChannelProfile),
-    presetFor(devtoChannelProfile),
-    presetFor(xChannelProfile),
+    ...serverProviders.map(provider => presetFor(provider.profile)),
 ] as const satisfies readonly ChannelProfilePreset[]
 
 const builtInProfilesById = new Map(

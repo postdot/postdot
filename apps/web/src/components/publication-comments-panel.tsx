@@ -9,6 +9,7 @@ import {
 import { api, ApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
+import { providerRegistry } from '@/providers/registry'
 
 export function PublicationCommentsPanel({
     provider,
@@ -18,7 +19,7 @@ export function PublicationCommentsPanel({
     timeZone,
     onAccessRefused,
 }: {
-    readonly provider: 'bluesky' | 'mastodon'
+    readonly provider: string
     readonly projectId: string
     readonly publicationId: string
     readonly canRefresh: boolean
@@ -47,7 +48,7 @@ export function PublicationCommentsPanel({
                 onAccessRefused?.()
         },
     })
-    const platform = { platform: provider === 'mastodon' ? 'Mastodon' : 'Bluesky' }
+    const platform = { platform: providerRegistry.get(provider)?.name ?? provider }
     const snapshot = query.data?.snapshot
     const date = (timestamp: number) =>
         new Intl.DateTimeFormat(locale, {
@@ -220,22 +221,18 @@ export function PublicationCommentsPanel({
     )
 }
 
-function commentLinkAllowed(
-    url: string | null,
-    provider: 'bluesky' | 'mastodon',
-    rootUri: string
-): url is string {
+function commentLinkAllowed(url: string | null, provider: string, rootUri: string): url is string {
     if (url === null) return false
-    if (provider === 'bluesky') return url.startsWith('https://bsky.app/')
-    try {
-        const link = new URL(url)
-        return (
-            link.protocol === 'https:' &&
-            !link.username &&
-            !link.password &&
-            link.origin === new URL(rootUri).origin
-        )
-    } catch {
-        return false
-    }
+    return (
+        providerRegistry.get(provider)?.comments?.linkAllowed(
+            url,
+            (() => {
+                try {
+                    return new URL(rootUri).origin
+                } catch {
+                    return null
+                }
+            })()
+        ) ?? false
+    )
 }

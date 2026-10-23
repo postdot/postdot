@@ -9,16 +9,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@postdot/ui/components/select'
-import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@postdot/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { lazy, Suspense, useEffect, useState } from 'react'
 
-import { MastodonPollControl } from '@/components/mastodon-poll-control'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
-import { TelegramPollControl } from '@/components/telegram-poll-control'
-import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { countComposerText } from '@/lib/composer-text-constraints'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -30,6 +26,8 @@ import {
     unsetTargetFieldValue,
 } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
+import { ProviderFieldControl } from '@/providers/field-control'
+import { providerField, providerTextRule } from '@/providers/registry'
 
 const ConfiguredEditor = lazy(() =>
     import('./configured-publication-editor').then(module => ({
@@ -63,10 +61,11 @@ export function TargetFieldControl({
     const { locale } = useLanguage()
     const errorId = error ? `${fieldId}-error` : undefined
     const errorNode = error ? <FieldError id={errorId}>{error}</FieldError> : null
-    const weightedLimit =
-        field.weightedLengthAlgorithm === X_TEXT_COUNTING_ALGORITHM ? field.maxWeightedLength : null
+    const textRule = providerTextRule(field.weightedLengthAlgorithm)
+    const TextCount = textRule?.Count
+    const weightedLimit = textRule ? field.maxWeightedLength : null
     const weightedText =
-        weightedLimit === null ? null : parseXPostText(typeof value === 'string' ? value : '')
+        weightedLimit === null ? null : textRule!.parse(typeof value === 'string' ? value : '')
     const weightedTextInvalid =
         weightedText !== null &&
         typeof value === 'string' &&
@@ -81,20 +80,11 @@ export function TargetFieldControl({
             ? null
             : fieldDescription(field, locale)
 
-    if (field.kind === 'mastodon-poll')
+    const extension = providerField(field.kind)
+    if (extension)
         return (
-            <MastodonPollControl
-                fieldId={fieldId}
-                value={value}
-                disabled={disabled}
-                onChange={onChange}
-                error={error}
-            />
-        )
-
-    if (field.kind === 'telegram-poll')
-        return (
-            <TelegramPollControl
+            <ProviderFieldControl
+                definition={extension}
                 fieldId={fieldId}
                 value={value}
                 disabled={disabled}
@@ -218,8 +208,8 @@ export function TargetFieldControl({
                                     constraint={nativeConstraint}
                                 />
                             ) : null}
-                            {weightedText !== null ? (
-                                <XWeightedTextCount
+                            {weightedText !== null && TextCount ? (
+                                <TextCount
                                     id={`${fieldId}-weighted-count`}
                                     invalid={weightedTextInvalid}
                                     result={weightedText}

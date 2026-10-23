@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { TelegramPollPreview } from './telegram-poll-preview'
+import { TelegramPollPreview } from '@/providers/telegram/poll-preview'
 
 test('previews the answers, the closing period and the anonymity of a poll', () => {
     const html = renderToStaticMarkup(
