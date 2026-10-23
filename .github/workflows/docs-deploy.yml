@@ -41,8 +41,10 @@ jobs:
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
                   POSTBOT_SITE_URL: ${{ vars.POSTBOT_SITE_URL }}
+                  POSTBOT_UMAMI_URL: ${{ vars.POSTBOT_UMAMI_URL }}
+                  POSTBOT_UMAMI_ID: ${{ vars.POSTBOT_UMAMI_ID }}
               run: |
-                  for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID POSTBOT_SITE_URL; do
+                  for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID POSTBOT_SITE_URL POSTBOT_UMAMI_URL POSTBOT_UMAMI_ID; do
                       if [ -z "${!name}" ]; then
                           echo "::error::$name is not set"
                           exit 1
@@ -53,6 +55,8 @@ jobs:
               working-directory: apps/docs
               env:
                   POSTBOT_SITE_URL: ${{ vars.POSTBOT_SITE_URL }}
+                  POSTBOT_UMAMI_URL: ${{ vars.POSTBOT_UMAMI_URL }}
+                  POSTBOT_UMAMI_ID: ${{ vars.POSTBOT_UMAMI_ID }}
               run: bun run build
 
             - name: Deploy

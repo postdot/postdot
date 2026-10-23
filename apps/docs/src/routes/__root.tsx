@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 
 import { Providers, PublicThemeScript } from '@/components/providers'
 import { PublicError } from '@/components/public-error'
-import { siteDescription } from '@/lib/social-metadata'
+import { siteDescription, siteUrl } from '@/lib/social-metadata'
+import { umamiEnabled, umamiId, umamiUrl } from '@/lib/umami'
 
 import appCss from '@/styles/globals.css?url'
 
@@ -33,6 +34,30 @@ function RootDocument({ children }: { children: ReactNode }) {
             </head>
             <body>
                 <Providers>{children}</Providers>
+                {umamiEnabled ? (
+                    <>
+                        <script
+                            defer
+                            src="/p.js"
+                            data-website-id={umamiId}
+                            data-host-url={umamiUrl}
+                            data-domains={new URL(siteUrl).hostname}
+                            data-do-not-track="true"
+                            data-performance="true"
+                        />
+                        <script
+                            defer
+                            src="/r.js"
+                            data-website-id={umamiId}
+                            data-host-url={umamiUrl}
+                            data-domains={new URL(siteUrl).hostname}
+                            data-do-not-track="true"
+                            data-sample-rate="0.15"
+                            data-mask-level="moderate"
+                            data-max-duration="300000"
+                        />
+                    </>
+                ) : null}
                 <Scripts />
             </body>
         </html>

@@ -22,6 +22,7 @@ async function run(command: string[], capture = false) {
 
 await rm('dist', { recursive: true, force: true })
 await run(['bun', 'run', 'sync:content'])
+await run(['bun', 'run', 'sync:umami'])
 await run(['bun', 'run', 'generate:og'])
 await run(['bunx', '--bun', 'vite', 'build'], true)
 const output = await Bun.file(log).text()
