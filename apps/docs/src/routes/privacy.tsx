@@ -43,11 +43,11 @@ function Privacy() {
 
             <h2>Session replay and heatmaps (only if you allow it)</h2>
             <p>
-                If you choose Allow in the banner, about 15 percent of sessions may be recorded with
-                the same instance: page views, clicks, scrolling and mouse movement. The text you
-                type is masked before it leaves your browser. Recordings are used to find confusing
-                pages and are not shared. If you choose Decline, or do not answer, none of this
-                runs.
+                If you accept all, or turn on Analytics in the cookie settings, about 15 percent of
+                sessions may be recorded with the same instance: page views, clicks, scrolling and
+                mouse movement. The text you type is masked before it leaves your browser.
+                Recordings are used to find confusing pages and are not shared. If you decline, or
+                do not answer, none of this runs.
             </p>
             <p>
                 Your choice is stored in a cookie named <code>postdot-consent</code> for 12 months.
