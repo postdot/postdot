@@ -81,7 +81,7 @@ export function PublicFooter() {
                 <Link href="/legal">Legal notice</Link>
                 <Link href="/privacy">Privacy</Link>
                 <button type="button" className="home-footer-link" onClick={requestConsentPrompt}>
-                    Analytics settings
+                    Cookie settings
                 </button>
             </div>
             <div className="home-footer-signature" aria-hidden="true">
