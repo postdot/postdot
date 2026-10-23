@@ -15,6 +15,7 @@ import { Route as ApiSearchRouteImport } from './routes/api-search'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full-txt'
 import { Route as LlmsTxtRouteImport } from './routes/llms-txt'
+import { Route as SitemapXmlRouteImport } from './routes/sitemap-xml'
 import { Route as UsageStudyRouteImport } from './routes/usage-study'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
@@ -51,6 +52,11 @@ const LlmsTxtRoute = LlmsTxtRouteImport.update({
   path: '/llms-txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapXmlRoute = SitemapXmlRouteImport.update({
+  id: '/sitemap-xml',
+  path: '/sitemap-xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsageStudyRoute = UsageStudyRouteImport.update({
   id: '/usage-study',
   path: '/usage-study',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/docs': typeof DocsRouteWithChildren
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/sitemap-xml': typeof SitemapXmlRoute
   '/usage-study': typeof UsageStudyRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/': typeof DocsIndexRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/api-search': typeof ApiSearchRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/sitemap-xml': typeof SitemapXmlRoute
   '/usage-study': typeof UsageStudyRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs': typeof DocsIndexRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/docs': typeof DocsRouteWithChildren
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/sitemap-xml': typeof SitemapXmlRoute
   '/usage-study': typeof UsageStudyRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/': typeof DocsIndexRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/sitemap-xml'
     | '/usage-study'
     | '/docs/$'
     | '/docs/'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/api-search'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/sitemap-xml'
     | '/usage-study'
     | '/docs/$'
     | '/docs'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/sitemap-xml'
     | '/usage-study'
     | '/docs/$'
     | '/docs/'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   DocsRoute: typeof DocsRouteWithChildren
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
+  SitemapXmlRoute: typeof SitemapXmlRoute
   UsageStudyRoute: typeof UsageStudyRoute
   LlmsPageDocsSplatRoute: typeof LlmsPageDocsSplatRoute
   LlmsPageDocsIndexRoute: typeof LlmsPageDocsIndexRoute
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       path: '/llms-txt'
       fullPath: '/llms-txt'
       preLoaderRoute: typeof LlmsTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap-xml': {
+      id: '/sitemap-xml'
+      path: '/sitemap-xml'
+      fullPath: '/sitemap-xml'
+      preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/usage-study': {
@@ -270,6 +290,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsRoute: DocsRouteWithChildren,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
+  SitemapXmlRoute: SitemapXmlRoute,
   UsageStudyRoute: UsageStudyRoute,
   LlmsPageDocsSplatRoute: LlmsPageDocsSplatRoute,
   LlmsPageDocsIndexRoute: LlmsPageDocsIndexRoute,
