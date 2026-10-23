@@ -87,7 +87,7 @@
 .capability-workspace-label > span:last-child {
     font-size: 10px;
     margin-left: auto;
-    color: #66738b;
+    color: #5a677f;
 }
 .capability-folders {
     position: absolute;
@@ -349,7 +349,7 @@
     letter-spacing: -0.035em;
 }
 .capability-greetings > span:nth-child(2) {
-    color: #777;
+    color: #6b6b6b;
 }
 .capability-greetings > span[lang='ar'] {
     font-family: 'Noto Sans Arabic', Tahoma, Arial, sans-serif;

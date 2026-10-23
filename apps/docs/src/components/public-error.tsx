@@ -16,6 +16,9 @@ export function PublicError({
 }) {
     return (
         <div className="public-home home-error-page">
+            <title>
+                {notFound ? 'Page not found | Postdot' : 'Something went wrong | Postdot'}
+            </title>
             <PublicHeader />
             <main id="main-content" tabIndex={-1} className="home-error-main">
                 <div className="home-error-code" aria-hidden="true">

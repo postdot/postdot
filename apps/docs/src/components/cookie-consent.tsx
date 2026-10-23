@@ -53,7 +53,13 @@ export function CookieConsent() {
             onOpenChange={next => {
                 if (!next && consent !== null) setView(null)
             }}>
-            <SheetContent side="bottom" overlay={false} showCloseButton={false} className="consent">
+            <SheetContent
+                side="bottom"
+                overlay={false}
+                showCloseButton={false}
+                // Do not take focus from the page on arrival; do take it when the reader asks.
+                initialFocus={consent !== null}
+                className="consent">
                 <ConsentPanel
                     view={view ?? 'intro'}
                     initial={consent ?? { analytics: false }}
