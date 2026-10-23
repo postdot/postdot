@@ -10,7 +10,7 @@ prerendered Fumadocs index. Motion is optional presentation and respects reduced
 before developing, typechecking, or building.
 
 The landing page is a design candidate, not an accepted replacement for the
-application design system. Do not publish the site or invent release claims.
+application design system. Do not invent release claims.
 
 The owner rejected the SITE-403 landing sections and copy as filler. They are
 not approved public messaging. Never use Unicode arrows instead of Solar icons.
@@ -27,8 +27,11 @@ still exits 0, so `scripts/build.ts` checks the log. A CommonJS dependency impor
 by name is the usual cause; use its default import. `vite.config.ts` dedupes the
 Fumadocs packages and React, otherwise links silently become full page loads (bun
 installs several copies of `fumadocs-core`, and `tsconfig.json` pins one for types).
-The site is not indexable yet: `public/_headers`, `public/robots.txt` and the root
-route's `robots` meta say so.
+The site is live at postdot.app and indexable; `/usage-study` stays `noindex`.
+Feedback goes through the Worker in `worker/` to GitHub discussions (GitHub App
+`postdot-docs`, secret `GITHUB_APP_PRIVATE_KEY` set with `wrangler secret put`
+from a file, never pasted). Deploys run from `main` in CI; do not deploy from a
+stale checkout.
 
 Section headings use a title and, when useful, one short description. Do not add
 eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).
