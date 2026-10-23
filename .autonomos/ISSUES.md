@@ -4490,7 +4490,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Large shared modules increase review and regression cost, and re-render scope. Duplicated client typing can drift from the API contract. Prototype surfaces ship to users.
 - Desired outcome: Data loading and mutations are scoped to the routes and features that need them, the typed client is used without a parallel hand-maintained contract, the client data layer is a deliberate single choice, and prototype surfaces are either removed or excluded from production.
 - Related: ISSUE-185, ADR-047, ADR-057
-- Tasks: none
+- Tasks: WEB-557 (development-only prototype slice; broader structure remains open).
+
+- Partial resolution (2026-10-23): WEB-557 gates the realtime prototype to development, redirects production access to the same project overview and conditionally imports the experimental component so production assets omit it. Both browser modes, an audit of 173 production JavaScript assets, 283 web tests and static gates pass. The wider data-loading, typed-client and dependency-boundary questions remain open. [Evidence](worklogs/2026-10-23-WEB-557.md).
 
 ## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
 
