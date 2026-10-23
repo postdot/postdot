@@ -4532,6 +4532,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Assessment (2026-10-23): FOUND-570 corrects the production exposure: TanStack DB is development-only and TypeScript 7.0.2 is a stable compiler. Elysia remains an experimental multi-package integration; host Bun is canary while CI/image select 1.4.2. ADR-092 proposes one runtime-alignment and exact-pin batch, with stable Bun 1.4.4 qualification prioritized after upstream security fixes, plus explicit risk review and exit paths. No dependency changed. The issue remains open until the owner accepts the positions. [Proposal](decisions/ADR-092-propose-foundation-release-baseline.md).
 
+- Owner clarification (2026-10-23): prereleases are acceptable before users or a stable product release; no additional freeze is justified solely by a prerelease label. The initial exact-pin batch is withdrawn in revised ADR-092. TypeScript has no reproduced issue; TanStack DB's prototype-only use is not a production restriction. Stable Bun updates should be reviewed approximately every one to two weeks, with validation and runtime alignment. No dependency changed.
+
 ## [ISSUE-190] Tier providers by self-hosting setup friction
 
 - Type: proposal
