@@ -96,6 +96,15 @@ export type WorkspaceInvitation = NonNullable<
     Awaited<ReturnType<WorkspaceRoute['invitations']['get']>>['data']
 >['invitations'][number]
 
+type ProjectRoute = ReturnType<PostbotClient['api']['projects']>
+
+export type ProjectUserGrant = NonNullable<
+    Awaited<ReturnType<ProjectRoute['user-grants']['get']>>['data']
+>['grants'][number]
+export type ProjectTeamGrant = NonNullable<
+    Awaited<ReturnType<ProjectRoute['team-grants']['get']>>['data']
+>['grants'][number]
+
 export type Project = ProjectResponse
 export type ProjectCategory = ProjectCategoryResponse
 export type ProjectTag = ProjectTagResponse
