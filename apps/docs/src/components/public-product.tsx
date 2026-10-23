@@ -1,5 +1,3 @@
-'use client'
-
 import { useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 

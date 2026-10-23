@@ -1,5 +1,3 @@
-'use client'
-
 // cspell:ignore مرحبًا
 
 import bluesky from '@iconify-icons/logos/bluesky'

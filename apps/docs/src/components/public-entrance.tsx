@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect, useRef, type ReactNode } from 'react'
 
 /** Only below-fold content enters. The initial viewport never repositions after hydration. */

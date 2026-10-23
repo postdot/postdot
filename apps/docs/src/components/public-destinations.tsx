@@ -1,5 +1,3 @@
-'use client'
-
 import bluesky from '@iconify-icons/logos/bluesky'
 import discord from '@iconify-icons/logos/discord-icon'
 import facebook from '@iconify-icons/logos/facebook'
