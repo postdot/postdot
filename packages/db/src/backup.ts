@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { chmod, copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
@@ -135,7 +135,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
     mkdirSync(dirname(destinationPath), { recursive: true })
 
     try {
-        copyFileSync(sourcePath, temporaryPath)
+        backupDatabase(sourcePath, temporaryPath)
         const restored = openReadOnlyDatabase(temporaryPath)
         try {
             assertHealthy(restored, temporaryPath)
@@ -143,6 +143,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
         } finally {
             restored.close()
         }
+        prepareDatabaseReplacement(destinationPath)
         createRecoveryHold(destinationPath, 'restore', true)
         renameSync(temporaryPath, destinationPath)
     } catch (error) {
@@ -349,6 +350,7 @@ async function restoreWithMediaWithoutRuntimeLock(
         }
     }
 
+    prepareDatabaseReplacement(destinationPath)
     const fence = existsSync(destinationPath)
         ? acquireMediaBackupFence(destinationPath, ownerId, now(), leaseMs)
         : null
@@ -399,6 +401,31 @@ async function restoreWithMediaWithoutRuntimeLock(
         throw error
     } finally {
         fence?.release()
+    }
+}
+
+/** Called only under the destination runtime lock, before opening a restore fence. */
+function prepareDatabaseReplacement(filename: string): void {
+    if (!existsSync(filename)) {
+        if (existsSync(`${filename}-wal`) || existsSync(`${filename}-shm`)) {
+            throw new Error('Restore destination has SQLite sidecars without its database')
+        }
+        return
+    }
+
+    const database = new Database(filename, { readwrite: true, create: false })
+    try {
+        database.run(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MILLISECONDS}`)
+        // SQLite checkpoints the old WAL and removes its sidecars when leaving WAL.
+        // Do not unlink them: they may contain committed data after a forced stop.
+        const mode = database
+            .query<{ journal_mode: string }, []>('PRAGMA journal_mode = DELETE')
+            .get()
+        if (mode?.journal_mode !== 'delete') {
+            throw new Error('Restore could not retire the destination SQLite WAL')
+        }
+    } finally {
+        database.close()
     }
 }
 

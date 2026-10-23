@@ -28,9 +28,20 @@ const transactionStates = new WeakMap<object, TransactionState>()
 
 export function createDatabase(filename: string) {
     const client = new Database(filename)
-    client.run('PRAGMA foreign_keys = ON')
-
-    return drizzle({ client, schema })
+    try {
+        client.run('PRAGMA busy_timeout = 5000')
+        const mode = client.query<{ journal_mode: string }, []>('PRAGMA journal_mode = WAL').get()
+        // SQLite keeps in-memory databases in memory journal mode.
+        if (mode?.journal_mode !== 'wal' && mode?.journal_mode !== 'memory') {
+            throw new Error('SQLite could not enable WAL journal mode')
+        }
+        client.run('PRAGMA synchronous = FULL')
+        client.run('PRAGMA foreign_keys = ON')
+        return drizzle({ client, schema })
+    } catch (error) {
+        client.close(true)
+        throw error
+    }
 }
 
 export type PostbotDatabase = ReturnType<typeof createDatabase>
@@ -135,5 +146,6 @@ function handleCommitObserverError(registration: CommitObserverRegistration, err
 }
 
 export function closeDatabase(database: PostbotDatabase) {
-    database.$client.close()
+    // Finalize Drizzle prepared statements before releasing the runtime lock.
+    database.$client.close(true)
 }
