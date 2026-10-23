@@ -9,3 +9,5 @@
 - **Provider processing:** A `deferred` effect requests a positive relative delay from executor completion, not an absolute time captured before a long upload. Publication stores schedule it durably without consuming failure attempts; provider-specific status checks and processing limits remain in adapters. It is not a retryable failure or a confirmed publication.
 
 - **Unknown text limits:** An explicit capability `maxLength: null` represents an unknown provider maximum, not unlimited text. Missing or malformed values remain invalid. Preserve known numeric limits and the bounded-schema policy for custom profiles.
+
+- **Active claims:** Publication-family concurrency requires the renewable executor policy (ADR-090). Renewal must reject expired/recovered tokens. A cooperative deadline requests cancellation; retain the physical slot, heartbeat and drain until the effect settles. Never replace that drain with a timeout race.

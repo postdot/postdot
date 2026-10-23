@@ -5,7 +5,7 @@ import {
     type CompleteExternalEffectInput,
     type ExternalEffectExecutorStore,
 } from '@postdot/core'
-import { and, asc, eq, inArray, lte } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, lte } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
 import { createDatabaseTransaction, type PostbotDatabase } from './client'
@@ -631,7 +631,13 @@ export function createPublicationFirstCommentStore(
                     .select()
                     .from(firstComments)
                     .where(
-                        and(eq(firstComments.state, 'pending'), lte(firstComments.dueAt, input.now))
+                        and(
+                            eq(firstComments.state, 'pending'),
+                            lte(firstComments.dueAt, input.now),
+                            input.projectId === undefined
+                                ? undefined
+                                : eq(firstComments.projectId, input.projectId)
+                        )
                     )
                     .orderBy(asc(firstComments.dueAt), asc(firstComments.id))
                     .get()
@@ -654,6 +660,30 @@ export function createPublicationFirstCommentStore(
                         .get() ?? null
                 )
             })()
+        },
+        renewClaim(input) {
+            const at = requireTimestamp(input.now, 'now')
+            const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
+            if (expiry <= at) return false
+            return (
+                database
+                    .update(firstComments)
+                    .set({ leaseExpiresAt: expiry })
+                    .where(
+                        and(
+                            eq(firstComments.id, requireNonBlank(input.jobId, 'jobId')),
+                            eq(
+                                firstComments.claimToken,
+                                requireNonBlank(input.claimToken, 'claimToken')
+                            ),
+                            eq(firstComments.state, 'running'),
+                            gt(firstComments.leaseExpiresAt, at),
+                            lte(firstComments.leaseExpiresAt, expiry)
+                        )
+                    )
+                    .returning({ id: firstComments.id })
+                    .get() != null
+            )
         },
         startExternalEffect(jobId, claimToken, now) {
             return createDatabaseTransaction(database, () => {

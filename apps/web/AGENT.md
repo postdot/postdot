@@ -10,7 +10,7 @@
 - **Constraints:** Keep this app client-first and browser-focused. Do not introduce a second server architecture, use Radix UI primitives, or use React hooks inside TanStack Router loaders or guards.
 
 - **Configuration context:** Personal settings and installation administration retain the current page when the workspace selector changes; record the workspace in search parameters and clear the previous project with `projectId=none`. Header context does not grant permissions or turn person-owned settings into workspace-owned state. Keep operational project selection consistent with the established project-navigation contract.
-- **Browser gate stability:** Freeze files under this app during isolated Vite browser tests. Even an AGENT.md update can reload the active page and legitimately reopen draft recovery, invalidating an in-progress authoring scenario.
+- **Browser gate stability:** Freeze files under this app during isolated Vite browser tests. Unit pretest, typecheck and build scripts regenerate Paraglide output, so run them before or after browser validation. Keep Docker container start/stop outside browser runs to avoid host network-change interruptions. Even an AGENT.md update can reload the active page and legitimately reopen draft recovery, invalidating an in-progress authoring scenario.
 
 - **Settings return controls:** When a settings page gains its own AccessPageHeader return, update DashboardShell hasPageBack for that destination. The shell must not render a second return beside the workspace/project selectors. Keep the navigation continuity test asserting one unambiguous return.
 

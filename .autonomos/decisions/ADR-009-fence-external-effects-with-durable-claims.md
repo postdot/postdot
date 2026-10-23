@@ -5,7 +5,7 @@
 - Provenance: `WORK-07` and crash-path investigation
 - Related specs: [SPEC-002](../specs/SPEC-002-engineering-operating-model.md), [SPEC-003](../specs/SPEC-003-product-foundation.md)
 - Related decisions: [ADR-003](ADR-003-use-a-single-process-singleton.md), [ADR-006](ADR-006-use-a-next-event-durable-scheduler.md), [ADR-008](ADR-008-enforce-project-scoped-domain-state.md)
-- Superseded by: none
+- Superseded by: [ADR-090](ADR-090-bounded-project-effects-and-renewal.md), lease renewal deferral only
 
 ## Context
 
@@ -63,8 +63,7 @@ worker scaling.
   request can conservatively produce a false ambiguous result. This is preferable to
   an automatic duplicate; a provider idempotency key or reconciliation API may
   reduce that uncertainty later.
-- Long-running effects need a deliberate lease duration. Lease renewal is deferred
-  until real provider behavior demonstrates that it is necessary.
+- Long-running effects need deliberate renewable ownership. [ADR-090](ADR-090-bounded-project-effects-and-renewal.md) replaces the original renewal deferral with bounded internal admission, fenced renewal and cooperative deadlines.
 - `WORK-07A`, `WORK-07B`, and `WORK-07C` prove the decision in reviewable slices.
 - This record was accepted before the first durable workflow slice merged. The
   umbrella `WORK-07` task remains open until scheduling and execution proofs pass.

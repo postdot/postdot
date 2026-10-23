@@ -21,6 +21,7 @@ import {
 } from '@postdot/x'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -95,7 +96,7 @@ async function executeXPublication(input: {
                 clientId: oauth.clientId,
                 clientAuthentication: oauth.clientAuthentication,
                 refreshToken: secrets.refreshToken,
-                ...(options.fetcher === undefined ? {} : { fetcher: options.fetcher }),
+                fetcher: effectFetcher(execution.signal, options.fetcher, execution.assertActive),
             })
             const replaced = await execution.credentials.replacePublisherCredentialTokens({
                 projectId: target.projectId,
@@ -125,7 +126,9 @@ async function executeXPublication(input: {
         options.publisher ??
         (options.createPublisher !== undefined
             ? options.createPublisher()
-            : createXPublisher({ fetcher: options.fetcher }))
+            : createXPublisher({
+                  fetcher: effectFetcher(execution.signal, options.fetcher, execution.assertActive),
+              }))
 
     const text = readXTextContent(target.content)
     if (text === null) {

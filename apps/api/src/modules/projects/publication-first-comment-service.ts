@@ -168,6 +168,21 @@ export function createPublicationFirstCommentService(options: {
                 : failed('The original account or parent could not be prepared')
         }
     }
+    async function processDueEvent(projectId?: string): Promise<boolean> {
+        store.reconcile(now())
+        const result = await processNextExternalEffect({
+            store: store.deliveries,
+            projectId,
+            actorId: 'publication-first-comment-worker',
+            leaseDuration: 120_000,
+            activeEffectPolicy: { renewalIntervalMs: 30_000, timeoutMs: 60_000 },
+            retryPolicy: { nextRunAt: () => null },
+            createClaimToken: () => crypto.randomUUID(),
+            now,
+            performExternalEffect: (work, context) => perform(work, context.signal),
+        })
+        return result.workId !== null
+    }
     return {
         store,
         get,
@@ -206,35 +221,9 @@ export function createPublicationFirstCommentService(options: {
                 return { kind: 'conflict' } as const
             return store.cancel({ ...input, now: now() })
         },
+        processDueEvent,
         async processDueEvents() {
-            store.reconcile(now())
-            await processNextExternalEffect({
-                store: store.deliveries,
-                actorId: 'publication-first-comment-worker',
-                leaseDuration: 120_000,
-                retryPolicy: { nextRunAt: () => null },
-                createClaimToken: () => crypto.randomUUID(),
-                now,
-                async performExternalEffect(work) {
-                    const controller = new AbortController()
-                    let timer: ReturnType<typeof setTimeout> | undefined
-                    const deadline = new Promise<ExternalEffectOutcome>(resolve => {
-                        timer = setTimeout(() => {
-                            controller.abort()
-                            resolve({
-                                type: 'ambiguous',
-                                errorMessage:
-                                    'The first-comment outcome was not confirmed before the deadline',
-                            })
-                        }, 60_000)
-                    })
-                    try {
-                        return await Promise.race([perform(work, controller.signal), deadline])
-                    } finally {
-                        clearTimeout(timer)
-                    }
-                },
-            })
+            await processDueEvent()
         },
     }
 }

@@ -121,8 +121,8 @@ for (const dirty of [false, true]) {
             )
 
             const editorPath = `/api/projects/${projectId}/publications/${publicationId}/editor`
-            const listMatcher = (url: URL) =>
-                url.pathname === `/api/projects/${projectId}/publications`
+            const projectDataMatcher = (url: URL) =>
+                url.pathname === `/api/projects/${projectId}/channels`
             const draftPath = `/api/projects/${projectId}/publications/${publicationId}/draft`
             const draftMatcher = (url: URL) => url.pathname === draftPath
 
@@ -137,13 +137,15 @@ for (const dirty of [false, true]) {
             let projectReadCaptured = false
             let streamResponse: Response | undefined
 
-            let completedProjectLists = 0
+            let completedEditorReads = 0
+            let publicationListReads = 0
             const pendingProjectReads = new Set<Request>()
             page.on('framenavigated', frame => {
                 if (frame !== page.mainFrame()) return
                 // Requests from the previous document cannot gate this editor's startup.
                 pendingProjectReads.clear()
-                completedProjectLists = 0
+                completedEditorReads = 0
+                publicationListReads = 0
             })
             page.on('request', request => {
                 const path = new URL(request.url()).pathname
@@ -161,10 +163,16 @@ for (const dirty of [false, true]) {
                     pendingProjectReads.has(response.request()) &&
                     response.ok() &&
                     response.request().method() === 'GET' &&
+                    url.pathname === editorPath
+                )
+                    completedEditorReads += 1
+                if (
+                    pendingProjectReads.has(response.request()) &&
+                    response.request().method() === 'GET' &&
                     url.pathname === `/api/projects/${projectId}/publications` &&
                     url.search === ''
                 )
-                    completedProjectLists += 1
+                    publicationListReads += 1
             })
             page.on('requestfinished', request => pendingProjectReads.delete(request))
             page.on('requestfailed', request => pendingProjectReads.delete(request))
@@ -190,19 +198,20 @@ for (const dirty of [false, true]) {
                     expect((await streamResponse.securityDetails())?.protocol).toMatch(/^TLS/)
                 }
 
-                // Initial data load plus the bridge's four connection refresh passes.
-                // Drain them before gating a project-only refresh: startup includes editors.
+                // The active editor loads without repeatedly refreshing the unfiltered overview list.
+                // Drain active startup reads before gating the navigation metadata refresh.
                 await expect
                     .poll(
                         () => ({
-                            minimumReads: completedProjectLists >= 5,
+                            editorLoaded: completedEditorReads > 0,
                             pending: [...pendingProjectReads]
                                 .map(request => new URL(request.url()).pathname)
                                 .sort(),
                         }),
                         { timeout: 20_000, message: 'startup project refreshes to finish' }
                     )
-                    .toEqual({ minimumReads: true, pending: [] })
+                    .toEqual({ editorLoaded: true, pending: [] })
+                expect(publicationListReads).toBe(0)
 
                 const baseline = await readNavigationState(page)
                 const baselineMainFrameNavigationCount = mainFrameNavigationCount
@@ -217,7 +226,7 @@ for (const dirty of [false, true]) {
                     ).toBeVisible()
                 }
 
-                await page.route(listMatcher, async route => {
+                await page.route(projectDataMatcher, async route => {
                     const request = route.request()
                     if (request.method() !== 'GET' || projectReadCaptured) {
                         await route.continue()
@@ -279,6 +288,22 @@ for (const dirty of [false, true]) {
                 )
                 expect(observation.released).toBe(false)
 
+                const editorPublishedResponse = page.waitForResponse(
+                    async response => {
+                        if (response.request().method() !== 'GET') return false
+                        if (new URL(response.url()).pathname !== editorPath) return false
+                        try {
+                            const body = (await response.json()) as {
+                                editor?: { publication?: { state?: string } }
+                            }
+                            return body.editor?.publication?.state === 'published'
+                        } catch {
+                            return false
+                        }
+                    },
+                    { timeout: 30_000 }
+                )
+
                 await releaseDelivery(receiverOrigin, observation.deliveryId)
 
                 const rescheduledEvent = await waitForProjectEvent(
@@ -309,25 +334,9 @@ for (const dirty of [false, true]) {
                 expect(authoritative.ok()).toBe(true)
                 expect((await authoritative.json()).editor.publication.state).toBe('published')
 
-                const editorPublishedResponse = page.waitForResponse(
-                    async response => {
-                        if (response.request().method() !== 'GET') return false
-                        if (new URL(response.url()).pathname !== editorPath) return false
-                        try {
-                            const body = (await response.json()) as {
-                                editor?: { publication?: { state?: string } }
-                            }
-                            return body.editor?.publication?.state === 'published'
-                        } catch {
-                            return false
-                        }
-                    },
-                    { timeout: 30_000 }
-                )
-
-                releaseProjectRead?.()
-
+                // Publication/editor updates must not wait for unrelated navigation data.
                 const publishedResponse = await editorPublishedResponse
+                releaseProjectRead?.()
                 expect(publishedResponse.ok()).toBe(true)
                 const publishedBody = (await publishedResponse.json()) as {
                     editor: { publication: { state: string; publishedAt: number | null } }
@@ -375,7 +384,7 @@ for (const dirty of [false, true]) {
                 expect(mainFrameNavigationCount).toBe(baselineMainFrameNavigationCount)
             } finally {
                 releaseProjectRead?.()
-                await page.unroute(listMatcher).catch(() => undefined)
+                await page.unroute(projectDataMatcher).catch(() => undefined)
                 await page.unroute(draftMatcher).catch(() => undefined)
                 await releaseAllDeliveries(receiverOrigin).catch(() => undefined)
             }

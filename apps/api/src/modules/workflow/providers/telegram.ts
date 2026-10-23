@@ -15,6 +15,7 @@ import {
 } from '@postdot/telegram'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
@@ -35,7 +36,15 @@ export function createTelegramProviderAdapter(
         contractId: 'telegram',
         revision,
         execute: input =>
-            execute(input, revision, options.createPublisher ?? createTelegramPublisher),
+            execute(
+                input,
+                revision,
+                options.createPublisher ??
+                    (() =>
+                        createTelegramPublisher({
+                            fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                        }))
+            ),
     }
 }
 

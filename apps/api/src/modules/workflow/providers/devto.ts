@@ -12,6 +12,7 @@ import {
 } from '@postdot/devto'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
 export interface DevtoProviderAdapterOptions {
@@ -31,7 +32,14 @@ export function createDevtoProviderAdapter(
                 input,
                 createPublisher:
                     options.createPublisher ??
-                    (() => createDevtoPublisher({ fetcher: options.fetcher })),
+                    (() =>
+                        createDevtoPublisher({
+                            fetcher: effectFetcher(
+                                input.signal,
+                                options.fetcher,
+                                input.assertActive
+                            ),
+                        })),
             }),
     }
 }

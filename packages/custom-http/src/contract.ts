@@ -119,6 +119,7 @@ export interface CustomHttpMediaReader {
 }
 
 export interface CustomHttpDeliveryInput {
+    readonly signal?: AbortSignal
     readonly execution: DeclarativeHttpExecutionContract
     readonly content: Readonly<Record<string, unknown>>
     readonly context: CustomHttpDeliveryContext

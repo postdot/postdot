@@ -49,6 +49,8 @@ export interface ProviderMediaDeliveryPort {
 }
 
 export interface BuiltInProviderExecutionInput {
+    readonly signal?: AbortSignal
+    readonly assertActive?: () => void
     readonly target: PublisherExecutionTarget
     readonly now: number
     readonly credentials: PublisherCredentialExecutionPort

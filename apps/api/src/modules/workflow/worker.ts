@@ -33,7 +33,6 @@ const defaultRetryPolicy = createExponentialRetryPolicy({
     initialDelay: 60_000,
     maximumDelay: 60 * 60_000,
 })
-const jobsPerProjectPerRound = 1
 
 export interface PublicationWorkerRunObservation {
     readonly outcome: 'success' | 'failure'
@@ -41,8 +40,14 @@ export interface PublicationWorkerRunObservation {
 }
 
 export interface PublicationWorkerOptions {
-    readonly replies?: { getNextEventAt(): number | null; processDueEvents(): Promise<void> }
-    readonly firstComments?: { getNextEventAt(): number | null; processDueEvents(): Promise<void> }
+    readonly replies?: {
+        getNextEventAt(): number | null
+        processDueEvent(projectId: string): Promise<boolean>
+    }
+    readonly firstComments?: {
+        getNextEventAt(): number | null
+        processDueEvent(projectId: string): Promise<boolean>
+    }
     readonly database: PostbotDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
@@ -58,6 +63,7 @@ export interface PublicationWorkerOptions {
     ) => string | null | Promise<string | null>
     readonly builtInProviderRegistry: BuiltInProviderRegistry
     readonly now?: () => number
+    readonly effectTimeoutMs?: number
     readonly leaseDuration?: number
     readonly retryPolicy?: RetryPolicy
     readonly timers?: SchedulerTimers
@@ -104,55 +110,146 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
         }
     }
 
-    const processDueEventsWithoutObservation = async (at: number) => {
-        const processingNow = () => Math.max(at, now())
-        const projects = workflowStore
-            .listProjectIds()
-            .map(projectId => ({
-                projectId,
-                actorId: workflowStore.ensureSystemActor(projectId, processingNow()),
-            }))
-            .filter(
-                (project): project is { projectId: string; actorId: string } =>
-                    project.actorId !== null
-            )
-
-        await options.replies?.processDueEvents()
-        await options.firstComments?.processDueEvents()
-        while (true) {
-            let processedAny = false
-
-            for (const { actorId } of projects) {
-                for (let jobCount = 0; jobCount < jobsPerProjectPerRound; jobCount += 1) {
-                    const result = await processNextWorkflowEvent({
-                        store: workflowStore,
-                        actorId,
-                        leaseDuration,
-                        retryPolicy,
-                        createClaimToken,
-                        performExternalEffect: job =>
-                            performExternalEffect({
-                                job,
-                                builtInProviderRegistry: options.builtInProviderRegistry,
-                                providerMediaDeliveryStore,
-                                publisherStore,
-                                publisherCredentialStore: options.publisherCredentialStore,
-                                media: options.media,
-                                resolveBuiltInMediaUrl: options.resolveBuiltInMediaUrl,
-                                customHttpTransport,
-                                resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
-                                now: processingNow(),
-                            }),
-                        now: processingNow,
-                    })
-
-                    if (result.jobId === null || result.outcome === 'claim_lost') break
-                    processedAny = true
-                }
+    let stopping = false
+    let activeBatch: Promise<void> | null = null
+    let wake: (() => void) | undefined
+    let refreshAdmission: (() => void) | undefined
+    let lastProject: string | undefined
+    const lastFamily = new Map<string, string>()
+    const processDueEventsWithoutObservation = (at: number): Promise<void> => {
+        if (activeBatch) return activeBatch
+        if (stopping) return Promise.resolve()
+        const run = async () => {
+            const processingNow = () => Math.max(at, now())
+            const active = new Map<string, Promise<void>>()
+            const idleCandidates = new Set<string>()
+            refreshAdmission = () => {
+                idleCandidates.clear()
+                wake?.()
             }
-
-            if (!processedAny) break
+            let failure: unknown
+            let failed = false
+            try {
+                while (!stopping && !failed) {
+                    const projects = workflowStore.listProjectIds()
+                    for (const projectId of lastFamily.keys()) {
+                        if (!projects.includes(projectId)) lastFamily.delete(projectId)
+                    }
+                    const previous = lastProject === undefined ? -1 : projects.indexOf(lastProject)
+                    const orderedProjects = [
+                        ...projects.slice(previous + 1),
+                        ...projects.slice(0, previous + 1),
+                    ]
+                    const ordered = orderedProjects.flatMap(projectId => {
+                        const families = [
+                            'publication',
+                            ...(options.replies ? ['reply'] : []),
+                            ...(options.firstComments ? ['first-comment'] : []),
+                        ]
+                        const previousFamily = families.indexOf(lastFamily.get(projectId) ?? '')
+                        return [
+                            ...families.slice(previousFamily + 1),
+                            ...families.slice(0, previousFamily + 1),
+                        ].map(kind => ({ projectId, kind }))
+                    })
+                    for (const candidate of ordered) {
+                        if (active.size >= 2 || stopping || failed) break
+                        const key = `${candidate.projectId}:${candidate.kind}`
+                        if (active.has(candidate.projectId) || idleCandidates.has(key)) continue
+                        lastProject = candidate.projectId
+                        lastFamily.set(candidate.projectId, candidate.kind)
+                        let processed = false
+                        const task = (async () => {
+                            if (candidate.kind === 'reply') {
+                                processed = await options.replies!.processDueEvent(
+                                    candidate.projectId
+                                )
+                                return
+                            }
+                            if (candidate.kind === 'first-comment') {
+                                processed = await options.firstComments!.processDueEvent(
+                                    candidate.projectId
+                                )
+                                return
+                            }
+                            const actorId = workflowStore.ensureSystemActor(
+                                candidate.projectId,
+                                processingNow()
+                            )
+                            if (!actorId) return
+                            const result = await processNextWorkflowEvent({
+                                store: workflowStore,
+                                actorId,
+                                leaseDuration,
+                                activeEffectPolicy: {
+                                    renewalIntervalMs: Math.max(
+                                        1,
+                                        Math.min(30_000, Math.floor(leaseDuration / 3))
+                                    ),
+                                    timeoutMs: options.effectTimeoutMs ?? 15 * 60_000,
+                                },
+                                retryPolicy,
+                                createClaimToken,
+                                performExternalEffect: (job, context) =>
+                                    performExternalEffect({
+                                        job,
+                                        signal: context.signal,
+                                        assertActive: context.assertActive,
+                                        builtInProviderRegistry: options.builtInProviderRegistry,
+                                        providerMediaDeliveryStore,
+                                        publisherStore,
+                                        publisherCredentialStore: options.publisherCredentialStore,
+                                        media: options.media,
+                                        resolveBuiltInMediaUrl: options.resolveBuiltInMediaUrl,
+                                        customHttpTransport,
+                                        resolveCustomHttpMediaUrl:
+                                            options.resolveCustomHttpMediaUrl,
+                                        now: processingNow(),
+                                    }),
+                                now: processingNow,
+                            })
+                            processed = result.jobId !== null
+                        })()
+                            .catch(error => {
+                                failed = true
+                                failure = error
+                            })
+                            .finally(() => {
+                                if (processed) {
+                                    idleCandidates.clear()
+                                } else idleCandidates.add(key)
+                                active.delete(candidate.projectId)
+                                wake?.()
+                            })
+                        active.set(candidate.projectId, task)
+                    }
+                    if (failed || stopping) break
+                    if (active.size === 0) break
+                    await new Promise<void>(resolve => {
+                        const timer = setTimeout(() => {
+                            idleCandidates.clear()
+                            resolve()
+                        }, 1_000)
+                        wake = () => {
+                            clearTimeout(timer)
+                            resolve()
+                        }
+                    })
+                    wake = undefined
+                    // Empty claims and immediate local failures must not starve lease timers,
+                    // incoming requests or stop signals through an endless microtask chain.
+                    await new Promise<void>(resolve => setTimeout(resolve, 0))
+                }
+            } finally {
+                refreshAdmission = undefined
+                await Promise.all(active.values())
+            }
+            if (failed) throw failure
         }
+        activeBatch = run().finally(() => {
+            activeBatch = null
+        })
+        return activeBatch
     }
 
     const scheduler = new NextEventScheduler({
@@ -176,10 +273,14 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
         start() {
             scheduler.start()
         },
-        stop() {
-            return scheduler.stop()
+        async stop() {
+            stopping = true
+            wake?.()
+            await scheduler.stop()
+            await activeBatch
         },
         replan() {
+            if (activeBatch) refreshAdmission?.()
             if (scheduler.state === 'started') scheduler.replan()
         },
     }
@@ -187,6 +288,8 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
 
 async function performExternalEffect(input: {
     readonly job: Job
+    readonly signal: AbortSignal
+    readonly assertActive: () => void
     readonly builtInProviderRegistry: BuiltInProviderRegistry
     readonly providerMediaDeliveryStore: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly publisherStore: ReturnType<typeof createPublisherStore>
@@ -229,16 +332,70 @@ async function performExternalEffect(input: {
         return permanentFailure(`No publisher adapter is registered for ${target.providerId}`)
     }
 
+    input.assertActive()
     return adapter.execute({
+        signal: input.signal,
+        assertActive: input.assertActive,
         target,
         now: input.now,
-        credentials: input.publisherCredentialStore,
+        credentials: {
+            getPublisherCredential: (projectId, credentialId) => {
+                input.assertActive()
+                return input.publisherCredentialStore.getPublisherCredential(
+                    projectId,
+                    credentialId
+                )
+            },
+            resolvePublisherCredentialSecrets: (projectId, credentialId) => {
+                input.assertActive()
+                return input.publisherCredentialStore.resolvePublisherCredentialSecrets(
+                    projectId,
+                    credentialId
+                )
+            },
+            replacePublisherCredentialTokens: value => {
+                input.assertActive()
+                return input.publisherCredentialStore.replacePublisherCredentialTokens(value)
+            },
+            markPublisherCredentialReconnectRequired: (projectId, credentialId) => {
+                input.assertActive()
+                input.publisherCredentialStore.markPublisherCredentialReconnectRequired(
+                    projectId,
+                    credentialId
+                )
+            },
+        },
         media: input.media,
         resolveMediaUrl:
             input.resolveBuiltInMediaUrl === undefined
                 ? undefined
                 : (media, context) => input.resolveBuiltInMediaUrl!(media, context),
-        providerMediaDeliveryStore,
+        providerMediaDeliveryStore: {
+            reserve: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.reserve(value)
+            },
+            start: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.start(value)
+            },
+            recordRemoteMediaId: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.recordRemoteMediaId(value)
+            },
+            complete: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.complete(value)
+            },
+            fail: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.fail(value)
+            },
+            retry: value => {
+                input.assertActive()
+                return providerMediaDeliveryStore.retry(value)
+            },
+        },
     })
 }
 
@@ -312,7 +469,9 @@ async function performCustomHttpEffect(
         }
     }
 
+    input.assertActive()
     return input.customHttpTransport.deliver({
+        signal: input.signal,
         execution: target.profile.execution,
         content: target.content,
         context: {

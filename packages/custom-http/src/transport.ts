@@ -112,7 +112,13 @@ export function createCustomHttpTransport(
                         : await buildMappedRequest(input, endpoint, maxResponseBytes, now())
                 let response: CustomHttpResponse
                 try {
-                    response = await requester.request(request, controller.signal)
+                    input.signal?.throwIfAborted()
+                    response = await requester.request(
+                        request,
+                        input.signal
+                            ? AbortSignal.any([input.signal, controller.signal])
+                            : controller.signal
+                    )
                 } catch (error) {
                     return ambiguousFailure(
                         controller.signal.aborted

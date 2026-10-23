@@ -4,7 +4,7 @@ import {
     requireNonBlank,
     requireTimestamp,
 } from '@postdot/core'
-import { and, asc, desc, eq, lt, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, lt, lte, or, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
 import { createDatabaseTransaction, type PostbotDatabase } from './client'
@@ -141,7 +141,14 @@ export function createPublicationReplyStore(database: PostbotDatabase) {
                 const row = database
                     .select()
                     .from(replies)
-                    .where(eq(replies.state, 'pending'))
+                    .where(
+                        and(
+                            eq(replies.state, 'pending'),
+                            input.projectId === undefined
+                                ? undefined
+                                : eq(replies.projectId, input.projectId)
+                        )
+                    )
                     .orderBy(asc(replies.createdAt), asc(replies.id))
                     .get()
                 if (!row) return null
@@ -161,6 +168,27 @@ export function createPublicationReplyStore(database: PostbotDatabase) {
                         .get() ?? null
                 )
             })()
+        },
+        renewClaim(input) {
+            const at = requireTimestamp(input.now, 'now')
+            const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
+            if (expiry <= at) return false
+            return (
+                database
+                    .update(replies)
+                    .set({ leaseExpiresAt: expiry })
+                    .where(
+                        and(
+                            eq(replies.id, requireNonBlank(input.jobId, 'jobId')),
+                            eq(replies.claimToken, requireNonBlank(input.claimToken, 'claimToken')),
+                            eq(replies.state, 'running'),
+                            gt(replies.leaseExpiresAt, at),
+                            lte(replies.leaseExpiresAt, expiry)
+                        )
+                    )
+                    .returning({ id: replies.id })
+                    .get() != null
+            )
         },
         startExternalEffect(id, token, now) {
             return createDatabaseTransaction(database, () => {

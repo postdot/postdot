@@ -623,3 +623,74 @@ test('refreshes an expired Mastodon token through the original controlled transp
         closeDatabase(f.database)
     }
 })
+
+test('reply renewal is project-scoped, token-fenced and cannot revive an expired attempt', async () => {
+    const f = await fixture()
+    try {
+        expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
+        const store = f.service.store.deliveries
+        const at = Date.now()
+        expect(
+            store.claimNextDueJob({
+                actorId: 'worker',
+                claimToken: 'other',
+                now: at,
+                leaseExpiresAt: at + 90,
+                projectId: 'foreign-project',
+            })
+        ).toBeNull()
+        const work = store.claimNextDueJob({
+            actorId: 'worker',
+            claimToken: 'owner',
+            now: at,
+            leaseExpiresAt: at + 90,
+            projectId: f.project.id,
+        })!
+        expect(work).not.toBeNull()
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'stale',
+                now: at + 30,
+                leaseExpiresAt: at + 120,
+            })
+        ).toBe(false)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 30,
+                leaseExpiresAt: at + 60,
+            })
+        ).toBe(false)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 30,
+                leaseExpiresAt: at + 120,
+            })
+        ).toBe(true)
+        expect(store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 120,
+                leaseExpiresAt: at + 210,
+            })
+        ).toBe(false)
+        expect(store.recoverExpiredClaims(at + 120).ambiguousJobIds).toEqual([work.id])
+        expect(
+            store.completeExternalEffect({
+                jobId: work.id,
+                claimToken: 'owner',
+                completedAt: at + 121,
+                outcome: { type: 'published' },
+            })
+        ).toBeNull()
+    } finally {
+        await f.worker.stop()
+        closeDatabase(f.database)
+    }
+})
