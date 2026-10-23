@@ -1,4 +1,10 @@
 import type {
+    ProviderApplication,
+    ProviderApplicationProvider,
+    ProviderApplicationState,
+    ProviderApplicationOAuthMode,
+    ProviderApplicationInput,
+    ProviderApplicationUpdateInput,
     UserApiKey,
     UserApiKeyCapability,
     InstanceSetupStatus,
@@ -276,5 +282,61 @@ export type InferredUserApiKeyContracts = [
                 readonly actionAccess?: readonly UserApiKeyCapability[] | null
             }
         >
+    >,
+]
+
+/** Provider secrets are write-only; callbacks and configuration follow the server. */
+export type InferredProviderApplicationContracts = [
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.listProviderApplications>>,
+            {
+                applications: ProviderApplication[]
+                xCallbackUri: string
+                facebookCallbackUri: string
+                instagramCallbackUri: string
+            }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.createProviderApplication>>,
+            { application: ProviderApplication }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.updateProviderApplication>>,
+            { application: ProviderApplication }
+        >
+    >,
+    Assert<
+        Equal<ProviderApplicationProvider, 'linkedin' | 'bluesky' | 'x' | 'facebook' | 'instagram'>
+    >,
+    Assert<Equal<ProviderApplicationState, 'active' | 'disabled'>>,
+    Assert<Equal<ProviderApplicationOAuthMode, 'loopback' | 'web'>>,
+    Assert<Equal<Extract<keyof ProviderApplication, 'clientSecret'>, never>>,
+    Assert<Equal<ProviderApplication['hasClientSecret'], boolean>>,
+    Assert<Equal<ProviderApplication['oauthMode'], ProviderApplicationOAuthMode | null>>,
+    Assert<
+        Equal<
+            ProviderApplicationInput,
+            {
+                readonly providerId: ProviderApplicationProvider
+                readonly name: string
+                readonly clientId?: string | null
+                readonly clientMetadataUrl?: string | null
+                readonly handleResolver?: string | null
+                readonly clientSecret?: string | null
+                readonly state?: ProviderApplicationState
+                readonly isDefault?: boolean
+            }
+        >
+    >,
+    Assert<
+        Equal<ProviderApplicationUpdateInput, Partial<Omit<ProviderApplicationInput, 'providerId'>>>
+    >,
+    Assert<
+        Equal<Parameters<typeof api.updateProviderApplication>[1], ProviderApplicationUpdateInput>
     >,
 ]

@@ -1090,3 +1090,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[WEB-563]** Infer instance-access contracts through Eden `Priority: 🔵` `Complexity: S` — ISSUE-188; twelve derived types and nine inferred wrappers, with explicit Eden paths for the token/id route collision. Sixteen type contracts, 302 selected tests, five browser scenarios, production build and static gates pass. [Evidence](worklogs/2026-10-23-WEB-563.md).
 
 - [x] **[WEB-564]** Infer user API-key contracts through Eden `Priority: 🔵` `Complexity: S` — ISSUE-188; two derived types, four inferred wrappers and eleven type contracts preserve inputs and token visibility. 302 selected tests, four browser scenarios, production build and static gates pass. [Evidence](worklogs/2026-10-23-WEB-564.md).
+
+- [x] **[WEB-565]** Infer provider-application contracts through Eden `Priority: 🔵` `Complexity: S` — ISSUE-188; six derived types and three inferred wrappers preserve configuration inputs and secret handling. Twelve type contracts, 305 selected tests, five browser scenarios, production build and static gates pass. [Evidence](worklogs/2026-10-23-WEB-565.md).

@@ -78,6 +78,20 @@ export function createPostbotClient(
 
 export type PostbotClient = ReturnType<typeof createPostbotClient>
 
+type ProviderApplicationsRoute = PostbotClient['api']['settings']['provider-applications']
+export type ProviderApplication = NonNullable<
+    Awaited<ReturnType<ProviderApplicationsRoute['get']>>['data']
+>['applications'][number]
+export type ProviderApplicationProvider = ProviderApplication['providerId']
+export type ProviderApplicationState = ProviderApplication['state']
+export type ProviderApplicationOAuthMode = NonNullable<ProviderApplication['oauthMode']>
+export type ProviderApplicationInput = Readonly<
+    NonNullable<Parameters<ProviderApplicationsRoute['post']>[0]>
+>
+export type ProviderApplicationUpdateInput = Readonly<
+    NonNullable<Parameters<ReturnType<ProviderApplicationsRoute>['patch']>[0]>
+>
+
 export type UserApiKey = NonNullable<
     Awaited<ReturnType<PostbotClient['api']['api-keys']['get']>>['data']
 >['keys'][number]
