@@ -16,6 +16,6 @@ content is generated from the canonical deployment guide. Other pages are in
 
 The site is public at https://postdot.app and indexable (`public/robots.txt`,
 `/sitemap.xml`, canonical links). GitHub Actions deploys it from `main`
-(`.github/workflows/docs-deploy.yml`); `/usage-study` is a `noindex` prototype.
+(`.github/workflows/docs-deploy.yml`).
 Public release claims remain unapproved. The production Postdot image excludes
 this site.

@@ -16,6 +16,7 @@
         "deploy": "bun run build && wrangler deploy",
         "deploy:dry": "bun run build && wrangler deploy --dry-run",
         "sync:openapi": "bun ../api/src/openapi-export.ts .openapi/postbot.json && bun scripts/sync-openapi.ts",
+        "sync:umami": "bun scripts/sync-umami.ts",
         "generate:og": "bun scripts/generate-og-images.tsx",
         "check:links": "bun scripts/check-links.ts",
         "check:llms": "bun scripts/check-llms.ts",

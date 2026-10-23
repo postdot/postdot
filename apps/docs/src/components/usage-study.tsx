@@ -6,8 +6,6 @@ import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'mo
 import { useRef, useState } from 'react'
 
 import { PostbotLogo } from './brand'
-import { PublicThemeToggle } from './public-theme-toggle'
-import { Link } from './site-link'
 
 import './public-home.css'
 import './usage-study.css'
@@ -334,23 +332,5 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 ahead.
             </p>
         </section>
-    )
-}
-
-export function UsageStudy() {
-    return (
-        <div className="public-home usage-study">
-            <header className="usage-study-nav">
-                <Link href="/" aria-label="Postdot home">
-                    <PostbotLogo />
-                    <span>postbot</span>
-                </Link>
-                <span>Section study</span>
-                <PublicThemeToggle />
-            </header>
-            <main>
-                <UsageGallery />
-            </main>
-        </div>
     )
 }
