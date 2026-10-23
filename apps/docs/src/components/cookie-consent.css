@@ -1,0 +1,90 @@
+/* Page-level tokens (`--color-fd-*`) because the banner also shows on documentation pages. */
+.consent {
+    position: fixed;
+    z-index: 60;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    max-width: 392px;
+    padding: 18px;
+    border: 1px solid var(--color-fd-border);
+    border-radius: 3px;
+    background: var(--color-fd-popover);
+    color: var(--color-fd-foreground);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 14%);
+    font:
+        14px/1.5 'Host Grotesk',
+        sans-serif;
+    animation: consent-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dark .consent {
+    box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
+}
+@media (min-width: 640px) {
+    .consent {
+        right: auto;
+        bottom: 24px;
+        left: 24px;
+    }
+}
+.consent-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.consent-head svg {
+    flex: none;
+    color: var(--color-fd-primary);
+}
+.consent h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.consent p {
+    margin: 10px 0 0;
+    color: var(--color-fd-muted-foreground);
+}
+.consent p a {
+    color: var(--color-fd-foreground);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.consent-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+}
+/* Both choices share one style: declining is as easy and as visible as allowing. */
+.consent .consent-button {
+    min-height: 38px;
+    padding: 8px 14px;
+    border: 1px solid var(--color-fd-foreground);
+    border-radius: 3px;
+    background: var(--color-fd-foreground);
+    color: var(--color-fd-background);
+    box-shadow: none;
+    font:
+        500 14px/1.4 'Host Grotesk',
+        sans-serif;
+}
+.consent .consent-button:hover {
+    opacity: 0.85;
+}
+.consent .consent-button:focus-visible {
+    outline: 2px solid var(--color-fd-primary);
+    outline-offset: 2px;
+}
+@keyframes consent-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .consent {
+        animation: none;
+    }
+}

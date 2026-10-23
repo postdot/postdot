@@ -1,8 +1,10 @@
 import { Button } from '@postdot/ui/components/button'
+import { ShieldCheckIcon } from '@solar-icons/react/linear/shield-check'
 import { useEffect, useState } from 'react'
 
 import { onConsentPromptRequest, useConsent, writeConsent } from '@/lib/consent'
 
+import './cookie-consent.css'
 import { Link } from './site-link'
 
 /**
@@ -26,24 +28,21 @@ export function CookieConsent() {
     }
 
     return (
-        <section
-            aria-labelledby="consent-title"
-            className="fixed bottom-4 left-4 z-50 mr-4 max-w-sm rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg">
-            <h2 id="consent-title" className="text-sm font-semibold">
-                Help improve the site
-            </h2>
-            <p className="mt-1 text-xs/5 text-muted-foreground">
+        <section aria-labelledby="consent-title" className="consent">
+            <div className="consent-head">
+                <ShieldCheckIcon size={20} aria-hidden="true" />
+                <h2 id="consent-title">Help improve the site</h2>
+            </div>
+            <p>
                 We measure visits anonymously, without cookies. May we also record a sample of
                 sessions, with text hidden, to see where readers get stuck?{' '}
-                <Link href="/privacy" className="underline underline-offset-4">
-                    Privacy policy
-                </Link>
+                <Link href="/privacy">Privacy policy</Link>
             </p>
-            <div className="mt-3 flex gap-2">
-                <Button variant="outline" onClick={() => choose(false)}>
+            <div className="consent-actions">
+                <Button className="consent-button" onClick={() => choose(false)}>
                     Decline
                 </Button>
-                <Button variant="outline" onClick={() => choose(true)}>
+                <Button className="consent-button" onClick={() => choose(true)}>
                     Allow
                 </Button>
             </div>
