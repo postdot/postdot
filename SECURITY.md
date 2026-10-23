@@ -15,8 +15,8 @@ It helps to include:
 - the steps to reproduce it, and the impact you expect;
 - anything specific to your setup, such as deployment mode or enabled providers.
 
-If you cannot use GitHub for this, open a discussion that only asks for a private
-channel, without any detail of the problem.
+If you cannot use GitHub for this, write to contact@postdot.app and ask for a
+private channel, without the details of the problem at first.
 
 ## What to expect
 
