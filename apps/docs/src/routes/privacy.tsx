@@ -28,7 +28,9 @@ function Privacy() {
             <h2>Who is responsible</h2>
             <p>
                 {legal.publisher} publishes the site and is responsible for the data described here.
-                Contact: <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>.
+                Contact: open a discussion in the <a href={legal.contactUrl}>Postdot repository</a>.
+                If your request involves personal data, say so without sharing it and the publisher
+                will arrange a private channel.
             </p>
 
             <h2>Audience measurement</h2>
@@ -73,10 +75,8 @@ function Privacy() {
             <h2>Your rights</h2>
             <p>
                 You can ask for access to, correction of or deletion of data about you, and object
-                to its processing, by writing to{' '}
-                <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>. If you are in the
-                European Union you may also complain to your data protection authority (in France,
-                the CNIL).
+                to its processing, through the contact channel above. If you are in the European
+                Union you may also complain to your data protection authority (in France, the CNIL).
             </p>
         </LegalPage>
     )
