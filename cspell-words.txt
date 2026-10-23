@@ -138,3 +138,5 @@ prerenders
 umami
 cookieless
 CNIL
+avifenc
+magick
