@@ -1943,3 +1943,6 @@
     text-decoration: underline;
     text-underline-offset: 3px;
 }
+.public-home picture {
+    display: contents;
+}

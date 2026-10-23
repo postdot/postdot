@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { DocsPageView } from '@/components/docs-page'
-import { docsHead, loadDocsPage } from '@/lib/docs-route'
 import { source } from '@/lib/source'
 
 export const Route = createFileRoute('/docs/$')({
-    loader: ({ params }) => loadDocsPage(params._splat?.split('/').filter(Boolean) ?? []),
-    head: ({ loaderData }) => docsHead(loaderData?.slugs),
+    loader: async ({ params }) =>
+        (await import('@/lib/docs-route')).loadDocsPage(
+            params._splat?.split('/').filter(Boolean) ?? []
+        ),
+    head: ({ loaderData }) => loaderData?.head ?? {},
     component: DocsSplat,
 })
 
