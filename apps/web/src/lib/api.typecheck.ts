@@ -1,4 +1,15 @@
 import type {
+    InstanceSetupStatus,
+    AccessSummary,
+    AccessInstanceState,
+    AccessInstanceMembership,
+    AccessInstanceRole,
+    AccessInstanceMembershipState,
+    AccessInstanceMembershipUpdate,
+    CreatedAccessInvitation,
+    AccessInvitation,
+    AccessInvitationState,
+    AccessInvitationPreview,
     ProjectTag,
     ProjectMember,
     ProjectInvitation,
@@ -164,4 +175,56 @@ export type InferredProjectMembershipContracts = [
     Assert<Equal<ProjectMemberRole, 'owner' | 'editor' | 'viewer'>>,
     Assert<Equal<ProjectInvitationStatus, 'pending' | 'accepted' | 'rejected' | 'canceled'>>,
     Assert<Equal<ProjectMember['state'], 'active'>>,
+]
+
+/** Instance access remains server-owned across both Eden request interfaces. */
+export type InferredInstanceAccessContracts = [
+    Assert<Equal<Awaited<ReturnType<typeof api.getInstanceSetupStatus>>, InstanceSetupStatus>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.getInstanceAccess>>, AccessSummary>>,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.listAccessMembers>>,
+            { members: AccessInstanceMembership[] }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.updateAccessMember>>,
+            { membership: AccessInstanceMembership }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.listAccessInvitations>>,
+            { invitations: AccessInvitation[] }
+        >
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.createAccessInvitation>>, CreatedAccessInvitation>>,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.getAccessInvitationPreview>>, AccessInvitationPreview>
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.revokeAccessInvitation>>,
+            { invitation: AccessInvitation }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.acceptAccessInvitation>>,
+            { invitation: AccessInvitation; instanceMembership: AccessInstanceMembership }
+        >
+    >,
+    Assert<Equal<AccessInstanceRole, 'admin' | 'member'>>,
+    Assert<Equal<AccessInstanceMembershipState, 'enabled' | 'disabled'>>,
+    Assert<Equal<AccessInstanceState, 'claimable' | 'claimed'>>,
+    Assert<Equal<AccessInvitationState, 'pending' | 'accepted' | 'revoked' | 'expired'>>,
+    Assert<
+        Equal<
+            AccessInstanceMembershipUpdate,
+            { role?: 'admin' | 'member'; state?: 'enabled' | 'disabled' }
+        >
+    >,
+    Assert<Equal<AccessSummary['membership'], AccessInstanceMembership | null>>,
+    Assert<Equal<AccessInvitation['instanceRole'], 'member'>>,
 ]

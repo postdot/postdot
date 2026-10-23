@@ -1,6 +1,7 @@
 import type { PublicationRepliesResponse } from '@postdot/client'
 import {
     createPostbotClient,
+    createAccessInvitationClient,
     type SearchResponse,
     type EmailSettings,
     type EmailSettingsInput,
@@ -37,6 +38,7 @@ import {
     type EmailAlertPreference,
     type Project,
     type ProjectMemberRole,
+    type AccessInstanceMembershipUpdate,
     type Publication,
     type PublicationApprovalRequest,
     type PublicationSummaryPage,
@@ -64,6 +66,7 @@ import {
 } from '@/lib/publication-recovery'
 
 const client = createPostbotClient(window.location.origin)
+const accessInvitationClient = createAccessInvitationClient(window.location.origin)
 
 export interface Session {
     readonly user: {
@@ -191,41 +194,6 @@ export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x' | 'facebo
 export type ProviderApplicationState = 'active' | 'disabled'
 export type ProviderApplicationOAuthMode = 'loopback' | 'web'
 
-export type AccessInstanceRole = 'admin' | 'member'
-export type AccessInstanceMembershipState = 'enabled' | 'disabled'
-export type AccessInstanceState = 'claimable' | 'claimed'
-
-export interface InstanceSetupStatus {
-    readonly setupAvailable: boolean
-}
-export type AccessInvitationState = 'pending' | 'accepted' | 'revoked' | 'expired'
-
-export interface AccessInstanceStateRecord {
-    readonly id: 'default'
-    readonly state: AccessInstanceState
-    readonly bootstrapBlocked: boolean
-    readonly claimedByUserId: string | null
-    readonly claimedAt: number | null
-    readonly defaultWorkspaceId: string | null
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface AccessInstanceMembership {
-    readonly id: string
-    readonly userId: string
-    readonly email: string
-    readonly name: string
-    readonly role: AccessInstanceRole
-    readonly state: AccessInstanceMembershipState
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export type AccessInstanceMembershipUpdate = Partial<
-    Pick<AccessInstanceMembership, 'role' | 'state'>
->
-
 export interface AccessProjectMembership {
     readonly id: string
     readonly projectId: string
@@ -237,36 +205,6 @@ export interface AccessProjectMembership {
     readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
-}
-
-export interface AccessInvitation {
-    readonly id: string
-    readonly targetEmail: string
-    readonly instanceRole: 'member'
-    readonly state: AccessInvitationState
-    readonly createdByUserId: string
-    readonly expiresAt: number
-    readonly acceptedAt: number | null
-    readonly acceptedByUserId: string | null
-    readonly revokedAt: number | null
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface AccessSummary {
-    readonly instance: AccessInstanceStateRecord
-    readonly membership: AccessInstanceMembership | null
-    readonly isAdmin: boolean
-}
-
-export interface CreatedAccessInvitation {
-    readonly invitation: AccessInvitation
-    readonly token: string
-}
-
-export interface AccessInvitationPreview {
-    readonly targetEmail: string
-    readonly expiresAt: number
 }
 
 export interface ProviderApplication {
@@ -458,8 +396,8 @@ export const api = {
     async testEmailSettings() {
         return unwrap<{ accepted: true }>(await client.api.settings.email.test.post())
     },
-    getInstanceSetupStatus(): Promise<InstanceSetupStatus> {
-        return requestAuth<InstanceSetupStatus>('/api/instance/status')
+    async getInstanceSetupStatus() {
+        return unwrap(await client.api.instance.status.get())
     },
 
     getSession(): Promise<Session | null> {
@@ -559,56 +497,36 @@ export const api = {
         )
     },
 
-    async getInstanceAccess(): Promise<AccessSummary> {
-        return requestAuth<AccessSummary>('/api/access')
+    async getInstanceAccess() {
+        return unwrap(await client.api.access.get())
     },
 
-    async listAccessMembers(): Promise<{ members: AccessInstanceMembership[] }> {
-        return requestAuth<{ members: AccessInstanceMembership[] }>('/api/access/members')
+    async listAccessMembers() {
+        return unwrap(await client.api.access.members.get())
     },
 
-    async updateAccessMember(
-        userId: string,
-        input: AccessInstanceMembershipUpdate
-    ): Promise<{ membership: AccessInstanceMembership }> {
-        return requestAuth<{ membership: AccessInstanceMembership }>(
-            `/api/access/members/${encodeURIComponent(userId)}`,
-            jsonBody(input, 'PATCH')
-        )
+    async updateAccessMember(userId: string, input: AccessInstanceMembershipUpdate) {
+        return unwrap(await client.api.access.members({ userId }).patch(input))
     },
 
-    async listAccessInvitations(): Promise<{ invitations: AccessInvitation[] }> {
-        return requestAuth<{ invitations: AccessInvitation[] }>('/api/access/invitations')
+    async listAccessInvitations() {
+        return unwrap(await client.api.access.invitations.get())
     },
 
-    async createAccessInvitation(targetEmail: string): Promise<CreatedAccessInvitation> {
-        return requestAuth<CreatedAccessInvitation>(
-            '/api/access/invitations',
-            jsonBody({ targetEmail })
-        )
+    async createAccessInvitation(targetEmail: string) {
+        return unwrap(await client.api.access.invitations.post({ targetEmail }))
     },
 
-    getAccessInvitationPreview(token: string): Promise<AccessInvitationPreview> {
-        return requestAuth<AccessInvitationPreview>(
-            `/api/access/invitations/${encodeURIComponent(token)}`
-        )
+    async getAccessInvitationPreview(token: string) {
+        return unwrap(await accessInvitationClient.preview(token))
     },
 
-    async revokeAccessInvitation(invitationId: string): Promise<{ invitation: AccessInvitation }> {
-        return requestAuth<{ invitation: AccessInvitation }>(
-            `/api/access/invitations/${encodeURIComponent(invitationId)}`,
-            { method: 'DELETE' }
-        )
+    async revokeAccessInvitation(invitationId: string) {
+        return unwrap(await accessInvitationClient.revoke(invitationId))
     },
 
-    async acceptAccessInvitation(token: string): Promise<{
-        invitation: AccessInvitation
-        instanceMembership: AccessInstanceMembership
-    }> {
-        return requestAuth<{
-            invitation: AccessInvitation
-            instanceMembership: AccessInstanceMembership
-        }>('/api/access/invitations/accept', jsonBody({ token }))
+    async acceptAccessInvitation(token: string) {
+        return unwrap(await client.api.access.invitations.accept.post({ token }))
     },
 
     async search(query: string, projectId?: string) {
@@ -2005,6 +1923,18 @@ export const api = {
 }
 
 export type {
+    InstanceSetupStatus,
+    AccessSummary,
+    AccessInstanceStateRecord,
+    AccessInstanceState,
+    AccessInstanceMembership,
+    AccessInstanceRole,
+    AccessInstanceMembershipState,
+    AccessInstanceMembershipUpdate,
+    CreatedAccessInvitation,
+    AccessInvitation,
+    AccessInvitationState,
+    AccessInvitationPreview,
     AuditEvent,
     BlueskyAnalyticsCollection,
     Channel,
