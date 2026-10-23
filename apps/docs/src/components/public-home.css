@@ -1466,6 +1466,12 @@
 }
 .home-material[data-ready='true'] {
     opacity: 1;
+    transition: opacity 0.35s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .home-material[data-ready='true'] {
+        transition: none;
+    }
 }
 .home-footer > .home-material {
     z-index: 0;
@@ -1561,7 +1567,7 @@
     aspect-ratio: 2.457577109995468;
 }
 .home-error-digits > .home-material-layer {
-    mask-image: url('/material/404-mask.svg');
+    mask-image: url('../assets/404-mask.svg');
     mask-size: 100% 100%;
     mask-repeat: no-repeat;
     background: var(--home-blue);
