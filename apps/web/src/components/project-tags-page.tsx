@@ -30,19 +30,15 @@ import {
     formatProjectTagMutationError,
     sortProjectTags,
     useProjectTagCatalog,
+    useProjectTagActions,
 } from '@/lib/project-tags'
 import * as m from '@/paraglide/messages.js'
 
 export function ProjectTagsPage() {
     useLanguage()
-    const {
-        onArchiveProjectTag,
-        onCreateProjectTag,
-        onRenameProjectTag,
-        onRestoreProjectTag,
-        project,
-        projectRole,
-    } = useProjectDashboard()
+    const { project, projectRole } = useProjectDashboard()
+    const { onArchiveProjectTag, onCreateProjectTag, onRenameProjectTag, onRestoreProjectTag } =
+        useProjectTagActions(project.id)
     const canManage = projectRole === 'owner' || projectRole === 'editor'
     const catalogQuery = useProjectTagCatalog(project.id)
     const [createOpen, setCreateOpen] = useState(false)

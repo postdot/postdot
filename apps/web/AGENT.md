@@ -26,3 +26,5 @@
   distinct meanings and are not interchangeable with decorative status dots.
 
 - **Form copy:** Apply the progressive-help rule in `postbot-operational-ux`: familiar labels and concrete examples first, exceptional setup guidance on demand. Do not turn dialogs into tutorials or add an info icon mechanically to every field.
+
+- **Project feature data:** Keep the project parent limited to navigation identity, channels, connections and membership. Feature reads and mutations belong to their Query hooks; invalidate dormant resources without refetching them. Keep feature Suspense boundaries below the mounted QueryClient provider so initial suspension cannot recreate its cache. Revalidate invalidated feature data on entry before showing an empty state; already visible pages retain their last known data during background refresh or refusal. Composition has a dedicated project-lifetime session for the composition, channel setup and resume flow, separate from navigation data.

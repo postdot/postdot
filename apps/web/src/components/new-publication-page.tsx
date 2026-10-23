@@ -36,13 +36,17 @@ import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
-import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
+import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatCivilSchedule } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { getNativeEditorProfile, getNativePlatform } from '@/lib/native-presentation'
 import { useProjectTagCatalog } from '@/lib/project-tags'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
+import {
+    type PublicationCreationMode,
+    usePublicationComposer,
+} from '@/lib/publication-composer-context'
 import {
     clearPublicationRecovery,
     hasRecoverablePublicationContent,
@@ -72,10 +76,8 @@ export function NewPublicationPage({
 }) {
     const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
+    const { activeChannels, channels, connections, project, projectRole } = useProjectDashboard()
     const {
-        activeChannels,
-        channels,
-        connections,
         error,
         onCreatePost,
         onCreateChannel,
@@ -87,15 +89,13 @@ export function NewPublicationPage({
         pending,
         postContent,
         postTitle,
-        project,
-        projectRole,
-        projectTags: activeProjectTags,
         publicationTagIds,
         publicationTargets,
         sourceMedia,
         onPublicationTagIdsChange,
-    } = useProjectDashboard()
+    } = usePublicationComposer()
     const tagCatalogQuery = useProjectTagCatalog(project.id)
+    const activeProjectTags = tagCatalogQuery.data?.tags.filter(tag => tag.state === 'active') ?? []
     const pickerTags = tagCatalogQuery.data?.tags ?? activeProjectTags
     const hasCurrentComposerContent = hasRecoverablePublicationContent({
         postTitle,

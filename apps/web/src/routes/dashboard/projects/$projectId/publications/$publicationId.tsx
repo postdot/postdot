@@ -21,8 +21,9 @@ import {
     createProjectAccessState,
     projectAccessReducer,
 } from '@/lib/project-access-verification'
+import { useProjectPublicationActions } from '@/lib/project-publication-actions'
 import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
-import { useProjectTagCatalog } from '@/lib/project-tags'
+import { useProjectTagCatalog, useProjectTagActions } from '@/lib/project-tags'
 import { isCalendarDateKey } from '@/lib/publication-calendar'
 import {
     isPublicationCalendarView,
@@ -78,16 +79,9 @@ function PublicationEditorRoute() {
         publicationTags,
         relatedPublications,
     } = Route.useLoaderData()
-    const {
-        activeChannels,
-        connections,
-        onCancelPublications,
-        onCreateProjectTag,
-        onPublish,
-        onRetryPublication,
-        project,
-        projectRole,
-    } = useProjectDashboard()
+    const { activeChannels, connections, project, projectRole } = useProjectDashboard()
+    const { onCancelPublications, onPublish, onRetryPublication } = useProjectPublicationActions()
+    const { onCreateProjectTag } = useProjectTagActions(project.id)
     const [access, dispatchAccess] = useReducer(
         projectAccessReducer,
         undefined,

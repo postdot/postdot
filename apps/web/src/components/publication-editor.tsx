@@ -68,6 +68,7 @@ import {
     decideConfirmedReconcile,
     type ProjectAccessStatus,
 } from '@/lib/project-access-verification'
+import { refreshPublicationResources } from '@/lib/project-query-invalidation'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { mergeProjectTags } from '@/lib/project-tags'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
@@ -501,10 +502,7 @@ export function PublicationEditor({
 
     function invalidatePublicationQueries() {
         void Promise.all([
-            queryClient.invalidateQueries({ queryKey: projectQueryKeys.data(projectId) }),
-            queryClient.invalidateQueries({
-                queryKey: projectQueryKeys.calendarPublications(projectId),
-            }),
+            refreshPublicationResources(queryClient, projectId),
             queryClient.invalidateQueries({
                 queryKey: projectQueryKeys.publicationEditors(projectId),
             }),

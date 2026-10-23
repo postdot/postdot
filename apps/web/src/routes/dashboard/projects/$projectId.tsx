@@ -1,15 +1,18 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { Suspense } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
 import { api } from '@/lib/api'
 import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
     ProjectDashboardProvider,
-    loadProjectData,
+    loadProjectShell,
     useDashboardGlobal,
     useProjectDashboard,
 } from '@/lib/dashboard-context'
 import { ProjectRealtimeProvider } from '@/lib/project-realtime'
+import { PublicationComposerProvider } from '@/lib/publication-composer-context'
+import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId')({
     loader: async ({ location, params }) => {
@@ -31,7 +34,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId')({
             })
         }
 
-        return { project, ...(await loadProjectData(project.id)) }
+        return { project, ...(await loadProjectShell(project.id)) }
     },
     component: ProjectDashboardRoute,
 })
@@ -43,7 +46,9 @@ function ProjectDashboardRoute() {
     return (
         <ProjectRealtimeProvider key={project.id} projectId={project.id}>
             <ProjectDashboardProvider initialData={initialData} project={project}>
-                <ProjectDashboardFrame />
+                <PublicationComposerProvider>
+                    <ProjectDashboardFrame />
+                </PublicationComposerProvider>
             </ProjectDashboardProvider>
         </ProjectRealtimeProvider>
     )
@@ -62,14 +67,26 @@ function ProjectDashboardFrame() {
                 onProjectChange={global.onProjectChange}
                 onProjectNameChange={global.onProjectNameChange}
                 onSignOut={global.onSignOut}
-                pending={global.pending || projectDashboard.pending}
+                pending={global.pending}
                 projectName={global.projectName}
                 projects={global.projects}
                 publisherConnections={projectDashboard.connections}
                 projectRole={projectDashboard.projectRole}
                 selectedProject={projectDashboard.project}
                 session={global.session}>
-                <Outlet />
+                <Suspense
+                    fallback={
+                        <main
+                            aria-busy="true"
+                            className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+                            <h1 className="sr-only">{m.common_loading()}</h1>
+                            <p role="status" className="text-sm text-muted-foreground">
+                                {m.common_loading()}
+                            </p>
+                        </main>
+                    }>
+                    <Outlet />
+                </Suspense>
             </DashboardShell>
         </ChannelIdentityProvider>
     )
