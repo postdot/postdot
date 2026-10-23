@@ -4471,12 +4471,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-187] Main SQLite connection lacks WAL and busy-timeout configuration
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `createDatabase` in `packages/db/src/client.ts`, used by the API runtime, maintenance and migrations, only sets `PRAGMA foreign_keys = ON`. No runtime path sets `journal_mode` or `synchronous`; `busy_timeout` is set only on dedicated backup and local-account-recovery connections. The default rollback journal therefore applies to the main process.
 - Impact: Writers block readers (including heavier analytics queries) in the main process. A second connection (CLI, backup, maintenance) can make the main connection fail immediately with `SQLITE_BUSY` instead of waiting. Durability and throughput settings are implicit rather than chosen.
 - Desired outcome: The main connection's journal mode, synchronous level and busy timeout are deliberate, documented and covered by tests, and remain compatible with the existing backup, restore, quiescence lock (ADR-068) and container recovery acceptance.
-- Related: ADR-005, ADR-068, ISSUE-175
-- Tasks: none
+- Related: ADR-005, ADR-068, ADR-089, ISSUE-175
+- Tasks: DB-555
+
+- Resolution (2026-10-23): Owner approved WAL, FULL durability and a 5-second busy timeout. DB-555 configures main connections, strictly closes prepared statements and retires old destination WAL through SQLite before either restore mode replaces the database. Concurrent-reader/writer, online snapshot, migration and forced-stop restore tests pass; omitting WAL retirement makes the new tests detect corruption. Static gates, 1,550 unit/script tests, 137 browser/SMTP scenarios and fresh production-container recovery passed. [Evidence](worklogs/2026-10-23-DB-555.md).
 
 ## [ISSUE-188] Web client structure has outgrown its boundaries
 

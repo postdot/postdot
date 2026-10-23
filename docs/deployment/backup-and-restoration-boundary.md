@@ -29,6 +29,18 @@ encryption key and its configured identifier separately and securely; a database
 copy cannot recreate a missing key. Retain the other deployment secrets and
 configuration needed for the installation as well.
 
+## SQLite storage settings
+
+Keep the database on a local filesystem that supports SQLite locking and shared
+memory. Postdot opens file-backed databases in WAL mode with `synchronous=FULL`
+and a five-second busy timeout. WAL allows readers to keep their snapshot while
+a writer commits; SQLite still permits only one writer at a time. A contended
+operation can block the Bun thread during that wait and can still fail.
+
+Use the backup command for a live snapshot. Copying the main database file alone
+can omit committed data in its `-wal` file. Preserve the database and its sidecars
+after an unexpected stop; do not delete sidecars to make startup succeed.
+
 ## Existing restoration behavior
 
 Restore requires the server to be stopped and acquires the runtime quiescence
@@ -36,6 +48,13 @@ lock. Complete restore checks the manifest against the database, verifies file
 hashes and requires the configured media store identity to match the archive.
 It rejects an existing object whose bytes differ, fills missing objects, verifies
 them, then replaces SQLite using a temporary file and rename.
+
+Before replacing an existing destination, restore asks SQLite to checkpoint its
+old WAL and switch to rollback journal mode. A conflicting connection prevents
+replacement. Complete restore performs this transition before opening its media
+fence. The next server start enables WAL again. Orphaned WAL or shared-memory
+files without a destination database cause restore to refuse the replacement;
+inspect and preserve that recovery material before retrying.
 
 This is not a distributed transaction across SQLite and object storage. A failed
 restore can leave already copied media objects, while the database replacement
