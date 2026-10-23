@@ -40,7 +40,12 @@ be static imports; scripts outside Vite read `@iconify-json/*` with `@iconify/ut
 pages (`/legal`, `/privacy`) read their facts from `src/lib/legal.ts`; keep the
 privacy text in step with what the site collects. Feedback goes through the Worker in `worker/` to GitHub discussions (GitHub App
 `postdot-docs`, secret `GITHUB_APP_PRIVATE_KEY` set with `wrangler secret put`
-from a file, never pasted). Deploys run from `main` in CI. `www.postdot.app` is redirected by a Cloudflare
+from a file, never pasted). Accessibility is checked with axe (`axe-core` in Playwright, both themes, desktop and
+mobile) plus keyboard passes; site-owned violations are fixed. Known upstream
+items left on purpose: unnamed language/server selects and a scrollable tab bar in
+Fumadocs OpenAPI pages, duplicate banner/region landmarks in Fumadocs layouts. Do
+not patch them with DOM scripts; fix upstream or replace the component.
+Deploys run from `main` in CI. `www.postdot.app` is redirected by a Cloudflare
 redirect rule on the zone (with a proxied placeholder DNS record), not by code;
 manage zone settings with the `cf` CLI (`cf cli search "<task>"`). Deploys run from `main` in CI; do not deploy from a
 stale checkout.
