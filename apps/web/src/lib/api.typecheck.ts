@@ -1,5 +1,7 @@
 import type {
     ProjectTag,
+    ProjectUserGrant,
+    ProjectTeamGrant,
     WorkspaceInvitation,
     WorkspaceListResponse,
     WorkspaceListItem,
@@ -84,4 +86,32 @@ export type InferredWorkspaceMutations = [
         >
     >,
     Assert<Equal<Parameters<typeof api.updateWorkspaceMemberRole>[2], 'admin' | 'member'>>,
+]
+
+/** Project grant results follow the server; writes cannot elevate a role to owner. */
+export type InferredProjectGrants = [
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.listProjectUserGrants>>, { grants: ProjectUserGrant[] }>
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.createProjectUserGrant>>, { grant: ProjectUserGrant }>
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.updateProjectUserGrant>>, { grant: ProjectUserGrant }>
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeProjectUserGrant>>, { removed: true }>>,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.listProjectTeamGrants>>, { grants: ProjectTeamGrant[] }>
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.createProjectTeamGrant>>, { grant: ProjectTeamGrant }>
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.updateProjectTeamGrant>>, { grant: ProjectTeamGrant }>
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeProjectTeamGrant>>, { removed: true }>>,
+    Assert<Equal<Parameters<typeof api.createProjectUserGrant>[2], 'editor' | 'viewer'>>,
+    Assert<Equal<Parameters<typeof api.updateProjectUserGrant>[2], 'editor' | 'viewer'>>,
+    Assert<Equal<Parameters<typeof api.createProjectTeamGrant>[2], 'editor' | 'viewer'>>,
+    Assert<Equal<Parameters<typeof api.updateProjectTeamGrant>[2], 'editor' | 'viewer'>>,
 ]

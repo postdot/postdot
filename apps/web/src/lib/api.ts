@@ -265,25 +265,6 @@ export interface ProjectInvitation {
     readonly createdAt: number
 }
 
-export interface ProjectUserGrant {
-    readonly id: string
-    readonly projectId: string
-    readonly userId: string
-    readonly role: ProjectMemberRole
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface ProjectTeamGrant {
-    readonly id: string
-    readonly projectId: string
-    readonly teamId: string
-    readonly teamName: string
-    readonly role: ProjectMemberRole
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
 export interface AccessInvitation {
     readonly id: string
     readonly targetEmail: string
@@ -981,20 +962,17 @@ export const api = {
         )
     },
 
-    async listProjectUserGrants(projectId: string): Promise<{ grants: ProjectUserGrant[] }> {
-        return requestAuth<{ grants: ProjectUserGrant[] }>(
-            `/api/projects/${encodeURIComponent(projectId)}/user-grants`
-        )
+    async listProjectUserGrants(projectId: string) {
+        return unwrap(await client.api.projects({ projectId })['user-grants'].get())
     },
 
     async createProjectUserGrant(
         projectId: string,
         userId: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ grant: ProjectUserGrant }> {
-        return requestAuth<{ grant: ProjectUserGrant }>(
-            `/api/projects/${encodeURIComponent(projectId)}/user-grants`,
-            jsonBody({ userId, role })
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId })['user-grants'].post({ userId, role })
         )
     },
 
@@ -1002,34 +980,27 @@ export const api = {
         projectId: string,
         userId: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ grant: ProjectUserGrant }> {
-        return requestAuth<{ grant: ProjectUserGrant }>(
-            `/api/projects/${encodeURIComponent(projectId)}/user-grants/${encodeURIComponent(userId)}`,
-            jsonBody({ role }, 'PATCH')
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId })['user-grants']({ userId }).patch({ role })
         )
     },
 
-    async removeProjectUserGrant(projectId: string, userId: string): Promise<{ removed: true }> {
-        return requestAuth<{ removed: true }>(
-            `/api/projects/${encodeURIComponent(projectId)}/user-grants/${encodeURIComponent(userId)}`,
-            { method: 'DELETE' }
-        )
+    async removeProjectUserGrant(projectId: string, userId: string) {
+        return unwrap(await client.api.projects({ projectId })['user-grants']({ userId }).delete())
     },
 
-    async listProjectTeamGrants(projectId: string): Promise<{ grants: ProjectTeamGrant[] }> {
-        return requestAuth<{ grants: ProjectTeamGrant[] }>(
-            `/api/projects/${encodeURIComponent(projectId)}/team-grants`
-        )
+    async listProjectTeamGrants(projectId: string) {
+        return unwrap(await client.api.projects({ projectId })['team-grants'].get())
     },
 
     async createProjectTeamGrant(
         projectId: string,
         teamId: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ grant: ProjectTeamGrant }> {
-        return requestAuth<{ grant: ProjectTeamGrant }>(
-            `/api/projects/${encodeURIComponent(projectId)}/team-grants`,
-            jsonBody({ teamId, role })
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId })['team-grants'].post({ teamId, role })
         )
     },
 
@@ -1037,18 +1008,14 @@ export const api = {
         projectId: string,
         teamId: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ grant: ProjectTeamGrant }> {
-        return requestAuth<{ grant: ProjectTeamGrant }>(
-            `/api/projects/${encodeURIComponent(projectId)}/team-grants/${encodeURIComponent(teamId)}`,
-            jsonBody({ role }, 'PATCH')
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId })['team-grants']({ teamId }).patch({ role })
         )
     },
 
-    async removeProjectTeamGrant(projectId: string, teamId: string): Promise<{ removed: true }> {
-        return requestAuth<{ removed: true }>(
-            `/api/projects/${encodeURIComponent(projectId)}/team-grants/${encodeURIComponent(teamId)}`,
-            { method: 'DELETE' }
-        )
+    async removeProjectTeamGrant(projectId: string, teamId: string) {
+        return unwrap(await client.api.projects({ projectId })['team-grants']({ teamId }).delete())
     },
 
     async listProjectInvitations(projectId: string): Promise<{
@@ -2122,6 +2089,8 @@ export type {
     WorkspaceSummary,
     WorkspaceListItem,
     WorkspaceRole,
+    ProjectUserGrant,
+    ProjectTeamGrant,
     WorkspaceMember,
     WorkspaceTeam,
     WorkspaceTeamMember,
