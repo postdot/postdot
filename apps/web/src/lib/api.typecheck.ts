@@ -1,4 +1,6 @@
 import type {
+    UserApiKey,
+    UserApiKeyCapability,
     InstanceSetupStatus,
     AccessSummary,
     AccessInstanceState,
@@ -227,4 +229,52 @@ export type InferredInstanceAccessContracts = [
     >,
     Assert<Equal<AccessSummary['membership'], AccessInstanceMembership | null>>,
     Assert<Equal<AccessInvitation['instanceRole'], 'member'>>,
+]
+
+/** API-key metadata never exposes the creation-only token. */
+export type InferredUserApiKeyContracts = [
+    Assert<Equal<Awaited<ReturnType<typeof api.listUserApiKeys>>, { keys: UserApiKey[] }>>,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.createUserApiKey>>, { key: UserApiKey; token: string }>
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.updateUserApiKey>>, { key: UserApiKey }>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.revokeUserApiKey>>, { deleted: true }>>,
+    Assert<Equal<Extract<keyof UserApiKey, 'token'>, never>>,
+    Assert<Equal<UserApiKey['projectAccess'], 'all' | string[]>>,
+    Assert<Equal<UserApiKey['actionAccess'], 'all' | UserApiKeyCapability[]>>,
+    Assert<Equal<UserApiKey['expiresAt'], number | null>>,
+    Assert<
+        Equal<
+            UserApiKeyCapability,
+            | 'project:read'
+            | 'publication:manage'
+            | 'publication:dispatch'
+            | 'channel:manage'
+            | 'media:manage'
+            | 'analytics:refresh'
+            | 'media:permanently_delete'
+        >
+    >,
+    Assert<
+        Equal<
+            Parameters<typeof api.createUserApiKey>,
+            [
+                name: string | undefined,
+                projectIds: readonly string[] | null,
+                expiresAt?: number | null,
+                actionAccess?: readonly UserApiKeyCapability[] | null,
+            ]
+        >
+    >,
+    Assert<
+        Equal<
+            Parameters<typeof api.updateUserApiKey>[1],
+            {
+                readonly name?: string
+                readonly projectIds?: readonly string[] | null
+                readonly expiresAt?: number | null
+                readonly actionAccess?: readonly UserApiKeyCapability[] | null
+            }
+        >
+    >,
 ]
