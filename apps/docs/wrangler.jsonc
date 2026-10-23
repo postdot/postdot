@@ -1,0 +1,16 @@
+{
+    // The site is prerendered and served from the asset storage. There is no
+    // Worker script, so a page view never costs an invocation.
+    // Docs: https://developers.cloudflare.com/workers/static-assets/
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "postdot-docs",
+    "compatibility_date": "2026-10-23",
+    "assets": {
+        "directory": "dist/client",
+        // Serve `/docs/installation` from `docs/installation.html`, and
+        // redirect `/docs/installation/` to `/docs/installation`.
+        "html_handling": "drop-trailing-slash",
+        "not_found_handling": "404-page",
+    },
+    "observability": { "enabled": false },
+}

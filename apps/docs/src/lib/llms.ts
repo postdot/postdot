@@ -2,18 +2,15 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { llms } from 'fumadocs-core/source'
-import { docs } from 'fumadocs-mdx:collections/server'
 
 import { getPageMarkdownUrl } from './markdown'
 import { source } from './source'
 
 export async function getLLMText(page: (typeof source)['$inferPage']) {
-    const document = docs.docs.find(entry => entry.info.path === page.path)
-    if (!document) throw new Error(`Missing document: ${page.path}`)
     let body: string
     if (page.path.includes('reference/(generated)/')) {
         // Generated MDX is a renderer invocation, not the operation contract.
-        const preload = (document._openapi as { preload?: string[] } | undefined)?.preload
+        const preload = page.data._openapi?.preload as string[] | undefined
         if (!preload?.length) throw new Error(`Missing operation schema: ${page.path}`)
         const schemas = await Promise.all(
             preload.map(async file => {
@@ -25,7 +22,7 @@ export async function getLLMText(page: (typeof source)['$inferPage']) {
         )
         body = schemas.map(schema => `\`\`\`json\n${schema.trim()}\n\`\`\``).join('\n\n')
     } else {
-        body = await document.getText('processed')
+        body = await page.data.getText('processed')
     }
     return `# ${page.data.title}\n\n${page.data.description ?? ''}\n\nURL: ${page.url}\n\n${body}\n`
 }

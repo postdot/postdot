@@ -1,15 +1,13 @@
-'use client'
-
 import mcp from '@iconify-icons/logos/model-context-protocol-icon'
 import n8n from '@iconify-icons/logos/n8n-icon'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'motion/react'
-import Link from 'next/link'
 import { useRef, useState } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
+import { Link } from './site-link'
 
 import './public-home.css'
 import './usage-study.css'

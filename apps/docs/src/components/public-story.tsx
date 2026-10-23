@@ -1,11 +1,9 @@
-'use client'
-
 import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
 import { Accordion as FAQItem, Accordions as FAQ } from 'fumadocs-ui/components/accordion'
-import Link from 'next/link'
 
 import { PublicCapabilities } from './public-capabilities'
 import { PublicEntrance } from './public-entrance'
+import { Link } from './site-link'
 import { UsageGallery } from './usage-study'
 
 const questions = [

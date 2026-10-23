@@ -1,11 +1,11 @@
 import github from '@iconify-icons/logos/github-icon'
 import linkedin from '@iconify-icons/logos/linkedin-icon'
 import x from '@iconify-icons/logos/x'
-import Link from 'next/link'
 
 import { PostbotLogo } from './brand'
 import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
+import { Link } from './site-link'
 
 export function PublicFooter() {
     return (

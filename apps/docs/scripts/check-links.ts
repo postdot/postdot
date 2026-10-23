@@ -36,6 +36,18 @@ async function collect(html: string): Promise<PageLinks> {
     return data
 }
 
+/** Mirrors the asset storage: a path serves its file, `<path>.html` or `<path>/index.html`. */
+async function resolveTarget(target: string) {
+    for (const candidate of [target, `${target}.html`, join(target, 'index.html')]) {
+        try {
+            if ((await stat(candidate)).isFile()) return candidate
+        } catch {
+            /* Try the next candidate. */
+        }
+    }
+    throw new Error('Not found')
+}
+
 /** Inspect built HTML, never a running server or external URL. */
 export async function checkExportLinks(directory: string): Promise<{
     pages: number
@@ -54,7 +66,8 @@ export async function checkExportLinks(directory: string): Promise<{
     for (const [file, page] of pages) {
         const path = relative(root, file)
             .replaceAll('\\', '/')
-            .replace(/index\.html$/, '')
+            .replace(/(^|\/)index\.html$/, '$1')
+            .replace(/\.html$/, '')
         const base = new URL(path, 'https://postbot.invalid/')
         for (const href of page.links) {
             let url: URL
@@ -83,8 +96,7 @@ export async function checkExportLinks(directory: string): Promise<{
                 continue
             }
             try {
-                if ((await stat(target)).isDirectory()) target = join(target, 'index.html')
-                if (!(await stat(target)).isFile()) throw new Error('Not a file')
+                target = await resolveTarget(target)
             } catch {
                 failures.push(`${path}: missing target ${href}`)
                 continue
@@ -98,7 +110,7 @@ export async function checkExportLinks(directory: string): Promise<{
 }
 
 if (import.meta.main) {
-    const result = await checkExportLinks(process.argv[2] ?? './out')
+    const result = await checkExportLinks(process.argv[2] ?? './dist/client')
     if (result.failures.length) {
         console.error(result.failures.join('\n'))
         process.exitCode = 1
