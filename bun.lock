@@ -71,6 +71,7 @@
       "name": "@postdot/docs",
       "dependencies": {
         "@iconify-icons/logos": "2.0.2",
+        "@iconify-icons/ph": "2.0.0",
         "@postdot/ui": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@tanstack/react-router": "1.170.46",
@@ -907,6 +908,8 @@
     "@iconify-icons/flag": ["@iconify-icons/flag@2.0.0", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-mb/5FbjoRjMkjJ80N0OD13fPbtcoiUmn7Qa9WXJay12gotYFPlDbx0RRXZJagzv3FXqJtii1a+yEEYiLiDpqYw=="],
 
     "@iconify-icons/logos": ["@iconify-icons/logos@2.0.2", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-bVfod57xTnEeELNdgIT8wshsjIv5UjTbX55463X2VJphs4N+Vzv1KzavnLpOnwe4cQIJNwbm4u5D1KAbM6jfkA=="],
+
+    "@iconify-icons/ph": ["@iconify-icons/ph@2.0.0", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-X2bxpVWpMUayUHTIZl5Ue4xk/2JWtyafCLPVXA4i0P0lUk75A4in7rdv4ZfjV2U67mK8yf/L7tRPPlG57pgW8Q=="],
 
     "@iconify/react": ["@iconify/react@6.0.2", "", { "dependencies": { "@iconify/types": "^2.0.0" }, "peerDependencies": { "react": ">=16" } }, "sha512-SMmC2sactfpJD427WJEDN6PMyznTFMhByK9yLW0gOTtnjzzbsi/Ke/XqsumsavFPwNiXs8jSiYeZTmLCLwO+Fg=="],
 
