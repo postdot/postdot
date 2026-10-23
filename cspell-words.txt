@@ -140,3 +140,5 @@ cookieless
 CNIL
 avifenc
 magick
+fuma
+nama
