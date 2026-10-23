@@ -9,6 +9,7 @@ import { getPageMarkdownUrl } from '@/lib/markdown'
 import type { source } from '@/lib/source'
 
 import { OpenAPIPage } from './api-page'
+import { DocsFeedback } from './docs-feedback'
 
 type Page = NonNullable<ReturnType<typeof source.getPage>>
 type Preloaded = OpenAPIPageProps_Preloaded['preloaded']
@@ -40,6 +41,7 @@ export function DocsPageView({ page, preloaded }: { page: Page; preloaded?: Prel
             <DocsBody>
                 <Content components={components} />
             </DocsBody>
+            <DocsFeedback />
         </DocsPage>
     )
 }
