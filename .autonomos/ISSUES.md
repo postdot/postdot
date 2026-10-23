@@ -4360,10 +4360,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-176] Exclude generated test and runtime data from production build contexts
 
 - Type: defect
-- Status: open
+- Status: resolved
 - Evidence: TELEGRAM-499 observed the default Docker context transferring over 4.9 GB before cancellation. Local test-results occupied 7.4 GB and data occupied 218 MB; neither directory is excluded by .dockerignore. These are local/generated inputs rather than production sources. The successful check used a tar context containing tracked files plus the new provider package.
 - Desired outcome: Keep routine production contexts bounded and exclude generated test outputs and runtime data without hiding required workspace manifests or fixtures. Verify the normal Docker build with representative local outputs present. No runtime data was deleted during discovery.
-- Tasks: TELEGRAM-499 (evidence); dedicated build-context cleanup remains pending.
+- Tasks: TELEGRAM-499 (evidence); BUILD-556 (implementation and acceptance).
+
+- Resolution (2026-10-23): BUILD-556 excludes root data, browser results and reports, and makes existing generated-output/dependency patterns recursive across workspaces. A real Docker context audit checks all workspace manifests and representative tracked fixtures while generated local data remains present. The audited copy falls from 1.6 GB after initial root exclusions to 47 MB after recursive exclusions. Normal production builds, complete container recovery and static gates pass. No existing runtime data or test results were deleted. [Evidence](worklogs/2026-10-23-BUILD-556.md).
 
 ## [ISSUE-177] Verify publication detail refresh after automatic delivery
 

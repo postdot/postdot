@@ -1,10 +1,10 @@
 .git
-.turbo
-.vite
-build
-coverage
-dist
-node_modules
+**/.turbo
+**/.vite
+**/build
+**/coverage
+**/dist
+**/node_modules
 
 .env
 .env.*
@@ -14,6 +14,12 @@ node_modules
 *.sqlite-*
 *.log
 
-.next
-.source
-out
+**/.next
+**/.source
+**/out
+
+# Generated browser output and local runtime data
+/test-results/
+/playwright-report/
+/data/
+**/storybook-static/
