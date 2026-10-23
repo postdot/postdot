@@ -9,6 +9,7 @@ import { PostbotLogo } from './brand'
 
 import './public-home.css'
 import './usage-study.css'
+import { ProductImage } from './product-image'
 
 function BrandMark({ data }: { data: { width?: number; height?: number; body: string } }) {
     return (
@@ -66,18 +67,18 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             <i />
                         </div>
                         <div className="usage-studio-images">
-                            <img
+                            <ProductImage
                                 className="usage-image-light"
-                                src="/product/compose-light.webp"
+                                name="compose-light"
                                 alt="Postdot Studio: composing a post with an X preview"
-                                width="1600"
+                                width="1440"
                                 height="1000"
                             />
-                            <img
+                            <ProductImage
                                 className="usage-image-dark"
-                                src="/product/compose-dark.webp"
+                                name="compose-dark"
                                 alt="Postdot Studio: composing a post with an X preview"
-                                width="1600"
+                                width="1440"
                                 height="1000"
                             />
                         </div>
