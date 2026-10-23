@@ -16,6 +16,8 @@ export default defineConfig({
         'import.meta.env.VITE_SITE_URL': JSON.stringify(
             process.env.POSTBOT_SITE_URL ?? 'http://127.0.0.1:5174'
         ),
+        'import.meta.env.VITE_UMAMI_ID': JSON.stringify(process.env.POSTBOT_UMAMI_ID ?? ''),
+        'import.meta.env.VITE_UMAMI_URL': JSON.stringify(process.env.POSTBOT_UMAMI_URL ?? ''),
     },
     resolve: {
         // Two copies of Fumadocs or React mean two router providers, and links
@@ -39,7 +41,6 @@ export default defineConfig({
             },
             pages: [
                 { path: '/', prerender: { enabled: true } },
-                { path: '/usage-study', prerender: { enabled: true } },
                 { path: '/404', prerender: { enabled: true, outputPath: '/404.html' } },
                 { path: '/llms-txt', prerender: { enabled: true, outputPath: '/llms.txt' } },
                 {

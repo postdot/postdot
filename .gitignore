@@ -54,3 +54,5 @@ apps/docs/public/reference/postbot-openapi.json
 
 # Reproducible static OG material
 apps/docs/.og/
+apps/docs/public/p.js
+apps/docs/public/r.js
