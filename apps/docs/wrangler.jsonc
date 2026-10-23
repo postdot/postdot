@@ -22,7 +22,7 @@
         "REPO_OWNER": "postdot",
         "REPO_NAME": "postdot",
         "DISCUSSION_CATEGORY": "Docs Feedback",
-        "GITHUB_APP_ID": "",
+        "GITHUB_APP_ID": "5441421",
         "ALLOWED_ORIGINS": "",
     },
     "observability": { "enabled": false },
