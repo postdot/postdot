@@ -56,7 +56,10 @@ export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
 
 export type { PublicationFirstCommentItem, PublicationFirstCommentResponse } from '@postdot/client'
 
-import type { PublicationComposerDraftContent } from '@/lib/publication-recovery'
+import {
+    isPublicationComposerDraftContent,
+    type PublicationComposerDraftContent,
+} from '@/lib/publication-recovery'
 
 const client = createPostbotClient(window.location.origin)
 
@@ -517,13 +520,23 @@ function jsonBody(value: unknown, method: 'POST' | 'PATCH' = 'POST'): RequestIni
 }
 
 function unwrap<T>(result: {
-    readonly data: unknown
+    readonly data: T | null
     readonly error: unknown
     readonly status: number
 }): T {
     if (result.error !== null) throw errorFrom(result.status, result.error)
     if (result.data === null) throw new ApiError(result.status, 'empty_response', '')
-    return result.data as T
+    return result.data
+}
+
+function parsePublicationComposerDraft(
+    draft: Omit<PublicationComposerDraft, 'content'> & { readonly content: unknown }
+): PublicationComposerDraft {
+    const { content } = draft
+    if (!isPublicationComposerDraftContent(content)) {
+        throw new ApiError(200, 'invalid_response', '')
+    }
+    return { ...draft, content }
 }
 
 export interface RecoveryState {
@@ -756,41 +769,24 @@ export const api = {
         )
     },
 
-    async listProjectTags(
-        projectId: string,
-        options: { includeArchived?: boolean } = {}
-    ): Promise<{ tags: ProjectTag[] }> {
-        return unwrap<{ tags: ProjectTag[] }>(
-            await client.api.projects({ projectId }).tags.get({ query: options })
-        )
+    async listProjectTags(projectId: string, options: { includeArchived?: boolean } = {}) {
+        return unwrap(await client.api.projects({ projectId }).tags.get({ query: options }))
     },
 
-    async createProjectTag(projectId: string, name: string): Promise<{ tag: ProjectTag }> {
-        return unwrap<{ tag: ProjectTag }>(
-            await client.api.projects({ projectId }).tags.post({ name })
-        )
+    async createProjectTag(projectId: string, name: string) {
+        return unwrap(await client.api.projects({ projectId }).tags.post({ name }))
     },
 
-    async renameProjectTag(
-        projectId: string,
-        tagId: string,
-        name: string
-    ): Promise<{ tag: ProjectTag }> {
-        return unwrap<{ tag: ProjectTag }>(
-            await client.api.projects({ projectId }).tags({ tagId }).patch({ name })
-        )
+    async renameProjectTag(projectId: string, tagId: string, name: string) {
+        return unwrap(await client.api.projects({ projectId }).tags({ tagId }).patch({ name }))
     },
 
-    async archiveProjectTag(projectId: string, tagId: string): Promise<{ tag: ProjectTag }> {
-        return unwrap<{ tag: ProjectTag }>(
-            await client.api.projects({ projectId }).tags({ tagId }).archive.post()
-        )
+    async archiveProjectTag(projectId: string, tagId: string) {
+        return unwrap(await client.api.projects({ projectId }).tags({ tagId }).archive.post())
     },
 
-    async restoreProjectTag(projectId: string, tagId: string): Promise<{ tag: ProjectTag }> {
-        return unwrap<{ tag: ProjectTag }>(
-            await client.api.projects({ projectId }).tags({ tagId }).restore.post()
-        )
+    async restoreProjectTag(projectId: string, tagId: string) {
+        return unwrap(await client.api.projects({ projectId }).tags({ tagId }).restore.post())
     },
 
     async getPublicationReplies(
@@ -1906,9 +1902,10 @@ export const api = {
     async getPublicationComposerDraft(
         projectId: string
     ): Promise<{ draft: PublicationComposerDraft | null }> {
-        return unwrap<{ draft: PublicationComposerDraft | null }>(
+        const { draft } = unwrap(
             await client.api.projects({ projectId })['publication-composer-draft'].get()
         )
+        return { draft: draft === null ? null : parsePublicationComposerDraft(draft) }
     },
 
     async savePublicationComposerDraft(
@@ -1916,11 +1913,12 @@ export const api = {
         expectedRevision: number,
         content: PublicationComposerDraftContent
     ): Promise<{ draft: PublicationComposerDraft }> {
-        return unwrap<{ draft: PublicationComposerDraft }>(
+        const { draft } = unwrap(
             await client.api
                 .projects({ projectId })
                 ['publication-composer-draft'].put({ expectedRevision, content })
         )
+        return { draft: parsePublicationComposerDraft(draft) }
     },
 
     async deletePublicationComposerDraft(projectId: string): Promise<{ deleted: boolean }> {

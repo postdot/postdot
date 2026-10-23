@@ -20,7 +20,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@elysiajs/eden": "1.4.9"
+        "@elysia/eden": "2.0.0-beta.2"
     },
     "devDependencies": {
         "@postdot/api": "workspace:*",

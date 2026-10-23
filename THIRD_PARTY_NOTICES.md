@@ -47,6 +47,9 @@ alongside the full license text, and copied into the runtime image.
 
 ## Direct production dependencies
 
+The Eden entry was updated on 2026-10-23 to the Elysia v2-compatible client;
+its retained upstream MIT notice is unchanged.
+
 Snapshot: 2026-10-11, installed package metadata for non-workspace dependencies
 listed in `dependencies` across the apps and packages. Development tools are not
 included. This is a conservative source inventory, not the list of code actually
@@ -66,7 +69,7 @@ license texts or a transitive dependency review.
 | `@dicebear/core`                        | 10.7.0            | MIT                       |
 | `@dicebear/styles`                      | 10.6.0            | SEE LICENSE IN LICENSE.md |
 | `@elysia/static`                        | 2.0.0-beta.2      | MIT                       |
-| `@elysiajs/eden`                        | 1.4.9             | MIT                       |
+| `@elysia/eden`                          | 2.0.0-beta.2      | MIT                       |
 | `@elysiajs/openapi`                     | 2.0.0-exp.0       | MIT                       |
 | `@fontsource-variable/recursive`        | 5.3.0             | OFL-1.1                   |
 | `@iconify-icons/flag`                   | 2.0.0             | MIT                       |
