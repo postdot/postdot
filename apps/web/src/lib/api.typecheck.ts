@@ -2,6 +2,9 @@ import type {
     ProjectTag,
     WorkspaceInvitation,
     WorkspaceListResponse,
+    WorkspaceListItem,
+    WorkspaceMember,
+    WorkspaceTeam,
     WorkspaceRole,
     WorkspaceSummary,
     WorkspaceTeamMember,
@@ -45,4 +48,40 @@ export type InferredWorkspaceResponses = [
     Assert<Equal<WorkspaceInvitation['status'], string>>,
     Assert<Equal<WorkspaceTeamMember['id'], string>>,
     Assert<Equal<WorkspaceListResponse['canCreateWorkspace'], boolean>>,
+]
+
+/** Workspace writes preserve their existing role restrictions and server results. */
+export type InferredWorkspaceMutations = [
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.createWorkspace>>, { workspace: WorkspaceListItem }>
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.updateWorkspaceMemberRole>>,
+            { member: WorkspaceMember }
+        >
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeWorkspaceMember>>, { removed: true }>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.createWorkspaceTeam>>, { team: WorkspaceTeam }>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.renameWorkspaceTeam>>, { team: WorkspaceTeam }>>,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.addWorkspaceTeamMember>>,
+            { member: WorkspaceTeamMember }
+        >
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeWorkspaceTeamMember>>, { removed: true }>>,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.createWorkspaceInvitation>>,
+            { invitation: WorkspaceInvitation }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.cancelWorkspaceInvitation>>,
+            { invitation: WorkspaceInvitation }
+        >
+    >,
+    Assert<Equal<Parameters<typeof api.updateWorkspaceMemberRole>[2], 'admin' | 'member'>>,
 ]
