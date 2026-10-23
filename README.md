@@ -32,7 +32,7 @@ before connecting an account.
 
 ## Develop locally
 
-Install [Bun](https://bun.sh) 1.4.2 or newer, then run:
+Install [Bun](https://bun.sh) 1.4.4 or newer, then run:
 
 ```sh
 bun install

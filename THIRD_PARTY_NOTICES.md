@@ -91,8 +91,6 @@ license texts or a transitive dependency review.
 | `@sinclair/typebox`                     | 0.34.52           | MIT                       |
 | `@solar-icons/react`                    | 2.3.2             | MIT                       |
 | `@tanstack/hotkeys`                     | 0.10.1            | MIT                       |
-| `@tanstack/query-db-collection`         | 1.3.1             | MIT                       |
-| `@tanstack/react-db`                    | 0.5.0             | MIT                       |
 | `@tanstack/react-hotkeys`               | 0.12.1            | MIT                       |
 | `@tanstack/react-query`                 | 5.104.0           | MIT                       |
 | `@tanstack/react-router`                | 1.170.41          | MIT                       |

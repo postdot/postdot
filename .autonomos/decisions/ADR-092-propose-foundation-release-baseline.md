@@ -1,6 +1,6 @@
-# ADR-092 — Revised Foundation Maintenance Proposal
+# ADR-092 — Foundation Dependency Maintenance
 
-- Status: proposed — initial freeze recommendation withdrawn after owner clarification
+- Status: accepted — owner approved the corrected maintenance direction on 2026-10-23
 - Scope: ISSUE-189; dependency maintenance before the first stable product release
 - Provenance: FOUND-570 assessment and owner clarification on 2026-10-23
 - Related: ADR-004, ADR-083, ADR-091, RELEASE-303
@@ -35,12 +35,12 @@ or tooling incompatibilities when they occur; no special freeze or downgrade is
 proposed.
 
 **TanStack DB:** This is a product data library, not a development utility. Its
-current repository use is a development-only realtime prototype; ordinary
-production features use TanStack Query and SSE. That describes the existing
-implementation, not a rule that DB must remain outside production. Its possible
-adoption should be judged by product and data-flow needs. Beta status alone is
-not a reason to forbid it. Neither promotion of the prototype nor relocation of
-its dependency declarations is authorized by this clarification.
+assessment found a leftover development-only comparison prototype; ordinary
+production features use TanStack Query and SSE, as accepted in ADR-047. The owner
+confirmed that choice and requested cleanup of completed experiments. FOUND-571
+retires that unused prototype and its dependencies. This is cleanup of a rejected
+implementation, not a general prohibition on using TanStack DB in a product.
+Future adoption would need a concrete application need and its own review.
 
 **Bun:** The concrete maintenance finding remains: the recorded host revision was
 `1.4.3-canary.1+620b50f6a`, while CI and Docker selected 1.4.2. Align the validated
@@ -58,8 +58,9 @@ Do not replace the operator's global executable implicitly.
 - [TypeScript 7's release announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)
   and installed metadata distinguish the published compiler from its programmatic
   API surface. No repository-owned compiler-API import was found.
-- The current prototype route is conditionally imported in development and
-  redirects in production. WEB-557 records its prior asset/browser verification.
+- At the assessment revision, the prototype route was conditionally imported in
+  development and redirected in production. WEB-557 records that prior asset/
+  browser verification; FOUND-571 retires the route.
   [TanStack DB's repository](https://github.com/TanStack/db) describes the library;
   its beta label is not a deployment restriction.
 - [Bun 1.4.3](https://bun.sh/blog/bun-v1.4.3) and
@@ -68,9 +69,9 @@ Do not replace the operator's global executable implicitly.
   stable and canary channels. Review the latest stable candidate at implementation
   time rather than treating this dated inventory as a permanent target.
 
-## Recommended next implementation
+## Implementation and maintenance
 
-Perform one Bun maintenance and alignment batch: review the current stable
+FOUND-571 implements one Bun maintenance and alignment batch: review the current stable
 release, test it without changing the global executable, align declared/runtime
 versions and packaging, and validate the completed change. Preserve existing
 checker/formatter choices and avoid bundling a framework or client data-layer
@@ -80,8 +81,7 @@ Continue Elysia prerelease maintenance as normal dependency work, checking actua
 compatibility and recording any necessary hold. Revisit the broader stability
 policy when preparing the first stable release or onboarding external users.
 
-No dependency, runtime installation, application code, prototype visibility,
-image publication or remote CI dispatch changed during this assessment or its
-clarification. The initial four-part approval request is withdrawn; this revision
-does not require an extra risk-acceptance ceremony for the already accepted use
-of prereleases.
+The assessment itself changed no dependencies. The owner subsequently approved
+the corrected maintenance direction and experiment cleanup under FOUND-571.
+The initial four-part freeze request is withdrawn. No image publication, remote
+CI dispatch or global runtime replacement is authorized by this decision.

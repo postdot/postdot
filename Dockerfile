@@ -1,6 +1,6 @@
 # cspell:words ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
 # Isolated from application sources so normal Postdot builds reuse this layer.
-FROM oven/bun:1.4.2-slim AS poster
+FROM oven/bun:1.4.4-slim AS poster
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential xz-utils curl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
@@ -14,7 +14,7 @@ RUN ./configure --disable-everything --disable-autodetect --disable-doc --disabl
     --enable-filter=scale,format,buffer,buffersink,transpose,hflip,vflip --enable-small \
     && make -j4
 
-FROM oven/bun:1.4.2 AS build
+FROM oven/bun:1.4.4 AS build
 
 WORKDIR /app
 
@@ -51,7 +51,7 @@ RUN cp apps/api/dist/index.js /out/postbot.js
 RUN cp -R packages/db/drizzle/. /out/migrations/
 RUN cp -R apps/web/dist/. /out/public/
 
-FROM oven/bun:1.4.2-slim
+FROM oven/bun:1.4.4-slim
 
 WORKDIR /app
 
