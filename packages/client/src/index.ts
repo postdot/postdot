@@ -78,6 +78,24 @@ export function createPostbotClient(
 
 export type PostbotClient = ReturnType<typeof createPostbotClient>
 
+type WorkspaceRoute = ReturnType<PostbotClient['api']['workspaces']>
+type WorkspaceTeamRoute = ReturnType<WorkspaceRoute['teams']>
+
+export type WorkspaceListResponse = NonNullable<
+    Awaited<ReturnType<PostbotClient['api']['workspaces']['get']>>['data']
+>
+export type WorkspaceSummary = NonNullable<Awaited<ReturnType<WorkspaceRoute['get']>>['data']>
+export type WorkspaceListItem = WorkspaceListResponse['workspaces'][number]
+export type WorkspaceRole = WorkspaceListItem['role']
+export type WorkspaceMember = WorkspaceSummary['members'][number]
+export type WorkspaceTeam = WorkspaceSummary['teams'][number]
+export type WorkspaceTeamMember = NonNullable<
+    Awaited<ReturnType<WorkspaceTeamRoute['members']['get']>>['data']
+>['members'][number]
+export type WorkspaceInvitation = NonNullable<
+    Awaited<ReturnType<WorkspaceRoute['invitations']['get']>>['data']
+>['invitations'][number]
+
 export type Project = ProjectResponse
 export type ProjectCategory = ProjectCategoryResponse
 export type ProjectTag = ProjectTagResponse

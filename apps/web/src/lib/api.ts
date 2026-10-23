@@ -44,6 +44,12 @@ import {
     type ProjectTag,
     type PublicationCommentsResponse,
     type PublicationFirstCommentResponse,
+    type WorkspaceListItem,
+    type WorkspaceRole,
+    type WorkspaceMember,
+    type WorkspaceTeam,
+    type WorkspaceTeamMember,
+    type WorkspaceInvitation,
 } from '@postdot/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -262,74 +268,6 @@ export interface ProjectInvitation {
     readonly status: ProjectInvitationStatus
     readonly expiresAt: number
     readonly createdAt: number
-}
-
-export type WorkspaceRole = 'owner' | 'admin' | 'member'
-
-export interface WorkspaceListItem {
-    readonly id: string
-    readonly name: string
-    readonly slug: string
-    readonly isDefault: boolean
-    readonly role: WorkspaceRole
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface WorkspaceListResponse {
-    readonly workspaces: WorkspaceListItem[]
-    readonly canCreateWorkspace: boolean
-}
-
-export interface WorkspaceMember {
-    readonly id: string
-    readonly userId: string
-    readonly email: string
-    readonly name: string
-    readonly image: string | null
-    readonly role: string
-    readonly createdAt: number
-}
-
-export interface WorkspaceTeam {
-    readonly id: string
-    readonly name: string
-    readonly memberCount: number
-    readonly isDefault: boolean
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface WorkspaceTeamMember {
-    readonly id: string
-    readonly teamId: string
-    readonly userId: string
-    readonly createdAt: number
-}
-
-export interface WorkspaceInvitation {
-    readonly id: string
-    readonly email: string
-    readonly role: string
-    readonly teamId?: string
-    readonly inviterId: string
-    readonly status: ProjectInvitationStatus
-    readonly expiresAt: number
-    readonly createdAt: number
-}
-
-export interface WorkspaceSummary {
-    readonly workspace: {
-        readonly id: string
-        readonly name: string
-        readonly slug: string
-        readonly isDefault: boolean
-        readonly createdAt: number
-        readonly updatedAt: number
-    }
-    readonly membership: { readonly role: WorkspaceRole }
-    readonly members: WorkspaceMember[]
-    readonly teams: WorkspaceTeam[]
 }
 
 export interface ProjectUserGrant {
@@ -976,16 +914,16 @@ export const api = {
         )
     },
 
-    async listWorkspaces(): Promise<WorkspaceListResponse> {
-        return requestAuth<WorkspaceListResponse>('/api/workspaces')
+    async listWorkspaces() {
+        return unwrap(await client.api.workspaces.get())
     },
 
     async createWorkspace(name: string): Promise<{ workspace: WorkspaceListItem }> {
         return requestAuth<{ workspace: WorkspaceListItem }>('/api/workspaces', jsonBody({ name }))
     },
 
-    async getWorkspace(workspaceId: string): Promise<WorkspaceSummary> {
-        return requestAuth<WorkspaceSummary>(`/api/workspaces/${encodeURIComponent(workspaceId)}`)
+    async getWorkspace(workspaceId: string) {
+        return unwrap(await client.api.workspaces({ workspaceId }).get())
     },
 
     async updateWorkspaceMemberRole(
@@ -1024,13 +962,8 @@ export const api = {
         )
     },
 
-    async listWorkspaceTeamMembers(
-        workspaceId: string,
-        teamId: string
-    ): Promise<{ members: WorkspaceTeamMember[] }> {
-        return requestAuth<{ members: WorkspaceTeamMember[] }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/teams/${encodeURIComponent(teamId)}/members`
-        )
+    async listWorkspaceTeamMembers(workspaceId: string, teamId: string) {
+        return unwrap(await client.api.workspaces({ workspaceId }).teams({ teamId }).members.get())
     },
 
     async addWorkspaceTeamMember(
@@ -1055,12 +988,8 @@ export const api = {
         )
     },
 
-    async listWorkspaceInvitations(workspaceId: string): Promise<{
-        invitations: WorkspaceInvitation[]
-    }> {
-        return requestAuth<{ invitations: WorkspaceInvitation[] }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations`
-        )
+    async listWorkspaceInvitations(workspaceId: string) {
+        return unwrap(await client.api.workspaces({ workspaceId }).invitations.get())
     },
 
     async createWorkspaceInvitation(
@@ -2221,6 +2150,14 @@ export type {
     Notification,
     NotificationInbox,
     NotificationPreference,
+    WorkspaceListResponse,
+    WorkspaceSummary,
+    WorkspaceListItem,
+    WorkspaceRole,
+    WorkspaceMember,
+    WorkspaceTeam,
+    WorkspaceTeamMember,
+    WorkspaceInvitation,
 } from '@postdot/client'
 
 export function formatApiError(error: unknown): string {
