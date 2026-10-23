@@ -22,6 +22,7 @@ content generator.
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits
+- **Work batching (owner direction, 2026-10-23):** Complete coherent end-to-end issue slices with grouped validation. Avoid repeated approvals and commits for a handful of equivalent functions; request owner decisions for actual scope or architecture choices.
 - **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
 - **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
 - **Integration (temporary owner direction):** Until the owner changes this
