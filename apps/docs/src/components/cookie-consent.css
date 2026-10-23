@@ -17,7 +17,14 @@
     font:
         14px/1.5 'Host Grotesk',
         sans-serif;
-    animation: consent-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    transition:
+        opacity 0.25s ease,
+        transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.consent[data-starting-style],
+.consent[data-ending-style] {
+    opacity: 0;
+    transform: translateY(12px);
 }
 .dark .consent {
     box-shadow: 0 16px 48px rgb(0 0 0 / 55%);
@@ -45,7 +52,8 @@
     background: var(--color-fd-popover);
     color: var(--color-fd-foreground);
 }
-.consent h2 {
+.consent .consent-title {
+    display: block;
     margin: 0;
     font-size: 17px;
     font-weight: 600;
@@ -128,8 +136,7 @@
     opacity: 0.55;
 }
 .consent [data-slot='switch']:focus-visible,
-.consent-toggle:focus-visible,
-.consent-launcher:focus-visible {
+.consent-toggle:focus-visible {
     outline: 2px solid var(--color-fd-primary);
     outline-offset: 2px;
 }
@@ -196,51 +203,9 @@
     outline: 2px solid var(--color-fd-primary);
     outline-offset: 2px;
 }
-.consent-launcher {
-    position: fixed;
-    z-index: 55;
-    bottom: 16px;
-    left: 16px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid var(--color-fd-border);
-    border-radius: 3px;
-    background: var(--color-fd-background);
-    color: var(--color-fd-muted-foreground);
-    box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
-    font:
-        600 12px/1 'Host Grotesk',
-        sans-serif;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-.consent-launcher:hover {
-    color: var(--color-fd-foreground);
-    border-color: var(--color-fd-foreground);
-}
-@media (max-width: 639px) {
-    .consent-launcher {
-        width: 36px;
-        padding: 0;
-        justify-content: center;
-    }
-    .consent-launcher span {
-        display: none;
-    }
-}
-@keyframes consent-in {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
-    }
-}
 @media (prefers-reduced-motion: reduce) {
     .consent {
-        animation: none;
+        transition: none;
     }
     .consent-toggle svg,
     .consent [data-slot='switch'],

@@ -1,24 +1,18 @@
 import { Button } from '@postdot/ui/components/button'
+import { Sheet, SheetContent, SheetTitle } from '@postdot/ui/components/sheet'
 import { Switch } from '@postdot/ui/components/switch'
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@postdot/ui/components/tooltip'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
-import { ShieldKeyholeIcon } from '@solar-icons/react/linear/shield-keyhole'
-import { TuningIcon } from '@solar-icons/react/linear/tuning'
 import { useEffect, useState } from 'react'
 
 import {
     type Consent,
     consentCategories,
     onConsentPromptRequest,
-    requestConsentPrompt,
     useConsent,
     writeConsent,
 } from '@/lib/consent'
+
+import { CookieIcon } from './cookie-icon'
 
 import './cookie-consent.css'
 import { Link } from './site-link'
@@ -39,8 +33,9 @@ export function CookieConsent() {
 
     if (consent === undefined) return null
 
+    // Without a stored choice the panel cannot be dismissed; once there is one,
+    // Escape or a click outside closes it and keeps that choice.
     const open = consent === null || view !== null
-    if (!open) return <ConsentLauncher />
 
     function apply(next: Consent) {
         const changed = (consent?.analytics ?? false) !== next.analytics
@@ -51,12 +46,22 @@ export function CookieConsent() {
     }
 
     return (
-        <ConsentPanel
-            view={view ?? 'intro'}
-            initial={consent ?? { analytics: false }}
-            onView={setView}
-            onApply={apply}
-        />
+        <Sheet
+            open={open}
+            modal={false}
+            disablePointerDismissal={consent === null || view !== 'settings'}
+            onOpenChange={next => {
+                if (!next && consent !== null) setView(null)
+            }}>
+            <SheetContent side="bottom" overlay={false} showCloseButton={false} className="consent">
+                <ConsentPanel
+                    view={view ?? 'intro'}
+                    initial={consent ?? { analytics: false }}
+                    onView={setView}
+                    onApply={apply}
+                />
+            </SheetContent>
+        </Sheet>
     )
 }
 
@@ -75,13 +80,13 @@ function ConsentPanel({
     const [expanded, setExpanded] = useState<string | null>(null)
 
     return (
-        <section aria-labelledby="consent-title" className="consent">
+        <>
             <div className="consent-head">
                 <span className="consent-icon">
-                    <ShieldKeyholeIcon size={22} aria-hidden="true" />
+                    <CookieIcon size={22} />
                 </span>
                 <div>
-                    <h2 id="consent-title">Your privacy</h2>
+                    <SheetTitle className="consent-title">Your privacy</SheetTitle>
                     <p>
                         {view === 'intro'
                             ? 'We use a few tools to keep this site running and to understand how it is used, so we can improve it. You decide what is allowed. '
@@ -143,26 +148,6 @@ function ConsentPanel({
                     Decline all
                 </Button>
             </div>
-        </section>
-    )
-}
-
-/** Stays on every page once a choice exists, so the choice can be changed. */
-function ConsentLauncher() {
-    return (
-        <TooltipProvider delay={300}>
-            <Tooltip>
-                <TooltipTrigger
-                    render={<button type="button" className="consent-launcher" />}
-                    aria-label="Cookie preferences"
-                    onClick={requestConsentPrompt}>
-                    <TuningIcon size={16} aria-hidden="true" />
-                    <span>Cookies</span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="home-theme-tooltip">
-                    Cookie preferences
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        </>
     )
 }

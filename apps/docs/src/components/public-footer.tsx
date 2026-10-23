@@ -5,6 +5,7 @@ import x from '@iconify-icons/logos/x'
 import { requestConsentPrompt } from '@/lib/consent'
 
 import { PostbotLogo } from './brand'
+import { CookieIcon } from './cookie-icon'
 import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
 import { Link } from './site-link'
@@ -81,6 +82,7 @@ export function PublicFooter() {
                 <Link href="/legal">Legal notice</Link>
                 <Link href="/privacy">Privacy</Link>
                 <button type="button" className="home-footer-link" onClick={requestConsentPrompt}>
+                    <CookieIcon size={14} />
                     Cookie settings
                 </button>
             </div>
