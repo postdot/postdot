@@ -4490,13 +4490,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Large shared modules increase review and regression cost, and re-render scope. Duplicated client typing can drift from the API contract. Prototype surfaces ship to users.
 - Desired outcome: Data loading and mutations are scoped to the routes and features that need them, the typed client is used without a parallel hand-maintained contract, the client data layer is a deliberate single choice, and prototype surfaces are either removed or excluded from production.
 - Related: ISSUE-185, ADR-047, ADR-057
-- Tasks: WEB-557 (development-only prototype slice); WEB-558 (Eden response typing and project tags); WEB-559 (workspace reads and derived workspace types). Broader client structure remains open.
+- Tasks: WEB-557 (development-only prototype slice); WEB-558 (Eden response typing and project tags); WEB-559 (workspace reads and derived workspace types); WEB-560 (workspace writes). Broader client structure remains open.
 
 - Partial resolution (2026-10-23): WEB-557 gates the realtime prototype to development, redirects production access to the same project overview and conditionally imports the experimental component so production assets omit it. Both browser modes, an audit of 173 production JavaScript assets, 283 web tests and static gates pass. The wider data-loading, typed-client and dependency-boundary questions remain open. [Evidence](worklogs/2026-10-23-WEB-557.md).
 
 - Typed-client progress (2026-10-23): WEB-558 replaces the incompatible Eden v1 SDK with the v2 client matching the installed server, makes unwrap check its data type and infers the five project-tag responses. The compiler exposed two opaque composer-content boundaries, now validated before UI use. Five type contracts fail with the previous helper; 1,552 unit/script tests, 133 browser plus 4 SMTP scenarios, static gates and production-container recovery pass. Raw-fetch workspace contracts and broader client architecture remain open. [Evidence](worklogs/2026-10-23-WEB-558.md).
 
 - Workspace-read progress (2026-10-23): WEB-559 migrates list, detail, team-member and invitation reads to Eden and replaces eight handwritten workspace declarations with types derived from its server responses. Invitation status now reflects the API string schema. Eight compile-time checks, 288 client/web tests, production build, static gates and three invitation/role/navigation browser scenarios pass. Workspace mutations still use raw fetch; broader data-layer and client boundaries remain open. [Evidence](worklogs/2026-10-23-WEB-559.md).
+
+- Workspace-write progress (2026-10-23): WEB-560 migrates all nine workspace mutation wrappers to Eden/unwrap, retaining their inputs and error semantics. Ten compile-time contracts, 301 web/client/access tests, production build, static gates and four browser scenarios pass. A temporary browser acceptance exercises every migrated method, a single forbidden write and protected-owner rejection. Better Auth invitation acceptance and project grant wrappers remain separate; broader client boundaries stay open. [Evidence](worklogs/2026-10-23-WEB-560.md).
 
 ## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
 

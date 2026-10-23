@@ -44,12 +44,7 @@ import {
     type ProjectTag,
     type PublicationCommentsResponse,
     type PublicationFirstCommentResponse,
-    type WorkspaceListItem,
     type WorkspaceRole,
-    type WorkspaceMember,
-    type WorkspaceTeam,
-    type WorkspaceTeamMember,
-    type WorkspaceInvitation,
 } from '@postdot/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -918,8 +913,8 @@ export const api = {
         return unwrap(await client.api.workspaces.get())
     },
 
-    async createWorkspace(name: string): Promise<{ workspace: WorkspaceListItem }> {
-        return requestAuth<{ workspace: WorkspaceListItem }>('/api/workspaces', jsonBody({ name }))
+    async createWorkspace(name: string) {
+        return unwrap(await client.api.workspaces.post({ name }))
     },
 
     async getWorkspace(workspaceId: string) {
@@ -930,35 +925,23 @@ export const api = {
         workspaceId: string,
         memberId: string,
         role: Exclude<WorkspaceRole, 'owner'>
-    ): Promise<{ member: WorkspaceMember }> {
-        return requestAuth<{ member: WorkspaceMember }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
-            jsonBody({ role }, 'PATCH')
+    ) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).members({ memberId }).patch({ role })
         )
     },
 
-    async removeWorkspaceMember(workspaceId: string, memberId: string): Promise<{ removed: true }> {
-        return requestAuth<{ removed: true }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`,
-            { method: 'DELETE' }
-        )
+    async removeWorkspaceMember(workspaceId: string, memberId: string) {
+        return unwrap(await client.api.workspaces({ workspaceId }).members({ memberId }).delete())
     },
 
-    async createWorkspaceTeam(workspaceId: string, name: string): Promise<{ team: WorkspaceTeam }> {
-        return requestAuth<{ team: WorkspaceTeam }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/teams`,
-            jsonBody({ name })
-        )
+    async createWorkspaceTeam(workspaceId: string, name: string) {
+        return unwrap(await client.api.workspaces({ workspaceId }).teams.post({ name }))
     },
 
-    async renameWorkspaceTeam(
-        workspaceId: string,
-        teamId: string,
-        name: string
-    ): Promise<{ team: WorkspaceTeam }> {
-        return requestAuth<{ team: WorkspaceTeam }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/teams/${encodeURIComponent(teamId)}`,
-            jsonBody({ name }, 'PATCH')
+    async renameWorkspaceTeam(workspaceId: string, teamId: string, name: string) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).teams({ teamId }).patch({ name })
         )
     },
 
@@ -966,25 +949,19 @@ export const api = {
         return unwrap(await client.api.workspaces({ workspaceId }).teams({ teamId }).members.get())
     },
 
-    async addWorkspaceTeamMember(
-        workspaceId: string,
-        teamId: string,
-        userId: string
-    ): Promise<{ member: WorkspaceTeamMember }> {
-        return requestAuth<{ member: WorkspaceTeamMember }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/teams/${encodeURIComponent(teamId)}/members`,
-            jsonBody({ userId })
+    async addWorkspaceTeamMember(workspaceId: string, teamId: string, userId: string) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).teams({ teamId }).members.post({ userId })
         )
     },
 
-    async removeWorkspaceTeamMember(
-        workspaceId: string,
-        teamId: string,
-        userId: string
-    ): Promise<{ removed: true }> {
-        return requestAuth<{ removed: true }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/teams/${encodeURIComponent(teamId)}/members/${encodeURIComponent(userId)}`,
-            { method: 'DELETE' }
+    async removeWorkspaceTeamMember(workspaceId: string, teamId: string, userId: string) {
+        return unwrap(
+            await client.api
+                .workspaces({ workspaceId })
+                .teams({ teamId })
+                .members({ userId })
+                .delete()
         )
     },
 
@@ -992,24 +969,15 @@ export const api = {
         return unwrap(await client.api.workspaces({ workspaceId }).invitations.get())
     },
 
-    async createWorkspaceInvitation(
-        workspaceId: string,
-        email: string,
-        teamId: string
-    ): Promise<{ invitation: WorkspaceInvitation }> {
-        return requestAuth<{ invitation: WorkspaceInvitation }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
-            jsonBody({ email, teamId })
+    async createWorkspaceInvitation(workspaceId: string, email: string, teamId: string) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).invitations.post({ email, teamId })
         )
     },
 
-    async cancelWorkspaceInvitation(
-        workspaceId: string,
-        invitationId: string
-    ): Promise<{ invitation: WorkspaceInvitation }> {
-        return requestAuth<{ invitation: WorkspaceInvitation }>(
-            `/api/workspaces/${encodeURIComponent(workspaceId)}/invitations/${encodeURIComponent(invitationId)}`,
-            { method: 'DELETE' }
+    async cancelWorkspaceInvitation(workspaceId: string, invitationId: string) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).invitations({ invitationId }).delete()
         )
     },
 
