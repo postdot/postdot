@@ -36,6 +36,7 @@ import {
     type PublisherConnection,
     type EmailAlertPreference,
     type Project,
+    type ProjectMemberRole,
     type Publication,
     type PublicationApprovalRequest,
     type PublicationSummaryPage,
@@ -236,33 +237,6 @@ export interface AccessProjectMembership {
     readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
-}
-
-export type ProjectMemberRole = 'owner' | 'editor' | 'viewer'
-export type ProjectInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'canceled'
-
-export interface ProjectMember {
-    readonly id: string
-    readonly projectId: string
-    readonly userId: string
-    readonly email: string
-    readonly name: string
-    readonly image: string | null
-    readonly role: ProjectMemberRole
-    readonly state: 'active'
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface ProjectInvitation {
-    readonly id: string
-    readonly email: string
-    readonly role: ProjectMemberRole
-    readonly organizationId: string
-    readonly inviterId: string
-    readonly status: ProjectInvitationStatus
-    readonly expiresAt: number
-    readonly createdAt: number
 }
 
 export interface AccessInvitation {
@@ -875,19 +849,12 @@ export const api = {
         })
     },
 
-    async listProjectMembers(projectId: string): Promise<{
-        members: ProjectMember[]
-        total: number
-    }> {
-        return requestAuth<{ members: ProjectMember[]; total: number }>(
-            `/api/projects/${encodeURIComponent(projectId)}/members`
-        )
+    async listProjectMembers(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).members.get())
     },
 
-    async getProjectMembership(projectId: string): Promise<{ membership: ProjectMember }> {
-        return requestAuth<{ membership: ProjectMember }>(
-            `/api/projects/${encodeURIComponent(projectId)}/membership`
-        )
+    async getProjectMembership(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).membership.get())
     },
 
     async listWorkspaces() {
@@ -1018,42 +985,27 @@ export const api = {
         return unwrap(await client.api.projects({ projectId })['team-grants']({ teamId }).delete())
     },
 
-    async listProjectInvitations(projectId: string): Promise<{
-        invitations: ProjectInvitation[]
-    }> {
-        return requestAuth<{ invitations: ProjectInvitation[] }>(
-            `/api/projects/${encodeURIComponent(projectId)}/invitations`
-        )
+    async listProjectInvitations(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).invitations.get())
     },
 
     async createProjectInvitation(
         projectId: string,
         email: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ invitation: ProjectInvitation }> {
-        return requestAuth<{ invitation: ProjectInvitation }>(
-            `/api/projects/${encodeURIComponent(projectId)}/invitations`,
-            jsonBody({ email, role })
+    ) {
+        return unwrap(await client.api.projects({ projectId }).invitations.post({ email, role }))
+    },
+
+    async cancelProjectInvitation(projectId: string, invitationId: string) {
+        return unwrap(
+            await client.api.projects({ projectId }).invitations({ invitationId }).delete()
         )
     },
 
-    async cancelProjectInvitation(
-        projectId: string,
-        invitationId: string
-    ): Promise<{ invitation: ProjectInvitation }> {
-        return requestAuth<{ invitation: ProjectInvitation }>(
-            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}`,
-            { method: 'DELETE' }
-        )
-    },
-
-    async resendProjectInvitation(
-        projectId: string,
-        invitationId: string
-    ): Promise<{ invitation: ProjectInvitation }> {
-        return requestAuth<{ invitation: ProjectInvitation }>(
-            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
-            { method: 'POST' }
+    async resendProjectInvitation(projectId: string, invitationId: string) {
+        return unwrap(
+            await client.api.projects({ projectId }).invitations({ invitationId }).resend.post()
         )
     },
 
@@ -1061,18 +1013,14 @@ export const api = {
         projectId: string,
         memberId: string,
         role: Exclude<ProjectMemberRole, 'owner'>
-    ): Promise<{ membership: ProjectMember }> {
-        return requestAuth<{ membership: ProjectMember }>(
-            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
-            jsonBody({ role }, 'PATCH')
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId }).members({ memberId }).patch({ role })
         )
     },
 
-    async removeProjectMember(projectId: string, memberId: string): Promise<{ removed: true }> {
-        return requestAuth<{ removed: true }>(
-            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
-            { method: 'DELETE' }
-        )
+    async removeProjectMember(projectId: string, memberId: string) {
+        return unwrap(await client.api.projects({ projectId }).members({ memberId }).delete())
     },
 
     async acceptOrganizationInvitation(invitationId: string): Promise<unknown> {
@@ -2090,6 +2038,10 @@ export type {
     WorkspaceListItem,
     WorkspaceRole,
     ProjectUserGrant,
+    ProjectMember,
+    ProjectInvitation,
+    ProjectMemberRole,
+    ProjectInvitationStatus,
     ProjectTeamGrant,
     WorkspaceMember,
     WorkspaceTeam,

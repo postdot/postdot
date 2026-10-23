@@ -1,5 +1,9 @@
 import type {
     ProjectTag,
+    ProjectMember,
+    ProjectInvitation,
+    ProjectMemberRole,
+    ProjectInvitationStatus,
     ProjectUserGrant,
     ProjectTeamGrant,
     WorkspaceInvitation,
@@ -114,4 +118,50 @@ export type InferredProjectGrants = [
     Assert<Equal<Parameters<typeof api.updateProjectUserGrant>[2], 'editor' | 'viewer'>>,
     Assert<Equal<Parameters<typeof api.createProjectTeamGrant>[2], 'editor' | 'viewer'>>,
     Assert<Equal<Parameters<typeof api.updateProjectTeamGrant>[2], 'editor' | 'viewer'>>,
+]
+
+/** Membership and invitation contracts retain their server-defined roles and states. */
+export type InferredProjectMembershipContracts = [
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.listProjectMembers>>,
+            { members: ProjectMember[]; total: number }
+        >
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.getProjectMembership>>, { membership: ProjectMember }>
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.listProjectInvitations>>,
+            { invitations: ProjectInvitation[] }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.createProjectInvitation>>,
+            { invitation: ProjectInvitation }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.cancelProjectInvitation>>,
+            { invitation: ProjectInvitation }
+        >
+    >,
+    Assert<
+        Equal<
+            Awaited<ReturnType<typeof api.resendProjectInvitation>>,
+            { invitation: ProjectInvitation }
+        >
+    >,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.updateProjectMember>>, { membership: ProjectMember }>
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeProjectMember>>, { removed: true }>>,
+    Assert<Equal<Parameters<typeof api.createProjectInvitation>[2], 'editor' | 'viewer'>>,
+    Assert<Equal<Parameters<typeof api.updateProjectMember>[2], 'editor' | 'viewer'>>,
+    Assert<Equal<ProjectMemberRole, 'owner' | 'editor' | 'viewer'>>,
+    Assert<Equal<ProjectInvitationStatus, 'pending' | 'accepted' | 'rejected' | 'canceled'>>,
+    Assert<Equal<ProjectMember['state'], 'active'>>,
 ]

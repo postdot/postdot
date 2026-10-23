@@ -98,6 +98,15 @@ export type WorkspaceInvitation = NonNullable<
 
 type ProjectRoute = ReturnType<PostbotClient['api']['projects']>
 
+export type ProjectMember = NonNullable<
+    Awaited<ReturnType<ProjectRoute['members']['get']>>['data']
+>['members'][number]
+export type ProjectInvitation = NonNullable<
+    Awaited<ReturnType<ProjectRoute['invitations']['get']>>['data']
+>['invitations'][number]
+export type ProjectMemberRole = ProjectMember['role']
+export type ProjectInvitationStatus = ProjectInvitation['status']
+
 export type ProjectUserGrant = NonNullable<
     Awaited<ReturnType<ProjectRoute['user-grants']['get']>>['data']
 >['grants'][number]
