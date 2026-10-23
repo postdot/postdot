@@ -169,15 +169,16 @@ async function measureWebInitialJavaScript() {
     const manifestPath = 'apps/web/dist/.vite/manifest.json'
     const manifest = (await Bun.file(manifestPath).json()) as ViteManifest
     const applicationEntry = Object.entries(manifest).find(([, chunk]) => chunk.isEntry)?.[0]
-    const indexRouteEntry = Object.keys(manifest).find(key =>
-        key.startsWith('src/routes/index.tsx?')
+    // The index route redirects without a component; measure the anonymous entry screen.
+    const loginRouteEntry = Object.keys(manifest).find(key =>
+        key.startsWith('src/routes/login.tsx?')
     )
 
-    if (!applicationEntry || !indexRouteEntry) {
-        throw new Error('Could not resolve the application and index route entries')
+    if (!applicationEntry || !loginRouteEntry) {
+        throw new Error('Could not resolve the application and login route entries')
     }
 
-    const files = collectManifestFiles(manifest, [applicationEntry, indexRouteEntry])
+    const files = collectManifestFiles(manifest, [applicationEntry, loginRouteEntry])
     let rawBytes = 0
     let gzipBytes = 0
 

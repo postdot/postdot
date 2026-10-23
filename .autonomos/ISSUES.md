@@ -4430,6 +4430,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: ISSUE-183, ISSUE-109
 - Tasks: none
 
+- Upstream intake (2026-10-23): The owner requested protocol-level archival design in the Autonomos repository. Local Autonomos ISSUE-03 now records artifact lifecycle criteria, bounded indexes/discovery, AGENT.md drift and the relationship with reconcile/crystallize. No consumer protocol artifact was edited and no archival design was selected here.
+
 ## [ISSUE-183] Prevent AGENT.md files from accumulating journal-style entries
 
 - Type: problem
@@ -4439,6 +4441,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Root and local AGENT.md files contain only current, stable guidance with a clear place for time-bound owner directives and their expiry, and the protocol makes drift detectable (for example during `/crystallize` or `/reconcile`) rather than relying on agent discipline alone. Existing files are brought back to that standard without losing still-active directives.
 - Related: ISSUE-182
 - Tasks: none
+
+- Upstream intake (2026-10-23): The owner requested protocol-level archival design in the Autonomos repository. Local Autonomos ISSUE-03 now records artifact lifecycle criteria, bounded indexes/discovery, AGENT.md drift and the relationship with reconcile/crystallize. No consumer protocol artifact was edited and no archival design was selected here.
 
 ## [ISSUE-184] Validate the product with sustained real use before widening scope
 
@@ -4523,7 +4527,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
 
 - Type: question
-- Status: open
+- Status: resolved
 - Evidence: The runtime and client depend on pre-stable or very recent major versions: Elysia 2 beta (API), TypeScript 7.0, TanStack DB 0.x with its query collection, and Bun 1.4. The product promises a durable self-hosted runtime and an upgrade path (RELEASE-303).
 - Impact: Breaking upstream changes, regressions or abandonment can force unplanned migrations on a product that self-hosters expect to upgrade safely.
 - Desired outcome: An explicit, recorded position for each pre-stable dependency (accepted risk with an exit path, pin, or replacement), reviewed before the first published release.
@@ -4534,6 +4538,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Owner clarification (2026-10-23): prereleases are acceptable before users or a stable product release; no additional freeze is justified solely by a prerelease label. The initial exact-pin batch is withdrawn in revised ADR-092. TypeScript has no reproduced issue; TanStack DB's prototype-only use is not a production restriction. Stable Bun updates should be reviewed approximately every one to two weeks, with validation and runtime alignment. No dependency changed.
 
+- Resolution (2026-10-23): The owner accepted ordinary prerelease maintenance before users/stable product release, without a label-driven freeze. ADR-092 records the corrected direction. FOUND-571 qualifies stable Bun 1.4.4, aligns version declarations/types/container stages, and removes the completed TanStack DB comparison after confirming ADR-047's Query choice. Elysia and TypeScript receive no special freeze or replacement. All 1,566 unit/script tests, 140 browser cases, 21 builds and container recovery pass; remaining release architecture qualification stays with RELEASE-303. [Evidence](worklogs/2026-10-23-FOUND-571.md).
+
 ## [ISSUE-190] Tier providers by self-hosting setup friction
 
 - Type: proposal
@@ -4542,4 +4548,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: First-run success for a self-hoster depends heavily on which providers they try first; presenting all providers equally hides the setup cost and invites support load. Positioning on provider count competes on the weakest axis for a self-hosted product.
 - Desired outcome: An owner decision on how providers are presented and supported by tier, and on the product's differentiating axis (manual and custom channels, reliable publication ledger, agent-facing surfaces) relative to provider breadth. Revisit ISSUE-036 timing in light of that decision.
 - Related: ISSUE-036, ISSUE-184, ISSUE-185
+- Tasks: none
+
+## [ISSUE-191] Reduce anonymous entry JavaScript against the existing footprint target
+
+- Type: problem
+- Status: open
+- Evidence: FOUND-571 repaired the footprint script's stale index-component lookup: the index route now redirects and has no component chunk. Measuring the application entry plus the anonymous login route and their static imports produces 279,720 bytes gzip (about 273 KiB), above SPEC-002's 180 KiB initial-web-JavaScript target. Both the previous host canary/artifact and Bun 1.4.4/current artifact produce the same value. This is an aggregate of each unique manifest file's gzip size, not an observed browser transfer or a claim about all authenticated routes. TanStack DB was already excluded from the production bundle before its source cleanup.
+- Impact: The current anonymous entry exceeds the intended transfer budget, and the broken measurement had hidden the result. Dependency removal alone should not be presented as fixing production loading cost.
+- Desired outcome: Attribute the measured entry graph to required code and avoidable eager imports, reduce the anonymous entry toward the existing target without changing authentication or application behavior, and retain a reproducible measurement with an explicitly named entry screen. If the target must change, record an evidence-based trade-off rather than silently lowering it.
+- Related: SPEC-002, ISSUE-185
 - Tasks: none

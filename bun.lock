@@ -16,7 +16,7 @@
         "@tala-tools/oxfmt": "0.0.1",
         "@tala-tools/oxlint": "0.0.1",
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/node": "26.6.3",
         "cspell": "^10.3.6",
         "husky": "9.1.7",
@@ -62,7 +62,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/nodemailer": "^8.0.2",
         "typescript": "7.0.2",
       },
@@ -114,8 +114,6 @@
         "@postdot/x": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@tanstack/hotkeys": "0.10.1",
-        "@tanstack/query-db-collection": "^1.3.1",
-        "@tanstack/react-db": "^0.5.0",
         "@tanstack/react-hotkeys": "^0.12.1",
         "@tanstack/react-query": "^5.104.0",
         "@tanstack/react-router": "1.170.41",
@@ -169,7 +167,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -187,7 +185,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -202,7 +200,7 @@
         "@postdot/auth": "workspace:*",
         "@postdot/db": "workspace:*",
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -214,7 +212,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -226,7 +224,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -241,7 +239,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/node": "26.6.3",
         "drizzle-kit": "0.31.11",
         "typescript": "7.0.2",
@@ -255,7 +253,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -267,7 +265,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -294,7 +292,7 @@
       "devDependencies": {
         "@react-email/ui": "6.11.0",
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "react-email": "6.11.0",
@@ -310,7 +308,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -323,7 +321,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -335,7 +333,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -348,7 +346,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -357,7 +355,7 @@
       "version": "0.0.0",
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -369,7 +367,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -381,7 +379,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
     },
@@ -405,7 +403,7 @@
         "@storybook/react-vite": "10.6.1",
         "@tailwindcss/vite": "4.3.3",
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "react": "19.3.0",
@@ -430,7 +428,7 @@
       },
       "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.2",
+        "@types/bun": "1.4.4",
         "@types/twitter-text": "3.1.10",
         "typescript": "7.0.2",
       },
@@ -1477,21 +1475,11 @@
 
     "@tala-tools/tsconfig": ["@tala-tools/tsconfig@0.1.0", "", {}, "sha512-bTX6g7aI9gLt0eZBVILXUkXoSzenquvQzZOF++dKFfbD3QVGA+oMjXcLwomLPhA6b5csFz9LxeS5r/Jc7UGE+A=="],
 
-    "@tanstack/db": ["@tanstack/db@0.11.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@tanstack/db-ivm": "0.1.24", "@tanstack/pacer-lite": "^0.2.1" }, "peerDependencies": { "typescript": ">=4.7" } }, "sha512-O4ukDucpipXg2NDndRMflVbodREqWdC4O0ysjM7Rvk+VAMYFv4fiRCegXCRAx3GyDkREfElGlcIgmdCobMELcw=="],
-
-    "@tanstack/db-ivm": ["@tanstack/db-ivm@0.1.24", "", { "dependencies": { "fractional-indexing": "^3.2.0", "sorted-btree": "^1.8.1" }, "peerDependencies": { "typescript": ">=4.7" } }, "sha512-xWm66aVw/eXS4KjcuwBqQw231qYV1M1ipRLDseIhPZMBjhmOW4doog36Ba2jub8/k+9Cbjy4foZuEVIXsbkq8Q=="],
-
     "@tanstack/history": ["@tanstack/history@1.162.4", "", {}, "sha512-utTS5L2OkeYUzXGohL1Z8sefu1GLNOJcxe8Hd6iIdc/Xo1K1nDB2JEp4iSFhvYh33xKC9V91TxrS8qfrpoKobQ=="],
 
     "@tanstack/hotkeys": ["@tanstack/hotkeys@0.10.1", "", { "dependencies": { "@tanstack/store": "^0.11.1" } }, "sha512-Rp4OGFrelk9O67PtLr0I1fs5lO+c1OByN0ZkHOvmhdYsKfzMejAbxrBzbJlXJ1eVVmwrGJC11bHCaG2XD+M8xw=="],
 
-    "@tanstack/pacer-lite": ["@tanstack/pacer-lite@0.2.2", "", {}, "sha512-eQ1MyLKCHyXiH7NbdmB80W77OhiMgGBUb+qDx/8WMGbwg5Lf/NlfD0TfNYAqY77i8V3AxoDoYdICrQE5ADw4Yw=="],
-
     "@tanstack/query-core": ["@tanstack/query-core@5.104.0", "", {}, "sha512-JrC2r/JQlXt7khBSdUpsgxNvybzOg+aITa+ARRMlP2AFo93Y8vIqz077rp+e61mJetSZ0T6AJbwW1JHer1vrPQ=="],
-
-    "@tanstack/query-db-collection": ["@tanstack/query-db-collection@1.3.1", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@tanstack/db": "0.11.0" }, "peerDependencies": { "@tanstack/query-core": "^5.0.0", "typescript": ">=4.7" } }, "sha512-IWTvPoRLiNoMuenEb1RycYJCYauGaEBo2EDSbHP2dIHPwtkH9bbl1heEN1YahuE4WvWjg/YxwvkgC/TfCrkkwg=="],
-
-    "@tanstack/react-db": ["@tanstack/react-db@0.5.0", "", { "dependencies": { "@tanstack/db": "0.11.0" }, "peerDependencies": { "react": ">=18.0.0" } }, "sha512-GeP+qTXf+PBfzJrn1quky4OiWLZX7Ps8WLN1qYGYauzwuMy5enod9CJyHEhEY3CHSjxoWTBzk2ZTrbDezRPhag=="],
 
     "@tanstack/react-hotkeys": ["@tanstack/react-hotkeys@0.12.1", "", { "dependencies": { "@tanstack/hotkeys": "0.10.1", "@tanstack/react-store": "^0.11.1" }, "peerDependencies": { "react": ">=16.8", "react-dom": ">=16.8" } }, "sha512-issViMdI2eW4PXm/LjsWBzuujfUmqBvp8Fj/LZ2FlP8KtalT4Isn+3CrlmBm6zAo9xpo9WqEkZAGh2t//k4few=="],
 
@@ -1607,7 +1595,7 @@
 
     "@types/babel__traverse": ["@types/babel__traverse@7.28.0", "", { "dependencies": { "@babel/types": "^7.28.2" } }, "sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q=="],
 
-    "@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
+    "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 
     "@types/chai": ["@types/chai@5.2.3", "", { "dependencies": { "@types/deep-eql": "*", "assertion-error": "^2.0.1" } }, "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA=="],
 
@@ -1813,7 +1801,7 @@
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
 
-    "bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
+    "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 
     "bundle-name": ["bundle-name@4.1.1", "", { "dependencies": { "run-applescript": "^7.0.0" } }, "sha512-DdH81/zPLVS11EUgWq3tEu/xn+EzljlMYooDNdzWEnFha3R3NBMpMV1UqYIpjYHV/SgpFKMIX1Oh7o06SjM/oA=="],
 
@@ -2120,8 +2108,6 @@
     "flatted": ["flatted@3.4.4", "", {}, "sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q=="],
 
     "forwarded": ["forwarded@0.2.0", "", {}, "sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow=="],
-
-    "fractional-indexing": ["fractional-indexing@3.4.0", "", {}, "sha512-8J3glhz2rrpKG6KmI7wmJo3zH1VjeOpN+vTJSw1fOyO+Viqq3zX6/5NGh6oaZB2qIAYdOYuu5Dz9xp4faOO0Pg=="],
 
     "framer-motion": ["framer-motion@13.4.6", "", { "dependencies": { "motion-dom": "^13.4.5", "motion-utils": "^13.3.0", "tslib": "^2.4.0" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" }, "optionalPeers": ["react", "react-dom"] }, "sha512-TwKWt2CC8rjhARzwV00TZIh04ipumSAqyKM/JZmS+urdncSHg6wTF/mfj/Fd6Oi2W01TZSWsiA3uxXDrXZtKyw=="],
 
@@ -2870,8 +2856,6 @@
     "socks": ["socks@2.8.10", "", { "dependencies": { "ip-address": "^10.1.1", "smart-buffer": "^4.2.0" } }, "sha512-e0VyvkVTwVYViNovRkZ9aodhxVlyoMn7eJhVUPxZ+eK9P/7CBkxvvsBOHqFPEH416726W8tLXXXjKwqgTErrCQ=="],
 
     "sonic-boom": ["sonic-boom@4.2.1", "", { "dependencies": { "atomic-sleep": "^1.0.0" } }, "sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q=="],
-
-    "sorted-btree": ["sorted-btree@1.8.1", "", {}, "sha512-395+XIP+wqNn3USkFSrNz7G3Ss/MXlZEqesxvzCRFwL14h6e8LukDHdLBePn5pwbm5OQ9vGu8mDyz2lLDIqamQ=="],
 
     "source-map": ["source-map@0.7.6", "", {}, "sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ=="],
 

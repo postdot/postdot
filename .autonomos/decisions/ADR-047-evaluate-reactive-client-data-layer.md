@@ -183,3 +183,11 @@ The project owner accepted the TanStack Query recommendation before the
 production integration. REALTIME-103 adopts Query for the authenticated project
 cache and keeps the SSE transport as an invalidation signal; TanStack DB remains
 deferred pending a concrete normalized-join or optimistic-workflow need.
+
+## Experiment retirement
+
+On 2026-10-23 the owner confirmed the Query choice and identified missing cleanup.
+FOUND-571 removes the comparison route, both fixture adapters, their exclusive
+helpers/tests and TanStack DB dependencies. Production Query/SSE implementations
+and tests remain. The experiment and evidence are preserved in Git history; this
+retirement does not change the original recommendation or reject future DB use.
