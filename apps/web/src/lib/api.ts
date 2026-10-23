@@ -39,6 +39,7 @@ import {
     type Project,
     type ProjectMemberRole,
     type AccessInstanceMembershipUpdate,
+    type UserApiKeyCapability,
     type Publication,
     type PublicationApprovalRequest,
     type PublicationSummaryPage,
@@ -232,26 +233,6 @@ export interface ProviderApplicationInput {
     readonly clientSecret?: string | null
     readonly state?: ProviderApplicationState
     readonly isDefault?: boolean
-}
-
-export type UserApiKeyCapability =
-    | 'project:read'
-    | 'publication:manage'
-    | 'publication:dispatch'
-    | 'channel:manage'
-    | 'media:manage'
-    | 'analytics:refresh'
-    | 'media:permanently_delete'
-
-export interface UserApiKey {
-    readonly id: string
-    readonly name: string
-    readonly tokenPrefix: string
-    readonly projectAccess: 'all' | string[]
-    readonly actionAccess: 'all' | UserApiKeyCapability[]
-    readonly expiresAt: number | null
-    readonly createdAt: number
-    readonly updatedAt: number
 }
 
 export type ChannelLifecycleBlocker =
@@ -711,8 +692,8 @@ export const api = {
         )
     },
 
-    async listUserApiKeys(): Promise<{ keys: UserApiKey[] }> {
-        return requestAuth<{ keys: UserApiKey[] }>('/api/api-keys')
+    async listUserApiKeys() {
+        return unwrap(await client.api['api-keys'].get())
     },
 
     async createUserApiKey(
@@ -720,10 +701,9 @@ export const api = {
         projectIds: readonly string[] | null,
         expiresAt?: number | null,
         actionAccess?: readonly UserApiKeyCapability[] | null
-    ): Promise<{ key: UserApiKey; token: string }> {
-        return requestAuth<{ key: UserApiKey; token: string }>(
-            '/api/api-keys',
-            jsonBody({
+    ) {
+        return unwrap(
+            await client.api['api-keys'].post({
                 ...(name === undefined ? {} : { name }),
                 projectIds: projectIds === null ? null : [...projectIds],
                 actionAccess: actionAccess == null ? null : [...actionAccess],
@@ -740,31 +720,25 @@ export const api = {
             readonly expiresAt?: number | null
             readonly actionAccess?: readonly UserApiKeyCapability[] | null
         }
-    ): Promise<{ key: UserApiKey }> {
-        return requestAuth<{ key: UserApiKey }>(
-            `/api/api-keys/${encodeURIComponent(keyId)}`,
-            jsonBody(
-                {
-                    ...input,
-                    ...(input.projectIds === undefined
-                        ? {}
-                        : { projectIds: input.projectIds === null ? null : [...input.projectIds] }),
-                    ...(input.actionAccess === undefined
-                        ? {}
-                        : {
-                              actionAccess:
-                                  input.actionAccess === null ? null : [...input.actionAccess],
-                          }),
-                },
-                'PATCH'
-            )
+    ) {
+        const { projectIds, actionAccess, ...rest } = input
+        return unwrap(
+            await client.api['api-keys']({ keyId }).patch({
+                ...rest,
+                ...(projectIds === undefined
+                    ? {}
+                    : { projectIds: projectIds === null ? null : [...projectIds] }),
+                ...(actionAccess === undefined
+                    ? {}
+                    : {
+                          actionAccess: actionAccess === null ? null : [...actionAccess],
+                      }),
+            })
         )
     },
 
-    async revokeUserApiKey(keyId: string): Promise<{ deleted: true }> {
-        return requestAuth<{ deleted: true }>(`/api/api-keys/${encodeURIComponent(keyId)}`, {
-            method: 'DELETE',
-        })
+    async revokeUserApiKey(keyId: string) {
+        return unwrap(await client.api['api-keys']({ keyId }).delete())
     },
 
     async listProjectMembers(projectId: string) {
@@ -1923,6 +1897,8 @@ export const api = {
 }
 
 export type {
+    UserApiKey,
+    UserApiKeyCapability,
     InstanceSetupStatus,
     AccessSummary,
     AccessInstanceStateRecord,

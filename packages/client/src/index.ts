@@ -78,6 +78,11 @@ export function createPostbotClient(
 
 export type PostbotClient = ReturnType<typeof createPostbotClient>
 
+export type UserApiKey = NonNullable<
+    Awaited<ReturnType<PostbotClient['api']['api-keys']['get']>>['data']
+>['keys'][number]
+export type UserApiKeyCapability = Extract<UserApiKey['actionAccess'], string[]>[number]
+
 type AccessRoute = PostbotClient['api']['access']
 
 export type InstanceSetupStatus = NonNullable<
