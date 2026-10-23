@@ -92,3 +92,20 @@ body {
         transition: none;
     }
 }
+
+/*
+ * Contrast (WCAG AA). The OpenAPI method labels and the dark-theme code comments
+ * come from packages whose default colors fall just under 4.5:1.
+ */
+html:not(.dark) .text-green-600.font-mono {
+    color: #047857;
+}
+html:not(.dark) .text-orange-600.font-mono {
+    color: #c2410c;
+}
+html:not(.dark) .text-yellow-600.font-mono {
+    color: #854d0e;
+}
+.dark [style*='6A737D'] {
+    --shiki-dark: #8b949e !important;
+}
