@@ -62,6 +62,7 @@ CLI usage and validation commands.
 
 - [Installation and operation](docs/deployment/self-hosting.md)
 - [CLI publication workflows](docs/cli-publications.md)
+- [Security policy](SECURITY.md)
 - [User API keys](docs/security/user-api-keys.md)
 - [Backup and restoration](docs/deployment/backup-and-restoration-boundary.md)
 - [Runtime and release status](docs/deployment/runtime-and-distribution.md)
