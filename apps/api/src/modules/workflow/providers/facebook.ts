@@ -10,6 +10,7 @@ import {
 } from '@postdot/facebook'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
@@ -20,7 +21,15 @@ export function createFacebookProviderAdapter(
         providerId: 'facebook',
         contractId: 'facebook',
         revision: FACEBOOK_EXECUTION_REVISION,
-        execute: input => execute(input, options.createPublisher ?? createFacebookPublisher),
+        execute: input =>
+            execute(
+                input,
+                options.createPublisher ??
+                    (() =>
+                        createFacebookPublisher({
+                            fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                        }))
+            ),
     }
 }
 

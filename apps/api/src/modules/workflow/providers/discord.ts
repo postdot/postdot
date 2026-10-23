@@ -14,6 +14,7 @@ import {
 } from '@postdot/discord'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -39,7 +40,12 @@ export function createDiscordProviderAdapter(
             executeDiscordPublication({
                 input,
                 allowVideo: options.revision !== DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
-                createPublisher: options.createPublisher ?? (() => createDiscordPublisher()),
+                createPublisher:
+                    options.createPublisher ??
+                    (() =>
+                        createDiscordPublisher({
+                            fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                        })),
             }),
     }
 }

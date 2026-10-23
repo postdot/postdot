@@ -1,5 +1,6 @@
 import { DomainInvariantError, requireNonBlank, requireTimestamp } from './invariants'
 import type { Job } from './model'
+import type { SchedulerTimers } from './scheduler'
 
 export type ExternalEffectOutcome =
     | {
@@ -55,7 +56,14 @@ export interface ExternalEffectExecutorStore<Work extends ExternalEffectWork> {
         readonly claimToken: string
         readonly now: number
         readonly leaseExpiresAt: number
+        readonly projectId?: string
     }): Work | null
+    renewClaim?(input: {
+        readonly jobId: string
+        readonly claimToken: string
+        readonly now: number
+        readonly leaseExpiresAt: number
+    }): boolean
     startExternalEffect(jobId: string, claimToken: string, now: number): boolean
     completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome | null
 }
@@ -71,14 +79,27 @@ export interface RetryPolicy {
     nextRunAt(input: RetryPolicyInput): number | null
 }
 
+export interface EffectExecutionContext {
+    readonly signal: AbortSignal
+    assertActive(): void
+}
+
+export interface ActiveEffectPolicy {
+    readonly renewalIntervalMs: number
+    readonly timeoutMs: number
+    readonly timers?: SchedulerTimers
+}
+
 export interface ProcessWorkflowEventOptions {
     readonly store: WorkflowExecutorStore
     readonly actorId: string
     readonly leaseDuration: number
     readonly retryPolicy: RetryPolicy
     readonly createClaimToken: () => string
+    readonly activeEffectPolicy?: ActiveEffectPolicy
     readonly performExternalEffect: (
-        job: Job
+        job: Job,
+        context: EffectExecutionContext
     ) => ExternalEffectOutcome | Promise<ExternalEffectOutcome>
     readonly now?: () => number
 }
@@ -89,8 +110,11 @@ export interface ProcessExternalEffectOptions<Work extends ExternalEffectWork> {
     readonly leaseDuration: number
     readonly retryPolicy: RetryPolicy
     readonly createClaimToken: () => string
+    readonly activeEffectPolicy?: ActiveEffectPolicy
+    readonly projectId?: string
     readonly performExternalEffect: (
-        work: Work
+        work: Work,
+        context: EffectExecutionContext
     ) => ExternalEffectOutcome | Promise<ExternalEffectOutcome>
     readonly now?: () => number
 }
@@ -157,6 +181,17 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
     const claimedAt = requireTimestamp(now(), 'now')
     const leaseDuration = requirePositiveSafeInteger(options.leaseDuration, 'leaseDuration')
     const leaseExpiresAt = requireTimestamp(claimedAt + leaseDuration, 'leaseExpiresAt')
+    const policy = options.activeEffectPolicy
+    if (policy) {
+        requirePositiveSafeInteger(policy.timeoutMs, 'timeoutMs')
+        requirePositiveSafeInteger(policy.renewalIntervalMs, 'renewalIntervalMs')
+        if (policy.renewalIntervalMs >= leaseDuration || !options.store.renewClaim) {
+            throw new DomainInvariantError(
+                'invalid_time',
+                'Active effects require renewal before lease expiry'
+            )
+        }
+    }
     const recovery = options.store.recoverExpiredClaims(claimedAt)
     const claimToken = requireNonBlank(options.createClaimToken(), 'claimToken')
     const work = options.store.claimNextDueJob({
@@ -164,6 +199,7 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
         claimToken,
         now: claimedAt,
         leaseExpiresAt,
+        projectId: options.projectId,
     })
 
     if (work === null) return { recovery, workId: null, outcome: 'idle' }
@@ -173,17 +209,79 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
         return { recovery, workId: work.id, outcome: 'claim_lost' }
     }
 
+    const controller = new AbortController()
+    const timers: SchedulerTimers = policy?.timers ?? {
+        set: (callback, delay) => setTimeout(() => void callback(), delay),
+        clear: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
+    }
+    let renewalTimer: unknown
+    let deadlineTimer: unknown
+    let claimLost = false
+    const renew = () => {
+        if (!policy) return true
+        const at = requireTimestamp(now(), 'now')
+        try {
+            if (
+                options.store.renewClaim!({
+                    jobId: work.id,
+                    claimToken,
+                    now: at,
+                    leaseExpiresAt: at + leaseDuration,
+                })
+            )
+                return true
+        } catch {
+            // Persistence failure cannot establish continued ownership.
+        }
+        claimLost = true
+        controller.abort()
+        return false
+    }
+    const heartbeat = () => {
+        if (renew()) renewalTimer = timers.set(heartbeat, policy!.renewalIntervalMs)
+    }
+    if (policy) {
+        renewalTimer = timers.set(heartbeat, policy.renewalIntervalMs)
+        deadlineTimer = timers.set(() => controller.abort(), policy.timeoutMs)
+    }
+
     let outcome: ExternalEffectOutcome
     try {
-        outcome = await options.performExternalEffect(work)
+        // Never race away from an unsettled effect: its slot and shutdown drain remain owned.
+        outcome = await options.performExternalEffect(work, {
+            signal: controller.signal,
+            assertActive() {
+                controller.signal.throwIfAborted()
+                if (policy && now() - effectStartedAt >= policy.timeoutMs) controller.abort()
+                if (!renew()) controller.abort()
+                controller.signal.throwIfAborted()
+            },
+        })
     } catch (error) {
         outcome = {
             type: 'ambiguous',
             errorMessage: describeUnknownExternalOutcome(error),
         }
+    } finally {
+        if (renewalTimer !== undefined) timers.clear(renewalTimer)
+        if (deadlineTimer !== undefined) timers.clear(deadlineTimer)
     }
 
     const completedAt = requireTimestamp(now(), 'now')
+    if (policy && (claimLost || !renew())) {
+        options.store.recoverExpiredClaims(completedAt)
+        return { recovery, workId: work.id, outcome: 'claim_lost' }
+    }
+    if (
+        policy &&
+        (controller.signal.aborted || completedAt - effectStartedAt >= policy.timeoutMs)
+    ) {
+        outcome = {
+            type: 'ambiguous',
+            errorMessage:
+                'The external effect exceeded its execution deadline; its remote outcome requires review',
+        }
+    }
     const retryAt =
         outcome.type === 'deferred'
             ? requireTimestamp(

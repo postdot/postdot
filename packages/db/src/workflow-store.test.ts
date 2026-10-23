@@ -209,6 +209,40 @@ function seedDueJob(database: PostbotDatabase, suffix = 'one') {
 }
 
 describe('workflow store', () => {
+    it('renews only the current unexpired claim without shortening or resurrecting its lease', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database)
+            const store = createWorkflowStore(database)
+            store.claimNextDueJob({
+                actorId: fixture.systemActorId,
+                claimToken: 'owner',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 90,
+            })
+            const renew = (token: string, now: number, leaseExpiresAt: number) =>
+                store.renewClaim({ jobId: fixture.jobId, claimToken: token, now, leaseExpiresAt })
+            expect(renew('stale', dueAt + 30, dueAt + 120)).toBe(false)
+            expect(renew('owner', dueAt + 30, dueAt + 60)).toBe(false)
+            expect(renew('owner', dueAt + 30, dueAt + 120)).toBe(true)
+            expect(store.startExternalEffect(fixture.jobId, 'owner', dueAt + 100)).toBe(true)
+            expect(renew('owner', dueAt + 120, dueAt + 210)).toBe(false)
+            expect(store.recoverExpiredClaims(dueAt + 120).ambiguousJobIds).toEqual([fixture.jobId])
+            expect(renew('owner', dueAt + 121, dueAt + 211)).toBe(false)
+            expect(
+                store.completeExternalEffect({
+                    jobId: fixture.jobId,
+                    claimToken: 'owner',
+                    completedAt: dueAt + 121,
+                    outcome: { type: 'published' },
+                })
+            ).toBeNull()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('never claims work for a manual channel', () => {
         const database = createDatabase(':memory:')
 

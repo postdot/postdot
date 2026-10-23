@@ -1243,6 +1243,31 @@ export function createWorkflowStore(database: PostbotDatabase) {
             })
         },
 
+        renewClaim(input: {
+            jobId: string
+            claimToken: string
+            now: number
+            leaseExpiresAt: number
+        }): boolean {
+            const at = requireTimestamp(input.now, 'now')
+            const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
+            if (expiry <= at)
+                throw new DomainInvariantError('invalid_time', 'leaseExpiresAt must be after now')
+            return (
+                database.$client
+                    .query(
+                        `UPDATE jobs SET lease_expires_at = ? WHERE id = ? AND state = 'running' AND claim_token = ? AND lease_expires_at > ? AND lease_expires_at <= ?`
+                    )
+                    .run(
+                        expiry,
+                        requireNonBlank(input.jobId, 'jobId'),
+                        requireNonBlank(input.claimToken, 'claimToken'),
+                        at,
+                        expiry
+                    ).changes === 1
+            )
+        },
+
         startExternalEffect(jobId: string, claimToken: string, now: number): boolean {
             return startExternalEffectTransaction.immediate(
                 requireNonBlank(jobId, 'jobId'),

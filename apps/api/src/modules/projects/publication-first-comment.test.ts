@@ -509,7 +509,6 @@ test('Mastodon first comments recheck the account and the instance immediately b
                     })
                 ).status
             ).toBe(200)
-            await f.publish()
             if (mismatch === 'account') f.setLiveAccount('99')
             else
                 f.beforeContext(() =>
@@ -519,6 +518,7 @@ test('Mastodon first comments recheck the account and the instance immediately b
                         )
                         .run(f.credentialId)
                 )
+            await f.publish()
             await f.service.processDueEvents()
             expect(f.commentEffects).toHaveLength(0)
             expect(
@@ -542,8 +542,8 @@ test('Mastodon first-comment uncertainty remains independent and is never resent
                 })
             ).status
         ).toBe(200)
-        await f.publish()
         f.loseCommentResponse()
+        await f.publish()
         await f.service.processDueEvents()
         expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
             'ambiguous'
@@ -558,6 +558,86 @@ test('Mastodon first-comment uncertainty remains independent and is never resent
             f.manual.getPublicationEditorState(f.project.id, f.publicationId, f.owner.id)
                 ?.publication.state
         ).toBe('published')
+    } finally {
+        await f.close()
+    }
+})
+
+test('first-comment renewal is project-scoped, token-fenced and cannot revive an expired attempt', async () => {
+    const f = await fixture()
+    try {
+        expect(
+            (
+                await f.request(f.path, f.owner.cookie, 'PUT', {
+                    text: 'Follow-up',
+                    delaySeconds: 300,
+                    expectedRevision: 0,
+                })
+            ).status
+        ).toBe(200)
+        await f.publish()
+        f.advance(300_000)
+        const at = f.now
+        const store = f.service.store.deliveries
+        expect(
+            store.claimNextDueJob({
+                actorId: 'worker',
+                claimToken: 'other',
+                now: at,
+                leaseExpiresAt: at + 90,
+                projectId: 'foreign-project',
+            })
+        ).toBeNull()
+        const work = store.claimNextDueJob({
+            actorId: 'worker',
+            claimToken: 'owner',
+            now: at,
+            leaseExpiresAt: at + 90,
+            projectId: f.project.id,
+        })!
+        expect(work).not.toBeNull()
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'stale',
+                now: at + 30,
+                leaseExpiresAt: at + 120,
+            })
+        ).toBe(false)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 30,
+                leaseExpiresAt: at + 60,
+            })
+        ).toBe(false)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 30,
+                leaseExpiresAt: at + 120,
+            })
+        ).toBe(true)
+        expect(store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 120,
+                leaseExpiresAt: at + 210,
+            })
+        ).toBe(false)
+        expect(store.recoverExpiredClaims(at + 120).ambiguousJobIds).toEqual([work.id])
+        expect(
+            store.completeExternalEffect({
+                jobId: work.id,
+                claimToken: 'owner',
+                completedAt: at + 121,
+                outcome: { type: 'published' },
+            })
+        ).toBeNull()
     } finally {
         await f.close()
     }

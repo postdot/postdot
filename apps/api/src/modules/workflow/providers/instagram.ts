@@ -11,9 +11,11 @@ import {
     isInstagramImageUrl,
     type createInstagramOAuth,
     type InstagramRefreshedToken,
+    type InstagramFetcher,
 } from '@postdot/instagram'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { verifyPinnedMediaContent } from './media-integrity'
 import type { BuiltInProviderAdapter, BuiltInProviderExecutionInput } from './registry'
 
@@ -55,6 +57,7 @@ const containerPreparationResumeMs = 60_000
 const containerPreparationBudgetMs = 5 * 60_000
 
 export interface InstagramProviderAdapterOptions {
+    readonly fetcher?: InstagramFetcher
     /** The transport used for container and publication requests. */
     readonly createPublisher?: () => InstagramPublisher
     /** Resolves the application configuration that issued the credential. */
@@ -73,7 +76,17 @@ export function createInstagramProviderAdapter(
         execute: input =>
             executeInstagramPublication({
                 input,
-                createPublisher: options.createPublisher ?? createInstagramPublisher,
+                createPublisher:
+                    options.createPublisher ??
+                    (() =>
+                        createInstagramPublisher({
+                            signal: input.signal,
+                            fetcher: effectFetcher(
+                                input.signal,
+                                options.fetcher,
+                                input.assertActive
+                            ),
+                        })),
                 resolveOAuth: options.resolveOAuth,
             }),
     }

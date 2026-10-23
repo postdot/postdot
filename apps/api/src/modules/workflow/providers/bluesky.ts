@@ -16,6 +16,7 @@ import type { PublisherExecutionMedia, PublisherExecutionTarget } from '@postdot
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
 import { publishBlueskyVideo } from './bluesky-video'
+import { effectFetcher } from './effect-fetcher'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -102,6 +103,10 @@ async function executeBlueskyPublication(input: {
             client: {
                 clientMetadata: oauth.clientMetadata,
                 handleResolver: oauth.handleResolver,
+                fetch: Object.assign(
+                    effectFetcher(execution.signal, undefined, execution.assertActive),
+                    { preconnect: fetch.preconnect }
+                ),
             },
         })
     } catch {
@@ -160,11 +165,24 @@ async function executeBlueskyPublication(input: {
                 'Reconnect the Bluesky account to authorize video publishing; text and images remain available'
             )
         }
-        const agent = new Agent(restored.session)
+        const agent = new Agent({
+            did: restored.session.did,
+            fetchHandler: effectFetcher(execution.signal, (path, init) => {
+                execution.assertActive?.()
+                return restored.session.fetchHandler(
+                    typeof path === 'string' ? path : path instanceof URL ? path.href : path.url,
+                    init
+                )
+            }),
+        })
         return publishBlueskyVideo({
             execution,
             text,
-            service: input.createVideoService({ agent, pdsUrl: tokenInfo.aud }),
+            service: input.createVideoService({
+                agent,
+                pdsUrl: tokenInfo.aud,
+                fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
+            }),
             publisher: input.createPublisher({ agent }),
         })
     }
@@ -178,7 +196,16 @@ async function executeBlueskyPublication(input: {
     if (mediaResult.kind !== 'ready') return mediaResult.outcome
 
     const publisherWithCheckpoints = input.createPublisher({
-        agent: new Agent(restored.session),
+        agent: new Agent({
+            did: restored.session.did,
+            fetchHandler: effectFetcher(execution.signal, (path, init) => {
+                execution.assertActive?.()
+                return restored.session.fetchHandler(
+                    typeof path === 'string' ? path : path instanceof URL ? path.href : path.url,
+                    init
+                )
+            }),
+        }),
         onMediaUploaded: async ({ index, blob }) => {
             const prepared = mediaResult.media[index]
             if (prepared === undefined || prepared.remoteBlob !== undefined) {

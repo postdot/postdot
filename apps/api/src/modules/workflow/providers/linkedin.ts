@@ -22,6 +22,7 @@ import {
 } from '@postdot/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { publishLinkedInVideo } from './linkedin-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
@@ -53,10 +54,6 @@ export interface LinkedInProviderAdapterOptions {
 export function createLinkedInProviderAdapter(
     options: LinkedInProviderAdapterOptions = {}
 ): BuiltInProviderAdapter {
-    const textPublisher = options.textPublisher ?? createLinkedInTextPublisher()
-    const imagePublisher = options.imagePublisher ?? createLinkedInImagePublisher()
-    const videoPublisher = options.videoPublisher ?? createLinkedInVideoPublisher()
-
     return {
         providerId: LINKEDIN_PROVIDER,
         contractId: LINKEDIN_PROVIDER,
@@ -66,9 +63,21 @@ export function createLinkedInProviderAdapter(
                 input,
                 oauth: options.oauth,
                 resolveOAuth: options.resolveOAuth,
-                textPublisher,
-                imagePublisher,
-                videoPublisher,
+                textPublisher:
+                    options.textPublisher ??
+                    createLinkedInTextPublisher({
+                        fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                    }),
+                imagePublisher:
+                    options.imagePublisher ??
+                    createLinkedInImagePublisher({
+                        fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                    }),
+                videoPublisher:
+                    options.videoPublisher ??
+                    createLinkedInVideoPublisher({
+                        fetcher: effectFetcher(input.signal, undefined, input.assertActive),
+                    }),
                 allowVideo:
                     (options.revision ?? LINKEDIN_EXECUTION_CONTRACT_REVISION) ===
                     LINKEDIN_EXECUTION_CONTRACT_REVISION,
@@ -122,6 +131,7 @@ async function executeLinkedInPublication(input: {
                 clientId: oauth.clientId,
                 clientAuthentication: oauth.clientAuthentication,
                 refreshToken,
+                fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
             })
             const expiresAt =
                 refreshed.expiresInSeconds === null

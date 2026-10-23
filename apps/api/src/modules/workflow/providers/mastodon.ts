@@ -25,6 +25,7 @@ import {
     expiryFromSeconds,
 } from '../../publishers/mastodon-session'
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { effectFetcher } from './effect-fetcher'
 import { prepareMastodonVideo } from './mastodon-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
@@ -104,7 +105,7 @@ async function executeMastodonPublication(input: {
                 clientId: providerSession.clientId,
                 clientAuthentication: clientSecretPost(providerSession.clientSecret),
                 refreshToken: secrets.refreshToken,
-                ...(options.fetcher === undefined ? {} : { fetcher: options.fetcher }),
+                fetcher: effectFetcher(execution.signal, options.fetcher, execution.assertActive),
             })
             const replaced = await execution.credentials.replacePublisherCredentialTokens({
                 projectId: target.projectId,
@@ -131,7 +132,12 @@ async function executeMastodonPublication(input: {
     }
 
     const publisher = (
-        options.createPublisher ?? (baseUrl => createMastodonPublisher({ baseUrl }))
+        options.createPublisher ??
+        (baseUrl =>
+            createMastodonPublisher({
+                baseUrl,
+                fetcher: effectFetcher(execution.signal, options.fetcher, execution.assertActive),
+            }))
     )(instanceUrl)
     const text = readMastodonTextContent(target.content)
     if (text === null) return permanentFailure('The execution revision has no Mastodon status text')

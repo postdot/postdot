@@ -21,10 +21,8 @@ import {
     runMigrations,
 } from '@postdot/db'
 import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@postdot/discord'
-import { createInstagramPublisher } from '@postdot/instagram'
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 import {
-    createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
 } from '@postdot/mastodon'
@@ -302,7 +300,7 @@ async function startServerWithRuntimeLock(
         createTelegramProviderAdapter({ revision: TELEGRAM_EXECUTION_REVISION }),
         createFacebookProviderAdapter(),
         createInstagramProviderAdapter({
-            createPublisher: () => createInstagramPublisher({ fetcher: mastodonFetcher }),
+            fetcher: mastodonFetcher,
             resolveOAuth: async applicationId =>
                 (await publisher.resolveInstagramApplication(applicationId))?.oauth,
         }),
@@ -324,19 +322,13 @@ async function startServerWithRuntimeLock(
         createMastodonProviderAdapter({
             revision: MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
             fetcher: mastodonFetcher,
-            createPublisher: baseUrl =>
-                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
         createMastodonProviderAdapter({
             revision: MASTODON_VIDEO_EXECUTION_CONTRACT_REVISION,
             fetcher: mastodonFetcher,
-            createPublisher: baseUrl =>
-                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
         createMastodonProviderAdapter({
             fetcher: mastodonFetcher,
-            createPublisher: baseUrl =>
-                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
         createXProviderAdapter({
             oauth: publisher.x,

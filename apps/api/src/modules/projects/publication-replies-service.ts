@@ -161,6 +161,20 @@ export function createPublicationRepliesService(options: {
             return failed('The connection or reply context could not be prepared')
         }
     }
+    async function processDueEvent(projectId?: string): Promise<boolean> {
+        const result = await processNextExternalEffect({
+            store: store.deliveries,
+            projectId,
+            actorId: 'publication-reply-worker',
+            leaseDuration: 120_000,
+            activeEffectPolicy: { renewalIntervalMs: 30_000, timeoutMs: 60_000 },
+            retryPolicy: { nextRunAt: () => null },
+            createClaimToken: () => crypto.randomUUID(),
+            now,
+            performExternalEffect: (work, context) => perform(work, context.signal),
+        })
+        return result.workId !== null
+    }
     return {
         store,
         getNextEventAt: store.getNextEventAt,
@@ -254,37 +268,9 @@ export function createPublicationRepliesService(options: {
                 now: now(),
             })
         },
+        processDueEvent,
         async processDueEvents() {
-            for (let count = 0; count < 1; count++) {
-                const result = await processNextExternalEffect({
-                    store: store.deliveries,
-                    actorId: 'publication-reply-worker',
-                    leaseDuration: 120_000,
-                    retryPolicy: { nextRunAt: () => null },
-                    createClaimToken: () => crypto.randomUUID(),
-                    now,
-                    async performExternalEffect(work) {
-                        const controller = new AbortController()
-                        let timer: ReturnType<typeof setTimeout> | undefined
-                        const deadline = new Promise<ExternalEffectOutcome>(resolve => {
-                            timer = setTimeout(() => {
-                                controller.abort()
-                                resolve({
-                                    type: 'ambiguous',
-                                    errorMessage:
-                                        'The reply outcome could not be confirmed before the deadline',
-                                })
-                            }, 60_000)
-                        })
-                        try {
-                            return await Promise.race([perform(work, controller.signal), deadline])
-                        } finally {
-                            clearTimeout(timer)
-                        }
-                    },
-                })
-                if (result.outcome === 'idle') break
-            }
+            await processDueEvent()
         },
     }
 }

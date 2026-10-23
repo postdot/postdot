@@ -4463,12 +4463,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-186] Serial publication execution and unrenewed claim leases
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `createPublicationWorker` in `apps/api/src/modules/workflow/worker.ts` awaits each external effect sequentially across all projects (one job per project per round, rounds repeated until idle), after first awaiting replies and first-comment processing. The default lease is 5 minutes and no code path renews a lease while an effect is running. Expired claims are classified as requeue or ambiguous by `classifyExpiredClaim` during subsequent claims.
 - Impact: A slow effect, such as a large video upload or provider processing poll, delays every other due publication in every project, so scheduled times are not met under load. Effects that legitimately exceed the lease duration have undefined or unverified outcomes. They may end up ambiguous, or the completion may be fenced out even though the provider succeeded.
 - Desired outcome: Investigate and document the actual behavior when an effect outlives its lease. Then make one slow destination unable to delay unrelated publications beyond a stated bound, keep long effects owned by their claim for their whole duration, and preserve the single-process constraint (ADR-003) and fencing semantics (ADR-009). Any change to execution semantics needs an explicit owner decision.
-- Related: ADR-003, ADR-006, ADR-009
-- Tasks: none
+- Related: ADR-003, ADR-006, ADR-009, ADR-090
+- Tasks: WORK-568
+
+- Resolution (2026-10-23): WORK-568 implements owner-approved ADR-090: two shared internal publication/reply/first-comment slots, one effect per project, independent project/family rotation, fresh admission within one second when capacity is available, strict token-fenced renewal and cooperative deadlines. Shutdown drains actual effects; expired ownership cannot be revived or finalized. The original over-lease behavior is documented, and late uncertain outcomes remain ambiguous. 1,567 unit/script tests, all 134 main browser cases with four environmental reruns, two automatic-delivery cases, four SMTP cases and fresh production-container recovery validated. [Evidence](worklogs/2026-10-23-WORK-568.md).
 
 ## [ISSUE-187] Main SQLite connection lacks WAL and busy-timeout configuration
 
