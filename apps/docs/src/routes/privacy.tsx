@@ -3,13 +3,16 @@ import { createFileRoute } from '@tanstack/react-router'
 import { LegalPage } from '@/components/legal-page'
 import { PrivacySettingsButton } from '@/components/privacy-settings-button'
 import { legal } from '@/lib/legal'
+import { withMaterial } from '@/lib/material'
 import { seo } from '@/lib/social-metadata'
 
 const description = 'What the Postdot website collects, why, and how to control it.'
 
 export const Route = createFileRoute('/privacy')({
     head: () =>
-        seo({ title: 'Privacy policy', description, image: '/og/home.png', path: '/privacy' }),
+        withMaterial(
+            seo({ title: 'Privacy policy', description, image: '/og/home.png', path: '/privacy' })
+        ),
     component: Privacy,
 })
 

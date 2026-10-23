@@ -5,7 +5,7 @@
 
 @font-face {
     font-family: 'Host Grotesk';
-    src: url('../../../../packages/ui/src/assets/fonts/host-grotesk.ttf') format('truetype');
+    src: url('../assets/host-grotesk-latin.woff2') format('woff2');
     font-weight: 300 800;
     font-style: normal;
     font-display: swap;

@@ -3,12 +3,16 @@ import { createFileRoute } from '@tanstack/react-router'
 import { LegalPage } from '@/components/legal-page'
 import { Link } from '@/components/site-link'
 import { legal } from '@/lib/legal'
+import { withMaterial } from '@/lib/material'
 import { seo } from '@/lib/social-metadata'
 
 const description = 'Publisher and hosting information for the Postdot website.'
 
 export const Route = createFileRoute('/legal')({
-    head: () => seo({ title: 'Legal notice', description, image: '/og/home.png', path: '/legal' }),
+    head: () =>
+        withMaterial(
+            seo({ title: 'Legal notice', description, image: '/og/home.png', path: '/legal' })
+        ),
     component: Legal,
 })
 

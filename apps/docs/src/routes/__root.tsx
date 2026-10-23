@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
+import hostGrotesk from '@/assets/host-grotesk-latin.woff2?url'
 import { Analytics } from '@/components/analytics'
 import { CookieConsent } from '@/components/cookie-consent'
 import { Providers, PublicThemeScript } from '@/components/providers'
@@ -18,6 +19,14 @@ export const Route = createRootRoute({
         ],
         links: [
             { rel: 'stylesheet', href: appCss },
+            // The font is named by the stylesheet; preloading it removes that wait.
+            {
+                rel: 'preload',
+                href: hostGrotesk,
+                as: 'font',
+                type: 'font/woff2',
+                crossOrigin: 'anonymous',
+            },
             { rel: 'icon', href: '/icon.svg', type: 'image/svg+xml' },
         ],
     }),
