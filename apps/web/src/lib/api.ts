@@ -40,6 +40,9 @@ import {
     type ProjectMemberRole,
     type AccessInstanceMembershipUpdate,
     type UserApiKeyCapability,
+    type ProviderApplicationInput,
+    type ProviderApplicationProvider,
+    type ProviderApplicationUpdateInput,
     type Publication,
     type PublicationApprovalRequest,
     type PublicationSummaryPage,
@@ -191,10 +194,6 @@ export interface FacebookPageChoices {
     }[]
     readonly nextCursor: string | null
 }
-export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x' | 'facebook' | 'instagram'
-export type ProviderApplicationState = 'active' | 'disabled'
-export type ProviderApplicationOAuthMode = 'loopback' | 'web'
-
 export interface AccessProjectMembership {
     readonly id: string
     readonly projectId: string
@@ -206,33 +205,6 @@ export interface AccessProjectMembership {
     readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
-}
-
-export interface ProviderApplication {
-    readonly id: string
-    readonly providerId: ProviderApplicationProvider
-    readonly name: string
-    readonly clientId: string | null
-    readonly clientMetadataUrl: string | null
-    readonly handleResolver: string | null
-    readonly oauthMode: ProviderApplicationOAuthMode | null
-    readonly state: ProviderApplicationState
-    readonly isDefault: boolean
-    readonly createdByUserId: string
-    readonly hasClientSecret: boolean
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-export interface ProviderApplicationInput {
-    readonly providerId: ProviderApplicationProvider
-    readonly name: string
-    readonly clientId?: string | null
-    readonly clientMetadataUrl?: string | null
-    readonly handleResolver?: string | null
-    readonly clientSecret?: string | null
-    readonly state?: ProviderApplicationState
-    readonly isDefault?: boolean
 }
 
 export type ChannelLifecycleBlocker =
@@ -441,40 +413,21 @@ export const api = {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
     },
 
-    async listProviderApplications(): Promise<{
-        applications: ProviderApplication[]
-        xCallbackUri: string
-        facebookCallbackUri: string
-        instagramCallbackUri: string
-    }> {
-        return requestAuth<{
-            applications: ProviderApplication[]
-            xCallbackUri: string
-            facebookCallbackUri: string
-            instagramCallbackUri: string
-        }>('/api/settings/provider-applications')
+    async listProviderApplications() {
+        return unwrap(await client.api.settings['provider-applications'].get())
     },
 
     listChannelProfilePresets(): Promise<ChannelProfilePresets> {
         return requestAuth<ChannelProfilePresets>('/api/channel-profile-presets')
     },
 
-    async createProviderApplication(
-        input: ProviderApplicationInput
-    ): Promise<{ application: ProviderApplication }> {
-        return requestAuth<{ application: ProviderApplication }>(
-            '/api/settings/provider-applications',
-            jsonBody(input)
-        )
+    async createProviderApplication(input: ProviderApplicationInput) {
+        return unwrap(await client.api.settings['provider-applications'].post(input))
     },
 
-    async updateProviderApplication(
-        applicationId: string,
-        input: Partial<Omit<ProviderApplicationInput, 'providerId'>>
-    ): Promise<{ application: ProviderApplication }> {
-        return requestAuth<{ application: ProviderApplication }>(
-            `/api/settings/provider-applications/${encodeURIComponent(applicationId)}`,
-            jsonBody(input, 'PATCH')
+    async updateProviderApplication(applicationId: string, input: ProviderApplicationUpdateInput) {
+        return unwrap(
+            await client.api.settings['provider-applications']({ applicationId }).patch(input)
         )
     },
 
@@ -1897,6 +1850,12 @@ export const api = {
 }
 
 export type {
+    ProviderApplication,
+    ProviderApplicationProvider,
+    ProviderApplicationState,
+    ProviderApplicationOAuthMode,
+    ProviderApplicationInput,
+    ProviderApplicationUpdateInput,
     UserApiKey,
     UserApiKeyCapability,
     InstanceSetupStatus,
