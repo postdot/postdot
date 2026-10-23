@@ -1,7 +1,5 @@
 // cspell:ignore مرحبًا
 
-import bluesky from '@iconify-icons/logos/bluesky'
-import linkedin from '@iconify-icons/logos/linkedin-icon'
 import { CloudIcon } from '@solar-icons/react/linear/cloud'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -10,6 +8,8 @@ import { PlayIcon } from '@solar-icons/react/linear/play'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
 import { UsersGroupRoundedIcon } from '@solar-icons/react/linear/users-group-rounded'
 import { motion, useReducedMotion } from 'motion/react'
+import Bluesky from '~icons/logos/bluesky'
+import LinkedIn from '~icons/logos/linkedin-icon'
 
 import { PublicEntrance } from './public-entrance'
 
@@ -152,13 +152,8 @@ export function PublicCapabilities() {
                         aria-label="Built-in social channels and custom HTTP destinations are both supported.">
                         <div className="capability-channel-tile capability-built-in">
                             <div aria-hidden="true">
-                                {[linkedin, bluesky].map((icon, index) => (
-                                    <svg
-                                        key={index}
-                                        viewBox={`0 0 ${icon.width} ${icon.height}`}
-                                        dangerouslySetInnerHTML={{ __html: icon.body }}
-                                    />
-                                ))}
+                                <LinkedIn />
+                                <Bluesky />
                             </div>
                             <span>Built-in</span>
                         </div>

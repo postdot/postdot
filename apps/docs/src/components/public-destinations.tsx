@@ -1,25 +1,25 @@
-import bluesky from '@iconify-icons/logos/bluesky'
-import discord from '@iconify-icons/logos/discord-icon'
-import facebook from '@iconify-icons/logos/facebook'
-import instagram from '@iconify-icons/logos/instagram-icon'
-import linkedin from '@iconify-icons/logos/linkedin-icon'
-import mastodon from '@iconify-icons/logos/mastodon-icon'
-import telegram from '@iconify-icons/logos/telegram'
-import x from '@iconify-icons/logos/x'
-import youtube from '@iconify-icons/logos/youtube-icon'
 import { useInView } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import Bluesky from '~icons/logos/bluesky'
+import Discord from '~icons/logos/discord-icon'
+import Facebook from '~icons/logos/facebook'
+import Instagram from '~icons/logos/instagram-icon'
+import LinkedIn from '~icons/logos/linkedin-icon'
+import Mastodon from '~icons/logos/mastodon-icon'
+import Telegram from '~icons/logos/telegram'
+import X from '~icons/logos/x'
+import YouTube from '~icons/logos/youtube-icon'
 
 const providers = [
-    { name: 'Bluesky', icon: bluesky },
-    { name: 'Discord', icon: discord },
-    { name: 'LinkedIn', icon: linkedin },
-    { name: 'Mastodon', icon: mastodon },
-    { name: 'X', icon: x },
-    { name: 'Telegram', icon: telegram, upcoming: true },
-    { name: 'Facebook', icon: facebook, upcoming: true },
-    { name: 'Instagram', icon: instagram, upcoming: true },
-    { name: 'YouTube', icon: youtube, upcoming: true },
+    { name: 'Bluesky', Icon: Bluesky },
+    { name: 'Discord', Icon: Discord },
+    { name: 'LinkedIn', Icon: LinkedIn },
+    { name: 'Mastodon', Icon: Mastodon },
+    { name: 'X', Icon: X },
+    { name: 'Telegram', Icon: Telegram, upcoming: true },
+    { name: 'Facebook', Icon: Facebook, upcoming: true },
+    { name: 'Instagram', Icon: Instagram, upcoming: true },
+    { name: 'YouTube', Icon: YouTube, upcoming: true },
 ]
 
 export function PublicDestinations() {
@@ -56,13 +56,7 @@ export function PublicDestinations() {
                                         provider.name === 'X' ? 'home-provider-x' : undefined
                                     }>
                                     <span className="home-provider-symbol">
-                                        <svg
-                                            viewBox={`0 0 ${provider.icon.width} ${provider.icon.height}`}
-                                            width={28}
-                                            height={28}
-                                            aria-hidden="true"
-                                            dangerouslySetInnerHTML={{ __html: provider.icon.body }}
-                                        />
+                                        <provider.Icon width={28} height={28} aria-hidden="true" />
                                     </span>
                                     <span className="home-provider-name">
                                         {provider.name}
