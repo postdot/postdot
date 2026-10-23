@@ -1,57 +1,26 @@
-import type { PublicationRepliesResponse } from '@postdot/client'
 import {
     createPostbotClient,
     createAccessInvitationClient,
-    type SearchResponse,
     type EmailSettings,
     type EmailSettingsInput,
-    type AuditEvent,
-    type Channel,
-    type ChannelListItem,
-    type ChannelProfileActivation,
-    type ChannelProfileAssessment,
+    type WebApiRequests,
     type ChannelProfilePreset,
     type ChannelProfilePresets,
-    type ChannelProfileState,
-    type ChannelProfileVersion,
-    type DuePublication,
-    type BlueskyAnalyticsCollection,
-    type DevtoAnalyticsCollection,
-    type MastodonAnalyticsCollection,
     type ProviderAnalyticsItem as ProviderAnalyticsItemContract,
-    type MediaDeletion,
-    type MediaDeletionBatch,
-    type MediaFinalize,
-    type MediaReference,
-    type MediaReservation,
-    type MediaAssetUsage,
-    type MediaImportSources,
-    type MediaUploadPolicy,
     type MediaUpload,
-    type MediaUrlImport,
-    type Notification,
-    type NotificationInbox,
     type NotificationPreference,
-    type Post,
-    type PublicationEditorState,
-    type PublisherConnection,
-    type EmailAlertPreference,
-    type Project,
     type ProjectMemberRole,
     type AccessInstanceMembershipUpdate,
     type UserApiKeyCapability,
     type ProviderApplicationInput,
-    type ProviderApplicationProvider,
     type ProviderApplicationUpdateInput,
-    type Publication,
-    type PublicationApprovalRequest,
     type PublicationSummaryPage,
-    type ProviderAnalyticsPage,
-    type ProjectCategory,
-    type ProjectTag,
-    type PublicationCommentsResponse,
-    type PublicationFirstCommentResponse,
     type WorkspaceRole,
+    type PublicationComposerDraftResponse,
+    type MediaListOptions,
+    type LinkedInConnectionDestination,
+    type ChannelCreationProfile,
+    type DraftProfileAdoptionInput,
 } from '@postdot/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -84,93 +53,9 @@ export interface Session {
     }
 }
 
-export interface MediaListOptions {
-    readonly cursor?: string
-    readonly limit?: number
-    readonly view?: 'library' | 'trash'
-    readonly search?: string
-    readonly sort?: MediaListSort
-    readonly family?: MediaListFamilyFilter
-    readonly date?: MediaListDateFilter
-}
-
-export type MediaListSort = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'largest' | 'smallest'
-export type MediaListFamilyFilter = 'all' | 'image' | 'video' | 'audio' | 'document'
-export type MediaListDateFilter = 'all' | 'last_24_hours' | 'last_7_days' | 'last_30_days'
-
-export type PublicationListSort =
-    | 'queue'
-    | 'updated_desc'
-    | 'updated_asc'
-    | 'created_desc'
-    | 'created_asc'
-    | 'scheduled_desc'
-    | 'scheduled_asc'
-
-export interface PublicationComposerDraft {
-    readonly id: string
-    readonly projectId: string
+export type PublicationComposerDraft = Omit<PublicationComposerDraftResponse, 'content'> & {
     readonly content: PublicationComposerDraftContent
-    readonly revision: number
-    readonly createdAt: number
-    readonly updatedAt: number
 }
-
-export interface MediaListPage {
-    readonly media: MediaReference[]
-    readonly restorableAssetIds: string[]
-    readonly nextCursor: string | null
-    readonly total: number
-    readonly trashCount: number
-    readonly retentionMs: number
-}
-
-export type LinkedInConnectionDestination =
-    | { readonly type: 'member' }
-    | { readonly type: 'organization'; readonly id: string }
-
-export interface RuntimeChannelProfile {
-    readonly id: string
-    readonly version: number
-    readonly profileHash: string
-    readonly schemaHash: string
-    readonly origin: 'custom'
-    readonly contentSchema: unknown
-    readonly fieldBindings: unknown
-    readonly capabilities: unknown
-    readonly execution: unknown
-}
-
-/**
- * Authoring input for a new custom channel. Declared identity, origin and
- * version are preserved; fingerprints are always derived on the server and
- * may be omitted (legacy supplied values are replaced).
- */
-export interface CustomChannelProfileInput {
-    readonly id: string
-    readonly version: number
-    readonly origin: 'custom'
-    readonly profileHash?: string
-    readonly schemaHash?: string
-    readonly contentSchema: unknown
-    readonly fieldBindings: unknown
-    readonly capabilities: unknown
-    readonly execution: unknown
-}
-
-export type ChannelCreationProfile =
-    | 'manual-message'
-    | 'linkedin'
-    | 'bluesky'
-    | 'mastodon'
-    | 'discord'
-    | 'telegram'
-    | 'facebook'
-    | 'instagram'
-    | 'devto'
-    | 'x'
-    | RuntimeChannelProfile
-    | CustomChannelProfileInput
 
 export interface ChannelCreationOutcome {
     readonly created: boolean
@@ -179,33 +64,6 @@ export interface ChannelCreationOutcome {
 }
 
 export type { ChannelProfilePreset, ChannelProfilePresets }
-
-export type CustomHttpAuthentication =
-    | { readonly kind: 'none' }
-    | { readonly kind: 'bearer' }
-    | { readonly kind: 'header'; readonly headerName: string }
-    | { readonly kind: 'path' }
-
-export interface FacebookPageChoices {
-    readonly pages: readonly {
-        readonly id: string
-        readonly name: string
-        readonly hasPublishTask: boolean
-    }[]
-    readonly nextCursor: string | null
-}
-export interface AccessProjectMembership {
-    readonly id: string
-    readonly projectId: string
-    readonly userId: string
-    readonly email: string
-    readonly name: string
-    readonly image: string | null
-    readonly role: 'owner' | 'editor' | 'viewer'
-    readonly state: 'active'
-    readonly createdAt: number
-    readonly updatedAt: number
-}
 
 export type ChannelLifecycleBlocker =
     | 'active_work'
@@ -279,7 +137,13 @@ function errorFrom(status: number, value: unknown) {
     )
 }
 
-async function requestAuth<T>(path: string, init?: RequestInit): Promise<T> {
+type UntypedBoundaryPath =
+    | `/api/auth/${string}`
+    | '/api/account/avatar'
+    | `/api/projects/${string}/media/uploads/${string}`
+
+/** Better Auth passthrough and raw binary transfers have separate transport contracts. */
+async function requestBoundary<T>(path: UntypedBoundaryPath, init?: RequestInit): Promise<T> {
     const response = await fetch(path, {
         credentials: 'same-origin',
         ...init,
@@ -318,107 +182,98 @@ function parsePublicationComposerDraft(
     return { ...draft, content }
 }
 
-export interface RecoveryState {
-    held: boolean
-    hold: {
-        version: 1
-        token: string
-        createdAt: string
-        reason: 'restore' | 'external_restore'
-    } | null
-}
-
 export const api = {
     async getRecoveryStatus() {
-        return unwrap<{ held: boolean }>(await client.api.recovery.status.get())
+        return unwrap(await client.api.recovery.status.get())
     },
     async getRecoveryState() {
-        return unwrap<RecoveryState>(await client.api.settings.recovery.get())
+        return unwrap(await client.api.settings.recovery.get())
     },
     async resumeAfterRestore(token: string) {
-        return unwrap<RecoveryState>(
-            await client.api.settings.recovery.resume.post({ token, confirm: true })
-        )
+        return unwrap(await client.api.settings.recovery.resume.post({ token, confirm: true }))
     },
-    async getEmailSettings(): Promise<EmailSettings> {
-        return unwrap<EmailSettings>(await client.api.settings.email.get())
+    async getEmailSettings() {
+        return unwrap(await client.api.settings.email.get())
     },
-    async saveEmailSettings(input: EmailSettingsInput): Promise<EmailSettings> {
-        return unwrap<EmailSettings>(await client.api.settings.email.put(input))
+    async saveEmailSettings(input: EmailSettingsInput) {
+        return unwrap(await client.api.settings.email.put(input))
     },
     async testEmailSettings() {
-        return unwrap<{ accepted: true }>(await client.api.settings.email.test.post())
+        return unwrap(await client.api.settings.email.test.post())
     },
     async getInstanceSetupStatus() {
         return unwrap(await client.api.instance.status.get())
     },
 
-    getSession(): Promise<Session | null> {
-        return requestAuth<Session | null>('/api/auth/get-session')
+    getSession() {
+        return requestBoundary<Session | null>('/api/auth/get-session')
     },
 
-    signIn(email: string, password: string): Promise<Session> {
-        return requestAuth<Session>('/api/auth/sign-in/email', jsonBody({ email, password }))
+    signIn(email: string, password: string) {
+        return requestBoundary<Session>('/api/auth/sign-in/email', jsonBody({ email, password }))
     },
 
-    signUp(name: string, email: string, password: string): Promise<Session> {
-        return requestAuth<Session>('/api/auth/sign-up/email', jsonBody({ name, email, password }))
+    signUp(name: string, email: string, password: string) {
+        return requestBoundary<Session>(
+            '/api/auth/sign-up/email',
+            jsonBody({ name, email, password })
+        )
     },
 
-    sendAccountEmailVerification(email: string): Promise<{ status: boolean }> {
-        return requestAuth<{ status: boolean }>(
+    sendAccountEmailVerification(email: string) {
+        return requestBoundary<{ status: boolean }>(
             '/api/auth/send-verification-email',
             jsonBody({ email, callbackURL: window.location.href })
         )
     },
 
-    requestPasswordReset(email: string, redirectTo: string): Promise<{ status: boolean }> {
-        return requestAuth<{ status: boolean }>(
+    requestPasswordReset(email: string, redirectTo: string) {
+        return requestBoundary<{ status: boolean }>(
             '/api/auth/request-password-reset',
             jsonBody({ email, redirectTo })
         )
     },
 
-    resetPassword(token: string, newPassword: string): Promise<{ status: boolean }> {
-        return requestAuth<{ status: boolean }>(
+    resetPassword(token: string, newPassword: string) {
+        return requestBoundary<{ status: boolean }>(
             '/api/auth/reset-password',
             jsonBody({ token, newPassword })
         )
     },
 
-    updateProfile(name: string): Promise<{ status: boolean }> {
-        return requestAuth('/api/auth/update-user', jsonBody({ name: name.trim() }))
+    updateProfile(name: string) {
+        return requestBoundary('/api/auth/update-user', jsonBody({ name: name.trim() }))
     },
 
-    changePassword(currentPassword: string, newPassword: string): Promise<unknown> {
-        return requestAuth(
+    changePassword(currentPassword: string, newPassword: string) {
+        return requestBoundary(
             '/api/auth/change-password',
             jsonBody({ currentPassword, newPassword, revokeOtherSessions: true })
         )
     },
 
-    uploadAvatar(file: File): Promise<{ image: string }> {
-        return requestAuth('/api/account/avatar', {
+    uploadAvatar(file: File) {
+        return requestBoundary<{ image: string }>('/api/account/avatar', {
             method: 'POST',
             body: file,
             headers: { 'content-type': file.type || 'application/octet-stream' },
         })
     },
 
-    removeAvatar(): Promise<{ success: boolean }> {
-        return requestAuth('/api/account/avatar', { method: 'DELETE' })
+    async removeAvatar() {
+        return unwrap(await client.api.account.avatar.delete())
     },
 
-    signOut(): Promise<unknown> {
-        return requestAuth('/api/auth/sign-out', jsonBody({}))
+    signOut() {
+        return requestBoundary('/api/auth/sign-out', jsonBody({}))
     },
 
     async listProviderApplications() {
         return unwrap(await client.api.settings['provider-applications'].get())
     },
 
-    listChannelProfilePresets(): Promise<ChannelProfilePresets> {
-        return requestAuth<ChannelProfilePresets>('/api/channel-profile-presets')
+    async listChannelProfilePresets() {
+        return unwrap(await client.api['channel-profile-presets'].get())
     },
 
     async createProviderApplication(input: ProviderApplicationInput) {
@@ -467,19 +322,15 @@ export const api = {
         const result = await client.api.search.get({
             query: { q: query, ...(projectId === undefined ? {} : { projectId }) },
         })
-        return unwrap<SearchResponse>(result)
+        return unwrap(result)
     },
 
-    async listProjects(): Promise<{ projects: Project[] }> {
-        return unwrap<{ projects: Project[] }>(await client.api.projects.get())
+    async listProjects() {
+        return unwrap(await client.api.projects.get())
     },
 
-    async createProject(
-        name: string,
-        timeZone?: string,
-        workspaceId?: string
-    ): Promise<{ project: Project }> {
-        return unwrap<{ project: Project }>(
+    async createProject(name: string, timeZone?: string, workspaceId?: string) {
+        return unwrap(
             await client.api.projects.post({
                 name,
                 ...(timeZone === undefined ? {} : { timeZone }),
@@ -488,28 +339,19 @@ export const api = {
         )
     },
 
-    async updateProjectTimeZone(projectId: string, timeZone: string): Promise<Project> {
-        return unwrap<Project>(await client.api.projects({ projectId }).patch({ timeZone }))
+    async updateProjectTimeZone(projectId: string, timeZone: string) {
+        return unwrap(await client.api.projects({ projectId }).patch({ timeZone }))
     },
 
-    async listCategories(options: { includeArchived?: boolean } = {}): Promise<{
-        categories: ProjectCategory[]
-    }> {
-        return unwrap<{ categories: ProjectCategory[] }>(
-            await client.api.categories.get({ query: options })
-        )
+    async listCategories(options: WebApiRequests['listCategories'] = {}) {
+        return unwrap(await client.api.categories.get({ query: options }))
     },
 
-    async setProjectPrimaryCategory(
-        projectId: string,
-        categoryId: string | null
-    ): Promise<Project> {
-        return unwrap<Project>(
-            await client.api.projects({ projectId }).category.patch({ categoryId })
-        )
+    async setProjectPrimaryCategory(projectId: string, categoryId: string | null) {
+        return unwrap(await client.api.projects({ projectId }).category.patch({ categoryId }))
     },
 
-    async listProjectTags(projectId: string, options: { includeArchived?: boolean } = {}) {
+    async listProjectTags(projectId: string, options: WebApiRequests['listProjectTags'] = {}) {
         return unwrap(await client.api.projects({ projectId }).tags.get({ query: options }))
     },
 
@@ -529,12 +371,8 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).tags({ tagId }).restore.post())
     },
 
-    async getPublicationReplies(
-        projectId: string,
-        publicationId: string,
-        before?: string
-    ): Promise<PublicationRepliesResponse> {
-        return unwrap<PublicationRepliesResponse>(
+    async getPublicationReplies(projectId: string, publicationId: string, before?: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -544,28 +382,22 @@ export const api = {
     async sendPublicationReply(
         projectId: string,
         publicationId: string,
-        body: { requestId: string; parentUri: string; text: string }
-    ): Promise<PublicationRepliesResponse> {
-        return unwrap<PublicationRepliesResponse>(
+        body: WebApiRequests['sendPublicationReply']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
                 .comments.replies.post(body)
         )
     },
-    async getPublicationComments(
-        projectId: string,
-        publicationId: string
-    ): Promise<PublicationCommentsResponse> {
-        return unwrap<PublicationCommentsResponse>(
+    async getPublicationComments(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).publications({ publicationId }).comments.get()
         )
     },
-    async refreshPublicationComments(
-        projectId: string,
-        publicationId: string
-    ): Promise<PublicationCommentsResponse> {
-        return unwrap<PublicationCommentsResponse>(
+    async refreshPublicationComments(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -577,11 +409,8 @@ export const api = {
      * The prepared first comment of one native publication, through the typed
      * first-comment route.
      */
-    async getPublicationFirstComment(
-        projectId: string,
-        publicationId: string
-    ): Promise<PublicationFirstCommentResponse> {
-        return unwrap<PublicationFirstCommentResponse>(
+    async getPublicationFirstComment(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -592,13 +421,9 @@ export const api = {
     async savePublicationFirstComment(
         projectId: string,
         publicationId: string,
-        body: {
-            readonly text: string
-            readonly delaySeconds: number
-            readonly expectedRevision: number
-        }
-    ): Promise<PublicationFirstCommentResponse> {
-        return unwrap<PublicationFirstCommentResponse>(
+        body: WebApiRequests['savePublicationFirstComment']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -609,9 +434,9 @@ export const api = {
     async cancelPublicationFirstComment(
         projectId: string,
         publicationId: string,
-        body: { readonly expectedRevision: number }
-    ): Promise<PublicationFirstCommentResponse> {
-        return unwrap<PublicationFirstCommentResponse>(
+        body: WebApiRequests['cancelPublicationFirstComment']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -622,9 +447,9 @@ export const api = {
     async listPublicationTags(
         projectId: string,
         publicationId: string,
-        options: { includeArchived?: boolean } = {}
-    ): Promise<{ tags: ProjectTag[] }> {
-        return unwrap<{ tags: ProjectTag[] }>(
+        options: WebApiRequests['listPublicationTags'] = {}
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -636,8 +461,8 @@ export const api = {
         projectId: string,
         publicationId: string,
         tagIds: readonly string[]
-    ): Promise<{ tags: ProjectTag[] }> {
-        return unwrap<{ tags: ProjectTag[] }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -665,15 +490,7 @@ export const api = {
         )
     },
 
-    async updateUserApiKey(
-        keyId: string,
-        input: {
-            readonly name?: string
-            readonly projectIds?: readonly string[] | null
-            readonly expiresAt?: number | null
-            readonly actionAccess?: readonly UserApiKeyCapability[] | null
-        }
-    ) {
+    async updateUserApiKey(keyId: string, input: WebApiRequests['updateUserApiKey']) {
         const { projectIds, actionAccess, ...rest } = input
         return unwrap(
             await client.api['api-keys']({ keyId }).patch({
@@ -868,110 +685,74 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).members({ memberId }).delete())
     },
 
-    async acceptOrganizationInvitation(invitationId: string): Promise<unknown> {
-        return requestAuth('/api/auth/organization/accept-invitation', jsonBody({ invitationId }))
+    async acceptOrganizationInvitation(invitationId: string) {
+        return requestBoundary(
+            '/api/auth/organization/accept-invitation',
+            jsonBody({ invitationId })
+        )
     },
 
-    async acceptProjectInvitation(invitationId: string): Promise<unknown> {
+    async acceptProjectInvitation(invitationId: string) {
         return this.acceptOrganizationInvitation(invitationId)
     },
 
-    async listChannels(projectId: string): Promise<{ channels: ChannelListItem[] }> {
-        return unwrap<{ channels: ChannelListItem[] }>(
-            await client.api.projects({ projectId }).channels.get()
-        )
+    async listChannels(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).channels.get())
     },
 
-    async listMedia(projectId: string, options: MediaListOptions = {}): Promise<MediaListPage> {
-        return unwrap<MediaListPage>(
-            await client.api.projects({ projectId }).media.get({ query: options })
-        )
+    async listMedia(projectId: string, options: MediaListOptions = {}) {
+        return unwrap(await client.api.projects({ projectId }).media.get({ query: options }))
     },
 
-    async getMediaUploadPolicy(projectId: string): Promise<MediaUploadPolicy> {
-        return unwrap<MediaUploadPolicy>(
-            await client.api.projects({ projectId }).media['upload-policy'].get()
-        )
+    async getMediaUploadPolicy(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).media['upload-policy'].get())
     },
 
-    async getMediaImportSources(projectId: string): Promise<MediaImportSources> {
-        return unwrap<MediaImportSources>(
-            await client.api.projects({ projectId }).media.sources.get()
-        )
+    async getMediaImportSources(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).media.sources.get())
     },
 
-    async getMedia(projectId: string, assetId: string): Promise<MediaReference> {
-        return unwrap<MediaReference>(
-            await client.api.projects({ projectId }).media({ assetId }).get()
-        )
+    async getMedia(projectId: string, assetId: string) {
+        return unwrap(await client.api.projects({ projectId }).media({ assetId }).get())
     },
 
-    async getMediaUsage(projectId: string, assetId: string): Promise<MediaAssetUsage> {
-        return requestAuth<MediaAssetUsage>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/usage`
-        )
+    async getMediaUsage(projectId: string, assetId: string) {
+        return unwrap(await client.api.projects({ projectId }).media({ assetId }).usage.get())
     },
 
-    async deleteMedia(projectId: string, assetId: string): Promise<MediaDeletion> {
-        return requestAuth<MediaDeletion>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}`,
-            { method: 'DELETE' }
-        )
+    async deleteMedia(projectId: string, assetId: string) {
+        return unwrap(await client.api.projects({ projectId }).media({ assetId }).delete())
     },
 
-    async permanentlyDeleteMedia(
-        projectId: string,
-        assetId: string
-    ): Promise<'deleted' | 'cleanup_pending'> {
-        const response = await requestAuth<{
-            readonly status: 'deleted' | 'cleanup_pending'
-        }>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/permanent`,
-            { method: 'POST' }
+    async permanentlyDeleteMedia(projectId: string, assetId: string) {
+        const response = unwrap(
+            await client.api.projects({ projectId }).media({ assetId }).permanent.post()
         )
         return response.status
     },
 
-    async restoreMedia(projectId: string, assetId: string): Promise<void> {
-        await requestAuth<{ readonly status: 'restored'; readonly media: MediaReference }>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/restore`,
-            { method: 'POST' }
+    async restoreMedia(projectId: string, assetId: string) {
+        unwrap(await client.api.projects({ projectId }).media({ assetId }).restore.post())
+    },
+
+    async deleteMediaBatch(projectId: string, assetIds: readonly string[]) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .media['deletion-requests'].post({ assetIds: [...assetIds] })
         )
     },
 
-    async deleteMediaBatch(
-        projectId: string,
-        assetIds: readonly string[]
-    ): Promise<MediaDeletionBatch> {
-        return requestAuth<MediaDeletionBatch>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/deletion-requests`,
-            jsonBody({ assetIds })
-        )
+    async reserveMediaUpload(projectId: string, input: WebApiRequests['reserveMediaUpload']) {
+        return unwrap(await client.api.projects({ projectId }).media.uploads.post(input))
     },
 
-    async reserveMediaUpload(
-        projectId: string,
-        input: {
-            originalFilename: string
-            defaultAccessibilityText?: string
-            expectedSize?: number
-            contentType?: string
-        }
-    ): Promise<MediaReservation> {
-        return unwrap<MediaReservation>(
-            await client.api.projects({ projectId }).media.uploads.post(input)
-        )
+    async importMediaFromUrl(projectId: string, url: string) {
+        return unwrap(await client.api.projects({ projectId }).media.imports.url.post({ url }))
     },
 
-    async importMediaFromUrl(projectId: string, url: string): Promise<MediaUrlImport> {
-        return requestAuth<MediaUrlImport>(
-            `/api/projects/${encodeURIComponent(projectId)}/media/imports/url`,
-            jsonBody({ url })
-        )
-    },
-
-    async uploadMedia(projectId: string, intentId: string, file: Blob): Promise<MediaUpload> {
-        return requestAuth<MediaUpload>(
+    async uploadMedia(projectId: string, intentId: string, file: Blob) {
+        return requestBoundary<MediaUpload>(
             `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(intentId)}`,
             {
                 method: 'PUT',
@@ -983,11 +764,8 @@ export const api = {
         )
     },
 
-    async finalizeMediaUpload(
-        projectId: string,
-        intentId: string
-    ): Promise<MediaFinalize | { status: 'pending'; media: MediaReservation }> {
-        return unwrap<MediaFinalize | { status: 'pending'; media: MediaReservation }>(
+    async finalizeMediaUpload(projectId: string, intentId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).media.uploads({ intentId }).finalize.post()
         )
     },
@@ -996,11 +774,8 @@ export const api = {
         return `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/content${variant === undefined ? '' : `?variant=${variant}`}`
     },
 
-    async getChannelProfileState(
-        projectId: string,
-        channelId: string
-    ): Promise<ChannelProfileState> {
-        return unwrap<ChannelProfileState>(
+    async getChannelProfileState(projectId: string, channelId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).channels({ channelId }).profile.get()
         )
     },
@@ -1010,9 +785,9 @@ export const api = {
         channelId: string,
         profile: Record<string, unknown>,
         expectedRevision?: number
-    ): Promise<{ profile: ChannelProfileVersion }> {
+    ) {
         const body = expectedRevision === undefined ? { profile } : { profile, expectedRevision }
-        return unwrap<{ profile: ChannelProfileVersion }>(
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1024,8 +799,8 @@ export const api = {
         projectId: string,
         channelId: string,
         profileVersionId: string
-    ): Promise<{ assessment: ChannelProfileAssessment }> {
-        return unwrap<{ assessment: ChannelProfileAssessment }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1039,8 +814,8 @@ export const api = {
         channelId: string,
         profileVersionId: string,
         expectedRevision?: number
-    ): Promise<ChannelProfileActivation> {
-        return unwrap<ChannelProfileActivation>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1049,27 +824,15 @@ export const api = {
         )
     },
 
-    async listPublisherConnections(projectId: string): Promise<{
-        connections: PublisherConnection[]
-        oauthReadiness: Record<
-            ProviderApplicationProvider,
-            'ready' | 'not_configured' | 'unavailable'
-        >
-    }> {
-        return unwrap<{
-            connections: PublisherConnection[]
-            oauthReadiness: Record<
-                ProviderApplicationProvider,
-                'ready' | 'not_configured' | 'unavailable'
-            >
-        }>(await client.api.projects({ projectId }).publishers.get())
+    async listPublisherConnections(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).publishers.get())
     },
 
     async listBlueskyProviderAnalytics(
         projectId: string,
-        options: { limit?: number; providerSubjectId?: string; postbotEntityId?: string } = {}
-    ): Promise<ProviderAnalyticsPage> {
-        return unwrap<ProviderAnalyticsPage>(
+        options: WebApiRequests['listBlueskyProviderAnalytics'] = {}
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.bluesky.get({
                 query: options,
             })
@@ -1078,31 +841,25 @@ export const api = {
 
     async listDevtoProviderAnalytics(
         projectId: string,
-        options: { limit?: number; providerSubjectId?: string; postbotEntityId?: string } = {}
-    ): Promise<ProviderAnalyticsPage> {
-        return unwrap<ProviderAnalyticsPage>(
+        options: WebApiRequests['listDevtoProviderAnalytics'] = {}
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.devto.get({
                 query: options,
             })
         )
     },
 
-    async listLatestBlueskyProviderAnalytics(
-        projectId: string,
-        publicationIds: readonly string[]
-    ): Promise<ProviderAnalyticsPage> {
-        return unwrap<ProviderAnalyticsPage>(
+    async listLatestBlueskyProviderAnalytics(projectId: string, publicationIds: readonly string[]) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.bluesky.latest.get({
                 query: { publicationIds: [...publicationIds] },
             })
         )
     },
 
-    async listLatestDevtoProviderAnalytics(
-        projectId: string,
-        publicationIds: readonly string[]
-    ): Promise<ProviderAnalyticsPage> {
-        return unwrap<ProviderAnalyticsPage>(
+    async listLatestDevtoProviderAnalytics(projectId: string, publicationIds: readonly string[]) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.devto.latest.get({
                 query: { publicationIds: [...publicationIds] },
             })
@@ -1112,8 +869,8 @@ export const api = {
     async listLatestMastodonProviderAnalytics(
         projectId: string,
         publicationIds: readonly string[]
-    ): Promise<ProviderAnalyticsPage> {
-        return unwrap<ProviderAnalyticsPage>(
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.mastodon.latest.get({
                 query: { publicationIds: [...publicationIds] },
             })
@@ -1124,8 +881,8 @@ export const api = {
         projectId: string,
         channelId: string,
         publicationId: string
-    ): Promise<BlueskyAnalyticsCollection> {
-        return unwrap<BlueskyAnalyticsCollection>(
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.bluesky.collect.post({
                 channelId,
                 publicationIds: [publicationId],
@@ -1137,8 +894,8 @@ export const api = {
         projectId: string,
         channelId: string,
         publicationId: string
-    ): Promise<DevtoAnalyticsCollection> {
-        return unwrap<DevtoAnalyticsCollection>(
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.devto.collect.post({
                 channelId,
                 publicationId,
@@ -1150,8 +907,8 @@ export const api = {
         projectId: string,
         channelId: string,
         publicationId: string
-    ): Promise<MastodonAnalyticsCollection> {
-        return unwrap<MastodonAnalyticsCollection>(
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).analytics.provider.mastodon.collect.post({
                 channelId,
                 publicationId,
@@ -1159,28 +916,17 @@ export const api = {
         )
     },
 
-    async listNotifications(
-        projectId: string,
-        options: {
-            before?: string
-            limit?: number
-            view?: 'active' | 'all'
-        } = {}
-    ): Promise<NotificationInbox> {
-        return unwrap<NotificationInbox>(
+    async listNotifications(projectId: string, options: WebApiRequests['listNotifications'] = {}) {
+        return unwrap(
             await client.api.projects({ projectId }).notifications.get({ query: options })
         )
     },
 
     async listUserNotifications(
         projectId: string | null,
-        options: {
-            before?: string
-            limit?: number
-            view?: 'active' | 'all'
-        } = {}
-    ): Promise<NotificationInbox> {
-        return unwrap<NotificationInbox>(
+        options: WebApiRequests['listUserNotifications'] = {}
+    ) {
+        return unwrap(
             await client.api.notifications.get({
                 query: {
                     ...options,
@@ -1190,14 +936,14 @@ export const api = {
         )
     },
 
-    async markNotificationRead(projectId: string, notificationId: string): Promise<Notification> {
-        return unwrap<Notification>(
+    async markNotificationRead(projectId: string, notificationId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).notifications({ notificationId }).read.post()
         )
     },
 
-    async archiveNotification(projectId: string, notificationId: string): Promise<Notification> {
-        return unwrap<Notification>(
+    async archiveNotification(projectId: string, notificationId: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .notifications({ notificationId })
@@ -1205,30 +951,24 @@ export const api = {
         )
     },
 
-    async markUserNotificationRead(notificationId: string): Promise<Notification> {
-        return unwrap<Notification>(await client.api.notifications({ notificationId }).read.post())
+    async markUserNotificationRead(notificationId: string) {
+        return unwrap(await client.api.notifications({ notificationId }).read.post())
     },
 
-    async archiveUserNotification(notificationId: string): Promise<Notification> {
-        return unwrap<Notification>(
-            await client.api.notifications({ notificationId }).archive.post()
-        )
+    async archiveUserNotification(notificationId: string) {
+        return unwrap(await client.api.notifications({ notificationId }).archive.post())
     },
 
-    async listNotificationPreferences(
-        projectId: string
-    ): Promise<{ preferences: NotificationPreference[] }> {
-        return unwrap<{ preferences: NotificationPreference[] }>(
-            await client.api.projects({ projectId })['notification-preferences'].get()
-        )
+    async listNotificationPreferences(projectId: string) {
+        return unwrap(await client.api.projects({ projectId })['notification-preferences'].get())
     },
 
     async updateNotificationPreference(
         projectId: string,
         kind: NotificationPreference['kind'],
         inAppEnabled: boolean
-    ): Promise<NotificationPreference> {
-        return unwrap<NotificationPreference>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 ['notification-preferences']({ kind })
@@ -1237,26 +977,20 @@ export const api = {
     },
 
     async getProjectEmailAlerts(projectId: string) {
-        return unwrap<EmailAlertPreference>(
-            await client.api.projects({ projectId })['email-alerts'].get()
-        )
+        return unwrap(await client.api.projects({ projectId })['email-alerts'].get())
     },
     async setProjectEmailAlerts(projectId: string, enabled: boolean) {
-        return unwrap<EmailAlertPreference>(
-            await client.api.projects({ projectId })['email-alerts'].patch({ enabled })
-        )
+        return unwrap(await client.api.projects({ projectId })['email-alerts'].patch({ enabled }))
     },
-    async listUserNotificationPreferences(): Promise<{ preferences: NotificationPreference[] }> {
-        return unwrap<{ preferences: NotificationPreference[] }>(
-            await client.api['notification-preferences'].get()
-        )
+    async listUserNotificationPreferences() {
+        return unwrap(await client.api['notification-preferences'].get())
     },
 
     async updateUserNotificationPreference(
         kind: NotificationPreference['kind'],
         inAppEnabled: boolean
-    ): Promise<NotificationPreference> {
-        return unwrap<NotificationPreference>(
+    ) {
+        return unwrap(
             await client.api['notification-preferences']({ kind }).patch({ inAppEnabled })
         )
     },
@@ -1265,8 +999,8 @@ export const api = {
         projectId: string,
         channelId: string,
         providerApplicationId?: string
-    ): Promise<{ url: string }> {
-        return unwrap<{ url: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1282,8 +1016,8 @@ export const api = {
         projectId: string,
         channelId: string,
         providerApplicationId?: string
-    ): Promise<{ url: string }> {
-        return unwrap<{ url: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1297,8 +1031,8 @@ export const api = {
         channelId: string,
         selection: string,
         after?: string
-    ): Promise<FacebookPageChoices> {
-        return unwrap<FacebookPageChoices>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1308,9 +1042,9 @@ export const api = {
     async selectFacebookPage(
         projectId: string,
         channelId: string,
-        input: { selection: string; pageId: string; after?: string }
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
+        input: WebApiRequests['selectFacebookPage']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1322,8 +1056,8 @@ export const api = {
         channelId: string,
         destination?: LinkedInConnectionDestination,
         providerApplicationId?: string
-    ): Promise<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }> {
-        return unwrap<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1339,8 +1073,8 @@ export const api = {
         channelId: string,
         handle: string,
         providerApplicationId?: string
-    ): Promise<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }> {
-        return unwrap<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1355,8 +1089,8 @@ export const api = {
         projectId: string,
         channelId: string,
         providerApplicationId?: string
-    ): Promise<{ provider: 'x'; scopes: string[]; authorizationUrl: string }> {
-        return unwrap<{ provider: 'x'; scopes: string[]; authorizationUrl: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1370,8 +1104,8 @@ export const api = {
         projectId: string,
         channelId: string,
         instanceUrl: string
-    ): Promise<{ provider: 'mastodon'; scopes: string[]; authorizationUrl: string }> {
-        return unwrap<{ provider: 'mastodon'; scopes: string[]; authorizationUrl: string }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1382,9 +1116,9 @@ export const api = {
     async connectDiscordPublisher(
         projectId: string,
         channelId: string,
-        input: { botToken: string; channelId: string }
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
+        input: WebApiRequests['connectDiscordPublisher']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1395,9 +1129,9 @@ export const api = {
     async connectTelegramPublisher(
         projectId: string,
         channelId: string,
-        input: { botToken: string; chatReference: string }
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
+        input: WebApiRequests['connectTelegramPublisher']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1405,12 +1139,8 @@ export const api = {
         )
     },
 
-    async connectDevtoPublisher(
-        projectId: string,
-        channelId: string,
-        apiKey: string
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
+    async connectDevtoPublisher(projectId: string, channelId: string, apiKey: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1418,11 +1148,8 @@ export const api = {
         )
     },
 
-    async disconnectPublisher(
-        projectId: string,
-        channelId: string
-    ): Promise<{ disconnected: true }> {
-        return unwrap<{ disconnected: true }>(
+    async disconnectPublisher(projectId: string, channelId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).channels({ channelId }).publisher.delete()
         )
     },
@@ -1431,10 +1158,8 @@ export const api = {
         projectId: string,
         name: string,
         profile: ChannelCreationProfile = 'manual-message'
-    ): Promise<{ channel: Channel }> {
-        return unwrap<{ channel: Channel }>(
-            await client.api.projects({ projectId }).channels.post({ name, profile })
-        )
+    ) {
+        return unwrap(await client.api.projects({ projectId }).channels.post({ name, profile }))
     },
 
     async renameChannel(
@@ -1442,8 +1167,8 @@ export const api = {
         channelId: string,
         name: string,
         expectedRevision: number
-    ): Promise<{ channel: Channel }> {
-        return unwrap<{ channel: Channel }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1451,12 +1176,8 @@ export const api = {
         )
     },
 
-    async archiveChannel(
-        projectId: string,
-        channelId: string,
-        expectedRevision: number
-    ): Promise<{ channel: Channel }> {
-        return unwrap<{ channel: Channel }>(
+    async archiveChannel(projectId: string, channelId: string, expectedRevision: number) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1464,12 +1185,8 @@ export const api = {
         )
     },
 
-    async restoreChannel(
-        projectId: string,
-        channelId: string,
-        expectedRevision: number
-    ): Promise<{ channel: Channel }> {
-        return unwrap<{ channel: Channel }>(
+    async restoreChannel(projectId: string, channelId: string, expectedRevision: number) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1477,12 +1194,8 @@ export const api = {
         )
     },
 
-    async deleteChannel(
-        projectId: string,
-        channelId: string,
-        expectedRevision: number
-    ): Promise<{ deleted: true }> {
-        return unwrap<{ deleted: true }>(
+    async deleteChannel(projectId: string, channelId: string, expectedRevision: number) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1493,14 +1206,9 @@ export const api = {
     async connectCustomHttpPublisher(
         projectId: string,
         channelId: string,
-        input: {
-            endpointUrl: string
-            authentication: CustomHttpAuthentication
-            externalAccountName?: string | null
-            secret: string
-        }
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
+        input: WebApiRequests['connectCustomHttpPublisher']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
@@ -1508,57 +1216,33 @@ export const api = {
         )
     },
 
-    async getPost(projectId: string, postId: string): Promise<{ post: Post }> {
-        return unwrap<{ post: Post }>(
-            await client.api.projects({ projectId }).posts({ postId }).get()
-        )
+    async getPost(projectId: string, postId: string) {
+        return unwrap(await client.api.projects({ projectId }).posts({ postId }).get())
     },
 
     async savePostSource(
         projectId: string,
         postId: string,
-        input: { expectedSourceRevision: number; sourceContent: Post['sourceContent'] }
-    ): Promise<{ post: Post }> {
-        return unwrap<{ post: Post }>(
-            await client.api.projects({ projectId }).posts({ postId }).patch(input)
-        )
+        input: WebApiRequests['savePostSource']
+    ) {
+        return unwrap(await client.api.projects({ projectId }).posts({ postId }).patch(input))
     },
 
     async addPostDestinations(
         projectId: string,
         postId: string,
-        input: {
-            expectedSourceRevision: number
-            confirmExistingChannels?: boolean
-            publications: Array<{ channelId: string; deliveryMode: 'manual' | 'automatic' }>
-        }
-    ): Promise<{ post: Post; publications: Publication[] }> {
-        return unwrap<{ post: Post; publications: Publication[] }>(
+        input: WebApiRequests['addPostDestinations']
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).posts({ postId }).destinations.post(input)
         )
     },
 
-    async createPost(
-        projectId: string,
-        input: {
-            title?: string
-            sourceContent: PublicationEditorState['post']['sourceContent']
-            publications: Array<{
-                channelId: string
-                targetContent?: Record<string, unknown>
-                deliveryMode: 'manual' | 'automatic'
-                scheduledAt?: number | null
-            }>
-        }
-    ): Promise<{ post: Post; publications: Publication[] }> {
-        return unwrap<{ post: Post; publications: Publication[] }>(
-            await client.api.projects({ projectId }).posts.post(input)
-        )
+    async createPost(projectId: string, input: WebApiRequests['createPost']) {
+        return unwrap(await client.api.projects({ projectId }).posts.post(input))
     },
 
-    async getPublicationComposerDraft(
-        projectId: string
-    ): Promise<{ draft: PublicationComposerDraft | null }> {
+    async getPublicationComposerDraft(projectId: string) {
         const { draft } = unwrap(
             await client.api.projects({ projectId })['publication-composer-draft'].get()
         )
@@ -1569,7 +1253,7 @@ export const api = {
         projectId: string,
         expectedRevision: number,
         content: PublicationComposerDraftContent
-    ): Promise<{ draft: PublicationComposerDraft }> {
+    ) {
         const { draft } = unwrap(
             await client.api
                 .projects({ projectId })
@@ -1578,30 +1262,17 @@ export const api = {
         return { draft: parsePublicationComposerDraft(draft) }
     },
 
-    async deletePublicationComposerDraft(projectId: string): Promise<{ deleted: boolean }> {
-        return unwrap<{ deleted: boolean }>(
+    async deletePublicationComposerDraft(projectId: string) {
+        return unwrap(
             await client.api.projects({ projectId })['publication-composer-draft'].delete()
         )
     },
 
-    async listDuePublications(projectId: string): Promise<{ publications: DuePublication[] }> {
-        return unwrap<{ publications: DuePublication[] }>(
-            await client.api.projects({ projectId }).publications.due.get()
-        )
+    async listDuePublications(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).publications.due.get())
     },
 
-    async listPublications(
-        projectId: string,
-        options: {
-            tagIds?: readonly string[]
-            cursor?: string
-            limit?: number
-            sort?: PublicationListSort
-            state?: 'draft' | 'scheduled'
-            from?: number
-            to?: number
-        } = {}
-    ): Promise<PublicationSummaryPage> {
+    async listPublications(projectId: string, options: WebApiRequests['listPublications'] = {}) {
         const query = {
             ...(options.tagIds === undefined || options.tagIds.length === 0
                 ? {}
@@ -1613,17 +1284,15 @@ export const api = {
             ...(options.from === undefined ? {} : { from: options.from }),
             ...(options.to === undefined ? {} : { to: options.to }),
         }
-        return unwrap<PublicationSummaryPage>(
+        return unwrap(
             await client.api.projects({ projectId }).publications.get({
                 query: Object.keys(query).length === 0 ? undefined : query,
             })
         )
     },
 
-    async listPublicationApprovalRequests(
-        projectId: string
-    ): Promise<{ requests: PublicationApprovalRequest[] }> {
-        return unwrap<{ requests: PublicationApprovalRequest[] }>(
+    async listPublicationApprovalRequests(projectId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).publications['approval-requests'].get()
         )
     },
@@ -1631,13 +1300,13 @@ export const api = {
     async approvePublicationApprovalRequest(
         projectId: string,
         publicationId: string,
-        options: { readonly scheduledAt?: number; readonly publishNow?: boolean } = {}
-    ): Promise<{ publication: Publication }> {
+        options: WebApiRequests['approvePublicationApprovalRequest'] = {}
+    ) {
         const body = {
             ...(options.scheduledAt === undefined ? {} : { scheduledAt: options.scheduledAt }),
             ...(options.publishNow === undefined ? {} : { publishNow: options.publishNow }),
         }
-        return unwrap<{ publication: Publication }>(
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1645,11 +1314,8 @@ export const api = {
         )
     },
 
-    async rejectPublicationApprovalRequest(
-        projectId: string,
-        publicationId: string
-    ): Promise<{ request: PublicationApprovalRequest }> {
-        return unwrap<{ request: PublicationApprovalRequest }>(
+    async rejectPublicationApprovalRequest(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1657,11 +1323,8 @@ export const api = {
         )
     },
 
-    async getPublicationEditor(
-        projectId: string,
-        publicationId: string
-    ): Promise<{ editor: PublicationEditorState }> {
-        return unwrap<{ editor: PublicationEditorState }>(
+    async getPublicationEditor(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).publications({ publicationId }).editor.get()
         )
     },
@@ -1669,13 +1332,9 @@ export const api = {
     async savePublicationDraft(
         projectId: string,
         publicationId: string,
-        input: {
-            expectedRevision: number
-            sourceContent?: PublicationEditorState['post']['sourceContent']
-            targetContent?: Record<string, unknown>
-        }
-    ): Promise<{ editor: PublicationEditorState }> {
-        return unwrap<{ editor: PublicationEditorState }>(
+        input: WebApiRequests['savePublicationDraft']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1688,7 +1347,7 @@ export const api = {
         publicationId: string,
         input: DraftProfileAdoptionInput
     ) {
-        return unwrap<{ valid: boolean; issues: Record<string, unknown>[] }>(
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1700,7 +1359,7 @@ export const api = {
         publicationId: string,
         input: DraftProfileAdoptionInput
     ) {
-        return unwrap<{ editor: PublicationEditorState }>(
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1708,16 +1367,7 @@ export const api = {
         )
     },
     async listPublicationDraftAdoptions(projectId: string, publicationId: string) {
-        return unwrap<{
-            adoptions: {
-                id: string
-                draft: PublicationEditorState['draft']
-                localContent: Record<string, unknown> | null
-                adoptedProfileVersionId: string
-                targetRevisionId: string
-                createdAt: number
-            }[]
-        }>(
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1730,8 +1380,8 @@ export const api = {
         publicationId: string,
         expectedRevision: number,
         scheduledAt?: number | null
-    ): Promise<{ editor: PublicationEditorState }> {
-        return unwrap<{ editor: PublicationEditorState }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1747,8 +1397,8 @@ export const api = {
         projectId: string,
         publicationIds: readonly string[],
         scheduledAt: number
-    ): Promise<{ publications: Publication[] }> {
-        return unwrap<{ publications: Publication[] }>(
+    ) {
+        return unwrap(
             await client.api.projects({ projectId }).publications.schedule.patch({
                 publicationIds: [...publicationIds],
                 scheduledAt,
@@ -1756,31 +1406,22 @@ export const api = {
         )
     },
 
-    async cancelPublications(
-        projectId: string,
-        publicationIds: readonly string[]
-    ): Promise<{ publications: Publication[] }> {
-        return unwrap<{ publications: Publication[] }>(
+    async cancelPublications(projectId: string, publicationIds: readonly string[]) {
+        return unwrap(
             await client.api.projects({ projectId }).publications.cancel.patch({
                 publicationIds: [...publicationIds],
             })
         )
     },
 
-    async deleteDraftPublication(
-        projectId: string,
-        publicationId: string
-    ): Promise<{ deleted: true; postDeleted: boolean }> {
-        return unwrap<{ deleted: true; postDeleted: boolean }>(
+    async deleteDraftPublication(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).publications({ publicationId }).delete()
         )
     },
 
-    async duplicateDraftPublication(
-        projectId: string,
-        publicationId: string
-    ): Promise<{ post: Post; publication: Publication }> {
-        return unwrap<{ post: Post; publication: Publication }>(
+    async duplicateDraftPublication(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1793,8 +1434,8 @@ export const api = {
         publicationId: string,
         expectedRevision: number,
         sourceUpdate?: { expectedSourceRevision: number; replaceContent: boolean }
-    ): Promise<{ editor: PublicationEditorState }> {
-        return unwrap<{ editor: PublicationEditorState }>(
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1802,12 +1443,8 @@ export const api = {
         )
     },
 
-    async publishManualPublication(
-        projectId: string,
-        publicationId: string,
-        externalUrl?: string
-    ): Promise<{ publication: Publication }> {
-        return unwrap<{ publication: Publication }>(
+    async publishManualPublication(projectId: string, publicationId: string, externalUrl?: string) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1815,11 +1452,8 @@ export const api = {
         )
     },
 
-    async retryFailedPublication(
-        projectId: string,
-        publicationId: string
-    ): Promise<{ publication: Publication }> {
-        return unwrap<{ publication: Publication }>(
+    async retryFailedPublication(projectId: string, publicationId: string) {
+        return unwrap(
             await client.api.projects({ projectId }).publications({ publicationId }).retry.post({})
         )
     },
@@ -1827,14 +1461,9 @@ export const api = {
     async reconcileAmbiguousPublication(
         projectId: string,
         publicationId: string,
-        input: {
-            resolution: 'published' | 'failed'
-            externalId?: string
-            externalUrl?: string
-            errorMessage?: string
-        }
-    ): Promise<{ publication: Publication }> {
-        return unwrap<{ publication: Publication }>(
+        input: WebApiRequests['reconcileAmbiguousPublication']
+    ) {
+        return unwrap(
             await client.api
                 .projects({ projectId })
                 .publications({ publicationId })
@@ -1842,14 +1471,26 @@ export const api = {
         )
     },
 
-    async listAuditEvents(projectId: string): Promise<{ events: AuditEvent[] }> {
-        return unwrap<{ events: AuditEvent[] }>(
-            await client.api.projects({ projectId })['audit-events'].get()
-        )
+    async listAuditEvents(projectId: string) {
+        return unwrap(await client.api.projects({ projectId })['audit-events'].get())
     },
 }
 
 export type {
+    MediaListOptions,
+    MediaListSort,
+    MediaListFamilyFilter,
+    MediaListDateFilter,
+    MediaListPage,
+    PublicationListSort,
+    LinkedInConnectionDestination,
+    RuntimeChannelProfile,
+    CustomChannelProfileInput,
+    ChannelCreationProfile,
+    CustomHttpAuthentication,
+    FacebookPageChoices,
+    RecoveryState,
+    DraftProfileAdoptionInput,
     ProviderApplication,
     ProviderApplicationProvider,
     ProviderApplicationState,
@@ -2020,15 +1661,6 @@ function apiErrorMessage(code: string): string {
         default:
             return m.api_request_failed()
     }
-}
-
-export interface DraftProfileAdoptionInput {
-    expectedRevision: number
-    expectedSourceRevision: number
-    expectedProfileVersionId: string
-    activeProfileVersionId: string
-    targetContent: Record<string, unknown>
-    previousLocalContent?: Record<string, unknown>
 }
 
 export type { EmailSettings, EmailSettingsInput }

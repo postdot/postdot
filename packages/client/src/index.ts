@@ -174,6 +174,117 @@ export type WorkspaceInvitation = NonNullable<
 
 type ProjectRoute = ReturnType<PostbotClient['api']['projects']>
 
+type ChannelRoute = ReturnType<ProjectRoute['channels']>
+type PublicationRoute = ReturnType<ProjectRoute['publications']>
+type MediaListQuery = NonNullable<NonNullable<Parameters<ProjectRoute['media']['get']>[0]>['query']>
+export type MediaListOptions = Readonly<MediaListQuery>
+export type MediaListSort = NonNullable<MediaListQuery['sort']>
+export type MediaListFamilyFilter = NonNullable<MediaListQuery['family']>
+export type MediaListDateFilter = NonNullable<MediaListQuery['date']>
+export type MediaListPage = NonNullable<Awaited<ReturnType<ProjectRoute['media']['get']>>['data']>
+export type PublicationListSort = NonNullable<
+    NonNullable<NonNullable<Parameters<ProjectRoute['publications']['get']>[0]>['query']>['sort']
+>
+export type RecoveryState = NonNullable<
+    Awaited<ReturnType<PostbotClient['api']['settings']['recovery']['get']>>['data']
+>
+export type LinkedInConnectionDestination = Readonly<
+    NonNullable<
+        NonNullable<
+            Parameters<ChannelRoute['publisher']['linkedin']['connect']['post']>[0]
+        >['destination']
+    >
+>
+export type FacebookPageChoices = NonNullable<
+    Awaited<ReturnType<ChannelRoute['publisher']['facebook']['pages']['get']>>['data']
+>
+export type ChannelCreationProfile = NonNullable<
+    NonNullable<Parameters<ProjectRoute['channels']['post']>[0]>['profile']
+>
+export type CustomChannelProfileInput = Readonly<
+    Extract<ChannelCreationProfile, { origin: 'custom' }>
+>
+/** Locally materialized templates always include the server-derived fingerprints. */
+export type RuntimeChannelProfile = CustomChannelProfileInput &
+    Required<Pick<CustomChannelProfileInput, 'profileHash' | 'schemaHash'>>
+export type CustomHttpAuthentication = Readonly<
+    NonNullable<
+        Parameters<ChannelRoute['publisher']['custom-http']['connect']['post']>[0]
+    >['authentication']
+>
+export type DraftProfileAdoptionInput = NonNullable<
+    Parameters<PublicationRoute['draft']['adopt-profile']['post']>[0]
+>
+export type PublicationComposerDraftResponse = NonNullable<
+    NonNullable<
+        Awaited<ReturnType<ProjectRoute['publication-composer-draft']['get']>>['data']
+    >['draft']
+>
+
+type RequestBody<Method extends (...args: never[]) => unknown> = NonNullable<Parameters<Method>[0]>
+type RequestQuery<Method extends (...args: never[]) => unknown> = NonNullable<
+    RequestBody<Method> extends { query?: infer Query } ? Query : never
+>
+type ReadonlyInput<Value> = Value extends unknown[] ? Readonly<Value> : Value
+type ReadonlyRequest<Body> = { readonly [Key in keyof Body]: ReadonlyInput<Body[Key]> }
+
+/** Schema-owned bodies and query subsets accepted by the web's convenience methods. */
+export type WebApiRequests = {
+    sendPublicationReply: RequestBody<PublicationRoute['comments']['replies']['post']>
+    savePublicationFirstComment: Readonly<RequestBody<PublicationRoute['first-comment']['put']>>
+    cancelPublicationFirstComment: Readonly<
+        RequestBody<PublicationRoute['first-comment']['cancel']['post']>
+    >
+    updateUserApiKey: ReadonlyRequest<
+        RequestBody<ReturnType<PostbotClient['api']['api-keys']>['patch']>
+    >
+    reserveMediaUpload: RequestBody<ProjectRoute['media']['uploads']['post']>
+    selectFacebookPage: RequestBody<ChannelRoute['publisher']['facebook']['select']['post']>
+    connectDiscordPublisher: RequestBody<ChannelRoute['publisher']['discord']['connect']['post']>
+    connectTelegramPublisher: RequestBody<ChannelRoute['publisher']['telegram']['connect']['post']>
+    connectCustomHttpPublisher: RequestBody<
+        ChannelRoute['publisher']['custom-http']['connect']['post']
+    >
+    savePostSource: RequestBody<ReturnType<ProjectRoute['posts']>['patch']>
+    addPostDestinations: RequestBody<ReturnType<ProjectRoute['posts']>['destinations']['post']>
+    createPost: Omit<RequestBody<ProjectRoute['posts']['post']>, 'title'> & {
+        title?: NonNullable<RequestBody<ProjectRoute['posts']['post']>['title']>
+    }
+    approvePublicationApprovalRequest: Readonly<
+        RequestBody<PublicationRoute['approval-request']['approve']['post']>
+    >
+    savePublicationDraft: RequestBody<PublicationRoute['draft']['patch']>
+    reconcileAmbiguousPublication: RequestBody<PublicationRoute['reconcile']['post']>
+    listCategories: Pick<RequestQuery<PostbotClient['api']['categories']['get']>, 'includeArchived'>
+    listProjectTags: Pick<RequestQuery<ProjectRoute['tags']['get']>, 'includeArchived'>
+    listPublicationTags: Pick<RequestQuery<PublicationRoute['tags']['get']>, 'includeArchived'>
+    listBlueskyProviderAnalytics: Pick<
+        RequestQuery<ProjectRoute['analytics']['provider']['bluesky']['get']>,
+        'limit' | 'providerSubjectId' | 'postbotEntityId'
+    >
+    listDevtoProviderAnalytics: Pick<
+        RequestQuery<ProjectRoute['analytics']['provider']['devto']['get']>,
+        'limit' | 'providerSubjectId' | 'postbotEntityId'
+    >
+    listNotifications: Pick<
+        RequestQuery<ProjectRoute['notifications']['get']>,
+        'before' | 'limit' | 'view'
+    >
+    listUserNotifications: Pick<
+        RequestQuery<PostbotClient['api']['notifications']['get']>,
+        'before' | 'limit' | 'view'
+    >
+    listPublications: Omit<
+        Pick<
+            RequestQuery<ProjectRoute['publications']['get']>,
+            'tagIds' | 'cursor' | 'limit' | 'sort' | 'state' | 'from' | 'to'
+        >,
+        'tagIds'
+    > & {
+        tagIds?: readonly string[]
+    }
+}
+
 export type ProjectMember = NonNullable<
     Awaited<ReturnType<ProjectRoute['members']['get']>>['data']
 >['members'][number]

@@ -1,4 +1,15 @@
 import type {
+    WebApiRequests,
+    MediaListPage,
+    MediaAssetUsage,
+    MediaDeletion,
+    MediaDeletionBatch,
+    MediaUrlImport,
+    MediaListOptions,
+    PublicationListSort,
+    RecoveryState,
+    ChannelProfilePresets,
+    FacebookPageChoices,
     ProviderApplication,
     ProviderApplicationProvider,
     ProviderApplicationState,
@@ -340,3 +351,62 @@ export type InferredProviderApplicationContracts = [
         Equal<Parameters<typeof api.updateProviderApplication>[1], ProviderApplicationUpdateInput>
     >,
 ]
+
+/** Every application JSON method has a concrete response, including void adapters. */
+type BoundaryMethod =
+    | 'getSession'
+    | 'signIn'
+    | 'signUp'
+    | 'requestPasswordReset'
+    | 'resetPassword'
+    | 'sendAccountEmailVerification'
+    | 'updateProfile'
+    | 'changePassword'
+    | 'uploadAvatar'
+    | 'uploadMedia'
+    | 'signOut'
+    | 'acceptOrganizationInvitation'
+    | 'acceptProjectInvitation'
+type UntypedApplicationMethods = {
+    [Key in Exclude<keyof typeof api, BoundaryMethod>]: unknown extends Awaited<
+        ReturnType<(typeof api)[Key]>
+    >
+        ? Key
+        : never
+}[Exclude<keyof typeof api, BoundaryMethod>]
+
+export type InferredApplicationJsonContracts = [
+    Assert<Equal<UntypedApplicationMethods, never>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.listMedia>>, MediaListPage>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.getMediaUsage>>, MediaAssetUsage>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.deleteMedia>>, MediaDeletion>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.deleteMediaBatch>>, MediaDeletionBatch>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.importMediaFromUrl>>, MediaUrlImport>>,
+    Assert<
+        Equal<Awaited<ReturnType<typeof api.permanentlyDeleteMedia>>, 'deleted' | 'cleanup_pending'>
+    >,
+    Assert<Equal<Awaited<ReturnType<typeof api.restoreMedia>>, void>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.removeAvatar>>, { success: boolean }>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.listChannelProfilePresets>>, ChannelProfilePresets>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.getRecoveryState>>, RecoveryState>>,
+    Assert<Equal<Awaited<ReturnType<typeof api.listFacebookPages>>, FacebookPageChoices>>,
+    Assert<Equal<MediaListOptions['view'], 'library' | 'trash' | undefined>>,
+    Assert<
+        Equal<
+            PublicationListSort,
+            | 'queue'
+            | 'updated_desc'
+            | 'updated_asc'
+            | 'created_desc'
+            | 'created_asc'
+            | 'scheduled_desc'
+            | 'scheduled_asc'
+        >
+    >,
+]
+
+/** No schema extraction may silently degrade a request body or query to unknown/any. */
+type UntypedRequestContracts = {
+    [Key in keyof WebApiRequests]: unknown extends WebApiRequests[Key] ? Key : never
+}[keyof WebApiRequests]
+export type InferredApplicationRequestContracts = Assert<Equal<UntypedRequestContracts, never>>
