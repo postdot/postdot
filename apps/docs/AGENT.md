@@ -27,7 +27,7 @@ still exits 0, so `scripts/build.ts` checks the log. A CommonJS dependency impor
 by name is the usual cause; use its default import. `vite.config.ts` dedupes the
 Fumadocs packages and React, otherwise links silently become full page loads (bun
 installs several copies of `fumadocs-core`, and `tsconfig.json` pins one for types).
-The site is live at postdot.app and indexable; `/usage-study` stays `noindex`.
+The site is live at postdot.app and indexable.
 Feedback goes through the Worker in `worker/` to GitHub discussions (GitHub App
 `postdot-docs`, secret `GITHUB_APP_PRIVATE_KEY` set with `wrangler secret put`
 from a file, never pasted). Deploys run from `main` in CI; do not deploy from a

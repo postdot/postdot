@@ -135,3 +135,4 @@ prerenderer
 resvg
 satori
 prerenders
+umami

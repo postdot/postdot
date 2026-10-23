@@ -1,7 +1,7 @@
 # Human and agent access — visual study
 
 Status: SITE-443 proposal, awaiting owner review. Homepage unchanged.
-Review route: `/usage-study/`.
+The standalone review route was removed; the study lives in the home page gallery.
 
 ## Rejected direction
 
