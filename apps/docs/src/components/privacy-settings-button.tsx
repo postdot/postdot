@@ -6,7 +6,7 @@ import { requestConsentPrompt } from '@/lib/consent'
 export function PrivacySettingsButton() {
     return (
         <Button variant="outline" onClick={requestConsentPrompt}>
-            Change my analytics choice
+            Change my cookie preferences
         </Button>
     )
 }

@@ -28,7 +28,27 @@ export function writeConsent(consent: Consent) {
     window.dispatchEvent(new Event(EVENT))
 }
 
-/** Reopens the choice, e.g. from the footer. */
+/** What the reader can allow. Essential is always on; the others start off. */
+export const consentCategories = [
+    {
+        id: 'essential',
+        label: 'Essential',
+        required: true,
+        description: 'Keeps the site working and remembers your choices.',
+        details:
+            'Stores this choice in a cookie named postdot-consent for 12 months, and your theme and page ratings in your browser. Nothing leaves your device.',
+    },
+    {
+        id: 'analytics',
+        label: 'Analytics',
+        required: false,
+        description: 'Helps us see how readers move through the site, to improve it.',
+        details:
+            'Analyses a sample of visits on our own analytics server, with all typed text hidden. Anonymous visit counts need no consent and use no cookies; they stay on either way.',
+    },
+] as const
+
+/** Reopens the choices, e.g. from the footer or the floating button. */
 export function requestConsentPrompt() {
     window.dispatchEvent(new Event(`${EVENT}:open`))
 }
