@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { fumadocsMdx } from 'fumadocs-mdx/vite'
+import Icons from 'unplugin-icons/vite'
 import { defineConfig } from 'vite'
 
 import { collectDocsSlugs, markdownOutputPath } from './scripts/docs-paths'
@@ -27,6 +28,9 @@ export default defineConfig({
     },
     plugins: [
         tailwindcss(),
+        // Icons are imported as components (`~icons/<set>/<name>`) and inlined at build
+        // time; a missing set is installed on demand during development.
+        Icons({ compiler: 'jsx', jsx: 'react', autoInstall: true }),
         fumadocsMdx(),
         tanstackStart({
             prerender: {
