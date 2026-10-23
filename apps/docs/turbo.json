@@ -3,13 +3,7 @@
     "tasks": {
         "build": {
             "inputs": ["$TURBO_DEFAULT$", "../../docs/deployment/self-hosting.md"],
-            "outputs": [
-                ".next/**",
-                "!.next/cache/**",
-                "out/**",
-                ".source/**",
-                "content/docs/installation.mdx"
-            ]
+            "outputs": ["dist/**", ".tanstack/**", ".source/**", "content/docs/installation.mdx"]
         },
         "typecheck": {
             "inputs": ["$TURBO_DEFAULT$", "../../docs/deployment/self-hosting.md"]

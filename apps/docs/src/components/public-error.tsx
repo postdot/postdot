@@ -1,11 +1,9 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
-import Link from 'next/link'
 
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { PublicMaterial } from './public-material'
+import { Link } from './site-link'
 
 import './public-home.css'
 

@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
 import { ArrowUpIcon } from '@solar-icons/react/linear/arrow-up'

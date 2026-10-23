@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
 
-const root = resolve(import.meta.dir, '../out')
-const pages = ['index.html']
-for await (const page of new Bun.Glob('docs/**/index.html').scan(root)) pages.push(page)
+const root = resolve(import.meta.dir, '../dist/client')
+const pages = ['index.html', 'docs.html']
+for await (const page of new Bun.Glob('docs/**/*.html').scan(root)) pages.push(page)
 const images = new Set<string>()
 for (const page of pages) {
     const values = new Map<string, string>()

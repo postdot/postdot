@@ -6,7 +6,7 @@ owner demonstrates possibilities, not a requirement to reproduce its density.
 
 ## Available through the current page mapping
 
-`apps/docs/src/app/docs/[[...slug]]/page.tsx` spreads `fumadocs-ui/mdx`.
+`apps/docs/src/components/docs-page.tsx` spreads `fumadocs-ui/mdx`.
 Its default exports already include:
 
 - `Callout`, plus its container, title and description primitives.

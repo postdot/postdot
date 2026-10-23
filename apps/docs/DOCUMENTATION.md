@@ -95,8 +95,10 @@ Fumadocs/Base UI 16.17.1. `bun run sync:content` now runs this sequence:
    per folder: enabling Fumadocs `meta: true` with many schema inputs produces
    duplicate metadata paths and concurrent writes. Generation rejects duplicate
    page paths and verifies operation/page coverage.
-6. Build the normal static Next export. Schema fragments are preloaded at build
-   time, so rendering the exported site never fetches a running API.
+6. Build the prerendered static site. Schema fragments are preloaded by a static
+   server function: its result is written to `__tsr/staticServerFnCache/*.json`
+   while pages are prerendered and the browser reads those files when it
+   navigates, so the exported site never fetches a running API.
 
 Generated files and the downloadable schema are ignored, reproducible artifacts.
 Do not edit them. Change route definitions, annotations or generation logic.
@@ -148,8 +150,8 @@ external chat is an explicit reader action; its service must be able to reach th
 site URL, which is not possible for a local preview from a remote service.
 
 `/llms.txt` follows the native page tree and links directly to these resources.
-`/llms-full.txt` includes all documentation. Both are static route exports; there
-is no Next runtime, request negotiation, proxy or host-specific rewrite dependency.
+`/llms-full.txt` includes all documentation. Both are prerendered server routes with an explicit output path; there
+is no server runtime, request negotiation, proxy or host-specific rewrite dependency.
 The resources use the official processed-Markdown pipeline. Steps wrappers are
 removed while keeping headings and content; other MDX components retain their
 readable JSX and props, including callout titles.
@@ -165,7 +167,7 @@ processing: a successful compiler run alone does not prove useful Markdown.
 
 ## Social preview images
 
-The homepage exports `/og/home.png`. Each documentation page exports its own
+`bun run generate:og` (satori and resvg, run by the build) writes `public/og/`. The homepage has `/og/home.png`. Each documentation page exports its own
 `/og/docs/<page-slugs>/image.png`, including API operation pages. Open Graph and
 Twitter metadata reference the same 1200 by 630 PNG with an alternate description.
 The shared template uses Postdot's logo, Host Grotesk and a fixed blue material

@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect, useRef } from 'react'
 
 // Original flowing blue pigment; fixed grain is composited separately. No catalogue source.

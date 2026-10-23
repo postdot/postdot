@@ -1,8 +1,9 @@
 # Postdot public site
 
-Keep this workspace statically exportable. It has no production Node server,
-authentication, or access to the application database. Search uses the exported
-Fumadocs index. Motion is optional presentation and respects reduced motion.
+Keep this workspace statically prerendered (TanStack Start, `dist/client`, served
+by Cloudflare Workers static assets). It has no Worker script, production Node
+server, authentication, or access to the application database. Search uses the
+prerendered Fumadocs index. Motion is optional presentation and respects reduced motion.
 
 `content/docs/(self-hosting)/(deployment)/installation.mdx` is generated from the canonical
 `docs/deployment/self-hosting.md`; edit that guide instead. Run `sync:content`
@@ -16,9 +17,18 @@ not approved public messaging. Never use Unicode arrows instead of Solar icons.
 Continue visual work without treating the existing sections as editorial direction.
 
 For local review of the actual static output, run `bun run build` then
-`bun run preview` in this workspace. The preview binds to 127.0.0.1:5174 and
-serves the exported not-found page with a 404 status. It is a development helper,
-not a production server or a deployment change.
+`bun run preview` in this workspace. It runs `wrangler dev` on 127.0.0.1:5174 with
+the production asset rules (trailing-slash redirects, `404.html`). It is a
+development helper, not a deployment; do not run `wrangler deploy` without the
+owner's approval.
+
+The build must fail on prerender errors: the prerenderer logs `Error in render` and
+still exits 0, so `scripts/build.ts` checks the log. A CommonJS dependency imported
+by name is the usual cause; use its default import. `vite.config.ts` dedupes the
+Fumadocs packages and React, otherwise links silently become full page loads (bun
+installs several copies of `fumadocs-core`, and `tsconfig.json` pins one for types).
+The site is not indexable yet: `public/_headers`, `public/robots.txt` and the root
+route's `robots` meta say so.
 
 Section headings use a title and, when useful, one short description. Do not add
 eyebrows, kickers or other pre-title labels (owner direction, 2026-10-15).

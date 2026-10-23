@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
 import {
     Tooltip,

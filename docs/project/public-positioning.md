@@ -70,7 +70,7 @@ manual. Accurate role/coverage details belong in the docs. The existing
 Use a short technical explanation to substantiate low-friction self-hosting:
 Bun/Elysia, TypeScript, SQLite, Drizzle, Better Auth and the TanStack-based Studio.
 The benefit is an installable, maintainable product, not a technology-logo wall.
-Public site/docs use a separate Next.js static build; do not confuse that with
+Public site/docs use a separate TanStack Start static build; do not confuse that with
 the single-service production Studio/API runtime.
 
 Lead with Docker/Compose installation, then link to exercised additional guides

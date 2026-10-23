@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
 import {
     DropdownMenu,
@@ -8,12 +6,12 @@ import {
     DropdownMenuTrigger,
 } from '@postdot/ui/components/dropdown-menu'
 import { useMotionValueEvent, useScroll } from 'motion/react'
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
 import { PublicWordmark } from './public-wordmark'
+import { Link } from './site-link'
 
 const links = [
     { href: '/#product', label: 'Studio' },
