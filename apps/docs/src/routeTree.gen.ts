@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as ApiSearchRouteImport } from './routes/api-search'
 import { Route as DocsRouteImport } from './routes/docs'
+import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full-txt'
 import { Route as LlmsTxtRouteImport } from './routes/llms-txt'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap-xml'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
@@ -41,6 +43,11 @@ const DocsRoute = DocsRouteImport.update({
   path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
   id: '/llms-full-txt',
   path: '/llms-full-txt',
@@ -49,6 +56,11 @@ const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
 const LlmsTxtRoute = LlmsTxtRouteImport.update({
   id: '/llms-txt',
   path: '/llms-txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapXmlRoute = SitemapXmlRouteImport.update({
@@ -82,8 +94,10 @@ export interface FileRoutesByFullPath {
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
   '/docs': typeof DocsRouteWithChildren
+  '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/': typeof DocsIndexRoute
@@ -94,8 +108,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
+  '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs': typeof DocsIndexRoute
@@ -108,8 +124,10 @@ export interface FileRoutesById {
   '/404': typeof R404Route
   '/api-search': typeof ApiSearchRoute
   '/docs': typeof DocsRouteWithChildren
+  '/legal': typeof LegalRoute
   '/llms-full-txt': typeof LlmsFullTxtRoute
   '/llms-txt': typeof LlmsTxtRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap-xml': typeof SitemapXmlRoute
   '/docs/$': typeof DocsSplatRoute
   '/docs/': typeof DocsIndexRoute
@@ -123,8 +141,10 @@ export interface FileRouteTypes {
     | '/404'
     | '/api-search'
     | '/docs'
+    | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/privacy'
     | '/sitemap-xml'
     | '/docs/$'
     | '/docs/'
@@ -135,8 +155,10 @@ export interface FileRouteTypes {
     | '/'
     | '/404'
     | '/api-search'
+    | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/privacy'
     | '/sitemap-xml'
     | '/docs/$'
     | '/docs'
@@ -148,8 +170,10 @@ export interface FileRouteTypes {
     | '/404'
     | '/api-search'
     | '/docs'
+    | '/legal'
     | '/llms-full-txt'
     | '/llms-txt'
+    | '/privacy'
     | '/sitemap-xml'
     | '/docs/$'
     | '/docs/'
@@ -162,8 +186,10 @@ export interface RootRouteChildren {
   R404Route: typeof R404Route
   ApiSearchRoute: typeof ApiSearchRoute
   DocsRoute: typeof DocsRouteWithChildren
+  LegalRoute: typeof LegalRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
+  PrivacyRoute: typeof PrivacyRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
   LlmsPageDocsSplatRoute: typeof LlmsPageDocsSplatRoute
   LlmsPageDocsIndexRoute: typeof LlmsPageDocsIndexRoute
@@ -199,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/llms-full-txt': {
       id: '/llms-full-txt'
       path: '/llms-full-txt'
@@ -211,6 +244,13 @@ declare module '@tanstack/react-router' {
       path: '/llms-txt'
       fullPath: '/llms-txt'
       preLoaderRoute: typeof LlmsTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap-xml': {
@@ -268,8 +308,10 @@ const rootRouteChildren: RootRouteChildren = {
   R404Route: R404Route,
   ApiSearchRoute: ApiSearchRoute,
   DocsRoute: DocsRouteWithChildren,
+  LegalRoute: LegalRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
+  PrivacyRoute: PrivacyRoute,
   SitemapXmlRoute: SitemapXmlRoute,
   LlmsPageDocsSplatRoute: LlmsPageDocsSplatRoute,
   LlmsPageDocsIndexRoute: LlmsPageDocsIndexRoute,

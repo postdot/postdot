@@ -136,3 +136,5 @@ resvg
 satori
 prerenders
 umami
+cookieless
+CNIL

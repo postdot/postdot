@@ -41,6 +41,8 @@ export default defineConfig({
             },
             pages: [
                 { path: '/', prerender: { enabled: true } },
+                { path: '/legal', prerender: { enabled: true } },
+                { path: '/privacy', prerender: { enabled: true } },
                 { path: '/404', prerender: { enabled: true, outputPath: '/404.html' } },
                 { path: '/llms-txt', prerender: { enabled: true, outputPath: '/llms.txt' } },
                 {
