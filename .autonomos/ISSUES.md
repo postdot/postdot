@@ -4528,7 +4528,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Breaking upstream changes, regressions or abandonment can force unplanned migrations on a product that self-hosters expect to upgrade safely.
 - Desired outcome: An explicit, recorded position for each pre-stable dependency (accepted risk with an exit path, pin, or replacement), reviewed before the first published release.
 - Related: RELEASE-303
-- Tasks: none
+- Tasks: FOUND-570
+
+- Assessment (2026-10-23): FOUND-570 corrects the production exposure: TanStack DB is development-only and TypeScript 7.0.2 is a stable compiler. Elysia remains an experimental multi-package integration; host Bun is canary while CI/image select 1.4.2. ADR-092 proposes one runtime-alignment and exact-pin batch, with stable Bun 1.4.4 qualification prioritized after upstream security fixes, plus explicit risk review and exit paths. No dependency changed. The issue remains open until the owner accepts the positions. [Proposal](decisions/ADR-092-propose-foundation-release-baseline.md).
 
 ## [ISSUE-190] Tier providers by self-hosting setup friction
 
