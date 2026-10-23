@@ -2017,6 +2017,9 @@
     outline: none;
 }
 .home-footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 0;
     border: 0;
     background: none;

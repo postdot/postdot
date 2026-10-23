@@ -24,6 +24,7 @@
     },
     "dependencies": {
         "@iconify-icons/logos": "2.0.2",
+        "@iconify-icons/ph": "2.0.0",
         "@postdot/ui": "workspace:*",
         "@solar-icons/react": "2.3.2",
         "@tanstack/react-router": "1.170.46",
