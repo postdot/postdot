@@ -232,6 +232,7 @@ export function PublicCapabilities() {
                                 alt={String(name)}
                                 width="28"
                                 height="21"
+                                loading="lazy"
                                 data-future={!current || undefined}
                                 title={`${name}${current ? ' — available' : ' — future language example'}`}
                             />
