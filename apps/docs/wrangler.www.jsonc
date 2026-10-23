@@ -1,0 +1,8 @@
+{
+    // Redirect-only Worker for www.postdot.app; the site itself is `wrangler.jsonc`.
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "postdot-www-redirect",
+    "compatibility_date": "2026-10-23",
+    "main": "www-redirect/index.ts",
+    "routes": [{ "pattern": "www.postdot.app", "custom_domain": true }],
+}
