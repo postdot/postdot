@@ -2,6 +2,8 @@ import github from '@iconify-icons/logos/github-icon'
 import linkedin from '@iconify-icons/logos/linkedin-icon'
 import x from '@iconify-icons/logos/x'
 
+import { requestConsentPrompt } from '@/lib/consent'
+
 import { PostbotLogo } from './brand'
 import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
@@ -76,6 +78,11 @@ export function PublicFooter() {
             <div className="home-footer-bottom">
                 <span>© 2026 Hakim Saoudi</span>
                 <span>Open source</span>
+                <Link href="/legal">Legal notice</Link>
+                <Link href="/privacy">Privacy</Link>
+                <button type="button" className="home-footer-link" onClick={requestConsentPrompt}>
+                    Analytics settings
+                </button>
             </div>
             <div className="home-footer-signature" aria-hidden="true">
                 <PublicWordmark />
