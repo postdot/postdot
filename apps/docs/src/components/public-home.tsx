@@ -1,5 +1,4 @@
 import { Button } from '@postdot/ui/components/button'
-import Link from 'next/link'
 
 import { PublicDestinations } from './public-destinations'
 import { PublicDistribution } from './public-distribution'
@@ -9,6 +8,7 @@ import { PublicMaterial } from './public-material'
 import { PublicProduct } from './public-product'
 import { PublicScrollControl } from './public-scroll-control'
 import { PublicStory } from './public-story'
+import { Link } from './site-link'
 
 import './public-home.css'
 

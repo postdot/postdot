@@ -52,6 +52,8 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
+- [x] **[META-577]** Reconcile local product work with the deployed GitHub website branch `Priority: 🔴` `Complexity: L` `Completed: 2026-10-24` — combined both histories, retained deployed site and local product changes, resolved task/lock conflicts and corrected a GC-sensitive WAL fixture; local static, unit, Worker and production build checks pass. No push or deployment. [Evidence](worklogs/2026-10-24-META-577.md).
+
 - [x] **[META-576]** Reconcile runtime reliability, recovery and observability history `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182/183; archived 32 tasks, 18 resolved issues and 29 worklogs; retained operational limits and corrected the current notification classification. [Evidence](worklogs/2026-10-24-META-576.md).
 
 - [x] **[META-575]** Reconcile routes, access and channel-management delivery history `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182/183; archived 54 tasks, 11 resolved issues and 68 worklogs with contracts, open acceptance and references preserved. [Evidence](worklogs/2026-10-24-META-575.md).
@@ -824,3 +826,5 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 
 - [x] **[PROV-569]** Modularize the nine provider integration boundaries `Priority: 🟠` `Complexity: XL` — ISSUE-185; nine static browser/server modules with provider-owned rules, inferred API contracts and explicit persistence policies under ADR-091. Synthetic extension proofs, 1,572 distinct unit/script tests, 140 browser scenarios, static gates, 21 builds and production-container recovery validated. [Evidence](worklogs/2026-10-23-PROV-569.md).
+
+- [x] **[DOCS-567]** Port the public documentation site from Next.js to TanStack Start on Cloudflare static assets `Priority: 🟠` `Complexity: XL` — ISSUE-180 prerequisite met by the owner's solar-icons.dev report; no deployed Vercel site exists, so the app is converted in place. Prerendered static output (`dist/client`) for Workers static assets, no Worker script; OpenAPI fragments via a static server function. Build, link/LLM/OG gates, type, lint, format and spelling passed; home and docs verified against the Next output in a browser. Subsequent site deployment and follow-ups are recorded in the same worklog; postdot.app is live. [Worklog](worklogs/2026-10-23-DOCS-567.md).

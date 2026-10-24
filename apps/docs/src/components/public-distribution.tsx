@@ -1,5 +1,3 @@
-'use client'
-
 import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { useEffect, useRef } from 'react'
 

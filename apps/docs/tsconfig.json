@@ -1,13 +1,21 @@
 {
-    "extends": "@tala-tools/tsconfig/nextjs.json",
+    "extends": "@tala-tools/tsconfig/base.json",
     "compilerOptions": {
+        "jsx": "react-jsx",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "lib": ["DOM", "DOM.Iterable", "ES2023"],
+        "types": ["vite/client", "node", "unplugin-icons/types/react"],
         "paths": {
             "fumadocs-mdx:collections/*": ["./.source/*"],
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "fumadocs-core/*": ["./node_modules/fumadocs-core/dist/*"]
         },
+        "allowJs": true,
         "declaration": false,
-        "declarationMap": false
+        "declarationMap": false,
+        "noEmit": true
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    "exclude": ["node_modules"]
+    "include": ["**/*.ts", "**/*.tsx", ".source/**/*.ts"],
+    "exclude": ["node_modules", "dist", ".tanstack", ".wrangler"]
 }

@@ -1,15 +1,13 @@
-'use client'
-
+import { useRouterState } from '@tanstack/react-router'
 import { ReactLenis } from 'lenis/react'
 import { useReducedMotion } from 'motion/react'
-import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import 'lenis/dist/lenis.css'
 
 export function PublicScroll({ children }: { children: ReactNode }) {
     const reducedMotion = useReducedMotion()
-    const pathname = usePathname()
+    const pathname = useRouterState({ select: state => state.location.pathname })
     if (reducedMotion || pathname.startsWith('/docs')) return children
     return (
         <ReactLenis

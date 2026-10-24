@@ -1,28 +1,15 @@
-'use client'
-
-import mcp from '@iconify-icons/logos/model-context-protocol-icon'
-import n8n from '@iconify-icons/logos/n8n-icon'
 import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'motion/react'
-import Link from 'next/link'
 import { useRef, useState } from 'react'
+import Mcp from '~icons/logos/model-context-protocol-icon'
+import N8n from '~icons/logos/n8n-icon'
 
 import { PostbotLogo } from './brand'
-import { PublicThemeToggle } from './public-theme-toggle'
 
 import './public-home.css'
 import './usage-study.css'
-
-function BrandMark({ data }: { data: { width?: number; height?: number; body: string } }) {
-    return (
-        <svg
-            viewBox={`0 0 ${data.width ?? 16} ${data.height ?? 16}`}
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: data.body }}
-        />
-    )
-}
+import { ProductImage } from './product-image'
 
 export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
     const [terminalRun, setTerminalRun] = useState(0)
@@ -70,18 +57,18 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             <i />
                         </div>
                         <div className="usage-studio-images">
-                            <img
+                            <ProductImage
                                 className="usage-image-light"
-                                src="/product/compose-light.webp"
+                                name="compose-light"
                                 alt="Postdot Studio: composing a post with an X preview"
-                                width="1600"
+                                width="1440"
                                 height="1000"
                             />
-                            <img
+                            <ProductImage
                                 className="usage-image-dark"
-                                src="/product/compose-dark.webp"
+                                name="compose-dark"
                                 alt="Postdot Studio: composing a post with an X preview"
-                                width="1600"
+                                width="1440"
                                 height="1000"
                             />
                         </div>
@@ -101,7 +88,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                     <motion.div
                         className="usage-mcp-mark"
                         style={{ rotate: reduced ? 0 : protocolRotate }}>
-                        <BrandMark data={mcp} />
+                        <Mcp aria-hidden="true" />
                     </motion.div>
                     <div className="usage-agent-prompt">
                         <span aria-hidden="true">“</span>Prepare next week’s posts.
@@ -156,14 +143,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             height="92"
                             rx="3"
                         />
-                        <svg
-                            x="148"
-                            y="114"
-                            width="104"
-                            height="52"
-                            viewBox={`0 0 ${n8n.width} ${n8n.height}`}
-                            dangerouslySetInnerHTML={{ __html: n8n.body }}
-                        />
+                        <N8n x="148" y="114" width="104" height="52" />
                         <rect
                             className="usage-flow-node usage-flow-end"
                             x="297"
@@ -336,23 +316,5 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 ahead.
             </p>
         </section>
-    )
-}
-
-export function UsageStudy() {
-    return (
-        <div className="public-home usage-study">
-            <header className="usage-study-nav">
-                <Link href="/" aria-label="Postdot home">
-                    <PostbotLogo />
-                    <span>postbot</span>
-                </Link>
-                <span>Section study</span>
-                <PublicThemeToggle />
-            </header>
-            <main>
-                <UsageGallery />
-            </main>
-        </div>
     )
 }
