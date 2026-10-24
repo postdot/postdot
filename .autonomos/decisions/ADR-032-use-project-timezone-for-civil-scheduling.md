@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Scope: Human scheduling, calendar interpretation, API/CLI time contracts, and future recurrence
-- Provenance: [ISSUE-035](../ISSUES.md), [TIME-70](../worklogs/2026-09-04-TIME-70.md), owner approval on 2026-09-04
+- Provenance: [ISSUE-035](../ISSUES.md), [TIME-70](../archive/calendar-queue-delivery/worklogs/2026-09-04-TIME-70.md), owner approval on 2026-09-04
 - Related decisions: [ADR-005](ADR-005-use-sqlite-first-persistence.md), [ADR-006](ADR-006-use-next-event-durable-scheduler.md), [ADR-009](ADR-009-fence-external-effects-with-durable-claims.md)
 - Superseded by: none
 
