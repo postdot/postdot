@@ -3,7 +3,7 @@
 Status: accepted by the owner on 2026-10-11. Related task: RELEASE-303.
 This document does not authorize publication or change the current source-build
 installation. The source repository is public. The first versioned image was published on
-2026-10-24, but its GHCR package remains private; see the
+2026-10-24 and anonymous access was verified after the owner enabled public visibility; see the
 [publication record](alpha-candidate.md).
 
 ## Recommended first distribution
@@ -127,7 +127,7 @@ Images are not exported as large Actions artifacts. Multi-platform manifest
 assembly and separately authorized versioned image publication are handled by
 `.github/workflows/container-release.yml`. The workflow is manual. Its first authorized
 [publication run](https://github.com/postdot/postdot/actions/runs/40126611747)
-succeeded for 0.1.0-alpha.1; public package visibility is still pending. It uses Buildx/QEMU to build the
+succeeded for 0.1.0-alpha.1; public anonymous access was subsequently verified. It uses Buildx/QEMU to build the
 final multi-platform image on AMD64 after the exact source passes native
 acceptance on AMD64 and ARM64. If emulation makes the release build fail or
 exceed its limit, use native build jobs and manifest assembly rather than

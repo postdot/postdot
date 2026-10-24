@@ -1,8 +1,7 @@
 # First alpha candidate
 
-Status: image `0.1.0-alpha.1` published on 2026-10-24; GHCR visibility is private.
-Anonymous installation is not available until the owner changes package visibility
-to public and anonymous manifest access is verified.
+Status: image `0.1.0-alpha.1` published on 2026-10-24. Public anonymous
+manifest access is verified after the owner enabled public package visibility.
 
 ## Proposed release notes
 
@@ -15,7 +14,7 @@ identical support across destinations. MCP and a mobile client are not shipped.
 
 This is early software. Configuration, data contracts and migrations may change.
 There is no previous released image, so no upgrade from a prior release has been
-validated. Installation currently builds from source. Back up database/media and
+validated. Installation supports the published image or a source build. Back up database/media and
 preserve deployment keys separately before replacing an installation.
 
 Target platforms are native-accepted Linux AMD64 and ARM64. The selected source,
@@ -69,11 +68,12 @@ succeeded after fresh native acceptance on both architectures.
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.1`
 - Manifest digest: `sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`
 - Platforms: `linux/amd64`, `linux/arm64`, verified in the published manifest.
-- Visibility: private, as reported by GitHub after publication.
-- Anonymous access: not verified; the workflow correctly skipped it while private.
+- Visibility: initially private; subsequently made public by the owner.
+- Anonymous access: verified independently against GHCR, with the exact digest
+  and both platform entries above. No saved Docker/GitHub credentials were used.
 - No `latest` tag was created.
 
-The organization owner must change the package visibility to public in
-[package settings](https://github.com/orgs/postdot/packages/container/postdot/settings),
-then verify anonymous manifest access before public image installation is advertised.
-Do not republish or replace the immutable version to change visibility.
+Public access was enabled through
+[package settings](https://github.com/orgs/postdot/packages/container/postdot/settings)
+after allowing public packages in organization settings. This required no rebuild
+or replacement of the immutable version.

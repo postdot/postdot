@@ -2,7 +2,9 @@
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. Postdot is alpha software under active development. This guide uses a
-source checkout; no public registry image or released upgrade path is available yet.
+source checkout for its Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.1` image, accepted on Linux AMD64 and ARM64.
+There is no previous public release, so no prior-release upgrade path is validated.
 
 ## First installation
 
@@ -34,17 +36,25 @@ The defaults serve <http://127.0.0.1:3000>. If this port is occupied, change
 `POSTBOT_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
 Git and never publish the output of `docker compose config`, which includes secrets.
 
-### 2. Build, start and check readiness
+### 2. Pull, start and check readiness
 
 ```sh
+printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.1\n' >> .env
 docker compose config --quiet
-docker compose build
-docker compose up -d --wait
+docker compose pull
+docker compose up -d --no-build --wait
 curl --fail http://127.0.0.1:3000/ready
 ```
 
 The readiness request must succeed before you continue. If startup fails, inspect
 `docker compose logs --tail 100 postbot` before changing the configuration.
+
+For reproducible content, replace the tag in `POSTBOT_IMAGE` with
+`ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`.
+See the [release record](alpha-candidate.md) for its matching source and limits.
+
+To build locally instead, leave `POSTBOT_IMAGE` unset, run `docker compose build`,
+then `docker compose up -d --wait`. The default remains `postbot:local`.
 
 ### 3. Create the administrator account
 
@@ -165,8 +175,11 @@ For off-host bundles and externally restored databases, follow the
 
 ### Prepare and apply an update
 
-Until releases exist, record the source commit and retain the previous image
-before building an update. Back up data and secrets first.
+The first alpha has no prior-release upgrade evidence. Before adopting a future
+release, read its migration notes and validation record, back up data/secrets and
+retain the previous image. Never replace an immutable version tag.
+
+For a source-built installation, record the source commit before building an update:
 
 ```sh
 git rev-parse HEAD
@@ -183,4 +196,5 @@ A failed update is not a reason to delete the volume. Returning to an older imag
 alone may fail after database migrations; schema downgrade is not supported.
 Rollback requires a compatible image **and** its pre-update data/configuration,
 with restoration and recovery hold as above. No safe upgrade between public
-releases or multi-architecture image support is claimed by this guide.
+releases is claimed by this guide. The first alpha image has native acceptance
+on Linux AMD64 and ARM64.

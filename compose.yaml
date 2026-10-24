@@ -1,6 +1,6 @@
 services:
     postbot:
-        image: postbot:local
+        image: ${POSTBOT_IMAGE:-postbot:local}
         build:
             context: .
         init: true
