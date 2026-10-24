@@ -19,7 +19,7 @@ workspace. Use Studio in your browser, or work through the CLI and HTTP API.
 Postdot runs its API, dashboard, scheduler and publication worker in one service,
 with SQLite and local media storage. S3-compatible media storage is optional.
 
-**Early development.** There is no published container release or supported upgrade
+**Alpha software, under active development.** There is no published container release or supported upgrade
 path yet. The project is being renamed from Postbot. Environment variables, stored protocol
 identifiers and the screenshot retain that name during the [transition](docs/project/identity-transition.md).
 

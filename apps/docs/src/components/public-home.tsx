@@ -55,6 +55,10 @@ export function PublicHome() {
                                     Explore the docs
                                 </Action>
                             </div>
+                            <p className="home-alpha">
+                                <strong>Alpha.</strong> In active development. Available from
+                                source.
+                            </p>
                         </div>
                         <PublicProduct />
                     </section>

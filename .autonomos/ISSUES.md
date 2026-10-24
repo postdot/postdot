@@ -38,6 +38,8 @@
   The publication scheduler is explicitly woken after a reschedule so the
   requested run time is applied without waiting for the previous timer.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Recurring real publication-loop validation; retain actual provider/action authorization. Not a missing publisher implementation.
+
 ## [ISSUE-029] Prove visible control for app-managed worktree missions
 
 - Type: problem
@@ -100,6 +102,8 @@
 - Related: ISSUE-157 (public narrative), ISSUE-158 (launch agent skills),
   ISSUE-163 (client workflow coverage).
 
+- Remaining scope (ALPHA-578, 2026-10-24): Owner-deferred MCP surface. A new scoped decision is needed to lift the stability prerequisite; no MCP server is claimed delivered.
+
 ## [ISSUE-063] Recompose Postbot's route information architecture and progressive disclosure
 
 - Type: problem
@@ -150,6 +154,8 @@
   invitation acceptance, and recovery contracts remain unchanged. See
   [UX-254 worklog](worklogs/2026-09-29-UX-254.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): Resolve the remaining project identity/readiness/administration relationship. Route/state contracts and earlier route implementation are delivered; do not rebuild them.
+
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 
 - Type: problem
@@ -185,6 +191,8 @@
 - Browser audit follow-up (2026-09-28): Reopened after the 2026-09-28 browser audit: at 820 pixels the persistent sidebar leaves approximately four month columns visible; mobile authoring places actions below a tall editor and preview. Channel names remain heavily truncated in the sidebar. Preserve the earlier completed navigation fixes; this follow-up targets responsive composition and readable identity.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
+
+- Remaining scope (ALPHA-578, 2026-10-24): UX-243 still owns real mobile virtual-keyboard and long-document review plus any demonstrated responsive defects. Earlier width-matrix fixes are delivered.
 
 ## [ISSUE-065] Make Postbot's visual and content foundation operational beyond default shadcn grammar
 
@@ -222,6 +230,8 @@
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 - UX-242 (2026-09-28): Dashboard titles now stay at 30 px through tablet widths, and Queue selection headers use 12 px sentence case. Sampled muted-text contrast passes in both themes; dark surface-value separation remains under review without a global token change. Evidence: [UX-242 worklog](archive/calendar-queue-delivery/worklogs/2026-09-28-UX-242.md).
+
+- Remaining scope (ALPHA-578, 2026-10-24): Resolve the remaining dark-theme surface separation and visual acceptance. Foundation rules and typography/control corrections already exist; this is not a fresh design-system implementation.
 
 ## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
 
@@ -319,6 +329,8 @@
   and session/reset-link invalidation. Offline admin-role reassignment is separate
   from this password-reset command. User deletion/anonymization, ownership transfer
   policy, and post-retirement physical cleanup remain explicit follow-ups.
+
+- Remaining scope (ALPHA-578, 2026-10-24): User deletion/anonymization, ownership transfer and post-retirement physical cleanup remain unimplemented or undecided. Bootstrap, invitations and password recovery are delivered.
 
 ## [ISSUE-077] Make Queue summary counts complete across paginated history
 
@@ -442,7 +454,7 @@
 ## [ISSUE-099] Reframe new-publication authoring around the operator’s job
 
 - Type: design
-- Status: accepted
+- Status: resolved
 - Evidence: The canonical new-publication route still opens with two visually
   equal sections named `Source` and `Destinations`. The first reading therefore
   exposes the internal fan-out model before answering the operator’s two
@@ -496,6 +508,8 @@
   repository checks, and the production build pass. The local integrated API
   was unavailable for a separate manual visual pass.
 - New evidence: [UX-241 worklog](worklogs/2026-09-28-UX-241.md).
+
+- Closure (ALPHA-578, 2026-10-24): UX-241 implemented the owner-approved inclusion/editing-scope contract, recovery and distinct draft/scheduling actions. Six focused browser scenarios and retained integration coverage establish the bounded authoring outcome. Further platform preview calibration belongs to UX-248, not this issue. [Evidence](worklogs/2026-09-28-UX-241.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-100] Give publication authoring a contextual output preview
 
@@ -822,7 +836,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-111] Define publisher encryption key lifecycle
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The supplied audit reports one deployment-owned publisher encryption key without a demonstrated rotation or re-encryption lifecycle.
 - Impact: Key compromise, planned rotation, or secret-provider migration may require manual reconnection of every publisher or create recovery ambiguity.
 - Desired outcome: Postbot has an accepted key lifecycle covering rotation, active-version selection, re-encryption, rollback, recovery, and operator evidence without exposing secret values.
@@ -835,10 +849,12 @@ posture` is an exact patch duplicate of `aa889111`, and
   connected again. This is an accepted current limitation, not an unanswered
   product decision; revisit rotation tooling if an actual deployment needs it.
 
+- Closure (ALPHA-578, 2026-10-24): ADR-012 and SECURITY-197 settled the current deployment-owned key and recovery policy. Unsupported rotation/keyrings are an accepted limitation, not an unfinished implementation commitment. Reopen only for a concrete rotation requirement. [Evidence](worklogs/2026-09-24-AUDIT-189-closeout.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-114] Define and connect external notification delivery
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The supplied audit reports a durable notification-delivery store that is exported and tested but not connected to an external transport.
 - Impact: The repository can persist delivery intent without providing an operator-visible path to deliver or reconcile it.
 - Desired outcome: Supported external notification destinations, ownership, transport, retry, ambiguity, and observability semantics are explicit and exercised end to end.
@@ -854,10 +870,12 @@ posture` is an exact patch duplicate of `aa889111`, and
   delivery does not close every requested destination or reliability outcome.
   [Delivery evidence](worklogs/2026-10-08-NOTIFY-354.md).
 
+- Closure (ALPHA-578, 2026-10-24): NOTIFY-354 delivers the accepted personal, per-project SMTP destination for failed/ambiguous outcomes with explicit enrollment, current access checks and durable send states. The supported destination contract is implemented; other transports were deferred, not promised by this delivery. [Evidence](worklogs/2026-10-08-NOTIFY-354.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-115] Define durable email failure handling
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The supplied audit reports that authentication email delivery is fire-and-forget without durable retry or dead-letter handling.
 - Impact: Because SMTP sends are non-blocking and are not retried, invitations, verification messages, or password-reset messages may not reach their recipients after a transport failure. The API logs the failure, but there is no durable reconciliation queue.
 - Desired outcome: Email delivery has an explicit reliability contract for acceptance, retry, ambiguity, permanent failure, and operator reconciliation.
@@ -868,6 +886,8 @@ posture` is an exact patch duplicate of `aa889111`, and
   development-only. ADR-066 already accepts this behavior for the current
   product. A durable queue is future work only if a deployment needs guaranteed
   delivery and operator reconciliation; this is not an open decision or blocker.
+
+- Closure (ALPHA-578, 2026-10-24): ADR-066 explicitly accepts optional asynchronous best-effort authentication email with redacted failure logging. NOTIFY-200 verified that policy. Guaranteed authentication-email retry/dead-letter handling was not accepted work; personal publication alerts have a separate durable executor. [Evidence](worklogs/2026-09-24-AUDIT-189-closeout.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-119] Reduce web component maintenance debt without changing behavior
 
@@ -884,6 +904,8 @@ posture` is an exact patch duplicate of `aa889111`, and
   dialog orchestration remain explicit in `MediaAttachmentPicker`. The issue
   remains accepted for future seams; no compatibility wrapper was retained for
   the extracted internal structure.
+
+- Remaining scope (ALPHA-578, 2026-10-24): Choose a measured, behavior-preserving next extraction only if current component complexity warrants it. WEB-204/224 and later feature ownership refactors are delivered; no broad rewrite is committed.
 
 ## [ISSUE-120] Close confirmed accessibility and responsive gaps
 
@@ -1010,6 +1032,8 @@ posture` is an exact patch duplicate of `aa889111`, and
   Windows/macOS deployment is supported and accepts a platform-tested kernel
   lock implementation; do not use heartbeat expiry or PID-only reclamation as a
   substitute. See the [OPS-217 worklog](archive/runtime-recovery-observability/worklogs/2026-09-26-OPS-217.md).
+
+- Remaining scope (ALPHA-578, 2026-10-24): Choose host-platform support and accept/test a kernel-lock contract before replacing the fail-closed sidecar. OPS-217 evaluated feasibility only; automatic stale-marker removal is not implemented.
 
 ## [ISSUE-131] Decide whether operational analytics needs a web surface
 
@@ -1359,7 +1383,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-144] Recompose publication detail around state and the next decision
 
 - Type: design problem
-- Status: accepted for staged UX work
+- Status: resolved
 - Evidence: The 2026-09-29 authenticated review compared a published manual publication with a media-only editable draft. Both open with an oversized title, a separate save indicator, a full-width lifecycle strip, a second destination strip, and a source card beside a feed preview. In the published state, identical content appears in the source card and preview, while read-only revision and source format occupy prominent space. The media-only draft is titled “Untitled publication” here but “Media · 2” in Queue; it shows a large empty body field before its media and a separate delivery panel. The details and activity disclosures each carry helper subtitles.
 - Impact: The operator must scan repeated identity and content before finding the publication's state or next action. The same page behaves like a form even when the publication cannot be edited, and its information hierarchy differs from the accepted new-publication composer.
 - Desired outcome: Give published, draft, scheduled, due-manual, and failed states a clear primary object, status, and next meaningful action. Reuse the recognizable post presentation where it helps inspection, preserve editable controls only where needed, and move revision, format, payload, and history into deliberate secondary access. Keep the return path and source-to-destination relationship intact.
@@ -1376,10 +1400,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Destination inspection update (2026-10-02): Read-only fields use a responsive description list instead of individual cards. Advanced JSON disclosures share keyboard behavior and a right chevron. Full repository validation passed. See worklogs/2026-10-02-UX-250-readonly.md.
 
+- Closure (ALPHA-578, 2026-10-24): UX-250 closure reviewed every original criterion and retained regressions; no defect or follow-up remained in that bounded detail-composition task. Owner visual approval remains a governance reserve, not an unimplemented task. Provider rendering calibration remains UX-248. [Evidence](worklogs/2026-10-07-UX-250-closure.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-145] Reduce Queue scan noise while preserving lifecycle lookup
 
 - Type: design problem
-- Status: accepted for staged UX work
+- Status: resolved
 - Evidence: In the populated project, Queue begins with a project name and UTC subtitle although the project is already in the header. It shows a zero-count Scheduled tab, repeats publication state next to the destination, and gives drafts a long “pending draft changes” phrase. The published item appears alongside actionable drafts under All, with identical row weight. The date and action compete with the publication title rather than forming a clear triage order.
 - Impact: Queue remains functional but takes more reading than necessary to identify which publication needs action now. Finished work and inactive filters can dominate the same visual plane as due or failed work.
 - Desired outcome: Preserve all lifecycle states and explicit filters while making action priority, publication identity, destination, and timing scannable. Remove context already carried by the shell and copy that merely restates a visible state.
@@ -1390,6 +1416,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - UX-246 follow-up: Mixed long destination names and variable lifecycle actions expose desktop header/row column drift. UX-255 tracks a shared grid correction; compact stacking remains readable. Narrow detail lifecycle actions were corrected during UX-246.
 
 - Completed partial delivery (META-573 reconciliation): UX-251 established action-priority Queue ordering, removed repeated project/timezone and draft-state copy, and retained lifecycle filters, tags, bulk actions and historical lookup. The staged issue status is unchanged; its broader acceptance is not inferred from the completed task. [Delivery evidence](archive/calendar-queue-delivery/worklogs/2026-09-29-UX-251.md).
+
+- Closure (ALPHA-578, 2026-10-24): UX-251 delivered action-priority reading; UX-255 completed the remaining shared-column correction. Mixed-state checks cover long identities, locale/theme/width combinations, bulk selection and mobile stacking. This closes the specified Queue outcome, not every possible future redesign. [Evidence](worklogs/2026-10-01-UX-255.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-146] Make Performance meaningful when provider data is unavailable
 
@@ -1466,6 +1494,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Resolution: ACCESS-309 makes the key path reuse the session authorization callback, so a key is limited to its owner's live project access, intersected with its stored scope and still bounded by action ceilings; hidden 404 masking, historical actors, and other-project access are preserved. No global key revocation, no role change, no UX change.
 - Product questions still open for the owner: automatic key revocation versus scope-down on removal; workspace-manager project visibility in the list; an explicit removed-from-access dashboard state.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Remaining owner decisions: key revocation versus scope narrowing, workspace-manager list visibility and access-loss presentation. ACCESS-309 fixed the reproduced live-access bypass; do not reimplement it.
+
 ## [ISSUE-156] Dashboard state after live loss of project access is undefined
 
 - Type: problem
@@ -1476,6 +1506,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: WEB-312 (completed), WEB-313 (completed), WEB-314 (proposal), WEB-315 (implementation), WEB-316 (hardening)
 - Resolution: diagnosis delivered with two-session browser evidence and deterministic stream tests. Server protection is immediate and complete; the stream announces access loss within one heartbeat and is silent on a role narrowing; refused refetches empty the list surfaces and a navigation drops the project entirely, but the project identity, the cached editor role and the open editable publication survive because a refused refetch cannot replace the last successful data. Unsaved local work is preserved by the existing recovery buffer. No behavior was changed. The proposed correction removes project-scoped caches on the existing signal without purging the client, and leaves copy, disposition of local work, stay-or-navigate, and role-change announcement as owner decisions.
 - Follow-up: WEB-313 qualifies that cache removal as unproved. Router-loader snapshots, context fallbacks, scheduled refreshes, raw in-flight writes, autosave timers, and local buffers can survive it, while `access-revoked` conflates genuine revocation with authorization-control failure. WEB-313 instead models an unverified-access interaction state, without deciding transport, copy, navigation, retention, or announcement policy.
+
+- Remaining scope (ALPHA-578, 2026-10-24): Editor-only verification/suspension and late-response hardening are delivered by WEB-315/316. Remaining scope is the other project surfaces and explicit role-change/local-work behavior; no global cache purge is accepted.
 
 ## [ISSUE-157] Structure the public site around usage, core capabilities and self-hosting
 
@@ -1491,6 +1523,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Design proposal: [shared-workspace scene](../apps/docs/design/HUMANS-AND-AGENTS.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): Owner review of the remaining public usage/capability narrative and prototype. The live site and alpha notice do not imply approval of SITE-441/442 or availability of a released image.
+
 ## [ISSUE-158] Provide agent skills for the first public launch
 
 - Type: proposal
@@ -1502,6 +1536,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
+
+- Remaining scope (ALPHA-578, 2026-10-24): Launch agent skills remain a proposal requiring a bounded capability/installation contract; none are claimed shipped.
 
 ## [ISSUE-159] Establish a supported n8n integration path
 
@@ -1515,6 +1551,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): n8n integration remains a proposal; define the supported workflow before implementation.
+
 ## [ISSUE-160] Explore a mobile Postbot client
 
 - Type: proposal
@@ -1526,6 +1564,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
+
+- Remaining scope (ALPHA-578, 2026-10-24): Mobile client remains an exploration proposal, not an alpha release prerequisite.
 
 ## [ISSUE-161] Broaden documented self-hosting paths without implying unverified support
 
@@ -1541,6 +1581,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Related work: RELEASE-303 remains the active image-release task. Do not duplicate it or treat this issue as authorization to publish.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Verify each additional self-hosting route before documenting it as supported. Existing source/Compose installation is delivered.
+
 ## [ISSUE-162] Expand interface language coverage beyond English and French
 
 - Type: proposal
@@ -1555,6 +1597,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Additional owner direction, 2026-10-16: evaluate two further locales after product expansion, with delivered-bundle and interaction measurements. The pair is not selected. PRODUCT-477 found generated static EN/FR imports and an emoji-data locale list that must be included in the scope. See [expansion plan](../docs/project/product-expansion.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): Additional interface locales remain proposed; English/French are implemented.
+
 ## [ISSUE-163] Define intentional workflow coverage across Postbot clients
 
 - Type: proposal
@@ -1567,6 +1611,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 - Related evidence: [client coverage](../docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
+
+- Remaining scope (ALPHA-578, 2026-10-24): Decide intentional capability coverage among Studio, API, CLI and planned MCP; backend availability alone is not client completion.
 
 ## [ISSUE-164] Generate a version-matched OpenAPI reference for the static docs
 
@@ -1592,6 +1638,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Implementation: TELEGRAM-499 adds the isolated provider protocol; TELEGRAM-500 adds the encrypted connection API and versioned profile; TELEGRAM-501 registers execution with pinned media and durable delivery handling. TELEGRAM-502 adds Studio creation, connection and conditional native editor limits. TELEGRAM-503 verifies photo/video storage-to-worker delivery and fixes MIME preservation under Bun. Live acceptance remains pending.
 - Source: owner product direction, 2026-10-16.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Telegram publishing, polls and albums are implemented; remaining scope is owner-authorized real bot/account publication acceptance. No live Telegram outcome is claimed.
+
 ## [ISSUE-166] Establish Facebook and Instagram integration scope
 
 - Type: proposal
@@ -1603,6 +1651,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Research: [Meta integration discovery](../docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Facebook live validation is delivered. Instagram synthetic integration is delivered; INSTAGRAM-538 remains blocked on operator access, with live media fetching/App Review unverified.
+
 ## [ISSUE-167] Replace normal Studio JSON authoring with a structured channel builder
 
 - Type: proposal
@@ -1613,55 +1663,67 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Bounded mapped HTTP controls now cover method/static paths, response classification/extraction, simple JSON properties and fixed query parameters; CHANNEL-497 records authenticated draft persistence, impact and activation without external dispatch. Advanced expression/transport authoring, arbitrary field removal and full adoption cleanup remain pending. See the [current builder reference](../docs/project/channel-builder.md).
 - Source: owner product direction, 2026-10-16.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Advanced request expression/transport authoring, arbitrary field removal and full adoption cleanup remain. Bounded lossless controls and CHANNEL-497 persistence/impact/activation are delivered.
+
 ## [ISSUE-168] Expand provider information, performance and comment workflows
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Bluesky and DEV.to collectors expose bounded observations. Reply/comment counts do not provide a conversation UI or reply execution path. The owner asks for richer information and comments.
 - Desired outcome: An explicit provider capability/read-access matrix and scoped stored-data workflows for useful metadata, metrics and comments. Treat reading, replying and moderation as distinct permissions and external effects; preserve metric meanings and freshness.
 - Plan: [product expansion](../docs/project/product-expansion.md). PRODUCT-540 records [current provider coverage](../docs/project/provider-capabilities.md), including code versus live evidence and the next account-free format recommendation.
 - Tasks: PRODUCT-477 and ENGAGEMENT-525 (discovery); BLUESKY-526 (public thread reader); ENGAGEMENT-530 (stored latest Bluesky comment snapshot, editor refresh and read-only Studio panel). ENGAGEMENT-531 extends the same public stored-view workflow to Mastodon. ENGAGEMENT-532 adds public text replies on Bluesky with conversation-owned history and durable send outcomes. ENGAGEMENT-534 extends these replies to Mastodon with original-instance and account checks. ANALYTICS-539 adds anonymous public Mastodon counters, stored manual snapshots and Performance presentation. Further providers and moderation remain outside the delivered slice.
 - Source: owner product direction, 2026-10-16.
 
+- Closure (ALPHA-578, 2026-10-24): The provider capability matrix and stored read/metric/comment workflows are implemented. Bluesky/Mastodon comment reads and durable replies are delivered under ENGAGEMENT-530/531/532/534, with Mastodon metrics under ANALYTICS-539. Other providers and moderation were outside the accepted slice; future expansion needs its own concrete scope. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-169] Support provider-native publication formats and public text entities
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Existing profiles expose provider-specific fields. MASTODON-533 adds native polls with typed destination controls, preview and instance-limit validation. The owner also requests questions and hashtag integration; broader provider formats remain open.
 - Desired outcome: Discover feasible formats per provider and expose typed editor controls, validation, preview and execution. Distinguish plain questions from native polls and provider hashtags from internal tags; do not force identical support across networks.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery); MASTODON-533 (owner-authorized native Mastodon polls); TELEGRAM-541 (ordinary anonymous Telegram polls, typed authoring and durable delivery, synthetic acceptance). [Current provider coverage](../docs/project/provider-capabilities.md). Other formats remain proposed.
 - Source: owner product direction, 2026-10-16.
 
+- Closure (ALPHA-578, 2026-10-24): The selected native-format deliveries are complete: Mastodon polls, Telegram anonymous polls and ordered photo/video albums have typed authoring, validation and durable execution. Current supported coverage is explicit per provider. No promise of every upstream format or identical provider support remains in this issue. Live Telegram acceptance stays under ISSUE-165. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-170] Preserve user-defined organization through free publication tags
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: ADR-062 and ISSUE-053 already deliver publication tags and filtering. The owner suggests campaign-related internal tags; no separate campaign lifecycle is established.
 - Desired outcome: Validate concrete campaign organization/reporting needs against existing tags first. The owner clarified that a campaign is an example of tag meaning, not a requested entity. Preserve free tags; any future campaign proposal needs separate evidence and approval.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
 
+- Closure (ALPHA-578, 2026-10-24): Existing free project tags and filters satisfy the clarified organization scope; current-tag performance filtering is delivered under ANALYTICS-547. The owner explicitly did not request a campaign entity. No separate campaign lifecycle or undefined implementation remains to track here. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-171] Evaluate scheduled comments beneath owned publications
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The owner distinguishes a prepared first comment from replying to an incoming comment. Postiz documents delayed first-comment publishing.
 - Desired outcome: Verify support and constraints per provider. Design a dependent delivery after confirmed parent publication, with remote parent identity, explicit timing, independent failure state, retry safety and duplicate prevention. A failed parent cannot trigger its comment. Do not imply an inbox or AI author is required.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 (discovery); ENGAGEMENT-542 scoped the first slice. The owner selected Bluesky, overdue catch-up after revalidation and suspension on enabling-editor access loss. ENGAGEMENT-543/544 implement that [first-comment workflow](../docs/project/first-comments.md) for Bluesky and Mastodon; other providers remain open. Local injected/browser acceptance does not claim live delivery.
 - Source: owner clarification, 2026-10-16.
 
+- Closure (ALPHA-578, 2026-10-24): ENGAGEMENT-543/544 deliver the accepted Bluesky/Mastodon dependent first-comment contract with confirmed-parent timing and independent durable outcomes. ENGAGEMENT-545 additionally records real Mastodon parent/comment acceptance. Other providers were not accepted deliverables of this slice. [Evidence](../docs/project/first-comments.md). Historical test claims were reviewed, not rerun by this ledger correction.
+
 ## [ISSUE-172] Define shared-post and tag-based performance reports
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Current collectors cover bounded Bluesky and DEV.to observations. The owner requests destination, shared-post and tag views.
 - Desired outcome: Compare documented competitor metrics with stored Postbot observations. Define aggregation, compatible metrics, coverage and freshness; avoid double-counting fan-out or overlapping tags. Resolve current versus historical tag attribution before implementing reports. Keep account metrics separate from post metrics.
 - Plan: [product expansion](../docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 and ANALYTICS-524 (scope); ANALYTICS-527/528 deliver bounded latest observations and source-post grouping. ANALYTICS-539 adds Mastodon favourites, boosts and replies to the same destination/source view without combined totals. Owner selected current-tag attribution; ANALYTICS-547 adds the corresponding Performance filter without summed metrics or historical claims. Historical attribution and aggregation remain separate decisions.
 - Source: owner clarification, 2026-10-16.
+
+- Closure (ALPHA-578, 2026-10-24): ANALYTICS-527/528 deliver bounded latest observations and source grouping; ANALYTICS-547 implements the owner-selected current-tag attribution and ANALYTICS-550 exports the filtered stored report. Metrics retain provider meaning and freshness without cross-provider totals. Historical attribution and aggregation are separate future decisions, not incomplete accepted work. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio
 
@@ -1684,6 +1746,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: [profile evolution](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ordinary approval compatibility](decisions/ADR-078-explicit-superseded-profile-approval.md), [draft adoption](decisions/ADR-079-explicit-draft-profile-adoption.md).
 - Source: owner direction, 2026-10-16.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Complete the synthetic retained-work lifecycle proof across drafts, pending targets, retries and history. Explicit template loading is delivered; automatic upstream discovery is not.
+
 ## [ISSUE-175] Investigate a development API shutdown that retained SQLite
 
 - Type: defect
@@ -1691,6 +1755,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: CHANNEL-488 found the server process alive with the database and runtime-lock descriptors open after its earlier SIGTERM drain log, while port 3002 had no listener. A second explicit termination ended it. The exact retained marker was removed only after verifying its owner and that no process held the database, WAL, shared-memory or marker files.
 - Desired outcome: Reproduce and identify which shutdown step can remain pending. Preserve fail-closed runtime exclusion; do not introduce automatic stale-lock reclamation or infer quiescence from a missing listener.
 - Tasks: CHANNEL-488 (recovery and evidence); root-cause repair remains pending.
+
+- Remaining scope (ALPHA-578, 2026-10-24): Reproduce the later retained-process incident and identify its pending drain step. Earlier hangup fixes and the WAL fixture correction do not establish this cause.
 
 ## [ISSUE-176] Exclude generated test and runtime data from production build contexts
 
@@ -1736,16 +1802,20 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: BRAND-551 (namespace/display/repository/checkout delivered; deployment compatibility transition remains); PUBLIC-553 (history-preserving preparation complete).
 - Review evidence (2026-10-22): outside `.autonomos/`, 2,426 case-insensitive `postbot` occurrences remain in tracked files, including exported types (`PostbotDatabase`, `createPostbotClient`), `POSTBOT_*` environment variables, the Compose service, image and volume names, and the `postbot` script. The repository is already public, so external dependence on these identifiers can start before the compatibility transition completes.
 
+- Remaining scope (ALPHA-578, 2026-10-24): Decide and implement the remaining deployment-variable, volume/database and persisted-identity compatibility transition. Source namespace/display/repository renaming is delivered.
+
 ## [ISSUE-180] Evaluate site and documentation hosting after the reference migration
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The owner intends to validate TanStack Start with Cloudflare on solar-icons.dev first, then report whether that recipe should be reused here. Avoid additional OCI compute allocation for the site/docs. No migration is authorized to start now.
 - Impact: Public site/docs hosting needs a sustainable path before launch.
 - Desired outcome: After the owner's successful reference result, scope a suitable deployment and framework plan. apps/docs now uses TanStack Start/Fumadocs; apps/web Studio uses Vite/TanStack Router. Distinguish these surfaces and preserve the self-hosted API, SQLite, scheduler and worker boundary. Validate documentation capabilities and actual hosting constraints at that time; owner-provided quota expectations are not verified deployment guarantees.
 - Tasks: DOCS-567 (apps/docs ported in place to TanStack Start and deployed as prerendered Cloudflare Workers static assets at postdot.app). The separate self-hosted application runtime is unchanged.
 
 - ISSUE-180 update (2026-10-23): the owner reported the solar-icons.dev migration as successful and asked for the same port here. Because Postdot never deployed the Next site, the conversion is in place with no compatibility layer or cutover.
+
+- Closure (ALPHA-578, 2026-10-24): DOCS-567 completed the scoped TanStack Start/Cloudflare migration and actual postdot.app deployment. The deployed c0f7b2a97 workflow and local production export checks pass. Public website hosting is delivered; self-hosted Studio/API remain unchanged. First versioned application distribution remains PROJECT-302/RELEASE-303 and ISSUE-181. [Evidence](worklogs/2026-10-23-DOCS-567.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-181] Prepare a separately authorized public repository and site launch
 
@@ -1756,6 +1826,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Owner selected preserving history, branches and PRs; PUBLIC-553 prepares the existing repository transition with targeted current-record corrections.
 
 - ISSUE-181 source-publication update (2026-10-22): owner explicitly authorized PUBLIC-554. Pushed the reviewed local main and made the existing postdot/postdot repository public; repository identity and history are preserved, anonymous API/page access verified. Subsequent owner-authorized site deployment is recorded in DOCS-567; the docs-deploy workflow passed at e7a0d2dd9. The broader launch issue stays open for its remaining release/identity acceptance; no package or image release is inferred.
+
+- Remaining scope (ALPHA-578, 2026-10-24): Complete PROJECT-302/RELEASE-303 acceptance and separately authorize first versioned image publication. Public source and website deployment are already complete.
 
 ## [ISSUE-182] Keep Autonomos artifacts proportionate to active work
 
@@ -1773,6 +1845,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Progress (2026-10-24): META-573 archives 38 completed calendar/Queue tasks, 26 settled issues and 36 worklogs, with reference repairs and two documented viewer-issue status corrections. Current contracts and staged follow-ups remain visible. Broader registry and guidance cleanup remains open. [Evidence](worklogs/2026-10-24-META-573.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): Bulk archival is stopped by owner direction. Published lifecycle tooling and the bounded consumer batches are delivered; future concrete context defects should be investigated individually, not as a permanent archival sprint.
+
 ## [ISSUE-183] Prevent AGENT.md files from accumulating journal-style entries
 
 - Type: problem
@@ -1789,6 +1863,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Progress (2026-10-24): META-573 archives 38 completed calendar/Queue tasks, 26 settled issues and 36 worklogs, with reference repairs and two documented viewer-issue status corrections. Current contracts and staged follow-ups remain visible. Broader registry and guidance cleanup remains open. [Evidence](worklogs/2026-10-24-META-573.md).
 
+- Remaining scope (ALPHA-578, 2026-10-24): General scoped-guide drift review has not been completed. This cleanup work is deferred after the owner ended bulk housekeeping; no claim that every guide has been reconciled.
+
 ## [ISSUE-184] Validate the product with sustained real use before widening scope
 
 - Type: problem
@@ -1798,6 +1874,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: A recorded, time-boxed period of real operation (for example the Postdot launch communication itself) produces evidence that drives prioritization, and an explicit owner decision states how new scope is admitted relative to that evidence.
 - Related: ISSUE-181, ISSUE-190
 - Tasks: none
+
+- Remaining scope (ALPHA-578, 2026-10-24): Run a time-boxed real project workflow and prioritize from observed friction. This is product validation, not additional provider breadth.
 
 ## [ISSUE-185] Provider-specific knowledge leaks into shared API and web layers
 
@@ -1855,6 +1933,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: ISSUE-036, ISSUE-184, ISSUE-185
 - Tasks: none
 
+- Remaining scope (ALPHA-578, 2026-10-24): Decide provider presentation/support tiers using actual self-hosting setup friction; no provider removal or new connection is implied.
+
 ## [ISSUE-191] Reduce anonymous entry JavaScript against the existing footprint target
 
 - Type: problem
@@ -1864,3 +1944,5 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Attribute the measured entry graph to required code and avoidable eager imports, reduce the anonymous entry toward the existing target without changing authentication or application behavior, and retain a reproducible measurement with an explicitly named entry screen. If the target must change, record an evidence-based trade-off rather than silently lowering it.
 - Related: SPEC-002, ISSUE-185
 - Tasks: none
+
+- Remaining scope (ALPHA-578, 2026-10-24): Attribute and reduce anonymous-entry eager imports against the 180 KiB target with reproducible measurement; do not infer a gain from the retired DB experiment.

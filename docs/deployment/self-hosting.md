@@ -1,7 +1,7 @@
 # Install Postdot with Docker Compose
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
-container. SQLite and local media share one persistent volume. This guide uses a
+container. SQLite and local media share one persistent volume. Postdot is alpha software under active development. This guide uses a
 source checkout; no public registry image or released upgrade path is available yet.
 
 ## First installation
