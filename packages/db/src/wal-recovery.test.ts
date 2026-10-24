@@ -26,7 +26,9 @@ async function leaveCommittedWal(path: string): Promise<void> {
         database.run('PRAGMA wal_autocheckpoint = 0');
         database.run("INSERT INTO records VALUES ('old-destination')");
         console.log('committed');
-        setInterval(() => {}, 1000);
+        // Retain the connection until SIGKILL: GC would close it and checkpoint WAL.
+        setInterval(() => database.query('SELECT 1').get(), 1000);
+        Bun.gc(true);
     `,
             path,
         ],

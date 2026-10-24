@@ -129,3 +129,17 @@ Supabase
 llms
 
 IDAT
+deckardger
+prerender
+prerendered
+prerenderer
+resvg
+satori
+prerenders
+umami
+cookieless
+CNIL
+avifenc
+magick
+fuma
+nama

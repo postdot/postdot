@@ -1,19 +1,12 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@postdot/ui/components/dropdown-menu'
+import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/popover'
 import { useMotionValueEvent, useScroll } from 'motion/react'
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { PostbotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
 import { PublicWordmark } from './public-wordmark'
+import { Link } from './site-link'
 
 const links = [
     { href: '/#product', label: 'Studio' },
@@ -24,6 +17,7 @@ const links = [
 export function PublicHeader() {
     const { scrollY } = useScroll()
     const [raised, setRaised] = useState(false)
+    const [menuOpen, setMenuOpen] = useState(false)
     useEffect(() => setRaised(window.scrollY > 24), [])
     useMotionValueEvent(scrollY, 'change', () => setRaised(window.scrollY > 24))
     return (
@@ -52,27 +46,44 @@ export function PublicHeader() {
                         Install
                     </Button>
                     <div className="home-mobile-menu">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger
-                                render={<Button variant="ghost" className="home-menu-trigger" />}>
-                                Menu
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="home-navigation-popup">
-                                {links.map(link => (
-                                    <DropdownMenuItem
-                                        key={link.href}
-                                        render={<Link href={link.href} />}
-                                        className="home-navigation-item">
-                                        {link.label}
-                                    </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                    render={<Link href="/docs/installation/" />}
-                                    className="home-navigation-item">
-                                    Installation
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+                            <PopoverTrigger
+                                render={<Button variant="ghost" className="home-menu-trigger" />}
+                                aria-label="Menu">
+                                <span className="home-burger" aria-hidden="true">
+                                    <i />
+                                    <i />
+                                    <i />
+                                </span>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                align="end"
+                                sideOffset={10}
+                                className="home-navigation-popup">
+                                <nav aria-label="Main navigation" className="home-navigation-list">
+                                    {links.map(link => (
+                                        <Link
+                                            href={link.href}
+                                            key={link.href}
+                                            className="home-navigation-item"
+                                            onClick={() => setMenuOpen(false)}>
+                                            {link.label}
+                                        </Link>
+                                    ))}
+                                </nav>
+                                <Button
+                                    nativeButton={false}
+                                    className="home-action home-navigation-install"
+                                    render={
+                                        <Link
+                                            href="/docs/installation/"
+                                            onClick={() => setMenuOpen(false)}
+                                        />
+                                    }>
+                                    Install
+                                </Button>
+                            </PopoverContent>
+                        </Popover>
                     </div>
                 </div>
             </div>

@@ -1742,8 +1742,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: open
 - Evidence: The owner intends to validate TanStack Start with Cloudflare on solar-icons.dev first, then report whether that recipe should be reused here. Avoid additional OCI compute allocation for the site/docs. No migration is authorized to start now.
 - Impact: Public site/docs hosting needs a sustainable path before launch.
-- Desired outcome: After the owner's successful reference result, scope a suitable deployment and framework plan. apps/docs currently uses Next.js/Fumadocs; apps/web Studio already uses Vite/TanStack Router. Distinguish these surfaces and preserve the self-hosted API, SQLite, scheduler and worker boundary. Validate documentation capabilities and actual hosting constraints at that time; owner-provided quota expectations are not verified deployment guarantees.
-- Tasks: none; wait for the reference migration result before selecting implementation.
+- Desired outcome: After the owner's successful reference result, scope a suitable deployment and framework plan. apps/docs now uses TanStack Start/Fumadocs; apps/web Studio uses Vite/TanStack Router. Distinguish these surfaces and preserve the self-hosted API, SQLite, scheduler and worker boundary. Validate documentation capabilities and actual hosting constraints at that time; owner-provided quota expectations are not verified deployment guarantees.
+- Tasks: DOCS-567 (apps/docs ported in place to TanStack Start and deployed as prerendered Cloudflare Workers static assets at postdot.app). The separate self-hosted application runtime is unchanged.
+
+- ISSUE-180 update (2026-10-23): the owner reported the solar-icons.dev migration as successful and asked for the same port here. Because Postdot never deployed the Next site, the conversion is in place with no compatibility layer or cutover.
 
 ## [ISSUE-181] Prepare a separately authorized public repository and site launch
 
@@ -1753,7 +1755,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Coordinate final identity, hosting readiness and existing release/license requirements before an owner-authorized public launch. Do not change repository visibility, DNS, deployment or registry publication during routine product work.
 - Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Owner selected preserving history, branches and PRs; PUBLIC-553 prepares the existing repository transition with targeted current-record corrections.
 
-- ISSUE-181 source-publication update (2026-10-22): owner explicitly authorized PUBLIC-554. Pushed the reviewed local main and made the existing postdot/postdot repository public; repository identity and history are preserved, anonymous API/page access verified. Site/docs deployment remains deferred under ISSUE-180, so the broader launch issue remains open.
+- ISSUE-181 source-publication update (2026-10-22): owner explicitly authorized PUBLIC-554. Pushed the reviewed local main and made the existing postdot/postdot repository public; repository identity and history are preserved, anonymous API/page access verified. Subsequent owner-authorized site deployment is recorded in DOCS-567; the docs-deploy workflow passed at e7a0d2dd9. The broader launch issue stays open for its remaining release/identity acceptance; no package or image release is inferred.
 
 ## [ISSUE-182] Keep Autonomos artifacts proportionate to active work
 

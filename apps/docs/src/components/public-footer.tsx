@@ -1,11 +1,14 @@
-import github from '@iconify-icons/logos/github-icon'
-import linkedin from '@iconify-icons/logos/linkedin-icon'
-import x from '@iconify-icons/logos/x'
-import Link from 'next/link'
+import GitHub from '~icons/logos/github-icon'
+import LinkedIn from '~icons/logos/linkedin-icon'
+import X from '~icons/logos/x'
+
+import { requestConsentPrompt } from '@/lib/consent'
 
 import { PostbotLogo } from './brand'
+import { CookieIcon } from './cookie-icon'
 import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
+import { Link } from './site-link'
 
 export function PublicFooter() {
     return (
@@ -34,39 +37,20 @@ export function PublicFooter() {
                         <a
                             href="https://github.com/postdot/postdot"
                             className="home-footer-social-link">
-                            <svg
-                                viewBox={`0 0 ${github.width} ${github.height}`}
-                                width="20"
-                                height="20"
-                                aria-hidden="true"
-                                dangerouslySetInnerHTML={{ __html: github.body }}
-                            />
+                            <GitHub width="20" height="20" aria-hidden="true" />
                             GitHub
                         </a>
                         <span
                             className="home-footer-social-unavailable"
                             aria-disabled="true"
                             title="Project account not available">
-                            <svg
-                                viewBox={`0 0 ${x.width} ${x.height}`}
-                                width="18"
-                                height="18"
-                                aria-hidden="true"
-                                dangerouslySetInnerHTML={{ __html: x.body }}
-                            />
-                            X
+                            <X width="18" height="18" aria-hidden="true" />X
                         </span>
                         <span
                             className="home-footer-social-unavailable"
                             aria-disabled="true"
                             title="Project account not available">
-                            <svg
-                                viewBox={`0 0 ${linkedin.width} ${linkedin.height}`}
-                                width="20"
-                                height="20"
-                                aria-hidden="true"
-                                dangerouslySetInnerHTML={{ __html: linkedin.body }}
-                            />
+                            <LinkedIn width="20" height="20" aria-hidden="true" />
                             LinkedIn
                         </span>
                     </div>
@@ -76,6 +60,12 @@ export function PublicFooter() {
             <div className="home-footer-bottom">
                 <span>© 2026 Hakim Saoudi</span>
                 <span>Open source</span>
+                <Link href="/legal">Legal notice</Link>
+                <Link href="/privacy">Privacy</Link>
+                <button type="button" className="home-footer-link" onClick={requestConsentPrompt}>
+                    <CookieIcon size={14} />
+                    Cookie settings
+                </button>
             </div>
             <div className="home-footer-signature" aria-hidden="true">
                 <PublicWordmark />

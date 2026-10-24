@@ -1,0 +1,111 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-openapi/css/preset.css';
+
+@font-face {
+    font-family: 'Host Grotesk';
+    src: url('../assets/host-grotesk-latin.woff2') format('woff2');
+    font-weight: 300 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+@theme {
+    --font-sans: 'Host Grotesk', system-ui, sans-serif;
+}
+
+:root {
+    --color-fd-background: #f4f4f4;
+    --color-fd-foreground: #1c1c1c;
+    --color-fd-card: #ffffff;
+    --color-fd-popover: #ffffff;
+    --color-fd-muted: #ededed;
+    --color-fd-muted-foreground: #666666;
+    --color-fd-border: #ededed;
+    --color-fd-primary: #2457d6;
+    --color-fd-primary-foreground: #fff;
+}
+.dark {
+    --color-fd-background: #171717;
+    --color-fd-foreground: #f4f4f4;
+    --color-fd-border: #2e2e2e;
+    --color-fd-card: #202020;
+    --color-fd-popover: #202020;
+    --color-fd-muted: #202020;
+    --color-fd-muted-foreground: #aaaaaa;
+    --color-fd-primary: #94b5ff;
+    --color-fd-primary-foreground: #171717;
+}
+body {
+    font-family: 'Host Grotesk', system-ui, sans-serif;
+}
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 620;
+    letter-spacing: -0.06em;
+}
+.brand-mark {
+    width: 29px;
+    height: 29px;
+}
+
+/* Both symbols are in SSR HTML. Pre-paint theme class selects the correct one. */
+.public-theme-toggle {
+    position: relative;
+    width: 36px;
+    height: 36px;
+}
+.public-theme-symbol {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.public-theme-light {
+    opacity: 1;
+    transform: rotate(0);
+}
+.public-theme-dark {
+    opacity: 0;
+    transform: rotate(-45deg);
+}
+.dark .public-theme-light {
+    opacity: 0;
+    transform: rotate(45deg);
+}
+.dark .public-theme-dark {
+    opacity: 1;
+    transform: rotate(0);
+}
+.public-theme-toggle[data-interacted='true'] .public-theme-symbol {
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    .public-theme-toggle[data-interacted='true'] .public-theme-symbol {
+        transition: none;
+    }
+}
+
+/*
+ * Contrast (WCAG AA). The OpenAPI method labels and the dark-theme code comments
+ * come from packages whose default colors fall just under 4.5:1.
+ */
+html:not(.dark) .text-green-600.font-mono {
+    color: #047857;
+}
+html:not(.dark) .text-orange-600.font-mono {
+    color: #c2410c;
+}
+html:not(.dark) .text-yellow-600.font-mono {
+    color: #854d0e;
+}
+.dark [style*='6A737D'] {
+    --shiki-dark: #8b949e !important;
+}

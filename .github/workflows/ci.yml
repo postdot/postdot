@@ -9,10 +9,77 @@ on:
 permissions:
     contents: read
 
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
-    verify:
-        name: Verify
+    scope:
+        name: Scope
         runs-on: ubuntu-latest
+        outputs:
+            product: ${{ steps.scope.outputs.product }}
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v6.0.2
+              with:
+                  fetch-depth: 0
+
+            # Documentation, agent guidance and the docs site cannot change the
+            # product runtime, so browser and container tests are skipped for them.
+            # Anything unknown, or a diff that cannot be computed, runs everything.
+            - name: Detect product changes
+              id: scope
+              env:
+                  EVENT: ${{ github.event_name }}
+                  BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+                  HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+              run: |
+                  product=true
+                  if files=$(git diff --name-only "$BASE" "$HEAD" 2>/dev/null) && [ -n "$files" ]; then
+                      product=false
+                      while IFS= read -r file; do
+                          case "$file" in
+                              apps/docs/*|docs/*|.agents/*|.claude/*|.autonomos/*|*.md|skills-lock.json|cspell*|.github/workflows/docs-deploy.yml) ;;
+                              *) product=true; echo "Product change: $file" ;;
+                          esac
+                      done <<< "$files"
+                  fi
+                  echo "product=$product" >> "$GITHUB_OUTPUT"
+
+    static:
+        name: Static checks and build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v6.0.2
+
+            - name: Set up Bun
+              uses: oven-sh/setup-bun@v2.2.0
+              with:
+                  bun-version-file: package.json
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Format, lint and types
+              run: bun run check:quick
+
+            - name: Unit tests
+              run: bun run test:unit
+
+            - name: Build
+              run: bun run build
+
+    e2e:
+        name: Browser tests (${{ matrix.shard }}/4)
+        needs: scope
+        if: needs.scope.outputs.product == 'true'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                shard: [1, 2, 3, 4]
         steps:
             - name: Check out repository
               uses: actions/checkout@v6.0.2
@@ -36,8 +103,44 @@ jobs:
             - name: Install Playwright Chromium
               run: npx --no-install playwright install --with-deps chromium
 
-            - name: Check
-              run: bun run check
+            - name: Browser tests
+              run: npx --no-install playwright test --shard=${{ matrix.shard }}/4
+
+            - name: Password reset browser test
+              if: matrix.shard == 1
+              run: bun run test:e2e:password-reset
+
+    recovery:
+        name: Production image backup and restore
+        needs: scope
+        if: needs.scope.outputs.product == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v6.0.2
+
+            - name: Set up Bun
+              uses: oven-sh/setup-bun@v2.2.0
+              with:
+                  bun-version-file: package.json
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
 
             - name: Verify production image backup and restore
               run: bun run test:container:recovery
+
+    verify:
+        name: Verify
+        needs: [scope, static, e2e, recovery]
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+            - name: Require every needed job to pass
+              env:
+                  RESULTS: ${{ join(needs.*.result, ' ') }}
+              run: |
+                  echo "Results: $RESULTS"
+                  case " $RESULTS " in
+                      *" failure "*|*" cancelled "*) exit 1 ;;
+                  esac

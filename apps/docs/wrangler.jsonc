@@ -1,0 +1,29 @@
+{
+    // The site is prerendered and served from the asset storage. The Worker
+    // only answers the feedback of the pages, so a page view never costs an
+    // invocation.
+    // Docs: https://developers.cloudflare.com/workers/static-assets/
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "postdot-docs",
+    "compatibility_date": "2026-10-23",
+    "main": "worker/index.ts",
+    "assets": {
+        "directory": "dist/client",
+        // Serve `/docs/installation` from `docs/installation.html`, and
+        // redirect `/docs/installation/` to `/docs/installation`.
+        "html_handling": "drop-trailing-slash",
+        "not_found_handling": "404-page",
+        "run_worker_first": ["/api/feedback"],
+    },
+    // The zone is in the same Cloudflare account; the custom domain creates the DNS record.
+    "routes": [{ "pattern": "postdot.app", "custom_domain": true }],
+    "vars": {
+        // The feedback of a page becomes a comment of its GitHub discussion.
+        "REPO_OWNER": "postdot",
+        "REPO_NAME": "postdot",
+        "DISCUSSION_CATEGORY": "Docs Feedback",
+        "GITHUB_APP_ID": "5441421",
+        "ALLOWED_ORIGINS": "",
+    },
+    "observability": { "enabled": false },
+}

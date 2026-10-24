@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
@@ -10,6 +8,8 @@ import {
     DialogTrigger,
 } from '@postdot/ui/components/dialog'
 import { useLenis } from 'lenis/react'
+
+import { ProductImage } from './product-image'
 
 export function PublicScreenshot({
     name,
@@ -37,17 +37,17 @@ export function PublicScreenshot({
                         aria-label={`Open ${title.toLowerCase()} preview`}
                     />
                 }>
-                <img
+                <ProductImage
                     className="home-shot home-shot-light"
-                    src={`/product/${name}-detail-light.webp`}
+                    name={`${name}-detail-light`}
                     alt={`${title} in Postdot, using an example project`}
                     width={size[0]}
                     height={size[1]}
                     loading={eager ? 'eager' : 'lazy'}
                 />
-                <img
+                <ProductImage
                     className="home-shot home-shot-dark"
-                    src={`/product/${name}-detail-dark.webp`}
+                    name={`${name}-detail-dark`}
                     alt={`${title} in Postdot in dark mode, using an example project`}
                     width={size[0]}
                     height={size[1]}
@@ -66,16 +66,16 @@ export function PublicScreenshot({
                     An example project in the real Postdot interface.
                 </DialogDescription>
                 <div className="home-screenshot-scroll" data-lenis-prevent>
-                    <img
+                    <ProductImage
                         className="home-shot-light"
-                        src={`/product/${name}-light.webp`}
+                        name={`${name}-light`}
                         alt={`${title} full preview`}
                         width={1440}
                         height={1000}
                     />
-                    <img
+                    <ProductImage
                         className="home-shot-dark"
-                        src={`/product/${name}-dark.webp`}
+                        name={`${name}-dark`}
                         alt={`${title} full preview in dark mode`}
                         width={1440}
                         height={1000}

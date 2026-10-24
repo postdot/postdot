@@ -1,11 +1,9 @@
-'use client'
-
 import { Button } from '@postdot/ui/components/button'
-import Link from 'next/link'
 
 import { PublicFooter } from './public-footer'
 import { PublicHeader } from './public-header'
 import { PublicMaterial } from './public-material'
+import { Link } from './site-link'
 
 import './public-home.css'
 
@@ -18,6 +16,9 @@ export function PublicError({
 }) {
     return (
         <div className="public-home home-error-page">
+            <title>
+                {notFound ? 'Page not found | Postdot' : 'Something went wrong | Postdot'}
+            </title>
             <PublicHeader />
             <main id="main-content" tabIndex={-1} className="home-error-main">
                 <div className="home-error-code" aria-hidden="true">

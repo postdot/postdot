@@ -1,9 +1,8 @@
-'use client'
-
 import { useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 
 import './public-product.css'
+import { ProductImage } from './product-image'
 
 const views = [
     {
@@ -69,9 +68,9 @@ export function PublicProduct() {
                                 <p>{view.description}</p>
                             </figcaption>
                             <div className="home-tour-images home-product-window">
-                                <img
+                                <ProductImage
                                     className="home-shot home-shot-light"
-                                    src={`/product/${view.name}-light.webp`}
+                                    name={`${view.name}-light`}
                                     alt={`${view.alt}, using an example project`}
                                     width="1440"
                                     height="1000"
@@ -80,9 +79,9 @@ export function PublicProduct() {
                                     decoding="async"
                                     draggable={false}
                                 />
-                                <img
+                                <ProductImage
                                     className="home-shot home-shot-dark"
-                                    src={`/product/${view.name}-dark.webp`}
+                                    name={`${view.name}-dark`}
                                     alt={`${view.alt} in dark mode, using an example project`}
                                     width="1440"
                                     height="1000"
