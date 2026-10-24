@@ -13,4 +13,4 @@ license and are not relicensed as original Postdot code under AGPL.
 
 The owner supplied the source; the public resource page confirmed the creator
 and license on 2026-10-11. The complete legal text is retained in
-[CC-BY-4.0.LICENSE](../../../../../docs/licenses/CC-BY-4.0.LICENSE). Detailed export edits were not reconstructed.
+[CC-BY-4.0.LICENSE](../../../../../licenses/CC-BY-4.0.LICENSE). Detailed export edits were not reconstructed.

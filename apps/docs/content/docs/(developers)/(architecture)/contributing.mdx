@@ -1,0 +1,107 @@
+---
+title: Contributing
+description: Run the development environment and choose checks for your change.
+---
+
+Use Bun 1.4.4 or newer, matching the repository's `engines` requirement. Install
+Docker when exercising containers or the optional local SMTP relay. Playwright's
+runner uses Node.js; the application processes run on Bun.
+
+## Start locally
+
+From the repository root:
+
+```sh
+bun install
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+Generate independent random values for `BETTER_AUTH_SECRET`,
+`POSTBOT_MEDIA_PUBLIC_URL_SECRET` and `POSTBOT_PUBLISHER_ENCRYPTION_KEY` in the
+private API configuration. Preserve the publisher key when keeping existing data.
+Do not commit `.env` files or print their values in a report.
+
+```sh
+bun run dev
+```
+
+The API defaults to port 3000 and Studio's Vite server to 5173. The API watches
+sources and waits for graceful shutdown before restarting. A forced kill can
+leave a runtime lock; inspect the running process/data before removing a marker.
+Production serves compiled Studio assets from the API and has no Vite process.
+
+If the API port is occupied, set `PORT` and `BETTER_AUTH_URL` in `apps/api/.env`
+and the same API origin in `POSTBOT_API_ORIGIN` in `apps/web/.env`. Keep
+`POSTBOT_WEB_ORIGIN` equal to the actual Studio development origin. For Bluesky
+loopback OAuth, use one consistent loopback literal as described in
+[provider configuration](/docs/provider-configuration/).
+
+The running API exposes `/openapi` and `/openapi/json`. `/health` checks process
+liveness; `/ready` reports database/runtime readiness. A restored application can
+serve reads while held; successful readiness does not authorize delivery resume.
+
+## Optional local email
+
+```sh
+docker compose -f docker-compose.dev.yml up -d mailpit
+```
+
+Configure the API SMTP host as `127.0.0.1`, port `1025` and secure mode `false`.
+Inspect captured messages at `http://127.0.0.1:8025`. These ports belong to the
+local relay; `POSTBOT_MAILPIT_SMTP_PORT` and `POSTBOT_MAILPIT_UI_PORT` can override
+its host bindings. Match the API SMTP port to the chosen binding.
+
+Stop the relay with `docker compose -f docker-compose.dev.yml down` when finished.
+The email template preview is separate:
+
+```sh
+bun run --cwd packages/email dev
+```
+
+It uses port 3001. Do not reuse a port owned by another process.
+
+## Verify a change
+
+```sh
+bun run check:quick
+```
+
+This checks formatting, lint/spelling and types. Add the focused unit/integration
+or browser scenario that establishes the changed behavior. The full integration
+gate is:
+
+```sh
+bun run check
+```
+
+Install the Playwright browser once before browser checks:
+
+```sh
+npx --no-install playwright install chromium
+bun run test:e2e
+```
+
+The test harness owns temporary SQLite/media paths and loopback ports for each
+run. Do not point it at a personal or deployed instance. Explicit
+`POSTBOT_E2E_API_PORT` and `POSTBOT_E2E_WEB_PORT` values are caller-reserved and
+must not overlap another run. Synthetic tests do not prove live provider delivery.
+A real provider acceptance test requires a controlled destination and authorization
+for its actual external effects.
+
+`bun run test:coverage` produces unit/integration coverage; it does not replace
+browser or real-provider evidence. `bun run measure:footprint` builds and measures
+an isolated local fixture, not application capacity or minimum hardware. Keep
+measurement conditions with results rather than publishing an old baseline as a
+current requirement.
+
+## Maintain an installation
+
+Use [operations](/docs/operations/) for backup, recovery hold, password recovery
+and maintenance. Do not reset a database containing useful data to bypass a
+migration mismatch. Instance data, provider credentials and user sessions are
+not development fixtures.
+
+Agent working rules live in repository `AGENT.md` files. Autonomos holds task,
+issue, decision and execution records; historical archives are not routine
+bootstrap context. Public documentation is authored in this app's MDX sources.

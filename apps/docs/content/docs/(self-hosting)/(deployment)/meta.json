@@ -1,6 +1,6 @@
 {
     "title": "Deployment",
     "defaultOpen": true,
-    "pages": ["installation"],
+    "pages": ["installation", "provider-configuration", "releases"],
     "icon": "server"
 }

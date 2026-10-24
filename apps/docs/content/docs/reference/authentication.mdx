@@ -87,3 +87,15 @@ is not a grant of access.
 
 Use the error code and message returned by the server to narrow the cause. Avoid
 adding permissions until you know which requirement the request failed.
+
+## Request approval without scheduling
+
+A key with `publication:manage` can submit a publication approval request with
+`expectedDraftRevision` and `proposedScheduledAt` in Unix milliseconds. The proposal
+is inert: the publication remains a draft without an executable schedule. A human
+session must review it. API keys cannot approve/reject, and an overdue proposal
+does not automatically publish. Editing the draft supersedes pending review.
+
+Direct scheduling requires `publication:dispatch` and the existing revision/state
+checks. An HTTP success confirms the requested operation, not provider delivery.
+See the approval-request operations in the [API reference](/docs/reference/).

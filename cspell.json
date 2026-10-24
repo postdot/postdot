@@ -176,7 +176,16 @@
         "WEBPVP",
         "xoperator",
         "xsecond",
-        "ＮＯＴＥＳ",
-        "ＲＥＬＥＡＳＥ"
+        "\uff2e\uff2f\uff34\uff25\uff33",
+        "\uff32\uff25\uff2c\uff25\uff21\uff33\uff25"
+    ],
+    "overrides": [
+        {
+            "filename": [
+                "cspell.json",
+                ".autonomos/archive/root-documentation-2026-10-25/manifest.json"
+            ],
+            "words": ["multisurface"]
+        }
     ]
 }

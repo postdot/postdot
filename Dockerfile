@@ -67,7 +67,7 @@ COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTI
 COPY --from=build --chown=bun:bun /out/postbot.js ./postbot.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
-COPY --from=build --chown=bun:bun /app/docs/licenses/ ./licenses/
+COPY --from=build --chown=bun:bun /app/licenses/ ./licenses/
 
 RUN dpkg-query -W -f '${binary:Package}\t${Version}\n' > /app/licenses/base-packages.tsv \
     && cp /etc/os-release /app/licenses/base-os-release \

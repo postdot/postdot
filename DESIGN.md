@@ -377,7 +377,7 @@ building it; the current app contract must not silently decide those choices.
 - Calibration artifacts: H-06 identity-first study, H-08 role-based palette
   atlas, H-09 surface grammar study, H-10 multi-surface holdout, and H-11
   landing transfer holdout. The static HTML references are archived under
-  `docs/design/examples/`; the associated renders and observations are
+  `.autonomos/archive/root-documentation-2026-10-25/source/docs/design/examples`; the associated renders and observations are
   recorded in the Autonomos DESIGN-02 worklog.
 - Rendered checks: disposable local browser studies at 1280 × 720, with dark
   primary and light companion checks; the first authenticated production

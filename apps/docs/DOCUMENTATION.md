@@ -29,8 +29,9 @@ public package distribution.
 
 ## Content boundaries
 
-- `docs/deployment/self-hosting.md` remains canonical for installation. The sync
-  script writes its MDX projection into the deployment folder; edit the source.
+- Authored public guidance is canonical under `content/docs/`, including
+  `(self-hosting)/(deployment)/installation.mdx`. Do not maintain a root duplicate
+  or overwrite the installation page during generation.
 - Operational guides describe supported behavior. Put proposed deployment targets
   and future clients in planning records, not empty public navigation entries.
 - No empty Kubernetes, Helm, mobile or MCP guide is added just to fill a category.
@@ -52,8 +53,7 @@ contradictory instructions.
 ### Steps in canonical Markdown
 
 The native `remarkSteps` plugin converts numbered headings into visual steps.
-This lets `docs/deployment/self-hosting.md` stay ordinary Markdown while the
-projected installation page uses the same step presentation as authored MDX.
+The authored installation MDX uses this step presentation directly.
 An unnumbered heading at the same level ends the sequence. Preserve existing
 major heading anchors and compare command blocks when editing operational prose.
 The processed Markdown export retains readable numbered headings.
@@ -75,10 +75,11 @@ pages before changing a layout or palette again.
 
 ## Generated OpenAPI reference
 
-SITE-456 implements the official `fumadocs-openapi` integration (12.4.2) alongside
-Fumadocs/Base UI 16.17.1. `bun run sync:content` now runs this sequence:
+The workspace uses the official `fumadocs-openapi` integration. Resolve current
+versions from package.json and the installed packages before changing its API.
+`bun run sync:content` and the build preserve these boundaries:
 
-1. Project canonical installation Markdown into its grouped MDX location.
+1. Keep authored installation MDX unchanged; it is not a generated projection.
 2. Run `apps/api/src/openapi-export.ts` through Bun. It assembles `createApp` with
    an in-memory migrated database and a temporary local media adapter. It never
    imports `src/index.ts`, starts a listener, starts workers or reads instance
@@ -136,9 +137,8 @@ provider instructions. A successful run is not a live-provider acceptance result
 - https://www.fumadocs.dev/docs/integrations/openapi
 - https://www.fumadocs.dev/docs/integrations/openapi/generate-files
 
-Checked against installed fumadocs-core 16.17.1, the aliased @fumadocs/base-ui
-16.17.1 distribution and fumadocs-mdx 15.4.7 on 2026-10-15. Online examples may
-advance ahead of these pinned versions; local type declarations decide API use.
+Installed exports and type declarations decide API availability; online examples
+can describe a different version.
 
 ## Markdown and LLM access
 
@@ -183,8 +183,8 @@ requires these static font files. Generated material and exported images are
 reproducible build output, not authored assets to edit manually.
 
 Set `POSTBOT_SITE_URL` to the site's public origin when building for a real host.
-Until a domain is chosen, metadata defaults to `http://127.0.0.1:5174`. Generating
-images does not change the current noindex policy or publish any files remotely.
+Local builds default to `http://127.0.0.1:5174` when no public origin is set.
+Generating images does not deploy the site or change its access/indexing settings.
 The images are fetched by sharing clients when needed; they are not loaded into
 every documentation page as displayed content.
 

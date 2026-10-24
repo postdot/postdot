@@ -1,21 +1,113 @@
 ---
-title: Backups and updates
-description: Preserve data and control external effects after restoration.
+title: Backups and recovery
+description: Preserve database, media and secrets, and control delivery after restoration.
 ---
 
-The administrator owns backup scheduling, retention and off-host storage. Postdot
-provides commands for consistent database backups and complete bundles that can
-include managed media.
+The administrator owns backup scheduling, retention and off-host protection.
+Postdot provides database snapshots and complete bundles containing managed media.
+Use the [installation guide](/docs/installation/#backup-and-restoration) for the
+normal Compose backup/restore commands. [Release records](/docs/releases/) identify
+the matching executable; a restart is not an upgrade test.
 
-Keep the deployment secrets separately. Restoring a database does not reconstruct
-lost encryption keys or undo an action that already happened at a provider.
+## Preserve a complete recovery set
 
-A restored instance starts with a recovery hold. Inspect the restored state and
-external outcomes before explicitly resuming delivery. Do not remove the hold
-merely to make the scheduler start again.
+Keep the application bundle, deployment configuration and image version/digest.
+Preserve `POSTBOT_PUBLISHER_ENCRYPTION_KEY` and its key identifier separately from
+the bundle. Retain the other deployment secrets too. The backup contains encrypted
+credential records, not the key needed to decrypt them. A replacement key cannot
+recover those records; losing the key requires deliberately reconnecting accounts.
 
-Before upgrading, take a backup and keep the matching previous image or source
-revision. Replacing the image does not reverse a database migration.
+Protect bundles as private data. They include SQLite, retained media and personal
+avatars. Externally hosted article images and provider-side publications are not
+part of the bundle. S3-backed media can be copied into the complete bundle when
+the maintenance process receives the matching storage configuration.
 
-Use the verified [installation guide](/docs/installation/) for the backup,
-restoration and update commands. Published image versions remain future work.
+Keep SQLite on a local filesystem supporting locks and shared memory. Postdot
+uses WAL with full synchronous writes. Copying only the live main database file
+can omit committed data in its WAL. Use the backup command; do not delete WAL,
+shared-memory or runtime-lock files to make a failing installation start.
+
+## Restore under quiescence
+
+Stop the application before restoring and preserve the pre-restore data. The
+maintenance command uses the runtime quiescence lock, checks the bundle manifest,
+hashes and configured store identity, then restores data. A failed restore can
+leave already copied media even when SQLite has not been replaced. It does not
+remove unrelated objects or automatically convert media-store identity.
+
+A database-only restore does not establish that referenced media still exist.
+Keep storage settings consistent between server and maintenance commands.
+See [installation](/docs/installation/#restore-and-review-before-resuming).
+
+## Inspect recovery hold before resuming
+
+Restore persists a marker beside the database. Postdot then permits login and
+reads, while holding mutations, publication execution, email delivery and media
+cleanup. `/ready` can succeed with `checks.recovery: held`; that means inspection
+is available, not that delivery has resumed.
+
+Use Administration to review recovered publications and provider-side outcomes.
+Only an authorized human instance administrator can explicitly resume. An API key
+cannot do this. The marker is distinct from the runtime lock: do not remove it to
+bypass review. Changing or canceling publications remains blocked during hold.
+
+A restored snapshot can predate posts already delivered externally. Restoration
+does not undo those effects. Resuming without reviewing them can repeat work;
+recovery hold does not automatically reconcile or deduplicate remote publications.
+
+### Externally restored databases
+
+Postdot cannot reliably infer an external SQLite restore from database contents.
+Before starting an externally restored installation, enter hold explicitly with
+the server stopped and the intended data volume selected:
+
+```sh
+docker compose run --rm --no-deps postbot recovery hold --database /data/postbot.sqlite
+docker compose run --rm --no-deps postbot recovery status --database /data/postbot.sqlite
+docker compose up -d --no-build --wait
+```
+
+Then inspect and resume through Administration. A successful status/readiness
+check alone is not acknowledgement of possible external effects.
+
+## Recover an existing account password
+
+If SMTP recovery is unavailable, stop the application and use an interactive
+maintenance terminal against the exact database:
+
+```sh
+docker compose stop postbot
+docker compose run --rm --no-deps -it postbot account recover-password --database /data/postbot.sqlite
+```
+
+The command confirms the database path, reads the password without echo and
+creates a restricted pre-change database backup. It revokes the account's web
+sessions and pending reset links; it does not create an account, change admin
+roles or revoke API keys/provider credentials. Protect the reported backup like
+other application data and restart the installation afterward.
+
+## Generate missing image previews
+
+Stop Postdot before this maintenance operation. Review the dry run first:
+
+```sh
+docker compose run --rm --no-deps postbot media-previews --dry-run
+docker compose run --rm --no-deps postbot media-previews
+docker compose up -d --no-build --wait
+```
+
+`--project` can limit the operation. Originals and publication references remain
+unchanged. A failed preview leaves completed previews available and reports failure;
+this does not repair unsupported media or reclaim a runtime lock automatically.
+
+## Plan an update
+
+Read the target release's migration and upgrade evidence, take a fresh backup and
+retain the previous image/configuration. Image rollback alone does not reverse
+schema migrations. The first public alpha has no previous-release upgrade proof.
+No built-in periodic backup, off-machine replication or point-in-time recovery
+service is implied by these maintenance commands.
+
+For resource observation, see [metrics](/docs/metrics/). Logs default to error
+level in production; inspect a bounded interval privately before sharing redacted
+excerpts. Readiness and metrics do not prove provider connectivity or email delivery.

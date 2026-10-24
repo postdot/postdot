@@ -1,5 +1,14 @@
 {
     "title": "Provider connections",
     "defaultOpen": false,
-    "pages": ["index", "bluesky", "mastodon", "linkedin", "x", "discord", "devto"]
+    "pages": [
+        "index",
+        "bluesky",
+        "mastodon",
+        "linkedin",
+        "x",
+        "discord",
+        "devto",
+        "provider-capabilities"
+    ]
 }

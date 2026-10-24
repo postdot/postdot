@@ -906,7 +906,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   loopback mode. The web settings form offers localized loopback/public choices.
   SQLite migration `0024_sour_wolfsbane` updates the provider-application shape
   constraint without rewriting existing public configurations. Deployment guidance
-  is recorded in `docs/deployment/provider-requirements.md`.
+  is recorded in `.autonomos/archive/root-documentation-2026-10-25/source/docs/deployment/provider-requirements.md`.
 - Verification: Bluesky OAuth metadata, provider-application store, migration,
   runtime-origin, API, localization coverage, and package typecheck tests pass.
 

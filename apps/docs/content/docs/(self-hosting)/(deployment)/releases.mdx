@@ -1,0 +1,33 @@
+---
+title: Releases
+description: Identify the published alpha image, source revision and supported architectures.
+---
+
+## 0.1.0-alpha.1
+
+This first public alpha provides Studio, the HTTP API and a source-checkout CLI.
+It supports project-owned channels, media, drafts, scheduling, review and durable
+publication tracking. Provider-native formats, analytics and conversations have
+[different coverage](/docs/providers/provider-capabilities/). MCP and mobile clients are not
+shipped. Configuration, contracts and migrations may change.
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.1`
+- Manifest digest: `sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`
+- Platforms: Linux AMD64 and ARM64.
+- [Matching source](https://github.com/postdot/postdot/tree/99badfb431b95a817c645e716267815925c1f6cc).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/40126611747).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/40110416940).
+
+Anonymous manifest retrieval verified the same digest and both platform entries.
+No `latest` alias exists. Version tags are immutable; pin the digest when exact
+content matters. Use the [installation guide](/docs/installation/) for Compose.
+
+There is no earlier public image, so no previous-release upgrade has been
+validated. Back up database/media and preserve deployment secrets separately
+before replacing an installation. Image rollback alone cannot reverse migrations.
+
+The image includes the project license, retained third-party notices, exact
+FFmpeg decoder source/build settings and base package inventory under
+`/app/licenses`. See the repository's
+[distribution notices](https://github.com/postdot/postdot/tree/main/licenses).
+This is not a claim of exhaustive transitive-license certification.

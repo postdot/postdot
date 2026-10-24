@@ -1,0 +1,265 @@
+{
+  "sourceCommit": "ef1c192ddd3ca060c941a1f83a6fbbf30f95d682",
+  "files": [
+    {
+      "source": "docs/benchmarks/2026-10-11-amd64-baseline.json",
+      "preserved": "source/docs/benchmarks/2026-10-11-amd64-baseline.json",
+      "sha256": "1810423f5f189a6dc52e7935a453afe04d6762aebf8d76e45ce923c790877c96"
+    },
+    {
+      "source": "docs/benchmarks/2026-10-11-amd64-baseline.md",
+      "preserved": "source/docs/benchmarks/2026-10-11-amd64-baseline.md",
+      "sha256": "2ca51eb899057ec908846c729765a75ca65f70f3ce7f91b28c8d769f58046cd0"
+    },
+    {
+      "source": "docs/capability-evidence.md",
+      "preserved": "source/docs/capability-evidence.md",
+      "sha256": "87ac5fe072eb596f5b436666798b354925c9311ba5b4f964d29ecd3d16e06f7f"
+    },
+    {
+      "source": "docs/cli-publications.md",
+      "preserved": "source/docs/cli-publications.md",
+      "sha256": "f360720173c621227bb3004da19dc81369ad5884c1489a5fc9af26f4d4e59bb7"
+    },
+    {
+      "source": "docs/deployment/alpha-candidate.md",
+      "preserved": "source/docs/deployment/alpha-candidate.md",
+      "sha256": "74cf4dc5bb34d4befacfa996d8605b73dbb8f808a7e9b02a26c7ec560ec97f4b"
+    },
+    {
+      "source": "docs/deployment/backup-and-restoration-boundary.md",
+      "preserved": "source/docs/deployment/backup-and-restoration-boundary.md",
+      "sha256": "d27a17f6080ae48f1ca36ab228158e2319d0c3d95ca5e4c7a54af3e4b65b7abf"
+    },
+    {
+      "source": "docs/deployment/metrics.md",
+      "preserved": "source/docs/deployment/metrics.md",
+      "sha256": "0712b4f50778f6002b956dc01eeca5709e746545945342071b4b19e3e023cacd"
+    },
+    {
+      "source": "docs/deployment/provider-requirements.md",
+      "preserved": "source/docs/deployment/provider-requirements.md",
+      "sha256": "cad03de58a9cca4bb4d0c61074e0b3c815a9d434cd37b669dad57ede4f8a2ece"
+    },
+    {
+      "source": "docs/deployment/release-policy.md",
+      "preserved": "source/docs/deployment/release-policy.md",
+      "sha256": "2127640b87d01d995e5f96a3a0a67bcaa2be073cc9cb469dbe7da6f6d5ab43e6"
+    },
+    {
+      "source": "docs/deployment/runtime-and-distribution.md",
+      "preserved": "source/docs/deployment/runtime-and-distribution.md",
+      "sha256": "f3b68f338d9ba9f49e8107c225f1f993c1eba63b5d88a45ddccb34971d59bbda"
+    },
+    {
+      "source": "docs/deployment/self-hosting.md",
+      "preserved": "source/docs/deployment/self-hosting.md",
+      "sha256": "bbad1bcc5bc3f3285ef06a126786d0e211b9ca3b170288ff305cefa9028c195b"
+    },
+    {
+      "source": "docs/design/README.md",
+      "preserved": "source/docs/design/README.md",
+      "sha256": "c97b2270233b2aa2dc622f86e051b1a6d40e925d166e6e15d2260025300628b7"
+    },
+    {
+      "source": "docs/design/examples/h-10-multisurface-holdout/README.md",
+      "preserved": "source/docs/design/examples/h-10-multisurface-holdout/README.md",
+      "sha256": "6ec4896d163a50c09b50ab6e8b36d383c43104b8686a6761bb703eae7ec675f2"
+    },
+    {
+      "source": "docs/design/examples/h-10-multisurface-holdout/SCENARIO.md",
+      "preserved": "source/docs/design/examples/h-10-multisurface-holdout/SCENARIO.md",
+      "sha256": "3b01679adb991044bfa351d228d2538b86b172625705e54ceaa738fb82b77ae8"
+    },
+    {
+      "source": "docs/design/examples/h-10-multisurface-holdout/index.html",
+      "preserved": "source/docs/design/examples/h-10-multisurface-holdout/index.html",
+      "sha256": "d42cebd1401ba085885b7234fda76ac9b20dbc14c7a2a5f5045e74ea28d6e0cc"
+    },
+    {
+      "source": "docs/design/examples/h-10-multisurface-holdout/style.css",
+      "preserved": "source/docs/design/examples/h-10-multisurface-holdout/style.css",
+      "sha256": "bee041dd7a1bea5d48ffa4b66e31f0d4cdd1a9f133ae30ac23d6ddfeae5bfe4a"
+    },
+    {
+      "source": "docs/design/examples/h-11-landing-holdout/README.md",
+      "preserved": "source/docs/design/examples/h-11-landing-holdout/README.md",
+      "sha256": "51d563c664814dc4b0ebd23986dc8b7bdc78c2c9241a52d57a4b9d198eb0adf9"
+    },
+    {
+      "source": "docs/design/examples/h-11-landing-holdout/SCENARIO.md",
+      "preserved": "source/docs/design/examples/h-11-landing-holdout/SCENARIO.md",
+      "sha256": "4ffd397ecd29b47e33909cba9a269c98ef1070f27d97e6a3f20474a52251af45"
+    },
+    {
+      "source": "docs/design/examples/h-11-landing-holdout/index.html",
+      "preserved": "source/docs/design/examples/h-11-landing-holdout/index.html",
+      "sha256": "30096c77fdb4418f39fbe525680bda82d03953b78bb77fb414a622f97645b984"
+    },
+    {
+      "source": "docs/design/examples/h-11-landing-holdout/responsive-check.html",
+      "preserved": "source/docs/design/examples/h-11-landing-holdout/responsive-check.html",
+      "sha256": "626a974ea84ad749f1f8fa74f539e46a275e27c51d750dd2b42e518e2bcc10ba"
+    },
+    {
+      "source": "docs/design/examples/h-11-landing-holdout/style.css",
+      "preserved": "source/docs/design/examples/h-11-landing-holdout/style.css",
+      "sha256": "5326552584b92b6674bc9d4a0d880ac094ffbbbf29b1c8d6c99256cee272626f"
+    },
+    {
+      "source": "docs/development.md",
+      "preserved": "source/docs/development.md",
+      "sha256": "b4abe081178a0964ba1dcd1f3fba6689a945c86aace3e8fc8254899522784e71"
+    },
+    {
+      "source": "docs/licenses/Better-auth-utils.LICENSE",
+      "preserved": "../../../licenses/Better-auth-utils.LICENSE",
+      "sha256": "b5052b5db9a8720634e5243aaf019269ddd93c2e43f46a09f72b99e0004c8680"
+    },
+    {
+      "source": "docs/licenses/Bluesky-symbols.LICENSE",
+      "preserved": "../../../licenses/Bluesky-symbols.LICENSE",
+      "sha256": "67d4cc159fec22b2c88998ed6dac344d8e1d20f55aff903686745b0c7df1e5c0"
+    },
+    {
+      "source": "docs/licenses/CC-BY-4.0.LICENSE",
+      "preserved": "../../../licenses/CC-BY-4.0.LICENSE",
+      "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+    },
+    {
+      "source": "docs/licenses/CC0.LICENSE",
+      "preserved": "../../../licenses/CC0.LICENSE",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "source": "docs/licenses/Drizzle.LICENSE",
+      "preserved": "../../../licenses/Drizzle.LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "source": "docs/licenses/Empty-state-illustrations.md",
+      "preserved": "source/docs/licenses/Empty-state-illustrations.md",
+      "sha256": "3bca2f6734aef395a4bd8206a289dae5a8138dea77fe9ecde2d723307b0aba89"
+    },
+    {
+      "source": "docs/licenses/Flag-icons.LICENSE",
+      "preserved": "../../../licenses/Flag-icons.LICENSE",
+      "sha256": "8f1195d55a2fd315a07d812328470ca9ba2abb78c8d317ff19619d5125e00cea"
+    },
+    {
+      "source": "docs/licenses/Inline-spoiler.LICENSE",
+      "preserved": "../../../licenses/Inline-spoiler.LICENSE",
+      "sha256": "91b4e39053f42a5527b261482df85d8319922ab80184631b4992b8ff91add8e7"
+    },
+    {
+      "source": "docs/licenses/JavaScript-dependencies.LICENSE",
+      "preserved": "../../../licenses/JavaScript-dependencies.LICENSE",
+      "sha256": "a0e0f33fccf78f188da4ee474f26f3d0721d393a17ae8abff8ec7320e22e41bd"
+    },
+    {
+      "source": "docs/licenses/MP4Box.LICENSE",
+      "preserved": "../../../licenses/MP4Box.LICENSE",
+      "sha256": "ebad0332150a08f37389158289d93ab2f70b0ee8717d1db9b3d002febc6c5047"
+    },
+    {
+      "source": "docs/licenses/Material-symbols.LICENSE",
+      "preserved": "../../../licenses/Material-symbols.LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "source": "docs/licenses/Mime-match.LICENSE",
+      "preserved": "../../../licenses/Mime-match.LICENSE",
+      "sha256": "246e1db8cdfb6f229c577d46b340606b0f8933530ea105a3db0599a825215fe3"
+    },
+    {
+      "source": "docs/licenses/Provider-logos.LICENSE",
+      "preserved": "../../../licenses/Provider-logos.LICENSE",
+      "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
+    },
+    {
+      "source": "docs/licenses/README.md",
+      "preserved": "source/docs/licenses/README.md",
+      "sha256": "980bbca494f987d41338f0ef4c59439b27dacda0dcd79566a54c86e8fb72bdbe"
+    },
+    {
+      "source": "docs/licenses/React-remove-scroll-bar.LICENSE",
+      "preserved": "../../../licenses/React-remove-scroll-bar.LICENSE",
+      "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84"
+    },
+    {
+      "source": "docs/licenses/Recursive.LICENSE",
+      "preserved": "../../../licenses/Recursive.LICENSE",
+      "sha256": "b4160a38a0fb152c167fada709bd6757a5785cfa4670c3106d386d5558626ce3"
+    },
+    {
+      "source": "docs/licenses/Themes.LICENSE",
+      "preserved": "../../../licenses/Themes.LICENSE",
+      "sha256": "0576a0d0923e9d522619b04706ef80c124df6d4986c1defc6dd476d4a208300e"
+    },
+    {
+      "source": "docs/licenses/Uppy-components.LICENSE",
+      "preserved": "../../../licenses/Uppy-components.LICENSE",
+      "sha256": "a0bceade78956c1954caa8dc9a8a665e78792ce94021baa15af72ffd6072b793"
+    },
+    {
+      "source": "docs/licenses/Wildcard.LICENSE",
+      "preserved": "../../../licenses/Wildcard.LICENSE",
+      "sha256": "984dad806fc9843be655fdef946a57198a48f8c79fe48a7ddb5064194fad1291"
+    },
+    {
+      "source": "docs/licenses/shadcn.LICENSE",
+      "preserved": "../../../licenses/shadcn.LICENSE",
+      "sha256": "d4564b39cca777f4855f0237d06f9209d19ee781f7e8ffeb96e2f29a1f26ae9e"
+    },
+    {
+      "source": "docs/project/channel-builder.md",
+      "preserved": "source/docs/project/channel-builder.md",
+      "sha256": "76dbab699cb684a2de0dcf567f7c764b40122dbf815f80a0e6e7aa403eb88bbf"
+    },
+    {
+      "source": "docs/project/first-comments.md",
+      "preserved": "source/docs/project/first-comments.md",
+      "sha256": "91e2b3ad6d283a302247110cc9079e25de05ec6a3ffcc1606fc86eace0ca85f8"
+    },
+    {
+      "source": "docs/project/identity-transition.md",
+      "preserved": "source/docs/project/identity-transition.md",
+      "sha256": "ae88f1b355a43af2e7f443f900fe3354602f352232b7129897d2387be1e8d7a0"
+    },
+    {
+      "source": "docs/project/meta-integration-discovery.md",
+      "preserved": "source/docs/project/meta-integration-discovery.md",
+      "sha256": "f83001962639d34eef251619d11df525da09dad0c1ce2cc7075404da8f51a24f"
+    },
+    {
+      "source": "docs/project/product-expansion.md",
+      "preserved": "source/docs/project/product-expansion.md",
+      "sha256": "e7db28ad71cba9c94302385b19aa53a4a2b94744695b4f4e625fca60cb3297fc"
+    },
+    {
+      "source": "docs/project/provider-capabilities.md",
+      "preserved": "source/docs/project/provider-capabilities.md",
+      "sha256": "698e24c0dc62eb249748ff852defc97404829d2a3912beefa2ed51d4d9b08e5f"
+    },
+    {
+      "source": "docs/project/public-positioning.md",
+      "preserved": "source/docs/project/public-positioning.md",
+      "sha256": "67385f1df5c72cc2238731920e465b9dd91e457e7fadd34e193bff98f5ffe7f3"
+    },
+    {
+      "source": "docs/security/public-source-review.md",
+      "preserved": "source/docs/security/public-source-review.md",
+      "sha256": "49721b45321cfa5e14398b579ee84fe83ea6ff83b39cec3592b8f8246480be41"
+    },
+    {
+      "source": "docs/security/user-api-keys.md",
+      "preserved": "source/docs/security/user-api-keys.md",
+      "sha256": "e28015a37b92eb333916e7bebb71b0d14f1ad9ced918fb8937550878950de320"
+    },
+    {
+      "source": "docs/source-post-reuse.md",
+      "preserved": "source/docs/source-post-reuse.md",
+      "sha256": "c86a84fefdf8ab0f7cc17b61a3a850b35cfe4a569248be93a2b46d5df4eec9a6"
+    }
+  ]
+}

@@ -166,3 +166,9 @@ unrelated command succeed.
 The typed client is in `packages/client`; the REST API uses the same server-side
 project and action checks. Built-in publisher OAuth and access administration
 require a human session. Other clients do not bypass these boundaries.
+
+See the [CLI reference](/docs/cli-reference/) for media, revision checks and lifecycle
+commands. API integrations can add unscheduled destinations to an existing source
+through the [API reference](/docs/reference/). Source revision checks and explicit
+confirmation protect existing content; this does not propagate source edits into
+already prepared targets.

@@ -20,3 +20,7 @@ history. Use the original worklog basename when following an old literal path.
 
 - [Runtime, recovery and observability](runtime-recovery-observability/README.md):
   isolation, shutdown, effect renewal, backup/recovery, metrics, logging and SQLite durability.
+
+- [Retired root documentation](root-documentation-2026-10-25/README.md): dated
+  reference snapshots, plans, BENCH-395 samples and design calibration fixtures.
+  Current public documentation is maintained in apps/docs.

@@ -85,7 +85,7 @@ Workspace and project access administration, account and API-key management,
 built-in publisher OAuth, notifications/realtime, audit/security surfaces, and
 installation administration remain human-session operations. The capability
 list is a ceiling only; it never grants a role the user does not currently
-have. See [the API-key operations guide](../../docs/security/user-api-keys.md)
+have. See [the API-key operations guide](../../apps/docs/content/docs/reference/authentication.mdx)
 for the current route and client contract.
 
 ### Product surfaces

@@ -1,0 +1,49 @@
+---
+title: Provider capabilities
+description: Compare implemented content and engagement surfaces without assuming universal provider parity.
+---
+
+Providers accept different content and expose different engagement data. Inspect
+the selected channel's active profile and connection in Studio before preparing
+a publication. The table describes implemented support; it is not proof of live
+acceptance for every format, account entitlement or permission grant.
+
+| Destination | Publishing                                                | Saved performance / conversations                             |
+| ----------- | --------------------------------------------------------- | ------------------------------------------------------------- |
+| Bluesky     | Text, images or MP4                                       | Post observations and public conversation snapshots/replies   |
+| Mastodon    | Text, images or MP4; polls exclude media                  | Status observations and public conversation snapshots/replies |
+| DEV.to      | Markdown article with optional cover                      | Article observations; no conversation workflow                |
+| Discord     | Message with images or MP4                                | No native performance/conversation surface                    |
+| X           | Weighted text with images                                 | No native performance/conversation surface                    |
+| LinkedIn    | Member/organization text, images or MP4                   | No native performance/conversation surface                    |
+| Telegram    | Message, photo/video, album or anonymous text-answer poll | No native performance/conversation surface                    |
+| Facebook    | Page text, link or one photo                              | No native performance/conversation surface                    |
+| Instagram   | One JPEG with caption/accessibility text                  | No native performance/conversation surface                    |
+| Manual      | Record your own delivery result                           | No native provider collector                                  |
+| Custom HTTP | Profile-defined request and response interpretation       | No native provider collector                                  |
+
+[First comments](/docs/first-comments/) are a separate automatic-delivery feature
+for native Bluesky and Mastodon publications. They do not add comment support to
+every destination or turn the stored conversation view into an account-wide inbox.
+
+## Read saved observations carefully
+
+Performance uses available saved provider observations with their collection time.
+Missing values differ from measured zero. A read of saved results is distinct
+from a provider refresh, which makes a real external request and requires the
+appropriate permission/access.
+
+Tag filters use current publication assignments, not historical membership.
+Several selected tags require all of them, without duplicating a publication.
+Destination metrics retain their own meanings; they are not summed into unique
+reach or a cross-provider audience. Export uses saved results and does not itself
+refresh providers. An export is not a transactional historical snapshot.
+
+## Prerequisites and evidence
+
+Provider application permissions, account type, connection state and public media
+reachability can constrain a working integration. Synthetic tests establish local
+protocol behavior; a real delivery verifies only the account/format tested.
+Do not infer entitlement or free provider reads from an OAuth grant alone.
+See [connections](/docs/providers/) and
+[deployment configuration](/docs/provider-configuration/) for setup boundaries.

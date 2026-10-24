@@ -1075,7 +1075,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   intentional deferrals. It must not imply that new clients should be built.
 - Tasks: META-221
 - Resolution (META-221, 2026-09-26): Added the [capability availability and
-  verification matrix](../docs/capability-evidence.md), covering current web,
+  verification matrix](archive/root-documentation-2026-10-25/source/docs/capability-evidence.md), covering current web,
   HTTP API, and shipped CLI surfaces with named end-to-end and API-test evidence.
   It distinguishes API availability from finished client journeys, records the
   incomplete X web connection and API-only analytics, and preserves MCP as an
@@ -1341,7 +1341,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   surface. Direct API-key scheduling requires `publication:dispatch`; no
   agent-specific identity, CLI, or MCP client was introduced.
 - Evidence: [PUB-238 worklog](worklogs/2026-09-27-PUB-238.md),
-  [user API key policy](../docs/security/user-api-keys.md).
+  [user API key policy](archive/root-documentation-2026-10-25/source/docs/security/user-api-keys.md).
 
 ## [ISSUE-141] Keep operational feedback and publication identity truthful across screens
 
@@ -1519,7 +1519,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: A visual usage section shows existing and planned access paths to the same workspace, with no false availability claims; a distinct core-capability section groups scheduling, image/video media, local/S3 storage, access administration, built-in/manual/custom channels, workspaces/projects and interface languages. A concise technical/open-source/self-hosting section leads to verified guides and supported image artifacts. Scheduling may enrich the existing publication story rather than receive a redundant standalone chapter. Layout, animation and final copy remain proposals, not approved card grid/carousel choices.
 - Tasks: SITE-441 (design proposal), SITE-442 (isolated interactive prototype; homepage replacement not approved)
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Design proposal: [shared-workspace scene](../apps/docs/design/HUMANS-AND-AGENTS.md).
 
@@ -1535,7 +1535,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Versioned, discoverable agent guidance covers the stable supported workflows and safe effect boundaries, validated with representative natural-language requests. The owner launch requirement is retained without beginning authoring before stability. Target harnesses, skill distribution and evaluation scope remain to be selected.
 - Tasks: AGENT-580
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Resolution (AGENT-580, 2026-10-24): Three portable first-alpha skills cover installation, API-backed use and troubleshooting, with complete selective installation, runnable helpers and scoped operational references. Published-image manual workflows and helper invariants pass. [Installation](../README.md#agent-skills). [Validation](worklogs/2026-10-24-AGENT-580.md). Fresh-model/cross-model and live provider validation remain unclaimed.
 
@@ -1549,7 +1549,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Users can connect and run representative Postbot workflows from n8n with explicit permissions, outcomes and documentation. Determine whether documented HTTP workflows, a native node or another route is warranted; do not select a package or promise a native node at intake.
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Remaining scope (ALPHA-578, 2026-10-24): n8n integration remains a proposal; define the supported workflow before implementation.
 
@@ -1563,7 +1563,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Define the mobile audience, high-value workflows, platforms and access boundaries before choosing delivery technology. Keep mobile visibly future-facing until implemented and validated; this issue does not authorize building an app.
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Remaining scope (ALPHA-578, 2026-10-24): Mobile client remains an exploration proposal, not an alpha release prerequisite.
 
@@ -1577,7 +1577,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Provide a concise Docker/Compose default, then independently scoped, exercised operator guides for justified additional environments. Helm is a possibility, not a selected architecture or launch requirement. Documentation points to public versioned AMD64/ARM64 artifacts only after acceptance and publication. Preserve the single-service/local-storage baseline; optional S3 and orchestrators must not become prerequisites. Public release remains separately authorized.
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Related work: RELEASE-303 remains the active image-release task. Do not duplicate it or treat this issue as authorization to publish.
 
@@ -1593,9 +1593,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Prioritize additional locales with translation ownership, fallback and formatting checks, and evidence of their delivered-page/bundle cost. Distinguish interface locale from publication content language and public-site localization. Do not reopen the already completed foundation or promise a language count.
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
-- Additional owner direction, 2026-10-16: evaluate two further locales after product expansion, with delivered-bundle and interaction measurements. The pair is not selected. PRODUCT-477 found generated static EN/FR imports and an emoji-data locale list that must be included in the scope. See [expansion plan](../docs/project/product-expansion.md).
+- Additional owner direction, 2026-10-16: evaluate two further locales after product expansion, with delivered-bundle and interaction measurements. The pair is not selected. PRODUCT-477 found generated static EN/FR imports and an emoji-data locale list that must be included in the scope. See [expansion plan](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 
 - Remaining scope (ALPHA-578, 2026-10-24): Additional interface locales remain proposed; English/French are implemented.
 
@@ -1609,8 +1609,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Maintain a workflow-oriented coverage map for human and programmatic clients; identify actual gaps, intentionally unsupported operations and planned surfaces. Separate a direct client (Studio/mobile), an access protocol/interface (API/CLI/MCP), orchestration (n8n) and agent guidance (skills). Preserve shared permissions, project ownership, revisions and effect boundaries; do not require every client to implement every screen.
 - Tasks: none — recorded for triage; no implementation authorized by intake
 - Source: owner direction, 2026-10-15; public-site planning captured in
-  [public positioning](../docs/project/public-positioning.md).
-- Related evidence: [client coverage](../docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
+  [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
+- Related evidence: [client coverage](archive/root-documentation-2026-10-25/source/docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
 
 - Remaining scope (ALPHA-578, 2026-10-24): Decide intentional capability coverage among Studio, API, CLI and planned MCP; backend availability alone is not client completion.
 
@@ -1632,7 +1632,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: open
 - Evidence: No Telegram publishing adapter or built-in channel was found; the owner requests broader network coverage.
 - Desired outcome: A verified bot/account connection and bounded text/media publication flow, preserving project ownership, content validation, durable effects and stored remote identity. Polls and further native formats are separately scoped.
-- Plan: [product expansion](../docs/project/product-expansion.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 - Tasks: PRODUCT-477; TELEGRAM-498 (official capability review and implementation proposal).
 - Proposal: [SPEC-008](specs/SPEC-008-telegram-publishing.md); owner selected text plus one media on 2026-10-17, albums deferred.
 - Implementation: TELEGRAM-499 adds the isolated provider protocol; TELEGRAM-500 adds the encrypted connection API and versioned profile; TELEGRAM-501 registers execution with pinned media and durable delivery handling. TELEGRAM-502 adds Studio creation, connection and conditional native editor limits. TELEGRAM-503 verifies photo/video storage-to-worker delivery and fixes MIME preservation under Bun. Live acceptance remains pending.
@@ -1646,9 +1646,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: open
 - Evidence: The owner requests mainstream networks beyond the existing six. No first-party Meta publishing adapters were found. Official documentation access in PRODUCT-477 was rate-limited.
 - Desired outcome: Verify supported account types, permissions, app review/development access and initial publication formats before implementation. Record unknowns instead of promising personal-profile support or universal content formats.
-- Plan: [product expansion](../docs/project/product-expansion.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review), FACEBOOK-506 (isolated Pages discovery and text/link/photo protocol), FACEBOOK-507 (isolated content profile and granted-permission Page selection), FACEBOOK-508 (confidential OAuth adapter), FACEBOOK-509 (authenticated callback and connection persistence), FACEBOOK-510 (encrypted application settings and gated Studio Page picker), FACEBOOK-511 (native capability and worker completion). FACEBOOK-511 registers the native profile, validation, Studio creation and production worker after owner acceptance of an explicitly unknown text maximum. Synthetic creation-to-connection and worker tests pass. FACEBOOK-512 verified live OAuth, explicit Page selection and text/single-PNG publishing on an owner-authorized test Page. INSTAGRAM-535 adds the isolated single-image protocol/profile after the owner selected direct Instagram Login in ADR-088; INSTAGRAM-536 adds distinct encrypted application settings, direct-login OAuth and project account connection with targeted synthetic security, storage and HTTP verification. INSTAGRAM-537 integrates durable single-JPEG delivery, bounded container processing, safe token refresh and Studio creation/connection. Canonical synthetic worker, HTTP and browser checks pass; Instagram live account access, signed-media fetching and App Review remain unverified (INSTAGRAM-538).
-- Research: [Meta integration discovery](../docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
+- Research: [Meta integration discovery](archive/root-documentation-2026-10-25/source/docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
 - Remaining scope (ALPHA-578, 2026-10-24): Facebook live validation is delivered. Instagram synthetic integration is delivered; INSTAGRAM-538 remains blocked on operator access, with live media fetching/App Review unverified.
@@ -1659,8 +1659,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: open
 - Evidence: Custom creation and profile editing expose JSON text fields. Impact/adoption views also show raw serialized values. Current schema, field bindings, media/text capabilities and profile revision lifecycle already exist.
 - Desired outcome: A usable form for content capabilities, a separate execution setup and field-level impact/validation. Preserve richer existing profiles without silent data loss. Agree unsupported-rule behavior and reuse the existing runtime contract before replacing UI.
-- Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Bounded mapped HTTP controls now cover method/static paths, response classification/extraction, simple JSON properties and fixed query parameters; CHANNEL-497 records authenticated draft persistence, impact and activation without external dispatch. Advanced expression/transport authoring, arbitrary field removal and full adoption cleanup remain pending. See the [current builder reference](../docs/project/channel-builder.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Bounded mapped HTTP controls now cover method/static paths, response classification/extraction, simple JSON properties and fixed query parameters; CHANNEL-497 records authenticated draft persistence, impact and activation without external dispatch. Advanced expression/transport authoring, arbitrary field removal and full adoption cleanup remain pending. See the [current builder reference](archive/root-documentation-2026-10-25/source/docs/project/channel-builder.md).
 - Source: owner product direction, 2026-10-16.
 
 - Remaining scope (ALPHA-578, 2026-10-24): Advanced request expression/transport authoring, arbitrary field removal and full adoption cleanup remain. Bounded lossless controls and CHANNEL-497 persistence/impact/activation are delivered.
@@ -1671,11 +1671,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: Bluesky and DEV.to collectors expose bounded observations. Reply/comment counts do not provide a conversation UI or reply execution path. The owner asks for richer information and comments.
 - Desired outcome: An explicit provider capability/read-access matrix and scoped stored-data workflows for useful metadata, metrics and comments. Treat reading, replying and moderation as distinct permissions and external effects; preserve metric meanings and freshness.
-- Plan: [product expansion](../docs/project/product-expansion.md). PRODUCT-540 records [current provider coverage](../docs/project/provider-capabilities.md), including code versus live evidence and the next account-free format recommendation.
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md). PRODUCT-540 records [current provider coverage](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md), including code versus live evidence and the next account-free format recommendation.
 - Tasks: PRODUCT-477 and ENGAGEMENT-525 (discovery); BLUESKY-526 (public thread reader); ENGAGEMENT-530 (stored latest Bluesky comment snapshot, editor refresh and read-only Studio panel). ENGAGEMENT-531 extends the same public stored-view workflow to Mastodon. ENGAGEMENT-532 adds public text replies on Bluesky with conversation-owned history and durable send outcomes. ENGAGEMENT-534 extends these replies to Mastodon with original-instance and account checks. ANALYTICS-539 adds anonymous public Mastodon counters, stored manual snapshots and Performance presentation. Further providers and moderation remain outside the delivered slice.
 - Source: owner product direction, 2026-10-16.
 
-- Closure (ALPHA-578, 2026-10-24): The provider capability matrix and stored read/metric/comment workflows are implemented. Bluesky/Mastodon comment reads and durable replies are delivered under ENGAGEMENT-530/531/532/534, with Mastodon metrics under ANALYTICS-539. Other providers and moderation were outside the accepted slice; future expansion needs its own concrete scope. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+- Closure (ALPHA-578, 2026-10-24): The provider capability matrix and stored read/metric/comment workflows are implemented. Bluesky/Mastodon comment reads and durable replies are delivered under ENGAGEMENT-530/531/532/534, with Mastodon metrics under ANALYTICS-539. Other providers and moderation were outside the accepted slice; future expansion needs its own concrete scope. [Evidence](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-169] Support provider-native publication formats and public text entities
 
@@ -1683,11 +1683,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: Existing profiles expose provider-specific fields. MASTODON-533 adds native polls with typed destination controls, preview and instance-limit validation. The owner also requests questions and hashtag integration; broader provider formats remain open.
 - Desired outcome: Discover feasible formats per provider and expose typed editor controls, validation, preview and execution. Distinguish plain questions from native polls and provider hashtags from internal tags; do not force identical support across networks.
-- Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery); MASTODON-533 (owner-authorized native Mastodon polls); TELEGRAM-541 (ordinary anonymous Telegram polls, typed authoring and durable delivery, synthetic acceptance). [Current provider coverage](../docs/project/provider-capabilities.md). Other formats remain proposed.
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
+- Tasks: PRODUCT-477 (discovery); MASTODON-533 (owner-authorized native Mastodon polls); TELEGRAM-541 (ordinary anonymous Telegram polls, typed authoring and durable delivery, synthetic acceptance). [Current provider coverage](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md). Other formats remain proposed.
 - Source: owner product direction, 2026-10-16.
 
-- Closure (ALPHA-578, 2026-10-24): The selected native-format deliveries are complete: Mastodon polls, Telegram anonymous polls and ordered photo/video albums have typed authoring, validation and durable execution. Current supported coverage is explicit per provider. No promise of every upstream format or identical provider support remains in this issue. Live Telegram acceptance stays under ISSUE-165. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+- Closure (ALPHA-578, 2026-10-24): The selected native-format deliveries are complete: Mastodon polls, Telegram anonymous polls and ordered photo/video albums have typed authoring, validation and durable execution. Current supported coverage is explicit per provider. No promise of every upstream format or identical provider support remains in this issue. Live Telegram acceptance stays under ISSUE-165. [Evidence](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-170] Preserve user-defined organization through free publication tags
 
@@ -1695,11 +1695,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: ADR-062 and ISSUE-053 already deliver publication tags and filtering. The owner suggests campaign-related internal tags; no separate campaign lifecycle is established.
 - Desired outcome: Validate concrete campaign organization/reporting needs against existing tags first. The owner clarified that a campaign is an example of tag meaning, not a requested entity. Preserve free tags; any future campaign proposal needs separate evidence and approval.
-- Plan: [product expansion](../docs/project/product-expansion.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 - Tasks: PRODUCT-477 (discovery); implementation scope remains proposed.
 - Source: owner product direction, 2026-10-16.
 
-- Closure (ALPHA-578, 2026-10-24): Existing free project tags and filters satisfy the clarified organization scope; current-tag performance filtering is delivered under ANALYTICS-547. The owner explicitly did not request a campaign entity. No separate campaign lifecycle or undefined implementation remains to track here. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+- Closure (ALPHA-578, 2026-10-24): Existing free project tags and filters satisfy the clarified organization scope; current-tag performance filtering is delivered under ANALYTICS-547. The owner explicitly did not request a campaign entity. No separate campaign lifecycle or undefined implementation remains to track here. [Evidence](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-171] Evaluate scheduled comments beneath owned publications
 
@@ -1707,11 +1707,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: The owner distinguishes a prepared first comment from replying to an incoming comment. Postiz documents delayed first-comment publishing.
 - Desired outcome: Verify support and constraints per provider. Design a dependent delivery after confirmed parent publication, with remote parent identity, explicit timing, independent failure state, retry safety and duplicate prevention. A failed parent cannot trigger its comment. Do not imply an inbox or AI author is required.
-- Plan: [product expansion](../docs/project/product-expansion.md).
-- Tasks: PRODUCT-478 (discovery); ENGAGEMENT-542 scoped the first slice. The owner selected Bluesky, overdue catch-up after revalidation and suspension on enabling-editor access loss. ENGAGEMENT-543/544 implement that [first-comment workflow](../docs/project/first-comments.md) for Bluesky and Mastodon; other providers remain open. Local injected/browser acceptance does not claim live delivery.
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
+- Tasks: PRODUCT-478 (discovery); ENGAGEMENT-542 scoped the first slice. The owner selected Bluesky, overdue catch-up after revalidation and suspension on enabling-editor access loss. ENGAGEMENT-543/544 implement that [first-comment workflow](archive/root-documentation-2026-10-25/source/docs/project/first-comments.md) for Bluesky and Mastodon; other providers remain open. Local injected/browser acceptance does not claim live delivery.
 - Source: owner clarification, 2026-10-16.
 
-- Closure (ALPHA-578, 2026-10-24): ENGAGEMENT-543/544 deliver the accepted Bluesky/Mastodon dependent first-comment contract with confirmed-parent timing and independent durable outcomes. ENGAGEMENT-545 additionally records real Mastodon parent/comment acceptance. Other providers were not accepted deliverables of this slice. [Evidence](../docs/project/first-comments.md). Historical test claims were reviewed, not rerun by this ledger correction.
+- Closure (ALPHA-578, 2026-10-24): ENGAGEMENT-543/544 deliver the accepted Bluesky/Mastodon dependent first-comment contract with confirmed-parent timing and independent durable outcomes. ENGAGEMENT-545 additionally records real Mastodon parent/comment acceptance. Other providers were not accepted deliverables of this slice. [Evidence](archive/root-documentation-2026-10-25/source/docs/project/first-comments.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-172] Define shared-post and tag-based performance reports
 
@@ -1719,11 +1719,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: Current collectors cover bounded Bluesky and DEV.to observations. The owner requests destination, shared-post and tag views.
 - Desired outcome: Compare documented competitor metrics with stored Postbot observations. Define aggregation, compatible metrics, coverage and freshness; avoid double-counting fan-out or overlapping tags. Resolve current versus historical tag attribution before implementing reports. Keep account metrics separate from post metrics.
-- Plan: [product expansion](../docs/project/product-expansion.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 and ANALYTICS-524 (scope); ANALYTICS-527/528 deliver bounded latest observations and source-post grouping. ANALYTICS-539 adds Mastodon favourites, boosts and replies to the same destination/source view without combined totals. Owner selected current-tag attribution; ANALYTICS-547 adds the corresponding Performance filter without summed metrics or historical claims. Historical attribution and aggregation remain separate decisions.
 - Source: owner clarification, 2026-10-16.
 
-- Closure (ALPHA-578, 2026-10-24): ANALYTICS-527/528 deliver bounded latest observations and source grouping; ANALYTICS-547 implements the owner-selected current-tag attribution and ANALYTICS-550 exports the filtered stored report. Metrics retain provider meaning and freshness without cross-provider totals. Historical attribution and aggregation are separate future decisions, not incomplete accepted work. [Evidence](../docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
+- Closure (ALPHA-578, 2026-10-24): ANALYTICS-527/528 deliver bounded latest observations and source grouping; ANALYTICS-547 implements the owner-selected current-tag attribution and ANALYTICS-550 exports the filtered stored report. Metrics retain provider meaning and freshness without cross-provider totals. Historical attribution and aggregation are separate future decisions, not incomplete accepted work. [Evidence](archive/root-documentation-2026-10-25/source/docs/project/provider-capabilities.md). Historical test claims were reviewed, not rerun by this ledger correction.
 
 ## [ISSUE-173] Make the free-tag lifecycle discoverable in Studio
 
@@ -1731,7 +1731,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Status: resolved
 - Evidence: New publication, editing and Queue hide the picker when tags are absent. The shared picker only selects. Static searches found no Studio tag creation form or API wrapper for creation.
 - Desired outcome: Provide a first-tag path and project-scoped creation, rename and archive/restore using existing domain permissions. Retain user-defined meaning without adding a campaign entity. Verify actual empty and populated UI states.
-- Plan: [product expansion](../docs/project/product-expansion.md).
+- Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 - Tasks: PRODUCT-478 (discovery and scope); TAGS-522 (owner-authorized Studio lifecycle implementation, 2026-10-20).
 - Resolution: TAGS-522 adds project tag management and first-tag creation directly in publication authoring. Existing API permissions, stable identifiers and archived assignments are preserved; four focused browser scenarios verify the lifecycle, error recovery, read-only access and project isolation.
 - Source: owner clarification, 2026-10-16.

@@ -1,0 +1,48 @@
+---
+title: Channel profiles
+description: Define destination requirements and review changes without rewriting existing publications.
+---
+
+A channel describes what a destination accepts. Its publisher connection is a
+separate responsibility: a valid content profile does not establish connection
+readiness or delivery success. Manual channels need no publisher.
+
+## Edit represented requirements
+
+Use Channels to create or edit a destination. Built-in providers own their native
+constraints. Custom content forms expose supported text, title and attachment
+controls, with a local composer preview. The preview sends nothing and does not
+change existing publication content.
+
+Read required/optional states, units and limit explanations before saving. An
+absent title is different from an empty required title. A count shown without a
+known maximum is not a promise of unlimited provider content.
+
+A form represents part of a profile; it is not an arbitrary schema editor.
+Preserved/read-only controls and validation explain requirements the current
+form cannot safely change. Do not assume a successful save converted or removed
+unrepresented rules. Server validation remains authoritative.
+
+## Review, assess and activate
+
+For an existing channel, save a draft and review the changes against the active
+profile. Run the impact assessment before activation. Editing the proposal can
+invalidate an earlier assessment; reread affected publications and current
+validation results. Activation does not silently rewrite immutable execution
+targets. Adopting a changed profile in a publication remains an explicit action.
+
+A failed refresh after a successful activation does not prove activation failed.
+Inspect the current active version before submitting another change.
+
+## Custom HTTP destinations
+
+Content rules, request mapping and connection authentication are distinct.
+Structured request controls appear for supported mapped contracts. Preserve
+locked dynamic/secret fields and examine the active/proposed comparison; the
+presence of a form does not mean every expression is represented.
+
+Connection credentials belong to the connection, not to profile JSON. Enter them
+through the connection UI and keep them out of logs/examples. A local preview or
+schema validation makes no test request and does not prove that an external
+endpoint accepts the mapping. An actual delivery has external effects and needs
+the same intentional scheduling and outcome review as another automatic channel.

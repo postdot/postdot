@@ -1,6 +1,6 @@
 {
     "title": "Codebase",
     "defaultOpen": true,
-    "pages": ["architecture", "packages"],
+    "pages": ["architecture", "packages", "contributing"],
     "icon": "code"
 }

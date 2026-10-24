@@ -14,20 +14,20 @@ workspace. Use Studio in your browser, or work through the CLI and HTTP API.
   custom HTTP endpoints.
 - Organize work across projects with roles, a media library, a calendar and a queue.
 - Read collected performance metrics and export them as CSV. Provider coverage
-  varies; see the [capability matrix](docs/capability-evidence.md).
+  varies; see [provider capabilities](https://postdot.app/docs/providers/provider-capabilities/).
 
 Postdot runs its API, dashboard, scheduler and publication worker in one service,
 with SQLite and local media storage. S3-compatible media storage is optional.
 
 **Alpha software, under active development.** The first container release, `0.1.0-alpha.1`, is available for Linux AMD64 and ARM64.
 No upgrade from a previous release has been validated. The project is being renamed from Postbot. Environment variables, stored protocol
-identifiers and the screenshot retain that name during the [transition](docs/project/identity-transition.md).
+identifiers and the screenshot retain that name for [existing installation compatibility](https://postdot.app/docs/installation/#existing-installation-names).
 
 ## Run it yourself
 
-Start with the [Docker Compose installation guide](docs/deployment/self-hosting.md).
+Start with the [Docker Compose installation guide](https://postdot.app/docs/installation/).
 It covers the versioned container image, optional source builds, generating secrets, creating the first account and
-protecting your data. Check the [provider requirements](docs/deployment/provider-requirements.md)
+protecting your data. Check the [provider requirements](https://postdot.app/docs/provider-configuration/)
 before connecting an account.
 
 ## Agent skills
@@ -68,17 +68,17 @@ Open Studio at <http://localhost:5173> and create the first account to claim the
 instance. The API listens on port 3000 and exposes its interactive reference at
 <http://localhost:3000/openapi>.
 
-See the [development reference](docs/development.md) for alternate ports, email,
+See the [development reference](https://postdot.app/docs/contributing/) for alternate ports, email,
 CLI usage and validation commands.
 
 ## Documentation
 
-- [Installation and operation](docs/deployment/self-hosting.md)
-- [CLI publication workflows](docs/cli-publications.md)
+- [Installation and operation](https://postdot.app/docs/installation/)
+- [CLI publication workflows](https://postdot.app/docs/cli-reference/)
 - [Security policy](SECURITY.md)
-- [User API keys](docs/security/user-api-keys.md)
-- [Backup and restoration](docs/deployment/backup-and-restoration-boundary.md)
-- [Runtime and release status](docs/deployment/runtime-and-distribution.md)
+- [User API keys](https://postdot.app/docs/reference/authentication/)
+- [Backup and restoration](https://postdot.app/docs/operations/)
+- [Releases](https://postdot.app/docs/releases/)
 
 ## License
 

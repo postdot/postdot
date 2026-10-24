@@ -5,9 +5,13 @@ by Cloudflare Workers static assets). It has no Worker script, production Node
 server, authentication, or access to the application database. Search uses the
 prerendered Fumadocs index. Motion is optional presentation and respects reduced motion.
 
-`content/docs/(self-hosting)/(deployment)/installation.mdx` is generated from the canonical
-`docs/deployment/self-hosting.md`; edit that guide instead. Run `sync:content`
-before developing, typechecking, or building.
+`content/docs/` is the canonical authored documentation source, including
+`(self-hosting)/(deployment)/installation.mdx`. Do not maintain a parallel root
+Markdown guide or overwrite authored installation content during synchronization.
+`sync:content` generates only API/reference and supporting build assets. Run it
+before developing, typechecking, or building. Proposals and dated execution
+evidence belong to Autonomos; verify them against current code before writing
+public instructions.
 
 The landing page is a design candidate, not an accepted replacement for the
 application design system. Do not invent release claims.

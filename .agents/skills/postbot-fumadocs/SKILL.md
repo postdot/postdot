@@ -38,7 +38,7 @@ custom; confirm availability and registration before using its MDX name.
 
 ## Preserve generated-content boundaries
 
-Installation MDX is projected from canonical operational Markdown. API operation
+Installation MDX is canonical authored content in apps/docs. API operation
 pages, schema fragments and downloads come from the isolated route exporter.
 Edit their source, not the generated files. Keep the docs statically exportable,
 with no live API/database dependency. The public API playground remains disabled.

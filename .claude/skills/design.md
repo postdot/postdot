@@ -29,7 +29,7 @@ description: 'Design or critique a user-facing surface with project-specific dir
    meaning. Run applicable deterministic/accessibility checks and at least one
    revision. Use subject-swap, necessity, distinction, and continuity tests as
    diagnosis, not bans.
-6. **Persist.** Put stable rules/examples in `DESIGN.md` or `docs/design/`,
+6. **Persist.** Put stable rules/examples in `DESIGN.md` or `.autonomos/archive/root-documentation-2026-10-25/source/docs/design`,
    operational rules in the narrowest `AGENT.md`, and evidence/rejections in
    the task worklog. For extraction, copy/link by default, preserve history,
    show the source → destination map and conflicts, wait for approval, then

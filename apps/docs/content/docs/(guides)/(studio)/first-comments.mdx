@@ -1,0 +1,37 @@
+---
+title: First comments
+description: Prepare a delayed comment on a supported automatic publication.
+---
+
+Native automatic Bluesky and Mastodon publications can have a separately prepared
+first comment. It has its own delivery outcome; it is not part of the parent
+post's success. Other destinations do not inherit this capability.
+
+## Prepare and enable
+
+Open a draft or scheduled supported publication and expand **First comment**.
+Enter the comment text, choose **Send after**, then select **Save and enable**.
+Enabling authorizes an external effect after the eligible parent is confirmed
+published. A zero delay means eligible after confirmation, not before it.
+
+A connected publishing account is needed for delivery. A prepared comment is not
+proof of a working connection. The delay is relative to confirmed publication;
+if it passes while Postdot is offline, eligible work can run after recovery.
+Do not enable a real comment solely to test an installation.
+
+## Check the outcome
+
+Inspect the comment state separately from the parent. A comment failure does not
+change the confirmed parent into a failed publication. If the parent/content has
+changed, follow the review shown by Studio rather than assuming the enabled text
+still matches the current target.
+
+Use **Cancel comment** when eligible to stop pending comment work. Once a provider
+may have accepted a send, treat uncertainty as possible delivery and inspect the
+remote result before retry/reconciliation. Do not create a second copy to clear
+an ambiguous state.
+
+Provider limits and parent/account identity checks remain server-owned. The
+comment feature is not a moderation inbox or a general reply scheduler. API-key
+writes require dispatch capability in addition to project edit access; ordinary
+read access does not authorize enabling a comment.

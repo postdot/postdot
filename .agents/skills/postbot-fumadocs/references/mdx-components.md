@@ -52,8 +52,8 @@ The first-publication lesson uses Steps/Step with explicit heading IDs. Let the
 component number the sequence instead of repeating numbers in visible headings.
 Keep subheadings inside their step and leave further-reading links outside Steps.
 
-For canonical Markdown projected into MDX, `remarkSteps` is enabled in
-source.config.ts: numbered headings create native steps without adding JSX to
-the source. An unnumbered peer heading ends the sequence. Do not number unrelated
-reference headings merely for decoration; numbering now carries presentation
-semantics. See DOCUMENTATION.md for the installation projection.
+`remarkSteps` is enabled in source.config.ts: numbered headings in authored MDX
+create native steps without adding JSX. An unnumbered peer heading ends the
+sequence. Do not number unrelated reference headings merely for decoration;
+numbering carries presentation semantics. Installation is authored directly in
+the documentation app; see DOCUMENTATION.md for source ownership.

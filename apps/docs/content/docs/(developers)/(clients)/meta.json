@@ -1,6 +1,6 @@
 {
     "title": "Clients & integrations",
     "defaultOpen": true,
-    "pages": ["automation"],
+    "pages": ["automation", "cli-reference"],
     "icon": "code"
 }

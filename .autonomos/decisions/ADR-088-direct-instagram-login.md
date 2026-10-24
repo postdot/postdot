@@ -19,4 +19,4 @@ Direct login avoids imposing Facebook Page linkage on Instagram users and fits a
 
 Use the direct-login Graph host and endpoint permission family. Verify app-registration compatibility and actual access in a later explicitly authorized setup task. No App Review approval, account eligibility, live token validity or public media reachability has been proven. Preserve exact callback/state validation and the existing encrypted project credential boundary when implementing OAuth; this decision does not authorize weakening those controls.
 
-Sources: [Meta publishing guide](https://developers.facebook.com/documentation/instagram-platform/content-publishing), [initial comparison](../../docs/project/meta-integration-discovery.md).
+Sources: [Meta publishing guide](https://developers.facebook.com/documentation/instagram-platform/content-publishing), [initial comparison](../archive/root-documentation-2026-10-25/source/docs/project/meta-integration-discovery.md).

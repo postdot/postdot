@@ -40,7 +40,7 @@ content generator.
   use the actual semantic impact to choose checks and record the scope honestly.
   Run full validation for a meaningful integration milestone or demonstrated
   cross-cutting risk, not mechanically for every change. Never weaken assertions.
-- **Evidence records are documentation:** `.autonomos/**`, `docs/**`, and Markdown
+- **Evidence records are documentation:** `.autonomos/**`, authored Markdown/MDX, and evidence records
   are observed by no scenario, so a worklog or task-board change does not by itself
   require the matrix. A code path in the same change set decides on its own terms,
   and unknown or transversal code still falls back to the full matrix. This is a
@@ -57,7 +57,7 @@ content generator.
   translation catalogs and generated localization output; run the CSpell
   repository spelling gate when adding text.
 - **Protocol:** Follow `.autonomos/PROTOCOL.md` and the installed harness workflows. Keep task state in `.autonomos/TASKS.md` and session evidence in `.autonomos/worklogs/`.
-- **Public documentation:** Use `.agents/skills/postbot-writing/SKILL.md` for authored reader-facing documentation. Use `.agents/skills/postbot-fumadocs/SKILL.md` when changing its MDX presentation, navigation or generation. These project skills coordinate the installed writing skills; routine worklogs and generated endpoint files are not prose-rewrite targets.
+- **Public documentation:** Use `.agents/skills/postbot-writing/SKILL.md` for authored reader-facing documentation. Use `.agents/skills/postbot-fumadocs/SKILL.md` when changing its MDX presentation, navigation or generation. These project skills coordinate the installed writing skills; routine worklogs and generated endpoint files are not prose-rewrite targets. Public documentation is authored only under `apps/docs/content/docs/`; do not recreate a root `docs/` tree in parallel. Keep development state in Autonomos and distribution notices in root `licenses/`. Treat archived material as dated evidence, not current authority.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
 - **IDE workspace:** Update `postdot.code-workspace` in the same change whenever an app or package under `apps/*` or `packages/*` is added, removed, or renamed.

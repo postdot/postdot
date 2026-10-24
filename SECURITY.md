@@ -52,5 +52,5 @@ do not test it with automated requests.
 ## Running an instance
 
 Operators are responsible for their own secrets, updates and backups. The
-[self-hosting guide](docs/deployment/self-hosting.md) describes the supported setup
+[self-hosting guide](<apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx>) describes the supported setup
 and the backup and restoration boundary.

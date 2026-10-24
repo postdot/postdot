@@ -1,6 +1,6 @@
 {
     "title": "Operations",
     "defaultOpen": true,
-    "pages": ["operations"],
+    "pages": ["operations", "metrics"],
     "icon": "server"
 }

@@ -45,7 +45,6 @@ apps/docs/.tanstack/
 apps/docs/.wrangler/
 apps/docs/public/og/
 apps/docs/build.log
-apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx
 
 # Reproducible OpenAPI documentation artifacts
 apps/docs/.openapi/

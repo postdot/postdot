@@ -65,7 +65,7 @@ archival does not infer completion dates or create new current instructions.
 
 <a id="ops-207"></a>
 
-- [x] **[OPS-207]** Implement the owner-approved self-hosted metrics surface `Priority: 🟠` `Complexity: M` — [ISSUE-122]; use the approved Prometheus JavaScript client direction for a bounded scrape endpoint and operational process/worker metrics. Do not add a hosted service. Leave scrape cadence, retention, dashboards, and alert thresholds to the deployment operator; verify endpoint exposure and tests before enabling it. Evidence: `GET /metrics` is covered by unauthenticated route and OpenAPI tests; fixed-cardinality process/scheduler/worker metrics are covered by API unit tests; deployment network restriction is documented in `docs/deployment/metrics.md`.
+- [x] **[OPS-207]** Implement the owner-approved self-hosted metrics surface `Priority: 🟠` `Complexity: M` — [ISSUE-122]; use the approved Prometheus JavaScript client direction for a bounded scrape endpoint and operational process/worker metrics. Do not add a hosted service. Leave scrape cadence, retention, dashboards, and alert thresholds to the deployment operator; verify endpoint exposure and tests before enabling it. Evidence: `GET /metrics` is covered by unauthenticated route and OpenAPI tests; fixed-cardinality process/scheduler/worker metrics are covered by API unit tests; deployment network restriction is documented in `.autonomos/archive/root-documentation-2026-10-25/source/docs/deployment/metrics.md`.
 
 <a id="ops-208"></a>
 

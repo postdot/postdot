@@ -20,14 +20,31 @@ that makes its own requests.
     </Card>
 </Cards>
 
-A dedicated MCP server, packaged agent skills, a supported n8n integration and a
-mobile client are planned. They are not available yet. An agent that can run shell
-commands can already use the CLI walkthrough.
+The [agent skills](https://github.com/postdot/postdot#agent-skills) support the
+first alpha. A dedicated MCP server, supported n8n integration and mobile client
+remain planned. An agent can use HTTP directly or the source CLI walkthrough.
+
+## Choose an access surface
+
+| Surface      | Supported role                                                                          |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Studio       | Direct authoring, review, provider connection and administration within the user's role |
+| HTTP API     | Programmatic operations subject to server roles, project scope and action limits        |
+| Source CLI   | Selected project/channel discovery, media and publication lifecycle operations          |
+| Agent skills | Guidance and helpers for the supported HTTP and deployment workflows                    |
+
+These surfaces do not promise command-for-command parity. The CLI is a source
+script, not a separately published package. Built-in publisher OAuth, human
+approval and installation administration require a session; an API key cannot
+replace it. Provider analytics and full access administration are not covered by
+the source CLI's publication commands. See [authentication](/docs/reference/authentication/)
+and the [CLI reference](/docs/cli-reference/) for the actual boundaries.
 
 ## Work on Postdot
 
 Start with [architecture](/docs/architecture/) for the server and client boundaries.
-Use [apps and packages](/docs/packages/) to locate the code responsible for a feature.
+Use [contributing](/docs/contributing/) to run the project locally and
+[apps and packages](/docs/packages/) to locate the code responsible for a feature.
 The typed HTTP client lives in `packages/client`; the CLI entry point is
 `scripts/postbot.ts`.
 

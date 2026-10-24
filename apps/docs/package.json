@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "bun run sync:content && vite dev --port 5174",
         "build": "bun scripts/build.ts",
-        "sync:content": "bun scripts/sync-content.ts && bun run sync:openapi && bun scripts/generate-og-material.ts",
+        "sync:content": "bun run sync:openapi && bun scripts/generate-og-material.ts",
         "lint": "oxlint --deny-warnings .",
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",

@@ -64,7 +64,7 @@ standard to our own claims, without turning the hero into a technical disclaimer
 - `apps/docs/content/docs/providers.mdx` is broad and defers setup detail to source
   docs. It incorrectly denied ordinary local Bluesky OAuth despite the implemented
   loopback mode. Corrected that factual inconsistency during this pass against
-  `docs/deployment/provider-requirements.md`.
+  `.autonomos/archive/root-documentation-2026-10-25/source/docs/deployment/provider-requirements.md`.
 - The studio has source/destination editing, queue, calendar, media and project
   access. These should form a coherent product tour, rather than marketing only
   the installation and CLI. This review did not audit all interaction details or

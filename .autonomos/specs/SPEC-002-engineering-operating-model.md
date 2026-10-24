@@ -210,7 +210,7 @@ evidence and checks are reproducible.
 ## Git and review requirements
 
 - Branch from green `main` with an intent name such as `feat/...`, `fix/...`,
-  `docs/...`, or `chore/...`.
+  `.autonomos/archive/root-documentation-2026-10-25/source/docs/...`, or `chore/...`.
 - Use one logical change per pull request and link the Autonomos task and relevant
   issue, specification, or decision.
 - Use Conventional Commits with an imperative subject and a short body only when the

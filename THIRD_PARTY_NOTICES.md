@@ -13,9 +13,9 @@ This inventory is a preparation record, not a certificate of distribution compli
 | Adapted shadcn/ui toast code            | MIT                                            | `packages/ui/LICENSE.shadcn.md`                                                       |
 | Bluesky preview symbols                 | MIT                                            | `apps/web/src/assets/platform-preview-icons/LICENSE.bluesky.txt`                      |
 | Material preview symbols                | Apache-2.0                                     | `apps/web/src/assets/platform-preview-icons/LICENSE.material.txt`                     |
-| MP4Box.js                               | BSD-3-Clause                                   | `docs/licenses/MP4Box.LICENSE`; copied into the runtime image                         |
+| MP4Box.js                               | BSD-3-Clause                                   | `licenses/MP4Box.LICENSE`; copied into the runtime image                         |
 | FFmpeg poster executable                | LGPL-2.1-or-later in the current minimal build | Runtime `/app/licenses/FFmpeg.LICENSE`; source checksum and build flags in Dockerfile |
-| Recursive variable font                 | OFL-1.1                                        | `docs/licenses/Recursive.LICENSE`; copied into the runtime image                      |
+| Recursive variable font                 | OFL-1.1                                        | `licenses/Recursive.LICENSE`; copied into the runtime image                      |
 | DiceBear Lorelei and Shapes definitions | CC0-1.0                                        | License/creator/source metadata inside the installed JSON definitions                 |
 
 DiceBear's aggregate styles package includes other licenses. Postdot imports only
@@ -24,7 +24,7 @@ code and definition licenses must be considered separately.
 
 ## Packaged notice snapshot
 
-Full available notice texts are retained in [docs/licenses](docs/licenses/README.md)
+Full available notice texts are retained in [distribution notices](licenses/README.md)
 and copied into the runtime image. The conservative production dependency closure
 contains 357 installed package versions; 345 ship notice files. Nine additional
 versions have full texts recovered from version-linked upstream sources. Three
@@ -42,7 +42,7 @@ The 16 empty-state SVGs are selected exports from
 [Empty State Illustrations](https://www.figma.com/community/file/1348310526654272437/empty-state-illustrations)
 by [ravi kumar](https://www.figma.com/@ravirafa), licensed under CC BY 4.0.
 Attribution and integration details are retained in
-[docs/licenses/Empty-state-illustrations.md](docs/licenses/Empty-state-illustrations.md),
+[illustration attribution](licenses/Empty-state-illustrations.md),
 alongside the full license text, and copied into the runtime image.
 
 ## Direct production dependencies
