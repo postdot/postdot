@@ -42,15 +42,18 @@ workflow with the accepted tag, source SHA and actual release notes.
 
 ## Selected native candidate
 
-Source: `73398db3f765c8105265fd45712d8556f03a0947`.
-[Native acceptance](https://github.com/postdot/postdot/actions/runs/40107661826)
+Source: `99badfb431b95a817c645e716267815925c1f6cc`.
+[Native acceptance](https://github.com/postdot/postdot/actions/runs/40110422239)
 passed both platforms, including distribution-material verification and the
 complete production recovery scenario.
+[Source integration CI](https://github.com/postdot/postdot/actions/runs/40110416940)
+also passed, including static checks/build, production backup/restoration and all
+four browser-test shards.
 
 | Platform | Accepted local image ID |
 | --- | --- |
-| linux/amd64 | `sha256:a2c1b68e10097ff4aa9e93dadc01555058bb1a18311b0276bbc6e74655f32870` |
-| linux/arm64 | `sha256:01a121526caaf7bbf2b161e0bc165fa3d7b798a648c7db6c463baff3ddec2cf1` |
+| linux/amd64 | `sha256:b78ba4a1d9d325bc0d961aed22744eaadff25918ae47864e0c0340575f7d2ecb` |
+| linux/arm64 | `sha256:ff99bb702deff99f744adfa983dd710c1e62aabb18d31ef634c21f2443b5286b` |
 
 These are local candidate image identities from hosted runners, not registry
 manifest digests or downloadable images. Publication rebuilds the selected source
