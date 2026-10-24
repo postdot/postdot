@@ -1,7 +1,8 @@
 # First alpha candidate
 
-Status: preparation only. Version `0.1.0-alpha.1` is reserved by the accepted
-release policy; no versioned image has been published.
+Status: image `0.1.0-alpha.1` published on 2026-10-24; GHCR visibility is private.
+Anonymous installation is not available until the owner changes package visibility
+to public and anonymous manifest access is verified.
 
 ## Proposed release notes
 
@@ -59,3 +60,20 @@ four browser-test shards.
 These are local candidate image identities from hosted runners, not registry
 manifest digests or downloadable images. Publication rebuilds the selected source
 through the release workflow after its separate source CI and release review.
+
+## Registry publication
+
+[Publication workflow](https://github.com/postdot/postdot/actions/runs/40126611747)
+succeeded after fresh native acceptance on both architectures.
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.1`
+- Manifest digest: `sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`
+- Platforms: `linux/amd64`, `linux/arm64`, verified in the published manifest.
+- Visibility: private, as reported by GitHub after publication.
+- Anonymous access: not verified; the workflow correctly skipped it while private.
+- No `latest` tag was created.
+
+The organization owner must change the package visibility to public in
+[package settings](https://github.com/orgs/postdot/packages/container/postdot/settings),
+then verify anonymous manifest access before public image installation is advertised.
+Do not republish or replace the immutable version to change visibility.
