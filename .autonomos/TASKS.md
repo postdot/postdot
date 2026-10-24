@@ -23,6 +23,17 @@ in [ADR-057](decisions/ADR-057-propose-route-information-architecture.md),
 Responsive completion remains under UX-243/ISSUE-064; staged route, foundation
 and Queue review remains under ISSUE-063, ISSUE-065 and ISSUE-145.
 
+Access/recovery follows [ADR-061](decisions/ADR-061-human-account-and-instance-access-policy.md),
+[ADR-063](decisions/ADR-063-adopt-better-auth-access-plugins.md),
+[ADR-064](decisions/ADR-064-clean-development-access-baseline.md) and
+[ADR-066](decisions/ADR-066-smtp-auth-email-delivery.md); user-owned API keys
+inherit live access with explicit action ceilings. See the
+[API-key guide](../docs/security/user-api-keys.md) and current scoped API guidance.
+ISSUE-062/111/153 retain account-lifecycle, encryption-key and access-audit limits.
+The [channel builder reference](../docs/project/channel-builder.md) describes
+bounded lossless content/mapped-request editing and explicit profile activation;
+ISSUE-167/174/175 retain broader builder, provider-update and shutdown questions.
+
 Current evidence exceptions: WORK-07 has child execution proofs but ADR-009 still
 states an umbrella closure condition; reconcile that condition before changing its
 status. DESIGN-97 is checked while its own worklog remains in progress without
@@ -30,6 +41,8 @@ validation evidence; verify its acceptance before archiving. Recurring provider
 validation remains under ISSUE-021; historical successes authorize no new effects.
 
 ## 🚀 Active Sprint
+
+- [x] **[META-575]** Reconcile routes, access and channel-management delivery history `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182/183; archived 54 tasks, 11 resolved issues and 68 worklogs with contracts, open acceptance and references preserved. [Evidence](worklogs/2026-10-24-META-575.md).
 
 - [x] **[META-574]** Reconcile and archive initial foundations and first domain deliveries `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182/183; archived 118 tasks, 48 resolved issues and 122 worklogs; retained acceptance exceptions and current contracts. [Evidence](worklogs/2026-10-24-META-574.md).
 - [x] **[META-573]** Reconcile and archive completed calendar and Queue delivery history `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182/183; 38 tasks, 26 issues and 36 distinct worklogs archived with current contracts, staged acceptance and references preserved. [Evidence](worklogs/2026-10-24-META-573.md).
@@ -51,43 +64,6 @@ target in `SPEC-006`. Existing backlog tasks `DESIGN-97` and `DESIGN-98` are
 part of this sprint; they remain the implementation homes for the notification
 surface and operational copy-density work.
 
-- [x] **[WEB-117]** Consolidate independent UX/UI audit evidence and establish the sprint baseline `Priority: 🔴` `Complexity: M`
-- [x] **[WEB-118]** Decide the primary job, hierarchy, and first action of each authenticated route `Priority: 🔴` `Complexity: XL`
-- [x] **[WEB-119]** Define empty, loading, populated, partial, failed, and recovery contracts for the web workflows `Priority: 🟠` `Complexity: L`
-- [x] **[DESIGN-120]** Make Postbot's progressive-disclosure and shadcn/Base UI foundation explicit `Priority: 🟠` `Complexity: L`
-- [x] **[DESIGN-121]** Harden the authenticated shell, global/project navigation, and reduced-sidebar accessibility `Priority: 🔴` `Complexity: L`
-- [x] **[WEB-122]** Implement the accepted route information architecture and differentiated empty states `Priority: 🔴` `Complexity: XL`
-- [x] **[WEB-123]** Apply the verified responsive, keyboard, labeling, and localization corrections `Priority: 🟠` `Complexity: L`
-- [x] **[WEB-124]** Validate realistic data, loading transitions, notifications, and realtime feedback in the browser `Priority: 🟠` `Complexity: L`
-- [x] **[AUDIT-125]** Reconcile an independent UX/UI audit after the sprint implementation `Priority: 🟠` `Complexity: M`
-- [x] **[WEB-126]** Preserve the active project context while opening instance settings `Priority: 🟠` `Complexity: S`
-
-## 🧭 Notification scope follow-up
-
-- [x] **[NOTIFY-127]** Make the in-app notification inbox user-global with optional project context `Priority: 🔴` `Complexity: L`
-
-## 🔔 User-wide notification realtime
-
-- [x] **[NOTIFY-128]** Add one authenticated user-wide SSE stream for notification invalidation `Priority: 🟠` `Complexity: M`
-
-## 🏷️ Taxonomy implementation
-
-- [x] **[TAXONOMY-129]** Implement the durable categories and publication-tags foundation `Priority: 🟠` `Complexity: L`
-- [x] **[TAXONOMY-130]** Integrate taxonomy into project context, Compose, publication detail, and Queue filtering `Priority: 🟠` `Complexity: XL`
-
-## 🔐 Access implementation follow-up
-
-- [x] **[ACCESS-131]** Implement instance bootstrap, membership authority, invitation persistence, and authorization cutover `Priority: 🔴` `Complexity: XL` — Better Auth Admin/Organization/API Key plugins now own the applicable lifecycle; instance membership and Postbot actor projections remain explicit extensions, with dedicated instance invitation storage.
-- [x] **[ACCESS-132]** Add access administration surfaces, invitation acceptance, and browser validation `Priority: 🟠` `Complexity: XL` — guarded Postbot access routes, organization invitation acceptance, user-owned API-key routes with bounded project scope, expiry UX, and focused API/browser regression coverage are in place.
-- [x] **[ACCESS-133]** Reassess and cut over project access to Better Auth `Priority: 🟠` `Complexity: XL` — Postbot has no deployed data to reconcile; the clean development baseline removes the obsolete project-membership, project-invitation, bearer-token, compatibility-marker, and compatibility-store paths. Better Auth Organization members/invitations/API keys are the only project access authority.
-- [x] **[ACCESS-134]** Add project-member administration UI backed by Better Auth Organization when collaborative project management is exposed in the dashboard `Priority: 🟠` `Complexity: L` — project members, owner invitations with copyable links, invitation acceptance, editor/viewer role changes, and removal are exposed through the dashboard with API and browser coverage; API-key management remains in user configuration.
-- [x] **[ACCESS-135]** Remove obsolete project-access storage and regenerate the development migration baseline `Priority: 🟠` `Complexity: L` — the dedicated instance invitation table, Better Auth project membership/invitation/API-key records, and a single generated Drizzle baseline now define the clean development schema. No retention window or legacy database upgrade path is required for this private, data-disposable application.
-
-## ✉️ Invitation delivery follow-up
-
-- [x] **[ACCESS-136]** Complete the Better Auth invitation lifecycle with one-active-invitation rotation, expiry visibility, and deployment-conditioned email hooks `Priority: 🟠` `Complexity: M` — re-inviting cancels pending duplicates, the explicit resend action rotates the invitation ID, expired invitations can be resent, and local deployments keep copyable links without pretending an email was sent.
-- [x] **[ACCESS-137]** Integrate an actual invitation and account-verification mail transport after choosing the deployment transport and templates `Priority: 🟠` `Complexity: M` — SMTP delivery is now optional and deployment-configured through Nodemailer, with Postbot templates for project invitations, signup verification, and password reset. Local/manual-link mode remains the default; invitation links preserve project context through login.
-- [x] **[ACCESS-138]** Extract transactional email templates into a dedicated React Email package and add a disposable Mailpit development relay `Priority: 🟠` `Complexity: M` — template rendering is independent from API transport, HTML and plain-text alternatives are covered by package tests, all three preview entrypoints render with safe fixture data and the shared Postbot brand system, the local visual preview command starts successfully, and the loopback SMTP setup is documented and verified through Mailpit.
 
 ## 🧪 Runtime isolation follow-up
 
@@ -96,14 +72,6 @@ surface and operational copy-density work.
 ## 🔒 Recovery quiescence follow-up
 
 - [x] **[OPS-140]** Enforce fail-closed runtime quiescence before database and media restore `Priority: 🔴` `Complexity: M` — the API runtime and restore paths now acquire one database-specific sidecar lock, graceful shutdown releases it, restore fails before validation or writes while Postbot is active, and forced-stop markers require explicit operator verification.
-
-## 🔐 Custom HTTP authentication follow-up
-
-- [x] **[SECURITY-141]** Support path-authenticated custom HTTP receivers safely `Priority: 🔴` `Complexity: M` — mapped profiles may bind exactly one encrypted connection secret to a dedicated encoded path segment; origin-only egress, webhook separation, response redaction, API validation, and UI guidance are covered by regression tests.
-
-## 🧩 Built-in channel profile follow-up
-
-- [x] **[CHANNEL-142]** Add reusable built-in channel profile presets `Priority: 🔵` `Complexity: M` — expose editable, versioned starting profiles for common channel families without making presets live authorities or limiting fully runtime-defined custom channels. Provider-owned profiles are published through a typed catalog and copied into editable custom starters in the channel flow.
 
 ## 🧱 Foundation consolidation after the 2026-09-11 audit
 
@@ -115,10 +83,6 @@ the central project reads and projection/realtime reliability.
 
 - [x] **[OPS-148]** Keep Drizzle migration sources intact during ordinary cleanup `Priority: 🟠` `Complexity: S` — [ISSUE-073]; clean only disposable build outputs and prove the migration directory survives a disposable clean/start cycle.
 - [x] **[QUAL-149]** Add root script tests to the standard repository gate `Priority: 🟠` `Complexity: S` — [ISSUE-074]; make the eight CLI/runtime-isolation tests part of `bun run check` and prove the gate catches a regression in that family.
-- [x] **[ACCESS-143]** Enforce the accepted role matrix across all project mutations `Priority: 🔴` `Complexity: L` — [ISSUE-068]; cover viewer/editor/owner and project-key principals across content, channels, profiles, media, tags, delivery, and access operations with no side effects on denial.
-- [x] **[REALTIME-144]** Reauthorize or close project SSE streams after access lifecycle changes `Priority: 🔴` `Complexity: L` — [ISSUE-069]; cover removal, downgrade, disablement, session expiry/logout, bounded revocation delay, and fully authorized reconnects.
-- [x] **[NOTIFY-146]** Make notification projection recovery drain durable backlogs `Priority: 🟠` `Complexity: M` — [ISSUE-071]; continue bounded batches, recover after transient errors, and expose a truthful lag/runtime state.
-- [x] **[REALTIME-147]** Complete the server/client realtime event contract for taxonomy `Priority: 🟠` `Complexity: M` — [ISSUE-072]; deliver tag changes to other clients and verify deterministic invalidation without widening event payloads.
 
 ## 🛑 Runtime shutdown and restart proof
 
@@ -183,8 +147,6 @@ the central project reads and projection/realtime reliability.
 - [x] **[OPS-193]** Align local, CI, and release quality gates with their intended scope `Priority: 🟠` `Complexity: S` — verify the fast pre-commit path and complete CI path against the current root scripts, then record the relationship as current evidence. — [ISSUE-108]
 - [x] **[OPS-195]** Reconcile current issue, task, and worklog identity `Priority: 🟠` `Complexity: M` — verify protocol status, current task links, and historical worklog preservation without rewriting prior evidence. — [ISSUE-109]
 - [x] **[AUDIT-196]** Revalidate the historical H-01 through H-07 closure boundaries `Priority: 🟠` `Complexity: M` — compare each historical claim with current source, tests, and accepted records, then classify it as current, corrected, not reproduced, or historical-only. — [ISSUE-110]
-- [x] **[SECURITY-197]** Confirm the current publisher encryption key lifecycle `Priority: 🔴` `Complexity: XL` — [ISSUE-111]; ADR-012 and the implementation already define one deployment-owned key, separately backed up, with key/version identifiers in encrypted envelopes. Postbot does not currently support key rotation or re-encryption. If the key is lost or replaced, existing publisher credentials cannot be decrypted and those social accounts must be connected again. Closed as confirmation of the accepted current contract; automated rotation remains future work if a concrete deployment need arises.
-- [x] **[SECURITY-198]** Verify authorization coverage across route families `Priority: 🔴` `Complexity: L` — inspect the shared authentication macro, project role checks, API-key scope, publisher routes, analytics routes, and existing boundary tests; record the current result without adding speculative guards. — [ISSUE-112]
 - [x] **[REALTIME-194]** Revoke user notification streams after session or project-access loss `Priority: 🔴` `Complexity: M` — re-evaluate the user’s visible project set during the long-lived stream, emit a terminal access-revoked control event when it becomes empty, close the browser source, and cover the server/client contracts without exposing notification payloads. — [ISSUE-113]
 - [x] **[NOTIFY-199]** Record the external notification transport boundary `Priority: 🟠` `Complexity: S` — [ISSUE-114]; the owner explicitly defers real Ntfy, Telegram, and provider adapters for now, without permanently excluding them. Keep the transport-neutral store and recording-transport tests; revisit when a concrete destination is requested.
 - [x] **[NOTIFY-200]** Confirm transactional email failure handling `Priority: 🟠` `Complexity: L` — [ISSUE-115]; ADR-066 already decides the current behavior: SMTP is optional, email sends do not hold up the request, failures are logged, and Postbot does not retry failed messages. Local/manual-link operation remains available. Closed as confirmation of the accepted current contract; durable retries remain future work if a deployment needs a delivery guarantee.
@@ -216,12 +178,9 @@ the central project reads and projection/realtime reliability.
 
 - [x] **[AUDIT-215]** Reconcile the owner-supplied product diagnostic into deduplicated Autonomos issues and prioritized follow-up tasks `Priority: 🔴` `Complexity: M` — preserve verified gaps, link existing work instead of duplicating it, record MCP as intentionally deferred, and do not implement product changes in this intake task. Evidence: [AUDIT-215 worklog](worklogs/2026-09-25-AUDIT-215.md).
 - [x] **[OPS-216]** Log unexpected HTTP failures in production without enabling routine request logs `Priority: 🔴` `Complexity: M` — [ISSUE-128]; emit structured, correlated, secret-redacted records for unexpected failures while retaining generic client responses and the current quiet-success default; test production logging configuration and error paths. Evidence: [OPS-216 worklog](worklogs/2026-09-25-OPS-216.md).
-- [x] **[ACCESS-219]** Complete the web password-reset journey `Priority: 🔴` `Complexity: L` — [ISSUE-062]; add localized request and token-completion screens over the existing Better Auth email flow, with safe response semantics and browser coverage using the disposable mail relay. Evidence: [ACCESS-219 worklog](worklogs/2026-09-26-ACCESS-219.md).
 - [x] **[OPS-217]** Evaluate crash-safe runtime exclusion and restore coordination `Priority: 🟠` `Complexity: L` — [ISSUE-127]; compare the current fail-closed sidecar with process-lifetime lock options on supported platforms, prove crash release and active-restore exclusion, and present trade-offs without changing the lock contract or promoting ADR-068. Evidence: [OPS-217 worklog](worklogs/2026-09-26-OPS-217.md).
 - [x] **[OPS-218]** Verify dashboard shell and assets from the production image `Priority: 🟠` `Complexity: M` — [ISSUE-129]; extend the isolated image acceptance test to request the production web entry point and its built assets, alongside the existing readiness and backup/restore checks. Evidence: [OPS-218 worklog](worklogs/2026-09-26-OPS-218.md).
-- [x] **[ACCESS-220]** Provide the accepted mail-less local account-recovery path `Priority: 🟠` `Complexity: L` — [ISSUE-062]; implement the operator-controlled offline recovery contract from ADR-061 without a reusable bypass secret, requiring the stopped instance and explicit target database confirmation, and verify preservation of projects and encrypted credentials. Evidence: [ACCESS-220 worklog](worklogs/2026-09-26-ACCESS-220.md).
 - [x] **[META-221]** Build a concise capability-to-client and end-to-end evidence matrix `Priority: 🟠` `Complexity: M` — [ISSUE-132]; inventory current web/API/existing-CLI coverage, test evidence, and deliberate deferrals for user-facing capabilities; keep future MCP marked deferred and do not create clients or infer feature completion from backend tasks alone. Evidence: [META-221 worklog](worklogs/2026-09-26-META-221.md).
-- [x] **[CHANNEL-222]** Complete X publisher connection in the web workflow `Priority: 🟠` `Complexity: L` — [ISSUE-130]; expose the existing X authorization lifecycle in the channel UI, clarify required instance provider configuration, and cover success, denial, cancellation, reconnection, and errors in browser tests. Evidence: [CHANNEL-222 worklog](worklogs/2026-09-26-CHANNEL-222.md).
 - [x] **[ANALYTICS-223]** Recommend whether operational analytics should remain API-only or gain a web surface `Priority: 🔵` `Complexity: M` — [ISSUE-131]; assess actual operator workflows and existing API data, compare a concise dashboard with API-only/deferred options, and return an owner decision brief without implementing charts or adding metrics. Evidence: [ANALYTICS-223 worklog](worklogs/2026-09-26-ANALYTICS-223.md). The owner deferred an operational-analytics page; ISSUE-135 later confirmed the API remains available and the UI deferral is not permanent.
 - [x] **[ANALYTICS-227]** Evaluate operational analytics purpose, data lifecycle, telemetry overlap, and access `Priority: 🟠` `Complexity: M` — [ISSUE-135]; trace the project analytics response to its persisted sources, compare it with process-level Prometheus metrics, inspect retention and downstream journal consumers, measure representative SQLite growth, and return options without changing collection, retention, or UI. Evidence: [ANALYTICS-227 worklog](worklogs/2026-09-26-ANALYTICS-227.md). The owner-approved access boundary and current retention policy are recorded in ANALYTICS-230 / ISSUE-135.
 - [x] **[WEB-224]** Identify the next evidence-backed MediaAttachmentPicker extraction seam `Priority: 🔵` `Complexity: M` — [ISSUE-119]; map the remaining independent behaviors and their tests, then propose one bounded ownership boundary without performing a broad refactor or preserving obsolete internal APIs. Evidence: [WEB-224 worklog](worklogs/2026-09-26-WEB-224.md).
@@ -250,10 +209,6 @@ the central project reads and projection/realtime reliability.
 
 - [x] **[ANALYTICS-234]** Add bounded Forem publication-analytics collection to the provider observation boundary `Priority: 🟠` `Complexity: L` — [ISSUE-138]; use the existing project-owned DEV.to credential to collect lifetime totals only for known Postbot publications, preserve provider availability/freshness semantics, and expose a project-authorized read/explicit-refresh API. Forem's date-range history is deferred: the existing store retains every fetch indefinitely, so persisting up to 180 daily points per manual refresh would multiply growth without an accepted lifecycle strategy. No scheduled synchronization, raw provider payload retention, or observation-retention change. Evidence: [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md).
 - [x] **[ANALYTICS-235]** Build the project Performances experience over cached Forem and Bluesky observations `Priority: 🟠` `Complexity: L` — [ISSUE-138]; add project navigation and a concise, localized per-destination view with provider-native measures, clear freshness/unsupported states, and explicit refresh controls; page reads must never call providers. Cover the route with deterministic accessibility and navigation browser tests; verify collection and cache-only reads at the authenticated API integration boundary. Evidence: [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
-
-## User-owned API-key action limits
-
-- [x] **[ACCESS-236]** Add optional least-privilege action ceilings to user-owned API keys `Priority: 🔴` `Complexity: L` — [ISSUE-140]; preserve unrestricted keys as dynamically inheriting the owner's current project actions, and intersect restricted keys with current project roles and optional project scope. Enforce an explicit fail-closed route capability map for publication preparation/lifecycle, channels, media, analytics refresh, and permanent media deletion; keep workspace/access administration, publisher OAuth, notifications/realtime, API-key management, and installation administration session-only. Reuse Better Auth's native permission field, add localized create/edit controls and safe key metadata, and cover API authorization, updates, UI, and documentation. Evidence: [ACCESS-236 worklog](worklogs/2026-09-27-ACCESS-236.md).
 
 ## Approval-gated publication preparation
 
@@ -421,7 +376,6 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[AUDIT-309]** Audit authorization enforcement across server, UI, and tests `Priority: 🔴` `Complexity: L` — [ISSUE-153]. Diagnosis only: build the actually-enforced permission matrix for publications, media, channel connections, members, and API keys; confront server controls with UI possibilities and existing tests, focusing on cross-project access, post-removal permissions, and session versus API-key differences. Isolated fixtures only, no permission changes; keep reproducible evidence for inconsistencies and propose one bounded fix. [Evidence](worklogs/2026-10-04-OPS-305.md). Completed: matrix delivered; two demonstrated defects (API-key reads survive member removal because read routes authorize against the retained `actors` row; project list is actor-based) plus documented intent, UI divergences, test gaps, and three owner questions. Reproduction kept in `apps/api/src/modules/projects/access-revocation-regression.test.ts`; bounded fix proposed as ACCESS-309. Evidence: [AUDIT-309 worklog](worklogs/2026-10-04-AUDIT-309.md).
 
-- [x] **[ACCESS-309]** Revoke project read access for API keys after owner removal `Priority: 🔴` `Complexity: M` — [ISSUE-153]. Add one `AccessStore` accessor listing a user's currently accessible projects, then resolve each API key's effective project set at authentication as the intersection of its stored scope with the owner's current access, reusing the existing hidden 404. Keep actor attribution rows, roles, action ceilings, retries, and ambiguity rules unchanged; flip the kept reproduction expectations to 404. Completed: the key branch now reuses the session authorization callback (`authorizeProjectAccess`), so one decision governs both methods; non-regression tests cover all/selected scope, before/after removal, other-project retention, team-grant inheritance and revocation, and media reads. One existing assertion moved from 403 to the documented hidden 404 because masking now precedes the role check. Audit D2 was withdrawn after re-examination: the project list already filters by `canAccessProject || canManageWorkspace`. No key revocation, role change, or UX change. Evidence: [ACCESS-309 worklog](worklogs/2026-10-04-ACCESS-309.md), [corrected audit](worklogs/2026-10-04-AUDIT-309.md).
 
 
 
@@ -722,42 +676,23 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[PRODUCT-478]** Detail the structured channel builder and reconcile tag, analytics and comment requirements `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-479]** Prove lossless structured profile edits with isolated contract fixtures `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-480]** Deliver structured channel content controls and local target preview in creation and profile editing `Priority: 🟠` `Complexity: L`
 
-- [x] **[CHANNEL-481]** Show before/after content controls during channel profile review `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-482]** Simplify channel rules and add fixed dialog actions with pre-creation manual configuration `Priority: 🟠` `Complexity: M`
-- [x] **[CHANNEL-483]** Explain channel lifecycle failures inside the active confirmation dialog `Priority: 🟠` `Complexity: S`
 
-- [x] **[CHANNEL-484]** Model absent, optional and required titles and align profile preview with the destination editor `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-485]** Share the New publication writing surface with channel rule previews `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-486]** Share composer count rendering and constraint evaluation with the channel preview `Priority: 🟠` `Complexity: S`
 
-- [x] **[CHANNEL-487]** Align HTTP connection authentication choices with active contracts and anchor dialog actions `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-488]** Restore the local API and verify the contract-aware HTTP connection dialog `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-489]** Prove lossless mapped HTTP request edits before structured form integration `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-490]** Integrate structured mapped-request controls with atomic response classification `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-491]** Show mapped HTTP changes in the existing profile comparison `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-492]** Add optional HTTP response extraction controls and profile comparison `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-493]** Edit existing simple JSON body properties without flattening nested mappings `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-494]** Add simple JSON property lifecycle and explicit value-source selection `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-495]** Initialize absent mapped JSON bodies explicitly and compare their creation `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-496]** Edit fixed text query parameters with protected dynamic mappings and readable comparison `Priority: 🟠` `Complexity: M`
 
-- [x] **[CHANNEL-497]** Verify mapped builder edits through authenticated draft persistence, impact review and activation `Priority: 🟠` `Complexity: M`
 
 - [x] **[TELEGRAM-498]** Verify Telegram capabilities and prepare the first publishing contract and delivery plan `Priority: 🟠` `Complexity: M`
 

@@ -14,3 +14,6 @@ history. Use the original worklog basename when following an old literal path.
 
 - [Foundations and first deliveries](foundations-first-deliveries/README.md): initial setup,
   domain, credentials, media, durable execution, providers, notifications and analytics.
+
+- [Routes, access and channel management](routes-access-channel-management/README.md):
+  route/shell delivery, authorization, invitations/recovery and structured channel editing.

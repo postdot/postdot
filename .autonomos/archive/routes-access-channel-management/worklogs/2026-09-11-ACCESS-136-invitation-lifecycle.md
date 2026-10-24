@@ -3,7 +3,7 @@
 - Status: complete
 - Date: 2026-09-11
 - Scope: Better Auth project invitations and project access UI
-- Decision: [ADR-065](../decisions/ADR-065-invitation-delivery-and-verification-profile.md)
+- Decision: [ADR-065](../../../decisions/ADR-065-invitation-delivery-and-verification-profile.md)
 
 ## Outcome
 
@@ -18,7 +18,7 @@ The project access UI exposes “Resend” beside each pending invitation, marks
 expired invitations, refreshes the invitation list after rotation, and presents
 the new copyable link. Local/manual-link operation remains truthful when SMTP is
 not configured; ACCESS-137 adds the optional deployment transport described in
-[ADR-066](../decisions/ADR-066-smtp-auth-email-delivery.md).
+[ADR-066](../../../decisions/ADR-066-smtp-auth-email-delivery.md).
 
 `createAuth` now accepts an optional, typed invitation delivery callback and URL
 factory. A deployment can provide its own transport without coupling the auth

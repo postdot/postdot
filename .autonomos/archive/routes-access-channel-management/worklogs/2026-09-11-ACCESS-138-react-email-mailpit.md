@@ -3,7 +3,7 @@
 - Status: complete
 - Date: 2026-09-11
 - Scope: transactional email templates, local SMTP development, and API integration
-- Decision: [ADR-067](../decisions/ADR-067-react-email-mailpit-development.md)
+- Decision: [ADR-067](../../../decisions/ADR-067-react-email-mailpit-development.md)
 
 ## Objective
 

@@ -3,7 +3,7 @@
 - Status: complete
 - Date: 2026-09-11
 - Scope: Better Auth invitation, signup verification, password-reset delivery, and login continuity
-- Decision: [ADR-066](../decisions/ADR-066-smtp-auth-email-delivery.md)
+- Decision: [ADR-066](../../../decisions/ADR-066-smtp-auth-email-delivery.md)
 
 ## Outcome
 
