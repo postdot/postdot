@@ -163,8 +163,17 @@ test('recovers catalog and mutation failures without clearing the entered name',
     const projectId = await createProject(page)
     let failCatalog = true
     let failMutation = false
+    let initialCatalogRecovery = true
     await page.route(`**/api/projects/${projectId}/tags*`, async route => {
         const request = route.request()
+        const isCatalog =
+            request.method() === 'GET' && new URL(request.url()).searchParams.has('includeArchived')
+        if (isCatalog && failCatalog && initialCatalogRecovery) {
+            const retryActivated = await page.evaluate(() =>
+                document.documentElement.hasAttribute('data-e2e-catalog-retry')
+            )
+            if (retryActivated) failCatalog = false
+        }
         if (
             (request.method() === 'GET' &&
                 new URL(request.url()).searchParams.has('includeArchived') &&
@@ -183,9 +192,18 @@ test('recovers catalog and mutation failures without clearing the entered name',
     await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible({
         timeout: 15_000,
     })
-    failCatalog = false
+    // Keep the simulated outage until activation: background refetch must not
+    // recover and remove Retry before the test can exercise the actual control.
+    await page.evaluate(() => {
+        document.addEventListener(
+            'click',
+            () => document.documentElement.setAttribute('data-e2e-catalog-retry', ''),
+            { capture: true, once: true }
+        )
+    })
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('No tags yet', { exact: true })).toBeVisible()
+    initialCatalogRecovery = false
     await page.getByRole('button', { name: 'Create tag', exact: true }).first().click()
     await page.getByRole('textbox', { name: 'Tag name', exact: true }).fill('Retry me')
     failMutation = true
