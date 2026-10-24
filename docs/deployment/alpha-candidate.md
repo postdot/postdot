@@ -23,8 +23,9 @@ from successful workflow outputs before publishing installation claims.
 
 The image includes Postdot's AGPL-3.0-only notice, retained third-party notices,
 the exact decoder source/build configuration and base package inventory.
-Remaining notice-provenance and distribution review is tracked by PROJECT-302;
-these preparation notes do not assert that it is complete.
+The owner accepted final distribution on 2026-10-24 under PROJECT-302, including
+the explicitly documented version-provenance limitations. This is bounded
+notice/source preservation, not an exhaustive license audit or legal certification.
 
 ## Candidate acceptance
 
