@@ -3,7 +3,7 @@
 - Status: proposed
 - Scope: Self-hosted production container and single-process distribution
 - Related decisions: [ADR-003](ADR-003-use-a-single-process-singleton.md), [ADR-004](ADR-004-use-bun-and-typescript.md), [ADR-005](ADR-005-use-sqlite-first-persistence.md)
-- Related issue: [ISSUE-001](../ISSUES.md#issue-001-validate-the-complete-production-distribution-path)
+- Related issue: [ISSUE-001](../archive/foundations-first-deliveries/ISSUES.md#issue-001-validate-the-complete-production-distribution-path)
 - Related task: [OPS-10](../TASKS.md)
 
 ## Context

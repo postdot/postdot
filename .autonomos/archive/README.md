@@ -11,3 +11,6 @@ remain outside this directory. IDs in historical task/issue records stay reserve
 
 For an ID or topic, search the batch records/worklogs rather than loading all
 history. Use the original worklog basename when following an old literal path.
+
+- [Foundations and first deliveries](foundations-first-deliveries/README.md): initial setup,
+  domain, credentials, media, durable execution, providers, notifications and analytics.

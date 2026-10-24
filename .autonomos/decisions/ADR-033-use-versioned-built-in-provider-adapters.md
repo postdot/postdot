@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Scope: Built-in provider dispatch, credential preparation, provider execution, and workflow boundaries
-- Provenance: [ISSUE-027](../ISSUES.md), [PROVIDER-69](../worklogs/2026-09-04-PROVIDER-69.md), owner approval on 2026-09-04
+- Provenance: [ISSUE-027](../ISSUES.md), [PROVIDER-69](../archive/foundations-first-deliveries/worklogs/2026-09-04-PROVIDER-69.md), owner approval on 2026-09-04
 - Related decisions: [ADR-001](ADR-001-separate-channel-from-publisher.md), [ADR-009](ADR-009-fence-external-effects-with-durable-claims.md), [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md), [ADR-021](ADR-021-channel-owns-profile-contract.md), [ADR-026](ADR-026-linkedin-single-image-delivery.md)
 - Superseded by: none
 

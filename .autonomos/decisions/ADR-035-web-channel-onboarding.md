@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-09-05
 - Scope: authenticated web channel management for `CHANNEL-67`
-- Related issue: [ISSUE-033](../ISSUES.md#issue-033-complete-web-onboarding-and-lifecycle-for-runtime-defined-channels)
+- Related issue: [ISSUE-033](../archive/foundations-first-deliveries/ISSUES.md#issue-033-complete-web-onboarding-and-lifecycle-for-runtime-defined-channels)
 - Related task: CHANNEL-67
 
 ## Context

@@ -5,7 +5,7 @@
 - Scope: real Bluesky loopback OAuth, project-owned credential recovery, and
   automatic publication delivery
 - Related issue: [ISSUE-021](../ISSUES.md#issue-021-validate-the-central-publication-loop-through-real-use)
-- Related issue: [ISSUE-061](../ISSUES.md#issue-061-make-bluesky-oauth-deployment-profiles-explicit)
+- Related issue: [ISSUE-061](../archive/foundations-first-deliveries/ISSUES.md#issue-061-make-bluesky-oauth-deployment-profiles-explicit)
 - Related decision: [ADR-036](../decisions/ADR-036-evaluate-atproto-authorization-profile.md)
 
 ## Run

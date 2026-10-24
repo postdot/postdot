@@ -3,7 +3,7 @@
 - Status: accepted
 - Scope: Source content, channel-specific publications, provider capabilities, and media lifecycle
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
-- Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
+- Research record: [DOMAIN-07 worklog](../archive/foundations-first-deliveries/worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
 - Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](../decisions/ADR-021-channel-owns-profile-contract.md), [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md), [ADR-026](../decisions/ADR-026-linkedin-single-image-delivery.md)
 - Superseded by: none
@@ -138,7 +138,7 @@ Sources:
 
 The 2026-08-29 study inspected Postiz, Mixpost, and OpenPost in disposable clones.
 It did not install dependencies or copy competitor code into Postbot. The complete
-evidence record is [DOMAIN-07](../worklogs/2026-08-29-DOMAIN-07.md).
+evidence record is [DOMAIN-07](../archive/foundations-first-deliveries/worklogs/2026-08-29-DOMAIN-07.md).
 
 The useful patterns are:
 
