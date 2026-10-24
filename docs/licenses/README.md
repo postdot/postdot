@@ -121,3 +121,37 @@ SHA-256 values for the retained standalone texts:
 - `Mime-match.LICENSE`: `246e1db8cdfb6f229c577d46b340606b0f8933530ea105a3db0599a825215fe3`
 
 - `Wildcard.LICENSE`: `984dad806fc9843be655fdef946a57198a48f8c79fe48a7ddb5064194fad1291`
+
+## Corresponding decoder source in the image
+
+Candidate images now retain the exact unmodified FFmpeg 9.0.2 source archive at
+`/app/licenses/sources/ffmpeg-9.0.2.tar.xz`. Its SHA-256 is
+`8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e`,
+the same archive checked before compilation in the Dockerfile.
+`FFmpeg-build.txt`, `FFmpeg-config.h` and `FFmpeg-config.mak` retain the actual
+platform build settings alongside `FFmpeg.LICENSE`. The public Dockerfile records
+the configure command and build environment; no FFmpeg source patch is applied.
+Postdot invokes the decoder as a separate executable.
+
+The candidate workflow verifies the archive checksum and required files inside
+each built image before recovery acceptance. This follows the source/build
+provenance recommendations in [FFmpeg's distribution guidance](https://ffmpeg.org/legal.html);
+it does not claim that every distribution obligation has been audited.
+
+`base-packages.tsv` records the installed Debian package versions and
+`base-os-release` identifies the base operating system. Existing notices under
+`/usr/share/doc` remain in place. This inventory is not a copy of all base-package
+sources and does not resolve the three upstream notice gaps above.
+
+To retrieve this material from an already available candidate image, create a
+stopped container and copy its licenses directory without starting Postdot:
+
+```sh
+docker create --name postdot-notices IMAGE_REFERENCE
+docker cp postdot-notices:/app/licenses ./postdot-licenses
+docker rm postdot-notices
+```
+
+Replace `IMAGE_REFERENCE` with the exact local image ID or published digest.
+Choose an unused container name. These commands do not run the application or
+mount an instance database.

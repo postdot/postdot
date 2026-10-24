@@ -1,4 +1,4 @@
-# cspell:words ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
+# cspell:words buildconf ffbuild ffplay ffprobe avcodec avformat avfilter swscale demuxer mjpeg muxer buffersink hflip vflip
 # Isolated from application sources so normal Postdot builds reuse this layer.
 FROM oven/bun:1.4.4-slim AS poster
 USER root
@@ -12,7 +12,8 @@ RUN ./configure --disable-everything --disable-autodetect --disable-doc --disabl
     --enable-ffmpeg --enable-avcodec --enable-avformat --enable-avfilter --enable-swscale --enable-protocol=file,pipe \
     --enable-demuxer=mov --enable-decoder=h264 --enable-parser=h264 --enable-encoder=mjpeg --enable-muxer=image2pipe \
     --enable-filter=scale,format,buffer,buffersink,transpose,hflip,vflip --enable-small \
-    && make -j4
+    && make -j4 \
+    && ./ffmpeg -buildconf > /src/FFmpeg-build.txt 2>&1
 
 FROM oven/bun:1.4.4 AS build
 
@@ -57,6 +58,10 @@ WORKDIR /app
 
 COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/postbot-poster
 COPY --from=poster /src/ffmpeg-9.0.2/COPYING.LGPLv2.1 ./licenses/FFmpeg.LICENSE
+COPY --from=poster /src/source.tar.xz ./licenses/sources/ffmpeg-9.0.2.tar.xz
+COPY --from=poster /src/FFmpeg-build.txt ./licenses/FFmpeg-build.txt
+COPY --from=poster /src/ffmpeg-9.0.2/config.h ./licenses/FFmpeg-config.h
+COPY --from=poster /src/ffmpeg-9.0.2/ffbuild/config.mak ./licenses/FFmpeg-config.mak
 COPY --from=build --chown=bun:bun /app/LICENSE ./LICENSE
 COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
 COPY --from=build --chown=bun:bun /out/postbot.js ./postbot.js
@@ -64,7 +69,9 @@ COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
 COPY --from=build --chown=bun:bun /app/docs/licenses/ ./licenses/
 
-RUN mkdir -p /data && chown bun:bun /data
+RUN dpkg-query -W -f '${binary:Package}\t${Version}\n' > /app/licenses/base-packages.tsv \
+    && cp /etc/os-release /app/licenses/base-os-release \
+    && mkdir -p /data && chown bun:bun /data
 
 ENV NODE_ENV=production
 ENV PORT=3000

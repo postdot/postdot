@@ -66,6 +66,14 @@ jobs:
                   echo "image=$image_id" >> "$GITHUB_OUTPUT"
                   echo "platform=$platform" >> "$GITHUB_OUTPUT"
 
+            - name: Verify packaged distribution sources and notices
+              env:
+                  CANDIDATE_IMAGE_ID: ${{ steps.identity.outputs.image }}
+              run: |
+                  docker run --rm --entrypoint bun \
+                    --volume "$PWD/scripts/verify-container-distribution.ts:/tmp/verify-container-distribution.ts:ro" \
+                    "$CANDIDATE_IMAGE_ID" /tmp/verify-container-distribution.ts
+
             - name: Verify the exact candidate image
               env:
                   POSTBOT_CONTAINER_TEST_IMAGE: ${{ steps.identity.outputs.image }}
