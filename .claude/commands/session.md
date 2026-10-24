@@ -10,7 +10,7 @@ description: 'Mandatory bootstrap for any new session. Invoke before any work be
 ## STEP 1 — Orient
 
 1. Read the root `AGENT.md`.
-2. Read `.autonomos/TASKS.md`.
+2. Read `.autonomos/TASKS.md`, including Current direction when present. Archives are not bootstrap context; search them only for a specific question.
 
 RESPOND with a **3-line max** summary of relevant project context. Do not continue without this response.
 

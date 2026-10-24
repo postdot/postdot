@@ -11,7 +11,7 @@ description: 'Optional intake for problems, proposals, and questions before choo
 ## STEP 1 — Build context
 
 1. Read root and applicable root → target `AGENT.md` files.
-2. Read `.autonomos/ISSUES.md` if it exists and search for duplicates.
+2. Read `.autonomos/ISSUES.md` if it exists and search for duplicates; targeted archived issue/ID lookup prevents duplicate intake and identifier reuse.
 3. Read related tasks or worklogs only when they provide evidence.
 
 ## STEP 2 — Record the signal

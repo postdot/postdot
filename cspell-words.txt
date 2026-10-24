@@ -12,6 +12,7 @@ Paraglide
 Playwright
 ReUI
 SQLite
+subclaims
 TanStack
 Turborepo
 Uppy
