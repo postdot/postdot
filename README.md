@@ -19,14 +19,14 @@ workspace. Use Studio in your browser, or work through the CLI and HTTP API.
 Postdot runs its API, dashboard, scheduler and publication worker in one service,
 with SQLite and local media storage. S3-compatible media storage is optional.
 
-**Alpha software, under active development.** There is no published container release or supported upgrade
-path yet. The project is being renamed from Postbot. Environment variables, stored protocol
+**Alpha software, under active development.** The first container release, `0.1.0-alpha.1`, is available for Linux AMD64 and ARM64.
+No upgrade from a previous release has been validated. The project is being renamed from Postbot. Environment variables, stored protocol
 identifiers and the screenshot retain that name during the [transition](docs/project/identity-transition.md).
 
 ## Run it yourself
 
 Start with the [Docker Compose installation guide](docs/deployment/self-hosting.md).
-It covers building from source, generating secrets, creating the first account and
+It covers the versioned container image, optional source builds, generating secrets, creating the first account and
 protecting your data. Check the [provider requirements](docs/deployment/provider-requirements.md)
 before connecting an account.
 
