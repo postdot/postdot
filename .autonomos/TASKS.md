@@ -54,6 +54,8 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
+- [/] **[RELEASE-579]** Package corresponding decoder sources and validate the first alpha candidate `Priority: 🟠` `Complexity: L` — PROJECT-302/RELEASE-303; preserve exact FFmpeg sources/build configuration and base inventory, validate image contents, prepare alpha notes and run native candidate acceptance without registry publication.
+
 - [x] **[ALPHA-578]** Make early-alpha availability explicit and reconcile delivered product scope `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — explicit source-alpha hero/installation messaging, twelve evidence-based issue closures, remaining scope specified on all 29 open issues and nine non-terminal tasks clarified. Site export, responsive/theme checks and static gates pass. [Evidence](worklogs/2026-10-24-ALPHA-578.md).
 
 - [x] **[META-577]** Reconcile local product work with the deployed GitHub website branch `Priority: 🔴` `Complexity: L` `Completed: 2026-10-24` — combined both histories, retained deployed site and local product changes, resolved task/lock conflicts and corrected a GC-sensitive WAL fixture; local static, unit, Worker and production build checks pass. No push or deployment. [Evidence](worklogs/2026-10-24-META-577.md).
