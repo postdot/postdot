@@ -280,6 +280,15 @@
     gap: 12px;
     margin-top: 28px;
 }
+.home-intro .home-alpha {
+    margin: 16px auto 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.home-alpha strong {
+    color: var(--home-ink);
+    font-weight: 500;
+}
 .home-product-scene {
     position: relative;
     margin: 0;
