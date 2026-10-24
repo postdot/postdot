@@ -232,12 +232,17 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
         scheduleValue: '',
         timeZone: 'UTC',
     }
-    await page.evaluate(({ key, copy }) => localStorage.setItem(key, JSON.stringify(copy)), {
+    // Seed previous-session data before the new editor mounts. The active editor
+    // may still clear its own recovery key while a reload is being requested.
+    await page.addInitScript(({ key, copy }) => localStorage.setItem(key, JSON.stringify(copy)), {
         key: recoveryKey,
         copy: localCopy,
     })
     await page.reload()
     const recoveryDecision = page.locator('[data-publication-recovery-decision]')
+    expect(
+        await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? 'null'), recoveryKey)
+    ).toEqual(localCopy)
     await expect(recoveryDecision).toBeVisible()
     await expect(recoveryDecision).toHaveAccessibleName('Local copy')
     await page.keyboard.press('Escape')
@@ -252,10 +257,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await recoveryDecision.getByRole('button', { name: 'Restore local copy', exact: true }).click()
     await expect(recoveryDecision).toHaveCount(0)
     await expect(page.locator('#source-body')).toHaveText('Unsent local draft')
-    await page.addInitScript(({ key, copy }) => localStorage.setItem(key, JSON.stringify(copy)), {
-        key: recoveryKey,
-        copy: localCopy,
-    })
+    // The same startup fixture supplies a fresh older copy for the discard path.
     await page.reload()
     await expect(recoveryDecision).toBeVisible()
     await recoveryDecision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
