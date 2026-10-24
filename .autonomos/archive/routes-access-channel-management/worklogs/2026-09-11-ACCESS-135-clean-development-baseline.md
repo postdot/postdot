@@ -3,7 +3,7 @@
 - Status: implemented
 - Date: 2026-09-11
 - Scope: Drizzle migration history and project access model
-- Related decision: [ADR-064](../decisions/ADR-064-clean-development-access-baseline.md)
+- Related decision: [ADR-064](../../../decisions/ADR-064-clean-development-access-baseline.md)
 - Related issue: [ISSUE-067](../ISSUES.md#issue-067-establish-a-clean-development-access-baseline)
 
 ## Outcome

@@ -3,8 +3,8 @@
 - Status: complete
 - Date: 2026-09-11
 - Scope: project members, invitations, and the project access dashboard
-- Related issue: [ISSUE-062](../ISSUES.md#issue-062-define-postbot-human-account-instance-administration-and-invitation-policy)
-- Related decisions: [ADR-061](../decisions/ADR-061-human-account-and-instance-access-policy.md), [ADR-064](../decisions/ADR-064-clean-development-access-baseline.md)
+- Related issue: [ISSUE-062](../../../ISSUES.md#issue-062-define-postbot-human-account-instance-administration-and-invitation-policy)
+- Related decisions: [ADR-061](../../../decisions/ADR-061-human-account-and-instance-access-policy.md), [ADR-064](../../../decisions/ADR-064-clean-development-access-baseline.md)
 
 ## Outcome
 
