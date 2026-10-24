@@ -39,3 +39,19 @@ workflow with the accepted tag, source SHA and actual release notes.
 - [Installation from source](self-hosting.md)
 - [Provider capability matrix](../project/provider-capabilities.md)
 - [Notice evidence and decoder source](../licenses/README.md)
+
+## Selected native candidate
+
+Source: `73398db3f765c8105265fd45712d8556f03a0947`.
+[Native acceptance](https://github.com/postdot/postdot/actions/runs/40107661826)
+passed both platforms, including distribution-material verification and the
+complete production recovery scenario.
+
+| Platform | Accepted local image ID |
+| --- | --- |
+| linux/amd64 | `sha256:a2c1b68e10097ff4aa9e93dadc01555058bb1a18311b0276bbc6e74655f32870` |
+| linux/arm64 | `sha256:01a121526caaf7bbf2b161e0bc165fa3d7b798a648c7db6c463baff3ddec2cf1` |
+
+These are local candidate image identities from hosted runners, not registry
+manifest digests or downloadable images. Publication rebuilds the selected source
+through the release workflow after its separate source CI and release review.
