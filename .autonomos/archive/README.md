@@ -17,3 +17,6 @@ history. Use the original worklog basename when following an old literal path.
 
 - [Routes, access and channel management](routes-access-channel-management/README.md):
   route/shell delivery, authorization, invitations/recovery and structured channel editing.
+
+- [Runtime, recovery and observability](runtime-recovery-observability/README.md):
+  isolation, shutdown, effect renewal, backup/recovery, metrics, logging and SQLite durability.
