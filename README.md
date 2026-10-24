@@ -30,6 +30,10 @@ It covers the versioned container image, optional source builds, generating secr
 protecting your data. Check the [provider requirements](docs/deployment/provider-requirements.md)
 before connecting an account.
 
+For agent-assisted installation and use, install the
+[Postdot skills](docs/agent-skills.md). They include a first-alpha deployment
+handoff and local diagnostic feedback guidance.
+
 ## Develop locally
 
 Install [Bun](https://bun.sh) 1.4.4 or newer, then run:

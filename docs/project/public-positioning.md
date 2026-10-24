@@ -87,7 +87,7 @@ story; license details remain available without becoming a promotional argument.
 | --- | --- | --- |
 | Studio, API, CLI | Present; CLI operation coverage is partial | Existing ways to work, describe actual workflows |
 | MCP | ISSUE-036 remains deferred for workflow stability | Planned; do not present as available |
-| Agent skills | Explicit first-launch intent; not authored yet | Launch preparation; stabilize workflows before authoring |
+| Agent skills | Three first-alpha skills: self-hosting, product use and troubleshooting | Available in `skills/`; see [installation](../agent-skills.md) |
 | n8n | API exists, dedicated supported workflow not established | Intended integration; delivery format undecided |
 | Mobile app | No dedicated client workspace | Future; responsive Studio is not a native app |
 | Images/video, local/S3 media | Implemented boundaries and guides | Explain user benefit with provider-specific limits |
@@ -95,7 +95,7 @@ story; license details remain available without becoming a promotional argument.
 | Interface languages | Paraglide declares EN and FR | Name these; do not imply an existing large catalog |
 | Docker/Compose | Dockerfile and Compose resources exist | Default documented installation path |
 | Swarm/Kubernetes/Helm | No corresponding deliverables found | Roadmap candidates requiring independent validation |
-| Public AMD64/ARM64 images | RELEASE-303 active; candidate workflow exists | No availability claim before acceptance and publication |
+| Public AMD64/ARM64 images | 0.1.0-alpha.1 published and anonymous access verified | Exact-version installation; no previous-release upgrade proof |
 
 This is a source inventory, not a fresh validation of every feature or provider.
 No release dates, capacity claims or launch platform count are established here.
@@ -103,8 +103,8 @@ No release dates, capacity claims or launch platform count are established here.
 ## Prioritized intake
 
 - High: ISSUE-157 public narrative, existing ISSUE-036 MCP readiness, ISSUE-158
-  launch agent skills. Skills are an explicit launch intention; implementation
-  waits for stable workflows. MCP's earlier stability prerequisite remains.
+  launch agent skills (delivered for alpha under AGENT-580). MCP's earlier
+  stability prerequisite remains.
 - Medium: ISSUE-159 n8n, ISSUE-161 additional deployment resources, ISSUE-162
   language expansion and ISSUE-163 intentional client coverage.
 - Later: ISSUE-160 mobile client exploration.

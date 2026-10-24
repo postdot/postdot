@@ -1,0 +1,25 @@
+services:
+    postbot:
+        image: ${POSTBOT_IMAGE:-postbot:local}
+        build:
+            context: .
+        init: true
+        restart: unless-stopped
+        stop_grace_period: 30s
+        ports:
+            - '127.0.0.1:${POSTBOT_HTTP_PORT:-3000}:3000'
+        env_file:
+            - .env
+        environment:
+            NODE_ENV: production
+            PORT: '3000'
+            DB_FILE_NAME: /data/postbot.sqlite
+            POSTBOT_MIGRATIONS_DIR: /app/migrations
+            POSTBOT_WEB_ASSETS_DIR: /app/public
+            POSTBOT_MEDIA_DIRECTORY: /data/media
+            LOG_PRETTY: 'false'
+        volumes:
+            - postbot-data:/data
+
+volumes:
+    postbot-data:

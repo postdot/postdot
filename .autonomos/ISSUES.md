@@ -1528,16 +1528,16 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-158] Provide agent skills for the first public launch
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Priority: high — explicit launch requirement, after workflow stabilization
 - Evidence: The owner intends agent skills to be available for the first launch, but has deliberately delayed authoring until the first version is stable enough to avoid repeated rewrites. A CLI and API exist; launch-facing agent skills are not established in the current repository.
 - Impact: Agents may use valid endpoints without understanding review, permissions, destination differences or the boundary between draft creation and publication.
 - Desired outcome: Versioned, discoverable agent guidance covers the stable supported workflows and safe effect boundaries, validated with representative natural-language requests. The owner launch requirement is retained without beginning authoring before stability. Target harnesses, skill distribution and evaluation scope remain to be selected.
-- Tasks: none — recorded for triage; no implementation authorized by intake
+- Tasks: AGENT-580
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Launch agent skills remain a proposal requiring a bounded capability/installation contract; none are claimed shipped.
+- Resolution (AGENT-580, 2026-10-24): Three portable first-alpha skills cover installation, API-backed use and troubleshooting, with complete selective installation, runnable helpers, scoped references and an operator handoff. Published-image manual workflows and helper invariants pass. [Guide](../docs/agent-skills.md). [Evaluation and limits](../docs/research/agent-skills-evaluation.md). Fresh-model/cross-model and live operator/provider validation remain unclaimed; the feedback handoff is the next adoption step.
 
 ## [ISSUE-159] Establish a supported n8n integration path
 
