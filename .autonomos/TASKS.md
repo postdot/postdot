@@ -5,8 +5,19 @@
 > **Complexity:** [S] Small (1h), [M] Medium (4h), [L] Large (1-2 days), [XL] Huge (Planning req.)
 > **Status:** [ ] Todo, [/] In Progress, [x] Done, [!] Blocked
 
+## Current direction
+
+Production realtime uses TanStack Query with authenticated SSE invalidation and
+the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)
+and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
+The comparison experiment is retired; future DB adoption requires a concrete need.
+Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
+Product release/notice acceptance remains under RELEASE-303 and PROJECT-302;
+ISSUE-191's entry JavaScript budget and ISSUE-182/183's broader cleanup remain open.
+
 ## 🚀 Active Sprint
 
+- [x] **[META-572]** Upgrade Autonomos and apply the first bounded archival reconciliation `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-182 and ISSUE-183; published CLI/protocol installed, eight task records/two issues/eight worklogs archived with preserved evidence and references. [Evidence](worklogs/2026-10-24-META-572.md).
 - [x] **[INIT-01]** Bootstrap Postbot's Bun/Turborepo monorepo and Autonomos protocol `Priority: 🔵` `Complexity: S`
 - [x] **[FOUND-02]** Align the foundation with Elysia 2 beta, React 19, TanStack Router, and English Git workflow `Priority: 🔵` `Complexity: M`
 - [x] **[FOUND-03]** Add Drizzle, Better Auth, Tailwind, shadcn Base UI, and Solar Icons foundations `Priority: 🔵` `Complexity: M`
@@ -121,12 +132,6 @@
 - [x] **[PROVIDER-93]** Add X (Twitter) built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
 - [x] **[PROVIDER-94]** Add DEV.to built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
 - [x] **[I18N-95]** Evaluate and establish the user-facing web localization foundation `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-96]** Define and implement reconnectable project updates for the web client `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-102]** Establish the authenticated SSE transport from the durable event journal `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-103]** Integrate the authenticated SSE transport into the production web Query boundary `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-104]** Replace per-connection journal polling with a process-level wakeup and projection bridge `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-105]** Establish the post-commit project signal boundary and remove normal realtime SQLite polling `Priority: 🟠` `Complexity: L`
-- [x] **[REALTIME-106]** Validate realtime restart, reconnect, zero-subscriber, and burst-load behavior `Priority: 🟠` `Complexity: M`
 - [x] **[ANALYTICS-107]** Define the analytics read model, measurements, and provider-data boundary `Priority: 🟠` `Complexity: L`
 - [x] **[ANALYTICS-108]** Implement the first operational analytics read model and API `Priority: 🟠` `Complexity: L`
 - [x] **[ANALYTICS-109]** Map provider engagement analytics and competitor parity boundaries `Priority: 🟠` `Complexity: L`
@@ -1101,7 +1106,3 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 - [x] **[WORK-568]** Bound concurrent project effects and renew active claims `Priority: 🟠` `Complexity: L` — ISSUE-186; two shared internal slots, one effect per project, fair admission, strict renewable claims, cooperative deadlines and actual-operation draining under ADR-090. 1,567 unit/script tests, 134 main browser cases with four environmental reruns, two automatic cases, four SMTP cases and production-container recovery validated. [Evidence](worklogs/2026-10-23-WORK-568.md).
 
 - [x] **[PROV-569]** Modularize the nine provider integration boundaries `Priority: 🟠` `Complexity: XL` — ISSUE-185; nine static browser/server modules with provider-owned rules, inferred API contracts and explicit persistence policies under ADR-091. Synthetic extension proofs, 1,572 distinct unit/script tests, 140 browser scenarios, static gates, 21 builds and production-container recovery validated. [Evidence](worklogs/2026-10-23-PROV-569.md).
-
-- [x] **[FOUND-570]** Assess foundation dependency stability before release `Priority: 🟠` `Complexity: M` — ISSUE-189; installed versions, production coupling and primary-source evidence assessed. Owner clarification withdraws the initial freeze proposal: prereleases are acceptable before users/stable release, TypeScript has no reproduced issue, and TanStack DB is not restricted as a development tool. Revised ADR-092 recommends routine Bun maintenance/alignment; no dependency changed. [Evidence](worklogs/2026-10-23-FOUND-570.md).
-
-- [x] **[FOUND-571]** Maintain Bun and retire the completed realtime experiment `Priority: 🟠` `Complexity: M` — Bun 1.4.4 and matching types/engine/image declarations aligned; unused Query/DB comparison experiment, dependencies and translations retired. Autonomos ISSUE-03 registered locally. 1,566 unit/script tests, 140 browser cases, 21 builds and container recovery pass; final locale cleanup preserves every production file byte-for-byte. [Evidence](worklogs/2026-10-23-FOUND-571.md).

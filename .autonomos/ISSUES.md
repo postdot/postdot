@@ -1274,34 +1274,6 @@ channels` with a foreign-key constraint error even though a fresh empty database
   in the browser. Translation quality, public-route localization, and a future
   persisted account preference remain separate follow-ups.
 
-## [ISSUE-050] Keep notifications and project work views synchronized
-
-- Type: problem
-- Status: resolved
-- Evidence: The notification inbox loads when its component mounts or opens, and
-  project queue/publication data is initially loaded and refreshed after local
-  mutations. The browser currently has no general push, polling, SSE, or
-  WebSocket subscription for worker-generated changes, while the server-side
-  notification projection runs independently on a short interval.
-- Impact: A worker outcome or another browser session can leave the visible
-  inbox and queue stale until the user performs a manual refresh or another
-  local action. The product's durable event journal exists, but its update
-  semantics are not yet exposed as a client-facing reactivity contract.
-- Desired outcome: The web client receives or safely discovers relevant project
-  changes without a full-page refresh, with explicit reconnect, missed-event,
-  deduplication, authorization, and fallback semantics. The design must reuse
-  the existing durable event and notification projections rather than create a
-  second source of truth, and must be validated against worker-generated
-  publication outcomes.
-- Tasks: REALTIME-96, REALTIME-102, REALTIME-103, REALTIME-104, REALTIME-105, REALTIME-106
-- Related issues: ISSUE-045, ISSUE-046
-- Resolution: REALTIME-96 and REALTIME-102 through REALTIME-106 established
-  authenticated reconnectable SSE, post-commit project invalidation, durable
-  replay and recovery semantics, and production Query integration. NOTIFY-127
-  and NOTIFY-128 extended the inbox to a user-wide scope with one authenticated
-  invalidation stream. The signal remains process-local by design; a future
-  multi-process deployment would require a separate cross-process boundary.
-
 ## [ISSUE-051] Give the notification inbox a non-blocking interaction surface
 
 - Type: proposal
@@ -4428,9 +4400,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Every session bootstrap reads or searches artifacts dominated by completed history, which consumes agent context, slows orientation and dilutes the records that still constrain work (for example ADR-001, ADR-002, ADR-009, ADR-037). Low-threshold decision records also make it harder to tell which choices are structural.
 - Desired outcome: Current-state artifacts stay small enough for routine sessions to read entirely, completed history remains preserved and traceable without being loaded by default, and the threshold for a decision record distinguishes structural choices from local design choices. Because Autonomos is owner-designed, the outcome may include protocol-level doctrine changes (lifecycle, archival, thresholds), not only a one-time cleanup.
 - Related: ISSUE-183, ISSUE-109
-- Tasks: none
+- Tasks: META-572
 
 - Upstream intake (2026-10-23): The owner requested protocol-level archival design in the Autonomos repository. Local Autonomos ISSUE-03 now records artifact lifecycle criteria, bounded indexes/discovery, AGENT.md drift and the relationship with reconcile/crystallize. No consumer protocol artifact was edited and no archival design was selected here.
+
+- Progress (2026-10-24): META-572 installs published Autonomos 0.7.0 / protocol 0.7.0-alpha and pilots a bounded realtime/foundation archive. Applicable decisions and open follow-ups stay current. This issue remains open for the rest of the task/issue registries and scoped guidance.
 
 ## [ISSUE-183] Prevent AGENT.md files from accumulating journal-style entries
 
@@ -4440,9 +4414,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Guidance read at every session grows with transient context, which lowers signal and leaves agents unsure which directives are still current. The format rule exists but is neither enforced nor easy to apply when a directive is both dated and still in force.
 - Desired outcome: Root and local AGENT.md files contain only current, stable guidance with a clear place for time-bound owner directives and their expiry, and the protocol makes drift detectable (for example during `/crystallize` or `/reconcile`) rather than relying on agent discipline alone. Existing files are brought back to that standard without losing still-active directives.
 - Related: ISSUE-182
-- Tasks: none
+- Tasks: META-572
 
 - Upstream intake (2026-10-23): The owner requested protocol-level archival design in the Autonomos repository. Local Autonomos ISSUE-03 now records artifact lifecycle criteria, bounded indexes/discovery, AGENT.md drift and the relationship with reconcile/crystallize. No consumer protocol artifact was edited and no archival design was selected here.
+
+- Progress (2026-10-24): META-572 installs published Autonomos 0.7.0 / protocol 0.7.0-alpha and pilots a bounded realtime/foundation archive. Applicable decisions and open follow-ups stay current. This issue remains open for the rest of the task/issue registries and scoped guidance.
 
 ## [ISSUE-184] Validate the product with sustained real use before widening scope
 
@@ -4523,22 +4499,6 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Remaining architecture (2026-10-23): ADR-047 already selects Query for production; DB imports are confined to the development prototype and its tests. The substantive open work is route-owned data/mutations and component boundaries. The project parent still loads six resource groups on every project route; DashboardContext remains 876 lines. Treat this as a coherent lifecycle/data-ownership batch with shared acceptance scenarios, rather than more wrapper-by-wrapper tasks. Keep this issue open for that work.
 
 - Resolution (2026-10-23): WEB-567 reduces DashboardContext from 876 to 134 lines and limits the parent to three navigation resource groups. Publications/due work, tags and domain mutations now belong to their feature hooks; composition has a dedicated session preserving channel-setup navigation. One QueryClient owns project server data, targeted refreshes leave dormant/foreign data alone, and feature-entry freshness plus an accessible Suspense boundary preserve loading and recovery semantics. All 1,555 unit/script tests, 134 distinct main browser cases (with focused correction reruns), four SMTP cases, static gates and all 21 production builds are validated. With the prior JSON migration and development-only prototype, all four recorded desired-outcome criteria are satisfied. Large component sizes are not a further acceptance requirement for this completed issue. [Evidence](worklogs/2026-10-23-WEB-567.md).
-
-## [ISSUE-189] Assess the risk of pre-stable foundation dependencies
-
-- Type: question
-- Status: resolved
-- Evidence: The runtime and client depend on pre-stable or very recent major versions: Elysia 2 beta (API), TypeScript 7.0, TanStack DB 0.x with its query collection, and Bun 1.4. The product promises a durable self-hosted runtime and an upgrade path (RELEASE-303).
-- Impact: Breaking upstream changes, regressions or abandonment can force unplanned migrations on a product that self-hosters expect to upgrade safely.
-- Desired outcome: An explicit, recorded position for each pre-stable dependency (accepted risk with an exit path, pin, or replacement), reviewed before the first published release.
-- Related: RELEASE-303
-- Tasks: FOUND-570
-
-- Assessment (2026-10-23): FOUND-570 corrects the production exposure: TanStack DB is development-only and TypeScript 7.0.2 is a stable compiler. Elysia remains an experimental multi-package integration; host Bun is canary while CI/image select 1.4.2. ADR-092 proposes one runtime-alignment and exact-pin batch, with stable Bun 1.4.4 qualification prioritized after upstream security fixes, plus explicit risk review and exit paths. No dependency changed. The issue remains open until the owner accepts the positions. [Proposal](decisions/ADR-092-propose-foundation-release-baseline.md).
-
-- Owner clarification (2026-10-23): prereleases are acceptable before users or a stable product release; no additional freeze is justified solely by a prerelease label. The initial exact-pin batch is withdrawn in revised ADR-092. TypeScript has no reproduced issue; TanStack DB's prototype-only use is not a production restriction. Stable Bun updates should be reviewed approximately every one to two weeks, with validation and runtime alignment. No dependency changed.
-
-- Resolution (2026-10-23): The owner accepted ordinary prerelease maintenance before users/stable product release, without a label-driven freeze. ADR-092 records the corrected direction. FOUND-571 qualifies stable Bun 1.4.4, aligns version declarations/types/container stages, and removes the completed TanStack DB comparison after confirming ADR-047's Query choice. Elysia and TypeScript receive no special freeze or replacement. All 1,566 unit/script tests, 140 browser cases, 21 builds and container recovery pass; remaining release architecture qualification stays with RELEASE-303. [Evidence](worklogs/2026-10-23-FOUND-571.md).
 
 ## [ISSUE-190] Tier providers by self-hosting setup friction
 
