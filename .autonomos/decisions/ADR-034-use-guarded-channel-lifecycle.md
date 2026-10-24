@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-09-05
 - Scope: project-owned channel lifecycle, publication authoring, publisher connections, and channel management API
-- Related issue: [ISSUE-033](../ISSUES.md#issue-033-complete-web-onboarding-and-lifecycle-for-runtime-defined-channels)
+- Related issue: [ISSUE-033](../archive/foundations-first-deliveries/ISSUES.md#issue-033-complete-web-onboarding-and-lifecycle-for-runtime-defined-channels)
 - Related tasks: CHANNEL-71, CHANNEL-67
 - Superseded by: none
 

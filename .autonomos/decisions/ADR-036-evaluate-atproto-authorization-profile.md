@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-09-05
 - Scope: Bluesky/AT Protocol publisher connection, credential storage, token refresh, and authenticated publication delivery
-- Provenance: [ISSUE-041](../ISSUES.md#issue-041-add-bluesky-as-the-next-built-in-provider-after-the-boundary-extraction), [PROVIDER-74](../worklogs/2026-09-05-PROVIDER-74.md)
+- Provenance: [ISSUE-041](../archive/foundations-first-deliveries/ISSUES.md#issue-041-add-bluesky-as-the-next-built-in-provider-after-the-boundary-extraction), [PROVIDER-74](../archive/foundations-first-deliveries/worklogs/2026-09-05-PROVIDER-74.md)
 - Related decisions: [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md), [ADR-025](ADR-025-use-provider-specific-oauth-request-profiles.md), [ADR-033](ADR-033-use-versioned-built-in-provider-adapters.md)
 - Superseded by: none
 
