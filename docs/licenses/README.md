@@ -155,3 +155,24 @@ docker rm postdot-notices
 Replace `IMAGE_REFERENCE` with the exact local image ID or published digest.
 Choose an unused container name. These commands do not run the application or
 mount an instance database.
+
+## Additional available upstream notices
+
+The current upstream repositories supply complete MIT notices for the three
+versions whose release-specific evidence is incomplete above. Preserve these
+available texts without inventing a copyright notice or claiming that they were
+present in the old npm archive:
+
+- `Better-auth-utils.LICENSE`: exact text from better-auth/utils at
+  `ef522888b7b2ff77ca13f0afb476dfae8f297862`, which added the repository license.
+  [Pinned source](https://github.com/better-auth/utils/blob/ef522888b7b2ff77ca13f0afb476dfae8f297862/LICENSE).
+- `React-remove-scroll-bar.LICENSE`: exact repository text at
+  `7301c160fda44cb8cf2b9fdfde61efad35736196`.
+  [Pinned source](https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE).
+
+The original package versions declare MIT; these supplementary files retain the
+available upstream attribution and full permission text. They do not resolve the
+unavailable React publication commit or retroactively put a license file into
+an older Better Auth source tag. The historical 354/357 version-linked count is
+unchanged; it is distinct from the availability of supplementary repository texts.
+The existing Docker copy includes both files in `/app/licenses`.

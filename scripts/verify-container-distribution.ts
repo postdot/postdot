@@ -19,4 +19,21 @@ for (const path of [
     if (!(await file.exists()) || file.size === 0)
         throw new Error(`Missing distribution material: ${path}`)
 }
-console.log('Exact FFmpeg source, build configuration, notices and base inventory are packaged.')
+for (const [path, checksum] of [
+    [
+        '/app/licenses/Better-auth-utils.LICENSE',
+        'b5052b5db9a8720634e5243aaf019269ddd93c2e43f46a09f72b99e0004c8680',
+    ],
+    [
+        '/app/licenses/React-remove-scroll-bar.LICENSE',
+        'a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84',
+    ],
+] as const) {
+    const hash = new Bun.CryptoHasher('sha256')
+        .update(await Bun.file(path).arrayBuffer())
+        .digest('hex')
+    if (hash !== checksum) throw new Error(`Packaged upstream notice differs: ${path}`)
+}
+console.log(
+    'Exact FFmpeg source, build configuration, upstream notices and base inventory are packaged.'
+)
