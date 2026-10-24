@@ -54,7 +54,7 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
-- [x] **[AGENT-580]** Ship first self-hosting, usage and troubleshooting skills `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-158; pinned primary-source comparison, three portable skills, isolated helper/published-image workflow validation, selective installation and alpha operator handoff. Fresh-model and live provider checks remain unclaimed. [Guide](../docs/agent-skills.md). [Evidence](worklogs/2026-10-24-AGENT-580.md).
+- [x] **[AGENT-580]** Ship first self-hosting, usage and troubleshooting skills `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-158; pinned primary-source comparison, three portable skills, isolated helper/published-image workflow validation, selective installation and generic usage instructions. Fresh-model and live provider checks remain unclaimed. [Installation](../README.md#agent-skills). [Evidence](worklogs/2026-10-24-AGENT-580.md).
 
 - [x] **[RELEASE-579]** Package corresponding decoder sources and validate the first alpha candidate `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — exact decoder sources/build configuration, available upstream notices and base inventory packaged; source 99badfb43 passes native AMD64/ARM64 acceptance and full integration CI. Alpha notes prepared; no registry publication. [Evidence](worklogs/2026-10-24-RELEASE-579.md).
 

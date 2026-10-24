@@ -1537,7 +1537,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](../docs/project/public-positioning.md).
 
-- Resolution (AGENT-580, 2026-10-24): Three portable first-alpha skills cover installation, API-backed use and troubleshooting, with complete selective installation, runnable helpers, scoped references and an operator handoff. Published-image manual workflows and helper invariants pass. [Guide](../docs/agent-skills.md). [Evaluation and limits](../docs/research/agent-skills-evaluation.md). Fresh-model/cross-model and live operator/provider validation remain unclaimed; the feedback handoff is the next adoption step.
+- Resolution (AGENT-580, 2026-10-24): Three portable first-alpha skills cover installation, API-backed use and troubleshooting, with complete selective installation, runnable helpers and scoped operational references. Published-image manual workflows and helper invariants pass. [Installation](../README.md#agent-skills). [Validation](worklogs/2026-10-24-AGENT-580.md). Fresh-model/cross-model and live provider validation remain unclaimed.
 
 ## [ISSUE-159] Establish a supported n8n integration path
 

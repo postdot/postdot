@@ -87,7 +87,7 @@ story; license details remain available without becoming a promotional argument.
 | --- | --- | --- |
 | Studio, API, CLI | Present; CLI operation coverage is partial | Existing ways to work, describe actual workflows |
 | MCP | ISSUE-036 remains deferred for workflow stability | Planned; do not present as available |
-| Agent skills | Three first-alpha skills: self-hosting, product use and troubleshooting | Available in `skills/`; see [installation](../agent-skills.md) |
+| Agent skills | Three first-alpha skills: self-hosting, product use and troubleshooting | Available in `skills/`; see [installation](../../README.md#agent-skills) |
 | n8n | API exists, dedicated supported workflow not established | Intended integration; delivery format undecided |
 | Mobile app | No dedicated client workspace | Future; responsive Studio is not a native app |
 | Images/video, local/S3 media | Implemented boundaries and guides | Explain user benefit with provider-specific limits |

@@ -30,9 +30,18 @@ It covers the versioned container image, optional source builds, generating secr
 protecting your data. Check the [provider requirements](docs/deployment/provider-requirements.md)
 before connecting an account.
 
-For agent-assisted installation and use, install the
-[Postdot skills](docs/agent-skills.md). They include a first-alpha deployment
-handoff and local diagnostic feedback guidance.
+## Agent skills
+
+Install the skills for your agent:
+
+```sh
+npx skills add postdot/postdot --skill postdot-self-host --skill postdot --skill postdot-troubleshoot
+```
+
+The [skills](skills/) cover self-hosting, API-backed publication workflows and
+troubleshooting for `0.1.0-alpha.1`. Manual installation requires copying each
+complete skill directory, including its references, assets and scripts.
+The optional helpers use Python 3's standard library; no MCP server is required.
 
 ## Develop locally
 
