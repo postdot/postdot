@@ -6,7 +6,7 @@ GET `/api/projects/{projectId}/media/{assetId}`. Confirm the exact contract in t
 running `/openapi/json` before reserving or streaming bytes; the bundled JSON
 helper does not implement a binary upload client.
 
-For the first alpha, use Studio's upload workflow when no matching source CLI is
+Use Studio's upload workflow when no matching source CLI is
 available. If the source CLI is already set up, these supported commands cover
 the complete transfer flow:
 

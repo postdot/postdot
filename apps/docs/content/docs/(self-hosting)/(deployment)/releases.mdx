@@ -1,7 +1,41 @@
 ---
 title: Releases
-description: Identify the published alpha image, source revision and supported architectures.
+description: Published images, changes, source revisions and validated upgrade paths.
 ---
+
+## 0.1.0-alpha.2
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.2`
+- Manifest digest: `sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e`
+- Platforms: Linux AMD64 and ARM64.
+- [Matching source](https://github.com/postdot/postdot/tree/e7af5550ffa446f9264ec13159e0ed9e263e1495).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/40209200573).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/40207971158).
+
+### Changes
+
+- Choose a destination explicitly when creating a channel. Manual channels explain
+  human delivery and offer ready-to-use defaults with optional content configuration.
+- Inspect missing provider setup from its status and open the configuration path
+  appropriate to your installation permissions.
+- Understand the first account's administrator role before creating it.
+- Read maintenance command help without loading configuration or opening storage.
+- Use consistent language detection in development and production builds.
+- Download release-matched installation files and configure S3 from a complete example.
+
+### Upgrade from 0.1.0-alpha.1
+
+Native checks on both platforms upgraded a previous-release data set and verified
+sign-in, project/channel identities, draft state and byte-identical local media. They
+also restored the pre-update backup with the previous executable, verified the
+original data and confirmed recovery hold blocks writes. No new database migration
+is included in this release.
+
+Follow the [update procedure](/docs/installation/#update-and-rollback), back up
+database/media and retain deployment secrets separately. Restore with the matching
+previous image if needed; changing the image alone does not reverse migrations or
+remote publication effects. Anonymous image retrieval is verified. Version tags
+remain immutable, with no `latest` alias.
 
 ## 0.1.0-alpha.1
 

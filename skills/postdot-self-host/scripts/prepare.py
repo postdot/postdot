@@ -8,7 +8,7 @@ import secrets
 import sys
 from urllib.parse import urlsplit
 
-IMAGE = "ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e"
+IMAGE = "ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e"
 
 
 def main():

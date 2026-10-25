@@ -1,4 +1,4 @@
-"""Validate installed skill HTTP examples on a disposable published-alpha container.
+"""Validate installed skill HTTP examples on a disposable published container.
 
 Requires Python 3, Docker and the pinned image locally. No provider is connected.
 """
@@ -6,7 +6,7 @@ Requires Python 3, Docker and the pinned image locally. No provider is connected
 import json, os, pathlib, secrets, socket, subprocess, tempfile, time, urllib.request, urllib.error, http.cookiejar
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-IMAGE = "ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e"
+IMAGE = "ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e"
 name = "postdot-agent580-" + secrets.token_hex(4)
 with tempfile.TemporaryDirectory(prefix="postdot-agent580-live-") as d:
     p = pathlib.Path(d)

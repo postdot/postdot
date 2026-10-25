@@ -12,8 +12,9 @@ the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-cl
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
 The comparison experiment is retired; future DB adoption requires a concrete need.
 Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
-The first public alpha image and retained distribution notices are delivered
-under RELEASE-303/PROJECT-302; release policy follows ADR-093.
+The current published image is `0.1.0-alpha.2`, with native AMD64/ARM64 upgrade
+and restoration acceptance from `0.1.0-alpha.1` under RELEASE-584. Distribution
+notices remain packaged; release policy follows ADR-093.
 ISSUE-191's entry JavaScript budget and ISSUE-182/183's broader cleanup remain open.
 
 Calendar/Queue delivery follows the current route, timezone and reading contracts
@@ -55,7 +56,7 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
-- [/] **[RELEASE-584]** Prepare the second image and verify previous-release upgrade and restoration `Priority: 🟠` `Complexity: L` — ONBOARD-582/CHANNEL-583; repair demonstrated CI test isolation, remove the first-tag-only release guard, add native previous-release upgrade acceptance and prepare 0.1.0-alpha.2 without publishing it. Local AMD64 upgrade/restore, full container recovery and unit checks pass. Native two-platform acceptance and exact-source CI remain required before publication. [Evidence](worklogs/2026-10-25-RELEASE-584.md).
+- [x] **[RELEASE-584]** Prepare the second image and verify previous-release upgrade and restoration `Priority: 🟠` `Complexity: L` `Completed: 2026-10-25` — ONBOARD-582/CHANNEL-583; repair demonstrated CI test isolation, remove the first-tag-only release guard, add native previous-release upgrade acceptance and publish 0.1.0-alpha.2 after explicit owner authorization. Exact-source CI, native AMD64/ARM64 upgrade/recovery acceptance, anonymous downloads and published-image skill validation pass. [Evidence](worklogs/2026-10-25-RELEASE-584.md).
 
 - [x] **[CHANNEL-583]** Clarify channel creation and missing provider setup `Priority: 🟠` `Complexity: M` `Completed: 2026-10-25` — GitHub #9/#11; explicit destination choice, default manual creation with optional content configuration, provider prerequisites before saving and actionable missing-setup status. Targeted browser/unit/static checks pass; application changes await an image release. [Evidence](worklogs/2026-10-25-CHANNEL-583.md).
 

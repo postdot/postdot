@@ -47,8 +47,10 @@ marker or retry ambiguous posts to make the system appear healthy.
 
 ## Replacement and upgrades
 
-This first public alpha has no previous-release upgrade validation. Do not claim
-that a restart proves migration or rollback safety. Before a future upgrade,
-read its release evidence, back up data/configuration, retain the previous image
-and confirm its compatibility. Image rollback alone does not reverse migrations.
-Alpha versions are immutable; use a new version for corrected executables.
+Upgrade from `0.1.0-alpha.1` to `0.1.0-alpha.2` and restoration of its pre-update
+backup were validated on native AMD64 and ARM64 with an isolated project, draft
+and local media. Read the target release's evidence before each upgrade; a
+restart alone does not prove migration or rollback safety. Back up data and
+configuration, retain deployment secrets and the previous image, and confirm
+compatibility. Image rollback alone does not reverse migrations. Version tags
+are immutable; use a new version for corrected executables.

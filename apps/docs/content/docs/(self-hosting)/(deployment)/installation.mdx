@@ -5,9 +5,10 @@ description: Install Postdot with Docker Compose and configure persistent storag
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. The current release is
-`0.1.0-alpha.1`. This guide uses release-matched Compose/configuration files and the public
-`ghcr.io/postdot/postdot:0.1.0-alpha.1` image, accepted on Linux AMD64 and ARM64.
-There is no previous public release, so no prior-release upgrade path is validated.
+`0.1.0-alpha.2`. This guide uses release-matched Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.2` image, accepted on Linux AMD64 and ARM64.
+Upgrade from `0.1.0-alpha.1` and restoration of its pre-update backup have been
+validated on both platforms; see the [release record](/docs/releases/).
 
 ## First installation
 
@@ -18,12 +19,12 @@ Before starting, have these available:
 - OpenSSL to generate the deployment secrets.
 
 Create a new installation directory and download both files from the image's
-[source revision](https://github.com/postdot/postdot/tree/99badfb431b95a817c645e716267815925c1f6cc):
+[source revision](https://github.com/postdot/postdot/tree/e7af5550ffa446f9264ec13159e0ed9e263e1495):
 
 ```sh
 mkdir postdot
 cd postdot
-POSTDOT_SOURCE=99badfb431b95a817c645e716267815925c1f6cc
+POSTDOT_SOURCE=e7af5550ffa446f9264ec13159e0ed9e263e1495
 curl --fail --location --output compose.yaml "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.yaml"
 curl --fail --location --output compose.env.example "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.env.example"
 ```
@@ -54,7 +55,7 @@ Git and never publish the output of `docker compose config`, which includes secr
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.1\n' >> .env
+printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.2\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
@@ -65,7 +66,7 @@ The readiness request must succeed before you continue. If startup fails, inspec
 `docker compose logs --tail 100 postbot` before changing the configuration.
 
 For reproducible content, replace the tag in `POSTBOT_IMAGE` with
-`ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`.
+`ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e`.
 See the [release record](/docs/releases/) for its matching source and limits.
 
 To build from source instead, obtain the full repository in a separate directory:
@@ -73,7 +74,7 @@ To build from source instead, obtain the full repository in a separate directory
 ```sh
 git clone https://github.com/postdot/postdot.git postdot-source
 cd postdot-source
-git checkout 99badfb431b95a817c645e716267815925c1f6cc
+git checkout e7af5550ffa446f9264ec13159e0ed9e263e1495
 ```
 
 Repeat the configuration step there, leave `POSTBOT_IMAGE` unset, run

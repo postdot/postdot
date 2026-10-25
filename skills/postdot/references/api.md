@@ -1,4 +1,4 @@
-# API access for alpha 0.1.0-alpha.1
+# API access for Postdot 0.1.0-alpha.2
 
 Set `POSTBOT_URL` to the chosen instance origin and `POSTBOT_API_KEY` through the
 agent's private secret mechanism or operator-controlled environment. Do not ask
@@ -35,4 +35,4 @@ If a matching source checkout with dependencies and Bun is already available,
 existing CLI. Do not install an unrelated `postdot` package or clone/install a
 whole development environment just to perform an HTTP request. The full source
 CLI guide is at
-https://github.com/postdot/postdot/blob/99badfb431b95a817c645e716267815925c1f6cc/docs/cli-publications.md.
+https://github.com/postdot/postdot/blob/e7af5550ffa446f9264ec13159e0ed9e263e1495/apps/docs/content/docs/%28developers%29/%28clients%29/cli-reference.mdx.
