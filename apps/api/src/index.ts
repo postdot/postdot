@@ -45,6 +45,7 @@ import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
 import { providerWorkerFactories } from './providers/registry'
 import { createRecoveryService } from './recovery'
+import { printReleaseVersion } from './release'
 import { registerServingHandle } from './serving'
 import {
     createShutdownDependencies,
@@ -370,7 +371,7 @@ async function startServerWithRuntimeLock(
 
 if (import.meta.main) {
     const args = Bun.argv.slice(2)
-    if (printMaintenanceHelp(args)) {
+    if (printReleaseVersion(args) || printMaintenanceHelp(args)) {
         // Help must not load configuration, open storage or start the server.
     } else if (args[0] === 'account') {
         try {

@@ -195,6 +195,15 @@ type PostbotMediaEnvironment = Omit<
     'DB_FILE_NAME'
 >
 
+export function createPostbotBootstrapConfig(source: EnvironmentSource = Bun.env) {
+    return createEnvironment(
+        {
+            POSTBOT_MIGRATIONS_DIR: environmentDefinitions.POSTBOT_MIGRATIONS_DIR,
+        },
+        source
+    )
+}
+
 export function createPostbotMaintenanceConfig(
     source: EnvironmentSource = Bun.env
 ): PostbotMaintenanceConfig {

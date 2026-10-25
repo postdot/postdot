@@ -7,6 +7,10 @@ on:
                 description: Optional branch, tag, or commit to accept
                 required: false
                 type: string
+            image_version:
+                description: Optional release version baked into the candidate
+                required: false
+                type: string
             previous_image:
                 description: Published image digest to upgrade from and restore with
                 required: true
@@ -17,6 +21,10 @@ on:
             source_ref:
                 description: Commit, branch, or tag to build and accept
                 required: true
+                type: string
+            image_version:
+                description: Optional release version baked into the candidate
+                required: false
                 type: string
             previous_image:
                 description: Published image digest to upgrade from and restore with
@@ -58,8 +66,13 @@ jobs:
               run: test "$(docker version --format '{{.Server.Arch}}')" = "$EXPECTED_ARCH"
 
             - name: Build candidate without publication
+              env:
+                  IMAGE_VERSION: ${{ inputs.image_version }}
               run: |
                   docker build --platform "linux/$EXPECTED_ARCH" --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
+                    --build-arg "POSTDOT_VERSION=$IMAGE_VERSION" \
+                    --build-arg "POSTDOT_REVISION=${{ steps.checkout.outputs.commit }}" \
+                    --label "org.opencontainers.image.version=$IMAGE_VERSION" \
                     --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
                     --label "org.opencontainers.image.revision=${{ steps.checkout.outputs.commit }}" \
                     --label "org.opencontainers.image.licenses=AGPL-3.0-only" .
@@ -82,6 +95,9 @@ jobs:
                   docker run --rm --entrypoint bun \
                     --volume "$PWD/scripts/verify-container-distribution.ts:/tmp/verify-container-distribution.ts:ro" \
                     "$CANDIDATE_IMAGE_ID" /tmp/verify-container-distribution.ts
+
+            - name: Verify offline bootstrap and packaged release identity
+              run: python3 scripts/production-container-bootstrap.py --image "${{ steps.identity.outputs.image }}"
 
             - name: Verify the exact candidate image
               env:

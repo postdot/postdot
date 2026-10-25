@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmailSettingsForm } from '@/components/email-settings-form'
 import { RecoverySettings } from '@/components/recovery-settings'
+import { ReleaseSettings } from '@/components/release-settings'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -80,6 +81,7 @@ export function ConfigurationSettingsPage({
                         </span>
                     </Link>
                 </section>
+                <ReleaseSettings />
                 {isInstanceAdmin && (
                     <>
                         <RecoverySettings />

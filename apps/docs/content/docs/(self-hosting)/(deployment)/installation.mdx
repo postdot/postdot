@@ -89,6 +89,44 @@ administrator; public signup then closes. Create your project and first channel.
 A manual channel lets you prepare and schedule content without configuring a
 provider account. Invite additional users through the application.
 
+### Offline administrator provisioning (source builds)
+
+The current source supports non-interactive first-administrator provisioning.
+This command is not included in the published `0.1.0-alpha.2` image. Build the
+current source to use it; the browser setup above remains available in alpha.2.
+
+Stop Postdot before provisioning. Create a private `bootstrap.json` file outside
+version control with exactly these fields, replacing the example values:
+
+```json
+{
+    "name": "Administrator",
+    "email": "admin@example.com",
+    "password": "replace-with-a-unique-long-password"
+}
+```
+
+Use a password of 8 to 128 characters. Restrict access to the host file and make
+it readable by the container's unprivileged user through a read-only mount. Do not
+pass the password as a command argument or environment variable.
+
+```sh
+docker compose stop postbot
+docker compose run --rm --no-deps \
+  --volume "$PWD/bootstrap.json:/run/secrets/bootstrap.json:ro" \
+  postbot account bootstrap --database /data/postbot.sqlite \
+  --input /run/secrets/bootstrap.json
+docker compose up -d --wait
+```
+
+The command initializes a new database or claims an existing unclaimed instance.
+It creates the first installation administrator and closes public signup, without
+starting a server. A configured instance or an occupied runtime lock causes it to
+refuse. Repeating the command does not reset the account or change its password.
+Sign in through the dashboard, then remove the private provisioning file when you
+no longer need it. For an existing account, use the interactive
+[password recovery procedure](/docs/operations/#recover-an-existing-account-password).
+
 ### Public HTTPS deployment
 
 For a public deployment, keep the container bound to loopback and place an HTTPS
@@ -119,6 +157,24 @@ docker compose up -d --wait
 `/health` checks HTTP liveness; `/ready` checks durable-work readiness. After a
 restore, readiness can succeed while recovery hold deliberately suspends delivery.
 Read the administration recovery state before assuming work has resumed.
+
+### Identify the installed release
+
+With a current source build, run:
+
+```sh
+docker compose run --rm --no-deps postbot --version --json
+```
+
+Studio also displays the version and source commit under installation settings;
+`GET /api/version` returns the same fields. These values come from the packaged
+image. A build without release metadata reports `null` for unknown fields. The
+CLI can read them without opening the database or starting a server.
+
+These identification features are not included in `0.1.0-alpha.2`. For that image,
+inspect its `org.opencontainers.image.version` and
+`org.opencontainers.image.revision` labels. `/health` checks availability, and the
+OpenAPI schema version describes the API; neither identifies the running release.
 
 ### Protect the volume and runtime lock
 

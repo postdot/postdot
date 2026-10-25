@@ -3,6 +3,7 @@ import type { PostbotDatabase } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
+import { readReleaseInfo } from '../../release'
 import type { MediaReconciliationRuntimeState } from '../media/runtime'
 import type { NotificationProjectionRuntimeState } from '../notifications/runtime'
 
@@ -58,6 +59,22 @@ export interface HealthRoutesOptions {
 
 export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
     return new Elysia({ name: 'postbot-health' })
+        .get(
+            '/api/version',
+            {
+                response: Type.Object({
+                    version: Type.Union([Type.String(), Type.Null()]),
+                    revision: Type.Union([Type.String(), Type.Null()]),
+                }),
+                detail: {
+                    operationId: 'getReleaseInfo',
+                    summary: 'Identify the packaged application release',
+                    tags: ['System'],
+                    security: [],
+                },
+            },
+            () => readReleaseInfo()
+        )
         .get(
             '/health',
             {

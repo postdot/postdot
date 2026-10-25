@@ -46,7 +46,7 @@ export interface PostbotAuthEmailOptions {
 
 export interface PostbotAuthRuntimeOptions
     extends
-        Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins'>,
+        Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins' | 'logger'>,
         PostbotAuthInvitationOptions,
         PostbotAuthEmailOptions {
     /** Shared Postdot access state used by the Better Auth bootstrap hooks. */

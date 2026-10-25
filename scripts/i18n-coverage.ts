@@ -62,6 +62,8 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'nav_channel_tooltip',
             'nav_installation',
             'nav_instance',
+            'release_version',
+            'release_revision',
             'nav_instance_settings',
             'nav_publications',
             'nav_workspace',

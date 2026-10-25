@@ -138,6 +138,7 @@ jobs:
         uses: ./.github/workflows/container-candidate.yml
         with:
             source_ref: ${{ inputs.source_sha }}
+            image_version: ${{ inputs.image_tag }}
             previous_image: ${{ inputs.previous_image }}
 
     publish:
@@ -175,6 +176,9 @@ jobs:
               with:
                   context: .
                   platforms: linux/amd64,linux/arm64
+                  build-args: |
+                      POSTDOT_VERSION=${{ inputs.image_tag }}
+                      POSTDOT_REVISION=${{ inputs.source_sha }}
                   push: true
                   tags: ghcr.io/postdot/postdot:${{ inputs.image_tag }}
                   labels: |

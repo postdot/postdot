@@ -15,6 +15,7 @@ import {
 } from '@postdot/db'
 import type { MediaStore } from '@postdot/media'
 
+import { runLocalAccountBootstrap } from './local-account-bootstrap'
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
 const maintenanceUsage = {
@@ -35,10 +36,12 @@ Offline resume requires --confirm after reviewing outstanding work.`,
 
 Generate missing image previews against an existing offline database.
 Stop the server first. --dry-run reports work without generating previews.`,
-    account: `Usage: bun /app/postbot.js account recover-password --database <path>
+    account: `Usage: bun /app/postbot.js account bootstrap --database <path> --input <private-json-file>
+       bun /app/postbot.js account recover-password --database <path>
 
-Recover an existing account password interactively. Stop the server first.
-An explicit database path and terminal confirmation are required.`,
+Bootstrap creates the first administrator offline from a private JSON file with
+name, email and password. Stop the server; existing installations are refused.
+Password recovery changes an existing account and requires an interactive terminal.`,
 } as const
 
 export function printMaintenanceHelp(args: readonly string[]): boolean {
@@ -52,8 +55,9 @@ Commands:
   restore         Restore a backup while the server is stopped
   recovery        Inspect, enable or resume recovery hold
   media-previews  Generate missing image previews offline
-  account         Recover an existing account password offline
+  account         Bootstrap an administrator or recover an account offline
 
+Use --version [--json] for packaged release identification.
 Use <command> --help for its options and operating requirements.`)
         return true
     }
@@ -74,7 +78,8 @@ export async function runMaintenanceCommand(
     if (printMaintenanceHelp(args)) return true
     const command = args[0]
     if (command === 'account') {
-        await runLocalAccountPasswordRecovery(args)
+        if (args[1] === 'bootstrap') await runLocalAccountBootstrap(args)
+        else await runLocalAccountPasswordRecovery(args)
         return true
     }
     if (!['backup', 'restore', 'recovery', 'media-previews'].includes(command ?? '')) return false

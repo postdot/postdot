@@ -2403,5 +2403,11 @@
     "performance_export_csv": "Exporter le CSV",
     "performance_export_pending": "Export en cours…",
     "performance_export_cancel": "Annuler l’export",
-    "performance_export_failed": "Le CSV n’a pas pu être exporté. Réessayez."
+    "performance_export_failed": "Le CSV n’a pas pu être exporté. Réessayez.",
+    "release_title": "Version de l’application",
+    "release_version": "Version",
+    "release_revision": "Commit",
+    "release_unversioned": "Compilation sans version",
+    "release_unknown_revision": "Non renseigné",
+    "release_load_failed": "Impossible de charger la version de l’application."
 }

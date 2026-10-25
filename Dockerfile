@@ -73,6 +73,10 @@ RUN dpkg-query -W -f '${binary:Package}\t${Version}\n' > /app/licenses/base-pack
     && cp /etc/os-release /app/licenses/base-os-release \
     && mkdir -p /data && chown bun:bun /data
 
+ARG POSTDOT_VERSION=
+ARG POSTDOT_REVISION=
+RUN POSTDOT_VERSION="$POSTDOT_VERSION" POSTDOT_REVISION="$POSTDOT_REVISION" bun -e 'await Bun.write("/app/release.json", JSON.stringify({version: process.env.POSTDOT_VERSION || null, revision: process.env.POSTDOT_REVISION || null}))'
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_FILE_NAME=/data/postbot.sqlite

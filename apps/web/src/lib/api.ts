@@ -215,6 +215,10 @@ export const api = {
         )
     },
 
+    async getReleaseInfo() {
+        return unwrap(await client.api.version.get())
+    },
+
     async getInstanceAccess() {
         return unwrap(await client.api.access.get())
     },
