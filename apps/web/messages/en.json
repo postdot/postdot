@@ -181,6 +181,7 @@
     ],
     "auth_create_account": "Create your account",
     "auth_welcome_back": "Welcome back",
+    "auth_setup_administrator_description": "This account becomes the installation administrator and can manage access and instance settings. After you create it, public signup closes; invite other people from Postdot.",
     "auth_start_workspace_title": "Set up Postdot",
     "auth_start_workspace": "Start a publishing workspace for your channels and scheduled work.",
     "auth_sign_in_title": "Sign in",

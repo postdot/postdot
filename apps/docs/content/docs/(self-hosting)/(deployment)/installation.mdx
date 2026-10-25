@@ -1,11 +1,11 @@
 ---
 title: Installation
-description: Install the published alpha image or build from source with Docker Compose.
+description: Install Postdot with Docker Compose and configure persistent storage.
 ---
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
-container. SQLite and local media share one persistent volume. Postdot is alpha software under active development. This guide uses a
-source checkout for its Compose/configuration files and the public
+container. SQLite and local media share one persistent volume. The current release is
+`0.1.0-alpha.1`. This guide uses release-matched Compose/configuration files and the public
 `ghcr.io/postdot/postdot:0.1.0-alpha.1` image, accepted on Linux AMD64 and ARM64.
 There is no previous public release, so no prior-release upgrade path is validated.
 
@@ -14,10 +14,22 @@ There is no previous public release, so no prior-release upgrade path is validat
 Before starting, have these available:
 
 - Docker Engine with Compose v2.20 or newer.
-- Git and a Postdot source checkout.
+- curl to download the deployment files.
 - OpenSSL to generate the deployment secrets.
 
-Run the commands below from the root of that checkout.
+Create a new installation directory and download both files from the image's
+[source revision](https://github.com/postdot/postdot/tree/99badfb431b95a817c645e716267815925c1f6cc):
+
+```sh
+mkdir postdot
+cd postdot
+POSTDOT_SOURCE=99badfb431b95a817c645e716267815925c1f6cc
+curl --fail --location --output compose.yaml "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.yaml"
+curl --fail --location --output compose.env.example "https://raw.githubusercontent.com/postdot/postdot/$POSTDOT_SOURCE/compose.env.example"
+```
+
+Run subsequent commands from this directory. Installing the published image does
+not require a source checkout or Bun on the host.
 
 ### 1. Configure the instance
 
@@ -56,8 +68,18 @@ For reproducible content, replace the tag in `POSTBOT_IMAGE` with
 `ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e`.
 See the [release record](/docs/releases/) for its matching source and limits.
 
-To build locally instead, leave `POSTBOT_IMAGE` unset, run `docker compose build`,
-then `docker compose up -d --wait`. The default remains `postbot:local`.
+To build from source instead, obtain the full repository in a separate directory:
+
+```sh
+git clone https://github.com/postdot/postdot.git postdot-source
+cd postdot-source
+git checkout 99badfb431b95a817c645e716267815925c1f6cc
+```
+
+Repeat the configuration step there, leave `POSTBOT_IMAGE` unset, run
+`docker compose build`, then `docker compose up -d --wait`. The default remains
+`postbot:local`. This alternative requires Git and the full checkout; the two
+files downloaded above are sufficient only for the published image.
 
 ### 3. Create the administrator account
 
@@ -123,11 +145,40 @@ relay's actual settings and test delivery. There is no bundled production mail s
 
 ### S3-compatible media storage
 
-Local media is the default. S3-compatible storage uses `POSTBOT_MEDIA_STORE=s3`,
-`POSTBOT_MEDIA_S3_BUCKET`, access-key and secret-key variables, plus a region or
-endpoint. The complete list is in `apps/api/.env.example`. Keep the store ID stable
-and pass the same configuration to maintenance commands. Switching the setting
-alone does not migrate existing media. No S3 service is required for first use.
+Local media is the default. To use an existing S3-compatible bucket for a **new
+installation**, replace `POSTBOT_MEDIA_STORE` and `POSTBOT_MEDIA_STORE_ID` in `.env` and add
+the following settings before starting:
+
+```dotenv
+POSTBOT_MEDIA_STORE=s3
+POSTBOT_MEDIA_STORE_ID=primary-media
+POSTBOT_MEDIA_S3_BUCKET=your-bucket
+POSTBOT_MEDIA_S3_REGION=us-east-1
+POSTBOT_MEDIA_S3_ENDPOINT=https://s3.example.com
+POSTBOT_MEDIA_S3_ACCESS_KEY_ID=replace-with-access-key
+POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY=replace-with-secret-key
+POSTBOT_MEDIA_S3_PREFIX=postdot
+# Optional, only for temporary credentials:
+# POSTBOT_MEDIA_S3_SESSION_TOKEN=replace-with-session-token
+```
+
+Replace the endpoint, region and credentials with your storage service's values.
+For AWS S3, omit `POSTBOT_MEDIA_S3_ENDPOINT` and set the bucket's region. A custom
+service requires a region or endpoint; follow its signing-region requirements.
+The optional prefix isolates Postdot's object keys within the bucket. Use
+credentials that can read, write and delete those objects. The container must be
+able to reach the endpoint; `localhost` inside it refers to the container itself.
+
+`POSTBOT_MEDIA_STORE_ID` identifies the storage location in saved media records.
+Choose it once and keep it stable across restarts, updates and maintenance commands.
+Changing it can make existing media inaccessible. Changing bucket, prefix or
+storage backend does **not** migrate stored objects or update saved media records.
+Plan a migration separately for an instance that already contains media.
+
+Compose passes `.env` to both the server and maintenance commands. SQLite still
+uses the persistent `/data` volume when media uses S3. After configuration, upload
+an image through Media, reopen it, restart the container and verify that it remains
+available. Configuration validation alone does not prove storage compatibility.
 
 ## Backup and restoration
 
@@ -178,9 +229,8 @@ For off-host bundles and externally restored databases, follow the
 
 ### Prepare and apply an update
 
-The first alpha has no prior-release upgrade evidence. Before adopting a future
-release, read its migration notes and validation record, back up data/secrets and
-retain the previous image. Never replace an immutable version tag.
+Before adopting a new release, read its migration notes and validation record,
+back up data/secrets and retain the previous image. Never replace an immutable version tag.
 
 For a source-built installation, record the source commit before building an update:
 
@@ -198,9 +248,8 @@ curl --fail http://127.0.0.1:3000/ready
 A failed update is not a reason to delete the volume. Returning to an older image
 alone may fail after database migrations; schema downgrade is not supported.
 Rollback requires a compatible image **and** its pre-update data/configuration,
-with restoration and recovery hold as above. No safe upgrade between public
-releases is claimed by this guide. The first alpha image has native acceptance
-on Linux AMD64 and ARM64.
+with restoration and recovery hold as above. Consult the target release record
+for validated upgrade paths and platform acceptance.
 
 ## Existing installation names
 

@@ -181,6 +181,7 @@
     ],
     "auth_create_account": "Créer votre compte",
     "auth_welcome_back": "Bon retour",
+    "auth_setup_administrator_description": "Ce compte devient administrateur de l’installation et peut gérer les accès et les paramètres de l’instance. Après sa création, les inscriptions publiques ferment ; invitez les autres personnes depuis Postdot.",
     "auth_start_workspace_title": "Configurer Postdot",
     "auth_start_workspace": "Créez un espace de publication pour vos canaux et vos travaux planifiés.",
     "auth_sign_in_title": "Connexion",

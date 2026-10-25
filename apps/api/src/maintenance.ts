@@ -17,6 +17,38 @@ import type { MediaStore } from '@postdot/media'
 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
+const maintenanceUsage = {
+    backup: `Usage: bun /app/postbot.js backup --output <path> [--media] [--database <path>]
+
+Create a database backup, or a database and media bundle with --media.
+The output path must not already exist. Backups may run while the server is running.
+Retain deployment secrets separately; the backup does not include them.`,
+    restore: `Usage: bun /app/postbot.js restore --input <path> [--media] [--database <path>]
+
+Restore a database backup, or a database and media bundle with --media.
+Stop the server first. Restoration enables recovery hold; review before resuming.`,
+    recovery: `Usage: bun /app/postbot.js recovery <hold|status|resume> [--database <path>] [--confirm]
+
+Inspect recovery hold with status. Stop the server before hold or resume.
+Offline resume requires --confirm after reviewing outstanding work.`,
+    'media-previews': `Usage: bun /app/postbot.js media-previews [--project <id>] [--dry-run] [--database <path>]
+
+Generate missing image previews against an existing offline database.
+Stop the server first. --dry-run reports work without generating previews.`,
+    account: `Usage: bun /app/postbot.js account recover-password --database <path>
+
+Recover an existing account password interactively. Stop the server first.
+An explicit database path and terminal confirmation are required.`,
+} as const
+
+export function printMaintenanceHelp(args: readonly string[]): boolean {
+    const command = args[0]
+    if (command === undefined || !Object.hasOwn(maintenanceUsage, command)) return false
+    if (!args.includes('--help') && !args.includes('-h')) return false
+    console.log(maintenanceUsage[command as keyof typeof maintenanceUsage])
+    return true
+}
+
 export async function runMaintenanceCommand(
     args: readonly string[],
     options: {
@@ -24,6 +56,7 @@ export async function runMaintenanceCommand(
         readonly mediaStore?: MediaStore
     } = {}
 ) {
+    if (printMaintenanceHelp(args)) return true
     const command = args[0]
     if (command === 'account') {
         await runLocalAccountPasswordRecovery(args)

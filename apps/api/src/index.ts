@@ -24,7 +24,7 @@ import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@post
 
 import { createApp } from './app'
 import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
-import { runMaintenanceCommand } from './maintenance'
+import { printMaintenanceHelp, runMaintenanceCommand } from './maintenance'
 import { createPostbotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
@@ -370,7 +370,9 @@ async function startServerWithRuntimeLock(
 
 if (import.meta.main) {
     const args = Bun.argv.slice(2)
-    if (args[0] === 'account') {
+    if (printMaintenanceHelp(args)) {
+        // Help must not load configuration, open storage or start the server.
+    } else if (args[0] === 'account') {
         try {
             await runMaintenanceCommand(args)
         } catch (error) {

@@ -55,6 +55,8 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
+- [x] **[ONBOARD-582]** Correct installation and first-administrator onboarding `Priority: 🟠` `Complexity: M` `Completed: 2026-10-25` — GitHub [#5](https://github.com/postdot/postdot/issues/5), [#6](https://github.com/postdot/postdot/issues/6), [#7](https://github.com/postdot/postdot/issues/7); side-effect-free maintenance help, explicit administrator setup copy and self-contained release-matched installation/S3 configuration. Source, bundle, browser and documentation checks pass; application fixes await a subsequent image release. [Evidence](worklogs/2026-10-25-ONBOARD-582.md).
+
 - [x] **[DOCS-581]** Consolidate public documentation under apps/docs `Priority: 🟠` `Complexity: L` `Completed: 2026-10-25` — canonical authored MDX, current contract verification, 52-source preservation manifest, byte-identical relocation of 18 license texts, repaired generation/cache/links and retired root docs. Site/static/CLI/helper/container recovery gates pass. [Evidence](worklogs/2026-10-25-DOCS-581.md).
 
 - [x] **[AGENT-580]** Ship first self-hosting, usage and troubleshooting skills `Priority: 🟠` `Complexity: L` `Completed: 2026-10-24` — ISSUE-158; pinned primary-source comparison, three portable skills, isolated helper/published-image workflow validation, selective installation and generic usage instructions. Fresh-model and live provider checks remain unclaimed. [Installation](../README.md#agent-skills). [Evidence](worklogs/2026-10-24-AGENT-580.md).

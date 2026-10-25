@@ -47,6 +47,7 @@ function SetupPage() {
     return (
         <AuthShell>
             <AuthForm
+                description={m.auth_setup_administrator_description()}
                 mode="sign-up"
                 onSubmit={handleSubmit}
                 pending={pending}

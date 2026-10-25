@@ -47,3 +47,47 @@ it('runs preview maintenance only against an existing offline database and relea
         await rm(directory, { recursive: true, force: true })
     }
 })
+
+it('shows maintenance help without configuration, storage access or account prompts', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-maintenance-help-'))
+    try {
+        for (const command of ['backup', 'restore', 'recovery', 'media-previews', 'account']) {
+            for (const flag of ['--help', '-h']) {
+                const child = Bun.spawn(
+                    [
+                        process.execPath,
+                        new URL('./index.ts', import.meta.url).pathname,
+                        command,
+                        flag,
+                    ],
+                    {
+                        cwd: directory,
+                        env: {
+                            PATH: process.env.PATH,
+                            POSTBOT_MEDIA_STORE: 'invalid-help-must-ignore-config',
+                            DB_FILE_NAME: join(directory, 'must-not-exist.sqlite'),
+                        },
+                        stdin: 'ignore',
+                        stdout: 'pipe',
+                        stderr: 'pipe',
+                    }
+                )
+                const [stdout, stderr, exitCode] = await Promise.all([
+                    new Response(child.stdout).text(),
+                    new Response(child.stderr).text(),
+                    child.exited,
+                ])
+                expect({ command, flag, exitCode, stderr }).toEqual({
+                    command,
+                    flag,
+                    exitCode: 0,
+                    stderr: '',
+                })
+                expect(stdout).toContain(`Usage: bun /app/postbot.js ${command}`)
+            }
+        }
+        expect(await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: directory }))).toEqual([])
+    } finally {
+        await rm(directory, { recursive: true, force: true })
+    }
+})
