@@ -22,7 +22,7 @@ content generator.
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits
-- **Work batching (owner direction, 2026-10-23):** Complete coherent end-to-end issue slices with grouped validation. Avoid repeated approvals and commits for a handful of equivalent functions; request owner decisions for actual scope or architecture choices.
+- **Work batching (owner direction, 2026-10-23):** Complete coherent end-to-end issue slices with grouped validation. Batch release publication after substantial product work; validate changes directly rather than requiring an operator feedback cycle for each fix. Keep the deployed alpha in use while development proceeds. Avoid repeated approvals and commits for a handful of equivalent functions; request owner decisions for actual scope or architecture choices.
 - **Dependency maintenance (owner direction, 2026-10-23):** Prereleases are acceptable before the product has users or its own stable release. Do not freeze or replace a dependency solely because it is prerelease; justify a hold with a concrete compatibility/regression reason and a review trigger. Review stable Bun updates approximately every one to two weeks and apply them with proportionate validation, keeping development checks, CI and production packaging aligned. This does not authorize unattended updates or replacing the operator's global runtime.
 
 - **Public readiness:** Keep public main functional with proportionate validation. Public hero, README and installation guidance must match the actual release maturity and available artifacts; an alpha label does not replace functional checks or imply a published image.

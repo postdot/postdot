@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { PublicationPerformancePage } from '@/components/publication-performance-page'
-import { parsePerformanceTagSelection } from '@/lib/publication-performance'
+import { parsePerformanceTagSelection } from '@/lib/publication-performance-search'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/performance')({
     validateSearch: (search: Record<string, unknown>) => ({

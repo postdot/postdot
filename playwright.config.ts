@@ -6,6 +6,7 @@ import { defineConfig, devices } from '@playwright/test'
 import { createE2ERuntimeResources } from './scripts/e2e-runtime'
 
 const rootDirectory = process.cwd()
+const productionWeb = process.env.POSTBOT_E2E_PRODUCTION_WEB === 'true'
 const useMailpit = process.env.POSTBOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTBOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTBOT_E2E_REALTIME_ACCEPTANCE === 'true'
@@ -146,7 +147,9 @@ export default defineConfig({
             env: apiEnvironment,
         },
         {
-            command: `bun run --cwd apps/web dev -- --host 127.0.0.1 --port ${webPort}`,
+            command: productionWeb
+                ? `bun run --cwd apps/web --bun vite preview --configLoader native --host 127.0.0.1 --port ${webPort} --strictPort`
+                : `bun run --cwd apps/web dev -- --host 127.0.0.1 --port ${webPort}`,
             url: webOrigin,
             timeout: 120_000,
             reuseExistingServer: false,

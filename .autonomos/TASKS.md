@@ -15,7 +15,8 @@ Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-re
 The current published image is `0.1.0-alpha.2`, with native AMD64/ARM64 upgrade
 and restoration acceptance from `0.1.0-alpha.1` under RELEASE-584. Distribution
 notices remain packaged; release policy follows ADR-093.
-ISSUE-191's entry JavaScript budget and ISSUE-182/183's broader cleanup remain open.
+The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
+ISSUE-182/183 retain broader cleanup scope.
 
 Calendar/Queue delivery follows the current route, timezone and reading contracts
 in [ADR-057](decisions/ADR-057-propose-route-information-architecture.md),
@@ -55,6 +56,8 @@ validation evidence; verify its acceptance before archiving. Recurring provider
 validation remains under ISSUE-021; historical successes authorize no new effects.
 
 ## 🚀 Active Sprint
+
+- [x] **[WEB-587]** Reduce anonymous entry JavaScript without changing authentication `Priority: 🟠` `Complexity: L` — ISSUE-191; attribute the current login entry graph, defer avoidable authenticated-only code and compare production artifacts against the existing 180 KiB target with focused browser regressions. Completed 2026-10-25: 154,814 aggregate gzip bytes, below 180 KiB; [evidence](worklogs/2026-10-25-WEB-587.md).
 
 - [x] **[DEPLOY-586]** Add one-time offline administrator bootstrap and shared release identification `Priority: 🟠` `Complexity: L` — GitHub #8; private-file provisioning under the runtime lock, refusal after claim, baked version/revision exposed through CLI and Studio, deployment guidance and isolated acceptance. Completed 2026-10-25; source-only pending image publication, see [worklog](worklogs/2026-10-25-DEPLOY-586.md).
 

@@ -1938,11 +1938,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-191] Reduce anonymous entry JavaScript against the existing footprint target
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: FOUND-571 repaired the footprint script's stale index-component lookup: the index route now redirects and has no component chunk. Measuring the application entry plus the anonymous login route and their static imports produces 279,720 bytes gzip (about 273 KiB), above SPEC-002's 180 KiB initial-web-JavaScript target. Both the previous host canary/artifact and Bun 1.4.4/current artifact produce the same value. This is an aggregate of each unique manifest file's gzip size, not an observed browser transfer or a claim about all authenticated routes. TanStack DB was already excluded from the production bundle before its source cleanup.
 - Impact: The current anonymous entry exceeds the intended transfer budget, and the broken measurement had hidden the result. Dependency removal alone should not be presented as fixing production loading cost.
 - Desired outcome: Attribute the measured entry graph to required code and avoidable eager imports, reduce the anonymous entry toward the existing target without changing authentication or application behavior, and retain a reproducible measurement with an explicitly named entry screen. If the target must change, record an evidence-based trade-off rather than silently lowering it.
 - Related: SPEC-002, ISSUE-185
-- Tasks: none
+- Tasks: WEB-587
 
-- Remaining scope (ALPHA-578, 2026-10-24): Attribute and reduce anonymous-entry eager imports against the 180 KiB target with reproducible measurement; do not infer a gain from the retired DB experiment.
+- Resolution (WEB-587, 2026-10-25): Production login static JavaScript falls from 279,730 to 154,814 aggregate gzip bytes (44.66% reduction), below the unchanged 184,320-byte target. Separated Performance search parsing and project-shell loading from authenticated UI dependencies; scoped notification UI to dashboard/editor-lab. Production browser loading and affected navigation/Performance/toast checks pass. The budget now runs in build CI. This is source-build evidence, not a published-image or server-memory claim. [Evidence](worklogs/2026-10-25-WEB-587.md).

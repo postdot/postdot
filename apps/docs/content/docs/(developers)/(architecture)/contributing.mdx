@@ -95,6 +95,16 @@ an isolated local fixture, not application capacity or minimum hardware. Keep
 measurement conditions with results rather than publishing an old baseline as a
 current requirement.
 
+After building the web app, run `bun scripts/measure-footprint.ts --web-only --check`
+to check the anonymous login entry against the 180 KiB JavaScript budget. It sums
+individual gzip sizes for unique static dependencies; it does not measure browser
+wire transfer or authenticated routes. This check also runs in build CI.
+
+To exercise built web assets with the isolated browser harness, build first and
+prefix a focused Playwright command with `POSTBOT_E2E_PRODUCTION_WEB=true`. The
+harness serves `apps/web/dist` instead of development modules and retains its
+isolated API, database and media paths.
+
 ## Maintain an installation
 
 Use [operations](/docs/operations/) for backup, recovery hold, password recovery

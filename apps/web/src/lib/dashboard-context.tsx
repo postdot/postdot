@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { createContext, useContext, type Context, type FormEvent, type ReactNode } from 'react'
 
 import {
-    api,
     formatApiError,
     type Project,
     type ProjectCategory,
@@ -10,14 +9,7 @@ import {
 } from '@/lib/api'
 import { projectResourceQueries } from '@/lib/project-resources'
 
-export async function loadProjectShell(projectId: string) {
-    const [channels, connections, membership] = await Promise.all([
-        api.listChannels(projectId),
-        api.listPublisherConnections(projectId),
-        api.getProjectMembership(projectId),
-    ])
-    return { channels, connections, membership }
-}
+import type { loadProjectShell } from './project-shell-loader'
 
 export interface DashboardGlobalContextValue {
     readonly canCreateWorkspace: boolean

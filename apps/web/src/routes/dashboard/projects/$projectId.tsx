@@ -6,11 +6,11 @@ import { api } from '@/lib/api'
 import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
     ProjectDashboardProvider,
-    loadProjectShell,
     useDashboardGlobal,
     useProjectDashboard,
 } from '@/lib/dashboard-context'
 import { ProjectRealtimeProvider } from '@/lib/project-realtime'
+import { loadProjectShell } from '@/lib/project-shell-loader'
 import { PublicationComposerProvider } from '@/lib/publication-composer-context'
 import * as m from '@/paraglide/messages.js'
 

@@ -188,7 +188,25 @@ async function measureWebInitialJavaScript() {
         gzipBytes += Bun.gzipSync(bytes).byteLength
     }
 
-    return { files, rawBytes, gzipBytes }
+    return { entryScreen: '/login', files, rawBytes, gzipBytes }
+}
+
+if (Bun.argv.includes('--web-only')) {
+    const web = await measureWebInitialJavaScript()
+    console.log(
+        JSON.stringify(
+            {
+                ...web,
+                budgetGzipBytes: WEB_INITIAL_JS_BUDGET_BYTES,
+                withinBudget: web.gzipBytes <= WEB_INITIAL_JS_BUDGET_BYTES,
+            },
+            null,
+            2
+        )
+    )
+    process.exit(
+        Bun.argv.includes('--check') && web.gzipBytes > WEB_INITIAL_JS_BUDGET_BYTES ? 1 : 0
+    )
 }
 
 if (process.platform !== 'linux' || process.arch !== 'x64') {

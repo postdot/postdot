@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { AppToaster } from '@/components/app-toaster'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { EmptyState } from '@/components/empty-state'
@@ -280,6 +281,7 @@ function DashboardPage() {
 
     return (
         <DashboardGlobalProvider value={value}>
+            <AppToaster />
             {isSettingsPath(pathname) ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : isPreferences ? (
