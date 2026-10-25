@@ -48,16 +48,16 @@ it('runs preview maintenance only against an existing offline database and relea
     }
 })
 
-for (const command of ['backup', 'restore', 'recovery', 'media-previews', 'account']) {
+for (const command of ['', 'backup', 'restore', 'recovery', 'media-previews', 'account']) {
     for (const flag of ['--help', '-h']) {
-        it(`shows ${command} ${flag} without configuration, storage access or account prompts`, async () => {
+        it(`shows ${command || 'global'} ${flag} without configuration, storage access or account prompts`, async () => {
             const directory = await mkdtemp(join(tmpdir(), 'postdot-maintenance-help-'))
             try {
                 const child = Bun.spawn(
                     [
                         process.execPath,
                         new URL('./index.ts', import.meta.url).pathname,
-                        command,
+                        ...(command ? [command] : []),
                         flag,
                     ],
                     {
@@ -80,6 +80,17 @@ for (const command of ['backup', 'restore', 'recovery', 'media-previews', 'accou
                     ])
                     expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: '' })
                     expect(stdout).toContain(`Usage: bun /app/postbot.js ${command}`)
+                    if (command === '') {
+                        for (const name of [
+                            'backup',
+                            'restore',
+                            'recovery',
+                            'media-previews',
+                            'account',
+                        ]) {
+                            expect(stdout).toContain(name)
+                        }
+                    }
                     expect(
                         await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: directory }))
                     ).toEqual([])

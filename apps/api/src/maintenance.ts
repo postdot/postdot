@@ -42,6 +42,21 @@ An explicit database path and terminal confirmation are required.`,
 } as const
 
 export function printMaintenanceHelp(args: readonly string[]): boolean {
+    if (args[0] === '--help' || args[0] === '-h') {
+        console.log(`Usage: bun /app/postbot.js [command] [options]
+
+Without a command, start the Postdot server using its environment configuration.
+
+Commands:
+  backup          Back up the database and optionally media
+  restore         Restore a backup while the server is stopped
+  recovery        Inspect, enable or resume recovery hold
+  media-previews  Generate missing image previews offline
+  account         Recover an existing account password offline
+
+Use <command> --help for its options and operating requirements.`)
+        return true
+    }
     const command = args[0]
     if (command === undefined || !Object.hasOwn(maintenanceUsage, command)) return false
     if (!args.includes('--help') && !args.includes('-h')) return false

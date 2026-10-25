@@ -56,6 +56,8 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
+- [x] **[CLI-585]** Handle global container help without server startup `Priority: 🟠` `Complexity: S` `Completed: 2026-10-25` — deployed alpha.2 feedback; recognize global --help/-h before configuration or storage access, list supported commands and retain maintenance-specific help. Thirteen isolated command tests and bundled global help pass; pending a future image release. [Evidence](worklogs/2026-10-25-CLI-585.md).
+
 - [x] **[RELEASE-584]** Prepare the second image and verify previous-release upgrade and restoration `Priority: 🟠` `Complexity: L` `Completed: 2026-10-25` — ONBOARD-582/CHANNEL-583; repair demonstrated CI test isolation, remove the first-tag-only release guard, add native previous-release upgrade acceptance and publish 0.1.0-alpha.2 after explicit owner authorization. Exact-source CI, native AMD64/ARM64 upgrade/recovery acceptance, anonymous downloads and published-image skill validation pass. [Evidence](worklogs/2026-10-25-RELEASE-584.md).
 
 - [x] **[CHANNEL-583]** Clarify channel creation and missing provider setup `Priority: 🟠` `Complexity: M` `Completed: 2026-10-25` — GitHub #9/#11; explicit destination choice, default manual creation with optional content configuration, provider prerequisites before saving and actionable missing-setup status. Targeted browser/unit/static checks pass; application changes await an image release. [Evidence](worklogs/2026-10-25-CHANNEL-583.md).
