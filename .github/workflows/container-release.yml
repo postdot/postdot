@@ -15,6 +15,11 @@ on:
                 description: Concise user-facing notes for this image release
                 required: true
                 type: string
+            previous_image:
+                description: Published image digest to upgrade from and restore with
+                required: true
+                default: ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e
+                type: string
             public_visibility_acknowledged:
                 description: Confirm public visibility is approved; a public GHCR package cannot be made private again
                 required: true
@@ -40,6 +45,7 @@ jobs:
               env:
                   IMAGE_TAG: ${{ inputs.image_tag }}
                   SOURCE_SHA: ${{ inputs.source_sha }}
+                  PREVIOUS_IMAGE: ${{ inputs.previous_image }}
                   PUBLIC_VISIBILITY_ACKNOWLEDGED: ${{ inputs.public_visibility_acknowledged }}
               with:
                   script: |
@@ -54,8 +60,12 @@ jobs:
                           core.setFailed('source_sha must be a full 40-character commit SHA.')
                           return
                       }
-                      if (imageTag !== '0.1.0-alpha.1') {
-                          core.setFailed('The only accepted first-release image tag is 0.1.0-alpha.1.')
+                      if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:alpha|beta|rc)\.(0|[1-9]\d*))?$/.test(imageTag ?? '')) {
+                          core.setFailed('Use a version tag such as 0.1.0-alpha.2, 0.1.0-rc.1 or 0.1.0; aliases are not release tags.')
+                          return
+                      }
+                      if (!/^ghcr\.io\/postdot\/postdot@sha256:[0-9a-f]{64}$/.test(process.env.PREVIOUS_IMAGE ?? '')) {
+                          core.setFailed('previous_image must be an immutable published Postdot image digest.')
                           return
                       }
                       if (process.env.PUBLIC_VISIBILITY_ACKNOWLEDGED !== 'true') {
@@ -128,6 +138,7 @@ jobs:
         uses: ./.github/workflows/container-candidate.yml
         with:
             source_ref: ${{ inputs.source_sha }}
+            previous_image: ${{ inputs.previous_image }}
 
     publish:
         name: Build and publish GHCR image

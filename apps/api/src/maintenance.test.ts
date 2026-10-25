@@ -48,11 +48,11 @@ it('runs preview maintenance only against an existing offline database and relea
     }
 })
 
-it('shows maintenance help without configuration, storage access or account prompts', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'postdot-maintenance-help-'))
-    try {
-        for (const command of ['backup', 'restore', 'recovery', 'media-previews', 'account']) {
-            for (const flag of ['--help', '-h']) {
+for (const command of ['backup', 'restore', 'recovery', 'media-previews', 'account']) {
+    for (const flag of ['--help', '-h']) {
+        it(`shows ${command} ${flag} without configuration, storage access or account prompts`, async () => {
+            const directory = await mkdtemp(join(tmpdir(), 'postdot-maintenance-help-'))
+            try {
                 const child = Bun.spawn(
                     [
                         process.execPath,
@@ -72,22 +72,23 @@ it('shows maintenance help without configuration, storage access or account prom
                         stderr: 'pipe',
                     }
                 )
-                const [stdout, stderr, exitCode] = await Promise.all([
-                    new Response(child.stdout).text(),
-                    new Response(child.stderr).text(),
-                    child.exited,
-                ])
-                expect({ command, flag, exitCode, stderr }).toEqual({
-                    command,
-                    flag,
-                    exitCode: 0,
-                    stderr: '',
-                })
-                expect(stdout).toContain(`Usage: bun /app/postbot.js ${command}`)
+                try {
+                    const [stdout, stderr, exitCode] = await Promise.all([
+                        new Response(child.stdout).text(),
+                        new Response(child.stderr).text(),
+                        child.exited,
+                    ])
+                    expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: '' })
+                    expect(stdout).toContain(`Usage: bun /app/postbot.js ${command}`)
+                    expect(
+                        await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: directory }))
+                    ).toEqual([])
+                } finally {
+                    child.kill()
+                }
+            } finally {
+                await rm(directory, { recursive: true, force: true })
             }
-        }
-        expect(await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: directory }))).toEqual([])
-    } finally {
-        await rm(directory, { recursive: true, force: true })
+        })
     }
-})
+}

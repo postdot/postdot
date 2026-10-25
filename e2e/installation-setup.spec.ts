@@ -3,13 +3,13 @@ import { expect, test } from '@playwright/test'
 import en from '../apps/web/messages/en.json' with { type: 'json' }
 import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 
-test('first-administrator setup explains access consequences in both languages', async ({
-    page,
-}) => {
-    for (const [locale, messages] of [
-        ['en', en],
-        ['fr', fr],
-    ] as const) {
+for (const [locale, messages] of [
+    ['en', en],
+    ['fr', fr],
+] as const) {
+    test(`first-administrator setup explains access consequences in ${locale}`, async ({
+        page,
+    }) => {
         await page.addInitScript(value => localStorage.setItem('PARAGLIDE_LOCALE', value), locale)
         await page.goto('/setup')
         await expect(page.getByText(messages.auth_setup_administrator_description)).toBeVisible()
@@ -20,5 +20,5 @@ test('first-administrator setup explains access consequences in both languages',
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
             false
         )
-    }
-})
+    })
+}

@@ -7,10 +7,19 @@ on:
                 description: Optional branch, tag, or commit to accept
                 required: false
                 type: string
+            previous_image:
+                description: Published image digest to upgrade from and restore with
+                required: true
+                default: ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e
+                type: string
     workflow_call:
         inputs:
             source_ref:
                 description: Commit, branch, or tag to build and accept
+                required: true
+                type: string
+            previous_image:
+                description: Published image digest to upgrade from and restore with
                 required: true
                 type: string
 
@@ -79,6 +88,12 @@ jobs:
                   POSTBOT_CONTAINER_TEST_IMAGE: ${{ steps.identity.outputs.image }}
               run: bun run test:container:recovery
 
+            - name: Verify previous-release upgrade and backup restoration
+              env:
+                  CANDIDATE_IMAGE_ID: ${{ steps.identity.outputs.image }}
+                  PREVIOUS_IMAGE: ${{ inputs.previous_image }}
+              run: python3 scripts/production-container-upgrade.py --image "$CANDIDATE_IMAGE_ID" --previous-image "$PREVIOUS_IMAGE"
+
             - name: Record accepted candidate
               env:
                   CANDIDATE_IMAGE_ID: ${{ steps.identity.outputs.image }}
@@ -89,5 +104,5 @@ jobs:
                     echo "Source: ${{ steps.checkout.outputs.commit }}"
                     echo "Platform: $CANDIDATE_PLATFORM"
                     echo "Local image ID: $CANDIDATE_IMAGE_ID"
-                    echo 'Container acceptance passed. No image was pushed; this is not a published release or a complete integration validation.'
+                    echo 'Container recovery and previous-release upgrade/restoration acceptance passed. No image was pushed; this is not a published release or a complete integration validation.'
                   } >> "$GITHUB_STEP_SUMMARY"
