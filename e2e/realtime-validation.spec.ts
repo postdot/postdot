@@ -101,6 +101,7 @@ test('refreshes an open publication editor after a worker state change', async (
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
     await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()

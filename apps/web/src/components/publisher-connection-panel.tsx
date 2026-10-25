@@ -1,5 +1,12 @@
-import { Badge } from '@postdot/ui/components/badge'
+import { Badge, badgeVariants } from '@postdot/ui/components/badge'
 import { Button } from '@postdot/ui/components/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@postdot/ui/components/dialog'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -59,6 +66,7 @@ export function PublisherConnectionPanel({
     const [oauthReadiness, setOauthReadiness] = useState<
         Partial<Record<ProviderApplicationProvider, 'ready' | 'not_configured' | 'unavailable'>>
     >({})
+    const [setupChannel, setSetupChannel] = useState<ChannelListItem | null>(null)
     const [readinessAttempt, setReadinessAttempt] = useState(0)
     const readinessProjectId = channels[0]?.projectId
     useEffect(() => {
@@ -182,6 +190,32 @@ export function PublisherConnectionPanel({
 
     return (
         <section id="publisher-connections">
+            <Dialog
+                open={setupChannel !== null}
+                onOpenChange={open => {
+                    if (!open) setSetupChannel(null)
+                }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{setupChannel?.name}</DialogTitle>
+                        <DialogDescription>
+                            {m.channel_provider_setup_explanation()}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {isInstanceAdmin ? (
+                        <Link
+                            className="text-sm text-primary hover:underline"
+                            to="/dashboard/settings/provider-applications"
+                            search={{ projectId: readinessProjectId, workspaceId: undefined }}>
+                            {m.provider_apps_title()}
+                        </Link>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">
+                            {m.publisher_oauth_contact_admin()}
+                        </p>
+                    )}
+                </DialogContent>
+            </Dialog>
             {missingProviders.length > 0 ? (
                 <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 text-sm sm:px-5">
                     <p className="text-muted-foreground">
@@ -258,18 +292,28 @@ export function PublisherConnectionPanel({
                                 <div className="min-w-0 flex-1">
                                     <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                                         <p className="min-w-0 break-words">{channel.name}</p>
-                                        <Badge
-                                            className={connectionBadgeClass}
-                                            variant={
-                                                channel.state === 'archived'
-                                                    ? 'outline'
-                                                    : 'secondary'
-                                            }>
-                                            {connection?.state === 'active' ? (
-                                                <CheckIcon aria-hidden="true" />
-                                            ) : null}
-                                            {connectionLabel}
-                                        </Badge>
+                                        {needsSetup && channel.state !== 'archived' && !readOnly ? (
+                                            <button
+                                                type="button"
+                                                disabled={pending}
+                                                className={`${badgeVariants({ variant: 'secondary' })} ${connectionBadgeClass} cursor-pointer underline decoration-dotted underline-offset-2`}
+                                                onClick={() => setSetupChannel(channel)}>
+                                                {connectionLabel}
+                                            </button>
+                                        ) : (
+                                            <Badge
+                                                className={connectionBadgeClass}
+                                                variant={
+                                                    channel.state === 'archived'
+                                                        ? 'outline'
+                                                        : 'secondary'
+                                                }>
+                                                {connection?.state === 'active' ? (
+                                                    <CheckIcon aria-hidden="true" />
+                                                ) : null}
+                                                {connectionLabel}
+                                            </Badge>
+                                        )}
                                     </div>
                                     {channel.state === 'archived' ? (
                                         <p className="mt-2 text-sm text-muted-foreground">

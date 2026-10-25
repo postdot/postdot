@@ -55,6 +55,8 @@ validation remains under ISSUE-021; historical successes authorize no new effect
 
 ## 🚀 Active Sprint
 
+- [x] **[CHANNEL-583]** Clarify channel creation and missing provider setup `Priority: 🟠` `Complexity: M` `Completed: 2026-10-25` — GitHub #9/#11; explicit destination choice, default manual creation with optional content configuration, provider prerequisites before saving and actionable missing-setup status. Targeted browser/unit/static checks pass; application changes await an image release. [Evidence](worklogs/2026-10-25-CHANNEL-583.md).
+
 - [x] **[ONBOARD-582]** Correct installation and first-administrator onboarding `Priority: 🟠` `Complexity: M` `Completed: 2026-10-25` — GitHub [#5](https://github.com/postdot/postdot/issues/5), [#6](https://github.com/postdot/postdot/issues/6), [#7](https://github.com/postdot/postdot/issues/7); side-effect-free maintenance help, explicit administrator setup copy and self-contained release-matched installation/S3 configuration. Source, bundle, browser and documentation checks pass; application fixes await a subsequent image release. [Evidence](worklogs/2026-10-25-ONBOARD-582.md).
 
 - [x] **[DOCS-581]** Consolidate public documentation under apps/docs `Priority: 🟠` `Complexity: L` `Completed: 2026-10-25` — canonical authored MDX, current contract verification, 52-source preservation manifest, byte-identical relocation of 18 license texts, repaired generation/cache/links and retired root docs. Site/static/CLI/helper/container recovery gates pass. [Evidence](worklogs/2026-10-25-DOCS-581.md).

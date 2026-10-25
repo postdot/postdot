@@ -15,9 +15,9 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
     await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
-    // The manual profile is authored in the wizard's content step, so the
-    // identity step offers "Configure content" before the channel is created.
+    // Exercise optional manual content configuration before creation.
     await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()

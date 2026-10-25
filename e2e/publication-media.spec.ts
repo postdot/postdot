@@ -341,6 +341,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
     await page.getByLabel('Channel name').fill(channelName)
     await page.getByRole('button', { name: 'Configure content', exact: true }).click()
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
@@ -1743,6 +1744,9 @@ async function createChannel(page: Page, channelName: string, profileName?: stri
     const projectId = projectIdFromUrl(page.url())
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    if (profileName === undefined) {
+        await page.getByRole('radio', { name: 'Manual message', exact: true }).click()
+    }
     if (profileName !== undefined) {
         const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
         await channelProfile.getByRole('radio', { name: profileName, exact: true }).click()

@@ -323,9 +323,9 @@ async function createChannel(page: Page, name: string): Promise<void> {
     await addChannelButton.click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
+    await dialog.getByRole('radio', { name: 'Manual message', exact: true }).click()
     await dialog.getByLabel('Channel name').fill(name)
-    // Channel creation is a two-step flow: the destination identity first, then
-    // the content rules that define the profile used for its publications.
+    // Content configuration remains available as an optional step.
     await dialog.getByRole('button', { name: 'Configure content', exact: true }).click()
     await expect(
         dialog.getByRole('heading', { name: 'Configure content', exact: true })

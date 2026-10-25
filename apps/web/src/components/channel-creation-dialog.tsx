@@ -93,7 +93,7 @@ export function ChannelCreationDialog({
     const [step, setStep] = useState<'identity' | 'rules'>('identity')
     const [name, setName] = useState('')
     const [nameEdited, setNameEdited] = useState(false)
-    const [choice, setChoice] = useState<ProfileChoice>('manual-message')
+    const [choice, setChoice] = useState<ProfileChoice | null>(null)
     const [templateId, setTemplateId] = useState(channelProfileTemplates[0]?.id ?? '')
     const [profileText, setProfileText] = useState('')
     const [builderValid, setBuilderValid] = useState(true)
@@ -105,7 +105,7 @@ export function ChannelCreationDialog({
         setStep('identity')
         setName('')
         setNameEdited(false)
-        setChoice('manual-message')
+        setChoice(null)
         setTemplateId(channelProfileTemplates[0]?.id ?? '')
         setProfileText('')
         setBuilderValid(true)
@@ -130,7 +130,10 @@ export function ChannelCreationDialog({
             setDefinitionIssues([])
             setDefinitionIssueCount(0)
         }
-        if (nextChoice !== choice) setProfileText('')
+        if (nextChoice !== choice) {
+            setProfileText('')
+            setBuilderValid(true)
+        }
         setChoice(nextChoice)
         if (!nameEdited) setName(suggestedName(nextChoice))
         if (nextChoice === 'custom' && (profileText === '' || nextChoice !== choice)) {
@@ -140,6 +143,7 @@ export function ChannelCreationDialog({
     }
 
     async function submit() {
+        if (choice === null) return
         if ((choice === 'custom' || choice === 'manual-message') && !builderValid) return
         const trimmedName = name.trim()
         if (trimmedName === '') {
@@ -160,7 +164,18 @@ export function ChannelCreationDialog({
         let profile: ChannelCreationProfile = choice === 'custom' ? 'manual-message' : choice
         if (choice === 'custom' || choice === 'manual-message') {
             try {
-                const parsed: unknown = JSON.parse(profileText)
+                const starter =
+                    choice === 'manual-message' && profileText === ''
+                        ? manualBuilderStarter(presetsQuery.data?.presets ?? [])
+                        : undefined
+                if (choice === 'manual-message' && profileText === '' && !starter) {
+                    setValidationError(m.builder_defaults_failed())
+                    void presetsQuery.refetch()
+                    return
+                }
+                const parsed: unknown = JSON.parse(
+                    starter ? creationTextForTemplate(starter) : profileText
+                )
                 if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
                     setValidationError(m.channel_custom_profile_object())
                     return
@@ -186,11 +201,11 @@ export function ChannelCreationDialog({
     }
 
     const profileChoices: readonly { value: ProfileChoice; label: string }[] = [
-        { value: 'manual-message', label: m.channel_manual_profile() },
         ...installedProviders.map(provider => ({
             value: provider.id,
             label: provider.profileLabel(),
         })),
+        { value: 'manual-message', label: m.channel_manual_profile() },
         { value: 'custom', label: m.channel_custom_profile() },
     ]
 
@@ -209,8 +224,20 @@ export function ChannelCreationDialog({
 
     function openDialog() {
         reset()
-        setName(suggestedName('manual-message'))
         setOpen(true)
+    }
+
+    function configureManualContent() {
+        if (profileText === '') {
+            const starter = manualBuilderStarter(presetsQuery.data?.presets ?? [])
+            if (!starter) {
+                setValidationError(m.builder_defaults_failed())
+                void presetsQuery.refetch()
+                return
+            }
+            setProfileText(creationTextForTemplate(starter))
+        }
+        setStep('rules')
     }
 
     return (
@@ -278,6 +305,17 @@ export function ChannelCreationDialog({
                                     </div>
                                 </Field>
 
+                                {choice === 'manual-message' ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {m.channel_manual_creation_help()}
+                                    </p>
+                                ) : choice !== null && choice !== 'custom' ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {providerRegistry.get(choice)?.applicationProvider
+                                            ? m.channel_provider_application_help()
+                                            : m.channel_provider_connection_help()}
+                                    </p>
+                                ) : null}
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor="new-channel-name">
                                         {m.channel_name()}
@@ -386,6 +424,15 @@ export function ChannelCreationDialog({
                             disabled={pending}>
                             {m.common_cancel()}
                         </Button>
+                        {step === 'identity' && choice === 'manual-message' ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={pending || presetsQuery.isPending}
+                                onClick={configureManualContent}>
+                                {m.builder_configure_channel()}
+                            </Button>
+                        ) : null}
                         {step === 'rules' ? (
                             <Button
                                 type="button"
@@ -398,10 +445,7 @@ export function ChannelCreationDialog({
                         <Button
                             type="button"
                             onClick={() => {
-                                if (
-                                    step === 'identity' &&
-                                    (choice === 'manual-message' || choice === 'custom')
-                                ) {
+                                if (step === 'identity' && choice === 'custom') {
                                     if (!name.trim()) {
                                         setValidationError(m.channel_name_required())
                                         return
@@ -415,31 +459,20 @@ export function ChannelCreationDialog({
                                         setValidationError(m.channel_name_exists())
                                         return
                                     }
-                                    if (choice === 'manual-message' && profileText === '') {
-                                        const starter = manualBuilderStarter(
-                                            presetsQuery.data?.presets ?? []
-                                        )
-                                        if (!starter) {
-                                            setValidationError(m.builder_defaults_failed())
-                                            void presetsQuery.refetch()
-                                            return
-                                        }
-                                        setProfileText(creationTextForTemplate(starter))
-                                    }
                                     setValidationError(null)
                                     setStep('rules')
                                 } else void submit()
                             }}
                             disabled={
                                 pending ||
+                                choice === null ||
                                 (step === 'rules' && !builderValid) ||
                                 (step === 'identity' &&
                                     choice === 'manual-message' &&
                                     presetsQuery.isPending)
                             }>
                             <CodeFileIcon aria-hidden="true" />
-                            {step === 'identity' &&
-                            (choice === 'manual-message' || choice === 'custom')
+                            {step === 'identity' && choice === 'custom'
                                 ? m.builder_configure_channel()
                                 : m.channel_create_button()}
                         </Button>

@@ -4,6 +4,95 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 import en from '../apps/web/messages/en.json' with { type: 'json' }
+import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+
+test('creates manual channels with defaults and explains provider setup before connection', async ({
+    page,
+}, info) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: en.channel_add, exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.locator('[role="radio"][aria-checked="true"]')).toHaveCount(0)
+    await expect(
+        dialog.getByRole('button', { name: en.channel_create_button, exact: true })
+    ).toBeDisabled()
+    await dialog.getByRole('radio', { name: en.channel_manual_profile, exact: true }).click()
+    await expect(dialog).toContainText(en.channel_manual_creation_help)
+    await expect(dialog.getByRole('group', { name: 'Body', exact: true })).toHaveCount(0)
+    await dialog.getByLabel(en.channel_name).fill('Manual announcements')
+    await page.screenshot({ path: info.outputPath('manual-defaults.png') })
+    await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    const channels = (await (await page.request.get(`/api/projects/${projectId}/channels`)).json())
+        .channels
+    const manual = channels.find(
+        (channel: { name: string }) => channel.name === 'Manual announcements'
+    )
+    expect(manual.execution).toEqual({ kind: 'manual' })
+    await page.getByRole('button', { name: en.channel_add, exact: true }).click()
+    await dialog.getByRole('radio', { name: en.channel_x_profile, exact: true }).click()
+    await expect(dialog).toContainText(en.channel_provider_application_help)
+    await dialog.getByLabel(en.channel_name).fill('X setup test')
+    await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
+    const row = page.getByRole('article').filter({ hasText: 'X setup test' })
+    await row.getByRole('button', { name: en.publisher_setup_required, exact: true }).click()
+    await expect(dialog).toContainText(en.channel_provider_setup_explanation)
+    const settings = dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
+    await expect(settings).toHaveAttribute('href', /settings\/provider-applications/)
+    for (const width of [1280, 820, 390]) {
+        await page.setViewportSize({ width, height: 844 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+            false
+        )
+        await page.screenshot({ path: info.outputPath(`provider-setup-${width}.png`) })
+    }
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await settings.click()
+    await expect(page).toHaveURL(/settings\/provider-applications/)
+    await page.evaluate(() => localStorage.setItem('PARAGLIDE_LOCALE', 'fr'))
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page
+        .getByRole('article')
+        .filter({ hasText: 'X setup test' })
+        .getByRole('button', { name: fr.publisher_setup_required, exact: true })
+        .click()
+    await expect(dialog).toContainText(fr.channel_provider_setup_explanation)
+    await expect(
+        dialog.getByRole('link', { name: fr.provider_apps_title, exact: true })
+    ).toBeVisible()
+    await page.screenshot({ path: info.outputPath('provider-setup-fr-390.png') })
+})
+
+test('explains missing provider setup to a project owner without installation administration', async ({
+    page,
+}) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    // The E2E signup seam grants administration. Exercise the non-admin
+    // presentation with the same server payload, changing only that capability.
+    await page.route('**/api/access', async route => {
+        const response = await route.fetch()
+        await route.fulfill({ response, json: { ...(await response.json()), isAdmin: false } })
+    })
+    expect(
+        (
+            await page.request.post(`/api/projects/${projectId}/channels`, {
+                data: { name: 'Needs administrator', profile: 'x' },
+            })
+        ).status()
+    ).toBe(201)
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page
+        .getByRole('article')
+        .filter({ hasText: 'Needs administrator' })
+        .getByRole('button', { name: en.publisher_setup_required, exact: true })
+        .click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText(en.publisher_oauth_contact_admin)
+    await expect(
+        dialog.getByRole('link', { name: en.provider_apps_title, exact: true })
+    ).toHaveCount(0)
+})
 
 test('distinguishes repeated platforms and creates a channel without leaving the composition', async ({
     page,
@@ -469,6 +558,7 @@ test('creates the first destination while preserving the first publication', asy
     await expect(content).toHaveText(body)
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/publications/new$`))
     await page.getByRole('button', { name: en.channel_add, exact: true }).click()
+    await dialog.getByRole('radio', { name: en.channel_manual_profile, exact: true }).click()
     await dialog
         .getByRole('textbox', { name: en.channel_name, exact: true })
         .fill('First destination')
