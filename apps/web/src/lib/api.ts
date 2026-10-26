@@ -215,6 +215,38 @@ export const api = {
         )
     },
 
+    async listResourceRetirements() {
+        return unwrap(await client.api['resource-removals'].get())
+    },
+    async getProjectLifecycleState(projectId: string) {
+        return unwrap(await client.api.projects({ projectId }).lifecycle.state.get())
+    },
+    async getResourceImpact(kind: 'project' | 'workspace', id: string) {
+        return kind === 'project'
+            ? unwrap(await client.api.projects({ projectId: id }).lifecycle.get())
+            : unwrap(await client.api.workspaces({ workspaceId: id }).lifecycle.get())
+    },
+    async changeResource(
+        kind: 'project' | 'workspace',
+        id: string,
+        action: 'archive' | 'restore' | 'delete',
+        input: {
+            fingerprint: string
+            cancelPending?: boolean
+            confirmName?: string
+            acknowledgeUncertain?: boolean
+            replacementWorkspaceId?: string
+        }
+    ) {
+        const resource =
+            kind === 'project'
+                ? client.api.projects({ projectId: id }).lifecycle
+                : client.api.workspaces({ workspaceId: id }).lifecycle
+        if (action === 'delete') return unwrap(await resource.delete(input))
+        if (action === 'archive') return unwrap(await resource.archive.post(input))
+        return unwrap(await resource.restore.post(input))
+    },
+
     async getReleaseInfo() {
         return unwrap(await client.api.version.get())
     },
@@ -258,8 +290,8 @@ export const api = {
         return unwrap(result)
     },
 
-    async listProjects() {
-        return unwrap(await client.api.projects.get())
+    async listProjects(includeArchived = false) {
+        return unwrap(await client.api.projects.get({ query: { includeArchived } }))
     },
 
     async createProject(name: string, timeZone?: string, workspaceId?: string) {
@@ -452,8 +484,8 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).membership.get())
     },
 
-    async listWorkspaces() {
-        return unwrap(await client.api.workspaces.get())
+    async listWorkspaces(includeArchived = false) {
+        return unwrap(await client.api.workspaces.get({ query: { includeArchived } }))
     },
 
     async createWorkspace(name: string) {
@@ -1270,6 +1302,23 @@ function channelLifecycleBlockerLabel(blocker: string): string {
 
 function apiErrorMessage(code: string): string {
     switch (code) {
+        case 'stale_impact':
+            return m.lifecycle_error_stale()
+        case 'cancellation_required':
+            return m.lifecycle_error_cancel()
+        case 'name_required':
+            return m.lifecycle_error_name()
+        case 'uncertain_outcomes':
+            return m.lifecycle_error_uncertain()
+        case 'replacement_required':
+            return m.lifecycle_error_replacement()
+        case 'workspace_archived':
+            return m.lifecycle_error_workspace()
+        case 'retirement_started':
+            return m.lifecycle_error_started()
+        case 'resource_read_only':
+            return m.lifecycle_error_read_only()
+
         case 'empty_response':
             return m.api_empty_response()
         case 'unauthorized':

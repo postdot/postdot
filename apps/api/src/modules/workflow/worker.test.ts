@@ -771,7 +771,10 @@ describe('publication worker', () => {
             await worker.processDueEvents(now)
 
             expect(delivered).toHaveLength(4)
-            expect(delivered[1]).toBe('quiet-1')
+            // Both projects enter the first two slots; their network completion order is not fixed.
+            expect(new Set(delivered.slice(0, 2).map(text => text.split('-')[0]))).toEqual(
+                new Set(['busy', 'quiet'])
+            )
             expect(delivered.filter(text => text.startsWith('busy-'))).toHaveLength(3)
             expect(
                 database.$client

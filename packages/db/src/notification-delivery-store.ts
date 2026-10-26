@@ -368,6 +368,7 @@ export function createNotificationDeliveryStore(
                 on destination.project_id = d.project_id
                and destination.id = d.destination_id
             where d.state = 'pending'
+              and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = d.project_id and state <> 'active')
               and d.next_attempt_at <= ?3
               and destination.state = 'active'
               and (?4 is null or d.transport_id = ?4)

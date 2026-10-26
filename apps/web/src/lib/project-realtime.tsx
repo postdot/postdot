@@ -8,6 +8,7 @@ import { createRealtimeRefreshQueue } from './realtime-refresh'
 export { projectQueryKeys } from './project-query-keys'
 
 const projectRealtimeEventTypes = [
+    'project.lifecycle_updated',
     'project.created',
     'project.timezone_updated',
     'project.media_previews.updated',

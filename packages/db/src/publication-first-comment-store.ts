@@ -6,7 +6,7 @@ import {
     type ExternalEffectExecutorStore,
     type ProviderCommentPolicy,
 } from '@postdot/core'
-import { and, asc, eq, gt, inArray, lte } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
 import { createDatabaseTransaction, type PostbotDatabase } from './client'
@@ -318,6 +318,7 @@ export function createPublicationFirstCommentStore(
             select due_at as event_at
             from publication_first_comments
             where state = 'pending'
+              and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = publication_first_comments.project_id and state <> 'active')
               and due_at is not null
             union all
             select lease_expires_at as event_at
@@ -328,6 +329,7 @@ export function createPublicationFirstCommentStore(
             select ?1 as event_at
             from publication_first_comments
             where state = 'waiting'
+              and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = publication_first_comments.project_id and state <> 'active')
               and ${nativeReceiptProof}
         )
     `)
@@ -570,6 +572,7 @@ export function createPublicationFirstCommentStore(
                     .where(
                         and(
                             eq(firstComments.state, 'pending'),
+                            sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${firstComments.projectId} and state <> 'active')`,
                             lte(firstComments.dueAt, input.now),
                             input.projectId === undefined
                                 ? undefined

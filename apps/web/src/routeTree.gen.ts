@@ -24,6 +24,7 @@ import { Route as DashboardPreferencesApiKeysRouteImport } from './routes/dashbo
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings/index'
 import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/settings/access'
+import { Route as DashboardSettingsArchivesRouteImport } from './routes/dashboard/settings/archives'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardSettingsWorkspaceRouteImport } from './routes/dashboard/settings/workspace'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
@@ -117,6 +118,12 @@ const DashboardSettingsAccessRoute = DashboardSettingsAccessRouteImport.update({
   path: '/settings/access',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSettingsArchivesRoute =
+  DashboardSettingsArchivesRouteImport.update({
+    id: '/settings/archives',
+    path: '/settings/archives',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardSettingsProviderApplicationsRoute =
   DashboardSettingsProviderApplicationsRouteImport.update({
     id: '/settings/provider-applications',
@@ -210,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
+  '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
@@ -239,6 +247,7 @@ export interface FileRoutesByTo {
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
+  '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
   '/dashboard/preferences': typeof DashboardPreferencesIndexRoute
@@ -270,6 +279,7 @@ export interface FileRoutesById {
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
+  '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
+    | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
     | '/dashboard/preferences/'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
+    | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
     | '/dashboard/preferences'
@@ -361,6 +373,7 @@ export interface FileRouteTypes {
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
+    | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
     | '/dashboard/preferences/'
@@ -494,6 +507,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/access'
       fullPath: '/dashboard/settings/access'
       preLoaderRoute: typeof DashboardSettingsAccessRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/archives': {
+      id: '/dashboard/settings/archives'
+      path: '/settings/archives'
+      fullPath: '/dashboard/settings/archives'
+      preLoaderRoute: typeof DashboardSettingsArchivesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/settings/provider-applications': {
@@ -651,6 +671,7 @@ interface DashboardRouteChildren {
   DashboardPreferencesRoute: typeof DashboardPreferencesRouteWithChildren
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
   DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
+  DashboardSettingsArchivesRoute: typeof DashboardSettingsArchivesRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
   DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRoute
   DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
@@ -660,6 +681,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPreferencesRoute: DashboardPreferencesRouteWithChildren,
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
   DashboardSettingsAccessRoute: DashboardSettingsAccessRoute,
+  DashboardSettingsArchivesRoute: DashboardSettingsArchivesRoute,
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
   DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRoute,

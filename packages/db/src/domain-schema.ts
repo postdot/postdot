@@ -3046,3 +3046,64 @@ export const publicationFirstComments = sqliteTable(
         ),
     ]
 )
+
+/** Lifecycle receipts intentionally survive project/workspace deletion. */
+export const resourceLifecycles = sqliteTable(
+    'resource_lifecycles',
+    {
+        kind: text('kind', { enum: ['project', 'workspace'] }).notNull(),
+        resourceId: text('resource_id').notNull(),
+        name: text('name').notNull(),
+        state: text('state', {
+            enum: ['active', 'archiving', 'archived', 'deleting', 'deleted'],
+        }).notNull(),
+        revision: integer('revision').notNull().default(1),
+        actorId: text('actor_id').notNull(),
+        impactJson: text('impact_json').notNull(),
+        updatedAt: integer('updated_at').notNull(),
+    },
+    table => [
+        primaryKey({ columns: [table.kind, table.resourceId] }),
+        index('resource_lifecycles_state_updated_idx').on(table.state, table.updatedAt),
+        check('resource_lifecycles_kind_valid', sql`${table.kind} in ('project', 'workspace')`),
+        check(
+            'resource_lifecycles_state_valid',
+            sql`${table.state} in ('active', 'archiving', 'archived', 'deleting', 'deleted')`
+        ),
+        check('resource_lifecycles_revision_valid', sql`${table.revision} > 0`),
+        check(
+            'resource_lifecycles_impact_valid',
+            sql`json_valid(${table.impactJson}) and json_type(${table.impactJson}) = 'object'`
+        ),
+    ]
+)
+
+/** Object ownership is copied before its SQL resource is removed. */
+export const resourceCleanupObjects = sqliteTable(
+    'resource_cleanup_objects',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id').notNull(),
+        workspaceId: text('workspace_id'),
+        storeId: text('store_id').notNull(),
+        objectKey: text('object_key').notNull(),
+        attempts: integer('attempts').notNull().default(0),
+        updatedAt: integer('updated_at').notNull(),
+    },
+    table => [
+        index('resource_cleanup_project_idx').on(table.projectId),
+        index('resource_cleanup_workspace_idx').on(table.workspaceId),
+        index('resource_cleanup_updated_idx').on(table.updatedAt),
+        check('resource_cleanup_attempts_valid', sql`${table.attempts} >= 0`),
+    ]
+)
+
+export const resourceLifecycleEvents = sqliteTable('resource_lifecycle_events', {
+    id: text('id').primaryKey(),
+    kind: text('kind').notNull(),
+    resourceId: text('resource_id').notNull(),
+    action: text('action').notNull(),
+    actorId: text('actor_id').notNull(),
+    impactJson: text('impact_json').notNull(),
+    createdAt: integer('created_at').notNull(),
+})

@@ -1,5 +1,6 @@
 import { AccessPageHeader } from '@/components/access-page-header'
 import { ProjectMembersSection } from '@/components/project-members-section'
+import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -23,6 +24,7 @@ export function ProjectAccessPage() {
                         workspaceId={project.workspaceId}
                     />
                 </div>
+                <ResourceLifecycleSection kind="project" id={project.id} />
             </div>
         </main>
     )

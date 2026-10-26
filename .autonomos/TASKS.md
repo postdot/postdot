@@ -55,7 +55,13 @@ status. DESIGN-97 is checked while its own worklog remains in progress without
 validation evidence; verify its acceptance before archiving. Recurring provider
 validation remains under ISSUE-021; historical successes authorize no new effects.
 
+Project/workspace retirement follows [ADR-094](decisions/ADR-094-project-and-workspace-lifecycle.md).
+Restore does not requeue cancelled work; permanent deletion retains a minimal
+receipt while durable media cleanup retries independently.
+
 ## 🚀 Active Sprint
+
+- [x] **[LIFE-588]** Deliver project/workspace archive, restore and permanent deletion `Priority: 🟠` `Complexity: XL` — GitHub #10; accepted operator-controlled lifecycle with impact preview, explicit cancellation, fenced effects, default-workspace replacement and durable storage cleanup across API, Studio and CLI. Completed 2026-10-26; source delivery pending the next grouped image release. [Evidence](worklogs/2026-10-26-LIFE-588.md).
 
 - [x] **[WEB-587]** Reduce anonymous entry JavaScript without changing authentication `Priority: 🟠` `Complexity: L` — ISSUE-191; attribute the current login entry graph, defer avoidable authenticated-only code and compare production artifacts against the existing 180 KiB target with focused browser regressions. Completed 2026-10-25: 154,814 aggregate gzip bytes, below 180 KiB; [evidence](worklogs/2026-10-25-WEB-587.md).
 

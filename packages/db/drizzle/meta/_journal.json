@@ -134,6 +134,13 @@
             "when": 1792565282774,
             "tag": "0018_publication_first_comment_providers",
             "breakpoints": true
+        },
+        {
+            "idx": 19,
+            "version": "6",
+            "when": 1792962915295,
+            "tag": "0019_resource_lifecycle",
+            "breakpoints": true
         }
     ]
 }

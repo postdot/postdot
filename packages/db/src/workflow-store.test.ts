@@ -13,6 +13,7 @@ import { eq } from 'drizzle-orm'
 import type { PostbotDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
+import { createResourceLifecycleStore } from './resource-lifecycle-store'
 import {
     auditEvents,
     actors,
@@ -1113,4 +1114,107 @@ describe('workflow store', () => {
             rmSync(directory, { recursive: true, force: true })
         }
     })
+})
+
+describe('project retirement effect fencing', () => {
+    it('cancels an owned pre-effect claim before it can cross the network boundary', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database)
+            const workflow = createWorkflowStore(database)
+            expect(
+                workflow.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'owner',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).not.toBeNull()
+            const lifecycle = createResourceLifecycleStore(database)
+            const preview = lifecycle.impact('project', fixture.projectId)!
+            const archived = lifecycle.mutate({
+                kind: 'project',
+                id: fixture.projectId,
+                action: 'archive',
+                actorId: 'operator',
+                fingerprint: preview.fingerprint,
+                cancelPending: true,
+                authorize: () => true,
+            })
+            expect(archived.state).toBe('archived')
+            expect(workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(false)
+            expect(
+                workflow.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'another',
+                    now: dueAt + 1,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).toBeNull()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+    for (const retry of [false, true])
+        it(`persists an already-started ${retry ? 'retryable failure' : 'success'} before retiring`, async () => {
+            const database = createDatabase(':memory:')
+            try {
+                runMigrations(database)
+                const fixture = seedDueJob(database)
+                const workflow = createWorkflowStore(database)
+                workflow.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'owner',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+                expect(workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(true)
+                const lifecycle = createResourceLifecycleStore(database)
+                const preview = lifecycle.impact('project', fixture.projectId)!
+                expect(
+                    lifecycle.mutate({
+                        kind: 'project',
+                        id: fixture.projectId,
+                        action: 'archive',
+                        actorId: 'operator',
+                        fingerprint: preview.fingerprint,
+                        cancelPending: true,
+                        authorize: () => true,
+                    }).state
+                ).toBe('archiving')
+                expect(
+                    workflow.completeExternalEffect({
+                        jobId: fixture.jobId,
+                        claimToken: 'owner',
+                        completedAt: dueAt + 2,
+                        outcome: retry
+                            ? {
+                                  type: 'retryable_failure',
+                                  effectOccurred: false,
+                                  errorMessage: 'Known rejection',
+                              }
+                            : { type: 'published', externalId: 'remote-post' },
+                        ...(retry ? { retryAt: dueAt + 60_000 } : {}),
+                    })
+                ).toBe(retry ? 'retry_scheduled' : 'published')
+                const storage = {
+                    storeId: 'test',
+                    maxObjectBytes: 1024,
+                    put: async () => {
+                        throw new Error('Unexpected write')
+                    },
+                    open: async () => null,
+                    stat: async () => null,
+                    delete: async () => {},
+                }
+                await lifecycle.reconcile(storage)
+                expect(lifecycle.state('project', fixture.projectId)).toBe('archived')
+                expect(database.$client.query('select state from publications').get()).toEqual({
+                    state: retry ? 'cancelled' : 'published',
+                })
+            } finally {
+                closeDatabase(database)
+            }
+        })
 })

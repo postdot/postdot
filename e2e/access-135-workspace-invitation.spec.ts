@@ -68,7 +68,10 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     })
 
     await page.getByRole('tab', { name: 'Members', exact: true }).click()
-    await page.getByRole('button', { name: 'Add a member', exact: true }).click()
+    await page
+        .getByRole('tabpanel', { name: 'Members', exact: true })
+        .getByRole('button', { name: 'Add a member', exact: true })
+        .click()
     const inviteDialog = page.getByRole('dialog')
     await inviteDialog.getByLabel('Email address', { exact: true }).fill(memberEmail)
     await page.getByRole('combobox', { name: 'Group', exact: true }).click()
@@ -133,13 +136,20 @@ test('a workspace invitation joins the selected group and unlocks its project ac
             await page.getByRole('tab', { name: 'Members', exact: true }).click()
         }
     }
-    await page.getByRole('button', { name: 'Add a member', exact: true }).click()
+    await page
+        .getByRole('tabpanel', { name: 'Members', exact: true })
+        .getByRole('button', { name: 'Add a member', exact: true })
+        .click()
     await expect(inviteDialog).toBeVisible()
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await page.screenshot({ path: testInfo.outputPath('workspace-mobile-invite.png') })
     await page.keyboard.press('Escape')
     await expect(inviteDialog).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add a member', exact: true })).toBeFocused()
+    await expect(
+        page
+            .getByRole('tabpanel', { name: 'Members', exact: true })
+            .getByRole('button', { name: 'Add a member', exact: true })
+    ).toBeFocused()
     await page.setViewportSize({ width: 1280, height: 844 })
 
     const browser = page.context().browser()

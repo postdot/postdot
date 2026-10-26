@@ -4,6 +4,7 @@ import {
     createNetworkControlledBinaryFetcher,
     createNetworkControlledFetcher,
 } from '@postdot/custom-http'
+import { createResourceLifecycleStore } from '@postdot/db'
 import {
     createNotificationEmailStore,
     createInstallationEmailSettingsStore,
@@ -192,7 +193,8 @@ async function startServerWithRuntimeLock(
         error => console.error('[postbot-realtime] post-commit observer failed', error)
     )
     dependencies.clearCommitObserver = () => clearDatabaseCommitObserver()
-    const objectStorage = createConfiguredMediaStore(config.media)
+    const resourceLifecycle = createResourceLifecycleStore(database)
+    const objectStorage = resourceLifecycle.wrapMedia(createConfiguredMediaStore(config.media))
     const avatars = createUserAvatarStore(database, objectStorage)
     const posterExtractor = createVideoPosterExtractor(objectStorage)
     let posterRuntime: ReturnType<typeof createVideoPosterRuntime> | undefined
@@ -214,11 +216,15 @@ async function startServerWithRuntimeLock(
         signingSecret: config.security.mediaPublicUrlSecret,
         lifetimeMs: config.media.publicUrlLifetimeMs,
     })
-    if (!recovery.held()) await media.reconcile()
+    if (!recovery.held()) {
+        await media.reconcile()
+        await resourceLifecycle.reconcile(objectStorage)
+    }
     const mediaMaintenance = createMediaReconciliationRuntime({
         reconcile: async () => {
             const result = await media.reconcile()
             await avatars.reconcile()
+            await resourceLifecycle.reconcile(objectStorage)
             return result
         },
     })

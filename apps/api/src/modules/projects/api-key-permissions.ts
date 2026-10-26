@@ -1,5 +1,7 @@
 export const postbotApiKeyCapabilities = [
     'project:read',
+    'project:manage',
+    'project:permanently_delete',
     'publication:manage',
     'publication:dispatch',
     'channel:manage',
@@ -23,6 +25,8 @@ export function apiKeyHasCapability(
 
 const capabilityStatements: Record<PostbotApiKeyCapability, readonly [string, string]> = {
     'project:read': ['project', 'read'],
+    'project:manage': ['project', 'manage'],
+    'project:permanently_delete': ['project', 'permanently_delete'],
     'publication:manage': ['publication', 'manage'],
     'publication:dispatch': ['publication', 'dispatch'],
     'channel:manage': ['channel', 'manage'],
@@ -79,6 +83,23 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     const detail = segments.slice(4)
 
     if (resource === undefined) return null
+
+    if (resource === 'lifecycle') {
+        if (
+            (detail.length === 0 || (detail.length === 1 && detail[0] === 'state')) &&
+            normalizedMethod === 'GET'
+        )
+            return 'project:read'
+        if (detail.length === 0 && normalizedMethod === 'DELETE')
+            return 'project:permanently_delete'
+        if (
+            detail.length === 1 &&
+            ['archive', 'restore'].includes(detail[0]!) &&
+            normalizedMethod === 'POST'
+        )
+            return 'project:manage'
+        return null
+    }
 
     if (resource === 'channels') {
         if (detail.length === 0) {

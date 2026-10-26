@@ -2,6 +2,7 @@ import { openapi } from '@elysiajs/openapi'
 import type { PostbotAuth } from '@postdot/auth'
 import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
 import { ChannelProfileCompiler } from '@postdot/core'
+import { createResourceLifecycleStore } from '@postdot/db'
 import type { NotificationEmailStore } from '@postdot/db'
 import {
     createManualStore,
@@ -306,6 +307,7 @@ function createDomainApp({
         .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
         .use(
             createProjectModule({
+                resourceLifecycle: createResourceLifecycleStore(database),
                 auth,
                 emailAlerts,
                 emailSettings,

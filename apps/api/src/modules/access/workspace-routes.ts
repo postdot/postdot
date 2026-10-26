@@ -1,4 +1,5 @@
 import type { PostbotAuth } from '@postdot/auth'
+import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
@@ -299,7 +300,8 @@ function hasOrganizationRole(role: string, expected: 'owner' | 'admin'): boolean
 export function registerWorkspaceRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     auth: PostbotAuth,
-    access: AccessStore
+    access: AccessStore,
+    lifecycle?: ResourceLifecycleStore
 ) {
     return app
         .post(
@@ -403,6 +405,7 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
             '/api/workspaces',
             {
                 auth: true,
+                query: Type.Object({ includeArchived: Type.Optional(Type.Boolean()) }),
                 response: {
                     200: workspaceListResponseSchema,
                     401: errorResponse,
@@ -415,14 +418,23 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
+            ({ authMethod, status, user, query }) => {
                 if (authMethod !== 'session') return status(403, sessionOnlyForbiddenResponse())
                 return {
                     canCreateWorkspace: access.isInstanceAdmin(user.id),
-                    workspaces: access.listWorkspacesForUser(user.id).map(workspace => {
-                        const { organizationId: _organizationId, ...publicWorkspace } = workspace
-                        return publicWorkspace
-                    }),
+                    workspaces: access
+                        .listWorkspacesForUser(user.id)
+                        .filter(
+                            workspace =>
+                                query.includeArchived ||
+                                !lifecycle ||
+                                lifecycle.state('workspace', workspace.id) === 'active'
+                        )
+                        .map(workspace => {
+                            const { organizationId: _organizationId, ...publicWorkspace } =
+                                workspace
+                            return publicWorkspace
+                        }),
                 }
             }
         )

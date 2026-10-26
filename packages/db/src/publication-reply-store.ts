@@ -152,6 +152,7 @@ export function createPublicationReplyStore(
                     .where(
                         and(
                             eq(replies.state, 'pending'),
+                            sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${replies.projectId} and state <> 'active')`,
                             input.projectId === undefined
                                 ? undefined
                                 : eq(replies.projectId, input.projectId)
@@ -367,7 +368,15 @@ export function createPublicationReplyStore(
                         >`min(case when ${replies.state} = 'pending' then ${replies.createdAt} else ${replies.leaseExpiresAt} end)`,
                     })
                     .from(replies)
-                    .where(or(eq(replies.state, 'pending'), eq(replies.state, 'running')))
+                    .where(
+                        or(
+                            and(
+                                eq(replies.state, 'pending'),
+                                sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${replies.projectId} and state <> 'active')`
+                            ),
+                            eq(replies.state, 'running')
+                        )
+                    )
                     .get()?.at ?? null
             )
         },

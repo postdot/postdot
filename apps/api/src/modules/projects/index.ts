@@ -1,5 +1,6 @@
 import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postdot/auth'
 import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
+import type { ResourceLifecycleStore } from '@postdot/db'
 import type { NotificationEmailStore } from '@postdot/db'
 import type {
     AnalyticsStore,
@@ -52,6 +53,7 @@ import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './realtime-runtime'
+import { registerResourceLifecycleRoutes } from './resource-lifecycle-routes'
 import { registerProjectRoutes } from './routes'
 import { registerSearchRoutes } from './search-routes'
 import { registerTaxonomyRoutes } from './taxonomy-routes'
@@ -59,13 +61,14 @@ import type { ManualStore, PublisherRuntime } from './types'
 
 function isProjectAccessPath(projectId: string, requestPath: string): boolean {
     const basePath = `/api/projects/${projectId}/`
-    return ['members', 'user-grants', 'team-grants', 'invitations'].some(segment => {
+    return ['members', 'user-grants', 'team-grants', 'invitations', 'lifecycle'].some(segment => {
         const path = `${basePath}${segment}`
         return requestPath === path || requestPath.startsWith(`${path}/`)
     })
 }
 
 export interface ProjectModuleOptions {
+    readonly resourceLifecycle: ResourceLifecycleStore
     readonly auth: PostbotAuth
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
@@ -104,6 +107,10 @@ export interface ProjectModuleOptions {
 
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
+        resourceLifecycle: options.resourceLifecycle,
+        authorizeRetirementReceipt: (projectId, userId, path) =>
+            path === `/api/projects/${projectId}/lifecycle` &&
+            options.resourceLifecycle.canReadReceipt('project', projectId, userId),
         authenticateBetterAuthProjectApiKey: async token => {
             if (!token.startsWith('postbot_pat_')) return null
 
@@ -153,7 +160,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.access,
         options.now
     )
-    const workspaceRoutes = registerWorkspaceRoutes(userApiKeyRoutes, options.auth, options.access)
+    const workspaceRoutes = registerWorkspaceRoutes(
+        userApiKeyRoutes,
+        options.auth,
+        options.access,
+        options.resourceLifecycle
+    )
     const providerApplicationRoutes = registerProviderApplicationRoutes(
         workspaceRoutes,
         options.publisher,
@@ -161,9 +173,14 @@ export function createProjectModule(options: ProjectModuleOptions) {
     )
     const channelProfilePresetRoutes = registerChannelProfilePresetRoutes(providerApplicationRoutes)
     const projectRoutes = registerProjectRoutes(
-        channelProfilePresetRoutes,
+        registerResourceLifecycleRoutes(
+            channelProfilePresetRoutes,
+            options.access,
+            options.resourceLifecycle
+        ),
         options.manualStore,
-        options.access
+        options.access,
+        options.resourceLifecycle
     )
     const searchRoutes = registerSearchRoutes(projectRoutes, options.manualStore, options.access)
     const projectMemberRoutes = registerProjectMemberRoutes(

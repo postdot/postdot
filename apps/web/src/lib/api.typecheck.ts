@@ -270,6 +270,8 @@ export type InferredUserApiKeyContracts = [
             | 'media:manage'
             | 'analytics:refresh'
             | 'media:permanently_delete'
+            | 'project:manage'
+            | 'project:permanently_delete'
         >
     >,
     Assert<

@@ -1,3 +1,4 @@
+import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
@@ -15,13 +16,15 @@ import type { ManualStore } from './types'
 export function registerProjectRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
-    access: AccessStore
+    access: AccessStore,
+    lifecycle: ResourceLifecycleStore
 ) {
     return app
         .get(
             '/api/projects',
             {
                 auth: true,
+                query: Type.Object({ includeArchived: Type.Optional(Type.Boolean()) }),
                 response: {
                     200: Type.Object({ projects: Type.Array(projectSchema) }),
                     401: errorResponse,
@@ -33,7 +36,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     tags: ['Projects'],
                 },
             },
-            ({ apiKeyProjectIds, user }) => {
+            ({ apiKeyProjectIds, user, query }) => {
                 const isAllowedByApiKeyScope = (projectId: string) =>
                     apiKeyProjectIds === undefined ||
                     apiKeyProjectIds === null ||
@@ -54,6 +57,11 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
 
                 return {
                     projects: [...projectsById.values()].filter(project => {
+                        if (
+                            !query.includeArchived &&
+                            lifecycle.projectState(project.id) !== 'active'
+                        )
+                            return false
                         const workspaceId = access.getProjectWorkspaceId(project.id)
                         return (
                             workspaceId !== null &&
@@ -98,7 +106,11 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     body.workspaceId === undefined
                         ? access.getDefaultWorkspaceForUser(user.id)
                         : access.getWorkspace(body.workspaceId)
-                if (workspace === null || !access.canManageWorkspace(workspace.id, user.id)) {
+                if (
+                    workspace === null ||
+                    lifecycle.state('workspace', workspace.id) !== 'active' ||
+                    !access.canManageWorkspace(workspace.id, user.id)
+                ) {
                     return status(403, {
                         error: {
                             code: 'forbidden',

@@ -1088,6 +1088,7 @@ describe('Postdot API', () => {
             }
             expect(Object.keys(specification.paths)).toEqual([
                 '/api/recovery/status',
+                '/api/version',
                 '/health',
                 '/ready',
                 '/api/account/avatar',
@@ -1119,6 +1120,14 @@ describe('Postdot API', () => {
                 '/api/settings/provider-applications',
                 '/api/settings/provider-applications/{applicationId}',
                 '/api/channel-profile-presets',
+                '/api/resource-removals',
+                '/api/projects/{projectId}/lifecycle/state',
+                '/api/projects/{projectId}/lifecycle',
+                '/api/projects/{projectId}/lifecycle/archive',
+                '/api/projects/{projectId}/lifecycle/restore',
+                '/api/workspaces/{workspaceId}/lifecycle',
+                '/api/workspaces/{workspaceId}/lifecycle/archive',
+                '/api/workspaces/{workspaceId}/lifecycle/restore',
                 '/api/projects',
                 '/api/projects/{projectId}',
                 '/api/search',

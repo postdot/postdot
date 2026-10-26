@@ -26,6 +26,8 @@ const userApiKeyProjectAccessSchema = Type.Union([
 ])
 const userApiKeyCapabilitySchema = Type.Union([
     Type.Literal('project:read'),
+    Type.Literal('project:manage'),
+    Type.Literal('project:permanently_delete'),
     Type.Literal('publication:manage'),
     Type.Literal('publication:dispatch'),
     Type.Literal('channel:manage'),

@@ -1,4 +1,5 @@
 import type { PostbotApiKeyRecord, PostbotAuth } from '@postdot/auth'
+import type { ResourceLifecycleStore } from '@postdot/db'
 import { Elysia } from 'elysia'
 
 type PostbotApiKeyPermissions = PostbotApiKeyRecord['permissions']
@@ -24,6 +25,12 @@ export function createAuthRoutes(auth: Pick<PostbotAuth, 'handler'>) {
 }
 
 export interface AuthenticatedElysiaOptions {
+    readonly resourceLifecycle?: ResourceLifecycleStore
+    readonly authorizeRetirementReceipt?: (
+        projectId: string,
+        userId: string,
+        path: string
+    ) => boolean
     readonly authenticateBetterAuthProjectApiKey?: (
         token: string
     ) => Promise<UserApiKeyAuthentication | null>
@@ -105,18 +112,118 @@ export function createAuthenticatedElysia(
     auth: PostbotAuth,
     options: AuthenticatedElysiaOptions = {}
 ): AuthenticatedElysiaBase {
-    const authenticated = new Elysia().macro({
-        auth: {
-            async derive({ request: { headers }, status, request }) {
-                const authorization = headers.get('authorization')
-                const token =
-                    authorization === null
-                        ? headers.get('x-api-key')
-                        : parseBearerToken(authorization)
-                if (token !== null) {
-                    const authentication =
-                        (await options.authenticateBetterAuthProjectApiKey?.(token)) ?? null
-                    if (authentication === null) {
+    const releases = new WeakMap<Request, () => void>()
+    function guardResource(request: Request): boolean {
+        const lifecycle = options.resourceLifecycle
+        if (!lifecycle) return false
+        const path = new URL(request.url).pathname
+        if (/\/lifecycle(?:\/|$)/.test(path)) return false
+        const projectId = readProjectIdFromRequest(request.url)
+        const workspaceId = path.match(/^\/api\/workspaces\/([^/]+)/)?.[1]
+        const state = projectId
+            ? lifecycle.projectState(projectId)
+            : workspaceId
+              ? lifecycle.state('workspace', workspaceId)
+              : 'active'
+        const writing = request.method !== 'GET' && request.method !== 'HEAD'
+        if (state === 'deleting' || state === 'deleted' || (writing && state !== 'active'))
+            return true
+        if (writing && projectId) releases.set(request, lifecycle.beginRequest(projectId))
+        return false
+    }
+    const authenticated = new Elysia()
+        .afterResponse(({ request }) => {
+            releases.get(request)?.()
+            releases.delete(request)
+        })
+        .as('global')
+        .macro({
+            auth: {
+                async derive({ request: { headers }, status, request }) {
+                    const authorization = headers.get('authorization')
+                    const token =
+                        authorization === null
+                            ? headers.get('x-api-key')
+                            : parseBearerToken(authorization)
+                    if (token !== null) {
+                        const authentication =
+                            (await options.authenticateBetterAuthProjectApiKey?.(token)) ?? null
+                        if (authentication === null) {
+                            return status(401, {
+                                error: {
+                                    code: 'unauthorized',
+                                    message: 'Authentication required',
+                                },
+                            })
+                        }
+
+                        const projectId = readProjectIdFromRequest(request.url)
+                        if (
+                            projectId !== null &&
+                            authentication.projectIds !== null &&
+                            !authentication.projectIds.includes(projectId)
+                        ) {
+                            return status(404, {
+                                error: { code: 'not_found', message: 'Project not found' },
+                            })
+                        }
+
+                        if (
+                            options.authorizeUserApiKeyRequest?.(
+                                request.method,
+                                new URL(request.url).pathname,
+                                authentication.permissions
+                            ) !== true
+                        ) {
+                            return status(403, {
+                                error: {
+                                    code: 'insufficient_api_key_permissions',
+                                    message: 'This API key is not allowed to perform this action',
+                                },
+                            })
+                        }
+
+                        // A key never outlives the access its owner currently holds:
+                        // the stored scope is intersected with the owner's live
+                        // project access by the same callback the session path
+                        // uses, so revocation is enforced for machine access too.
+                        if (
+                            projectId !== null &&
+                            options.authorizeProjectAccess !== undefined &&
+                            !options.authorizeProjectAccess(
+                                projectId,
+                                authentication.ownerUserId,
+                                new URL(request.url).pathname
+                            )
+                        ) {
+                            return status(404, {
+                                error: { code: 'not_found', message: 'Project not found' },
+                            })
+                        }
+
+                        const refusal = guardResource(request)
+                        if (refusal)
+                            return status(409, {
+                                error: {
+                                    code: 'resource_read_only',
+                                    message: 'Resource is archived or retirement is in progress',
+                                },
+                            })
+                        return {
+                            user: {
+                                id: authentication.ownerUserId,
+                                name: authentication.displayName,
+                                email: null,
+                            },
+                            session: null,
+                            authMethod: 'user_api_key' as const,
+                            apiKeyProjectIds: authentication.projectIds,
+                            apiKeyPermissions: authentication.permissions,
+                        }
+                    }
+
+                    const session = await auth.api.getSession({ headers })
+                    if (session === null) {
                         return status(401, {
                             error: {
                                 code: 'unauthorized',
@@ -128,40 +235,19 @@ export function createAuthenticatedElysia(
                     const projectId = readProjectIdFromRequest(request.url)
                     if (
                         projectId !== null &&
-                        authentication.projectIds !== null &&
-                        !authentication.projectIds.includes(projectId)
-                    ) {
-                        return status(404, {
-                            error: { code: 'not_found', message: 'Project not found' },
-                        })
-                    }
-
-                    if (
-                        options.authorizeUserApiKeyRequest?.(
-                            request.method,
-                            new URL(request.url).pathname,
-                            authentication.permissions
-                        ) !== true
-                    ) {
-                        return status(403, {
-                            error: {
-                                code: 'insufficient_api_key_permissions',
-                                message: 'This API key is not allowed to perform this action',
-                            },
-                        })
-                    }
-
-                    // A key never outlives the access its owner currently holds:
-                    // the stored scope is intersected with the owner's live
-                    // project access by the same callback the session path
-                    // uses, so revocation is enforced for machine access too.
-                    if (
-                        projectId !== null &&
                         options.authorizeProjectAccess !== undefined &&
                         !options.authorizeProjectAccess(
                             projectId,
-                            authentication.ownerUserId,
+                            session.user.id,
                             new URL(request.url).pathname
+                        ) &&
+                        !(
+                            request.method === 'GET' &&
+                            options.authorizeRetirementReceipt?.(
+                                projectId,
+                                session.user.id,
+                                new URL(request.url).pathname
+                            )
                         )
                     ) {
                         return status(404, {
@@ -169,57 +255,26 @@ export function createAuthenticatedElysia(
                         })
                     }
 
+                    if (guardResource(request))
+                        return status(409, {
+                            error: {
+                                code: 'resource_read_only',
+                                message: 'Resource is archived or retirement is in progress',
+                            },
+                        })
                     return {
                         user: {
-                            id: authentication.ownerUserId,
-                            name: authentication.displayName,
-                            email: null,
+                            id: session.user.id,
+                            name: session.user.name,
+                            email: session.user.email,
                         },
-                        session: null,
-                        authMethod: 'user_api_key' as const,
-                        apiKeyProjectIds: authentication.projectIds,
-                        apiKeyPermissions: authentication.permissions,
+                        session: session.session,
+                        authMethod: 'session' as const,
+                        apiKeyPermissions: undefined,
                     }
-                }
-
-                const session = await auth.api.getSession({ headers })
-                if (session === null) {
-                    return status(401, {
-                        error: {
-                            code: 'unauthorized',
-                            message: 'Authentication required',
-                        },
-                    })
-                }
-
-                const projectId = readProjectIdFromRequest(request.url)
-                if (
-                    projectId !== null &&
-                    options.authorizeProjectAccess !== undefined &&
-                    !options.authorizeProjectAccess(
-                        projectId,
-                        session.user.id,
-                        new URL(request.url).pathname
-                    )
-                ) {
-                    return status(404, {
-                        error: { code: 'not_found', message: 'Project not found' },
-                    })
-                }
-
-                return {
-                    user: {
-                        id: session.user.id,
-                        name: session.user.name,
-                        email: session.user.email,
-                    },
-                    session: session.session,
-                    authMethod: 'session' as const,
-                    apiKeyPermissions: undefined,
-                }
+                },
             },
-        },
-    })
+        })
 
     return authenticated as unknown as AuthenticatedElysiaBase
 }

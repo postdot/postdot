@@ -369,3 +369,5 @@ export type {
     SavePublicationFirstCommentInput,
 } from './publication-first-comment-store'
 export * from './publication-reply-store'
+
+export * from './resource-lifecycle-store'

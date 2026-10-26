@@ -1,0 +1,72 @@
+---
+title: Archive and delete projects
+description: Retire projects and workspaces, review their data and restore archived work.
+---
+
+These actions are available in current source builds. The published
+`0.1.0-alpha.2` image does not include them.
+
+Open **Project configuration → Access → Archive and delete** to retire a project.
+For a workspace, open **Workspace → Members & groups**. Its retirement includes
+its projects; the impact screen lists them before confirmation.
+
+## Archive and restore
+
+Archive a resource to remove it from ordinary selection while retaining its
+content, drafts, media, publication history, connections and access grants.
+Archived projects remain readable and reject new edits or publication requests.
+Existing API keys remain user-owned and keep access to other permitted projects.
+
+The impact screen shows the affected records and pending work. If work is
+scheduled, confirm its cancellation in this screen. Postdot invalidates pending
+OAuth attempts and prevents new executions. It cancels claimed work that has not
+crossed the external-effect boundary and waits for already-started operations to
+finish. An unresolved publication outcome remains visible in the retained history.
+
+Open **Archived resources** from the same settings section to restore a resource.
+Restore the workspace before restoring its projects. Restoring a workspace does
+not restore its projects automatically, and restoring a project does not
+reschedule cancelled work. Review the project before publishing again.
+
+## Permanently delete
+
+Choose **Delete permanently**, review the impact and type the resource's name.
+You can delete an active or archived resource. Confirm cancellation of pending
+work and acknowledge unresolved external outcomes when the screen requests it.
+A result may be uncertain because a provider accepted a request without returning
+a conclusive response.
+
+Deletion removes local project content, drafts, publication history, media and
+provider credentials. It does not delete accounts or content already published on
+external platforms. Remove that content through the destination's own interface
+when necessary. Postdot retains a minimal removal receipt with identifiers,
+resource names, actor, time and impact counts, without publication content or
+provider secrets.
+
+Postdot records media cleanup before removing its SQL ownership rows, then retries
+object deletion in the background. A storage failure or restart preserves the
+queue. **Archived resources** shows pending retirements you initiated, including
+cleanup progress. Keep the original storage backend and store identifier
+configured until cleanup finishes. A different backend is not evidence that an
+object was deleted. A complete backup temporarily fences physical cleanup.
+
+Backups made before deletion still contain the old data. Their retention and
+off-machine copies remain the operator's responsibility; see
+[backup and recovery](/docs/operations/).
+
+## Workspaces and permissions
+
+Project owners and workspace owners/administrators can retire projects. Workspace
+owners/administrators can retire their own workspace and its projects. Editors
+and viewers cannot retire resources. Instance administration does not grant
+routine access to another workspace's content.
+
+Before retiring the default workspace, select an active replacement that you
+manage in the confirmation screen. Postdot updates the default pointer in the
+same transaction. Workspace deletion also removes its local memberships, groups
+and invitations; the people's accounts and other workspaces remain.
+
+Project API keys require the owner's live role, permitted project scope and the
+appropriate action capability: `project:manage` for archive/restore,
+`project:permanently_delete` for deletion, and `project:read` for the preview.
+Workspace administration follows its existing human-session contract.

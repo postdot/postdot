@@ -117,9 +117,47 @@ export async function runCli(
         requireAuthenticated(sessionCookie, apiKey)
     }
 
+    if (
+        (resource === 'projects' || resource === 'workspaces') &&
+        ['impact', 'archive', 'restore', 'delete'].includes(action ?? '')
+    ) {
+        if (resource === 'workspaces') requireSession(sessionCookie)
+        const id = requiredOption(args, resource === 'projects' ? '--project' : '--workspace')
+        if (action === 'impact') {
+            const body =
+                resource === 'projects'
+                    ? await call(client.api.projects({ projectId: id }).lifecycle.get())
+                    : await call(client.api.workspaces({ workspaceId: id }).lifecycle.get())
+            write(body, JSON.stringify(body, null, 2))
+            return
+        }
+        // A previously displayed fingerprint is mandatory. No hidden read-and-delete.
+        const input = {
+            fingerprint: requiredOption(args, '--fingerprint'),
+            cancelPending: args.includes('--cancel-pending'),
+            acknowledgeUncertain: args.includes('--acknowledge-uncertain'),
+            confirmName: optionValue(args, '--confirm-name'),
+            replacementWorkspaceId: optionValue(args, '--replacement-workspace'),
+        }
+        const route =
+            resource === 'projects'
+                ? client.api.projects({ projectId: id }).lifecycle
+                : client.api.workspaces({ workspaceId: id }).lifecycle
+        const body =
+            action === 'delete'
+                ? await call(route.delete(input))
+                : action === 'archive'
+                  ? await call(route.archive.post(input))
+                  : await call(route.restore.post(input))
+        write(body, JSON.stringify(body, null, 2))
+        return
+    }
+
     if (resource === 'projects' && action === 'list') {
         const body = await call<{ projects: Array<{ id: string; name: string }> }>(
-            client.api.projects.get()
+            client.api.projects.get({
+                query: { includeArchived: args.includes('--include-archived') },
+            })
         )
         write(body, body.projects.map(project => `${project.id}\t${project.name}`).join('\n'))
         return
@@ -698,7 +736,13 @@ Usage:
 
 Resources:
   auth login                         Sign in and print a session cookie
-  projects list                      List projects
+  projects list [--include-archived] List projects
+  projects impact --project <id>      Preview archive/delete impact
+  projects archive|restore|delete --project <id> --fingerprint <value>
+    [--cancel-pending] [--confirm-name <name>] [--acknowledge-uncertain]
+  workspaces impact --workspace <id>  Preview combined workspace impact
+  workspaces archive|restore|delete --workspace <id> --fingerprint <value>
+    [--cancel-pending] [--confirm-name <name>] [--replacement-workspace <id>]
   projects create --name <name>      Create a project
   api-keys list                      List your API keys
   api-keys create [--name <name>]    Create a user-owned API key

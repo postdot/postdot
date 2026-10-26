@@ -651,6 +651,8 @@ export function UserApiKeysPage() {
 
 const editableCapabilities: readonly UserApiKeyCapability[] = [
     'project:read',
+    'project:manage',
+    'project:permanently_delete',
     'publication:manage',
     'publication:dispatch',
     'channel:manage',
@@ -661,6 +663,10 @@ const editableCapabilities: readonly UserApiKeyCapability[] = [
 
 function capabilityLabel(capability: UserApiKeyCapability) {
     switch (capability) {
+        case 'project:manage':
+            return m.lifecycle_api_manage()
+        case 'project:permanently_delete':
+            return m.lifecycle_api_delete()
         case 'project:read':
             return m.api_keys_action_read_project()
         case 'publication:manage':

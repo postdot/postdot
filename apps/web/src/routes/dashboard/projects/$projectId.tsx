@@ -2,6 +2,10 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import { Suspense } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
+import {
+    ProjectLifecycleBoundary,
+    useProjectLifecycle,
+} from '@/components/resource-lifecycle-section'
 import { api } from '@/lib/api'
 import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
@@ -16,7 +20,7 @@ import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId')({
     loader: async ({ location, params }) => {
-        const { projects } = await api.listProjects()
+        const { projects } = await api.listProjects(true)
         const project = projects.find(candidate => candidate.id === params.projectId)
         if (project === undefined) {
             throw redirect({
@@ -57,6 +61,7 @@ function ProjectDashboardRoute() {
 function ProjectDashboardFrame() {
     const global = useDashboardGlobal()
     const projectDashboard = useProjectDashboard()
+    const lifecycle = useProjectLifecycle(projectDashboard.project.id)
 
     return (
         <ChannelIdentityProvider channels={projectDashboard.channels}>
@@ -71,7 +76,9 @@ function ProjectDashboardFrame() {
                 projectName={global.projectName}
                 projects={global.projects}
                 publisherConnections={projectDashboard.connections}
-                projectRole={projectDashboard.projectRole}
+                projectRole={
+                    lifecycle.data?.state === 'active' ? projectDashboard.projectRole : 'viewer'
+                }
                 selectedProject={projectDashboard.project}
                 session={global.session}>
                 <Suspense
@@ -85,7 +92,9 @@ function ProjectDashboardFrame() {
                             </p>
                         </main>
                     }>
-                    <Outlet />
+                    <ProjectLifecycleBoundary projectId={projectDashboard.project.id}>
+                        <Outlet />
+                    </ProjectLifecycleBoundary>
                 </Suspense>
             </DashboardShell>
         </ChannelIdentityProvider>

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { WorkspaceGroupsSection } from '@/components/workspace-groups-section'
 import { api, formatApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
@@ -117,6 +118,7 @@ export function WorkspaceAdministrationPage({
                         <WorkspaceGroupsSection workspaceId={workspaceId} />
                     )}
                 </div>
+                {workspaceId && <ResourceLifecycleSection kind="workspace" id={workspaceId} />}
             </div>
         </main>
     )

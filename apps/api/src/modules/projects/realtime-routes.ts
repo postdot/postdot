@@ -23,6 +23,7 @@ import type {
 import type { AuthenticatedElysia } from './types'
 
 const supportedProjectEventSubjects = {
+    'project.lifecycle_updated': 'project',
     'project.created': 'project',
     'project.timezone_updated': 'project',
     'project.media_previews.updated': 'project',

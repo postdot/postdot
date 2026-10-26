@@ -221,6 +221,7 @@ export function createWorkflowStore(database: PostbotDatabase) {
                 on channel_profiles.project_id = target_revisions.project_id
                and channel_profiles.id = target_revisions.profile_version_id
             where jobs.state = 'pending'
+              and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.target_revision_id is not null
@@ -271,6 +272,7 @@ export function createWorkflowStore(database: PostbotDatabase) {
                and actors.id = ?2
                and actors.kind = 'system'
             where jobs.state = 'pending'
+              and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and jobs.run_at <= ?3
               and publications.state in ('scheduled', 'ready')
               and publications.delivery_mode = 'automatic'

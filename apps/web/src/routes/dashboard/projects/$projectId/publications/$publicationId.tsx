@@ -13,6 +13,7 @@ import { useCallback, useEffect, useId, useReducer, useRef } from 'react'
 import { AddPostDestination } from '@/components/add-post-destination'
 import { EmptyState } from '@/components/empty-state'
 import { PublicationEditor } from '@/components/publication-editor'
+import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
 import { api, ApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -72,6 +73,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 function PublicationEditorRoute() {
     const router = useRouter()
     const { projectId, publicationId } = Route.useParams()
+    const lifecycle = useProjectLifecycle(projectId)
     const { date, from, view, editor: editorEngine } = Route.useSearch()
     const {
         editor,
@@ -160,7 +162,7 @@ function PublicationEditorRoute() {
     }, [requestVerification])
 
     const effectiveRole = access.role ?? projectRole
-    const routeReadOnly = effectiveRole === 'viewer'
+    const routeReadOnly = effectiveRole === 'viewer' || lifecycle.data?.state !== 'active'
     const accessBlocked = access.status !== 'confirmed'
     const canAct = !routeReadOnly && !accessBlocked
 
@@ -191,6 +193,8 @@ function PublicationEditorRoute() {
     }, [editorQueryError, editorQueryHasData, requestVerification])
 
     if (access.status === 'denied') return <AccessRemovedSurface />
+    // Initialize recovery only after the resource mode is known.
+    if (!lifecycle.data) return null
 
     return (
         <>

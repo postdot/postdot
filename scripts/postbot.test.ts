@@ -630,3 +630,57 @@ describe('CLI interrupted media transfer', () => {
         }
     })
 })
+
+it('requires an explicit impact fingerprint and sends project retirement once through the typed client', async () => {
+    const requests: Request[] = []
+    const fetcher = async (input: string | URL | Request, init?: RequestInit) => {
+        const request = requestFromInput(input, init)
+        requests.push(request)
+        return Response.json({ state: 'deleted' })
+    }
+    await expect(
+        runCli(
+            [
+                'projects',
+                'delete',
+                '--project',
+                'project-1',
+                '--confirm-name',
+                'Disposable',
+                '--token',
+                'postbot_pat_test',
+            ],
+            {},
+            { fetcher, output: () => {} }
+        )
+    ).rejects.toThrow('--fingerprint')
+    expect(requests).toHaveLength(0)
+    await runCli(
+        [
+            'projects',
+            'delete',
+            '--project',
+            'project-1',
+            '--fingerprint',
+            'reviewed',
+            '--confirm-name',
+            'Disposable',
+            '--cancel-pending',
+            '--acknowledge-uncertain',
+            '--token',
+            'postbot_pat_test',
+        ],
+        {},
+        { fetcher, output: () => {} }
+    )
+    expect(requests).toHaveLength(1)
+    expect(requests[0]!.method).toBe('DELETE')
+    expect(new URL(requests[0]!.url).pathname).toBe('/api/projects/project-1/lifecycle')
+    expect(await requests[0]!.json()).toMatchObject({
+        fingerprint: 'reviewed',
+        confirmName: 'Disposable',
+        cancelPending: true,
+        acknowledgeUncertain: true,
+    })
+    expect(requests[0]!.headers.get('authorization')).toBe('Bearer postbot_pat_test')
+})

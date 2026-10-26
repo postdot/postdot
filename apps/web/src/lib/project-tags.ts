@@ -18,6 +18,8 @@ export function useProjectTagCatalog(projectId: string, initialTags?: readonly P
         queryKey: projectQueryKeys.projectTagsCatalog(projectId),
         queryFn: () => api.listProjectTags(projectId, { includeArchived: true }),
         refetchOnMount: 'always',
+        // Surface a failed catalog read through the explicit retry control.
+        retry: false,
         ...(initialTags === undefined ? {} : { initialData: { tags: [...initialTags] } }),
     })
 }

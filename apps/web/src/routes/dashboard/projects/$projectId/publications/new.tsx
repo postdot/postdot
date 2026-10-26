@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 import { NewPublicationPage } from '@/components/new-publication-page'
+import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { parseCalendarDate, parseCalendarTime } from '@/lib/publication-authoring'
 
@@ -28,7 +29,9 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 function NewPublicationRoute() {
     const { date, time, editor } = Route.useSearch()
     const { project, projectRole } = useProjectDashboard()
-    if (projectRole === 'viewer') {
+    const lifecycle = useProjectLifecycle(project.id)
+    if (!lifecycle.data) return null
+    if (projectRole === 'viewer' || lifecycle.data.state !== 'active') {
         return (
             <Navigate
                 to="/dashboard/projects/$projectId/queue"

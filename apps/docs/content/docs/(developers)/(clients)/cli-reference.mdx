@@ -158,3 +158,45 @@ list is valid, including for projects using manual channels.
 and does not describe every provider. An active connection plus ready application
 configuration does not guarantee a successful delivery. This read command neither
 connects a provider nor sends a test publication.
+
+## Retire a project or workspace
+
+Current source builds support the following lifecycle commands; they are not
+included in `0.1.0-alpha.2`. See [archive and delete](/docs/projects/) for the data
+and external-effect contract.
+
+Read the impact before changing a resource:
+
+```sh
+bun run postdot projects impact --project PROJECT_ID --json
+bun run postdot projects list --include-archived --json
+```
+
+Copy the returned `fingerprint` into the action. Postdot refuses a stale preview
+so you can review a changed impact before confirming again.
+
+```sh
+bun run postdot projects archive --project PROJECT_ID --fingerprint FINGERPRINT --cancel-pending
+bun run postdot projects restore --project PROJECT_ID --fingerprint FINGERPRINT
+bun run postdot projects delete --project PROJECT_ID --fingerprint FINGERPRINT --confirm-name "Project name" --cancel-pending
+```
+
+Use `--cancel-pending` to confirm cancellation of the pending work shown by the
+preview. For permanent deletion with unresolved outcomes, also pass
+`--acknowledge-uncertain`. The CLI sends a single action request and reports the
+returned state; it does not silently retry a write or poll cleanup completion.
+
+Workspace commands use `workspaces impact|archive|restore|delete --workspace ID`
+with the same confirmation options and require a human session through
+`POSTBOT_SESSION_COOKIE`. To retire the default workspace, also pass
+`--replacement-workspace OTHER_WORKSPACE_ID`. The replacement must be active and
+manageable by the current user.
+
+HTTP clients use `GET /api/projects/{id}/lifecycle`,
+`POST /api/projects/{id}/lifecycle/archive`,
+`POST /api/projects/{id}/lifecycle/restore`, and
+`DELETE /api/projects/{id}/lifecycle`. Workspace paths replace `projects` with
+`workspaces`. Action bodies carry `fingerprint` and any required confirmation
+fields. A `409` response means the client must resolve the stated conflict and
+review the impact again. Session users can inspect their pending retirements at
+`GET /api/resource-removals`.

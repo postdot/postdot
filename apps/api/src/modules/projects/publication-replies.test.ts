@@ -7,6 +7,7 @@ import {
     createAccessStore,
     createDatabase,
     createManualStore,
+    createResourceLifecycleStore,
     runMigrations,
     closeDatabase,
 } from '@postdot/db'
@@ -687,6 +688,65 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
                 claimToken: 'owner',
                 completedAt: at + 121,
                 outcome: { type: 'published' },
+            })
+        ).toBeNull()
+    } finally {
+        await f.worker.stop()
+        closeDatabase(f.database)
+    }
+})
+
+test('persists an already-sent reply while retirement waits, without admitting another reply', async () => {
+    const f = await fixture()
+    try {
+        expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
+        const store = f.service.store.deliveries
+        const at = Date.now()
+        const work = store.claimNextDueJob({
+            actorId: 'worker',
+            claimToken: 'owner',
+            now: at,
+            leaseExpiresAt: at + 60_000,
+            projectId: f.project.id,
+        })!
+        expect(work).not.toBeNull()
+        expect(store.startExternalEffect(work.id, 'owner', at + 1)).toBe(true)
+        const lifecycle = createResourceLifecycleStore(f.database)
+        const preview = lifecycle.impact('project', f.project.id)!
+        expect(
+            lifecycle.mutate({
+                kind: 'project',
+                id: f.project.id,
+                action: 'archive',
+                actorId: f.owner.id,
+                fingerprint: preview.fingerprint,
+                cancelPending: true,
+                authorize: () => true,
+            }).state
+        ).toBe('archiving')
+        expect(
+            store.renewClaim!({
+                jobId: work.id,
+                claimToken: 'owner',
+                now: at + 2,
+                leaseExpiresAt: at + 90_000,
+            })
+        ).toBe(true)
+        expect(
+            store.completeExternalEffect({
+                jobId: work.id,
+                claimToken: 'owner',
+                completedAt: at + 3,
+                outcome: { type: 'published', externalId: 'remote-reply' },
+            })
+        ).toBe('published')
+        expect(
+            store.claimNextDueJob({
+                actorId: 'worker',
+                claimToken: 'next',
+                now: at + 4,
+                leaseExpiresAt: at + 60_000,
+                projectId: f.project.id,
             })
         ).toBeNull()
     } finally {
