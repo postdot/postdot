@@ -162,6 +162,7 @@ export type {
     CreatePublisherCredentialInput,
     CreatePublisherCredentialResult,
     PublisherCredentialSecrets,
+    PublisherCredentialRefreshContext,
     PublisherCredentialStoreOptions,
     ReplacePublisherCredentialTokensInput,
     ReplacePublisherCredentialTokensResult,

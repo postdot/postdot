@@ -343,6 +343,30 @@ async function performExternalEffect(input: {
         target,
         now: input.now,
         credentials: {
+            withPublisherCredentialRefresh: (projectId, credentialId, operation, signal) =>
+                input.publisherCredentialStore.withPublisherCredentialRefresh(
+                    projectId,
+                    credentialId,
+                    context => {
+                        input.assertActive()
+                        return operation(
+                            context === null
+                                ? null
+                                : {
+                                      ...context,
+                                      replaceTokens: value => {
+                                          input.assertActive()
+                                          return context.replaceTokens(value)
+                                      },
+                                      markReconnectRequired: () => {
+                                          input.assertActive()
+                                          context.markReconnectRequired()
+                                      },
+                                  }
+                        )
+                    },
+                    signal
+                ),
             getPublisherCredential: (projectId, credentialId) => {
                 input.assertActive()
                 return input.publisherCredentialStore.getPublisherCredential(

@@ -66,9 +66,6 @@ async function executeXPublication(input: {
     readonly options: XProviderAdapterOptions
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, options } = input
-    const oauth = options.resolveOAuth
-        ? await options.resolveOAuth(execution.target.providerApplicationId ?? null)
-        : options.oauth
     const target = execution.target
 
     const destination = toXDestination(target.destination)
@@ -76,51 +73,82 @@ async function executeXPublication(input: {
         return permanentFailure('The X publication destination is unavailable')
     }
 
-    const secrets = await execution.credentials.resolvePublisherCredentialSecrets(
+    const prepared = await execution.credentials.withPublisherCredentialRefresh(
         target.projectId,
-        target.credentialId
-    )
-    if (secrets === null) {
-        return permanentFailure('The X publisher credential is unavailable')
-    }
+        target.credentialId,
+        async context => {
+            if (!context)
+                return {
+                    kind: 'failed',
+                    outcome: permanentFailure('The publisher credential is unavailable'),
+                } as const
+            const secrets = context.secrets
+            const oauth = options.resolveOAuth
+                ? await options.resolveOAuth(context.credential.providerApplicationId ?? null)
+                : options.oauth
 
-    let accessToken = secrets.accessToken
-    if (target.credentialExpiresAt !== null && target.credentialExpiresAt <= execution.now) {
-        if (secrets.refreshToken === null || oauth === undefined) {
-            execution.credentials.markPublisherCredentialReconnectRequired(
-                target.projectId,
-                target.credentialId
-            )
-            return permanentFailure('The X publisher credential requires reconnection')
-        }
+            let accessToken = secrets.accessToken
+            if (
+                context.credential.expiresAt !== null &&
+                context.credential.expiresAt <= context.now()
+            ) {
+                if (secrets.refreshToken === null || oauth === undefined) {
+                    context.markReconnectRequired()
+                    return {
+                        kind: 'failed',
+                        outcome: permanentFailure(
+                            'The X publisher credential requires reconnection'
+                        ),
+                    } as const
+                }
 
-        try {
-            const refreshed = await (options.refreshAccessToken ?? refreshAccessToken)({
-                authorizationServer: oauth.authorizationServer,
-                clientId: oauth.clientId,
-                clientAuthentication: oauth.clientAuthentication,
-                refreshToken: secrets.refreshToken,
-                fetcher: effectFetcher(execution.signal, options.fetcher, execution.assertActive),
-            })
-            const replaced = await execution.credentials.replacePublisherCredentialTokens({
-                projectId: target.projectId,
-                credentialId: target.credentialId,
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken ?? undefined,
-                expiresAt: expiryFromSeconds(refreshed.expiresInSeconds, execution.now),
-            })
-            if (replaced.kind !== 'updated') {
-                return retryableFailure('The refreshed X credential could not be persisted')
+                try {
+                    const refreshed = await (options.refreshAccessToken ?? refreshAccessToken)({
+                        authorizationServer: oauth.authorizationServer,
+                        clientId: oauth.clientId,
+                        clientAuthentication: oauth.clientAuthentication,
+                        refreshToken: secrets.refreshToken,
+                        fetcher: effectFetcher(
+                            execution.signal,
+                            options.fetcher,
+                            execution.assertActive
+                        ),
+                    })
+                    const replaced = await context.replaceTokens({
+                        accessToken: refreshed.accessToken,
+                        refreshToken: refreshed.refreshToken ?? undefined,
+                        expiresAt: expiryFromSeconds(refreshed.expiresInSeconds, context.now()),
+                    })
+                    if (replaced.kind !== 'updated') {
+                        return {
+                            kind: 'failed',
+                            outcome: retryableFailure(
+                                'The refreshed X credential could not be persisted'
+                            ),
+                        } as const
+                    }
+                    accessToken = refreshed.accessToken
+                } catch {
+                    if (!execution.signal?.aborted) context.markReconnectRequired()
+                    return {
+                        kind: 'failed',
+                        outcome: permanentFailure(
+                            'The X publisher credential could not be refreshed'
+                        ),
+                    } as const
+                }
             }
-            accessToken = refreshed.accessToken
-        } catch {
-            execution.credentials.markPublisherCredentialReconnectRequired(
-                target.projectId,
-                target.credentialId
-            )
-            return permanentFailure('The X publisher credential could not be refreshed')
-        }
-    }
+
+            return {
+                kind: 'ready',
+                accessToken,
+                markReconnectRequired: context.markReconnectRequired,
+            } as const
+        },
+        execution.signal
+    )
+    if (prepared.kind === 'failed') return prepared.outcome
+    const accessToken = prepared.accessToken
 
     if (accessToken.trim().length === 0) {
         return permanentFailure('The X publisher access token is unavailable')
@@ -160,10 +188,7 @@ async function executeXPublication(input: {
     })
     if (mediaResult.kind !== 'ready') {
         if (isXAuthenticationFailure(mediaResult.outcome)) {
-            execution.credentials.markPublisherCredentialReconnectRequired(
-                target.projectId,
-                target.credentialId
-            )
+            prepared.markReconnectRequired()
         }
         return mediaResult.outcome
     }
@@ -180,10 +205,7 @@ async function executeXPublication(input: {
     }
 
     if (outcome.type === 'permanent_failure' && outcome.code === 'authentication_required') {
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
+        prepared.markReconnectRequired()
     }
 
     return outcome

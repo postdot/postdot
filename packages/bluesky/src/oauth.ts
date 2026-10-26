@@ -294,11 +294,17 @@ export type BlueskyOAuthClientOptions = Omit<
     'responseMode' | 'runtimeImplementation'
 >
 
-export function createBlueskyOAuthClient(options: BlueskyOAuthClientOptions): OAuthClient {
+export function createBlueskyOAuthClient(
+    options: BlueskyOAuthClientOptions,
+    requestLock?: RuntimeImplementation['requestLock']
+): OAuthClient {
     return new OAuthClient({
         ...options,
         responseMode: 'query',
-        runtimeImplementation: createBlueskyRuntimeImplementation(),
+        runtimeImplementation: {
+            ...createBlueskyRuntimeImplementation(),
+            ...(requestLock ? { requestLock } : {}),
+        },
     })
 }
 
@@ -330,25 +336,47 @@ export async function restoreBlueskySession(options: {
     readonly serializedSession: string
     readonly client: BlueskyOAuthClientSetupOptions
     readonly onSessionUpdated?: (serializedSession: string) => void
+    readonly sessionStore?: SerializedBlueskyStore
+    readonly requestLock?: RuntimeImplementation['requestLock']
 }): Promise<RestoredBlueskySession> {
     const clientMetadata = blueskySessionClientMetadata(
         options.client.clientMetadata,
         options.serializedSession
     )
-    const serializedStore = createBlueskyMemoryStore([[options.sub, options.serializedSession]])
+    const backingStore =
+        options.sessionStore ?? createBlueskyMemoryStore([[options.sub, options.serializedSession]])
     let currentSession = await deserializeBlueskySession(options.serializedSession)
     let currentSerializedSession = options.serializedSession
-    const client = createBlueskyOAuthClient({
-        ...options.client,
-        clientMetadata,
-        stateStore: createBlueskyStateStore(createBlueskyMemoryStore()),
-        sessionStore: createBlueskySessionStore(serializedStore, clientMetadata.client_id),
-        onSessionUpdated(_sub, session) {
-            currentSession = session
-            currentSerializedSession = serializeBlueskySession(session, clientMetadata.client_id)
-            options.onSessionUpdated?.(currentSerializedSession)
+    const client = createBlueskyOAuthClient(
+        {
+            ...options.client,
+            clientMetadata,
+            stateStore: createBlueskyStateStore(createBlueskyMemoryStore()),
+            sessionStore: createBlueskySessionStore(
+                {
+                    ...backingStore,
+                    async get(key) {
+                        const value = await backingStore.get(key)
+                        if (value !== undefined) {
+                            currentSession = await deserializeBlueskySession(value)
+                            currentSerializedSession = value
+                        }
+                        return value
+                    },
+                },
+                clientMetadata.client_id
+            ),
+            onSessionUpdated(_sub, session) {
+                currentSession = session
+                currentSerializedSession = serializeBlueskySession(
+                    session,
+                    clientMetadata.client_id
+                )
+                options.onSessionUpdated?.(currentSerializedSession)
+            },
         },
-    })
+        options.requestLock
+    )
     const session = await client.restore(options.sub)
     return {
         client,

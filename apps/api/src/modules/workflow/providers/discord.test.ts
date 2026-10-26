@@ -49,6 +49,9 @@ function createTarget(overrides: Partial<PublisherExecutionTarget> = {}): Publis
 function createCredentials() {
     let reconnectCalls = 0
     const port: PublisherCredentialExecutionPort = {
+        withPublisherCredentialRefresh: async () => {
+            throw new Error('This provider must not renew credentials')
+        },
         async resolvePublisherCredentialSecrets() {
             return { accessToken: BOT_TOKEN, refreshToken: null, providerSession: null }
         },

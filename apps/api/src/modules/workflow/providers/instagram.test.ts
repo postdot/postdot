@@ -10,6 +10,8 @@ import {
     createManualStore,
     createMediaAssetStore,
     createProviderMediaDeliveryStore,
+    createPublisherCredentialStore,
+    createPublisherCredentialCipher,
     createWorkflowStore,
     mediaAssets,
     mediaRepresentations,
@@ -17,6 +19,7 @@ import {
     publishers,
     runMigrations,
     type PublisherExecutionMedia,
+    type PublisherCredentialRefreshContext,
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
@@ -86,6 +89,7 @@ async function decodableJpeg(width: number, height: number): Promise<Uint8Array>
 type Replies = (request: { url: URL; init: RequestInit | undefined }) => Response
 
 interface FixtureOptions {
+    readonly realCredentials?: boolean
     readonly replies?: Replies
     readonly scopes?: readonly string[]
     /** The credential record cannot be read through the shared port. */
@@ -101,6 +105,7 @@ interface FixtureOptions {
 }
 
 interface Fixture {
+    readonly credentialStore?: ReturnType<typeof createPublisherCredentialStore>
     readonly target: PublisherExecutionTarget
     readonly deliveries: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly requests: { url: URL; init: RequestInit | undefined }[]
@@ -324,6 +329,38 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         })
 
         const credentialPort = {
+            async withPublisherCredentialRefresh<T>(
+                projectId: string,
+                credentialId: string,
+                operation: (context: PublisherCredentialRefreshContext | null) => Promise<T>
+            ): Promise<T> {
+                return operation({
+                    credential: {
+                        id: credentialId,
+                        projectId,
+                        providerId: 'instagram',
+                        externalAccountId: accountId,
+                        externalAccountName: null,
+                        state: 'active',
+                        scopes: options.scopes ?? INSTAGRAM_PUBLISH_PERMISSIONS,
+                        expiresAt: target.credentialExpiresAt,
+                        providerApplicationId: target.providerApplicationId,
+                        connectedByActorId: 'fixture-actor',
+                        createdAt: now,
+                        updatedAt: now,
+                    },
+                    now: () => now,
+                    secrets: await credentialPort.resolvePublisherCredentialSecrets(),
+                    replaceTokens: value =>
+                        credentialPort.replacePublisherCredentialTokens({
+                            ...value,
+                            projectId,
+                            credentialId,
+                        }),
+                    markReconnectRequired: () =>
+                        credentialPort.markPublisherCredentialReconnectRequired(projectId),
+                })
+            },
             resolvePublisherCredentialSecrets: async () => ({
                 accessToken: options.accessToken ?? 'synthetic-instagram-token',
                 refreshToken: null,
@@ -333,7 +370,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                 input: ReplacePublisherCredentialTokensInput
             ) => {
                 replacements.push(input)
-                return { kind: 'updated', credential: undefined as never }
+                return { kind: 'updated' as const, credential: undefined as never }
             },
             markPublisherCredentialReconnectRequired: (projectId: string) => {
                 reconnects.push(projectId)
@@ -350,6 +387,29 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                   }),
         }
 
+        let realCredentialStore: ReturnType<typeof createPublisherCredentialStore> | undefined
+        if (options.realCredentials) {
+            realCredentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({
+                    keyId: 'test',
+                    key: new Uint8Array(32).fill(1),
+                }),
+                now: () => now,
+                createId: () => target.credentialId,
+            })
+            const created = await realCredentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'instagram',
+                externalAccountId: accountId,
+                scopes: options.scopes ?? INSTAGRAM_PUBLISH_PERMISSIONS,
+                accessToken: options.accessToken ?? 'synthetic-instagram-token',
+                providerSession: options.providerSession,
+                expiresAt: target.credentialExpiresAt,
+            })
+            if (created.kind !== 'created') throw new Error('The real credential was not created')
+        }
+
         const execute: Fixture['execute'] = async (overrides = {}) =>
             adapter.execute({
                 target: overrides.target ?? target,
@@ -357,8 +417,8 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                 // The shared credential port does not expose the granted scopes.
                 // The adapter reads them from the credential record when the
                 // port offers it, exactly like the production credential store.
-                credentials:
-                    credentialPort as unknown as BuiltInProviderExecutionInput['credentials'],
+                credentials: (realCredentialStore ??
+                    credentialPort) as BuiltInProviderExecutionInput['credentials'],
                 media: mediaPort as unknown as NonNullable<BuiltInProviderExecutionInput['media']>,
                 resolveMediaUrl: async () =>
                     options.mediaUrl === undefined ? signedImageUrl : options.mediaUrl,
@@ -366,6 +426,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             })
 
         return {
+            credentialStore: realCredentialStore,
             target,
             deliveries,
             requests,
@@ -943,6 +1004,77 @@ test('a rejected container creation can be retried through the store lifecycle',
         expect(delivery).toMatchObject({ state: 'failed', remoteMediaId: null })
         expect(await item.execute()).toEqual({ type: 'published', externalId: mediaId })
         expect(attempt).toBe(2)
+    } finally {
+        await item.cleanup()
+    }
+})
+
+test('coordinates real Instagram renewal across concurrent preparation with stale execution metadata', async () => {
+    let renewals = 0
+    const entered = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const oauth = createInstagramOAuth({
+        clientId: '1234567890',
+        clientSecret: 'synthetic-secret',
+        callbackUri: 'https://postbot.test/api/oauth/instagram/callback',
+        now: () => now,
+        fetcher: async () => {
+            renewals++
+            entered.resolve()
+            await release.promise
+            return Response.json({
+                access_token: 'renewed-once',
+                token_type: 'bearer',
+                expires_in: 5184000,
+            })
+        },
+    })
+    const item = await fixture({
+        realCredentials: true,
+        credentialExpiresAt: now + 7200000,
+        providerSession: JSON.stringify({
+            version: 1,
+            issuedAt: now - 30 * dayMs,
+            appScopedId: accountId,
+            accountType: 'BUSINESS',
+        }),
+        resolveOAuth: async () => oauth,
+        replies: request =>
+            request.url.pathname.endsWith('/media_publish')
+                ? Response.json({ id: mediaId })
+                : Response.json({ id: containerId, status_code: 'FINISHED' }),
+    })
+    try {
+        const first = item.execute()
+        await Promise.race([
+            entered.promise,
+            first.then(() => {
+                throw new Error('The expiring credential did not renew')
+            }),
+        ])
+        const second = item.execute()
+        release.resolve()
+        const outcomes = await Promise.all([first, second])
+        expect(renewals).toBe(1)
+        expect(outcomes.some(outcome => outcome.type === 'published')).toBe(true)
+        expect(
+            (
+                await item.credentialStore!.resolvePublisherCredentialSecrets(
+                    item.target.projectId,
+                    item.target.credentialId
+                )
+            )?.accessToken
+        ).toBe('renewed-once')
+        expect(
+            item.credentialStore!.getPublisherCredential(
+                item.target.projectId,
+                item.target.credentialId
+            )?.expiresAt
+        ).toBe(now + 5184000 * 1000)
+        for (const request of item.requests)
+            expect(new Headers(request.init?.headers).get('authorization')).toBe(
+                'Bearer renewed-once'
+            )
     } finally {
         await item.cleanup()
     }

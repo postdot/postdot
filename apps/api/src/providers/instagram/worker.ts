@@ -1,5 +1,5 @@
 import type { ExternalEffectOutcome } from '@postdot/core'
-import type { PublisherCredentialSecrets, PublisherExecutionMedia } from '@postdot/db'
+import type { PublisherCredentialRefreshContext, PublisherExecutionMedia } from '@postdot/db'
 import {
     createInstagramPublisher,
     INSTAGRAM_EXECUTION_REVISION,
@@ -133,49 +133,70 @@ async function executeInstagramPublication(input: {
 
     if (target.credentialState !== 'active')
         return permanentFailure('The Instagram credential is unavailable')
-    let secrets: PublisherCredentialSecrets | null
+    let token:
+        | {
+              readonly ok: true
+              readonly accessToken: string
+              readonly markReconnectRequired: () => void
+          }
+        | { readonly ok: false; readonly outcome: ExternalEffectOutcome }
     try {
-        secrets = await execution.credentials.resolvePublisherCredentialSecrets(
+        token = await execution.credentials.withPublisherCredentialRefresh(
             target.projectId,
-            target.credentialId
+            target.credentialId,
+            async context => {
+                if (!context)
+                    return {
+                        ok: false,
+                        outcome: permanentFailure('The Instagram credential is unavailable'),
+                    } as const
+                // The granted permissions are the credential's own scopes, never a request.
+                const grants = readCredentialGrants(
+                    execution.credentials,
+                    target.projectId,
+                    target.credentialId
+                )
+                if (grants === null)
+                    return {
+                        ok: false,
+                        outcome: permanentFailure(
+                            'The Instagram credential scopes cannot be verified'
+                        ),
+                    } as const
+                if (!INSTAGRAM_PUBLISH_PERMISSIONS.every(scope => grants.scopes.includes(scope))) {
+                    // The stored grants are known and no longer carry the publishing
+                    // permissions. The connection lost its grants, so the credential is
+                    // marked and Studio can reconnect it.
+                    context.markReconnectRequired()
+                    return {
+                        ok: false,
+                        outcome: permanentFailure(
+                            'The Instagram connection does not grant publishing access'
+                        ),
+                    } as const
+                }
+
+                const resolved = await resolveInstagramAccessToken({
+                    execution,
+                    context,
+                    resolveOAuth: input.resolveOAuth,
+                })
+                return resolved.ok
+                    ? { ...resolved, markReconnectRequired: context.markReconnectRequired }
+                    : resolved
+            },
+            execution.signal
         )
     } catch {
-        // A local credential read failure is retryable and happens before any
-        // write, so it never becomes an ambiguous external outcome.
         return retryableFailure('The Instagram credential could not be read; retry is safe')
     }
-    if (secrets === null) return permanentFailure('The Instagram credential is unavailable')
-
-    // The granted permissions are the credential's own scopes, never a request.
-    const grants = readCredentialGrants(
-        execution.credentials,
-        target.projectId,
-        target.credentialId
-    )
-    if (grants === null)
-        return permanentFailure('The Instagram credential scopes cannot be verified')
-    if (!INSTAGRAM_PUBLISH_PERMISSIONS.every(scope => grants.scopes.includes(scope))) {
-        // The stored grants are known and no longer carry the publishing
-        // permissions. The connection lost its grants, so the credential is
-        // marked and Studio can reconnect it.
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
-        return permanentFailure('The Instagram connection does not grant publishing access')
-    }
-
-    const token = await resolveInstagramAccessToken({
-        execution,
-        secrets,
-        resolveOAuth: input.resolveOAuth,
-    })
     if (!token.ok) return token.outcome
 
     return publishInstagramImage({
         execution,
         publisher: input.createPublisher(),
         accessToken: token.accessToken,
+        markReconnectRequired: token.markReconnectRequired,
         accountId: destination.id,
         pinned,
         caption: content.caption,
@@ -191,7 +212,7 @@ async function executeInstagramPublication(input: {
  */
 async function resolveInstagramAccessToken(input: {
     readonly execution: BuiltInProviderExecutionInput
-    readonly secrets: PublisherCredentialSecrets
+    readonly context: PublisherCredentialRefreshContext
     readonly resolveOAuth?: (
         providerApplicationId: string | null
     ) => Promise<InstagramOAuth | undefined>
@@ -200,13 +221,10 @@ async function resolveInstagramAccessToken(input: {
     | { readonly ok: false; readonly outcome: ExternalEffectOutcome }
 > {
     const execution = input.execution
-    const target = execution.target
-    const expiresAt = target.credentialExpiresAt
+    const context = input.context
+    const expiresAt = context.credential.expiresAt
     if (expiresAt === null) {
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
+        context.markReconnectRequired()
         return {
             ok: false,
             outcome: permanentFailure(
@@ -214,36 +232,33 @@ async function resolveInstagramAccessToken(input: {
             ),
         }
     }
-    if (expiresAt <= execution.now) {
+    if (expiresAt <= context.now()) {
         // An expired token can never be refreshed.
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
+        context.markReconnectRequired()
         return {
             ok: false,
             outcome: permanentFailure('The Instagram connection expired; reconnect the account'),
         }
     }
 
-    let accessToken = input.secrets.accessToken
+    let accessToken = context.secrets.accessToken
     if (accessToken.trim().length === 0)
         return { ok: false, outcome: permanentFailure('The Instagram access token is unavailable') }
-    if (expiresAt - execution.now > refreshWindowMs) return { ok: true, accessToken }
+    if (expiresAt - context.now() > refreshWindowMs) return { ok: true, accessToken }
 
-    const session = parseInstagramProviderSession(input.secrets.providerSession)
+    const session = parseInstagramProviderSession(context.secrets.providerSession)
     // Without usable issuance metadata the credential cannot be refreshed. The
     // stored token is still inside its own known lifetime, so it is used as it
     // is instead of inventing an expiration.
     if (session === null) return { ok: true, accessToken }
-    if (execution.now - session.issuedAt < minimumRefreshAgeMs) return { ok: true, accessToken }
+    if (context.now() - session.issuedAt < minimumRefreshAgeMs) return { ok: true, accessToken }
 
     let oauth: InstagramOAuth | undefined
     try {
         // The issuing configuration is read from the encrypted application
         // settings. A resolution failure is a local error, not a provider
         // error, and it happens before any write.
-        oauth = await input.resolveOAuth?.(target.providerApplicationId ?? null)
+        oauth = await input.resolveOAuth?.(context.credential.providerApplicationId ?? null)
     } catch {
         return {
             ok: false,
@@ -264,10 +279,7 @@ async function resolveInstagramAccessToken(input: {
     } catch (error) {
         const code = error instanceof InstagramOAuthError ? error.code : null
         if (code === 'token_invalid' || code === 'token_expired') {
-            execution.credentials.markPublisherCredentialReconnectRequired(
-                target.projectId,
-                target.credentialId
-            )
+            if (!execution.signal?.aborted) context.markReconnectRequired()
             return {
                 ok: false,
                 outcome: permanentFailure(
@@ -283,9 +295,7 @@ async function resolveInstagramAccessToken(input: {
         }
     }
 
-    const replaced = await execution.credentials.replacePublisherCredentialTokens({
-        projectId: target.projectId,
-        credentialId: target.credentialId,
+    const replaced = await context.replaceTokens({
         accessToken: refreshed.accessToken,
         // The provider grants no refresh token; none is invented.
         refreshToken: null,
@@ -314,6 +324,7 @@ async function resolveInstagramAccessToken(input: {
  * recreates a container and a lost write acknowledgement is never replayed.
  */
 async function publishInstagramImage(input: {
+    readonly markReconnectRequired: () => void
     readonly execution: BuiltInProviderExecutionInput
     readonly publisher: InstagramPublisher
     readonly accessToken: string
@@ -440,11 +451,7 @@ async function publishInstagramImage(input: {
     })
     if (!status.ok) {
         // A failed read keeps the checkpoint; the container is never recreated.
-        if (status.outcome.code === 'authentication_required')
-            execution.credentials.markPublisherCredentialReconnectRequired(
-                target.projectId,
-                target.credentialId
-            )
+        if (status.outcome.code === 'authentication_required') input.markReconnectRequired()
         return status.outcome
     }
 
@@ -478,10 +485,7 @@ async function publishInstagramImage(input: {
         // Only the provider's own published media identity is a receipt.
         return { type: 'published', externalId: published.externalId }
     if (published.code === 'authentication_required' || published.code === 'permission_denied')
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
+        input.markReconnectRequired()
     return published
 }
 

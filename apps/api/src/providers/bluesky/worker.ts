@@ -7,7 +7,6 @@ import {
     BLUESKY_PROVIDER,
     createBlueskyPublisher,
     readBlueskyTextContent,
-    readBlueskySessionTokenSet,
     restoreBlueskySession,
     type BlueskyOAuthClientMetadata,
 } from '@postdot/bluesky'
@@ -26,6 +25,7 @@ import type {
     BuiltInProviderExecutionInput,
     ProviderMediaDeliveryPort,
 } from '../../modules/workflow/providers/registry'
+import { restoreCredentialBlueskySession } from './credential-session'
 import { publishBlueskyVideo } from './video'
 
 export interface BlueskyOAuthConfiguration {
@@ -78,72 +78,42 @@ async function executeBlueskyPublication(input: {
     readonly revision: string
 }): Promise<ExternalEffectOutcome> {
     const { input: execution } = input
-    const oauth = input.resolveOAuth
-        ? await input.resolveOAuth(execution.target.providerApplicationId ?? null)
-        : input.oauth
     const target = execution.target
-    if (oauth === undefined) {
-        return permanentFailure('The Bluesky publisher is not configured')
-    }
-
     const destination = toBlueskyDestination(target.destination)
     if (destination === null) {
         return permanentFailure('The Bluesky publication destination is unavailable')
     }
 
-    const secrets = await execution.credentials.resolvePublisherCredentialSecrets(
-        target.projectId,
-        target.credentialId
-    )
-    if (secrets === null || secrets.providerSession === null) {
-        return permanentFailure('The Bluesky publisher session is unavailable')
-    }
-
     let restored: Awaited<ReturnType<typeof restoreBlueskySession>>
     try {
-        restored = await input.restoreSession({
-            sub: destination.id,
-            serializedSession: secrets.providerSession,
-            client: {
-                clientMetadata: oauth.clientMetadata,
-                handleResolver: oauth.handleResolver,
-                fetch: Object.assign(
-                    effectFetcher(execution.signal, undefined, execution.assertActive),
-                    { preconnect: fetch.preconnect }
-                ),
+        restored = await restoreCredentialBlueskySession({
+            projectId: target.projectId,
+            credentialId: target.credentialId,
+            accountId: destination.id,
+            credentials: execution.credentials,
+            restoreSession: input.restoreSession,
+            signal: execution.signal,
+            resolveOAuth: async applicationId => {
+                const oauth = input.resolveOAuth
+                    ? await input.resolveOAuth(applicationId)
+                    : input.oauth
+                return oauth === undefined
+                    ? undefined
+                    : {
+                          clientMetadata: oauth.clientMetadata,
+                          handleResolver: oauth.handleResolver,
+                          fetch: Object.assign(
+                              effectFetcher(execution.signal, undefined, execution.assertActive),
+                              { preconnect: fetch.preconnect }
+                          ),
+                      }
             },
         })
     } catch {
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
         return permanentFailure('The Bluesky publisher session could not be restored')
     }
-
-    if (restored.session.did !== destination.id) {
+    if (restored.session.did !== destination.id)
         return permanentFailure('The Bluesky session does not match the publication destination')
-    }
-
-    const serializedSession = restored.getSerializedSession()
-    const tokenSet = readBlueskySessionTokenSet(serializedSession)
-    if (tokenSet === null || tokenSet.sub !== destination.id) {
-        return permanentFailure('The Bluesky publisher session contains invalid token data')
-    }
-
-    if (serializedSession !== secrets.providerSession) {
-        const replaced = await execution.credentials.replacePublisherCredentialTokens({
-            projectId: target.projectId,
-            credentialId: target.credentialId,
-            accessToken: tokenSet.accessToken,
-            refreshToken: tokenSet.refreshToken ?? undefined,
-            providerSession: serializedSession,
-            expiresAt: tokenExpiry(tokenSet.expiresAt, execution.now),
-        })
-        if (replaced.kind !== 'updated') {
-            return retryableFailure('The refreshed Bluesky session could not be persisted')
-        }
-    }
 
     const text = readBlueskyTextContent(target.content)
     if (text === null) {
@@ -491,10 +461,4 @@ function parseBlobRef(value: string | null): BlobRef | null {
     } catch {
         return null
     }
-}
-
-function tokenExpiry(expiresAt: string | null, now: number): number | null {
-    if (expiresAt === null) return null
-    const timestamp = Date.parse(expiresAt)
-    return Number.isSafeInteger(timestamp) && timestamp > now ? timestamp : null
 }

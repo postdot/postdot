@@ -96,36 +96,45 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
             expires_at: '2027-10-20T10:00:00.000Z',
         },
     })
-    const restore = (async () => ({
-        session: {
-            did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
-            async getTokenInfo() {
-                return {
-                    scope: permission ? 'atproto repo:app.bsky.feed.post?action=create' : 'atproto',
-                }
-            },
-            async fetchHandler(_url: string, init: RequestInit) {
-                const body = (await new Response(
-                    init.body
-                ).json()) as ComAtprotoRepoCreateRecord.InputSchema
-                effects.push(body.rkey!)
-                expect(body.record).toMatchObject({
-                    reply: {
-                        parent: {
-                            uri: 'at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/app.bsky.feed.post/comment',
+    const restore = (async (options: Parameters<typeof restoreBlueskySession>[0]) => {
+        if (!options.requestLock || !options.sessionStore)
+            throw new Error('Missing durable SDK session boundary')
+        await options.requestLock('synthetic-session', async () =>
+            options.sessionStore!.set('did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', serialized)
+        )
+        return {
+            session: {
+                did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
+                async getTokenInfo() {
+                    return {
+                        scope: permission
+                            ? 'atproto repo:app.bsky.feed.post?action=create'
+                            : 'atproto',
+                    }
+                },
+                async fetchHandler(_url: string, init: RequestInit) {
+                    const body = (await new Response(
+                        init.body
+                    ).json()) as ComAtprotoRepoCreateRecord.InputSchema
+                    effects.push(body.rkey!)
+                    expect(body.record).toMatchObject({
+                        reply: {
+                            parent: {
+                                uri: 'at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/app.bsky.feed.post/comment',
+                            },
                         },
-                    },
-                })
-                // cspell:disable-next-line
-                return Response.json({
-                    uri: `at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/${body.rkey}`,
+                    })
                     // cspell:disable-next-line
-                    cid: 'bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u',
-                })
+                    return Response.json({
+                        uri: `at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/${body.rkey}`,
+                        // cspell:disable-next-line
+                        cid: 'bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u',
+                    })
+                },
             },
-        },
-        getSerializedSession: () => serialized,
-    })) as unknown as typeof restoreBlueskySession
+            getSerializedSession: () => serialized,
+        }
+    }) as unknown as typeof restoreBlueskySession
     const service = createPublicationRepliesService({
         database,
         publisher,

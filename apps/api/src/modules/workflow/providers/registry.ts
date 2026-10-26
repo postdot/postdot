@@ -4,6 +4,7 @@ import type {
     FailProviderMediaDeliveryInput,
     MediaAssetStore,
     PublisherCredentialSecrets,
+    PublisherCredentialRefreshContext,
     PublisherExecutionTarget,
     ProviderMediaDelivery,
     RecordProviderMediaDeliveryRemoteIdInput,
@@ -22,6 +23,12 @@ export type BuiltInExecutionContract = Extract<
 export type ProviderMediaContentStore = Pick<MediaAssetStore, 'openRepresentationContent'>
 
 export interface PublisherCredentialExecutionPort {
+    withPublisherCredentialRefresh<T>(
+        projectId: string,
+        credentialId: string,
+        operation: (context: PublisherCredentialRefreshContext | null) => Promise<T>,
+        signal?: AbortSignal
+    ): Promise<T>
     /** Providers that require stored grant verification fail closed when unavailable. */
     getPublisherCredential?(
         projectId: string,

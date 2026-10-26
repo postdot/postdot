@@ -486,3 +486,264 @@ describe('publisher credential store', () => {
         }
     })
 })
+
+describe('coordinated publisher credential renewal', () => {
+    async function fixture() {
+        const f = createFixture()
+        const result = await f.store.createPublisherCredential({
+            projectId: f.project.project.id,
+            connectedByActorId: f.project.actor.id,
+            providerId: 'x',
+            externalAccountId: 'account-1',
+            accessToken: 'expired-access',
+            refreshToken: 'single-use-refresh',
+            expiresAt: now - 1,
+        })
+        if (result.kind !== 'created') throw new Error('Credential fixture failed')
+        return { ...f, credential: result.credential }
+    }
+
+    it('renews once across store facades and gives the waiter fresh expiry and tokens', async () => {
+        const f = await fixture()
+        try {
+            const entered = Promise.withResolvers<void>()
+            const release = Promise.withResolvers<void>()
+            const secondStore = createPublisherCredentialStore(f.database, { cipher: f.cipher })
+            let renewals = 0
+            const prepare = (store: typeof f.store) =>
+                store.withPublisherCredentialRefresh(
+                    f.project.project.id,
+                    f.credential.id,
+                    async context => {
+                        expect(context).not.toBeNull()
+                        if (!context) throw new Error('Missing context')
+                        if (
+                            context.credential.expiresAt !== null &&
+                            context.credential.expiresAt <= now
+                        ) {
+                            renewals++
+                            entered.resolve()
+                            await release.promise
+                            expect(
+                                (
+                                    await context.replaceTokens({
+                                        accessToken: 'fresh-access',
+                                        refreshToken: 'rotated-refresh',
+                                        expiresAt: now + 60000,
+                                    })
+                                ).kind
+                            ).toBe('updated')
+                            return 'fresh-access'
+                        }
+                        return context.secrets.accessToken
+                    }
+                )
+            const first = prepare(f.store)
+            await entered.promise
+            const second = prepare(secondStore)
+            release.resolve()
+            expect(await Promise.all([first, second])).toEqual(['fresh-access', 'fresh-access'])
+            expect(renewals).toBe(1)
+            expect(
+                (
+                    await f.store.resolvePublisherCredentialSecrets(
+                        f.project.project.id,
+                        f.credential.id
+                    )
+                )?.refreshToken
+            ).toBe('rotated-refresh')
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+
+    it('does not block an unrelated account while renewal is waiting on a provider', async () => {
+        const f = await fixture()
+        try {
+            const other = await f.store.createPublisherCredential({
+                projectId: f.project.project.id,
+                connectedByActorId: f.project.actor.id,
+                providerId: 'x',
+                externalAccountId: 'account-2',
+                accessToken: 'other-access',
+            })
+            if (other.kind !== 'created') throw new Error('Other credential missing')
+            const entered = Promise.withResolvers<void>()
+            const release = Promise.withResolvers<void>()
+            const first = f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async () => {
+                    entered.resolve()
+                    await release.promise
+                }
+            )
+            await entered.promise
+            try {
+                expect(
+                    await f.store.withPublisherCredentialRefresh(
+                        f.project.project.id,
+                        other.credential.id,
+                        async context => context?.secrets.accessToken
+                    )
+                ).toBe('other-access')
+            } finally {
+                release.resolve()
+                await first
+            }
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+
+    it('cannot overwrite or mark a newer OAuth grant reconnect-required after a stale renewal', async () => {
+        const f = await fixture()
+        try {
+            await f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async context => {
+                    if (!context) throw new Error('Missing context')
+                    expect(
+                        (
+                            await f.store.replacePublisherCredentialTokens({
+                                projectId: f.project.project.id,
+                                credentialId: f.credential.id,
+                                accessToken: 'new-owner-grant',
+                                refreshToken: 'new-owner-refresh',
+                                expiresAt: now + 60000,
+                            })
+                        ).kind
+                    ).toBe('updated')
+                    expect(
+                        await context.replaceTokens({
+                            accessToken: 'late-renewal',
+                            expiresAt: now + 30000,
+                        })
+                    ).toEqual({ kind: 'conflict' })
+                    context.markReconnectRequired()
+                }
+            )
+            expect(
+                f.store.getPublisherCredential(f.project.project.id, f.credential.id)?.state
+            ).toBe('active')
+            expect(
+                (
+                    await f.store.resolvePublisherCredentialSecrets(
+                        f.project.project.id,
+                        f.credential.id
+                    )
+                )?.accessToken
+            ).toBe('new-owner-grant')
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+
+    it('cannot resurrect a credential revoked during renewal', async () => {
+        const f = await fixture()
+        try {
+            await f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async context => {
+                    if (!context) throw new Error('Missing context')
+                    f.store.revokePublisherCredential(f.project.project.id, f.credential.id)
+                    expect(
+                        await context.replaceTokens({
+                            accessToken: 'late-renewal',
+                            expiresAt: null,
+                        })
+                    ).toEqual({ kind: 'conflict' })
+                    context.markReconnectRequired()
+                }
+            )
+            expect(
+                f.store.getPublisherCredential(f.project.project.id, f.credential.id)?.state
+            ).toBe('revoked')
+            expect(
+                await f.store.resolvePublisherCredentialSecrets(
+                    f.project.project.id,
+                    f.credential.id
+                )
+            ).toBeNull()
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+
+    it('cancels a queued caller without interrupting its predecessor or admitting its successor early', async () => {
+        const f = await fixture()
+        try {
+            const entered = Promise.withResolvers<void>()
+            const release = Promise.withResolvers<void>()
+            const order: string[] = []
+            const first = f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async () => {
+                    order.push('first')
+                    entered.resolve()
+                    await release.promise
+                    order.push('first-done')
+                }
+            )
+            await entered.promise
+            const controller = new AbortController()
+            const second = f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async () => {
+                    order.push('cancelled')
+                },
+                controller.signal
+            )
+            controller.abort(new Error('Caller stopped'))
+            await expect(second).rejects.toThrow('Caller stopped')
+            const third = f.store.withPublisherCredentialRefresh(
+                f.project.project.id,
+                f.credential.id,
+                async () => {
+                    order.push('third')
+                }
+            )
+            expect(order).toEqual(['first'])
+            release.resolve()
+            await Promise.all([first, third])
+            expect(order).toEqual(['first', 'first-done', 'third'])
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+
+    it('releases ownership after failure and refuses unknown project scope', async () => {
+        const f = await fixture()
+        try {
+            await expect(
+                f.store.withPublisherCredentialRefresh(
+                    f.project.project.id,
+                    f.credential.id,
+                    async () => {
+                        throw new Error('Provider failed')
+                    }
+                )
+            ).rejects.toThrow('Provider failed')
+            expect(
+                await f.store.withPublisherCredentialRefresh(
+                    f.project.project.id,
+                    f.credential.id,
+                    async context => context?.secrets.accessToken
+                )
+            ).toBe('expired-access')
+            expect(
+                await f.store.withPublisherCredentialRefresh(
+                    'unknown-project',
+                    f.credential.id,
+                    async context => context
+                )
+            ).toBeNull()
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+})

@@ -71,43 +71,45 @@ export async function prepareMastodonReplyAccount(input: {
 > {
     const { work, publisher, signal } = input
     const origin = work.instanceOrigin
-    const credential = publisher.credentialStore.getPublisherCredential(
+    return publisher.credentialStore.withPublisherCredentialRefresh(
         work.projectId,
-        work.credentialId
+        work.credentialId,
+        async context => {
+            if (!context) return unavailable('Reconnect the original Mastodon account to reply')
+            const secrets = context.secrets
+            const session = parseProviderSession(secrets?.providerSession ?? null)
+            if (!origin || !secrets || !session || session.instanceUrl !== origin)
+                return unavailable('Reconnect the original Mastodon account to reply')
+            let accessToken = secrets.accessToken
+            // The runtime owns the same network-controlled transport used for connection and publication.
+            const fetcher = publisher.mastodon.fetcher
+            if (!fetcher) return unavailable('The Mastodon reply transport is unavailable')
+            if (
+                context.credential.expiresAt !== null &&
+                context.credential.expiresAt <= context.now()
+            ) {
+                if (!secrets.refreshToken)
+                    return unavailable('Reconnect the original Mastodon account to reply')
+                const refreshed = await refreshAccessToken({
+                    authorizationServer: mastodonAuthorizationServer(origin),
+                    clientId: session.clientId,
+                    clientAuthentication: clientSecretPost(session.clientSecret),
+                    refreshToken: secrets.refreshToken,
+                    fetcher: (url, init) => fetcher(url, { ...init, signal }),
+                })
+                const saved = await context.replaceTokens({
+                    accessToken: refreshed.accessToken,
+                    refreshToken: refreshed.refreshToken ?? undefined,
+                    expiresAt: expiryFromSeconds(refreshed.expiresInSeconds, context.now()),
+                })
+                if (saved.kind !== 'updated')
+                    return unavailable('The refreshed Mastodon credential could not be saved')
+                accessToken = refreshed.accessToken
+            }
+            return { kind: 'ready', origin, accessToken, fetcher } as const
+        },
+        signal
     )
-    const secrets = await publisher.credentialStore.resolvePublisherCredentialSecrets(
-        work.projectId,
-        work.credentialId
-    )
-    const session = parseProviderSession(secrets?.providerSession ?? null)
-    if (!origin || !credential || !secrets || !session || session.instanceUrl !== origin)
-        return unavailable('Reconnect the original Mastodon account to reply')
-    let accessToken = secrets.accessToken
-    // The runtime owns the same network-controlled transport used for connection and publication.
-    const fetcher = publisher.mastodon.fetcher
-    if (!fetcher) return unavailable('The Mastodon reply transport is unavailable')
-    if (credential.expiresAt !== null && credential.expiresAt <= input.now) {
-        if (!secrets.refreshToken)
-            return unavailable('Reconnect the original Mastodon account to reply')
-        const refreshed = await refreshAccessToken({
-            authorizationServer: mastodonAuthorizationServer(origin),
-            clientId: session.clientId,
-            clientAuthentication: clientSecretPost(session.clientSecret),
-            refreshToken: secrets.refreshToken,
-            fetcher: (url, init) => fetcher(url, { ...init, signal }),
-        })
-        const saved = await publisher.credentialStore.replacePublisherCredentialTokens({
-            projectId: work.projectId,
-            credentialId: work.credentialId,
-            accessToken: refreshed.accessToken,
-            refreshToken: refreshed.refreshToken ?? undefined,
-            expiresAt: expiryFromSeconds(refreshed.expiresInSeconds, input.now),
-        })
-        if (saved.kind !== 'updated')
-            return unavailable('The refreshed Mastodon credential could not be saved')
-        accessToken = refreshed.accessToken
-    }
-    return { kind: 'ready', origin, accessToken, fetcher }
 }
 function unavailable(errorMessage: string): {
     readonly kind: 'failed'

@@ -2,13 +2,13 @@ import { Agent } from '@atproto/api'
 import {
     createBlueskyReplyPublisher,
     resolveBlueskyReplyContext,
-    readBlueskySessionTokenSet,
-    restoreBlueskySession,
+    type restoreBlueskySession,
     type BlueskyFetcher,
 } from '@postdot/bluesky'
 import type { ExternalEffectOutcome } from '@postdot/core'
 
 import type { PublisherRuntime } from '../../modules/publishers/runtime'
+import { restoreCredentialBlueskySession } from './credential-session'
 
 export interface BlueskyOutgoingReply {
     readonly projectId: string
@@ -32,20 +32,14 @@ export async function performBlueskyReply(options: {
     readonly onDispatch: () => void
 }): Promise<ExternalEffectOutcome> {
     const { work, signal } = options
-    const oauth = await options.publisher.resolveBlueskyOAuth(
-        options.publisher.credentialStore.getPublisherCredential(work.projectId, work.credentialId)
-            ?.providerApplicationId ?? null
-    )
-    const secrets = await options.publisher.credentialStore.resolvePublisherCredentialSecrets(
-        work.projectId,
-        work.credentialId
-    )
-    if (!oauth || !secrets?.providerSession)
-        return failed('Reconnect the original Bluesky account to reply')
-    const restored = await (options.restoreSession ?? restoreBlueskySession)({
-        sub: work.accountId,
-        serializedSession: secrets.providerSession,
-        client: oauth,
+    const restored = await restoreCredentialBlueskySession({
+        projectId: work.projectId,
+        credentialId: work.credentialId,
+        accountId: work.accountId,
+        credentials: options.publisher.credentialStore,
+        resolveOAuth: options.publisher.resolveBlueskyOAuth,
+        restoreSession: options.restoreSession,
+        signal,
     })
     const grant = await restored.session.getTokenInfo()
     if (
@@ -59,26 +53,6 @@ export async function performBlueskyReply(options: {
             )
     )
         return failed('The Bluesky account has not granted permission to create replies')
-    const serialized = restored.getSerializedSession()
-    const token = readBlueskySessionTokenSet(serialized)
-    if (!token || token.sub !== work.accountId) return failed('The Bluesky session is invalid')
-    if (serialized !== secrets.providerSession) {
-        const result = await options.publisher.credentialStore.replacePublisherCredentialTokens({
-            projectId: work.projectId,
-            credentialId: work.credentialId,
-            accessToken: token.accessToken,
-            refreshToken: token.refreshToken ?? undefined,
-            providerSession: serialized,
-            expiresAt:
-                token.expiresAt === null
-                    ? null
-                    : Number.isSafeInteger(Date.parse(token.expiresAt))
-                      ? Date.parse(token.expiresAt)
-                      : null,
-        })
-        if (result.kind !== 'updated')
-            return failed('The refreshed Bluesky session could not be saved')
-    }
     const context = await resolveBlueskyReplyContext({
         rootUri: work.rootUri,
         parentUri: work.parentUri,

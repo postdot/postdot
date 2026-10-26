@@ -106,60 +106,82 @@ async function executeLinkedInPublication(input: {
     readonly maxImages: number
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, textPublisher, imagePublisher } = input
-    const oauth = input.resolveOAuth
-        ? await input.resolveOAuth(execution.target.providerApplicationId ?? null)
-        : input.oauth
     const target = execution.target
-    const secrets = await execution.credentials.resolvePublisherCredentialSecrets(
+    const prepared = await execution.credentials.withPublisherCredentialRefresh(
         target.projectId,
-        target.credentialId
+        target.credentialId,
+        async context => {
+            if (!context)
+                return {
+                    kind: 'failed',
+                    outcome: permanentFailure('The publisher credential is unavailable'),
+                } as const
+            const secrets = context.secrets
+            const oauth = input.resolveOAuth
+                ? await input.resolveOAuth(context.credential.providerApplicationId ?? null)
+                : input.oauth
+
+            let accessToken = secrets.accessToken
+            const refreshToken = secrets.refreshToken
+            try {
+                if (
+                    context.credential.expiresAt !== null &&
+                    context.credential.expiresAt <= context.now()
+                ) {
+                    if (refreshToken === null || oauth === undefined) {
+                        context.markReconnectRequired()
+                        return {
+                            kind: 'failed',
+                            outcome: permanentFailure(
+                                'The publisher credential requires reconnection'
+                            ),
+                        } as const
+                    }
+
+                    const refreshed = await refreshAccessToken({
+                        authorizationServer: oauth.authorizationServer,
+                        clientId: oauth.clientId,
+                        clientAuthentication: oauth.clientAuthentication,
+                        refreshToken,
+                        fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
+                    })
+                    const expiresAt =
+                        refreshed.expiresInSeconds === null
+                            ? null
+                            : context.now() + refreshed.expiresInSeconds * 1000
+                    const replaced = await context.replaceTokens({
+                        accessToken: refreshed.accessToken,
+                        refreshToken: refreshed.refreshToken ?? undefined,
+                        expiresAt,
+                    })
+                    if (replaced.kind !== 'updated') {
+                        return {
+                            kind: 'failed',
+                            outcome: permanentFailure(
+                                'The publisher credential could not be refreshed'
+                            ),
+                        } as const
+                    }
+                    accessToken = refreshed.accessToken
+                }
+            } catch {
+                if (!execution.signal?.aborted) context.markReconnectRequired()
+                return {
+                    kind: 'failed',
+                    outcome: permanentFailure('The publisher credential could not be refreshed'),
+                } as const
+            }
+
+            return {
+                kind: 'ready',
+                accessToken,
+                markReconnectRequired: context.markReconnectRequired,
+            } as const
+        },
+        execution.signal
     )
-    if (secrets === null) {
-        return permanentFailure('The publisher credential is unavailable')
-    }
-
-    let accessToken = secrets.accessToken
-    const refreshToken = secrets.refreshToken
-    try {
-        if (target.credentialExpiresAt !== null && target.credentialExpiresAt <= execution.now) {
-            if (refreshToken === null || oauth === undefined) {
-                execution.credentials.markPublisherCredentialReconnectRequired(
-                    target.projectId,
-                    target.credentialId
-                )
-                return permanentFailure('The publisher credential requires reconnection')
-            }
-
-            const refreshed = await refreshAccessToken({
-                authorizationServer: oauth.authorizationServer,
-                clientId: oauth.clientId,
-                clientAuthentication: oauth.clientAuthentication,
-                refreshToken,
-                fetcher: effectFetcher(execution.signal, undefined, execution.assertActive),
-            })
-            const expiresAt =
-                refreshed.expiresInSeconds === null
-                    ? null
-                    : execution.now + refreshed.expiresInSeconds * 1000
-            const replaced = await execution.credentials.replacePublisherCredentialTokens({
-                projectId: target.projectId,
-                credentialId: target.credentialId,
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken ?? undefined,
-                expiresAt,
-            })
-            if (replaced.kind !== 'updated') {
-                return permanentFailure('The publisher credential could not be refreshed')
-            }
-            accessToken = refreshed.accessToken
-        }
-    } catch {
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
-        return permanentFailure('The publisher credential could not be refreshed')
-    }
+    if (prepared.kind === 'failed') return prepared.outcome
+    const accessToken = prepared.accessToken
 
     if (accessToken.trim().length === 0) {
         return permanentFailure('The publisher account access token is unavailable')
@@ -202,10 +224,7 @@ async function executeLinkedInPublication(input: {
         'code' in outcome &&
         (outcome.code === 'authentication_required' || outcome.code === 'forbidden')
     ) {
-        execution.credentials.markPublisherCredentialReconnectRequired(
-            target.projectId,
-            target.credentialId
-        )
+        prepared.markReconnectRequired()
     }
     return outcome
 }

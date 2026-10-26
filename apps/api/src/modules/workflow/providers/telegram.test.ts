@@ -141,6 +141,9 @@ function fixture(
         now,
         providerMediaDeliveryStore: ledger,
         credentials: {
+            withPublisherCredentialRefresh: async () => {
+                throw new Error('This provider must not renew credentials')
+            },
             resolvePublisherCredentialSecrets: async () => ({
                 accessToken: '123456:synthetic-token',
                 refreshToken: null,

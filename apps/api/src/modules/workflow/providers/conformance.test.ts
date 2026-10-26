@@ -434,13 +434,60 @@ function createTarget(
     }
 }
 
+function fixtureCredentialRefresh(
+    getPort: () => Omit<PublisherCredentialExecutionPort, 'withPublisherCredentialRefresh'>,
+    expiresAt: number | null = null,
+    providerApplicationId: string | null = null
+): PublisherCredentialExecutionPort['withPublisherCredentialRefresh'] {
+    return async (projectId, credentialId, operation) => {
+        const port = getPort()
+        const secrets = await port.resolvePublisherCredentialSecrets(projectId, credentialId)
+        return operation(
+            secrets === null
+                ? null
+                : {
+                      credential: {
+                          id: credentialId,
+                          projectId,
+                          providerId: 'fixture',
+                          externalAccountId: 'fixture-account',
+                          externalAccountName: null,
+                          state: 'active',
+                          scopes: [],
+                          connectedByActorId: 'fixture-actor',
+                          createdAt: now,
+                          updatedAt: now,
+                          expiresAt,
+                          providerApplicationId,
+                      },
+                      secrets,
+                      now: () => now,
+                      replaceTokens: input =>
+                          port.replacePublisherCredentialTokens({
+                              ...input,
+                              projectId,
+                              credentialId,
+                          }),
+                      markReconnectRequired: () =>
+                          port.markPublisherCredentialReconnectRequired(projectId, credentialId),
+                  }
+        )
+    }
+}
+
 function createCredentialPort(input: {
     readonly available: boolean
     readonly providerSession: string | null
+    readonly providerApplicationId?: string | null
 }) {
     let resolveCalls = 0
     let reconnectCalls = 0
     const port: PublisherCredentialExecutionPort = {
+        withPublisherCredentialRefresh: fixtureCredentialRefresh(
+            () => port,
+            null,
+            input.providerApplicationId
+        ),
         async resolvePublisherCredentialSecrets() {
             resolveCalls += 1
             if (!input.available) return null
@@ -501,6 +548,7 @@ function createExecutionFixture(
     const credentials = createCredentialPort({
         available: options.credentialsAvailable ?? true,
         providerSession: provider.providerSession,
+        providerApplicationId: options.target?.providerApplicationId,
     })
     const input: BuiltInProviderExecutionInput = {
         target: createTarget(provider, options.target),
@@ -680,6 +728,10 @@ describe('built-in provider adapter conformance', () => {
 
             let replacedTokens = false
             const credentialPort: PublisherCredentialExecutionPort = {
+                withPublisherCredentialRefresh: fixtureCredentialRefresh(
+                    () => credentialPort,
+                    now - 1000
+                ),
                 async resolvePublisherCredentialSecrets() {
                     return {
                         accessToken: 'expired-token',
@@ -748,6 +800,10 @@ describe('built-in provider adapter conformance', () => {
             }
 
             const credentialPort: PublisherCredentialExecutionPort = {
+                withPublisherCredentialRefresh: fixtureCredentialRefresh(
+                    () => credentialPort,
+                    now - 1000
+                ),
                 async resolvePublisherCredentialSecrets() {
                     return {
                         accessToken: 'expired-token',
