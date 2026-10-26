@@ -9,8 +9,10 @@
 
 Shared-channel development follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
 and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md) under SHARE-592/GitHub #12.
-This is accepted target behavior, not delivered functionality. Source and alpha.2
-remain project-owned until the migration and complete workflow are validated.
+Sharing remains an accepted target, not delivered functionality. Destination
+confirmation is implemented in source; credential coordination and workspace
+ownership/attachments remain next. Source and alpha.2 remain project-owned until
+the migration and complete workflow are validated.
 
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and

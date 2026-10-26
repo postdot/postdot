@@ -456,6 +456,11 @@ export const channels = sqliteTable(
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
+        destinationRevision: integer('destination_revision').default(0).notNull(),
+        destinationIdentityJson: text('destination_identity_json', { mode: 'json' }).$type<Record<
+            string,
+            unknown
+        > | null>(),
         profileVersionId: text('profile_version_id').notNull(),
         state: text('state', { enum: channelStates }).default('active').notNull(),
         archivedAt: integer('archived_at'),
@@ -1305,6 +1310,9 @@ export const publications = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         postId: text('post_id').notNull(),
         channelId: text('channel_id').notNull(),
+        confirmedDestinationRevision: integer('confirmed_destination_revision')
+            .default(0)
+            .notNull(),
         targetRevisionId: text('target_revision_id'),
         deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
         reviewState: text('review_state', { enum: publicationReviewStates }).notNull(),
@@ -2050,6 +2058,10 @@ export const publicationExecutionRevisions = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         jobId: text('job_id').notNull(),
         publicationId: text('publication_id').notNull(),
+        destinationSnapshotJson: text('destination_snapshot_json', { mode: 'json' }).$type<Record<
+            string,
+            unknown
+        > | null>(),
         targetRevisionId: text('target_revision_id').notNull(),
         profileVersionId: text('profile_version_id').notNull(),
         deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),

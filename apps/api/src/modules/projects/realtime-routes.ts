@@ -38,6 +38,7 @@ const supportedProjectEventSubjects = {
     'post.created': 'post',
     'post.source.updated': 'post',
     'publication.created': 'publication',
+    'publication.destination_confirmed': 'publication',
     'publication.profile_assessed': 'publication',
     'publication_first_comment.requested': 'publication_first_comment',
     'publication_first_comment.enabled': 'publication_first_comment',

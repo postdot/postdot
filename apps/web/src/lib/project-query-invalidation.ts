@@ -18,6 +18,7 @@ export function projectRefreshKeys(projectId: string, scope: string) {
         projectQueryKeys.publicationQueues(projectId),
         projectQueryKeys.calendarPublications(projectId),
         projectQueryKeys.publicationApprovals(projectId),
+        projectQueryKeys.publicationDestinations(projectId),
         [...projectQueryKeys.data(projectId), 'post'],
     ]
     if (scope === 'publications') return publications
@@ -33,6 +34,7 @@ export function projectRefreshKeys(projectId: string, scope: string) {
         projectQueryKeys.publicationQueues(projectId),
         projectQueryKeys.calendarPublications(projectId),
         projectQueryKeys.publicationApprovals(projectId),
+        projectQueryKeys.publicationDestinations(projectId),
     ]
 }
 

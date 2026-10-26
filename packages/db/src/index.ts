@@ -371,3 +371,5 @@ export type {
 export * from './publication-reply-store'
 
 export * from './resource-lifecycle-store'
+
+export type { PublicationDestinationState } from './publication-destination-store'

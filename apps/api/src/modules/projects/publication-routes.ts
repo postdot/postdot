@@ -1,5 +1,5 @@
 import { DomainInvariantError } from '@postdot/core'
-import type { AccessStore } from '@postdot/db'
+import type { AccessStore, PublicationDestinationState } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
@@ -37,6 +37,23 @@ import {
 import type { ProjectRealtimeHub } from './realtime-runtime'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
+const destinationStateSchema = Type.Unsafe<PublicationDestinationState>(
+    Type.Object({
+        revision: Type.Integer({ minimum: 0 }),
+        confirmedRevision: Type.Integer({ minimum: 0 }),
+        requiresConfirmation: Type.Boolean(),
+        connected: Type.Boolean(),
+        current: Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]),
+        history: Type.Array(
+            Type.Object({
+                id: Type.String(),
+                createdAt: Type.Integer(),
+                destination: Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]),
+            })
+        ),
+    })
+)
+
 export interface PublicationRouteOptions {
     readonly projectChanges?: ProjectRealtimeHub
     readonly onWorkScheduled?: () => void
@@ -49,6 +66,101 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
     options: PublicationRouteOptions = {}
 ) {
     return app
+        .get(
+            '/api/projects/:projectId/publications/:publicationId/destination',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ destination: destinationStateSchema }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getPublicationDestination',
+                    summary:
+                        'Read current destination confirmation and captured execution identities',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'viewer',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                const destination = manualStore.getPublicationDestination(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (destination === null)
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                return { destination }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/confirm-destination',
+            {
+                auth: true,
+                params: publicationParams,
+                body: Type.Object({
+                    expectedRevision: Type.Integer({ minimum: 0 }),
+                    expectedTargetRevisionId: Type.Union([
+                        Type.String({ minLength: 1 }),
+                        Type.Null(),
+                    ]),
+                }),
+                response: {
+                    200: Type.Object({ destination: destinationStateSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'confirmPublicationDestination',
+                    summary:
+                        'Explicitly accept the current destination for an existing selected target',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(403, forbiddenProjectMutation())
+                const destination = manualStore.confirmPublicationDestination({
+                    ...body,
+                    ...params,
+                    subjectId: user.id,
+                })
+                if (destination === null)
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                options.onWorkScheduled?.()
+                return { destination }
+            }
+        )
         .get(
             '/api/projects/:projectId/publication-composer-draft',
             {

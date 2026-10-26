@@ -2461,5 +2461,15 @@
     "lifecycle_error_read_only": "This resource is read-only while archived or being retired.",
     "profile_adoption_type_changed": "Changed field format: {field}. Review its previous value and enter the new value below; no conversion is applied.",
     "profile_adoption_path_changed": "Previous path: {previous}. Current path: {current}.",
-    "profile_adoption_candidate": "Adapted content"
+    "profile_adoption_candidate": "Adapted content",
+    "destination_changed": "The connected destination changed. Automatic delivery is paused until you confirm the current destination for this publication.",
+    "destination_current": "Current destination: {name}",
+    "destination_reconnect": "Reconnect the channel before confirming its destination.",
+    "destination_confirm": "Confirm current destination",
+    "destination_history": "Destinations recorded at execution",
+    "destination_unrecorded": "Destination not recorded",
+    "destination_refresh_failed": "The destination could not be loaded or confirmed. Refresh it and review the current account before trying again.",
+    "destination_confirmation_effect": "Content and the requested schedule stay unchanged. Any delivery already scheduled can resume, including overdue work.",
+    "destination_selected_content": "Selected content for delivery",
+    "destination_confirmed": "Destination confirmed"
 }

@@ -10,6 +10,12 @@ import {
 describe('user API-key capability policy', () => {
     it.each([
         ['GET', '/api/projects', 'project:read'],
+        ['GET', '/api/projects/project-1/publications/publication-1/destination', 'project:read'],
+        [
+            'POST',
+            '/api/projects/project-1/publications/publication-1/confirm-destination',
+            'publication:dispatch',
+        ],
         ['GET', '/api/projects/project-1/publications/publication-1/first-comment', 'project:read'],
         [
             'PUT',

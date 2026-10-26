@@ -17,6 +17,7 @@ import {
     publications,
     publishers,
 } from './schema'
+import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
 const encryptionKey = new Uint8Array(32).fill(7)
@@ -579,6 +580,355 @@ describe('publisher connection store', () => {
             ).toEqual({ kind: 'active_work' })
         } finally {
             closeDatabase(fixture.database)
+        }
+    })
+})
+
+describe('confirmed publisher destination', () => {
+    async function scenario() {
+        const f = await createFixture()
+        const first = await createCredential(f)
+        const connected = f.publisherStore.createPublisherConnection({
+            projectId: f.project.project.id,
+            channelId: f.channel.id,
+            subjectId: 'user-1',
+            kind: 'linkedin',
+            credentialId: first.id,
+        })
+        if (connected.kind !== 'created') throw new Error('Connection missing')
+        const created = f.manualStore.createPost({
+            projectId: f.project.project.id,
+            subjectId: 'user-1',
+            sourceContent: sourceContent('Retained content'),
+            publications: [
+                { channelId: f.channel.id, deliveryMode: 'automatic', scheduledAt: now },
+            ],
+        })!
+        const publication = created.publications[0]!
+        const workflow = createWorkflowStore(f.database)
+        const actorId = workflow.ensureSystemActor(f.project.project.id, now)!
+        function claim(token = 'claim', at = now) {
+            return workflow.claimNextDueJob({
+                actorId,
+                claimToken: token,
+                now: at,
+                leaseExpiresAt: at + 60000,
+            })
+        }
+        async function replace(account = 'member-43') {
+            const current = f.publisherStore.getPublisherConnection(
+                f.project.project.id,
+                f.channel.id,
+                'user-1'
+            )!
+            f.credentialStore.markPublisherCredentialReconnectRequired(
+                f.project.project.id,
+                current.credentialId
+            )
+            let credential = first
+            if (account !== first.externalAccountId)
+                credential = await createCredential(f, { externalAccountId: account })
+            else {
+                await f.credentialStore.replacePublisherCredentialTokens({
+                    projectId: f.project.project.id,
+                    credentialId: first.id,
+                    accessToken: 'fresh-token',
+                    expiresAt: null,
+                })
+            }
+            return f.publisherStore.createPublisherConnection({
+                projectId: f.project.project.id,
+                channelId: f.channel.id,
+                subjectId: 'user-1',
+                kind: 'linkedin',
+                credentialId: credential.id,
+                replaceNonActiveConnection: {
+                    id: current.id,
+                    state: 'reconnect_required',
+                },
+            })
+        }
+        const state = () =>
+            f.manualStore.getPublicationDestination(f.project.project.id, publication.id, 'user-1')!
+        const confirm = (revision = state().revision) =>
+            f.manualStore.confirmPublicationDestination({
+                projectId: f.project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedRevision: revision,
+                expectedTargetRevisionId: publication.targetRevisionId,
+            })!
+        return { ...f, first, publication, workflow, claim, replace, state, confirm }
+    }
+
+    it('holds scheduled work for a changed destination and resumes only after explicit confirmation', async () => {
+        const f = await scenario()
+        try {
+            const targets = f.database.select().from(publicationTargetRevisions).all()
+            expect((await f.replace()).kind).toBe('created')
+            expect(f.state()).toMatchObject({
+                revision: 1,
+                confirmedRevision: 0,
+                requiresConfirmation: true,
+            })
+            expect(f.claim()).toBeNull()
+            expect(f.workflow.getNextEventAt()).toBeNull()
+            expect(() => f.confirm(0)).toThrow()
+            expect(f.confirm().requiresConfirmation).toBe(false)
+            const job = f.claim()!
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            expect(
+                f.publisherStore.getPublisherExecutionTarget(job.id, 'claim')?.externalAccountId
+            ).toBe('member-43')
+            expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(targets)
+            expect(f.state().history[0]?.destination).toMatchObject({
+                externalAccountId: 'member-43',
+                revision: 1,
+            })
+            expect(JSON.stringify(f.state())).not.toContain('fresh-token')
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('rechecks a claim acquired before replacement without losing its scheduled work', async () => {
+        const f = await scenario()
+        try {
+            const job = f.claim()!
+            await f.replace()
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(false)
+            expect(f.database.select().from(jobs).all()[0]?.state).toBe('pending')
+            expect(f.state().history).toEqual([])
+            f.confirm()
+            const next = f.claim('next')!
+            expect(next.id).toBe(job.id)
+            expect(f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('does not require confirmation for reauthorization of the same account', async () => {
+        const f = await scenario()
+        try {
+            expect((await f.replace('member-42')).kind).toBe('created')
+            expect(f.state().requiresConfirmation).toBe(false)
+            expect(f.state().revision).toBe(0)
+            const job = f.claim()!
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('preserves the executed identity and refuses to resolve a new account for an old effect', async () => {
+        const f = await scenario()
+        try {
+            const job = f.claim()!
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            const before = f.state().history
+            await f.replace()
+            expect(f.publisherStore.getPublisherExecutionTarget(job.id, 'claim')).toBeNull()
+            expect(f.state().history).toEqual(before)
+            expect(f.state().history[0]?.destination?.externalAccountId).toBe('member-42')
+            expect(
+                f.workflow.completeExternalEffect({
+                    jobId: job.id,
+                    claimToken: 'claim',
+                    completedAt: now,
+                    outcome: { type: 'published', externalId: 'original-receipt' },
+                })
+            ).toBe('published')
+            expect(f.state().history).toEqual(before)
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('suppresses automatic retries across a changed destination and preserves old execution when explicitly retried', async () => {
+        const f = await scenario()
+        try {
+            const job = f.claim()!
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            await f.replace()
+            expect(
+                f.workflow.completeExternalEffect({
+                    jobId: job.id,
+                    claimToken: 'claim',
+                    completedAt: now,
+                    retryAt: now + 10,
+                    outcome: {
+                        type: 'retryable_failure',
+                        effectOccurred: false,
+                        errorMessage: 'No effect',
+                    },
+                })
+            ).toBe('failed')
+            expect(
+                f.manualStore.retryFailedPublication({
+                    projectId: f.project.project.id,
+                    publicationId: f.publication.id,
+                    subjectId: 'user-1',
+                }).kind
+            ).toBe('not_retryable')
+            f.confirm()
+            expect(
+                f.manualStore.retryFailedPublication({
+                    projectId: f.project.project.id,
+                    publicationId: f.publication.id,
+                    subjectId: 'user-1',
+                }).kind
+            ).toBe('retried')
+            const next = f.claim('next')!
+            expect(next.id).not.toBe(job.id)
+            expect(f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
+            expect(
+                f
+                    .state()
+                    .history.map(row => row.destination?.externalAccountId)
+                    .sort()
+            ).toEqual(['member-42', 'member-43'])
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('keeps generations monotonic through disconnect and distinguishes fresh work', async () => {
+        const f = await scenario()
+        try {
+            await f.replace()
+            const created = f.manualStore.createPost({
+                projectId: f.project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('New destination chosen'),
+                publications: [{ channelId: f.channel.id, deliveryMode: 'automatic' }],
+            })!
+            expect(
+                f.manualStore.getPublicationDestination(
+                    f.project.project.id,
+                    created.publications[0]!.id,
+                    'user-1'
+                )?.requiresConfirmation
+            ).toBe(false)
+            expect(
+                f.manualStore.getPublicationDestination(
+                    f.project.project.id,
+                    f.publication.id,
+                    'missing'
+                )
+            ).toBeNull()
+            expect(() =>
+                f.manualStore.confirmPublicationDestination({
+                    projectId: f.project.project.id,
+                    publicationId: f.publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 1,
+                    expectedTargetRevisionId: 'stale',
+                })
+            ).toThrow()
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('does not forget a changed destination when the original account is restored', async () => {
+        const f = await scenario()
+        try {
+            expect((await f.replace()).kind).toBe('created')
+            expect((await f.replace('member-42')).kind).toBe('created')
+            expect(f.state()).toMatchObject({
+                revision: 2,
+                confirmedRevision: 0,
+                requiresConfirmation: true,
+            })
+            expect(f.claim()).toBeNull()
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('preserves a previous-schema database and leaves legacy execution identity unrecorded', async () => {
+        const f = await scenario()
+        try {
+            const job = f.claim()!
+            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            expect(
+                f.workflow.completeExternalEffect({
+                    jobId: job.id,
+                    claimToken: 'claim',
+                    completedAt: now,
+                    outcome: { type: 'published', externalId: 'kept-receipt' },
+                })
+            ).toBe('published')
+            const originalTargets = f.database.select().from(publicationTargetRevisions).all()
+            const before = f.database.$client
+                .query(
+                    'select content_json, content_hash, profile_hash, target_revision_id from publication_execution_revisions'
+                )
+                .all()
+            // Construct exactly the additive migration's previous column shape in this owned in-memory fixture.
+            f.database.$client.run('alter table channels drop column destination_revision')
+            f.database.$client.run('alter table channels drop column destination_identity_json')
+            f.database.$client.run(
+                'alter table publications drop column confirmed_destination_revision'
+            )
+            f.database.$client.run(
+                'alter table publication_execution_revisions drop column destination_snapshot_json'
+            )
+            f.database.$client.run(
+                'delete from __drizzle_migrations where created_at = (select max(created_at) from __drizzle_migrations)'
+            )
+            runMigrations(f.database)
+            expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+            expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(
+                originalTargets
+            )
+            expect(
+                f.database.$client
+                    .query(
+                        'select content_json, content_hash, profile_hash, target_revision_id from publication_execution_revisions'
+                    )
+                    .all()
+            ).toEqual(before)
+            expect(f.state().history[0]?.destination).toBeNull()
+            expect(f.state().requiresConfirmation).toBe(false)
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+    it('creates a fresh execution job when a pending automatic retry is reconfirmed for another destination', async () => {
+        const f = await scenario()
+        try {
+            const old = f.claim()!
+            expect(f.workflow.startExternalEffect(old.id, 'claim', now)).toBe(true)
+            expect(
+                f.workflow.completeExternalEffect({
+                    jobId: old.id,
+                    claimToken: 'claim',
+                    completedAt: now,
+                    retryAt: now + 10,
+                    outcome: {
+                        type: 'retryable_failure',
+                        effectOccurred: false,
+                        errorMessage: 'Retry later',
+                    },
+                })
+            ).toBe('retry_scheduled')
+            const history = f.state().history
+            await f.replace()
+            expect(f.claim('blocked', now + 10)).toBeNull()
+            f.confirm()
+            const next = f.claim('next', now + 10)!
+            expect(next.id).not.toBe(old.id)
+            const confirmation = f.database.$client
+                .query<{ metadata: string }, []>(
+                    "select metadata_json as metadata from audit_events where action = 'publication.destination_confirmed' order by sequence desc limit 1"
+                )
+                .get()!
+            expect(JSON.parse(confirmation.metadata)).toMatchObject({
+                replacedJobId: old.id,
+                replacementJobId: next.id,
+            })
+            expect(f.workflow.startExternalEffect(next.id, 'next', now + 10)).toBe(true)
+            expect(
+                f.publisherStore.getPublisherExecutionTarget(next.id, 'next')?.externalAccountId
+            ).toBe('member-43')
+            expect(f.state().history.find(entry => entry.id === history[0]!.id)).toEqual(history[0])
+        } finally {
+            closeDatabase(f.database)
         }
     })
 })

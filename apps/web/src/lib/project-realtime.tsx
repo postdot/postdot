@@ -23,6 +23,7 @@ const projectRealtimeEventTypes = [
     'post.created',
     'post.source.updated',
     'publication.created',
+    'publication.destination_confirmed',
     'publication.profile_assessed',
     'publication_first_comment.requested',
     'publication_first_comment.enabled',

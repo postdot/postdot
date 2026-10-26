@@ -5,6 +5,7 @@ import {
     taxonomyLabelMaximumLength,
 } from '@postdot/core'
 import type {
+    Channel,
     ChannelProfilePreset,
     ChannelProfileDefinition,
     Publication,
@@ -78,10 +79,15 @@ export const projectTagsSchema = Type.Object({
 })
 export type ProjectCategoryResponse = Static<typeof projectCategorySchema>
 export type ProjectTagResponse = Static<typeof projectTagSchema>
-export const channelSchema = Type.Intersect([
-    createElysiaSelectSchema(channels),
-    Type.Object({ profileId: Type.String({ minLength: 1 }) }),
-])
+export const channelSchema = Type.Unsafe<Channel>(
+    Type.Intersect([
+        Type.Omit(createElysiaSelectSchema(channels), [
+            'destinationRevision',
+            'destinationIdentityJson',
+        ]),
+        Type.Object({ profileId: Type.String({ minLength: 1 }) }),
+    ])
+)
 export const channelListItemSchema = Type.Intersect([
     channelSchema,
     Type.Object({
@@ -99,7 +105,10 @@ export const postSchema = createElysiaSelectSchema(posts)
 const publicationPersistenceSchema = createElysiaSelectSchema(publications)
 export const publicationSchema = Type.Unsafe<Publication>(
     Type.Intersect([
-        Type.Omit(publicationPersistenceSchema, ['profileAssessmentIssuesJson']),
+        Type.Omit(publicationPersistenceSchema, [
+            'profileAssessmentIssuesJson',
+            'confirmedDestinationRevision',
+        ]),
         Type.Object({
             profileAssessmentIssues: Type.Unsafe<readonly Record<string, unknown>[]>(
                 Type.Array(Type.Record(Type.String(), Type.Unknown()))

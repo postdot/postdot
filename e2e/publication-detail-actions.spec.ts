@@ -694,3 +694,147 @@ async function createAccountAndProject(page: Page, suffix: string) {
     }
     return match[1]
 }
+
+test('requires destination confirmation after reconnecting while retaining the scheduled target', async ({
+    page,
+}, testInfo) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'LinkedIn', profile: 'linkedin' },
+    })
+    expect(channelResponse.status()).toBe(201)
+    const { channel } = await channelResponse.json()
+    const { spawnSync } = await import('node:child_process')
+    const { join } = await import('node:path')
+    const { isSafeE2EDataDirectory } = await import('../scripts/e2e-runtime')
+    const directory = process.env.POSTBOT_E2E_DATA_DIRECTORY
+    if (!isSafeE2EDataDirectory(directory)) throw new Error('Unsafe destination fixture directory')
+    function connect(replace: boolean) {
+        const result = spawnSync(
+            'bun',
+            [
+                '-e',
+                `
+            import {createDatabase, closeDatabase, createPublisherStore, createPublisherCredentialStore, createPublisherCredentialCipher} from './packages/db/src/index.ts';
+            const [file, projectId, channelId, replace] = Bun.argv.slice(1);
+            const db = createDatabase(file);
+            try {
+                const actor = db.$client.query("select id, subject_id as subjectId from actors where project_id = ? and kind = 'human' limit 1").get(projectId);
+                const credentials = createPublisherCredentialStore(db, {cipher: createPublisherCredentialCipher({keyId:'e2e-v1', key: new Uint8Array(Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef','hex'))})});
+                const store = createPublisherStore(db, {credentialRevoker: credentials, connectionPolicies: {linkedin: {validateDestination: () => true}}});
+                const existing = store.getPublisherConnection(projectId, channelId, actor.subjectId);
+                if (existing) credentials.markPublisherCredentialReconnectRequired(projectId, existing.credentialId);
+                const id = replace === 'true' ? 'replacement-account' : 'original-account';
+                const credential = await credentials.createPublisherCredential({projectId, connectedByActorId:actor.id, providerId:'linkedin',externalAccountId:id,externalAccountName:id,scopes:['w_member_social'],accessToken:'synthetic-never-dispatched'});
+                if (credential.kind !== 'created') throw new Error(credential.kind);
+                const connected = store.createPublisherConnection({projectId,channelId,subjectId:actor.subjectId,kind:'linkedin',credentialId:credential.credential.id,destination:{type:'member',id,name:replace==='true'?'Replacement destination':'Original destination'}, ...(existing ? {replaceNonActiveConnection:{id:existing.id,state:'reconnect_required'}} : {})});
+                if (connected.kind !== 'created') throw new Error(connected.kind);
+            } finally {closeDatabase(db)}
+        `,
+                join(directory!, 'postbot.sqlite'),
+                projectId,
+                channel.id,
+                String(replace),
+            ],
+            { encoding: 'utf8' }
+        )
+        expect(result.status, result.stderr).toBe(0)
+    }
+    connect(false)
+    const created = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { text: 'Keep this target and schedule', format: 'plain_text' },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId: channel.id,
+                    deliveryMode: 'automatic',
+                    scheduledAt: Date.now() + 86400000,
+                },
+            ],
+        },
+    })
+    expect(created.status()).toBe(201)
+    const publication = (await created.json()).publications[0]
+    const url = `/api/projects/${projectId}/publications/${publication.id}`
+    const before = (await (await page.request.get(url + '/editor')).json()).editor
+    const savedDraft = await page.request.patch(url + '/draft', {
+        data: {
+            expectedRevision: before.draft.revision,
+            targetContent: { ...before.draft.content, commentary: 'Unapplied destination draft' },
+        },
+    })
+    expect(savedDraft.status()).toBe(200)
+    connect(true)
+    await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
+    const section = page.locator('[data-publication-destination]')
+    await expect(section).toContainText(
+        'Current destination: Replacement destination · replacement-account'
+    )
+    await expect(section.locator('[data-target-readonly]')).toContainText(
+        'Keep this target and schedule'
+    )
+    await expect(section.locator('[data-target-readonly]')).not.toContainText(
+        'Unapplied destination draft'
+    )
+    await expect(
+        section.getByRole('button', { name: 'Confirm current destination', exact: true })
+    ).toBeEnabled()
+    await expect(section).toContainText('Any delivery already scheduled can resume')
+    await page.screenshot({ path: testInfo.outputPath('destination-desktop.png'), fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+    await page.locator('[data-slot="language-switcher-trigger"]').click()
+    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await expect(
+        section.getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
+    ).toBeEnabled()
+    await page.screenshot({
+        path: testInfo.outputPath('destination-mobile-french.png'),
+        fullPage: true,
+        animations: 'disabled',
+    })
+    await page.route(
+        '**/confirm-destination',
+        async route => {
+            const response = await route.fetch({
+                postData: JSON.stringify({
+                    expectedRevision: 0,
+                    expectedTargetRevisionId: publication.targetRevisionId,
+                }),
+            })
+            expect(response.status()).toBe(409)
+            await route.fulfill({ response })
+        },
+        { times: 1 }
+    )
+    await section
+        .getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
+        .click()
+    await expect(section.getByRole('alert')).toHaveText(
+        frenchTranslation('destination_refresh_failed')
+    )
+    await section
+        .getByRole('button', { name: frenchTranslation('common_retry'), exact: true })
+        .click()
+    await expect(
+        section.getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
+    ).toBeEnabled()
+    await section
+        .getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
+        .click()
+    await expect(section.getByRole('button')).toHaveCount(0)
+    const after = (await (await page.request.get(url + '/editor')).json()).editor
+    expect(after.post).toEqual(before.post)
+    expect(after.selectedTarget).toEqual(before.selectedTarget)
+    expect(after.draft.content.commentary).toBe('Unapplied destination draft')
+    expect(after.publication.scheduledAt).toBe(before.publication.scheduledAt)
+    await page.reload()
+    await expect(
+        page.getByRole('button', { name: frenchTranslation('destination_confirm'), exact: true })
+    ).toHaveCount(0)
+})

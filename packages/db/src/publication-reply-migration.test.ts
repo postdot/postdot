@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { closeDatabase, createDatabase } from './client'
-import { createManualStore } from './manual-store'
+import { seedLegacyProjectChannel, seedLegacyPublication } from './legacy-migration-fixture'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
 
 test('upgrades existing Bluesky reply history without losing intent, claims or outcomes', () => {
@@ -29,23 +29,9 @@ test('upgrades existing Bluesky reply history without losing intent, claims or o
                 'insert into "user" (id, name, email, email_verified, created_at, updated_at) values (?1, ?2, ?3, 1, ?4, ?4)'
             )
             .run('owner', 'Owner', 'owner@example.test', now)
-        const manual = createManualStore(database, { now: () => now })
-        const { project, actor } = manual.createProject({
-            name: 'Project',
-            subjectId: 'owner',
-            displayName: 'Owner',
-        })
-        const channel = manual.createChannel({
-            projectId: project.id,
-            subjectId: 'owner',
-            name: 'Channel',
-        })!
-        const publication = manual.createPost({
-            projectId: project.id,
-            subjectId: 'owner',
-            sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
-            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
-        })!.publications[0]!
+        const seeded = seedLegacyProjectChannel(database, 'owner', now)
+        const { project, actor } = seeded
+        const publication = seedLegacyPublication(database, seeded, now)
         for (const state of ['pending', 'running', 'sent', 'ambiguous']) {
             database.$client
                 .query(`insert into publication_comment_replies

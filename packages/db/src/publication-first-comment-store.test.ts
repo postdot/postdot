@@ -15,7 +15,6 @@ import {
     actors,
     auditEvents,
     channelProfileVersions,
-    channels,
     instanceMemberships,
     jobs,
     posts,
@@ -249,15 +248,14 @@ function createFixture(
         ])
         .run()
     const profile = provider === 'bluesky' ? blueskyProfile : mastodonProfile
-    database
-        .insert(channels)
-        .values({
-            id: channelId,
+    database.$client
+        .query('insert into channels (id,project_id,name,profile_version_id) values (?,?,?,?)')
+        .run(
+            channelId,
             projectId,
-            name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
-            profileVersionId,
-        })
-        .run()
+            provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
+            profileVersionId
+        )
     database
         .insert(channelProfileVersions)
         .values({
@@ -316,23 +314,20 @@ function createFixture(
             createdByActorId: editorActorId,
         })
         .run()
-    database
-        .insert(publications)
-        .values({
-            id: publicationId,
+    database.$client
+        .query(`insert into publications (id,project_id,post_id,channel_id,target_revision_id,delivery_mode,review_state,state,scheduled_at,created_by_actor_id,scheduled_by_actor_id,state_changed_by_actor_id)
+        values (?,?,?,?,?,'automatic','compatible','scheduled',?,?,?,?)`)
+        .run(
+            publicationId,
             projectId,
-            postId: `post-${suffix}`,
+            `post-${suffix}`,
             channelId,
             targetRevisionId,
-            deliveryMode: 'automatic',
-            reviewState: 'compatible',
-            state: 'scheduled',
-            scheduledAt: now,
-            createdByActorId: editorActorId,
-            scheduledByActorId: editorActorId,
-            stateChangedByActorId: editorActorId,
-        })
-        .run()
+            now,
+            editorActorId,
+            editorActorId,
+            editorActorId
+        )
     database
         .insert(publicationTargetRevisions)
         .values({

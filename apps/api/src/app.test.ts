@@ -1182,6 +1182,8 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/posts/{postId}',
                 '/api/projects/{projectId}/posts/{postId}/destinations',
                 '/api/projects/{projectId}/posts',
+                '/api/projects/{projectId}/publications/{publicationId}/destination',
+                '/api/projects/{projectId}/publications/{publicationId}/confirm-destination',
                 '/api/projects/{projectId}/publication-composer-draft',
                 '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',

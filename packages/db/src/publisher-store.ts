@@ -15,6 +15,12 @@ import {
 } from '@postdot/core'
 
 import {
+    destinationIdentity,
+    readChannelDestination,
+    sameDestination,
+    type ChannelDestinationIdentity,
+} from './channel-destination'
+import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
     type PostbotDatabase,
@@ -446,6 +452,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
           and jobs.state = 'running'
           and jobs.effect_started_at is not null
           and publications.state = 'publishing'
+          and (execution.destination_snapshot_json is null or json_extract(execution.destination_snapshot_json, '$.revision') = channels.destination_revision)
         limit 1
     `)
     const listPublisherExecutionMediaStatement = client.query<
@@ -661,6 +668,23 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                 return { kind: 'incompatible_profile' }
             }
 
+            const storedIdentity = client
+                .query<{ json: string | null }, [string, string]>(
+                    'select destination_identity_json as json from channels where project_id = ? and id = ?'
+                )
+                .get(input.projectId, input.channelId)?.json
+            const previousIdentity: ChannelDestinationIdentity | null = storedIdentity
+                ? JSON.parse(storedIdentity)
+                : readChannelDestination(database, input.projectId, input.channelId)
+            const nextIdentity = destinationIdentity({
+                providerId: credentialRow.providerId,
+                externalAccountId: credentialRow.externalAccountId,
+                externalAccountName: credentialRow.externalAccountName,
+                destinationType: connectionSettings.destination?.type ?? null,
+                destinationId: connectionSettings.destination?.id ?? null,
+                destinationName: connectionSettings.destination?.name ?? null,
+                endpointUrl: connectionSettings.endpointUrl,
+            })
             const existingConnection = loadPublisherConnectionStatement.get(
                 input.projectId,
                 input.channelId
@@ -691,6 +715,19 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                     )
                 }
             }
+
+            client
+                .query(
+                    `update channels set destination_identity_json = ?, destination_revision = destination_revision + ? where project_id = ? and id = ?`
+                )
+                .run(
+                    JSON.stringify(nextIdentity),
+                    previousIdentity !== null && !sameDestination(previousIdentity, nextIdentity)
+                        ? 1
+                        : 0,
+                    input.projectId,
+                    input.channelId
+                )
 
             const timestamp = requireTimestamp(now(), 'now')
             const project = toProject(projectRow)
@@ -790,6 +827,13 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             }
 
             const timestamp = requireTimestamp(now(), 'now')
+            const identity = readChannelDestination(database, input.projectId, input.channelId)
+            if (identity !== null)
+                client
+                    .query(
+                        'update channels set destination_identity_json = coalesce(destination_identity_json, ?) where project_id = ? and id = ?'
+                    )
+                    .run(JSON.stringify(identity), input.projectId, input.channelId)
             const deleted = deletePublisherStatement.run(input.projectId, connection.publisherId)
             if (deleted.changes < 1) return { kind: 'not_found' }
 

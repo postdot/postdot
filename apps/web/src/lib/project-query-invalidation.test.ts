@@ -56,6 +56,7 @@ test('channel mutations invalidate their navigation data and publication project
     const keys = {
         channels: projectQueryKeys.channels('one'),
         connections: projectQueryKeys.connections('one'),
+        destinations: projectQueryKeys.publicationDestinations('one'),
         publications: projectQueryKeys.publications('one'),
         membership: projectQueryKeys.membership('one'),
         tags: projectQueryKeys.projectTagsCatalog('one'),
@@ -63,7 +64,7 @@ test('channel mutations invalidate their navigation data and publication project
     try {
         for (const key of Object.values(keys)) client.setQueryData(key, 'snapshot')
         await refreshChannelResources(client, 'one')
-        for (const name of ['channels', 'connections', 'publications'] as const)
+        for (const name of ['channels', 'connections', 'publications', 'destinations'] as const)
             expect(client.getQueryState(keys[name])?.isInvalidated).toBe(true)
         for (const name of ['membership', 'tags'] as const)
             expect(client.getQueryState(keys[name])?.isInvalidated).toBe(false)

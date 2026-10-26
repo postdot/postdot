@@ -47,6 +47,7 @@ import type {
 import { createSearchStore } from './manual-store/search-store'
 import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
+import { createPublicationDestinationStore } from './publication-destination-store'
 
 export type {
     ArchiveChannelInput,
@@ -1046,6 +1047,11 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
     })
 
     return {
+        ...createPublicationDestinationStore(database, {
+            now,
+            createId,
+            loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        }),
         ...projectChannelStore,
         ...createSearchStore(database),
         ...channelLifecycleStore,

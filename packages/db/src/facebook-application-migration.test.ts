@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { providerApplicationPolicies } from '../../../apps/api/src/providers/registry'
 import { closeDatabase, createDatabase } from './client'
 import { createSecretCipher } from './encrypted-secret-crypto'
-import { createManualStore } from './manual-store'
+import { seedLegacyProjectChannel } from './legacy-migration-fixture'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
 import { createAuthorizationAttemptStore } from './oauth-authorization-attempt-store'
 import { createProviderApplicationStore } from './provider-application-store'
@@ -52,17 +52,9 @@ test('Facebook application migration preserves encrypted configurations and refe
             createdByUserId: 'owner',
         })
         if (saved.kind !== 'created') throw new Error('Expected configuration')
-        const channels = createManualStore(database, { now: () => now })
-        const project = channels.createProject({
-            name: 'Project',
-            subjectId: 'owner',
-            displayName: 'Owner',
-        })
-        const channel = channels.createChannel({
-            projectId: project.project.id,
-            subjectId: 'owner',
-            name: 'Channel',
-        })!
+        const seeded = seedLegacyProjectChannel(database, 'owner', now)
+        const project = { project: seeded.project, actor: seeded.actor }
+        const channel = seeded.channel
         const attempts = createAuthorizationAttemptStore(database, {
             cipher: createPublisherCredentialCipher({ keyId: 'test', key }),
             now: () => now,

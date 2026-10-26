@@ -19,6 +19,7 @@ import { PublicationAdoptionHistory } from '@/components/publication-adoption-hi
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationCommentsPanel } from '@/components/publication-comments-panel'
 import { PublicationComposer } from '@/components/publication-composer'
+import { PublicationDestination } from '@/components/publication-destination'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import {
     PublicationEditorDeliverySettings,
@@ -1554,6 +1555,28 @@ export function PublicationEditor({
                 ) : null}
 
                 {!promotionRecoveryRequired && !passiveStatus ? editorStatus : null}
+
+                <PublicationDestination
+                    onReviewCurrent={reloadServerVersion}
+                    selectedContent={editor.selectedTarget?.content ?? null}
+                    selectedProfile={
+                        editor.selectedTargetProfile?.profile ?? editor.profile.profile
+                    }
+                    projectId={projectId}
+                    publicationId={editor.publication.id}
+                    targetRevisionId={editor.publication.targetRevisionId}
+                    automatic={editor.publication.deliveryMode === 'automatic'}
+                    editable={
+                        !readOnly &&
+                        ['draft', 'scheduled', 'ready', 'failed'].includes(editor.publication.state)
+                    }
+                    disabled={
+                        accessWritesBlocked ||
+                        editorMutationPending ||
+                        hasLocalChanges ||
+                        recoveryAvailable
+                    }
+                />
 
                 <PublicationOutcomePanel
                     publication={editor.publication}

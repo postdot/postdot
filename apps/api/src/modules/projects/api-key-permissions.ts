@@ -210,7 +210,11 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             normalizedMethod === 'GET'
         )
             return 'project:read'
-        if (detail.length === 2 && detail[1] === 'editor' && normalizedMethod === 'GET') {
+        if (
+            detail.length === 2 &&
+            ['editor', 'destination'].includes(detail[1] ?? '') &&
+            normalizedMethod === 'GET'
+        ) {
             return 'project:read'
         }
         if (detail.length === 2 && detail[1] === 'duplicate' && normalizedMethod === 'POST') {
@@ -226,7 +230,7 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         }
         if (
             detail.length === 2 &&
-            ['publish', 'retry', 'reconcile'].includes(detail[1] ?? '') &&
+            ['publish', 'retry', 'reconcile', 'confirm-destination'].includes(detail[1] ?? '') &&
             normalizedMethod === 'POST'
         ) {
             return 'publication:dispatch'

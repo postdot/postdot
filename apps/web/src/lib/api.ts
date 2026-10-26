@@ -1047,6 +1047,27 @@ export const api = {
         )
     },
 
+    async getPublicationDestination(projectId: string, publicationId: string) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .destination.get()
+        )
+    },
+    async confirmPublicationDestination(
+        projectId: string,
+        publicationId: string,
+        input: WebApiRequests['confirmPublicationDestination']
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['confirm-destination'].post(input)
+        )
+    },
+
     async getPublicationEditor(projectId: string, publicationId: string) {
         return unwrap(
             await client.api.projects({ projectId }).publications({ publicationId }).editor.get()

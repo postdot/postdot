@@ -159,6 +159,8 @@ function PublicationActivityDetails({
 
 function publicationActivityTitle(action: string) {
     switch (action) {
+        case 'publication.destination_confirmed':
+            return m.destination_confirmed()
         case 'publication.created':
             return m.publication_activity_created()
         case 'publication.target_promoted':

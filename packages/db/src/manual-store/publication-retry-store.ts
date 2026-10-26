@@ -7,6 +7,7 @@ import {
     type Job,
 } from '@postdot/core'
 
+import { publicationDestinationConfirmed } from '../channel-destination'
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
 import { createRetainedTargetAssessor } from '../retained-target-assessment'
@@ -152,7 +153,11 @@ export function createPublicationRetryStore(
             const actorRow = options.loadActor(input.projectId, input.subjectId)
             let publicationRow = options.loadPublication(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null) return { kind: 'not_found' }
-            if (publicationRow.state !== 'failed') return { kind: 'not_retryable' }
+            if (
+                publicationRow.state !== 'failed' ||
+                !publicationDestinationConfirmed(database, input.projectId, input.publicationId)
+            )
+                return { kind: 'not_retryable' }
             if (
                 !assessRetainedTarget(
                     input.projectId,
@@ -216,7 +221,7 @@ export function createPublicationRetryStore(
                 actor,
                 now: timestamp,
             })
-            const pending = transitionJob({
+            let pending = transitionJob({
                 job,
                 to: 'pending',
                 now: timestamp,
@@ -232,7 +237,31 @@ export function createPublicationRetryStore(
                     `Could not retry publication ${ready.id}`
                 )
             }
+            const previousExecution = client
+                .query<{ revision: number | null; expected: number }, [string, string]>(`
+                select json_extract(e.destination_snapshot_json, '$.revision') as revision,
+                       p.confirmed_destination_revision as expected
+                from publications p join publication_execution_revisions e on e.project_id = p.project_id and e.publication_id = p.id
+                where p.project_id = ? and e.job_id = ?
+            `)
+                .get(input.projectId, pending.id)
             if (
+                previousExecution &&
+                (previousExecution.revision ?? 0) !== previousExecution.expected
+            ) {
+                pending = { ...pending, id: options.createId(), attempts: 0, createdAt: timestamp }
+                client
+                    .query(`insert into jobs (id,project_id,publication_id,state,run_at,created_at,updated_at)
+                    values (?,?,?,'pending',?,?,?)`)
+                    .run(
+                        pending.id,
+                        input.projectId,
+                        pending.publicationId,
+                        pending.runAt,
+                        timestamp,
+                        timestamp
+                    )
+            } else if (
                 updateJobStatement.run(
                     pending.runAt,
                     pending.updatedAt,

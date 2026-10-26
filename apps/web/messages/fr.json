@@ -2461,5 +2461,15 @@
     "lifecycle_error_read_only": "Cette ressource est en lecture seule pendant son archivage ou son retrait.",
     "profile_adoption_type_changed": "Format du champ modifié : {field}. Consultez sa valeur précédente et saisissez la nouvelle valeur ci-dessous ; aucune conversion n’est appliquée.",
     "profile_adoption_path_changed": "Ancien chemin : {previous}. Chemin actuel : {current}.",
-    "profile_adoption_candidate": "Contenu adapté"
+    "profile_adoption_candidate": "Contenu adapté",
+    "destination_changed": "La destination connectée a changé. L’envoi automatique est suspendu jusqu’à votre confirmation de la destination actuelle pour cette publication.",
+    "destination_current": "Destination actuelle : {name}",
+    "destination_reconnect": "Reconnectez le canal avant de confirmer sa destination.",
+    "destination_confirm": "Confirmer la destination actuelle",
+    "destination_history": "Destinations enregistrées à l’exécution",
+    "destination_unrecorded": "Destination non enregistrée",
+    "destination_refresh_failed": "La destination n’a pas pu être chargée ou confirmée. Actualisez-la et vérifiez le compte actuel avant de réessayer.",
+    "destination_confirmation_effect": "Le contenu et l’horaire demandé restent inchangés. Un envoi déjà programmé peut reprendre, même si son horaire est dépassé.",
+    "destination_selected_content": "Contenu sélectionné pour l’envoi",
+    "destination_confirmed": "Destination confirmée"
 }

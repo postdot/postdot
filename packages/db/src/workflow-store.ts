@@ -13,6 +13,7 @@ import {
     type PublicationState,
 } from '@postdot/core'
 
+import { readChannelDestination, publicationDestinationConfirmed } from './channel-destination'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
@@ -232,6 +233,7 @@ export function createWorkflowStore(
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
+              and publications.confirmed_destination_revision = (select destination_revision from channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
 
@@ -285,6 +287,7 @@ export function createWorkflowStore(
               and publications.state in ('scheduled', 'ready')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
+              and publications.confirmed_destination_revision = (select destination_revision from channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
             order by jobs.run_at, jobs.id
@@ -536,6 +539,21 @@ export function createWorkflowStore(
             const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
             if (
+                !publicationDestinationConfirmed(
+                    database,
+                    runningJob.projectId,
+                    runningJob.publicationId
+                )
+            ) {
+                client
+                    .query(`update jobs set state = 'pending', claim_token = null, claimed_by_actor_id = null,
+                    claimed_at = null, lease_expires_at = null, effect_started_at = null, started_at = null,
+                    completed_at = null, error_message = null, updated_at = ? where id = ? and effect_started_at is null`)
+                    .run(now, jobId)
+                recordDatabaseCommitProject(database, runningJob.projectId)
+                return false
+            }
+            if (
                 !assessRetainedTarget(
                     runningJob.projectId,
                     runningJob.publicationId,
@@ -583,6 +601,27 @@ export function createWorkflowStore(
                 profileCompiler
             )
             if (pinned.changes === 1) {
+                const channel = client
+                    .query<{ channelId: string; revision: number }, [string, string]>(`
+                    select p.channel_id as channelId, c.destination_revision as revision from publications p
+                    join channels c on c.project_id = p.project_id and c.id = p.channel_id
+                    where p.project_id = ? and p.id = ?
+                `)
+                    .get(runningJob.projectId, runningJob.publicationId)!
+                const identity = readChannelDestination(
+                    database,
+                    runningJob.projectId,
+                    channel.channelId
+                )
+                if (identity !== null)
+                    client
+                        .query(
+                            'update publication_execution_revisions set destination_snapshot_json = ? where id = ?'
+                        )
+                        .run(
+                            JSON.stringify({ ...identity, revision: channel.revision }),
+                            executionRevision.id
+                        )
                 for (const media of targetMedia) {
                     insertExecutionRevisionMediaStatement.run(
                         createId(),
@@ -880,6 +919,11 @@ export function createWorkflowStore(
                         job.claimedByActorId,
                         completedAt
                     )
+                )
+                    retryAt = null
+                if (
+                    retryAt !== null &&
+                    !publicationDestinationConfirmed(database, job.projectId, job.publicationId)
                 )
                     retryAt = null
                 if (retryAt !== null) {

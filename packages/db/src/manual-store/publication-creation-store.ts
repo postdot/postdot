@@ -157,6 +157,7 @@ export function createPublicationCreationStore(
             project_id,
             post_id,
             channel_id,
+            confirmed_destination_revision,
             target_revision_id,
             delivery_mode,
             review_state,
@@ -170,7 +171,7 @@ export function createPublicationCreationStore(
             created_at,
             updated_at
         )
-        values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)
+        values (?1, ?2, ?3, ?4, (select destination_revision from channels where project_id = ?2 and id = ?4), ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)
     `)
     const insertWorkingDraftStatement = client.query<
         void,

@@ -10,6 +10,8 @@ export const projectQueryKeys = {
     calendarPublications: (projectId: string) =>
         ['project', projectId, 'calendar-publications'] as const,
     publicationQueues: (projectId: string) => ['project', projectId, 'publication-queues'] as const,
+    publicationDestinations: (projectId: string) =>
+        ['project', projectId, 'publication-destinations'] as const,
     publicationEditors: (projectId: string) =>
         ['project', projectId, 'publication-editor'] as const,
     projectTagsCatalog: (projectId: string) =>
