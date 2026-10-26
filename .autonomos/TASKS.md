@@ -61,6 +61,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[SEC-589]** Patch the Storybook development-server origin validation vulnerability `Priority: 🟠` `Complexity: S` — Dependabot #19; align Storybook packages on 10.6.2 and verify the build and isolated development server. Completed 2026-10-26; [evidence](worklogs/2026-10-26-SEC-589.md).
+
 - [x] **[LIFE-588]** Deliver project/workspace archive, restore and permanent deletion `Priority: 🟠` `Complexity: XL` — GitHub #10; accepted operator-controlled lifecycle with impact preview, explicit cancellation, fenced effects, default-workspace replacement and durable storage cleanup across API, Studio and CLI. Completed 2026-10-26; source delivery pending the next grouped image release. [Evidence](worklogs/2026-10-26-LIFE-588.md).
 
 - [x] **[WEB-587]** Reduce anonymous entry JavaScript without changing authentication `Priority: 🟠` `Complexity: L` — ISSUE-191; attribute the current login entry graph, defer avoidable authenticated-only code and compare production artifacts against the existing 180 KiB target with focused browser regressions. Completed 2026-10-25: 154,814 aggregate gzip bytes, below 180 KiB; [evidence](worklogs/2026-10-25-WEB-587.md).
