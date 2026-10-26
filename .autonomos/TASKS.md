@@ -62,6 +62,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[CHANNEL-591]** Clarify explicit draft profile adaptation with readable previous values and field-level change guidance `Priority: 🟠` `Complexity: M` — ISSUE-167; preserve ADR-079 explicit reuse, local work, validation and immutable history. Completed 2026-10-26; [evidence](worklogs/2026-10-26-CHANNEL-591.md).
+
 - [x] **[CHANNEL-590]** Prove reduced built-in constraints across retained publication work `Priority: 🟠` `Complexity: L` — ISSUE-174; synthetic limit reduction across new work, drafts, pending targets, retries, claimed work and immutable execution history; preserve data and the accepted explicit-adoption boundary. Completed 2026-10-26; three execution/retry gaps corrected; [evidence](worklogs/2026-10-26-CHANNEL-590.md).
 
 - [x] **[SEC-589]** Patch the Storybook development-server origin validation vulnerability `Priority: 🟠` `Complexity: S` — Dependabot #19; align Storybook packages on 10.6.2 and verify the build and isolated development server. Completed 2026-10-26; [evidence](worklogs/2026-10-26-SEC-589.md).

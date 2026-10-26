@@ -183,7 +183,7 @@ export function PublicationTargetEditor({
     )
 }
 
-function ReadOnlyTargetFields({
+export function ReadOnlyTargetFields({
     fields,
     target,
 }: {

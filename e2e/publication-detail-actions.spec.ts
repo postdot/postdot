@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { frenchTranslation } from './locale'
+
 test('keeps publication detail actions aligned with the scheduled lifecycle', async ({
     page,
 }, testInfo) => {
@@ -407,6 +409,26 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     })
     expect(channelResponse.status()).toBe(201)
     const { channel } = await channelResponse.json()
+    const initialState = await (
+        await page.request.get(`/api/projects/${projectId}/channels/${channel.id}/profile`)
+    ).json()
+    const initialProfile = structuredClone(initialState.active.profile)
+    initialProfile.contentSchema.properties.rating = { type: 'number', title: 'Rating' }
+    initialProfile.contentSchema.properties.note = { type: 'string', title: 'Editorial note' }
+    const initialDraft = await page.request.post(
+        `/api/projects/${projectId}/channels/${channel.id}/profile-drafts`,
+        { data: { profile: initialProfile } }
+    )
+    expect(initialDraft.status()).toBe(200)
+    const initialVersion = (await initialDraft.json()).profile
+    expect(
+        (
+            await page.request.post(
+                `/api/projects/${projectId}/channels/${channel.id}/profile-drafts/${initialVersion.id}/activate`,
+                { data: { expectedRevision: initialVersion.revision } }
+            )
+        ).status()
+    ).toBe(200)
     const createdResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
         data: {
             sourceContent: {
@@ -417,7 +439,12 @@ test('adapts a draft explicitly without changing its source or selecting a publi
                 {
                     channelId: channel.id,
                     deliveryMode: 'manual',
-                    targetContent: { body: 'Previous destination', media: [] },
+                    targetContent: {
+                        body: 'Previous destination',
+                        media: [],
+                        rating: 0,
+                        note: 'Keep the editorial rationale',
+                    },
                 },
             ],
         },
@@ -429,6 +456,8 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         await page.request.get(`/api/projects/${projectId}/channels/${channel.id}/profile`)
     ).json()
     const profile = structuredClone(state.active.profile)
+    profile.contentSchema.properties.rating = { type: 'string', title: 'Rating' }
+    delete profile.contentSchema.properties.note
     const bodySchema = profile.contentSchema.properties.body
     delete profile.contentSchema.properties.body
     profile.contentSchema.properties.article = {
@@ -467,12 +496,42 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     ).toBeDisabled()
     await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
     await expect(adaptation.getByRole('alert')).toBeVisible()
+    await expect(
+        adaptation.getByText('Changed field format: Rating.', { exact: false })
+    ).toBeVisible()
+    await expect(
+        adaptation.getByText('No matching field: Editorial note.', { exact: false })
+    ).toBeVisible()
+    await expect(
+        adaptation.getByRole('button', { name: 'Reuse previous Rating', exact: true })
+    ).toHaveCount(0)
+    await expect(adaptation.locator('[data-adoption-fields]')).toContainText(
+        'Keep the editorial rationale'
+    )
+    await expect(
+        adaptation.locator('[data-adoption-fields] dd').filter({ hasText: /^0$/ })
+    ).toBeVisible()
     await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
     await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
     await expect(adaptation.locator('[data-target-field="body"] textarea')).toHaveValue(
         'Previous destination'
     )
     await page.screenshot({ path: testInfo.outputPath('adoption-desktop.png'), fullPage: true })
+    await page.setViewportSize({ width: 820, height: 1180 })
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('adoption-tablet.png'), fullPage: true })
+    const previousSummary = adaptation
+        .locator('summary')
+        .filter({ hasText: /^Complete previous draft$/ })
+    await previousSummary.focus()
+    await page.keyboard.press('Enter')
+    await expect(adaptation.locator('[data-target-readonly]').last()).toContainText(
+        'Keep the editorial rationale'
+    )
+    await previousSummary.focus()
+    await page.keyboard.press('Enter')
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(
         adaptation.getByRole('button', { name: 'Validate adaptation', exact: true })
@@ -486,6 +545,32 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         path: testInfo.outputPath('adoption-mobile-light.png'),
         fullPage: true,
     })
+    await page.locator('[data-slot="language-switcher-trigger"]').click()
+    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    const frenchAdaptation = page.getByRole('region', {
+        name: frenchTranslation('profile_adoption_title'),
+        exact: true,
+    })
+    await expect(
+        frenchAdaptation.getByText(
+            frenchTranslation('profile_adoption_type_changed').replace('{field}', 'Rating'),
+            { exact: false }
+        )
+    ).toBeVisible()
+    await expect(
+        frenchAdaptation.getByText(
+            frenchTranslation('profile_adoption_unmapped').replace('{field}', 'Editorial note'),
+            { exact: false }
+        )
+    ).toBeVisible()
+    await page.screenshot({
+        path: testInfo.outputPath('adoption-mobile-french.png'),
+        fullPage: true,
+    })
+    await page.locator('[data-slot="language-switcher-trigger"]').click()
+    await page
+        .getByRole('menuitem', { name: frenchTranslation('language_english'), exact: true })
+        .click()
     await adaptation.getByRole('button', { name: 'Cancel', exact: true }).click()
     expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(before)
     await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
@@ -495,12 +580,26 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     await expect(
         adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
     ).toBeEnabled()
+    await adaptation.locator('[data-target-field="body"] textarea').fill('Edited candidate')
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeDisabled()
+    await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
+    await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeEnabled()
     expect(
         (
             await page.request.patch(`${apiUrl}/draft`, {
                 data: {
                     expectedRevision: before.draft.revision,
-                    targetContent: { body: 'Concurrent destination', media: [] },
+                    targetContent: {
+                        body: 'Concurrent destination',
+                        media: [],
+                        rating: 0,
+                        note: 'Keep the editorial rationale',
+                    },
                 },
             })
         ).status()
@@ -533,6 +632,9 @@ test('adapts a draft explicitly without changing its source or selecting a publi
     await page.reload()
     await page.getByText('Previous drafts kept during adaptation', { exact: true }).click()
     await expect(page.locator('pre').filter({ hasText: 'Concurrent destination' })).toBeVisible()
+    await expect(page.locator('pre').filter({ hasText: 'Concurrent destination' })).toContainText(
+        'Keep the editorial rationale'
+    )
     expect(
         (await (await page.request.get(`${apiUrl}/draft/adoptions`)).json()).adoptions[0].draft
     ).toEqual(before.draft)

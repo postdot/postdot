@@ -1982,13 +1982,13 @@
     "profile_adoption_use_local": "Use my unsaved destination content",
     "profile_adoption_use_saved": "Use the saved draft instead",
     "profile_adoption_reuse": "Reuse previous {field}",
-    "profile_adoption_previous": "Previous draft",
+    "profile_adoption_previous": "Complete previous draft",
     "profile_adoption_validate": "Validate adaptation",
     "profile_adoption_save": "Save adapted draft",
     "profile_adoption_history": "Previous drafts kept during adaptation",
     "profile_adoption_recovery_mismatch": "This local copy cannot be matched to the current profile. Copy its content before discarding it; automatic restoration is unavailable.",
     "profile_adoption_refresh": "Review latest draft and profile",
-    "profile_adoption_unmapped": "No matching field: {field}. Its previous value is kept.",
+    "profile_adoption_unmapped": "No matching field: {field}. Its previous value is kept in the adaptation history when you save.",
     "profile_impact_title": "Affected publications",
     "profile_impact_versions": "Profile {current} → {proposed}",
     "profile_impact_empty": "No editable drafts or pending publications use this channel.",
@@ -2458,5 +2458,8 @@
     "lifecycle_error_replacement": "Choose another active workspace that you manage as the new default.",
     "lifecycle_error_workspace": "Restore the workspace before restoring this project.",
     "lifecycle_error_started": "Deletion has already started. Check its progress in Archived resources.",
-    "lifecycle_error_read_only": "This resource is read-only while archived or being retired."
+    "lifecycle_error_read_only": "This resource is read-only while archived or being retired.",
+    "profile_adoption_type_changed": "Changed field format: {field}. Review its previous value and enter the new value below; no conversion is applied.",
+    "profile_adoption_path_changed": "Previous path: {previous}. Current path: {current}.",
+    "profile_adoption_candidate": "Adapted content"
 }

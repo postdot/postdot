@@ -1663,7 +1663,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Bounded mapped HTTP controls now cover method/static paths, response classification/extraction, simple JSON properties and fixed query parameters; CHANNEL-497 records authenticated draft persistence, impact and activation without external dispatch. Advanced expression/transport authoring, arbitrary field removal and full adoption cleanup remain pending. See the [current builder reference](archive/root-documentation-2026-10-25/source/docs/project/channel-builder.md).
 - Source: owner product direction, 2026-10-16.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Advanced request expression/transport authoring, arbitrary field removal and full adoption cleanup remain. Bounded lossless controls and CHANNEL-497 persistence/impact/activation are delivered.
+- Remaining scope: Advanced request expression/transport authoring and arbitrary profile-field removal remain. Bounded lossless controls and CHANNEL-497 persistence/impact/activation are delivered. CHANNEL-591 (2026-10-26) adds readable previous draft fields, explicit matching reuse, changed-format/unmatched-field guidance and complete-content disclosure to the accepted ADR-079 adaptation flow; saved history and explicit validation/selection boundaries remain intact.
 
 ## [ISSUE-168] Expand provider information, performance and comment workflows
 

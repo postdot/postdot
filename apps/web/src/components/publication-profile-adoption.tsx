@@ -1,9 +1,13 @@
 import { Button } from '@postdot/ui/components/button'
 import { useEffect, useRef, useState } from 'react'
 
-import { PublicationTargetEditor } from '@/components/publication-target-editor'
+import {
+    PublicationTargetEditor,
+    ReadOnlyTargetFields,
+} from '@/components/publication-target-editor'
 import { api, type PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { compareAdoptionFields } from '@/lib/profile-adoption-fields'
 import { getTargetEditorFields, readTargetField, updateTargetField } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
 
@@ -68,8 +72,9 @@ export function PublicationProfileAdoption({
         /* Invalid text remains editable. */
     }
     const previous = useLocal && localContent !== null ? localContent : baseEditor.draft.content
-    const oldFields = getTargetEditorFields(baseEditor.profile.profile, locale)
-    const fields = getTargetEditorFields(active?.profile, locale)
+    const oldFields = getTargetEditorFields(baseEditor.profile.profile, locale, previous)
+    const fields = getTargetEditorFields(active?.profile, locale, content)
+    const comparison = compareAdoptionFields(previous, oldFields, fields)
     function update(next: string) {
         setCandidate(next)
         setAssessment(null)
@@ -177,22 +182,38 @@ export function PublicationProfileAdoption({
                                     : m.profile_adoption_use_local()}
                             </Button>
                         ) : null}
-                        {fields.flatMap(field => {
-                            const old = oldFields.find(
-                                item =>
-                                    item.bindingId === field.bindingId &&
-                                    item.semantic === field.semantic
-                            )
-                            if (
-                                old === undefined ||
-                                readTargetField(previous, old.path) === undefined
-                            )
-                                return []
-                            return [
-                                <div
-                                    key={field.path}
-                                    className="flex flex-wrap items-center gap-2 text-sm">
+                    </div>
+                    <div className="grid min-w-0 gap-4" data-adoption-fields>
+                        {comparison.map(change => (
+                            <div key={change.previous.path} className="min-w-0">
+                                {change.status === 'removed' ? (
+                                    <p className="text-sm text-state-attention">
+                                        {m.profile_adoption_unmapped({
+                                            field: change.previous.label,
+                                        })}
+                                    </p>
+                                ) : change.status === 'changed' ? (
+                                    <p className="text-sm text-state-attention">
+                                        {m.profile_adoption_type_changed({
+                                            field: change.previous.label,
+                                        })}
+                                    </p>
+                                ) : null}
+                                <ReadOnlyTargetFields
+                                    fields={[change.previous]}
+                                    target={previous}
+                                />
+                                {change.next && change.next.path !== change.previous.path ? (
+                                    <p className="mt-2 break-all text-xs text-muted-foreground">
+                                        {m.profile_adoption_path_changed({
+                                            previous: change.previous.path,
+                                            current: change.next.path,
+                                        })}
+                                    </p>
+                                ) : null}
+                                {change.reusable && change.next ? (
                                     <Button
+                                        className="mt-2"
                                         variant="secondary"
                                         disabled={pending || blocked || content === null}
                                         onClick={() =>
@@ -200,45 +221,24 @@ export function PublicationProfileAdoption({
                                                 JSON.stringify(
                                                     updateTargetField(
                                                         content ?? {},
-                                                        field.path,
-                                                        readTargetField(previous, old.path)
+                                                        change.next!.path,
+                                                        readTargetField(
+                                                            previous,
+                                                            change.previous.path
+                                                        )
                                                     ),
                                                     null,
                                                     2
                                                 )
                                             )
                                         }>
-                                        {m.profile_adoption_reuse({ field: field.label })}
+                                        {m.profile_adoption_reuse({ field: change.next.label })}
                                     </Button>
-                                    {old.path !== field.path ? (
-                                        <span className="text-muted-foreground">
-                                            {old.path} → {field.path}
-                                        </span>
-                                    ) : null}
-                                </div>,
-                            ]
-                        })}
-                    </div>
-                    {oldFields
-                        .filter(
-                            old =>
-                                readTargetField(previous, old.path) !== undefined &&
-                                !fields.some(
-                                    field =>
-                                        field.bindingId === old.bindingId &&
-                                        field.semantic === old.semantic
-                                )
-                        )
-                        .map(old => (
-                            <div key={old.path} className="space-y-1 text-sm">
-                                <p className="text-state-attention">
-                                    {m.profile_adoption_unmapped({ field: old.label })}
-                                </p>
-                                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs">
-                                    {JSON.stringify(readTargetField(previous, old.path), null, 2)}
-                                </pre>
+                                ) : null}
                             </div>
                         ))}
+                    </div>
+                    <h3 className="text-sm font-medium">{m.profile_adoption_candidate()}</h3>
                     <PublicationTargetEditor
                         compact
                         profile={active.profile}
@@ -265,9 +265,14 @@ export function PublicationProfileAdoption({
                         <summary className="cursor-pointer text-sm font-medium">
                             {m.profile_adoption_previous()}
                         </summary>
-                        <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all text-xs">
-                            {JSON.stringify(previous, null, 2)}
-                        </pre>
+                        <PublicationTargetEditor
+                            readOnly
+                            profile={baseEditor.profile.profile}
+                            target={previous}
+                            rawText={JSON.stringify(previous, null, 2)}
+                            onTargetChange={() => {}}
+                            onRawTextChange={() => {}}
+                        />
                     </details>
                     <div className="flex flex-wrap gap-2">
                         <Button
