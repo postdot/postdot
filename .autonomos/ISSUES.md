@@ -1739,7 +1739,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-174] Verify built-in provider constraint updates across retained work
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The owner asks what happens if a platform reduces its text limits. ADR-020, ADR-078 and ADR-079 establish versioned profiles, impact review and explicit adoption. Packaged presets are snapshots; their existence is not automatic detection or rollout of upstream changes.
 - Desired outcome: Audit the operational update path for built-in constraints and execution support. Prove behavior for new work, editable drafts, pending selected targets, retries and historical/in-flight revisions using a synthetic limit reduction. Preserve content and history; do not silently truncate, migrate, deliver known-incompatible work or claim automatic upstream detection. Identify any missing operator update/review entry.
 - Tasks: CHANNEL-482 (intake); CHANNEL-523 (gap diagnosis); CHANNEL-529 (explicit shipped-template loading, verified local save/impact/activation). Automatic upstream discovery and a full retained-work lifecycle proof remain outside the delivered slice.
@@ -1747,6 +1747,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-10-16.
 
 - Remaining scope (ALPHA-578, 2026-10-24): Complete the synthetic retained-work lifecycle proof across drafts, pending targets, retries and history. Explicit template loading is delivered; automatic upstream discovery is not.
+
+- Resolution (2026-10-26): CHANNEL-590 completes the synthetic retained-work lifecycle proof and corrects three gaps before effect start and automatic/manual retry. Content, targets and historical/in-flight snapshots remain intact; compatible old targets continue, incompatible work requires review. Eight final targeted cases, broader worker regressions, full unit integration, built-production profile/adoption browser checks and container recovery pass. Automatic upstream discovery remains outside this manual update-path acceptance; no automatic rollout or incompatible-profile consent override is claimed. [Evidence](worklogs/2026-10-26-CHANNEL-590.md).
 
 ## [ISSUE-175] Investigate a development API shutdown that retained SQLite
 

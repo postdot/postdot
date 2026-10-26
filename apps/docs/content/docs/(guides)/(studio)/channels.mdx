@@ -34,6 +34,29 @@ targets. Adopting a changed profile in a publication remains an explicit action.
 A failed refresh after a successful activation does not prove activation failed.
 Inspect the current active version before submitting another change.
 
+## Update built-in requirements
+
+After upgrading Postdot, open the channel's profile editor and choose **Load
+shipped template** to compare the installed provider template with your channel.
+Loading prepares a draft; save it, review the impact and activate explicitly.
+Postdot does not monitor provider changes or replace active profiles automatically.
+
+New work uses the activated profile. Existing draft text and selected target
+revisions remain intact. A shorter limit can leave one publication compatible
+while putting a longer one into review. Postdot does not truncate either content.
+
+Pending work is checked before a new external operation starts, including work
+claimed just before activation. Automatic and manual retries must also satisfy
+the active requirements. Compatible retained targets can continue when their
+execution contract is unchanged and supported. Incompatible work needs review;
+use **Adapt to current profile**, preserve or edit the content, then schedule or
+approve it explicitly. Retrying alone does not override a failed assessment.
+
+An operation already sent to a provider can finish under its pinned execution
+revision. Its result and historical content remain tied to that revision. If it
+fails, a new attempt must satisfy current requirements. Activation neither
+rewrites history nor proves that the remote provider will accept a request.
+
 ## Custom HTTP destinations
 
 Content rules, request mapping and connection authentication are distinct.

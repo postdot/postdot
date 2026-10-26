@@ -37,7 +37,8 @@ ISSUE-062/153 retain account-lifecycle and access-audit follow-ups. The accepted
 deployment-key limitation remains in ADR-012; ISSUE-111 is resolved.
 The [channel builder reference](<../apps/docs/content/docs/(guides)/(studio)/channels.mdx>) describes
 bounded lossless content/mapped-request editing and explicit profile activation;
-ISSUE-167/174/175 retain broader builder, provider-update and shutdown questions.
+Manual template loading/activation remains explicit; automatic upstream discovery is not implemented.
+ISSUE-167/175 retain broader builder and shutdown questions.
 
 Runtime and recovery follow the [operational boundary](<../apps/docs/content/docs/(self-hosting)/(operations)/operations.mdx>)
 and [deployment guide](<../apps/docs/content/docs/(developers)/(architecture)/architecture.mdx>): restore
@@ -60,6 +61,8 @@ Restore does not requeue cancelled work; permanent deletion retains a minimal
 receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
+
+- [x] **[CHANNEL-590]** Prove reduced built-in constraints across retained publication work `Priority: 🟠` `Complexity: L` — ISSUE-174; synthetic limit reduction across new work, drafts, pending targets, retries, claimed work and immutable execution history; preserve data and the accepted explicit-adoption boundary. Completed 2026-10-26; three execution/retry gaps corrected; [evidence](worklogs/2026-10-26-CHANNEL-590.md).
 
 - [x] **[SEC-589]** Patch the Storybook development-server origin validation vulnerability `Priority: 🟠` `Complexity: S` — Dependabot #19; align Storybook packages on 10.6.2 and verify the build and isolated development server. Completed 2026-10-26; [evidence](worklogs/2026-10-26-SEC-589.md).
 

@@ -87,6 +87,7 @@ export function createChannelProfileImpactAssessor(
               where jobs.project_id = publications.project_id
                 and jobs.publication_id = publications.id
                 and jobs.state = 'running'
+                and jobs.effect_started_at is not null
           )
         order by publications.scheduled_at, publications.id
     `)

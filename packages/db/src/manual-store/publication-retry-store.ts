@@ -9,6 +9,7 @@ import {
 
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
+import { createRetainedTargetAssessor } from '../retained-target-assessment'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
 
@@ -42,6 +43,7 @@ interface AuditEventInsert {
 }
 
 export interface PublicationRetryStoreOptions {
+    readonly publicMediaUrlAvailable?: boolean
     readonly now: () => number
     readonly createId: () => string
     readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
@@ -54,6 +56,10 @@ export function createPublicationRetryStore(
     options: PublicationRetryStoreOptions
 ) {
     const client = database.$client
+    const assessRetainedTarget = createRetainedTargetAssessor(
+        database,
+        options.publicMediaUrlAvailable
+    )
 
     const loadLatestFailedJobStatement = client.query<
         FailedJobRow,
@@ -144,8 +150,19 @@ export function createPublicationRetryStore(
         database,
         (input: RetryFailedPublicationInput): RetryFailedPublicationResult => {
             const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const publicationRow = options.loadPublication(input.projectId, input.publicationId)
+            let publicationRow = options.loadPublication(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null) return { kind: 'not_found' }
+            if (publicationRow.state !== 'failed') return { kind: 'not_retryable' }
+            if (
+                !assessRetainedTarget(
+                    input.projectId,
+                    input.publicationId,
+                    actorRow.id,
+                    options.now()
+                )
+            )
+                return { kind: 'not_retryable' }
+            publicationRow = options.loadPublication(input.projectId, input.publicationId)!
 
             if (
                 publicationRow.state !== 'failed' ||

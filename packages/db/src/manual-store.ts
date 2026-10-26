@@ -942,6 +942,7 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
     })
 
     const publicationRetryStore = createPublicationRetryStore(database, {
+        publicMediaUrlAvailable,
         now,
         createId,
         loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),

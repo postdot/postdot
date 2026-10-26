@@ -315,9 +315,17 @@ describe('workflow store', () => {
                 .where(eq(channelProfileVersions.id, fixture.profileVersionId))
                 .run()
 
-            expect(() =>
+            expect(
                 store.startExternalEffect(fixture.jobId, 'claim-disabled-after-claim', dueAt + 1)
-            ).toThrow('no valid target revision to execute')
+            ).toBe(false)
+            expect(
+                database.$client.query('select state from jobs where id = ?').get(fixture.jobId)
+            ).toEqual({ state: 'cancelled' })
+            expect(
+                database.$client
+                    .query('select review_state from publications where id = ?')
+                    .get(fixture.publicationId)
+            ).toEqual({ review_state: 'review_required' })
             expect(
                 database
                     .select()
@@ -326,7 +334,7 @@ describe('workflow store', () => {
                     .all()
             ).toEqual([])
             expect(database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()).toEqual([
-                expect.objectContaining({ state: 'running', effectStartedAt: null }),
+                expect.objectContaining({ state: 'cancelled', effectStartedAt: null }),
             ])
             expect(
                 database

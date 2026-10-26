@@ -23,6 +23,7 @@ import {
     serializeAutomaticExecutionAuditMetadata,
     type AutomaticExecutionAuditAction,
 } from './execution-audit'
+import { createRetainedTargetAssessor } from './retained-target-assessment'
 
 interface ClaimDueJobInput {
     readonly actorId: string
@@ -98,10 +99,17 @@ const claimedJobColumns = `
     updated_at as updatedAt
 `
 
-export function createWorkflowStore(database: PostbotDatabase) {
+export function createWorkflowStore(
+    database: PostbotDatabase,
+    options: { publicMediaUrlAvailable?: boolean } = {}
+) {
     const client = database.$client
     const createId = () => crypto.randomUUID()
     const profileCompiler = new ChannelProfileCompiler()
+    const assessRetainedTarget = createRetainedTargetAssessor(
+        database,
+        options.publicMediaUrlAvailable
+    )
 
     const listProjectIdsStatement = client.query<{ id: string }, []>(`
         select id
@@ -527,6 +535,21 @@ export function createWorkflowStore(database: PostbotDatabase) {
         (jobId: string, claimToken: string, now: number): boolean => {
             const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
+            if (
+                !assessRetainedTarget(
+                    runningJob.projectId,
+                    runningJob.publicationId,
+                    runningJob.claimedByActorId,
+                    now
+                )
+            ) {
+                client
+                    .query(
+                        "update jobs set state = 'cancelled', claim_token = null, lease_expires_at = null, completed_at = ?, updated_at = ? where id = ? and state = 'running' and effect_started_at is null"
+                    )
+                    .run(now, now, jobId)
+                return false
+            }
 
             const executionRevisionId = createId()
             const pinned = insertExecutionRevisionStatement.run(
@@ -835,7 +858,7 @@ export function createWorkflowStore(database: PostbotDatabase) {
                 }
             } else {
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
-                const retryAt =
+                let retryAt =
                     (input.outcome.type === 'retryable_failure' ||
                         input.outcome.type === 'deferred') &&
                     input.retryAt != null
@@ -849,6 +872,16 @@ export function createWorkflowStore(database: PostbotDatabase) {
                     )
                 }
 
+                if (
+                    retryAt !== null &&
+                    !assessRetainedTarget(
+                        job.projectId,
+                        job.publicationId,
+                        job.claimedByActorId,
+                        completedAt
+                    )
+                )
+                    retryAt = null
                 if (retryAt !== null) {
                     publicationChanges = readyPublicationForRetryStatement.run(
                         completedAt,

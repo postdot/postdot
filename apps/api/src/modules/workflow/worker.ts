@@ -83,7 +83,11 @@ export interface PublicationWorker {
 
 export function createPublicationWorker(options: PublicationWorkerOptions): PublicationWorker {
     const now = options.now ?? Date.now
-    const workflowStore = createWorkflowStore(options.database)
+    const workflowStore = createWorkflowStore(options.database, {
+        publicMediaUrlAvailable:
+            options.resolveBuiltInMediaUrl !== undefined ||
+            options.resolveCustomHttpMediaUrl !== undefined,
+    })
     const publisherStore = options.publisherStore
     const providerMediaDeliveryStore =
         options.providerMediaDeliveryStore ??
