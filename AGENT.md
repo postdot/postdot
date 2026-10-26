@@ -96,7 +96,7 @@ content generator.
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
 - **Authentication boundary:** Better Auth authenticates people into Postdot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
-- **Publisher ownership:** Channel connections and their credentials belong to a project. The actor who connects one is audit attribution, not its owner; actor departure or account deletion does not revoke the project connection.
+- **Publisher ownership:** Existing released connections and credentials are project-owned. Shared-channel implementation follows [ADR-095](.autonomos/decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](.autonomos/specs/SPEC-009-shared-channel-workflows.md): workspace ownership, explicit project attachments and unchanged project-content access. Acceptance of that target does not mean its migration or workflows are delivered. The connecting actor is audit attribution, not personal secret ownership; actor departure does not revoke the connection.
 
 ## 📁 Key Directories
 

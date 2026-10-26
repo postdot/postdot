@@ -7,6 +7,12 @@
 
 ## Current direction
 
+Shared-channel development follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
+and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md) under SHARE-592/GitHub #12.
+This is accepted target behavior, not delivered functionality. Source and alpha.2
+remain project-owned until the migration and complete workflow are validated.
+
+
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
@@ -61,6 +67,8 @@ Restore does not requeue cancelled work; permanent deletion retains a minimal
 receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
+
+- [/] **[SHARE-592]** Deliver workspace-owned channels with explicit project sharing `Priority: 🟠` `Complexity: XL` — GitHub #12; accepted [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md). One coherent milestone: destination/credential prerequisites, preserved migration, scoped sharing, contextual Studio/API/CLI, calendar, optional cadence and lifecycle. HTTP builder expansion remains paused under ISSUE-167.
 
 - [x] **[CHANNEL-591]** Clarify explicit draft profile adaptation with readable previous values and field-level change guidance `Priority: 🟠` `Complexity: M` — ISSUE-167; preserve ADR-079 explicit reuse, local work, validation and immutable history. Completed 2026-10-26; [evidence](worklogs/2026-10-26-CHANNEL-591.md).
 
