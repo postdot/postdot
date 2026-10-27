@@ -1288,6 +1288,7 @@ describe('publication worker', () => {
 
     it('runs scheduled work through the worker scheduler and a local provider sandbox', async () => {
         let currentTime = now
+        let releaseTimedOutRequest: (() => void) | undefined
         const attempts = new Map<string, number>()
         const timeoutRequests: number[] = []
         const deliveries: Array<{
@@ -1309,7 +1310,11 @@ describe('publication worker', () => {
                 if (label === 'timeout') {
                     timeoutRequests.push(attempt)
                     if (attempt === 1) {
-                        await new Promise(resolve => setTimeout(resolve, 25))
+                        // Hold only the intentional timeout response. Ordinary
+                        // successful I/O must not race a five-millisecond budget.
+                        await new Promise<void>(resolve => {
+                            releaseTimedOutRequest = resolve
+                        })
                         return Response.json({ accepted: true }, { status: 201 })
                     }
                 }
@@ -1453,7 +1458,7 @@ describe('publication worker', () => {
                             schemes: ['http'],
                         },
                     ],
-                    timeoutMs: 5,
+                    timeoutMs: 100,
                 }),
                 now: () => currentTime,
                 retryPolicy: { nextRunAt: ({ failedAt }) => failedAt + 100 },
@@ -1561,6 +1566,7 @@ describe('publication worker', () => {
 
             await worker.stop()
         } finally {
+            releaseTimedOutRequest?.()
             receiver.stop()
             closeDatabase(database)
         }

@@ -381,3 +381,11 @@ export type {
     WorkspaceChannelMigrationPlan,
     WorkspaceChannelResourceOwner,
 } from './workspace-channel-migration-plan'
+
+export { createWorkspaceActorStore } from './workspace-actor-store'
+export type {
+    WorkspaceEventJournalEntry,
+    JournalEntry,
+    AppendWorkspaceDomainEventInput,
+    ReadWorkspaceEventJournalInput,
+} from './event-journal-store'

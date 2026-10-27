@@ -114,6 +114,7 @@ export function createNotificationStore(
     const listUserProjectIdsStatement = client.query<{ readonly id: string }, [userId: string]>(`
         select distinct project_id as id from actors
         where subject_id = ?1
+          and project_id is not null
           and kind in ('human', 'agent', 'api_token')
         order by project_id
     `)

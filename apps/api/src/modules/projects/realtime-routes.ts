@@ -5,6 +5,7 @@ import {
     parseEventJournalCursor,
     type EventJournalCursor,
     type EventJournalEntry,
+    type JournalEntry,
     type EventJournalStore,
     type NotificationStore,
     type AccessStore,
@@ -330,8 +331,8 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
     )
 }
 
-export function toProjectRealtimeEvent(entry: EventJournalEntry): ProjectRealtimeEvent | null {
-    if (entry.version !== 1) return null
+export function toProjectRealtimeEvent(entry: JournalEntry): ProjectRealtimeEvent | null {
+    if (entry.projectId === null || entry.version !== 1) return null
 
     const expectedSubjectType =
         supportedProjectEventSubjects[entry.name as ProjectRealtimeEventType]
@@ -697,7 +698,7 @@ export function createUserEventStream({
                 }
                 if (closed) return
 
-                let entries: readonly EventJournalEntry[]
+                let entries: readonly JournalEntry[]
                 try {
                     entries = journal.readAllAfter({
                         after: scanCursor,
@@ -730,6 +731,7 @@ export function createUserEventStream({
 
                     lastSequence = sequence
                     scanCursor = entry.cursor
+                    if (entry.projectId === null) continue
                     const event = toProjectRealtimeEvent(entry)
                     if (
                         event !== null &&

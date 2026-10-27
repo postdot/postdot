@@ -12,7 +12,6 @@ import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import { createPublicationFirstCommentStore } from './publication-first-comment-store'
 import {
-    actors,
     auditEvents,
     channelProfileVersions,
     instanceMemberships,
@@ -221,32 +220,16 @@ function createFixture(
     ] as const) {
         seedAccess(database, projectId, subjectId, role)
     }
-    database
-        .insert(actors)
-        .values([
-            {
-                id: editorActorId,
-                projectId,
-                kind: 'human',
-                subjectId: editorSubjectId,
-                displayName: 'Enabling Editor',
-            },
-            {
-                id: otherEditorActorId,
-                projectId,
-                kind: 'human',
-                subjectId: otherEditorSubjectId,
-                displayName: 'Second Editor',
-            },
-            {
-                id: `actor-${suffix}-viewer`,
-                projectId,
-                kind: 'human',
-                subjectId: viewerSubjectId,
-                displayName: 'Project Viewer',
-            },
-        ])
-        .run()
+    // Historical fixtures must name historical columns rather than infer
+    // today's actor scope columns from the ORM schema.
+    const insertActor = database.$client.query(`insert into actors
+        (id,project_id,kind,subject_id,display_name) values (?,?,'human',?,?)`)
+    for (const [id, subjectId, displayName] of [
+        [editorActorId, editorSubjectId, 'Enabling Editor'],
+        [otherEditorActorId, otherEditorSubjectId, 'Second Editor'],
+        [`actor-${suffix}-viewer`, viewerSubjectId, 'Project Viewer'],
+    ])
+        insertActor.run(id!, projectId, subjectId!, displayName!)
     const profile = provider === 'bluesky' ? blueskyProfile : mastodonProfile
     database.$client
         .query('insert into channels (id,project_id,name,profile_version_id) values (?,?,?,?)')

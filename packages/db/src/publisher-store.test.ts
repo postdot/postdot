@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'bun:test'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import type { ChannelProfileDefinition } from '@postdot/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
+import { defaultMigrationsFolder, runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
@@ -840,8 +843,9 @@ describe('confirmed publisher destination', () => {
             closeDatabase(f.database)
         }
     })
-    it('preserves a previous-schema database and leaves legacy execution identity unrecorded', async () => {
+    it('preserves data when applying destination-identity SQL to the prior column shape', async () => {
         const f = await scenario()
+        const folder = mkdtempSync(join(tmpdir(), 'postdot-destination-sql-'))
         try {
             const job = f.claim()!
             expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
@@ -868,10 +872,30 @@ describe('confirmed publisher destination', () => {
             f.database.$client.run(
                 'alter table publication_execution_revisions drop column destination_snapshot_json'
             )
-            f.database.$client.run(
-                'delete from __drizzle_migrations where created_at = (select max(created_at) from __drizzle_migrations)'
+            // Exercise this additive SQL in isolation. Later migrations may
+            // already exist; never mistake the newest journal entry for this one.
+            const journal = JSON.parse(
+                readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
+            ) as { entries: { idx: number; tag: string; when: number }[] }
+            const entry = journal.entries.find(
+                row => row.tag === '0020_channel_destination_identity'
+            )!
+            mkdirSync(join(folder, 'meta'))
+            copyFileSync(
+                join(defaultMigrationsFolder, `${entry.tag}.sql`),
+                join(folder, `${entry.tag}.sql`)
             )
-            runMigrations(f.database)
+            writeFileSync(
+                join(folder, 'meta/_journal.json'),
+                JSON.stringify({
+                    version: '7',
+                    dialect: 'sqlite',
+                    entries: [
+                        { ...entry, when: Math.max(...journal.entries.map(row => row.when)) + 1 },
+                    ],
+                })
+            )
+            runMigrations(f.database, folder)
             expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
             expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(
                 originalTargets
@@ -887,6 +911,7 @@ describe('confirmed publisher destination', () => {
             expect(f.state().requiresConfirmation).toBe(false)
         } finally {
             closeDatabase(f.database)
+            rmSync(folder, { recursive: true, force: true })
         }
     })
     it('creates a fresh execution job when a pending automatic retry is reconfirmed for another destination', async () => {

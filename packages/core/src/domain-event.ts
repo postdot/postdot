@@ -40,7 +40,35 @@ export interface CreateDomainEventInput {
     readonly causationId?: string | null
 }
 
+export interface WorkspaceDomainEvent extends Omit<DomainEvent, 'projectId'> {
+    readonly projectId: null
+    readonly workspaceId: string
+}
+
+export type CreateWorkspaceDomainEventInput = Omit<CreateDomainEventInput, 'projectId'> & {
+    readonly workspaceId: string
+}
+
+export function createWorkspaceDomainEvent(
+    input: CreateWorkspaceDomainEventInput
+): WorkspaceDomainEvent {
+    return {
+        ...createEventEnvelope(input),
+        projectId: null,
+        workspaceId: requireNonBlank(input.workspaceId, 'domain event workspaceId'),
+    }
+}
+
 export function createDomainEvent(input: CreateDomainEventInput): DomainEvent {
+    return {
+        ...createEventEnvelope(input),
+        projectId: requireNonBlank(input.projectId, 'domain event projectId'),
+    }
+}
+
+function createEventEnvelope(
+    input: Omit<CreateDomainEventInput, 'projectId'>
+): Omit<DomainEvent, 'projectId'> {
     if (!Number.isSafeInteger(input.version) || input.version < 1) {
         throw new DomainInvariantError(
             'invalid_input',
@@ -53,7 +81,6 @@ export function createDomainEvent(input: CreateDomainEventInput): DomainEvent {
 
     return {
         id: requireNonBlank(input.id, 'domain event id'),
-        projectId: requireNonBlank(input.projectId, 'domain event projectId'),
         actorId: requireNonBlank(input.actorId, 'domain event actorId'),
         name: requireNonBlank(input.name, 'domain event name'),
         version: input.version,

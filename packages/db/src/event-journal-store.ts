@@ -1,5 +1,8 @@
 import {
     createDomainEvent,
+    createWorkspaceDomainEvent,
+    type WorkspaceDomainEvent,
+    type CreateWorkspaceDomainEventInput,
     DomainInvariantError,
     requireNonBlank,
     type CreateDomainEventInput,
@@ -20,6 +23,18 @@ export type EventJournalCursor = string & { readonly __eventJournalCursor: uniqu
 
 export interface EventJournalEntry extends DomainEvent {
     readonly cursor: EventJournalCursor
+}
+
+export interface WorkspaceEventJournalEntry extends WorkspaceDomainEvent {
+    readonly cursor: EventJournalCursor
+}
+
+export type JournalEntry = EventJournalEntry | WorkspaceEventJournalEntry
+export type AppendWorkspaceDomainEventInput = Omit<CreateWorkspaceDomainEventInput, 'id'> & {
+    readonly id?: string
+}
+export type ReadWorkspaceEventJournalInput = Omit<ReadEventJournalInput, 'projectId'> & {
+    readonly workspaceId: string
 }
 
 export type AppendDomainEventInput = Omit<CreateDomainEventInput, 'id'> & {
@@ -54,7 +69,8 @@ export function eventJournalCursorSequence(cursor: EventJournalCursor): number {
 interface EventJournalRow {
     readonly cursorSequence: number
     readonly id: string
-    readonly projectId: string
+    readonly projectId: string | null
+    readonly workspaceId: string | null
     readonly actorId: string
     readonly name: string
     readonly version: number
@@ -76,7 +92,7 @@ export function createEventJournalStore(
         void,
         [
             id: string,
-            projectId: string,
+            projectId: string | null,
             actorId: string,
             name: string,
             subjectType: string,
@@ -86,6 +102,7 @@ export function createEventJournalStore(
             correlationId: string | null,
             causationId: string | null,
             occurredAt: number,
+            workspaceId: string | null,
         ]
     >(`
         insert into audit_events (
@@ -99,8 +116,9 @@ export function createEventJournalStore(
             event_version,
             correlation_id,
             causation_id,
-            created_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            created_at,
+            workspace_id
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
     `)
     const readStatement = client.query<
         EventJournalRow,
@@ -109,6 +127,7 @@ export function createEventJournalStore(
         select sequence as cursorSequence,
                id,
                project_id as projectId,
+               workspace_id as workspaceId,
                actor_id as actorId,
                action as name,
                event_version as version,
@@ -124,10 +143,34 @@ export function createEventJournalStore(
         order by sequence
         limit ?3
     `)
+    const readWorkspaceStatement = client.query<
+        EventJournalRow,
+        [workspaceId: string, afterSequence: number, limit: number]
+    >(`
+        select sequence as cursorSequence,
+               id,
+               project_id as projectId,
+               workspace_id as workspaceId,
+               actor_id as actorId,
+               action as name,
+               event_version as version,
+               entity_type as subjectType,
+               entity_id as subjectId,
+               metadata_json as payloadJson,
+               created_at as occurredAt,
+               correlation_id as correlationId,
+               causation_id as causationId
+        from audit_events
+        where workspace_id = ?1
+          and sequence > ?2
+        order by sequence
+        limit ?3
+    `)
     const readAllStatement = client.query<EventJournalRow, [afterSequence: number, limit: number]>(`
         select sequence as cursorSequence,
                id,
                project_id as projectId,
+               workspace_id as workspaceId,
                actor_id as actorId,
                action as name,
                event_version as version,
@@ -164,7 +207,8 @@ export function createEventJournalStore(
                     event.version,
                     event.correlationId,
                     event.causationId,
-                    event.occurredAt
+                    event.occurredAt,
+                    null
                 )
 
                 return { ...event, cursor: encodeCursor(result.lastInsertRowid) }
@@ -175,29 +219,57 @@ export function createEventJournalStore(
                 : createDatabaseTransaction(database, appendCommitted)()
         },
 
+        appendWorkspace(input: AppendWorkspaceDomainEventInput): WorkspaceEventJournalEntry {
+            const event = createWorkspaceDomainEvent({ ...input, id: input.id ?? createId() })
+            const append = () => {
+                const result = appendStatement.run(
+                    event.id,
+                    null,
+                    event.actorId,
+                    event.name,
+                    event.subject.type,
+                    event.subject.id,
+                    JSON.stringify(event.payload),
+                    event.version,
+                    event.correlationId,
+                    event.causationId,
+                    event.occurredAt,
+                    event.workspaceId
+                )
+                return { ...event, cursor: encodeCursor(result.lastInsertRowid) }
+            }
+            return client.inTransaction ? append() : createDatabaseTransaction(database, append)()
+        },
+
+        readWorkspaceAfter(
+            input: ReadWorkspaceEventJournalInput
+        ): readonly WorkspaceEventJournalEntry[] {
+            const workspaceId = requireNonBlank(input.workspaceId, 'workspaceId')
+            const limit = requireReadLimit(input.limit)
+            return readWorkspaceStatement
+                .all(workspaceId, decodeCursor(input.after), limit)
+                .map(row => {
+                    const event = toEventJournalEntry(row)
+                    if (event.projectId !== null) throw new Error('Expected a workspace event')
+                    return event
+                })
+        },
+
         readAfter(input: ReadEventJournalInput): readonly EventJournalEntry[] {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const afterSequence = decodeCursor(input.after)
-            const limit = input.limit ?? defaultReadLimit
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumReadLimit) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `event journal limit must be between 1 and ${maximumReadLimit}`
-                )
-            }
+            const limit = requireReadLimit(input.limit)
 
-            return readStatement.all(projectId, afterSequence, limit).map(toEventJournalEntry)
+            return readStatement.all(projectId, afterSequence, limit).map(row => {
+                const event = toEventJournalEntry(row)
+                if (event.projectId === null) throw new Error('Expected a project event')
+                return event
+            })
         },
 
-        readAllAfter(input: ReadAllEventJournalInput = {}): readonly EventJournalEntry[] {
+        readAllAfter(input: ReadAllEventJournalInput = {}): readonly JournalEntry[] {
             const afterSequence = decodeCursor(input.after)
-            const limit = input.limit ?? defaultReadLimit
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumReadLimit) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `event journal limit must be between 1 and ${maximumReadLimit}`
-                )
-            }
+            const limit = requireReadLimit(input.limit)
 
             return readAllStatement.all(afterSequence, limit).map(toEventJournalEntry)
         },
@@ -209,7 +281,7 @@ export function createEventJournalStore(
     }
 }
 
-function toEventJournalEntry(row: EventJournalRow): EventJournalEntry {
+function toEventJournalEntry(row: EventJournalRow): JournalEntry {
     const parsedPayload: unknown = row.payloadJson === null ? {} : JSON.parse(row.payloadJson)
     if (
         parsedPayload === null ||
@@ -222,21 +294,33 @@ function toEventJournalEntry(row: EventJournalRow): EventJournalEntry {
         )
     }
 
-    return {
-        ...createDomainEvent({
-            id: row.id,
-            projectId: row.projectId,
-            actorId: row.actorId,
-            name: row.name,
-            version: row.version,
-            subject: { type: row.subjectType, id: row.subjectId },
-            payload: parsedPayload as Record<string, unknown>,
-            occurredAt: row.occurredAt,
-            correlationId: row.correlationId,
-            causationId: row.causationId,
-        }),
-        cursor: encodeCursor(row.cursorSequence),
+    const input = {
+        id: row.id,
+        actorId: row.actorId,
+        name: row.name,
+        version: row.version,
+        subject: { type: row.subjectType, id: row.subjectId },
+        payload: parsedPayload as Record<string, unknown>,
+        occurredAt: row.occurredAt,
+        correlationId: row.correlationId,
+        causationId: row.causationId,
     }
+    const cursor = encodeCursor(row.cursorSequence)
+    if (row.projectId !== null)
+        return { ...createDomainEvent({ ...input, projectId: row.projectId }), cursor }
+    if (row.workspaceId === null) throw new Error('Journal event has no scope')
+    return { ...createWorkspaceDomainEvent({ ...input, workspaceId: row.workspaceId }), cursor }
+}
+
+function requireReadLimit(value: number | undefined): number {
+    const limit = value ?? defaultReadLimit
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumReadLimit) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `event journal limit must be between 1 and ${maximumReadLimit}`
+        )
+    }
+    return limit
 }
 
 function encodeCursor(sequence: number | bigint): EventJournalCursor {

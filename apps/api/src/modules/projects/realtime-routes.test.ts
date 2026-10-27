@@ -706,3 +706,40 @@ describe('prepared first-comment realtime events', () => {
         }
     })
 })
+
+it('advances past workspace facts without emitting their identity or payload in a user stream', async () => {
+    const workspace = {
+        ...journalEntry({ id: 'private-workspace-fact', sequence: 1 }),
+        projectId: null,
+        workspaceId: 'private-workspace',
+    }
+    const project = journalEntry({ id: 'visible-project-fact', sequence: 2 })
+    const cursors: unknown[] = []
+    const reader = createUserEventStream({
+        request: new Request('http://localhost/api/notifications/events'),
+        userId: 'user-1',
+        listProjectIds: () => ['project-1'],
+        after: null,
+        journal: {
+            readAllAfter: input => {
+                cursors.push(input?.after)
+                return input?.after == null
+                    ? [workspace]
+                    : input?.after === workspace.cursor
+                      ? [project]
+                      : []
+            },
+        },
+        options: { heartbeatIntervalMs: 60000, batchSize: 1 },
+    }).getReader()
+    try {
+        expect(toProjectRealtimeEvent(workspace)).toBeNull()
+        const frame = (await readText(reader)).text
+        expect(frame).toContain('visible-project-fact')
+        expect(frame).not.toContain('private-workspace')
+        expect(frame).not.toContain('must-not-be-streamed')
+        expect(cursors).toContain(workspace.cursor)
+    } finally {
+        await reader.cancel()
+    }
+})

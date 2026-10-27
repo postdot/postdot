@@ -63,6 +63,12 @@ export interface Actor extends ProjectEntity {
     readonly displayName: string
 }
 
+/** Workspace attribution survives deletion of an originating project. It grants no access. */
+export interface WorkspaceActor extends Omit<Actor, 'projectId'> {
+    readonly workspaceId: string
+    readonly originActorId: string | null
+}
+
 export interface Channel extends ProjectEntity {
     readonly name: string
     readonly profileId: string

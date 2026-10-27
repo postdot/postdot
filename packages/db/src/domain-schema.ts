@@ -196,9 +196,12 @@ export const actors = sqliteTable(
     'actors',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+        projectId: text('project_id').references(() => projects.id, { onDelete: 'no action' }),
+        workspaceId: text('workspace_id').references(() => workspaces.id, {
+            onDelete: 'no action',
+        }),
+        // Provenance only: the originating project actor may later be deleted.
+        originActorId: text('origin_actor_id'),
         kind: text('kind', { enum: actorKinds }).notNull(),
         subjectId: text('subject_id'),
         displayName: text('display_name').notNull(),
@@ -206,6 +209,16 @@ export const actors = sqliteTable(
     },
     table => [
         uniqueIndex('actors_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('actors_workspace_id_id_uidx').on(table.workspaceId, table.id),
+        uniqueIndex('actors_workspace_origin_uidx').on(table.workspaceId, table.originActorId),
+        check(
+            'actors_scope_valid',
+            sql`(${table.projectId} is not null and ${table.workspaceId} is null and ${table.originActorId} is null) or (${table.projectId} is null and ${table.workspaceId} is not null)`
+        ),
+        check(
+            'actors_origin_nonblank',
+            sql`${table.originActorId} is null or length(trim(${table.originActorId})) > 0`
+        ),
         check('actors_kind_valid', sql`${table.kind} in ('human', 'agent', 'api_token', 'system')`),
         check('actors_display_name_nonblank', sql`length(trim(${table.displayName})) > 0`),
         check(
@@ -2312,9 +2325,8 @@ export const auditEvents = sqliteTable(
     {
         sequence: integer('sequence').primaryKey({ autoIncrement: true }),
         id: text('id').notNull(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+        projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+        workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
         actorId: text('actor_id').notNull(),
         action: text('action').notNull(),
         entityType: text('entity_type').notNull(),
@@ -2328,6 +2340,16 @@ export const auditEvents = sqliteTable(
     table => [
         uniqueIndex('audit_events_id_uidx').on(table.id),
         uniqueIndex('audit_events_project_id_id_uidx').on(table.projectId, table.id),
+        index('audit_events_workspace_sequence_idx').on(table.workspaceId, table.sequence),
+        check(
+            'audit_events_scope_valid',
+            sql`(${table.projectId} is not null and ${table.workspaceId} is null) or (${table.projectId} is null and ${table.workspaceId} is not null)`
+        ),
+        foreignKey({
+            name: 'audit_events_workspace_actor_fk',
+            columns: [table.workspaceId, table.actorId],
+            foreignColumns: [actors.workspaceId, actors.id],
+        }).onDelete('restrict'),
         index('audit_events_project_id_sequence_idx').on(table.projectId, table.sequence),
         index('audit_events_project_id_created_at_idx').on(table.projectId, table.createdAt),
         index('audit_events_project_id_entity_idx').on(
