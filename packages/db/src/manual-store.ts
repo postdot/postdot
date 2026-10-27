@@ -48,6 +48,7 @@ import { createSearchStore } from './manual-store/search-store'
 import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 import { createPublicationDestinationStore } from './publication-destination-store'
+import { createWorkspaceChannelStore } from './workspace-channel-store'
 
 export type {
     ArchiveChannelInput,
@@ -353,6 +354,7 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
     const publicMediaUrlAvailable = options.publicMediaUrlAvailable ?? false
     const projectChannelStore = createProjectChannelStore(database, { now, createId })
     const channelLifecycleStore = createChannelLifecycleStore(database, { now, createId })
+    const sharedChannels = createWorkspaceChannelStore(database, { now, createId })
 
     const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
@@ -1053,6 +1055,8 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
             loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
         }),
         ...projectChannelStore,
+        /** Workspace-owned channel sharing; every call needs a request-bound access policy. */
+        sharedChannels,
         ...createSearchStore(database),
         ...channelLifecycleStore,
         ...channelProfileStore,

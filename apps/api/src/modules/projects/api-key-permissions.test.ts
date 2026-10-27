@@ -44,6 +44,14 @@ describe('user API-key capability policy', () => {
             'publication:dispatch',
         ],
         ['POST', '/api/projects/project-1/channels', 'channel:manage'],
+        ['GET', '/api/projects/project-1/channels/channel-1/sharing', 'project:read'],
+        ['POST', '/api/projects/project-1/channels/channel-1/attachments', 'channel:share'],
+        [
+            'POST',
+            '/api/projects/project-1/channels/channel-1/attachments/project-2/withdraw',
+            'channel:share',
+        ],
+        ['POST', '/api/projects/project-1/channels/channel-1/management', 'channel:share'],
         [
             'POST',
             '/api/projects/project-1/publications/publication-1/draft/adopt-profile',

@@ -383,3 +383,14 @@ export type {
     AppendWorkspaceDomainEventInput,
     ReadWorkspaceEventJournalInput,
 } from './event-journal-store'
+
+export type {
+    ChannelAccessPolicy,
+    ChannelManagementIntent,
+    ChannelProjectAction,
+    ChannelRecord,
+    MutationResult as SharedChannelMutationResult,
+    ProjectChannelView,
+    WorkspaceChannelContext,
+    WorkspaceChannelView,
+} from './workspace-channel-store'

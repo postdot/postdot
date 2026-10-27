@@ -267,6 +267,7 @@ export type InferredUserApiKeyContracts = [
             | 'publication:manage'
             | 'publication:dispatch'
             | 'channel:manage'
+            | 'channel:share'
             | 'media:manage'
             | 'analytics:refresh'
             | 'media:permanently_delete'

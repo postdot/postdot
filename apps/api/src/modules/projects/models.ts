@@ -372,6 +372,78 @@ export const channelLifecycleConflictResponse = Type.Object({
     }),
 })
 
+const channelRevision = Type.Integer({ minimum: 1 })
+
+export const attachChannelBody = Type.Object({
+    /** The project that gains publication use of the channel. */
+    projectId: Type.String({ minLength: 1 }),
+    expectedRevision: channelRevision,
+})
+
+export const withdrawChannelBody = Type.Object({
+    expectedRevision: channelRevision,
+    /** Required to withdraw the last active project: the channel is archived. */
+    lastAttachment: Type.Optional(Type.Literal('archive')),
+})
+
+export const transferChannelManagementBody = Type.Object({
+    /** The attached project that becomes the managing project. */
+    projectId: Type.String({ minLength: 1 }),
+    expectedRevision: channelRevision,
+})
+
+export const attachedChannelParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    channelId: Type.String({ minLength: 1 }),
+    attachedProjectId: Type.String({ minLength: 1 }),
+})
+
+export const channelSharingResponse = Type.Object({
+    channel: Type.Object({
+        id: Type.String(),
+        revision: Type.Integer(),
+        shared: Type.Boolean(),
+        attachmentState: Type.Union([Type.Literal('active'), Type.Literal('detached')]),
+        attachmentRevision: Type.Integer(),
+        canManage: Type.Boolean(),
+        canShare: Type.Boolean(),
+        canWithdraw: Type.Boolean(),
+        management: Type.Union([
+            Type.Object({ kind: Type.Literal('workspace') }),
+            Type.Object({
+                kind: Type.Literal('project'),
+                /** Null when the manager is not readable by the caller. */
+                project: Type.Union([
+                    Type.Object({ id: Type.String(), name: Type.String() }),
+                    Type.Null(),
+                ]),
+            }),
+        ]),
+    }),
+    /** Only projects readable by the caller; hidden projects are neither named nor counted. */
+    usages: Type.Array(
+        Type.Object({
+            projectId: Type.String(),
+            name: Type.String(),
+            state: Type.Union([Type.Literal('active'), Type.Literal('detached')]),
+            revision: Type.Integer(),
+        })
+    ),
+})
+
+export const channelSharingMutationResponse = Type.Object({
+    result: Type.Union([Type.Literal('changed'), Type.Literal('unchanged')]),
+    revision: Type.Integer(),
+})
+
+export const channelSharingConflictResponse = Type.Object({
+    error: Type.Object({
+        code: Type.Union([Type.Literal('stale_revision'), Type.Literal('retirement_required')]),
+        message: Type.String(),
+        revision: Type.Integer(),
+    }),
+})
+
 export const channelLifecycleBody = Type.Object({
     expectedRevision: Type.Integer({ minimum: 1 }),
 })

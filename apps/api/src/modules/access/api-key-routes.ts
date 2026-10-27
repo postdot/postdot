@@ -31,6 +31,7 @@ const userApiKeyCapabilitySchema = Type.Union([
     Type.Literal('publication:manage'),
     Type.Literal('publication:dispatch'),
     Type.Literal('channel:manage'),
+    Type.Literal('channel:share'),
     Type.Literal('media:manage'),
     Type.Literal('analytics:refresh'),
     Type.Literal('media:permanently_delete'),

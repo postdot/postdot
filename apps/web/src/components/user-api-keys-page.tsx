@@ -656,6 +656,7 @@ const editableCapabilities: readonly UserApiKeyCapability[] = [
     'publication:manage',
     'publication:dispatch',
     'channel:manage',
+    'channel:share',
     'media:manage',
     'analytics:refresh',
     'media:permanently_delete',
@@ -675,6 +676,8 @@ function capabilityLabel(capability: UserApiKeyCapability) {
             return m.api_keys_action_dispatch_publications()
         case 'channel:manage':
             return m.api_keys_action_manage_channels()
+        case 'channel:share':
+            return m.api_keys_action_share_channels()
         case 'media:manage':
             return m.api_keys_action_manage_media()
         case 'analytics:refresh':

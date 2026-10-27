@@ -5,6 +5,7 @@ export const postbotApiKeyCapabilities = [
     'publication:manage',
     'publication:dispatch',
     'channel:manage',
+    'channel:share',
     'media:manage',
     'analytics:refresh',
     'media:permanently_delete',
@@ -30,6 +31,7 @@ const capabilityStatements: Record<PostbotApiKeyCapability, readonly [string, st
     'publication:manage': ['publication', 'manage'],
     'publication:dispatch': ['publication', 'dispatch'],
     'channel:manage': ['channel', 'manage'],
+    'channel:share': ['channel', 'share'],
     'media:manage': ['media', 'manage'],
     'analytics:refresh': ['analytics', 'refresh'],
     'media:permanently_delete': ['media', 'permanently_delete'],
@@ -105,6 +107,19 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         if (detail.length === 0) {
             if (normalizedMethod === 'GET') return 'project:read'
             return normalizedMethod === 'POST' ? 'channel:manage' : null
+        }
+
+        // Sharing is its own capability: it grants no connection management, dispatch or secret access.
+        if (detail[1] === 'sharing' && detail.length === 2) {
+            return normalizedMethod === 'GET' ? 'project:read' : null
+        }
+        if (detail[1] === 'attachments' && normalizedMethod === 'POST') {
+            if (detail.length === 2) return 'channel:share'
+            if (detail.length === 4 && detail[3] === 'withdraw') return 'channel:share'
+            return null
+        }
+        if (detail[1] === 'management' && detail.length === 2) {
+            return normalizedMethod === 'POST' ? 'channel:share' : null
         }
 
         if (detail[1] === 'publisher') {

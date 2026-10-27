@@ -18,6 +18,7 @@ import { normalizeCreationProfile } from './manual-store/channel-profile-definit
 import { invalidProfileError } from './manual-store/content-codec'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
+import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export type ChannelProjectAction =
     | 'read_channels'
@@ -43,7 +44,7 @@ export interface WorkspaceChannelContext {
     readonly contextProjectId?: string
 }
 
-interface ChannelRecord {
+export interface ChannelRecord {
     readonly id: string
     readonly workspaceId: string
     readonly name: string
@@ -79,7 +80,7 @@ export type WorkspaceChannelView = Omit<
     'projectId' | 'attachmentState' | 'attachmentRevision' | 'canWithdraw'
 >
 
-type MutationResult =
+export type MutationResult =
     | { readonly kind: 'not_found' }
     | { readonly kind: 'stale'; readonly revision: number }
     | { readonly kind: 'unchanged'; readonly revision: number }
@@ -464,7 +465,40 @@ export function createWorkspaceChannelStore(
         }
     }
 
+    const projectActor = client.query<{ id: string }, [string, string]>(
+        `select id from actors where project_id=? and subject_id=? and kind in ('human','agent','api_token') order by created_at,id limit 1`
+    )
+    const workspaceActors = createWorkspaceActorStore(database, { now, createId })
+
     return {
+        /**
+         * Resolve the request's attribution actor from a live project actor. The result carries no grant:
+         * every operation still asks the supplied policy port.
+         */
+        contextFor(input: {
+            readonly subjectId: string
+            readonly contextProjectId: string
+            readonly authorization: ChannelAccessPolicy
+        }): WorkspaceChannelContext | null {
+            const contextProject = project.get(requireNonBlank(input.contextProjectId, 'projectId'))
+            if (!contextProject?.workspaceId) return null
+            const actor = projectActor.get(
+                contextProject.id,
+                requireNonBlank(input.subjectId, 'subjectId')
+            )
+            if (!actor) return null
+            const attribution = workspaceActors.ensureFromProjectActor({
+                workspaceId: contextProject.workspaceId,
+                projectActorId: actor.id,
+            })
+            return attribution
+                ? {
+                      actorId: attribution.id,
+                      contextProjectId: contextProject.id,
+                      authorization: input.authorization,
+                  }
+                : null
+        },
         create(
             ctx: WorkspaceChannelContext,
             input: { projectId: string; name: string; profile?: ChannelProfileDefinition }

@@ -1266,6 +1266,7 @@
     "api_keys_action_read_project": "Lire les données des projets",
     "api_keys_action_manage_publications": "Préparer et gérer les publications",
     "api_keys_action_dispatch_publications": "Programmer et contrôler les publications",
+    "api_keys_action_share_channels": "Partager des canaux avec d’autres projets",
     "api_keys_action_manage_channels": "Gérer les canaux et les profils",
     "api_keys_action_manage_media": "Importer et gérer les médias",
     "api_keys_action_refresh_analytics": "Actualiser les statistiques des plateformes",
