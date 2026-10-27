@@ -76,6 +76,7 @@ export function createFacebookConnectionFlow(options: {
     readonly publishers: ReturnType<typeof createPublisherStore>
     readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
     readonly access: Pick<ReturnType<typeof createAccessStore>, 'canAccessProject'>
+    readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
     readonly oauth: ReturnType<typeof createFacebookOAuth>
     readonly graph: ReturnType<typeof createFacebookPublisher>
     readonly applicationId?: string | null
@@ -102,7 +103,10 @@ export function createFacebookConnectionFlow(options: {
             )
         )
             return fail('not_found')
-        if (!options.access.canAccessProject(binding.projectId, binding.subjectId, 'editor'))
+        if (
+            !options.access.canAccessProject(binding.projectId, binding.subjectId, 'editor') ||
+            !options.canManageChannel(binding.projectId, binding.channelId, binding.subjectId)
+        )
             return fail('forbidden')
         const channel = options.channels
             .listChannels(binding.projectId, binding.subjectId)
@@ -302,6 +306,7 @@ export function createFacebookConnectionFlow(options: {
                 if (replaced.kind !== 'updated') return fail('conflict')
             }
             try {
+                authorize(binding)
                 const connected = options.publishers.createPublisherConnection({
                     projectId: binding.projectId,
                     channelId: binding.channelId,

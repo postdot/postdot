@@ -33,6 +33,7 @@ function fixture(
     runMigrations(database)
     let timestamp = 1_800_000_000_000
     let editor = true
+    let manager = true
     let permitted = true
     let failConnection = false
     let requests = 0
@@ -150,6 +151,7 @@ function fixture(
                     : publishers.createPublisherConnection(input),
         },
         access: { canAccessProject: () => editor },
+        canManageChannel: () => manager,
         oauth,
         graph,
         now,
@@ -188,6 +190,9 @@ function fixture(
         },
         advance(milliseconds = 60_001) {
             timestamp += milliseconds
+        },
+        loseManagement() {
+            manager = false
         },
         setViewer() {
             editor = false
@@ -782,6 +787,21 @@ test('manual channels cannot be connected through the Facebook flow', async () =
             f.flow.start({ ...f.binding, channelId: manual.id }, '/dashboard/channels')
         ).rejects.toMatchObject({ code: 'conflict' })
         expect(f.requests).toBe(0)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('losing channel management preserves editor access but blocks Page selection', async () => {
+    const f = fixture()
+    try {
+        const pending = await f.pending()
+        const before = f.requests
+        f.loseManagement()
+        await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
+            code: 'forbidden',
+        })
+        expect(f.requests).toBe(before)
     } finally {
         closeDatabase(f.database)
     }

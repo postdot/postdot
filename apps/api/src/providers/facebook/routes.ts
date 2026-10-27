@@ -55,6 +55,7 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
         readonly access: AccessStore
         readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
         readonly onWorkScheduled?: () => void
@@ -69,6 +70,7 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
             publishers: publisher.publisherStore,
             channels: options.channels,
             access: options.access,
+            canManageChannel: options.canManageChannel,
             ...application,
             now: publisher.now,
         })
@@ -164,7 +166,8 @@ export function registerFacebookPublisherRoutes<const Routes extends Record<stri
                     if (
                         publisher.publisherStore.getProjectActorId(attempt.projectId, user.id) !==
                             attempt.connectedByActorId ||
-                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor')
+                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor') ||
+                        !options.canManageChannel(attempt.projectId, attempt.channelId, user.id)
                     )
                         return redirect(fallback)
                     fallback = new URL(attempt.returnPath, publisher.webOrigin)

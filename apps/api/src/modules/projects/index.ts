@@ -34,8 +34,9 @@ import { registerProviderApplicationRoutes } from '../publishers/application-con
 import { registerRecoveryRoutes } from '../recovery/routes'
 import { registerProjectAccessGrantRoutes } from './access-grant-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
-import { canApiKeyAccessRequest } from './api-key-permissions'
+import { canApiKeyAccessRequest, requiredApiKeyCapability } from './api-key-permissions'
 import { registerAuditEventRoutes } from './audit-event-routes'
+import { createChannelAccessPolicy } from './channel-access-policy'
 import { registerChannelProfilePresetRoutes } from './channel-profile-preset-routes'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
@@ -58,6 +59,7 @@ import { registerProjectRoutes } from './routes'
 import { registerSearchRoutes } from './search-routes'
 import { registerTaxonomyRoutes } from './taxonomy-routes'
 import type { ManualStore, PublisherRuntime } from './types'
+import { registerWorkspaceChannelRoutes } from './workspace-channel-routes'
 
 function isProjectAccessPath(projectId: string, requestPath: string): boolean {
     const basePath = `/api/projects/${projectId}/`
@@ -141,8 +143,41 @@ export function createProjectModule(options: ProjectModuleOptions) {
         // One shared decision for sessions and API keys: live project access
         // first, then the documented workspace-manager reach limited to the
         // project access surface.
-        authorizeProjectAccess: (projectId, userId, requestPath) => {
-            if (options.access.canAccessProject(projectId, userId)) return true
+        authorizeProjectAccess: (projectId, userId, requestPath, requestContext) => {
+            if (options.access.canAccessProject(projectId, userId)) {
+                const channelId = requestPath.match(
+                    /^\/api\/projects\/[^/]+\/channels\/([^/]+)/
+                )?.[1]
+                const managementWrite =
+                    requestContext &&
+                    (requiredApiKeyCapability(requestContext.method, requestPath) ===
+                        'channel:manage' ||
+                        requestPath.includes('/publisher/'))
+                if (
+                    channelId &&
+                    managementWrite &&
+                    (!options.resourceLifecycle ||
+                        options.resourceLifecycle.projectState(projectId) === 'active')
+                ) {
+                    const ctx = options.manualStore.sharedChannels.contextFor({
+                        contextProjectId: projectId,
+                        subjectId: userId,
+                        authorization: createChannelAccessPolicy({
+                            access: options.access,
+                            userId,
+                            authMethod: requestContext.authMethod,
+                            apiKeyProjectIds: requestContext.apiKeyProjectIds,
+                            apiKeyPermissions: requestContext.apiKeyPermissions,
+                        }),
+                    })
+                    return (
+                        ctx !== null &&
+                        options.manualStore.sharedChannels.getCadence(ctx, channelId)?.canManage ===
+                            true
+                    )
+                }
+                return true
+            }
             if (!isProjectAccessPath(projectId, requestPath)) return false
             const workspaceId = options.access.getProjectWorkspaceId(projectId)
             return workspaceId !== null && options.access.canManageWorkspace(workspaceId, userId)
@@ -167,7 +202,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.resourceLifecycle
     )
     const providerApplicationRoutes = registerProviderApplicationRoutes(
-        workspaceRoutes,
+        registerWorkspaceChannelRoutes(
+            workspaceRoutes,
+            options.manualStore,
+            options.access,
+            options.onWorkScheduled
+        ),
         options.publisher,
         options.access
     )

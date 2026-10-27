@@ -57,6 +57,32 @@ export function createWorkspaceActorStore(
         }
     )
     return {
+        /** Attribution for an authenticated workspace request; the caller supplies live authorization. */
+        ensureForSubject(input: {
+            workspaceId: string
+            subjectId: string
+            displayName: string
+        }): WorkspaceActor {
+            return createDatabaseTransaction(database, () => {
+                const previous = client
+                    .query<WorkspaceActor, [string, string]>(`select ${fields} from actors
+                    where workspace_id=? and subject_id=? and kind='human' and origin_actor_id is null order by created_at,id limit 1`)
+                    .get(input.workspaceId, input.subjectId)
+                if (previous) return previous
+                const timestamp = requireTimestamp(now(), 'now')
+                const id = requireNonBlank(createId(), 'actorId')
+                insert.run(
+                    id,
+                    requireNonBlank(input.workspaceId, 'workspaceId'),
+                    null,
+                    'human',
+                    requireNonBlank(input.subjectId, 'subjectId'),
+                    requireNonBlank(input.displayName, 'displayName'),
+                    timestamp
+                )
+                return load.get(input.workspaceId, id)!
+            }).immediate()
+        },
         /** Snapshot attribution without backdating or tying its lifetime to the source project. */
         ensureFromProjectActor(input: {
             readonly workspaceId: string

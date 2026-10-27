@@ -98,6 +98,7 @@ export const channelListItemSchema = Type.Intersect([
     Type.Object({
         /** More than one project actively uses the channel; the count is never exposed. */
         shared: Type.Boolean(),
+        canManage: Type.Optional(Type.Boolean()),
         execution: Type.Union([
             Type.Object({ kind: Type.Literal('manual') }),
             Type.Object({ kind: Type.Literal('declarative_http') }),
@@ -429,6 +430,7 @@ export const channelSharingResponse = Type.Object({
             name: Type.String(),
             state: Type.Union([Type.Literal('active'), Type.Literal('detached')]),
             revision: Type.Integer(),
+            canAcceptManagement: Type.Optional(Type.Boolean()),
         })
     ),
 })

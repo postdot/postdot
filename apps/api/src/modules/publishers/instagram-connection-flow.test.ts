@@ -39,6 +39,7 @@ async function fixture(
     runMigrations(database)
     let timestamp = issuedAt
     let editor = true
+    let manager = true
     let exchanges = 0
     let duringExchange: (() => void | Promise<void>) | null = null
     let duringApplicationCheck: (() => void) | undefined
@@ -143,6 +144,7 @@ async function fixture(
             publishers,
             channels,
             access: { canAccessProject: () => editor },
+            canManageChannel: () => manager,
             oauth,
             applicationId: issuingApplicationId,
             applicationAvailable: async () => {
@@ -196,6 +198,9 @@ async function fixture(
         },
         duringApplicationCheck(callback: () => void) {
             duringApplicationCheck = callback
+        },
+        loseManagement() {
+            manager = false
         },
         setViewer() {
             editor = false
@@ -534,6 +539,21 @@ test('editor access is rechecked after the asynchronous application lookup befor
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         f.duringApplicationCheck(() => f.setViewer())
+        await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
+            code: 'forbidden',
+        })
+        expect(f.storedCredentials()).toHaveLength(0)
+        expect(f.connection()).toBeNull()
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('losing channel management during application lookup blocks credential persistence while editor access remains', async () => {
+    const f = await fixture()
+    try {
+        const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+        f.duringApplicationCheck(() => f.loseManagement())
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'forbidden',
         })

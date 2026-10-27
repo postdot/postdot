@@ -8,6 +8,7 @@ import {
     createNotificationStore,
     runMigrations,
 } from '@postdot/db'
+import { digestAuthorizationState } from '@postdot/oauth'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -35,7 +36,7 @@ function createFixture() {
         manualStore: { now: () => now },
         notifications: createNotificationStore(database, { now: () => now + 1_000 }),
     })
-    return { app, database }
+    return { app, database, publisher }
 }
 
 type App = ReturnType<typeof createApp>
@@ -514,6 +515,365 @@ it('scopes and attributes a single spacing override independently from planning 
         expect(f.database.$client.query('select count(*) as n from publishers').get()).toEqual({
             n: 0,
         })
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('lists workspace channels without widening key scope, transfers management and rejects stale changes', async () => {
+    const f = await setup()
+    try {
+        const workspaceId = f.database.$client
+            .query<{ workspace_id: string }, [string]>(
+                'select workspace_id from projects where id=?'
+            )
+            .get(f.source)!.workspace_id
+        const base = `/api/workspaces/${workspaceId}/channels`
+        const credential = { cookie: f.cookie }
+        const read = await call(f.app, base, credential)
+        expect(read.status).toBe(200)
+        expect(await read.json()).toMatchObject({
+            channels: [
+                {
+                    id: f.channel.id,
+                    management: { kind: 'project', project: { id: f.source } },
+                    usages: [{ projectId: f.source, canAcceptManagement: true }],
+                },
+            ],
+        })
+        const shareOnly = await f.apiKey({
+            name: 'Share workspace channel',
+            projectIds: [f.source, f.target],
+            actionAccess: ['channel:share'],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/attachments`,
+                    { token: shareOnly },
+                    post({ projectId: f.target, expectedRevision: 1 })
+                )
+            ).status
+        ).toBe(200)
+        const scoped = await f.apiKey({
+            name: 'Read target',
+            projectIds: [f.target],
+            actionAccess: ['project:read'],
+        })
+        const restricted = await call(f.app, base, { token: scoped })
+        expect(restricted.status).toBe(200)
+        const restrictedBody = (await restricted.json()) as {
+            channels: { management: unknown; usages: { projectId: string }[] }[]
+            projects: { id: string }[]
+        }
+        expect(restrictedBody.projects.map(p => p.id)).toEqual([f.target])
+        expect(restrictedBody.channels[0]).toMatchObject({
+            management: { kind: 'project', project: null },
+            usages: [{ projectId: f.target }],
+        })
+        expect(JSON.stringify(restrictedBody)).not.toContain(f.source)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/management`,
+                    credential,
+                    post({ projectId: f.target, expectedRevision: 1 })
+                )
+            ).status
+        ).toBe(409)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/management`,
+                    { token: shareOnly },
+                    post({ projectId: f.target, expectedRevision: 2 })
+                )
+            ).status
+        ).toBe(200)
+        const after = await call(f.app, base, credential)
+        expect(await after.json()).toMatchObject({
+            channels: [{ management: { kind: 'project', project: { id: f.target } } }],
+        })
+        const oldManagerKey = await f.apiKey({
+            name: 'Old managing project',
+            projectIds: [f.source],
+            actionAccess: ['project:read', 'channel:manage', 'channel:share'],
+        })
+        expect(await (await call(f.app, base, { token: oldManagerKey })).json()).toMatchObject({
+            channels: [
+                {
+                    canManage: false,
+                    canShare: false,
+                    management: { kind: 'project', project: null },
+                },
+            ],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/management`,
+                    { token: oldManagerKey },
+                    post({ projectId: f.source, expectedRevision: 3 })
+                )
+            ).status
+        ).toBe(404)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `/api/projects/${f.source}/channels/${f.channel.id}`,
+                    { token: oldManagerKey },
+                    {
+                        method: 'PATCH',
+                        body: JSON.stringify({ name: 'Forbidden rename', expectedRevision: 3 }),
+                    }
+                )
+            ).status
+        ).toBe(404)
+        const outsider = await signUp(f.app, 'workspace-channel-outsider@postbot.local')
+        f.database.$client
+            .query(
+                "update member set role='member' where user_id=(select id from user where email=?)"
+            )
+            .run('workspace-channel-outsider@postbot.local')
+        // Default workspace membership reveals no channel or project without a live grant.
+        expect(await (await call(f.app, base, { cookie: outsider })).json()).toEqual({
+            channels: [],
+            projects: [],
+        })
+        expect(
+            (await call(f.app, '/api/workspaces/missing/channels', { cookie: outsider })).status
+        ).toBe(404)
+        const outsiderId = f.database.$client
+            .query<{ id: string }, [string]>('select id from user where email=?')
+            .get('workspace-channel-outsider@postbot.local')!.id
+        createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
+            projectId: f.source,
+            userId: outsiderId,
+            role: 'editor',
+        })
+        const oldSessionList = await call(f.app, `/api/projects/${f.source}/channels`, {
+            cookie: outsider,
+        })
+        expect(await oldSessionList.json()).toMatchObject({
+            channels: [{ id: f.channel.id, canManage: false }],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `/api/projects/${f.source}/channels/${f.channel.id}`,
+                    { cookie: outsider },
+                    {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            name: 'Forbidden session rename',
+                            expectedRevision: 3,
+                        }),
+                    }
+                )
+            ).status
+        ).toBe(404)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('lets workspace administration recover a channel without a project actor and inspect archived history', async () => {
+    const f = await setup()
+    try {
+        const workspaceId = f.database.$client
+            .query<{ workspace_id: string }, [string]>(
+                'select workspace_id from projects where id=?'
+            )
+            .get(f.source)!.workspace_id
+        const base = `/api/workspaces/${workspaceId}/channels`
+        let credential = { cookie: f.cookie }
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/attachments`,
+                    credential,
+                    post({ projectId: f.target, expectedRevision: 1 })
+                )
+            ).status
+        ).toBe(200)
+        // Model a retired managing project: management falls back to workspace administrators.
+        f.database.$client
+            .query('delete from channel_managers where channel_id=?')
+            .run(f.channel.id)
+        const adminCookie = await signUp(f.app, 'workspace-channel-admin@postbot.local')
+        const adminId = f.database.$client
+            .query<{ id: string }, [string]>('select id from user where email=?')
+            .get('workspace-channel-admin@postbot.local')!.id
+        f.database.$client
+            .query(
+                "update member set role='admin' where user_id=? and organization_id=(select organization_id from workspaces where id=?)"
+            )
+            .run(adminId, workspaceId)
+        credential = { cookie: adminCookie }
+        // A visible target grant is still required; workspace administration grants no content access.
+        f.database.$client
+            .query(
+                "insert into project_user_grants(id,project_id,user_id,role,created_at,updated_at) values ('admin-target',?,?,'editor',?,?)"
+            )
+            .run(f.target, adminId, now, now)
+        expect(
+            f.database.$client
+                .query('select id from actors where project_id is not null and subject_id=?')
+                .all(adminId)
+        ).toHaveLength(0)
+        const before = await call(f.app, base, credential)
+        expect(before.status).toBe(200)
+        expect(await before.json()).toMatchObject({
+            channels: [{ management: { kind: 'workspace' }, canShare: true }],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/${f.channel.id}/management`,
+                    credential,
+                    post({ projectId: f.target, expectedRevision: 2 })
+                )
+            ).status
+        ).toBe(200)
+        expect(
+            f.database.$client
+                .query(
+                    "select id from actors where workspace_id=? and origin_actor_id is null and kind='human' and subject_id=?"
+                )
+                .all(workspaceId, adminId)
+        ).toHaveLength(1)
+        f.database.$client
+            .query("update channels set state='archived',archived_at=123 where id=?")
+            .run(f.channel.id)
+        expect(await (await call(f.app, base, credential)).json()).toMatchObject({ channels: [] })
+        expect(
+            await (await call(f.app, `${base}?includeArchived=true`, credential)).json()
+        ).toMatchObject({ channels: [{ id: f.channel.id, state: 'archived', archivedAt: 123 }] })
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('rejects an OAuth callback after its actor loses channel management, before provider or credential work', async () => {
+    const f = await setup()
+    try {
+        const editorCookie = await signUp(f.app, 'former-channel-manager@postbot.local')
+        const editorId = f.database.$client
+            .query<{ id: string }, [string]>('select id from user where email=?')
+            .get('former-channel-manager@postbot.local')!.id
+        f.database.$client.query("update member set role='member' where user_id=?").run(editorId)
+        createAccessStore(f.database).grantProjectUserAccess({
+            projectId: f.source,
+            userId: editorId,
+            role: 'editor',
+        })
+        const actorId = f.publisher.publisherStore.getProjectActorId(f.source, editorId)!
+        const state = 'channel-management-callback-state-'.repeat(2)
+        const attempt = await f.publisher.authorizationAttemptStore.createAuthorizationAttempt({
+            projectId: f.source,
+            channelId: f.channel.id,
+            connectedByActorId: actorId,
+            providerId: 'x',
+            callbackUri: `${baseURL}/api/oauth/x/callback`,
+            scopes: [],
+            returnPath: `/dashboard/projects/${f.source}/channels`,
+            stateDigest: await digestAuthorizationState(state),
+            codeVerifier: 'v'.repeat(43),
+        })
+        expect(attempt.kind).toBe('created')
+        expect(
+            (
+                await call(
+                    f.app,
+                    `/api/projects/${f.source}/channels/${f.channel.id}/attachments`,
+                    { cookie: f.cookie },
+                    post({ projectId: f.target, expectedRevision: 1 })
+                )
+            ).status
+        ).toBe(200)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `/api/projects/${f.source}/channels/${f.channel.id}/management`,
+                    { cookie: f.cookie },
+                    post({ projectId: f.target, expectedRevision: 2 })
+                )
+            ).status
+        ).toBe(200)
+        const callback = await call(
+            f.app,
+            `/api/oauth/x/callback?state=${state}&code=unused-code`,
+            { cookie: editorCookie }
+        )
+        expect(callback.status).toBe(303)
+        expect(callback.headers.get('location')).toContain('publisher=invalid_callback')
+        expect(
+            f.database.$client.query('select count(*) as n from publisher_credentials').get()
+        ).toEqual({ n: 0 })
+        expect(
+            f.database.$client.query('select count(*) as n from publisher_connections').get()
+        ).toEqual({ n: 0 })
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('allows a project owner to withdraw its own workspace attachment using only channel sharing capability', async () => {
+    const f = await setup()
+    try {
+        const workspaceId = f.database.$client
+            .query<{ workspace_id: string }, [string]>(
+                'select workspace_id from projects where id=?'
+            )
+            .get(f.source)!.workspace_id
+        const base = `/api/workspaces/${workspaceId}/channels/${f.channel.id}`
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/attachments`,
+                    { cookie: f.cookie },
+                    post({ projectId: f.target, expectedRevision: 1 })
+                )
+            ).status
+        ).toBe(200)
+        const key = await f.apiKey({
+            name: 'Own withdrawal only',
+            projectIds: [f.target],
+            actionAccess: ['channel:share'],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/withdraw`,
+                    { token: key },
+                    post({ projectId: f.source, expectedRevision: 2 })
+                )
+            ).status
+        ).toBe(404)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${base}/withdraw`,
+                    { token: key },
+                    post({ projectId: f.target, expectedRevision: 2 })
+                )
+            ).status
+        ).toBe(200)
+        expect(
+            (await call(f.app, `/api/workspaces/${workspaceId}/channels`, { token: key })).status
+        ).toBe(403)
     } finally {
         closeDatabase(f.database)
     }

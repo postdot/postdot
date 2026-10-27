@@ -222,14 +222,29 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user }) => {
+            ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
                 const channels = manualStore.listChannels(params.projectId, user.id)
                 if (channels === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                return { channels }
+                const ctx = sharingContext({
+                    projectId: params.projectId,
+                    userId: user.id,
+                    authMethod,
+                    apiKeyPermissions,
+                    apiKeyProjectIds,
+                })
+                const views = ctx
+                    ? manualStore.sharedChannels.listProject(ctx, params.projectId, true)
+                    : null
+                return {
+                    channels: channels.map(channel => ({
+                        ...channel,
+                        canManage: views?.find(view => view.id === channel.id)?.canManage ?? false,
+                    })),
+                }
             }
         )
         .post(
@@ -590,7 +605,13 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                         canWithdraw: view.canWithdraw,
                         management: view.management,
                     },
-                    usages: [...usages],
+                    usages: usages.map(usage => ({
+                        ...usage,
+                        canAcceptManagement: ctx!.authorization.authorizeProject(
+                            usage.projectId,
+                            'accept_channel_management'
+                        ),
+                    })),
                 }
             }
         )

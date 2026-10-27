@@ -200,7 +200,11 @@ function DashboardPage() {
 
     async function handleWorkspaceChange(workspaceId: string) {
         setError(null)
-        if (isSettingsPath(pathname) || isPreferencesPath(pathname)) {
+        if (
+            isSettingsPath(pathname) ||
+            isPreferencesPath(pathname) ||
+            pathname === '/dashboard/workspace/channels'
+        ) {
             await navigate({
                 to: '.',
                 search: previous => ({ ...previous, workspaceId, projectId: 'none' }),
@@ -282,7 +286,7 @@ function DashboardPage() {
     return (
         <DashboardGlobalProvider value={value}>
             <AppToaster />
-            {isSettingsPath(pathname) ? (
+            {isSettingsPath(pathname) || pathname === '/dashboard/workspace/channels' ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : isPreferences ? (
                 <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />

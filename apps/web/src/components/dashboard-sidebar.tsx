@@ -52,6 +52,7 @@ export type DashboardSection =
     | 'tags'
     | 'settings-access'
     | 'settings-provider-applications'
+    | 'workspace-channels'
     | 'settings-workspace'
     | 'settings'
     | 'preferences'
@@ -312,6 +313,14 @@ export function DashboardSidebar({
                                     <nav aria-label={m.nav_workspace_navigation()}>
                                         <SidebarMenu>
                                             <WorkspaceMenuItem
+                                                active={activeSection === 'workspace-channels'}
+                                                destination="workspace-channels"
+                                                icon={<LinkIcon aria-hidden="true" />}
+                                                label={m.workspace_channels_title()}
+                                                projectId={null}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
+                                            <WorkspaceMenuItem
                                                 active={activeSection === 'settings-workspace'}
                                                 destination="settings-workspace"
                                                 icon={
@@ -392,6 +401,25 @@ export function DashboardSidebar({
                         </SidebarGroup>
                     </>
                 )}
+                {selectedWorkspaceId && (!isSettingsShell || !canManageWorkspace) ? (
+                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                        <SidebarGroupLabel className="px-2">{m.nav_workspace()}</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <nav aria-label={m.workspace_channels_navigation()}>
+                                <SidebarMenu>
+                                    <WorkspaceMenuItem
+                                        active={activeSection === 'workspace-channels'}
+                                        destination="workspace-channels"
+                                        icon={<LinkIcon aria-hidden="true" />}
+                                        label={m.workspace_channels_title()}
+                                        projectId={null}
+                                        workspaceId={selectedWorkspaceId}
+                                    />
+                                </SidebarMenu>
+                            </nav>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ) : null}
             </SidebarContent>
 
             <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
@@ -415,6 +443,7 @@ export function DashboardSidebar({
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
+    if (pathname === '/dashboard/workspace/channels') return 'workspace-channels'
     if (pathname === '/dashboard/preferences/account') return 'preferences-account'
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
@@ -440,6 +469,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'new-publication') return m.nav_new_publication()
     if (section === 'performance') return m.nav_performance()
     if (section === 'queue') return m.nav_queue()
+    if (section === 'workspace-channels') return m.workspace_channels_title()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
     if (section === 'access') return m.nav_access()
@@ -551,6 +581,15 @@ function workspaceLink(
         )
     }
 
+    if (destination === 'workspace-channels')
+        return (
+            <Link
+                to="/dashboard/workspace/channels"
+                search={{ workspaceId: workspaceId ?? undefined, projectId: 'none' }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
     if (destination === 'settings-workspace') {
         return (
             <Link

@@ -18,6 +18,7 @@ import { registerTelegramPublisherRoutes } from './telegram/routes'
 import { registerXPublisherRoutes } from './x/routes'
 export interface ProviderConnectionRouteOptions {
     readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
+    readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
     readonly access: AccessStore
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void

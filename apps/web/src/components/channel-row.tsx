@@ -74,6 +74,7 @@ export function ChannelRow({
             {readOnly ? null : (
                 <ChannelActionsMenu
                     channel={channel}
+                    canManage={channel.canManage !== false}
                     disabled={disabled}
                     onEditProfile={onEditProfile}
                     onLifecycleAction={onLifecycleAction}
@@ -87,6 +88,7 @@ export function ChannelRow({
 
 export function ChannelActionsMenu({
     channel,
+    canManage = true,
     disabled,
     onEditProfile,
     onLifecycleAction,
@@ -94,6 +96,7 @@ export function ChannelActionsMenu({
     onCadence,
     onShare,
 }: {
+    readonly canManage?: boolean
     readonly channel: Channel
     readonly disabled: boolean
     readonly onEditProfile: () => void
@@ -127,15 +130,19 @@ export function ChannelActionsMenu({
                 <TooltipContent>{m.channel_manage({ channel: channel.name })}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onEditProfile}>
-                    <Pen2Icon aria-hidden="true" />
-                    {m.channel_edit_profile()}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
-                    <Pen2Icon aria-hidden="true" />
-                    {m.channel_rename()}
-                </DropdownMenuItem>
-                {onCadence && !archived ? (
+                {canManage ? (
+                    <>
+                        <DropdownMenuItem onClick={onEditProfile}>
+                            <Pen2Icon aria-hidden="true" />
+                            {m.channel_edit_profile()}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
+                            <Pen2Icon aria-hidden="true" />
+                            {m.channel_rename()}
+                        </DropdownMenuItem>
+                    </>
+                ) : null}
+                {canManage && onCadence && !archived ? (
                     <DropdownMenuItem onClick={onCadence}>{m.cadence_action()}</DropdownMenuItem>
                 ) : null}
                 {onShare && !archived ? (
@@ -144,30 +151,34 @@ export function ChannelActionsMenu({
                         {m.channel_share_action()}
                     </DropdownMenuItem>
                 ) : null}
-                {onDisconnect ? (
+                {canManage && onDisconnect ? (
                     <DropdownMenuItem variant="destructive" onClick={onDisconnect}>
                         {m.publisher_disconnect()}
                     </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuSeparator />
-                {archived ? (
-                    <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
-                        <RestartIcon aria-hidden="true" />
-                        {m.channel_restore()}
-                    </DropdownMenuItem>
-                ) : (
-                    <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
-                        <ArchiveIcon aria-hidden="true" />
-                        {m.channel_archive()}
-                    </DropdownMenuItem>
-                )}
-                {archived ? (
-                    <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => onLifecycleAction('delete')}>
-                        <TrashBinMinimalisticIcon aria-hidden="true" />
-                        {m.channel_delete_permanently()}
-                    </DropdownMenuItem>
+                {canManage ? (
+                    <>
+                        <DropdownMenuSeparator />
+                        {archived ? (
+                            <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
+                                <RestartIcon aria-hidden="true" />
+                                {m.channel_restore()}
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
+                                <ArchiveIcon aria-hidden="true" />
+                                {m.channel_archive()}
+                            </DropdownMenuItem>
+                        )}
+                        {archived ? (
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => onLifecycleAction('delete')}>
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.channel_delete_permanently()}
+                            </DropdownMenuItem>
+                        ) : null}
+                    </>
                 ) : null}
             </DropdownMenuContent>
         </DropdownMenu>

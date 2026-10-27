@@ -19,19 +19,24 @@ import * as m from '@/paraglide/messages.js'
 export function ChannelCadenceDialog({
     channel,
     projectId,
+    workspaceId,
     timeZone,
     onClose,
     onChanged,
 }: {
-    channel: Channel
-    projectId: string
+    channel: Pick<Channel, 'id' | 'name'>
+    projectId?: string
+    workspaceId?: string
     timeZone: string
     onClose: () => void
     onChanged: () => Promise<void>
 }) {
     const query = useQuery({
-        queryKey: ['channel-cadence', projectId, channel.id],
-        queryFn: () => api.getChannelCadence(projectId, channel.id),
+        queryKey: ['channel-cadence', workspaceId, projectId, channel.id],
+        queryFn: () =>
+            workspaceId
+                ? api.getWorkspaceChannelCadence(workspaceId, channel.id)
+                : api.getChannelCadence(projectId!, channel.id),
     })
     return (
         <Dialog
@@ -58,8 +63,15 @@ export function ChannelCadenceDialog({
                         key={query.data.rules?.revision ?? 0}
                         data={query.data}
                         timeZone={timeZone}
-                        projectId={projectId}
-                        channelId={channel.id}
+                        onConfigure={input =>
+                            workspaceId
+                                ? api.configureWorkspaceChannelCadence(
+                                      workspaceId,
+                                      channel.id,
+                                      input
+                                  )
+                                : api.configureChannelCadence(projectId!, channel.id, input)
+                        }
                         onReload={() => query.refetch()}
                         onSaved={async () => {
                             await query.refetch()
@@ -75,15 +87,13 @@ export function ChannelCadenceDialog({
 function CadenceForm({
     data,
     timeZone,
-    projectId,
-    channelId,
+    onConfigure,
     onSaved,
     onReload,
 }: {
     data: Awaited<ReturnType<typeof api.getChannelCadence>>
     timeZone: string
-    projectId: string
-    channelId: string
+    onConfigure: (input: Parameters<typeof api.configureChannelCadence>[2]) => Promise<unknown>
     onReload: () => Promise<unknown>
     onSaved: () => Promise<void>
 }) {
@@ -134,7 +144,7 @@ function CadenceForm({
                 setPending(true)
                 setError(null)
                 try {
-                    await api.configureChannelCadence(projectId, channelId, {
+                    await onConfigure({
                         expectedRevision: data.rules?.revision ?? 0,
                         timeZone: zone,
                         dailyMax: daily === '' ? null : Number(daily),

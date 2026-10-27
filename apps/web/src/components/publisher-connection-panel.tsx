@@ -240,6 +240,7 @@ export function PublisherConnectionPanel({
             ) : null}
             <div className="divide-y divide-border/40">
                 {channels.map(channel => {
+                    const canManageChannel = channel.canManage !== false
                     const connection = connectionsByChannel.get(channel.id)
                     if (channel.execution.kind === 'manual') {
                         return (
@@ -298,7 +299,10 @@ export function PublisherConnectionPanel({
                                 <div className="min-w-0 flex-1">
                                     <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                                         <p className="min-w-0 break-words">{channel.name}</p>
-                                        {needsSetup && channel.state !== 'archived' && !readOnly ? (
+                                        {needsSetup &&
+                                        channel.state !== 'archived' &&
+                                        !readOnly &&
+                                        canManageChannel ? (
                                             <button
                                                 type="button"
                                                 disabled={pending}
@@ -400,7 +404,9 @@ export function PublisherConnectionPanel({
                                 </div>
                             </div>
 
-                            {readOnly || channel.state === 'archived' ? null : canConnect &&
+                            {readOnly ||
+                            !canManageChannel ||
+                            channel.state === 'archived' ? null : canConnect &&
                               isProviderApplicationProvider(connectionKind) &&
                               oauthReadiness[connectionKind as ProviderApplicationProvider] !==
                                   'ready' &&
@@ -463,6 +469,7 @@ export function PublisherConnectionPanel({
                                 <div className="absolute top-4 right-4 sm:right-5">
                                     <ChannelActionsMenu
                                         channel={channel}
+                                        canManage={canManageChannel}
                                         disabled={pending}
                                         onDisconnect={
                                             connection?.state === 'active' &&

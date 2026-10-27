@@ -58,7 +58,8 @@ export function DashboardShell({
         activeSection === 'preferences-account'
     const isProjectSettings =
         activeSection === 'access' || activeSection === 'invitations' || activeSection === 'tags'
-    const isWorkspaceSettings = activeSection === 'settings-workspace'
+    const isWorkspaceSettings =
+        activeSection === 'settings-workspace' || activeSection === 'workspace-channels'
     const isInstanceSettings =
         activeSection === 'settings' ||
         activeSection === 'settings-access' ||

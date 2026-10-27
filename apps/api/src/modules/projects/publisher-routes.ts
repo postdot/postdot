@@ -12,6 +12,7 @@ import { type AuthenticatedElysia } from '../../plugins/auth'
 import { registerProviderPublisherRoutes } from '../../providers/routes'
 import type { PublisherRuntime } from '../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
+import { createChannelAccessPolicy } from './channel-access-policy'
 import {
     errorResponse,
     customHttpConnectionBody,
@@ -25,7 +26,10 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
-        readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
+        readonly channels: Pick<
+            ReturnType<typeof createManualStore>,
+            'listChannels' | 'sharedChannels'
+        >
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -230,6 +234,23 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
 
     const providerOptions = {
         ...options,
+        canManageChannel: (projectId: string, channelId: string, userId: string) => {
+            const ctx = options.channels.sharedChannels.contextFor({
+                contextProjectId: projectId,
+                subjectId: userId,
+                authorization: createChannelAccessPolicy({
+                    access: options.access,
+                    userId,
+                    authMethod: 'session',
+                    apiKeyProjectIds: undefined,
+                    apiKeyPermissions: undefined,
+                }),
+            })
+            return (
+                ctx !== null &&
+                options.channels.sharedChannels.getCadence(ctx, channelId)?.canManage === true
+            )
+        },
         mastodonFetcher: options.mastodonFetcher ?? publisher.mastodon.fetcher,
     }
 

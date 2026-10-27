@@ -935,6 +935,86 @@ export const api = {
         )
     },
 
+    async listWorkspaceChannels(workspaceId: string, includeArchived = false) {
+        return unwrap(
+            await client.api
+                .workspaces({ workspaceId })
+                .channels.get({ query: { includeArchived } })
+        )
+    },
+    async attachWorkspaceChannel(
+        workspaceId: string,
+        channelId: string,
+        projectId: string,
+        expectedRevision: number
+    ) {
+        return unwrap(
+            await client.api
+                .workspaces({ workspaceId })
+                .channels({ channelId })
+                .attachments.post({ projectId, expectedRevision })
+        )
+    },
+    async withdrawWorkspaceChannel(
+        workspaceId: string,
+        channelId: string,
+        projectId: string,
+        expectedRevision: number,
+        lastAttachment?: 'archive'
+    ) {
+        return unwrap(
+            await client.api
+                .workspaces({ workspaceId })
+                .channels({ channelId })
+                .withdraw.post({ projectId, expectedRevision, lastAttachment })
+        )
+    },
+    async transferWorkspaceChannelManagement(
+        workspaceId: string,
+        channelId: string,
+        projectId: string,
+        expectedRevision: number
+    ) {
+        return unwrap(
+            await client.api
+                .workspaces({ workspaceId })
+                .channels({ channelId })
+                .management.post({ projectId, expectedRevision })
+        )
+    },
+    async transferChannelManagement(
+        projectId: string,
+        channelId: string,
+        targetProjectId: string,
+        expectedRevision: number
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .management.post({ projectId: targetProjectId, expectedRevision })
+        )
+    },
+    async getWorkspaceChannelCadence(workspaceId: string, channelId: string) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).channels({ channelId }).cadence.get()
+        )
+    },
+    async configureWorkspaceChannelCadence(
+        workspaceId: string,
+        channelId: string,
+        input: {
+            expectedRevision: number
+            timeZone: string
+            dailyMax: number | null
+            weeklyMax: number | null
+            minimumIntervalMs: number | null
+        }
+    ) {
+        return unwrap(
+            await client.api.workspaces({ workspaceId }).channels({ channelId }).cadence.put(input)
+        )
+    },
     async getChannelSharing(projectId: string, channelId: string) {
         return unwrap(
             await client.api.projects({ projectId }).channels({ channelId }).sharing.get()

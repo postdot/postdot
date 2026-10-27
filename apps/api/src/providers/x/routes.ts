@@ -25,6 +25,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -224,6 +225,11 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                 }
 
                 if (
+                    !options.canManageChannel(
+                        pendingAttempt.projectId,
+                        pendingAttempt.channelId,
+                        user.id
+                    ) ||
                     !canAccessProjectRole({
                         access: options.access,
                         authMethod,
@@ -333,6 +339,18 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
 
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
                     callbackStage = 'save_credential'
+                    if (
+                        !options.canManageChannel(
+                            pendingAttempt.projectId,
+                            pendingAttempt.channelId,
+                            user.id
+                        )
+                    )
+                        return redirectPublisher(
+                            publisher.webOrigin,
+                            pendingAttempt.returnPath,
+                            'invalid_callback'
+                        )
                     const credential = await savePublisherCredential({
                         credentialStore,
                         projectId: consumed.attempt.projectId,
@@ -354,6 +372,18 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     }
 
                     callbackStage = 'create_connection'
+                    if (
+                        !options.canManageChannel(
+                            pendingAttempt.projectId,
+                            pendingAttempt.channelId,
+                            user.id
+                        )
+                    )
+                        return redirectPublisher(
+                            publisher.webOrigin,
+                            pendingAttempt.returnPath,
+                            'invalid_callback'
+                        )
                     const connection = publisherStore.createPublisherConnection({
                         projectId: consumed.attempt.projectId,
                         channelId: consumed.attempt.channelId,

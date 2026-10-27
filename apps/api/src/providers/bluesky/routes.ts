@@ -27,6 +27,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -270,6 +271,11 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                 }
 
                 if (
+                    !options.canManageChannel(
+                        pendingAttempt.projectId,
+                        pendingAttempt.channelId,
+                        user.id
+                    ) ||
                     !canAccessProjectRole({
                         access: options.access,
                         authMethod,
@@ -383,6 +389,18 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                             ? undefined
                             : { id: existingConnection.id, state: existingConnection.state }
 
+                    if (
+                        !options.canManageChannel(
+                            pendingAttempt.projectId,
+                            pendingAttempt.channelId,
+                            user.id
+                        )
+                    )
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            pendingAttempt.returnPath,
+                            'invalid_callback'
+                        )
                     const savedCredential = await credentialStore.createPublisherCredential({
                         projectId: consumed.attempt.projectId,
                         connectedByActorId: consumed.attempt.connectedByActorId,
@@ -430,6 +448,18 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     }
 
                     callbackStage = 'create_connection'
+                    if (
+                        !options.canManageChannel(
+                            pendingAttempt.projectId,
+                            pendingAttempt.channelId,
+                            user.id
+                        )
+                    )
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            pendingAttempt.returnPath,
+                            'invalid_callback'
+                        )
                     const connection = publisherStore.createPublisherConnection({
                         projectId: consumed.attempt.projectId,
                         channelId: consumed.attempt.channelId,

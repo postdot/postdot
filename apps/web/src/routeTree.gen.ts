@@ -27,6 +27,7 @@ import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/
 import { Route as DashboardSettingsArchivesRouteImport } from './routes/dashboard/settings/archives'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardSettingsWorkspaceRouteImport } from './routes/dashboard/settings/workspace'
+import { Route as DashboardWorkspaceChannelsRouteImport } from './routes/dashboard/workspace/channels'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
 import { Route as DashboardProjectsProjectIdInvitationsRouteImport } from './routes/dashboard/projects/$projectId/invitations'
@@ -136,6 +137,12 @@ const DashboardSettingsWorkspaceRoute =
     path: '/settings/workspace',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardWorkspaceChannelsRoute =
+  DashboardWorkspaceChannelsRouteImport.update({
+    id: '/workspace/channels',
+    path: '/workspace/channels',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardProjectsProjectIdAccessRoute =
   DashboardProjectsProjectIdAccessRouteImport.update({
     id: '/access',
@@ -220,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
@@ -250,6 +258,7 @@ export interface FileRoutesByTo {
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
@@ -282,6 +291,7 @@ export interface FileRoutesById {
   '/dashboard/settings/archives': typeof DashboardSettingsArchivesRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/workspace/channels': typeof DashboardWorkspaceChannelsRoute
   '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
   '/dashboard/settings/': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
+    | '/dashboard/workspace/channels'
     | '/dashboard/preferences/'
     | '/dashboard/settings/'
     | '/dashboard/projects/$projectId/access'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
+    | '/dashboard/workspace/channels'
     | '/dashboard/preferences'
     | '/dashboard/settings'
     | '/dashboard/projects/$projectId/access'
@@ -376,6 +388,7 @@ export interface FileRouteTypes {
     | '/dashboard/settings/archives'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/settings/workspace'
+    | '/dashboard/workspace/channels'
     | '/dashboard/preferences/'
     | '/dashboard/settings/'
     | '/dashboard/projects/$projectId/access'
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsWorkspaceRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/workspace/channels': {
+      id: '/dashboard/workspace/channels'
+      path: '/workspace/channels'
+      fullPath: '/dashboard/workspace/channels'
+      preLoaderRoute: typeof DashboardWorkspaceChannelsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/projects/$projectId/access': {
       id: '/dashboard/projects/$projectId/access'
       path: '/access'
@@ -674,6 +694,7 @@ interface DashboardRouteChildren {
   DashboardSettingsArchivesRoute: typeof DashboardSettingsArchivesRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
   DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRoute
+  DashboardWorkspaceChannelsRoute: typeof DashboardWorkspaceChannelsRoute
   DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
 }
 
@@ -685,6 +706,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
   DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRoute,
+  DashboardWorkspaceChannelsRoute: DashboardWorkspaceChannelsRoute,
   DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
 }
 

@@ -47,7 +47,13 @@ export interface AuthenticatedElysiaOptions {
     readonly authorizeProjectAccess?: (
         projectId: string,
         userId: string,
-        requestPath: string
+        requestPath: string,
+        requestContext?: {
+            readonly method: string
+            readonly authMethod: PostbotAuthenticationMethod
+            readonly apiKeyProjectIds?: readonly string[] | null
+            readonly apiKeyPermissions?: PostbotApiKeyPermissions
+        }
     ) => boolean
 }
 
@@ -193,7 +199,13 @@ export function createAuthenticatedElysia(
                             !options.authorizeProjectAccess(
                                 projectId,
                                 authentication.ownerUserId,
-                                new URL(request.url).pathname
+                                new URL(request.url).pathname,
+                                {
+                                    method: request.method,
+                                    authMethod: 'user_api_key',
+                                    apiKeyProjectIds: authentication.projectIds,
+                                    apiKeyPermissions: authentication.permissions,
+                                }
                             )
                         ) {
                             return status(404, {
@@ -239,7 +251,8 @@ export function createAuthenticatedElysia(
                         !options.authorizeProjectAccess(
                             projectId,
                             session.user.id,
-                            new URL(request.url).pathname
+                            new URL(request.url).pathname,
+                            { method: request.method, authMethod: 'session' }
                         ) &&
                         !(
                             request.method === 'GET' &&

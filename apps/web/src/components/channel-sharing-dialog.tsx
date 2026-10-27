@@ -17,6 +17,8 @@ import { api, formatApiError, ApiError, type Channel, type Project } from '@/lib
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
+import { ChannelManagementTransfer } from './channel-management-transfer'
+
 const sharingKey = (projectId: string, channelId: string) =>
     ['channel-sharing', projectId, channelId] as const
 
@@ -75,7 +77,11 @@ export function ChannelSharingDialog({
         } catch (caught) {
             if (caught instanceof ApiError && caught.code === 'retirement_required' && onRetirement)
                 onRetirement()
-            else setError(formatApiError(caught))
+            else {
+                setError(formatApiError(caught))
+                if (caught instanceof ApiError && caught.code === 'stale_revision')
+                    await sharing.refetch()
+            }
         } finally {
             setPending(false)
         }
@@ -214,6 +220,32 @@ export function ChannelSharingDialog({
                                 </Alert>
                             ) : null}
 
+                            {canChange ? (
+                                <ChannelManagementTransfer
+                                    pending={pending}
+                                    projects={active
+                                        .filter(
+                                            usage =>
+                                                usage.canAcceptManagement &&
+                                                (manager?.kind !== 'project' ||
+                                                    manager.project?.id !== usage.projectId)
+                                        )
+                                        .map(usage => ({ id: usage.projectId, name: usage.name }))}
+                                    onTransfer={async targetId => {
+                                        let success = false
+                                        await run(async () => {
+                                            await api.transferChannelManagement(
+                                                projectId,
+                                                channel.id,
+                                                targetId,
+                                                revision
+                                            )
+                                            success = true
+                                        }, m.channel_transfer_saved())
+                                        return success
+                                    }}
+                                />
+                            ) : null}
                             {canChange ? (
                                 <section
                                     aria-labelledby="channel-share-available"

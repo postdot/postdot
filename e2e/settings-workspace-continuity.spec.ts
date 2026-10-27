@@ -41,6 +41,7 @@ test('keeps personal and installation settings open when changing workspace cont
         '/dashboard/settings/access',
         '/dashboard/settings',
         '/dashboard/settings/workspace',
+        '/dashboard/workspace/channels',
     ]) {
         await page.goto(`${path}?workspaceId=${first!.id}&projectId=${first!.projectId}`)
         const workspaceSelector = page.getByRole('combobox', {

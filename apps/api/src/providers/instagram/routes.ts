@@ -40,6 +40,7 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
         readonly access: AccessStore
         readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
     }
@@ -53,6 +54,7 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
             publishers: publisher.publisherStore,
             channels: options.channels,
             access: options.access,
+            canManageChannel: options.canManageChannel,
             ...application,
             now: publisher.now,
             applicationAvailable: async () => {
@@ -151,7 +153,8 @@ export function registerInstagramPublisherRoutes<const Routes extends Record<str
                     if (
                         publisher.publisherStore.getProjectActorId(attempt.projectId, user.id) !==
                             attempt.connectedByActorId ||
-                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor')
+                        !options.access.canAccessProject(attempt.projectId, user.id, 'editor') ||
+                        !options.canManageChannel(attempt.projectId, attempt.channelId, user.id)
                     )
                         return redirect(fallback)
                     fallback = new URL(attempt.returnPath, publisher.webOrigin)

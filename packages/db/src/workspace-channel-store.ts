@@ -572,6 +572,43 @@ export function createWorkspaceChannelStore(
     const workspaceActors = createWorkspaceActorStore(database, { now, createId })
 
     return {
+        /** Workspace binding only; each mutation still checks its own live authority. */
+        isWorkspaceChannel(
+            ctx: WorkspaceChannelContext,
+            workspaceId: string,
+            channelId: string
+        ): boolean {
+            const row = channel.get(channelId)
+            return row !== null && row.workspaceId === workspaceId && allowedActor(ctx, row)
+        },
+        workspaceContextFor(input: {
+            workspaceId: string
+            subjectId: string
+            displayName: string
+            authorization: ChannelAccessPolicy
+        }): WorkspaceChannelContext | null {
+            const workspaceId = requireNonBlank(input.workspaceId, 'workspaceId')
+            const rows = client
+                .query<{ id: string }, [string]>('select id from projects where workspace_id=?')
+                .all(workspaceId)
+            if (
+                !input.authorization.authorizeWorkspace(workspaceId, 'manage_channels') &&
+                !input.authorization.authorizeWorkspace(workspaceId, 'share_channels') &&
+                !rows.some(row =>
+                    [
+                        'read_channels',
+                        'manage_channels',
+                        'share_channels',
+                        'withdraw_channels',
+                    ].some(action =>
+                        input.authorization.authorizeProject(row.id, action as ChannelProjectAction)
+                    )
+                )
+            )
+                return null
+            const actor = workspaceActors.ensureForSubject(input)
+            return { actorId: actor.id, authorization: input.authorization }
+        },
         getCadence(
             ctx: WorkspaceChannelContext,
             channelId: string
