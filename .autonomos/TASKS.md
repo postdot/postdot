@@ -10,9 +10,11 @@
 Shared-channel development follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
 and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md) under SHARE-592/GitHub #12.
 Sharing remains an accepted target, not delivered functionality. Destination
-confirmation, credential renewal coordination and workspace-scoped attribution are implemented in source;
-workspace ownership and project attachments remain next. Transactional migration
-validation and rollback rehearsals are available; no ownership migration is registered.
+confirmation, credential renewal coordination and workspace-scoped attribution are implemented in source.
+Workspace ownership SQL and attachment constraints are staged under
+`packages/db/migration-candidates/workspace-channels/`; store/access/lifecycle
+integration and activation remain next. Transactional validation and rollback
+rehearsals are available; the ownership candidate is not in the startup journal.
 Channels in source and alpha.2 remain project-owned until
 the migration and complete workflow are validated.
 
