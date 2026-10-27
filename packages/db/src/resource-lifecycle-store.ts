@@ -493,6 +493,9 @@ export function createResourceLifecycleStore(database: PostbotDatabase) {
                         object.object_key,
                         Date.now()
                     )
+                // Original/derived media can cascade in either order. Keep FK enforcement
+                // enabled, but validate the complete graph at the outer transaction commit.
+                run('pragma defer_foreign_keys = on')
                 run('delete from projects where id = ?', item.resource_id)
                 if (
                     !count(
@@ -530,6 +533,7 @@ export function createResourceLifecycleStore(database: PostbotDatabase) {
                     'select organization_id from workspaces where id = ?',
                     item.resource_id
                 )[0]
+                run('pragma defer_foreign_keys = on')
                 run('delete from workspaces where id = ?', item.resource_id)
                 if (workspace)
                     run('delete from organization where id = ?', workspace.organization_id)

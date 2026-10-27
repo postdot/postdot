@@ -3,7 +3,7 @@
 Requires Docker, Python 3 and a locally built candidate. No real provider calls.
 The previous image is pinned; the candidate is resolved to its immutable local ID.
 The previous release is seeded with a connected custom webhook channel and a scheduled
-automatic publication, so the ownership conversion is exercised on a live connection and
+automatic publication, so the ownership conversion is exercised on a recorded connection and
 queued work. Nothing is dispatched: the endpoint is unreachable and the time is distant.
 """
 
@@ -50,6 +50,8 @@ def differences(before, after, path="$"):
 def comparable(editor, shared=False):
     # Profile attribution becomes a workspace actor snapshot in the upgrade; every other field must match.
     copy = json.loads(json.dumps(editor))
+    # Added editor metadata is checked explicitly on the candidate below.
+    copy.get("editor", {}).pop("movement", None)
     for name in ("profile", "selectedTargetProfile"):
         profile = copy.get("editor", {}).get(name)
         if isinstance(profile, dict):
@@ -71,6 +73,8 @@ def docker(*arguments):
 
 
 candidate = json.loads(docker("image", "inspect", args.image))[0]
+if docker("version", "--format", "{{.Server.Arch}}") != candidate["Architecture"]:
+    raise RuntimeError("Upgrade acceptance requires a native Docker host matching the candidate")
 docker("pull", "--platform", f"linux/{candidate['Architecture']}", args.previous_image)
 previous = json.loads(docker("image", "inspect", args.previous_image))[0]
 if candidate["Id"] == previous["Id"]:
@@ -109,7 +113,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
     client = None
     password = secrets.token_hex(24)
 
-    def request(method, path, body=None, raw=None):
+    def request(method, path, body=None, raw=None, expected_status=None):
         payload = (
             raw
             if raw is not None
@@ -129,14 +133,21 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         try:
             with client.open(req, timeout=15) as response:
                 data = response.read()
+                if expected_status is not None:
+                    raise RuntimeError(f"Expected HTTP {expected_status}, received {response.status}")
                 return (
                     json.loads(data)
                     if "json" in response.headers.get("Content-Type", "")
                     else data
                 )
         except urllib.error.HTTPError as error:
-            # Keep the refusal visible: the response never contains credentials.
-            print(f"{method} {path} -> {error.code}: {error.read().decode()[:400]}", flush=True)
+            data = error.read()
+            if expected_status == error.code:
+                return json.loads(data)
+            print(f"{method} {path} -> HTTP {error.code}", flush=True)
+            if error.code >= 500:
+                print(docker("logs", "--tail", "20", container), flush=True)
+
             raise
 
     def start(image, data):
@@ -189,6 +200,14 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
             image,
             *command,
         )
+
+    def verify_foreign_keys():
+        result = docker(
+            "exec", container, "bun", "-e",
+            "const {Database}=require('bun:sqlite'); const db=new Database(process.env.DB_FILE_NAME,{readonly:true}); const errors=db.query('pragma foreign_key_check').all(); db.close(); if(errors.length) throw new Error('Foreign key violations'); console.log('ok');",
+        )
+        if result != "ok":
+            raise RuntimeError("Foreign-key verification did not finish")
 
     def login():
         request(
@@ -396,7 +415,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         verify_preservation()
         if request("GET", "/api/recovery/status")["held"]:
             raise RuntimeError("Ordinary upgrade unexpectedly entered recovery hold")
-        # Sharing works on the converted data: the migrated channel keeps its live connection.
+        # Sharing works on the converted data: the migrated channel keeps its recorded connection.
         target = request(
             "POST", "/api/projects", {"name": "Candidate-only sharing target"}
         )["project"]["id"]
@@ -423,9 +442,116 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         if not any(item["channelId"] == webhook for item in target_connections):
             raise RuntimeError("Attached project cannot use the channel connection")
         verify_preservation(shared=True)
+        verify_foreign_keys()
+        for item in [publication, queued]:
+            movement = request(
+                "GET", f"/api/projects/{project}/publications/{item}/editor"
+            )["editor"]["movement"]
+            if movement != {"canMove": True, "fromPublicationId": None,
+                            "toPublicationId": None, "requestedScheduledAt": None}:
+                raise RuntimeError("Migrated pending work has unexpected move eligibility/history")
+
+        # Exercise the new tables and admission paths on the converted connection.
+        rules = request("PUT", f"/api/projects/{project}/channels/{webhook}/cadence", {
+            "expectedRevision": 0, "timeZone": "UTC", "dailyMax": 1,
+            "weeklyMax": None, "minimumIntervalMs": 60000,
+        })
+        candidate_time = int(time.time() * 1000) + 86_400_000
+        plan = {
+            "sourceContent": {"body": {"text": "Retain this pending content", "format": "plain_text"}, "media": []},
+            "publications": [{"channelId": webhook, "deliveryMode": "manual",
+                              "scheduledAt": candidate_time,
+                              "targetContent": {"body": "Retain this pending content"}}],
+        }
+        first = request("POST", f"/api/projects/{target}/posts", plan)["publications"][0]
+        conflict = request("POST", f"/api/projects/{target}/posts", plan, expected_status=409)
+        if conflict["error"]["code"] != "cadence_conflict" or not conflict["error"]["warnings"]:
+            raise RuntimeError("Planning did not return an explicit cadence challenge")
+        if len(request("GET", f"/api/projects/{target}/publications")["publications"]) != 1:
+            raise RuntimeError("Rejected planning left partial work")
+        second = request("POST", f"/api/projects/{target}/posts", {
+            **plan, "cadenceConfirmation": conflict["error"]["confirmation"],
+        })["publications"][0]
+        stop()
+        start(candidate["Id"], "data")
+        login()
+        if request("GET", f"/api/projects/{project}/channels/{webhook}/cadence")["rules"] != rules:
+            raise RuntimeError("Cadence configuration did not survive restart")
+        verify_preservation(shared=True)
+
+        manual_profile = json.loads(json.dumps(webhook_profile))
+        manual_profile["id"] = "candidate-manual"
+        manual_profile["execution"] = {"kind": "manual"}
+        destination = request("POST", f"/api/projects/{target}/channels", {
+            "name": "Candidate manual destination", "profile": manual_profile,
+        })["channel"]
+        narrow_profile = json.loads(json.dumps(manual_profile))
+        narrow_profile["id"] = "candidate-short-manual"
+        narrow_profile["contentSchema"]["properties"]["body"]["maxLength"] = 1
+        narrow_profile["capabilities"]["textFields"][0]["maxLength"] = 1
+        narrow = request("POST", f"/api/projects/{target}/channels", {
+            "name": "Candidate short destination", "profile": narrow_profile,
+        })["channel"]
+
+        def move_input(editor, channel):
+            current = editor["publication"]
+            return {
+                "targetChannelId": channel["id"], "deliveryMode": "manual",
+                "expectedPublicationUpdatedAt": current["updatedAt"],
+                "expectedDraftRevision": editor["draft"]["revision"],
+                "expectedSourceRevision": editor["post"]["sourceRevision"],
+                "expectedTargetRevisionId": current["targetRevisionId"],
+                "expectedScheduledAt": current["scheduledAt"],
+                "expectedTargetProfileVersionId": channel["profileVersionId"],
+            }
+
+        moved_ids = []
+        for original, move_channel, compatible in [(first, destination, True), (second, narrow, False)]:
+            path = f"/api/projects/{target}/publications/{original['id']}"
+            before_move = request("GET", path + "/editor")["editor"]
+            payload = move_input(before_move, move_channel)
+            stale = request("POST", path + "/move", {**payload, "expectedDraftRevision": 999}, expected_status=409)
+            if stale["error"]["code"] != "write_conflict":
+                raise RuntimeError("Stale move was not refused")
+            if request("GET", path + "/editor")["editor"] != before_move:
+                raise RuntimeError("Refused move changed original work")
+            moved = request("POST", path + "/move", payload)["editor"]
+            after_move = request("GET", path + "/editor")["editor"]
+            if moved["draft"]["content"] != before_move["draft"]["content"]:
+                raise RuntimeError("Move lost saved content")
+            if moved["publication"]["postId"] != original["postId"]:
+                raise RuntimeError("Move did not retain its source post")
+            if moved["publication"]["scheduledAt"] != (candidate_time if compatible else None):
+                raise RuntimeError("Move did not retain the expected schedule/review boundary")
+            if not compatible and moved["publication"]["reviewState"] != "review_required":
+                raise RuntimeError("Incompatible destination did not retain a review draft")
+            if after_move["publication"]["state"] != "cancelled" or after_move["selectedTarget"] != before_move["selectedTarget"]:
+                raise RuntimeError("Move rewrote the original selected content/history")
+            if moved["movement"]["requestedScheduledAt"] != candidate_time or moved["movement"]["fromPublicationId"] != original["id"]:
+                raise RuntimeError("Move linkage/requested schedule was lost")
+            moved_ids.append(moved["publication"]["id"])
+        stop()
+        start(candidate["Id"], "data")
+        login()
+        for moved_id in moved_ids:
+            if not request("GET", f"/api/projects/{target}/publications/{moved_id}/editor")["editor"]["movement"]["fromPublicationId"]:
+                raise RuntimeError("Move history did not survive restart")
+        impact = request("GET", f"/api/projects/{project}/lifecycle")
+        request("DELETE", f"/api/projects/{project}/lifecycle", {
+            "fingerprint": impact["fingerprint"], "confirmName": "Previous-release project",
+            "cancelPending": True,
+        })
+        retained = request("GET", f"/api/projects/{target}/publishers")["connections"]
+        if not any(item["channelId"] == webhook and item["credentialId"] == connection_before["credentialId"] for item in retained):
+            raise RuntimeError("Deleting the managing project removed a surviving connection")
+        manager = request("GET", f"/api/projects/{target}/channels/{webhook}/sharing")["channel"]["management"]
+        if manager["kind"] != "workspace":
+            raise RuntimeError("Deleting the manager silently promoted another project")
+        verify_foreign_keys()
+        print("PASS: native candidate retains cadence and move receipts after restart; stale writes are atomic; incompatible content stays reviewable; manager deletion preserves the shared connection and foreign keys.", flush=True)
         request("POST", "/api/projects", {"name": "Candidate-only project"})
         print(
-            "PASS: previous-image data upgraded; login, project, channel, draft, media, live connection and queued automatic work preserved; sharing works on migrated data; candidate accepts writes.",
+            "PASS: previous-image data upgraded; login, project, channel, draft, media, recorded connection and queued automatic work preserved; sharing and new-work lifecycle work on migrated data; candidate accepts writes.",
             flush=True,
         )
         stop()
@@ -440,6 +566,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         start(previous["Id"], "restored")
         login()
         verify_preservation()
+        verify_foreign_keys()
         if not request("GET", "/api/recovery/status")["held"]:
             raise RuntimeError("Restoration did not enable recovery hold")
         if any(
@@ -455,7 +582,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         else:
             raise RuntimeError("Recovery hold accepted project writes")
         print(
-            "PASS: pre-upgrade backup restored with previous image; original data preserved and writes held. No provider was connected.",
+            "PASS: pre-upgrade backup restored with previous image; original data preserved and writes held. No external publication was dispatched.",
             flush=True,
         )
         stop()

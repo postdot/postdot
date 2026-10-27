@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { createManualChannelProfile } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
@@ -10,6 +11,7 @@ import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
+import { createPublisherStore } from './publisher-store'
 import { projects, publisherCredentials, workspaces } from './schema'
 import { seedTestWorkspace } from './testing'
 
@@ -519,47 +521,105 @@ describe('coordinated publisher credential renewal', () => {
         return { ...f, credential: result.credential }
     }
 
-    it('renews once across store facades and gives the waiter fresh expiry and tokens', async () => {
+    it('renews one shared credential once across project contexts and store facades', async () => {
         const f = await fixture()
         try {
+            const manual = createManualStore(f.database, { now: () => now })
+            const target = manual.createProject({
+                workspaceId: f.project.project.workspaceId!,
+                name: 'Shared renewal',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = manual.createChannel({
+                projectId: f.project.project.id,
+                subjectId: 'user-1',
+                name: 'Shared account',
+                profile: {
+                    ...createManualChannelProfile(),
+                    id: 'x',
+                    execution: { kind: 'built_in', contractId: 'x', revision: 'text-v1' },
+                },
+            })!
+            const context = manual.sharedChannels.contextFor({
+                subjectId: 'user-1',
+                contextProjectId: f.project.project.id,
+                authorization: {
+                    authorizeProject: () => true,
+                    authorizeWorkspace: () => false,
+                    authorizeSharing: () => true,
+                },
+            })!
+            expect(
+                manual.sharedChannels.attach(context, {
+                    channelId: channel.id,
+                    projectId: target.project.id,
+                    expectedRevision: 1,
+                }).kind
+            ).toBe('changed')
+            expect(
+                createPublisherStore(f.database, {
+                    credentialRevoker: f.store,
+                    connectionPolicies: {
+                        x: {
+                            defaultDestination: credential => ({
+                                type: 'account',
+                                id: credential.externalAccountId,
+                                name: credential.externalAccountName,
+                            }),
+                            validateDestination: destination => destination.type === 'account',
+                        },
+                    },
+                }).createPublisherConnection({
+                    projectId: f.project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'user-1',
+                    kind: 'x',
+                    credentialId: f.credential.id,
+                }).kind
+            ).toBe('created')
             const entered = Promise.withResolvers<void>()
             const release = Promise.withResolvers<void>()
             const secondStore = createPublisherCredentialStore(f.database, { cipher: f.cipher })
             let renewals = 0
-            const prepare = (store: typeof f.store) =>
-                store.withPublisherCredentialRefresh(
-                    f.project.project.id,
-                    f.credential.id,
-                    async context => {
-                        expect(context).not.toBeNull()
-                        if (!context) throw new Error('Missing context')
-                        if (
-                            context.credential.expiresAt !== null &&
-                            context.credential.expiresAt <= now
-                        ) {
-                            renewals++
-                            entered.resolve()
-                            await release.promise
-                            expect(
-                                (
-                                    await context.replaceTokens({
-                                        accessToken: 'fresh-access',
-                                        refreshToken: 'rotated-refresh',
-                                        expiresAt: now + 60000,
-                                    })
-                                ).kind
-                            ).toBe('updated')
-                            return 'fresh-access'
-                        }
-                        return context.secrets.accessToken
+            const prepare = (store: typeof f.store, projectId: string) =>
+                store.withPublisherCredentialRefresh(projectId, f.credential.id, async context => {
+                    expect(context).not.toBeNull()
+                    if (!context) throw new Error('Missing context')
+                    if (
+                        context.credential.expiresAt !== null &&
+                        context.credential.expiresAt <= now
+                    ) {
+                        renewals++
+                        entered.resolve()
+                        await release.promise
+                        expect(
+                            (
+                                await context.replaceTokens({
+                                    accessToken: 'fresh-access',
+                                    refreshToken: 'rotated-refresh',
+                                    expiresAt: now + 60000,
+                                })
+                            ).kind
+                        ).toBe('updated')
+                        return 'fresh-access'
                     }
-                )
-            const first = prepare(f.store)
+                    return context.secrets.accessToken
+                })
+            const first = prepare(f.store, f.project.project.id)
             await entered.promise
-            const second = prepare(secondStore)
+            const second = prepare(secondStore, target.project.id)
             release.resolve()
             expect(await Promise.all([first, second])).toEqual(['fresh-access', 'fresh-access'])
             expect(renewals).toBe(1)
+            expect(
+                (
+                    await secondStore.resolvePublisherCredentialSecrets(
+                        target.project.id,
+                        f.credential.id
+                    )
+                )?.refreshToken
+            ).toBe('rotated-refresh')
             expect(
                 (
                     await f.store.resolvePublisherCredentialSecrets(

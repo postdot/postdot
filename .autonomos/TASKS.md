@@ -17,14 +17,22 @@ guides and CLI/authentication reference explain these source workflows and their
 access, concurrency and lifecycle boundaries. The published `0.1.0-alpha.2` image
 still uses project-owned channels and does not include this milestone.
 
-Remaining work is grouped lifecycle/release acceptance against the final source:
-preserved migration and rollback, sharing/detach/deletion, cadence/restart/retry,
-credential and destination admission, scoped access and representative EN/FR
-journeys, followed by AMD64/ARM64 upgrade/restoration and release preparation.
-A pre-cadence candidate passed a synthetic AMD64 alpha.2 upgrade and restoration;
-final cadence/move container acceptance, native ARM64 and an operator-copied backup
-remain unclaimed. Migrations and documentation changes do not authorize publishing
-an image or deploying the site.
+Local grouped acceptance now covers migration/rollback, sharing/detach/deletion,
+cadence concurrency/restart/retry, shared credential renewal, moves and Studio
+journeys. A synthetic native AMD64 alpha.2 upgrade/restoration and full container
+recovery passed after correcting retirement of original/derived media graphs.
+The final unit/scripts gate passed 1,741 tests; 159 distinct default/SMTP browser
+journeys passed across the full run and focused reprises (see the worklog for the
+two initial failures and their causes).
+
+Remaining release work: build and accept the exact committed source on native
+AMD64/ARM64 through the existing candidate workflow, with alpha.2 as the explicit
+previous image, and obtain source integration CI before release preparation.
+The local runner is AMD64; native ARM64, an operator-copied backup and real-provider
+acceptance remain unclaimed. The temporary AMD64 images were working-tree evidence,
+not release candidates. No source push, workflow dispatch, image publication or
+site deployment was performed. Recommended next action: an explicitly authorized
+validation-branch push and native candidate/source CI, without publishing an image.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)

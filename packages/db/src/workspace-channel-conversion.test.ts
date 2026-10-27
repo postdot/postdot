@@ -17,6 +17,7 @@ import { rehearseMigrations, runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
+import { createResourceLifecycleStore } from './resource-lifecycle-store'
 
 function workspace(db: PostbotDatabase, id: string) {
     db.$client
@@ -635,5 +636,61 @@ it('keeps editorial readers and content on their project context when a detached
         expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
     } finally {
         closeDatabase(f.database)
+    }
+})
+
+it('retires a migrated alpha.2 managing project while another project retains its channel and credential', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'postdot-alpha2-retirement-'))
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 18))
+        workspace(database, 'workspace')
+        const source = seedLegacyScheduledChannel(database, {
+            prefix: 'source',
+            workspaceId: 'workspace',
+            at: 1000,
+        })
+        const target = seedLegacyScheduledChannel(database, {
+            prefix: 'target',
+            workspaceId: 'workspace',
+            at: 1000,
+        })
+        runMigrations(database)
+        const actor = database.$client
+            .query<{ id: string }, []>(
+                "select id from actors where workspace_id='workspace' limit 1"
+            )
+            .get()!
+        database.$client
+            .query(
+                "insert into project_channel_attachments(project_id,channel_id,workspace_id,origin,attached_by_actor_id,attached_at) values (?,?,'workspace','explicit',?,2000)"
+            )
+            .run(target.project, source.channel, actor.id)
+        const lifecycle = createResourceLifecycleStore(database)
+        lifecycle.mutate({
+            kind: 'project',
+            id: source.project,
+            action: 'delete',
+            actorId: 'source',
+            fingerprint: lifecycle.impact('project', source.project)!.fingerprint,
+            confirmName: 'source',
+            cancelPending: true,
+            authorize: () => true,
+        })
+        expect(lifecycle.state('project', source.project)).toBe('deleted')
+        expect(
+            database.$client
+                .query('select id from publisher_credentials where id=?')
+                .get(source.credential)
+        ).toEqual({ id: source.credential })
+        expect(
+            database.$client
+                .query('select id from project_channel_contexts where project_id=? and id=?')
+                .get(target.project, source.channel)
+        ).toEqual({ id: source.channel })
+        expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+    } finally {
+        closeDatabase(database)
+        rmSync(directory, { recursive: true, force: true })
     }
 })

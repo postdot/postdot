@@ -233,3 +233,179 @@ it('waits for an admitted request and retries failed object deletion after resta
         await rm(root, { recursive: true, force: true })
     }
 })
+
+it('permanently deletes scheduled work with selected targets through the lifecycle boundary', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const manual = createManualStore(database)
+        const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(database),
+            name: 'Scheduled retirement',
+            subjectId: 'operator',
+            displayName: 'Operator',
+        })
+        const channel = manual.createChannel({
+            projectId: project.id,
+            subjectId: 'operator',
+            name: 'Manual',
+        })!
+        manual.createPost({
+            projectId: project.id,
+            subjectId: 'operator',
+            sourceContent: { body: { format: 'plain_text', text: 'Retained content' }, media: [] },
+            publications: [
+                {
+                    channelId: channel.id,
+                    deliveryMode: 'manual',
+                    scheduledAt: Date.now() + 86400000,
+                },
+            ],
+        })
+        const lifecycle = createResourceLifecycleStore(database)
+        const impact = lifecycle.impact('project', project.id)!
+        lifecycle.mutate({
+            kind: 'project',
+            id: project.id,
+            action: 'delete',
+            actorId: 'operator',
+            fingerprint: impact.fingerprint,
+            confirmName: project.name,
+            cancelPending: true,
+            authorize: () => true,
+        })
+        expect(lifecycle.state('project', project.id)).toBe('deleted')
+        expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+    } finally {
+        closeDatabase(database)
+    }
+})
+
+it('retires an image graph with derived previews and queues every object before deleting SQL ownership', async () => {
+    const { createMediaAssetStore } = await import('./media-asset-store')
+    const { previewFixturePng } = await import('./image-preview-fixture')
+    const { createLocalMediaStore } = await import('@postdot/media')
+    const { mkdtemp, rm } = await import('node:fs/promises')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const root = await mkdtemp(join(tmpdir(), 'postdot-derived-retirement-'))
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const manual = createManualStore(database)
+        const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(database),
+            name: 'Image graph',
+            subjectId: 'operator',
+            displayName: 'Operator',
+        })
+        const storage = createLocalMediaStore({
+            rootDirectory: root,
+            storeId: 'derived',
+            maxObjectBytes: 2000000,
+        })
+        const media = createMediaAssetStore(database, storage)
+        const bytes = previewFixturePng(40, 30)
+        const reservation = media.reserveUpload({
+            projectId: project.id,
+            subjectId: 'operator',
+            originalFilename: 'retained.png',
+            contentType: 'image/png',
+            expectedSize: bytes.length,
+        })!
+        await media.upload({
+            projectId: project.id,
+            subjectId: 'operator',
+            intentId: reservation.intent.id,
+            source: new Blob([bytes]).stream(),
+        })
+        expect(
+            (
+                await media.finalizeUpload({
+                    projectId: project.id,
+                    subjectId: 'operator',
+                    intentId: reservation.intent.id,
+                })
+            ).kind
+        ).toBe('ready')
+        const representations = media.getAsset(
+            project.id,
+            reservation.asset.id,
+            'operator'
+        )!.representations
+        expect(
+            representations.filter(item => item.sourceRepresentationId !== null).length
+        ).toBeGreaterThan(0)
+        const lifecycle = createResourceLifecycleStore(database)
+        lifecycle.mutate({
+            kind: 'project',
+            id: project.id,
+            action: 'delete',
+            actorId: 'operator',
+            fingerprint: lifecycle.impact('project', project.id)!.fingerprint,
+            confirmName: project.name,
+            authorize: () => true,
+        })
+        expect(
+            database.$client.query('select id from projects where id=?').get(project.id)
+        ).toBeNull()
+        expect(
+            database.$client.query('select count(*) as count from resource_cleanup_objects').get()
+        ).toEqual({ count: representations.length })
+        expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        expect(database.$client.query('pragma foreign_keys').get()).toEqual({ foreign_keys: 1 })
+        expect(database.$client.query('pragma defer_foreign_keys').get()).toEqual({
+            defer_foreign_keys: 0,
+        })
+        await createResourceLifecycleStore(database).reconcile(storage)
+        expect(lifecycle.state('project', project.id)).toBe('deleted')
+        for (const representation of representations)
+            expect(await storage.stat(representation.objectKey)).toBeNull()
+    } finally {
+        closeDatabase(database)
+        await rm(root, { recursive: true, force: true })
+    }
+})
+
+it('rolls back retirement and retains foreign-key enforcement when a dependency survives the deletion graph', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const manual = createManualStore(database)
+        const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(database),
+            name: 'Protected',
+            subjectId: 'operator',
+            displayName: 'Operator',
+        })
+        database.$client.exec(
+            'create table retirement_guard(project_id text references projects(id) on delete restrict)'
+        )
+        database.$client.query('insert into retirement_guard values (?)').run(project.id)
+        const lifecycle = createResourceLifecycleStore(database)
+        const input = {
+            kind: 'project' as const,
+            id: project.id,
+            action: 'delete' as const,
+            actorId: 'operator',
+            fingerprint: lifecycle.impact('project', project.id)!.fingerprint,
+            confirmName: project.name,
+            authorize: () => true,
+        }
+        expect(() => lifecycle.mutate(input)).toThrow('FOREIGN KEY')
+        expect(lifecycle.state('project', project.id)).toBe('active')
+        expect(
+            database.$client.query('select id from projects where id=?').get(project.id)
+        ).toEqual({ id: project.id })
+        expect(database.$client.query('select * from resource_lifecycle_events').all()).toEqual([])
+        expect(database.$client.query('pragma foreign_keys').get()).toEqual({ foreign_keys: 1 })
+        expect(database.$client.query('pragma defer_foreign_keys').get()).toEqual({
+            defer_foreign_keys: 0,
+        })
+        database.$client.exec('delete from retirement_guard')
+        lifecycle.mutate(input)
+        expect(lifecycle.state('project', project.id)).toBe('deleted')
+    } finally {
+        closeDatabase(database)
+    }
+})

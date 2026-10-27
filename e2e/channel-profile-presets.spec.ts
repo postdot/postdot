@@ -261,7 +261,6 @@ test('confirms profile activation, preserves affected work, and exposes explicit
         'Publication needing adaptation',
         'Keep this previous destination text intact.'
     )
-    const before = await readEditor(long.id)
     await expect
         .poll(async () =>
             (
@@ -269,6 +268,8 @@ test('confirms profile activation, preserves affected work, and exposes explicit
             ).publications.map((p: { id: string }) => p.id)
         )
         .toContain(long.id)
+    // Move eligibility changes when the requested time passes. Snapshot after it is due.
+    const before = await readEditor(long.id)
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()

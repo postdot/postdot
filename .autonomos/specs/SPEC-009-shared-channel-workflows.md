@@ -3,7 +3,9 @@
 - Status: accepted (owner approval, 2026-10-26)
 - Scope: SHARE-592; [GitHub #12](https://github.com/postdot/postdot/issues/12)
 - Related decision: [ADR-095](../decisions/ADR-095-workspace-channels-and-project-attachments.md)
-- Delivery: not yet implemented; alpha.2 does not support channel sharing
+- Delivery: implemented in source; grouped release acceptance remains in progress.
+  The published alpha.2 image does not support channel sharing.
+  [Acceptance evidence](../worklogs/2026-10-27-SHARE-592.md).
 
 ## Ordinary use and sharing
 
