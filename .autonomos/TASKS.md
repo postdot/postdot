@@ -7,28 +7,24 @@
 
 ## Current direction
 
-Shared-channel development follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
+Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
 and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md) under SHARE-592/GitHub #12.
-Destination confirmation, credential renewal coordination and workspace-scoped
-attribution are implemented in source. Migration 0023 now converts channel,
-profile, publisher, connection and credential ownership to the workspace with
-explicit project attachments, and the existing stores write the converted schema;
-it is registered in the source chain but unreleased (alpha.2 channels remain
-project-owned). Source now includes live sharing authorization, attach/withdraw and
-management-transfer HTTP routes, contextual Studio sharing, shared-calendar occupancy,
-credential scope for admitted effects after detach, and optional channel cadence.
-Cadence covers transactional planning warnings with attributed confirmation and
-persisted automatic spacing, including retries and overdue work. Remaining milestone
-work includes public documentation and grouped lifecycle/release acceptance.
-CLI commands now cover scoped channel reads, sharing/withdrawal, management transfer,
-cadence rules/timing/overrides, occupancy and explicit pending moves through the same
-HTTP contracts, with revision-bound writes and explicit cadence confirmation. Explicit pending-work moves now create a revalidated publication in the
-same post, retain the requested schedule, and link/cancel the original atomically;
-incompatible content remains an unscheduled review draft. Workspace Channels and explicit management transfer
-are available in source, with scoped usage, archived inspection and live management
-checks across project mutations and provider connection flows.
+Source now includes workspace-owned channels/profiles/connections/credentials,
+explicit project attachments and management transfer, live session/key scope
+checks, contextual Studio/API/CLI, shared-calendar occupancy, optional cadence,
+destination confirmation and revalidated pending-publication moves. Authored public
+guides and CLI/authentication reference explain these source workflows and their
+access, concurrency and lifecycle boundaries. The published `0.1.0-alpha.2` image
+still uses project-owned channels and does not include this milestone.
+
+Remaining work is grouped lifecycle/release acceptance against the final source:
+preserved migration and rollback, sharing/detach/deletion, cadence/restart/retry,
+credential and destination admission, scoped access and representative EN/FR
+journeys, followed by AMD64/ARM64 upgrade/restoration and release preparation.
 A pre-cadence candidate passed a synthetic AMD64 alpha.2 upgrade and restoration;
-native ARM64, cadence-container acceptance and an operator-copied backup remain unclaimed.
+final cadence/move container acceptance, native ARM64 and an operator-copied backup
+remain unclaimed. Migrations and documentation changes do not authorize publishing
+an image or deploying the site.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)

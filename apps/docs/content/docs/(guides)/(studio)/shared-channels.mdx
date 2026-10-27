@@ -1,0 +1,128 @@
+---
+title: Share a channel
+description: Use one destination across projects, manage its cadence and move pending work.
+---
+
+Sharing, channel cadence and publication moves are available in current source
+builds. The published `0.1.0-alpha.2` image does not include these workflows.
+Check [releases](/docs/releases/) before following this guide on a tagged image.
+
+Use a shared channel when several projects publish to the same destination. They
+reuse its content profile and connection while keeping separate posts, media,
+publication schedules and access rights. Adding a project does not create another
+provider connection or turn a manual channel into an automatic one.
+
+## Give another project publication use
+
+1. In the project that manages the channel, open **Channels**.
+2. Open the channel's menu and choose **Use in other projects…**.
+3. Under **Add a project**, select an authorized project in the same workspace.
+4. Open that project's Channels page. The destination appears with a **Shared** badge.
+
+The added project can prepare and publish according to its members' project roles.
+The managing project controls the common profile, connection and cadence. Sharing
+does not reveal connection credentials. The person who connected the account is
+recorded for attribution; their departure does not revoke the connection.
+
+You must have authority over the channel and the target project. The picker lists
+eligible projects you can access. A workspace administrator can recover channel
+management, but workspace administration alone does not grant access to a project's
+publication content.
+
+<Callout title="Sharing exposes occupied times" type="warn">
+    Attached projects can see when other projects use the channel. Readers with access to those
+    projects can see publication details; everyone else sees anonymous occupied times and states,
+    without titles, content or project names. Drafts from unreadable projects are not shown or
+    counted in that calendar view.
+</Callout>
+
+## Inspect workspace channels or transfer management
+
+Open **Workspace channels** from the project's Channels page or workspace settings.
+The page lists channels you can read or manage and filters project usage by your
+access. Use **Include archived channels** to inspect retained channels. Creating a
+channel here requires an explicit initial project; creation from a project's
+Channels page chooses that project as its first user and manager.
+
+Expand a channel to review its projects. Under **Channel management**, choose an
+attached project as **New managing project**, review the consequence and choose
+**Confirm management transfer**. Members of the previous managing project may
+lose configuration access. Other attached projects keep publication use.
+
+Attachment changes do not transfer management automatically. If the managing
+project is removed, workspace administrators recover management rather than
+promoting another attached project. A concurrent change can invalidate the transfer;
+review the refreshed state before confirming again.
+
+## Set optional cadence
+
+From the managing project's channel menu, choose **Cadence…**. You can also manage
+cadence from **Workspace channels** when authorized. Leave a limit empty to disable
+it, or configure:
+
+| Rule             | Effect                                                         |
+| ---------------- | -------------------------------------------------------------- |
+| Daily maximum    | Warns when a plan exceeds the limit for a civil day            |
+| Weekly maximum   | Warns when a plan exceeds the limit for a Monday-start week    |
+| Minimum interval | Delays automatic publication on the channel, including retries |
+
+Choose the channel timezone and **Save cadence**. Its initial timezone comes from
+the managing project. You still enter a publication's date in its project timezone.
+The channel timezone determines which day or week the cadence counts use.
+
+Counts include scheduled, ready, publishing, published and ambiguous work across
+the channel's projects. Drafts, cancelled work and definitely failed work do not
+participate. Manual results use their recorded publication time. Postdot cannot
+account for posts sent outside the application. Delays and retries can move the
+actual delivery into a different day from the original plan.
+
+When planning exceeds a maximum, review **Exceed channel cadence?**. Choose
+**Change schedule** to stop, or **Confirm this exception** to accept that specific
+plan. Confirmation does not disable the rule for later work. If the plan or rule
+changes, review the new conflict.
+
+Minimum spacing preserves the requested schedule and shows a delayed-until time.
+An authorized editor can choose **Publish without this interval…** and confirm the
+current timing exception. Provider limits and security checks still apply.
+
+## Move pending work to another channel
+
+You can move a draft or future ready/scheduled publication that has no execution
+attempt. Overdue, previously attempted and completed publications cannot move.
+The destination must be another active channel attached to the same project.
+
+1. Open the publication and save any local changes. If its source has changed,
+   review and save the draft against the current source first.
+2. Choose **Move to another channel…**, then select the destination.
+3. For an automatic-capable destination, review the delivery mode.
+4. Choose **Confirm move** and inspect the replacement publication.
+
+Postdot creates a new publication in the same post from the saved working content
+and checks its content and media against the destination profile. It cancels and
+links the original in the same operation. Original content revisions and execution
+history remain intact; approvals, delivery results and cadence exceptions do not
+transfer.
+
+Compatible scheduled work keeps its date. Incompatible content remains available
+in an unscheduled draft for review, with the previous requested time displayed.
+Review the validation issues and choose a new schedule explicitly. The replacement
+links to the original, and the original links back while the replacement exists.
+A stale source, draft, schedule or destination profile causes a conflict before
+cancellation. Inspect the current state before trying again.
+
+## Withdraw a project
+
+In **Use in other projects…** or **Workspace channels**, choose **Withdraw** for
+the project. A project owner can withdraw their own project; channel managers can
+withdraw another authorized project. Withdrawing the last active project requires
+**Withdraw and archive**.
+
+Withdrawal closes future use and retains history. Pending work becomes unavailable
+for review; withdrawal does not rewrite or silently move it. Cancel that work or
+use an eligible publication's move action. An operation already started at the
+provider can finish and record its result. A connection shared with surviving
+projects remains available to them.
+
+See [channel profiles](/docs/channels/) for profile changes and destination
+confirmation, [archive and delete](/docs/projects/) for project retirement, or the
+[CLI reference](/docs/cli-reference/#share-and-manage-channels) for machine workflows.

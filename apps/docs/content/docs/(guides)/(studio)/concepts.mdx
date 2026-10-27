@@ -33,8 +33,15 @@ A **channel** describes the destination and its content requirements. A connecte
 **publisher** supplies the connection for automated delivery. A manual channel has
 no publisher: you deliver the content yourself and record the result in Postdot.
 
-These connections belong to the project, rather than the person who connected
-them. Project access and permission to edit determine what a member can do.
+In current source builds, the workspace owns channels, profiles and connections.
+A project uses a channel through an explicit attachment. The managing project
+controls its common configuration; each project keeps its own posts, media and
+publication history. Connections remain available when the person who connected
+them leaves. See [sharing a channel](/docs/shared-channels/) for access and calendar
+visibility.
+
+The published `0.1.0-alpha.2` image still uses project-owned channels and
+connections; it does not include shared-channel workflows.
 
 ## A saved draft is not a delivery result
 

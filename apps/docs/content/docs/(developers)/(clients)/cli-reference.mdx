@@ -81,8 +81,8 @@ uses concise confirmations; inspection commands display formatted JSON.
 
 Requests have a 30-second transport deadline by default; `--timeout-ms` sets a different positive per-request deadline (useful for larger uploads). The CLI never automatically retries
 writes. A transport failure has code `transport_error`; the write may already
-have succeeded on the server. Inspect state before submitting it again. This
-first tranche does not add idempotency keys or promise exactly-once submission.
+have succeeded on the server. Inspect state before submitting it again. The
+CLI does not add idempotency keys or promise exactly-once submission.
 
 ## Import and inspect media
 
@@ -132,7 +132,7 @@ bun scripts/postbot.ts channels profile --project <project-id> --channel <channe
 
 The response is the existing API contract: `channel`, `active`, and nullable
 `draft`. Read the definition under `active.profile` for schema, declared bindings,
-text capabilities, and media requirements. The active version is distinct from an
+text capabilities, and media requirements. The active version is distinct from a
 profile draft awaiting activation. Keep the version reference when preparing a payload;
 server validation and promotion remain authoritative if the channel changes.
 
@@ -158,6 +158,162 @@ list is valid, including for projects using manual channels.
 and does not describe every provider. An active connection plus ready application
 configuration does not guarantee a successful delivery. This read command neither
 connects a provider nor sends a test publication.
+
+## Share and manage channels
+
+The commands in this section, channel cadence and publication moves require current
+source builds. They are absent from the published `0.1.0-alpha.2` image. Run them
+from the matching source checkout against an API with the same contracts. See
+[Share a channel](/docs/shared-channels/) for Studio and the effects of sharing.
+
+Inspect the source project's channel and the authorized workspace view:
+
+```sh
+bun run postdot channels sharing --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
+bun run postdot channels list --workspace "$WORKSPACE_ID" --include-archived --json
+```
+
+The sharing response exposes `channel.revision`, the managing project when
+readable, permitted actions and eligible projects. Workspace listing filters each
+channel and usage by the key owner's live access and the key's project scope.
+An unreadable managing project's name stays hidden.
+
+Copy the inspected revision before attaching another project:
+
+```sh
+bun run postdot channels attach --project "$PROJECT_ID" --channel "$CHANNEL_ID" --target-project "$TARGET_PROJECT_ID" --expected-revision "$CHANNEL_REVISION" --json
+```
+
+Use the new revision from a successful mutation response, or inspect again before
+another change. Transferring management requires an attached target project:
+
+```sh
+bun run postdot channels transfer --workspace "$WORKSPACE_ID" --channel "$CHANNEL_ID" --target-project "$TARGET_PROJECT_ID" --expected-revision "$CHANNEL_REVISION" --json
+bun run postdot channels withdraw --project "$PROJECT_ID" --channel "$CHANNEL_ID" --target-project "$TARGET_PROJECT_ID" --expected-revision "$CHANNEL_REVISION" --json
+```
+
+`attach`, `withdraw`, `transfer`, `cadence` and `configure-cadence` accept exactly
+one context: `--project` or `--workspace`. `--target-project` identifies the project
+gaining use, losing use or accepting management. Withdrawal retains history and
+can make pending work unavailable. Pass `--archive-last` only when you intend to
+archive the channel as its final attachment is withdrawn. A `stale_revision`
+response requires another inspection; the CLI does not refresh and retry for you.
+
+Keys need `channel:share` for attachment, withdrawal and management transfer, with
+scope for each affected project and the owner's live authority. `channel:manage`
+controls profile/connection/cadence configuration. Sharing does not grant dispatch,
+credential access or workspace administration. Use `project:read` for inspection;
+see [authentication](/docs/reference/authentication/#shared-channel-access).
+
+For HTTP clients, the matching [channel operations](/docs/reference/channels/getProjectChannelSharing/)
+use project paths under `/api/projects/{projectId}/channels/{channelId}` and
+workspace paths under `/api/workspaces/{workspaceId}/channels/{channelId}`.
+Both contexts expose `attachments`, `management` and `cadence`. Project withdrawal
+uses `attachments/{attachedProjectId}/withdraw`; workspace withdrawal uses
+`withdraw` with `projectId` in the body. Keep `expectedRevision` in mutation bodies.
+
+## Configure cadence and inspect occupied times
+
+Read the rules before writing:
+
+```sh
+bun run postdot channels cadence --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
+```
+
+Save the following as `cadence.json`, replacing `expectedRevision` with
+`rules.revision`, or `0` when `rules` is null. Each limit accepts `null` to disable
+it. API intervals use milliseconds; Studio displays minutes.
+
+```json
+{
+    "expectedRevision": 0,
+    "timeZone": "Europe/Paris",
+    "dailyMax": 3,
+    "weeklyMax": 10,
+    "minimumIntervalMs": 3600000
+}
+```
+
+```sh
+bun run postdot channels configure-cadence --project "$PROJECT_ID" --channel "$CHANNEL_ID" --input cadence.json --json
+bun run postdot channels occupancy --project "$PROJECT_ID" --from "$FROM_EPOCH_MS" --to "$TO_EPOCH_MS" --json
+```
+
+The occupancy range uses epoch milliseconds, with `to` later than `from`. The
+server returns readable publication details or anonymous occupied times according
+to current access. It omits unreadable drafts. It does not estimate activity
+outside Postdot. For calendar periods and rule behavior, see
+[optional cadence](/docs/shared-channels/#set-optional-cadence).
+
+### Confirm a planning exception
+
+An exceeded maximum returns exit 1 and HTTP `409`, with `error.code` set to
+`cadence_conflict`. JSON stderr also includes `error.confirmation` and
+`error.warnings`: channel, rule, civil period, maximum and count. The rejected
+operation makes no partial changes. Review the warnings before resubmitting the
+same plan with its confirmation:
+
+```sh
+bun run postdot publications schedule --project "$PROJECT_ID" --publications "$PUBLICATION_ID" --at "$EPOCH_MS" --cadence-confirmation "$CONFIRMATION" --json
+```
+
+`promote` and `retry` accept the same option. For `posts create` and
+`publications move`, add `cadenceConfirmation` to the JSON input. Changed plans,
+rules or competing work can produce a new challenge. Review that conflict rather
+than replaying an old token until a write succeeds.
+
+### Override one minimum interval
+
+Read the publication's timing and copy its current `confirmation`:
+
+```sh
+bun run postdot publications cadence --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
+bun run postdot publications override-cadence --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --confirmation "$CONFIRMATION" --json
+```
+
+Timing reports `scheduledAt`, `eligibleAt`, a nullable delay `reason` and a
+confirmation. It can be absent for manual work or a publication outside pending
+automatic states. An override requires dispatch permission and a current timing
+confirmation. It does not change the requested schedule or bypass provider limits,
+security checks or destination confirmation. A stale confirmation returns a conflict.
+
+## Move pending work
+
+Inspect the source publication with `publications show` and the destination with
+`channels list` or `channels profile`. The destination must be another active
+channel attached to the same project. Only drafts and future ready/scheduled work
+without an execution attempt qualify.
+
+Prepare `move.json` using these inspected values; preserve nulls exactly:
+
+| Input field                      | Inspected value                                   |
+| -------------------------------- | ------------------------------------------------- |
+| `targetChannelId`                | Destination channel's `id`                        |
+| `deliveryMode`                   | Explicit `manual` or supported `automatic` choice |
+| `expectedPublicationUpdatedAt`   | `editor.publication.updatedAt`                    |
+| `expectedDraftRevision`          | `editor.draft.revision`                           |
+| `expectedSourceRevision`         | `editor.post.sourceRevision`                      |
+| `expectedTargetRevisionId`       | `editor.publication.targetRevisionId`             |
+| `expectedScheduledAt`            | `editor.publication.scheduledAt`                  |
+| `expectedTargetProfileVersionId` | Destination channel's `profileVersionId`          |
+
+```sh
+bun run postdot publications move --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --input move.json --json
+```
+
+The response contains the replacement `editor`, including its new publication ID
+and `movement.fromPublicationId`. The operation preserves the post and saved
+working content, revalidates media/content, and cancels/links the original
+atomically. Compatible scheduled work retains its date. Incompatible content
+becomes an unscheduled review draft with `movement.requestedScheduledAt` retained;
+review and explicitly schedule it afterward. Approval, execution results and
+cadence exceptions do not transfer.
+
+A stale draft, source, target, schedule or destination profile fails before the
+original is cancelled. Inspect before resubmitting. Moving requires an editor
+role and `publication:manage`; moving scheduled work additionally requires
+`publication:dispatch`. Read the complete [move request and responses](/docs/reference/publications/movePublication/)
+for HTTP clients.
 
 ## Retire a project or workspace
 

@@ -32,7 +32,7 @@ Leave `publication:dispatch` out to prevent scheduling and delivery actions.
 | `project:read`               | Read supported project resources, including channels and publications        |
 | `project:manage`             | Archive and restore projects with the required live role                     |
 | `project:permanently_delete` | Request permanent project deletion with impact confirmation                  |
-| `publication:manage`         | Create and edit drafts                                                       |
+| `publication:manage`         | Create/edit drafts and move eligible pending work                            |
 | `publication:dispatch`       | Schedule publications and request delivery actions                           |
 | `channel:manage`             | Manage supported channel configuration operations                            |
 | `channel:share`              | Attach, withdraw and transfer management of shared channels                  |
@@ -51,6 +51,38 @@ session-only routes.
 
 Follow the [draft-only CLI walkthrough](/docs/automation/#create-a-draft-for-review)
 for a complete example with limited permissions.
+
+## Shared-channel access
+
+Shared-channel routes and publication moves require current source builds. The
+published `0.1.0-alpha.2` image does not include them.
+
+A channel attachment grants publication use under the attached project's roles.
+The managing project controls its common profile, connection and cadence. Workspace
+administrators can recover management without gaining project-content access.
+API keys retain their owner's live access and their stored project/action limits;
+workspace routes do not widen the key's scope.
+
+`channel:share` permits attachment, withdrawal and management transfer when the
+owner has the required underlying authority. Select every affected project in the
+key scope. The capability does not include dispatch, connection secrets or
+workspace administration. `channel:manage` requires live channel-management
+rights for configuration, including cadence. An editor of a different attached
+project can prepare publications but cannot change the common connection.
+
+Moving pending work requires project editor access and `publication:manage`.
+Moving a scheduled publication also requires `publication:dispatch`. Unscheduled
+draft moves do not grant scheduling authority. Minimum-interval overrides require
+`publication:dispatch` and a current confirmation. Planning exceptions also bind
+the affected work, times and rule revisions; they do not elevate a key's actions.
+Ordinary authorized machine calls need no extra human-session ceremony.
+
+Channel listings and workspace project usages are filtered by current access.
+Calendar occupancy intentionally exposes anonymous times and states for unreadable
+attached projects. It excludes their drafts and does not expose titles, content
+or names. See [shared channels](/docs/shared-channels/) before granting that use.
+A hidden resource may return `404`; requesting a wider key does not replace live
+project or channel authority.
 
 ## Operations that require a session
 

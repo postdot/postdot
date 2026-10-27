@@ -1,6 +1,14 @@
 {
     "title": "Studio",
     "defaultOpen": true,
-    "pages": ["concepts", "projects", "providers", "media", "channels", "first-comments"],
+    "pages": [
+        "concepts",
+        "projects",
+        "providers",
+        "media",
+        "channels",
+        "shared-channels",
+        "first-comments"
+    ],
     "icon": "document"
 }
