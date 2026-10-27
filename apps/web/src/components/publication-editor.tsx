@@ -87,6 +87,8 @@ import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 import { providerForProfile } from '@/providers/registry'
 
+import { PublicationCadenceStatus } from './publication-cadence-status'
+
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
 
@@ -166,7 +168,7 @@ export function PublicationEditor({
     backToCalendar,
     timeZone,
 }: PublicationEditorProps) {
-    useLanguage()
+    const { locale } = useLanguage()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const recoveryKey = useMemo(
@@ -1556,6 +1558,16 @@ export function PublicationEditor({
 
                 {!promotionRecoveryRequired && !passiveStatus ? editorStatus : null}
 
+                {editor.publication.deliveryMode === 'automatic' &&
+                ['scheduled', 'ready'].includes(editor.publication.state) ? (
+                    <PublicationCadenceStatus
+                        projectId={projectId}
+                        publicationId={editor.publication.id}
+                        timeZone={timeZone}
+                        locale={locale}
+                        readOnly={readOnly}
+                    />
+                ) : null}
                 <PublicationDestination
                     onReviewCurrent={reloadServerVersion}
                     selectedContent={editor.selectedTarget?.content ?? null}

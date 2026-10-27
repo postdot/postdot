@@ -197,7 +197,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.taxonomy,
         options.access
     )
-    const channelRoutes = registerChannelRoutes(taxonomyRoutes, options.manualStore, options.access)
+    const channelRoutes = registerChannelRoutes(
+        taxonomyRoutes,
+        options.manualStore,
+        options.access,
+        options.onWorkScheduled
+    )
     const channelProfileRoutes = registerChannelProfileRoutes(
         channelRoutes,
         options.manualStore,

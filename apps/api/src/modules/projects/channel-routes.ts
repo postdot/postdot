@@ -86,7 +86,8 @@ function sharingOutcome(result: SharingResult): SharingOutcome {
 export function registerChannelRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
-    access: AccessStore
+    access: AccessStore,
+    onWorkScheduled?: () => void
 ) {
     const sharingContext = (input: {
         readonly apiKeyPermissions: Parameters<
@@ -111,7 +112,99 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
             }),
         })
 
+    const cadenceSchema = Type.Object({
+        channelId: Type.String(),
+        revision: Type.Integer(),
+        timeZone: Type.String(),
+        dailyMax: Type.Union([Type.Integer(), Type.Null()]),
+        weeklyMax: Type.Union([Type.Integer(), Type.Null()]),
+        minimumIntervalMs: Type.Union([Type.Integer(), Type.Null()]),
+    })
     return app
+        .get(
+            '/api/projects/:projectId/channels/:channelId/cadence',
+            {
+                auth: true,
+                params: channelParams,
+                response: {
+                    200: Type.Object({
+                        rules: Type.Union([cadenceSchema, Type.Null()]),
+                        canManage: Type.Boolean(),
+                    }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getChannelCadence',
+                    summary: 'Read optional channel cadence',
+                    tags: ['Channels'],
+                },
+            },
+            ({ params, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
+                const ctx = sharingContext({
+                    projectId: params.projectId,
+                    userId: user.id,
+                    authMethod,
+                    apiKeyPermissions,
+                    apiKeyProjectIds,
+                })
+                const result = ctx
+                    ? manualStore.sharedChannels.getCadence(ctx, params.channelId)
+                    : null
+                return (
+                    result ??
+                    status(404, { error: { code: 'not_found', message: 'Channel not found' } })
+                )
+            }
+        )
+        .put(
+            '/api/projects/:projectId/channels/:channelId/cadence',
+            {
+                auth: true,
+                params: channelParams,
+                body: Type.Object({
+                    expectedRevision: Type.Integer({ minimum: 0 }),
+                    timeZone: Type.Optional(Type.String()),
+                    dailyMax: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+                    weeklyMax: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+                    minimumIntervalMs: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()]),
+                }),
+                response: {
+                    200: cadenceSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'configureChannelCadence',
+                    summary: 'Configure optional channel cadence',
+                    tags: ['Channels'],
+                },
+            },
+            ({ params, body, status, user, authMethod, apiKeyPermissions, apiKeyProjectIds }) => {
+                const ctx = sharingContext({
+                    projectId: params.projectId,
+                    userId: user.id,
+                    authMethod,
+                    apiKeyPermissions,
+                    apiKeyProjectIds,
+                })
+                const result = ctx
+                    ? manualStore.sharedChannels.configureCadence(ctx, {
+                          ...body,
+                          channelId: params.channelId,
+                      })
+                    : null
+                if (result) onWorkScheduled?.()
+                return (
+                    result ??
+                    status(404, { error: { code: 'not_found', message: 'Channel not found' } })
+                )
+            }
+        )
         .get(
             '/api/projects/:projectId/channels',
             {

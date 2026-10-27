@@ -340,3 +340,181 @@ describe('shared channel occupancy HTTP route', () => {
         }
     })
 })
+
+it('configures cadence with live management and returns a fresh planning conflict before accepting an attributed confirmation', async () => {
+    const f = await setup()
+    try {
+        const credential = { cookie: f.cookie }
+        const path = `/api/projects/${f.source}/channels/${f.channel.id}/cadence`
+        const initial = await call(f.app, path, credential)
+        expect(initial.status).toBe(200)
+        expect(await initial.json()).toEqual({ rules: null, canManage: true })
+        const configure = (expectedRevision: number) =>
+            call(f.app, path, credential, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    expectedRevision,
+                    timeZone: 'Europe/Paris',
+                    dailyMax: 1,
+                    weeklyMax: 1,
+                    minimumIntervalMs: 60000,
+                }),
+            })
+        expect((await configure(0)).status).toBe(200)
+        expect((await configure(0)).status).toBe(409)
+        const at = now + 86400000
+        const create = (cadenceConfirmation?: string) =>
+            call(
+                f.app,
+                `/api/projects/${f.source}/posts`,
+                credential,
+                post({
+                    title: 'Launch',
+                    sourceContent: { body: { format: 'plain_text', text: 'Launch' }, media: [] },
+                    cadenceConfirmation,
+                    publications: [
+                        { channelId: f.channel.id, deliveryMode: 'manual', scheduledAt: at },
+                    ],
+                })
+            )
+        expect((await create()).status).toBe(201)
+        const conflict = await create()
+        expect(conflict.status).toBe(409)
+        const error = (
+            (await conflict.json()) as { error: { confirmation: string; warnings: unknown[] } }
+        ).error
+        expect(error.warnings).toHaveLength(2)
+        expect((await create(error.confirmation)).status).toBe(201)
+        const stale = await create(error.confirmation)
+        expect(stale.status).toBe(409)
+        expect(
+            ((await stale.json()) as { error: { confirmation: string } }).error.confirmation
+        ).not.toBe(error.confirmation)
+        const readKey = await f.apiKey({
+            name: 'Read cadence',
+            actionAccess: ['project:read'],
+            projectIds: [f.source],
+        })
+        expect((await call(f.app, path, { token: readKey })).status).toBe(200)
+        expect(
+            (
+                await call(
+                    f.app,
+                    path,
+                    { token: readKey },
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            expectedRevision: 1,
+                            dailyMax: null,
+                            weeklyMax: null,
+                            minimumIntervalMs: null,
+                        }),
+                    }
+                )
+            ).status
+        ).toBe(403)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('scopes and attributes a single spacing override independently from planning and provider admission', async () => {
+    const f = await setup()
+    try {
+        const credential = { cookie: f.cookie }
+        const created = await call(
+            f.app,
+            `/api/projects/${f.source}/posts`,
+            credential,
+            post({
+                sourceContent: { body: { format: 'plain_text', text: 'Dispatch' }, media: [] },
+                publications: [
+                    { channelId: f.channel.id, deliveryMode: 'manual', scheduledAt: now + 1000 },
+                ],
+            })
+        )
+        expect(created.status).toBe(201)
+        const publicationId = ((await created.json()) as { publications: { id: string }[] })
+            .publications[0]!.id
+        f.database.$client
+            .query("update publications set delivery_mode='automatic' where id=?")
+            .run(publicationId)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `/api/projects/${f.source}/channels/${f.channel.id}/cadence`,
+                    credential,
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            expectedRevision: 0,
+                            dailyMax: null,
+                            weeklyMax: null,
+                            minimumIntervalMs: 60000,
+                        }),
+                    }
+                )
+            ).status
+        ).toBe(200)
+        f.database.$client
+            .query('update channel_cadence set last_effect_at=? where channel_id=?')
+            .run(now, f.channel.id)
+        const path = `/api/projects/${f.source}/publications/${publicationId}`
+        const response = await call(f.app, `${path}/cadence`, credential)
+        expect(response.status).toBe(200)
+        const timing = (await response.json()) as {
+            confirmation: string
+            reason: string
+            eligibleAt: number
+        }
+        expect(timing).toMatchObject({ reason: 'minimum_interval', eligibleAt: now + 60000 })
+        const manageOnly = await f.apiKey({
+            name: 'Editorial only',
+            projectIds: [f.source],
+            actionAccess: ['publication:manage'],
+        })
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${path}/cadence-override`,
+                    { token: manageOnly },
+                    post({ confirmation: timing.confirmation })
+                )
+            ).status
+        ).toBe(403)
+        expect(
+            (
+                await call(
+                    f.app,
+                    `${path}/cadence-override`,
+                    credential,
+                    post({ confirmation: 'x'.repeat(64) })
+                )
+            ).status
+        ).toBe(409)
+        const approved = await call(
+            f.app,
+            `${path}/cadence-override`,
+            credential,
+            post({ confirmation: timing.confirmation })
+        )
+        expect(approved.status).toBe(200)
+        expect(await approved.json()).toMatchObject({ reason: null, eligibleAt: now + 1000 })
+        expect(
+            f.database.$client
+                .query(
+                    "select actor_id from audit_events where action='publication.cadence_spacing_overridden'"
+                )
+                .all()
+        ).toHaveLength(1)
+        // No publisher or credential is created by an editorial exception.
+        expect(f.database.$client.query('select count(*) as n from publishers').get()).toEqual({
+            n: 0,
+        })
+    } finally {
+        closeDatabase(f.database)
+    }
+})

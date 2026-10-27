@@ -45,6 +45,14 @@ describe('user API-key capability policy', () => {
         ],
         ['POST', '/api/projects/project-1/channels', 'channel:manage'],
         ['GET', '/api/projects/project-1/channel-occupancy', 'project:read'],
+        ['GET', '/api/projects/project-1/channels/channel-1/cadence', 'project:read'],
+        ['PUT', '/api/projects/project-1/channels/channel-1/cadence', 'channel:manage'],
+        ['GET', '/api/projects/project-1/publications/publication-1/cadence', 'project:read'],
+        [
+            'POST',
+            '/api/projects/project-1/publications/publication-1/cadence-override',
+            'publication:dispatch',
+        ],
         ['GET', '/api/projects/project-1/channels/channel-1/sharing', 'project:read'],
         ['POST', '/api/projects/project-1/channels/channel-1/attachments', 'channel:share'],
         [

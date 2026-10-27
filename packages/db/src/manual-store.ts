@@ -17,6 +17,7 @@ import {
     type Timestamp,
 } from '@postdot/core'
 
+import { createChannelCadenceStore } from './channel-cadence'
 import { recordDatabaseCommitProject, type PostbotDatabase } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
@@ -149,6 +150,7 @@ export interface CreatePostPublicationInput {
 }
 
 export interface CreatePostInput {
+    readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly subjectId: string
     readonly title?: string | null
@@ -204,6 +206,7 @@ export interface RebasePublicationDraftInput {
 }
 
 export interface PromotePublicationDraftInput {
+    readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationId: string
     readonly subjectId: string
@@ -218,6 +221,7 @@ export interface PromotePublicationDraftInput {
 }
 
 export interface ReschedulePublicationsInput {
+    readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationIds: readonly string[]
     readonly subjectId: string
@@ -249,6 +253,7 @@ export interface ReconcileAmbiguousPublicationInput {
 }
 
 export interface RetryFailedPublicationInput {
+    readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationId: string
     readonly subjectId: string
@@ -1048,7 +1053,26 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
         },
     })
 
+    const cadence = createChannelCadenceStore(database)
     return {
+        getPublicationCadence(input: {
+            projectId: string
+            publicationId: string
+            subjectId: string
+        }) {
+            if (!loadActorStatement.get(input.projectId, input.subjectId)) return null
+            return cadence.timing(input.projectId, input.publicationId)
+        },
+        overridePublicationCadence(input: {
+            projectId: string
+            publicationId: string
+            subjectId: string
+            confirmation: string
+        }) {
+            const actor = loadActorStatement.get(input.projectId, input.subjectId)
+            if (!actor) return null
+            return cadence.override.immediate({ ...input, actorId: actor.id, now: now() })
+        },
         ...createPublicationDestinationStore(database, {
             now,
             createId,

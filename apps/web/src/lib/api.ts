@@ -2,6 +2,7 @@ import { providerApi } from '@/providers/api'
 
 import { client, unwrap, ApiError, errorFrom } from './api-transport'
 import type { ProfileDefinitionIssue } from './api-transport'
+import { withCadenceConfirmation } from './cadence-confirmation'
 export { ApiError } from './api-transport'
 export type { ProfileDefinitionIssue } from './api-transport'
 import {
@@ -1005,7 +1006,13 @@ export const api = {
     },
 
     async createPost(projectId: string, input: WebApiRequests['createPost']) {
-        return unwrap(await client.api.projects({ projectId }).posts.post(input))
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api
+                    .projects({ projectId })
+                    .posts.post({ ...input, cadenceConfirmation })
+            )
+        )
     },
 
     async getPublicationComposerDraft(projectId: string) {
@@ -1072,11 +1079,13 @@ export const api = {
             ...(options.scheduledAt === undefined ? {} : { scheduledAt: options.scheduledAt }),
             ...(options.publishNow === undefined ? {} : { publishNow: options.publishNow }),
         }
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .publications({ publicationId })
-                ['approval-request'].approve.post(body)
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api
+                    .projects({ projectId })
+                    .publications({ publicationId })
+                    ['approval-request'].approve.post({ ...body, cadenceConfirmation })
+            )
         )
     },
 
@@ -1168,31 +1177,67 @@ export const api = {
         expectedRevision: number,
         scheduledAt?: number | null
     ) {
-        return unwrap(
-            await client.api
-                .projects({ projectId })
-                .publications({ publicationId })
-                .draft.promote.post(
-                    scheduledAt === undefined
-                        ? { expectedRevision }
-                        : { expectedRevision, scheduledAt }
-                )
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api
+                    .projects({ projectId })
+                    .publications({ publicationId })
+                    .draft.promote.post({ expectedRevision, scheduledAt, cadenceConfirmation })
+            )
         )
     },
-
     async reschedulePublications(
         projectId: string,
         publicationIds: readonly string[],
         scheduledAt: number
     ) {
-        return unwrap(
-            await client.api.projects({ projectId }).publications.schedule.patch({
-                publicationIds: [...publicationIds],
-                scheduledAt,
-            })
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api.projects({ projectId }).publications.schedule.patch({
+                    publicationIds: [...publicationIds],
+                    scheduledAt,
+                    cadenceConfirmation,
+                })
+            )
         )
     },
-
+    async getChannelCadence(projectId: string, channelId: string) {
+        return unwrap(
+            await client.api.projects({ projectId }).channels({ channelId }).cadence.get()
+        )
+    },
+    async configureChannelCadence(
+        projectId: string,
+        channelId: string,
+        input: {
+            expectedRevision: number
+            timeZone: string
+            dailyMax: number | null
+            weeklyMax: number | null
+            minimumIntervalMs: number | null
+        }
+    ) {
+        return unwrap(
+            await client.api.projects({ projectId }).channels({ channelId }).cadence.put(input)
+        )
+    },
+    async getPublicationCadence(projectId: string, publicationId: string) {
+        return unwrap(
+            await client.api.projects({ projectId }).publications({ publicationId }).cadence.get()
+        )
+    },
+    async overridePublicationCadence(
+        projectId: string,
+        publicationId: string,
+        confirmation: string
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['cadence-override'].post({ confirmation })
+        )
+    },
     async cancelPublications(projectId: string, publicationIds: readonly string[]) {
         return unwrap(
             await client.api.projects({ projectId }).publications.cancel.patch({
@@ -1240,8 +1285,13 @@ export const api = {
     },
 
     async retryFailedPublication(projectId: string, publicationId: string) {
-        return unwrap(
-            await client.api.projects({ projectId }).publications({ publicationId }).retry.post({})
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api
+                    .projects({ projectId })
+                    .publications({ publicationId })
+                    .retry.post({ cadenceConfirmation })
+            )
         )
     },
 
@@ -1345,6 +1395,10 @@ export type {
 
 export function formatApiError(error: unknown): string {
     if (!(error instanceof ApiError)) return m.api_request_failed()
+    if (error.code === 'cadence_conflict')
+        return error.warnings?.length === 0
+            ? m.cadence_timing_changed()
+            : m.cadence_conflict_description()
     if (error.code === 'channel_lifecycle_conflict')
         return formatChannelLifecycleConflict(error.blockers)
     const message = apiErrorMessage(error.code)

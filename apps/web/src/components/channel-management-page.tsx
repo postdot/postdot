@@ -30,6 +30,8 @@ import {
 import type { PublisherCallbackResult } from '@/lib/publisher-connection-feedback'
 import * as m from '@/paraglide/messages.js'
 
+import { ChannelCadenceDialog } from './channel-cadence-dialog'
+
 interface ChannelManagementPageProps {
     readonly facebookSelection?: { readonly selection: string; readonly channelId: string }
     readonly onDismissPublisherFeedback?: () => Promise<void>
@@ -75,6 +77,7 @@ export function ChannelManagementPage({
         ? m.publication_resume_composition()
         : m.nav_back_to_overview()
     const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
+    const [cadenceChannel, setCadenceChannel] = useState<Channel | null>(null)
     const [sharingChannel, setSharingChannel] = useState<Channel | null>(null)
     const [lifecycle, setLifecycle] = useState<{
         readonly action: ChannelLifecycleAction
@@ -181,6 +184,7 @@ export function ChannelManagementPage({
                         pending={pending}
                         onEditProfile={setProfileChannel}
                         onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
+                        onCadence={setCadenceChannel}
                         onShare={canEditProject ? setSharingChannel : undefined}
                         onPublisherConnected={onPublisherConnected}
                         onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
@@ -199,6 +203,15 @@ export function ChannelManagementPage({
                 )}
             </section>
 
+            {cadenceChannel ? (
+                <ChannelCadenceDialog
+                    channel={cadenceChannel}
+                    projectId={project.id}
+                    timeZone={project.timeZone}
+                    onClose={() => setCadenceChannel(null)}
+                    onChanged={onRefreshProject}
+                />
+            ) : null}
             {canEditProject ? (
                 <ChannelProfileEditorDialog
                     channel={profileChannel}

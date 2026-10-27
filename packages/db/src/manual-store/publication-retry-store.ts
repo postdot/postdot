@@ -7,6 +7,7 @@ import {
     type Job,
 } from '@postdot/core'
 
+import { createChannelCadenceStore } from '../channel-cadence'
 import { publicationDestinationConfirmed } from '../channel-destination'
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
@@ -56,6 +57,7 @@ export function createPublicationRetryStore(
     database: PostbotDatabase,
     options: PublicationRetryStoreOptions
 ) {
+    const cadence = createChannelCadenceStore(database)
     const client = database.$client
     const assessRetainedTarget = createRetainedTargetAssessor(
         database,
@@ -215,6 +217,19 @@ export function createPublicationRetryStore(
                 createdAt: failedJobRow.createdAt,
                 updatedAt: failedJobRow.updatedAt,
             }
+            cadence.check({
+                projectId: input.projectId,
+                actorId: actor.id,
+                now: timestamp,
+                confirmation: input.cadenceConfirmation,
+                candidates: [
+                    {
+                        id: publication.id,
+                        channelId: publication.channelId,
+                        at: publication.scheduledAt ?? timestamp,
+                    },
+                ],
+            })
             const ready = transitionPublication({
                 publication,
                 to: 'ready',

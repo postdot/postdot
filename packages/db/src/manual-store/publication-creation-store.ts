@@ -17,6 +17,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
+import { createChannelCadenceStore } from '../channel-cadence'
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type {
     AddPostDestinationsInput,
@@ -90,6 +91,7 @@ export function createPublicationCreationStore(
     database: PostbotDatabase,
     options: PublicationCreationStoreOptions
 ) {
+    const cadence = createChannelCadenceStore(database)
     const client = database.$client
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
@@ -449,6 +451,18 @@ export function createPublicationCreationStore(
                 }
             })
             const publications = publicationEntries.map(entry => entry.publication)
+            cadence.check({
+                projectId: input.projectId,
+                actorId: actor.id,
+                now: timestamp,
+                confirmation: input.cadenceConfirmation,
+                candidates: publicationEntries.map((entry, index) => ({
+                    id: `new:${index}`,
+                    actualId: entry.publication.id,
+                    channelId: entry.publication.channelId,
+                    at: entry.publication.scheduledAt,
+                })),
+            })
 
             if (existingPost === undefined) {
                 insertPostStatement.run(

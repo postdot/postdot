@@ -65,7 +65,72 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
     access: AccessStore,
     options: PublicationRouteOptions = {}
 ) {
+    const timingSchema = Type.Object({
+        scheduledAt: Type.Integer(),
+        eligibleAt: Type.Integer(),
+        reason: Type.Union([Type.Literal('minimum_interval'), Type.Null()]),
+        confirmation: Type.String(),
+    })
     return app
+        .get(
+            '/api/projects/:projectId/publications/:publicationId/cadence',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Union([timingSchema, Type.Null()]),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getPublicationCadence',
+                    summary: 'Read publication dispatch timing',
+                    tags: ['Publications'],
+                },
+            },
+            ({ params, user }) =>
+                manualStore.getPublicationCadence({ ...params, subjectId: user.id })
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/cadence-override',
+            {
+                auth: true,
+                params: publicationParams,
+                body: Type.Object({ confirmation: Type.String({ minLength: 64, maxLength: 64 }) }),
+                response: {
+                    200: Type.Union([timingSchema, Type.Null()]),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'overridePublicationCadence',
+                    summary: 'Explicitly override one minimum interval',
+                    tags: ['Publications'],
+                },
+            },
+            ({ params, body, user, authMethod, status }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(403, forbiddenProjectMutation())
+                const result = manualStore.overridePublicationCadence({
+                    ...params,
+                    ...body,
+                    subjectId: user.id,
+                })
+                options.onWorkScheduled?.()
+                return result
+            }
+        )
         .get(
             '/api/projects/:projectId/publications/:publicationId/destination',
             {
@@ -432,6 +497,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     projectId: params.projectId,
                     publicationIds: body.publicationIds,
                     scheduledAt: body.scheduledAt,
+                    cadenceConfirmation: body.cadenceConfirmation,
                     subjectId: user.id,
                 })
                 if (publications === null) {
@@ -700,6 +766,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     requestId: request.id,
                     subjectId: user.id,
                     scheduledAt: body.scheduledAt,
+                    cadenceConfirmation: body.cadenceConfirmation,
                     publishNow: body.publishNow,
                 })
                 if (publication === null) {
@@ -1129,6 +1196,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     subjectId: user.id,
                     expectedRevision: body.expectedRevision,
                     scheduledAt: body.scheduledAt,
+                    cadenceConfirmation: body.cadenceConfirmation,
                 })
                 if (publication === null) {
                     return status(404, {
@@ -1205,6 +1273,13 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
             '/api/projects/:projectId/publications/:publicationId/retry',
             {
                 auth: true,
+                body: Type.Optional(
+                    Type.Object({
+                        cadenceConfirmation: Type.Optional(
+                            Type.String({ minLength: 64, maxLength: 64 })
+                        ),
+                    })
+                ),
                 params: publicationParams,
                 response: {
                     200: Type.Object({ publication: publicationSchema }),
@@ -1219,7 +1294,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
                 if (
                     !canAccessProjectRole({
                         access,
@@ -1233,6 +1308,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 }
 
                 const result = manualStore.retryFailedPublication({
+                    cadenceConfirmation: body?.cadenceConfirmation,
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,

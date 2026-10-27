@@ -2,7 +2,7 @@ import { SQLiteError } from 'bun:sqlite'
 import { randomUUID } from 'node:crypto'
 
 import { DomainInvariantError } from '@postdot/core'
-import { ResourceLifecycleError } from '@postdot/db'
+import { CadenceConflictError, ResourceLifecycleError } from '@postdot/db'
 import { MediaStoreError } from '@postdot/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
 import type { Logger } from 'pino'
@@ -42,6 +42,18 @@ export function createErrorHandler(logger?: Logger) {
                 error: {
                     code: 'validation_error',
                     message: 'The request does not match the expected shape',
+                },
+            }
+        }
+
+        if (error instanceof CadenceConflictError) {
+            set.status = 409
+            return {
+                error: {
+                    code: 'cadence_conflict',
+                    message: error.message,
+                    confirmation: error.confirmation,
+                    warnings: error.warnings,
                 },
             }
         }

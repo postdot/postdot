@@ -110,6 +110,12 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         }
 
         // Sharing is its own capability: it grants no connection management, dispatch or secret access.
+        if (detail[1] === 'cadence' && detail.length === 2)
+            return normalizedMethod === 'GET'
+                ? 'project:read'
+                : normalizedMethod === 'PUT'
+                  ? 'channel:manage'
+                  : null
         if (detail[1] === 'sharing' && detail.length === 2) {
             return normalizedMethod === 'GET' ? 'project:read' : null
         }
@@ -187,6 +193,10 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     }
 
     if (resource === 'publications') {
+        if (detail.length === 2 && detail[1] === 'cadence' && normalizedMethod === 'GET')
+            return 'project:read'
+        if (detail.length === 2 && detail[1] === 'cadence-override' && normalizedMethod === 'POST')
+            return 'publication:dispatch'
         if (detail.length === 2 && detail[1] === 'first-comment') {
             if (normalizedMethod === 'GET') return 'project:read'
             return normalizedMethod === 'PUT' ? 'publication:dispatch' : null

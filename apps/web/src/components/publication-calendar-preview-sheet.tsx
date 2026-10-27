@@ -21,6 +21,8 @@ import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
+import { PublicationCadenceStatus } from './publication-cadence-status'
+
 export function PublicationCalendarPreviewSheet({
     locale,
     onOpenChange,
@@ -107,6 +109,15 @@ export function PublicationCalendarPreviewSheet({
                                 </div>
                             </div>
 
+                            {['scheduled', 'ready'].includes(publication.state) ? (
+                                <PublicationCadenceStatus
+                                    projectId={projectId}
+                                    publicationId={publication.id}
+                                    locale={locale}
+                                    timeZone={timeZone}
+                                    readOnly={readOnly}
+                                />
+                            ) : null}
                             <section aria-label={copy.content} className="mt-6">
                                 {previewQuery.isPending ? (
                                     <div

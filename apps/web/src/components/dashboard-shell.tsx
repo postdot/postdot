@@ -11,6 +11,8 @@ import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
+import { CadenceConfirmationDialog } from './cadence-confirmation-dialog'
+
 interface DashboardShellProps {
     readonly children: ReactNode
     readonly channels: readonly Channel[]
@@ -77,6 +79,7 @@ export function DashboardShell({
         <SidebarProvider
             className="postbot-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
             style={{ '--sidebar-width-icon': '2rem' } as CSSProperties}>
+            <CadenceConfirmationDialog channels={channels} />
             <DashboardSidebar
                 activeSection={activeSection}
                 channels={channels}

@@ -29,6 +29,7 @@ export function ChannelRow({
     disabled,
     onEditProfile,
     onLifecycleAction,
+    onCadence,
     onShare,
     readOnly = false,
 }: {
@@ -37,6 +38,7 @@ export function ChannelRow({
     readonly disabled: boolean
     readonly onEditProfile: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
+    readonly onCadence?: () => void
     readonly onShare?: () => void
     readonly readOnly?: boolean
 }) {
@@ -75,6 +77,7 @@ export function ChannelRow({
                     disabled={disabled}
                     onEditProfile={onEditProfile}
                     onLifecycleAction={onLifecycleAction}
+                    onCadence={onCadence}
                     onShare={onShare}
                 />
             )}
@@ -88,12 +91,14 @@ export function ChannelActionsMenu({
     onEditProfile,
     onLifecycleAction,
     onDisconnect,
+    onCadence,
     onShare,
 }: {
     readonly channel: Channel
     readonly disabled: boolean
     readonly onEditProfile: () => void
     readonly onDisconnect?: () => void
+    readonly onCadence?: () => void
     readonly onShare?: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
 }) {
@@ -130,6 +135,9 @@ export function ChannelActionsMenu({
                     <Pen2Icon aria-hidden="true" />
                     {m.channel_rename()}
                 </DropdownMenuItem>
+                {onCadence && !archived ? (
+                    <DropdownMenuItem onClick={onCadence}>{m.cadence_action()}</DropdownMenuItem>
+                ) : null}
                 {onShare && !archived ? (
                     <DropdownMenuItem onClick={onShare}>
                         <ShareIcon aria-hidden="true" />

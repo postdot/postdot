@@ -8,6 +8,7 @@ import {
     type ChannelProfileDefinition,
 } from '@postdot/core'
 
+import { createChannelCadenceStore, validateCadence, type ChannelCadence } from './channel-cadence'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
@@ -482,12 +483,112 @@ export function createWorkspaceChannelStore(
         }
     }
 
+    const cadence = createChannelCadenceStore(database)
+    const configureCadence = createDatabaseTransaction(
+        database,
+        (
+            ctx: WorkspaceChannelContext,
+            input: {
+                channelId: string
+                expectedRevision: number
+                timeZone?: string
+                dailyMax: number | null
+                weeklyMax: number | null
+                minimumIntervalMs: number | null
+            }
+        ) => {
+            const row = channel.get(input.channelId)
+            if (
+                !row ||
+                !allowedActor(ctx, row) ||
+                !manages(ctx, row, 'manage_channels') ||
+                row.state !== 'active'
+            )
+                return null
+            const current = cadence.get(row.id)
+            if ((current?.revision ?? 0) !== input.expectedRevision)
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The cadence changed; reload it and retry'
+                )
+            const defaults = manager.get(row.id)
+            const timeZone =
+                input.timeZone ??
+                current?.timeZone ??
+                (defaults ? project.get(defaults.projectId)?.timeZone : undefined) ??
+                'UTC'
+            const value = {
+                timeZone,
+                dailyMax: input.dailyMax,
+                weeklyMax: input.weeklyMax,
+                minimumIntervalMs: input.minimumIntervalMs,
+            }
+            validateCadence(value)
+            client
+                .query(`insert into channel_cadence (channel_id,revision,time_zone,daily_max,weekly_max,minimum_interval_ms,updated_by_actor_id,updated_at)
+            values (?,1,?,?,?,?,?,?) on conflict(channel_id) do update set revision=revision+1,time_zone=excluded.time_zone,
+            daily_max=excluded.daily_max,weekly_max=excluded.weekly_max,minimum_interval_ms=excluded.minimum_interval_ms,
+            updated_by_actor_id=excluded.updated_by_actor_id,updated_at=excluded.updated_at`)
+                .run(
+                    row.id,
+                    timeZone,
+                    input.dailyMax,
+                    input.weeklyMax,
+                    input.minimumIntervalMs,
+                    ctx.actorId,
+                    now()
+                )
+            client
+                .query(
+                    `update channel_cadence set last_effect_at=nullif(max(coalesce(last_effect_at,0),coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?),0)),0) where channel_id=?`
+                )
+                .run(row.id, row.id)
+            client
+                .query(
+                    'delete from publication_cadence_overrides where publication_id in (select id from publications where channel_id=?)'
+                )
+                .run(row.id)
+            record(
+                ctx,
+                row,
+                'channel.cadence_updated',
+                ctx.contextProjectId ?? defaults?.projectId ?? '',
+                now(),
+                value
+            )
+            for (const item of client
+                .query<{ projectId: string }, [string]>(
+                    "select project_id as projectId from project_channel_attachments where channel_id=? and state='active'"
+                )
+                .all(row.id))
+                recordDatabaseCommitProject(database, item.projectId)
+            return cadence.get(row.id)!
+        }
+    )
+
     const projectActor = client.query<{ id: string }, [string, string]>(
         `select id from actors where project_id=? and subject_id=? and kind in ('human','agent','api_token') order by created_at,id limit 1`
     )
     const workspaceActors = createWorkspaceActorStore(database, { now, createId })
 
     return {
+        getCadence(
+            ctx: WorkspaceChannelContext,
+            channelId: string
+        ): { rules: ChannelCadence | null; canManage: boolean } | null {
+            const row = channel.get(channelId)
+            if (!row || !allowedActor(ctx, row) || !readable(ctx, row)) return null
+            return {
+                rules: cadence.get(channelId),
+                canManage: manages(ctx, row, 'manage_channels'),
+            }
+        },
+        configureCadence(
+            ctx: WorkspaceChannelContext,
+            input: Parameters<typeof configureCadence>[1]
+        ) {
+            return configureCadence.immediate(ctx, input)
+        },
         /**
          * Resolve the request's attribution actor from a live project actor. The result carries no grant:
          * every operation still asks the supplied policy port.

@@ -6,6 +6,7 @@ import {
     type Publication,
 } from '@postdot/core'
 
+import { createChannelCadenceStore } from '../channel-cadence'
 import { createDatabaseTransaction, type PostbotDatabase } from '../client'
 import type { ReschedulePublicationsInput } from '../manual-store'
 import { toActor, toPublication } from './mappers'
@@ -46,6 +47,7 @@ export function createPublicationSchedulingStore(
     database: PostbotDatabase,
     options: PublicationSchedulingStoreOptions
 ) {
+    const cadence = createChannelCadenceStore(database)
     const client = database.$client
     const reschedulePublicationStatement = client.query<
         { changes: number },
@@ -103,6 +105,17 @@ export function createPublicationSchedulingStore(
                 }
             })
 
+            cadence.check({
+                projectId: input.projectId,
+                actorId: actor.id,
+                now: timestamp,
+                confirmation: input.cadenceConfirmation,
+                candidates: candidates.map(c => ({
+                    id: c.current.id,
+                    channelId: c.current.channelId,
+                    at: c.next.scheduledAt,
+                })),
+            })
             for (const candidate of candidates) {
                 const { current, next } = candidate
                 const result = reschedulePublicationStatement.run(

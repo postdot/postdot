@@ -217,6 +217,7 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     title: body.title,
                     sourceContent: body.sourceContent,
                     publications: body.publications,
+                    cadenceConfirmation: body.cadenceConfirmation,
                 })
                 if (created === null) {
                     return status(404, {

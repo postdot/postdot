@@ -31,6 +31,7 @@ export interface SubmitPublicationForApprovalInput {
 }
 
 export interface ApprovePublicationRequestInput {
+    readonly cadenceConfirmation?: string
     readonly projectId: string
     readonly publicationId: string
     readonly requestId: string
@@ -311,6 +312,7 @@ export function createPublicationApprovalStore(
                 subjectId,
                 expectedRevision: request.draftRevision,
                 ...(input.publishNow === true ? { publishNow: true } : { scheduledAt }),
+                cadenceConfirmation: input.cadenceConfirmation,
                 approvalRequestId: requestId,
             })
         },

@@ -1214,3 +1214,148 @@ describe('project retirement effect fencing', () => {
             }
         })
 })
+
+it('paces overdue work before claim, persists timing across store restart and lets another channel run', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const a = seedDueJob(database, 'paced')
+        const b = seedDueJob(database, 'eligible')
+        const channelId = 'channel-paced'
+        database.$client
+            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
+            values (?,1,'UTC',1000,?,?,?)`)
+            .run(channelId, dueAt - 100, a.humanActorId, dueAt)
+        const store = createWorkflowStore(database)
+        expect(
+            store.claimNextDueJob({
+                actorId: a.systemActorId,
+                claimToken: 'early',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 2000,
+            })
+        ).toBeNull()
+        expect(store.getNextEventAt()).toBe(dueAt)
+        expect(
+            store.claimNextDueJob({
+                actorId: b.systemActorId,
+                claimToken: 'other',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 2000,
+            })?.id
+        ).toBe(b.jobId)
+        expect(createWorkflowStore(database).getNextEventAt()).toBe(dueAt + 900)
+        expect(
+            store.claimNextDueJob({
+                actorId: a.systemActorId,
+                claimToken: 'on-time',
+                now: dueAt + 900,
+                leaseExpiresAt: dueAt + 3000,
+            })?.id
+        ).toBe(a.jobId)
+        expect(store.startExternalEffect(a.jobId, 'on-time', dueAt + 900)).toBe(true)
+        expect(
+            database.$client
+                .query('select scheduled_at from publications where id=?')
+                .get(a.publicationId)
+        ).toEqual({ scheduled_at: dueAt })
+        expect(
+            database.$client
+                .query('select last_effect_at from channel_cadence where channel_id=?')
+                .get(channelId)
+        ).toEqual({ last_effect_at: dueAt + 900 })
+    } finally {
+        closeDatabase(database)
+    }
+})
+
+it('rechecks spacing at the effect boundary and defers without consuming an attempt', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const a = seedDueJob(database, 'boundary')
+        const store = createWorkflowStore(database)
+        expect(
+            store.claimNextDueJob({
+                actorId: a.systemActorId,
+                claimToken: 'claimed',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 2000,
+            })
+        ).not.toBeNull()
+        database.$client
+            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
+            values ('channel-boundary',1,'UTC',1000,?,?,?)`)
+            .run(dueAt, a.humanActorId, dueAt)
+        expect(store.startExternalEffect(a.jobId, 'claimed', dueAt + 1)).toBe(false)
+        expect(
+            database.$client
+                .query('select state,attempts,effect_started_at from jobs where id=?')
+                .get(a.jobId)
+        ).toEqual({ state: 'pending', attempts: 0, effect_started_at: null })
+        expect(store.getNextEventAt()).toBe(dueAt + 1000)
+    } finally {
+        closeDatabase(database)
+    }
+})
+
+it('paces actual retries after restart and keeps the original requested schedule', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const f = seedDueJob(database, 'retry-paced')
+        database.$client
+            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,updated_by_actor_id,updated_at)
+            values ('channel-retry-paced',1,'UTC',1000,?,?)`)
+            .run(f.humanActorId, dueAt)
+        const store = createWorkflowStore(database)
+        expect(
+            store.claimNextDueJob({
+                actorId: f.systemActorId,
+                claimToken: 'first',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 2000,
+            })
+        ).not.toBeNull()
+        expect(store.startExternalEffect(f.jobId, 'first', dueAt)).toBe(true)
+        expect(
+            store.completeExternalEffect({
+                jobId: f.jobId,
+                claimToken: 'first',
+                completedAt: dueAt + 10,
+                outcome: {
+                    type: 'retryable_failure',
+                    effectOccurred: false,
+                    errorMessage: 'Known rejection',
+                },
+                retryAt: dueAt + 100,
+            })
+        ).not.toBeNull()
+        const restarted = createWorkflowStore(database)
+        expect(restarted.getNextEventAt()).toBe(dueAt + 1000)
+        expect(
+            restarted.claimNextDueJob({
+                actorId: f.systemActorId,
+                claimToken: 'too-early',
+                now: dueAt + 100,
+                leaseExpiresAt: dueAt + 2000,
+            })
+        ).toBeNull()
+        expect(
+            restarted.claimNextDueJob({
+                actorId: f.systemActorId,
+                claimToken: 'retry',
+                now: dueAt + 1000,
+                leaseExpiresAt: dueAt + 3000,
+            })?.attempts
+        ).toBe(2)
+        expect(restarted.startExternalEffect(f.jobId, 'retry', dueAt + 1000)).toBe(true)
+        expect(
+            database.$client
+                .query('select scheduled_at from publications where id=?')
+                .get(f.publicationId)
+        ).toEqual({ scheduled_at: dueAt })
+    } finally {
+        closeDatabase(database)
+    }
+})

@@ -11,6 +11,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
+import { createChannelCadenceStore } from '../channel-cadence'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
@@ -153,6 +154,7 @@ export function createPublicationPromotionStore(
     database: PostbotDatabase,
     options: PublicationPromotionStoreOptions
 ) {
+    const cadence = createChannelCadenceStore(database)
     const client = database.$client
     const nextTargetRevisionSequenceStatement = client.query<
         { sequence: number | null },
@@ -518,6 +520,20 @@ export function createPublicationPromotionStore(
                     'The publication content no longer matches the revision requested for approval'
                 )
             }
+            cadence.check({
+                projectId: input.projectId,
+                actorId: actorRow.id,
+                now: timestamp,
+                confirmation: input.cadenceConfirmation,
+                candidates: [
+                    {
+                        id: input.publicationId,
+                        channelId: publicationRow.channelId,
+                        at: scheduledAt,
+                        immediate: input.publishNow === true,
+                    },
+                ],
+            })
             const targetRevisionId = pendingApprovalRequest?.targetRevisionId ?? options.createId()
             const sequence =
                 approvalTargetRevision?.sequence ??

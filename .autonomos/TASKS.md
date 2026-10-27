@@ -14,10 +14,15 @@ attribution are implemented in source. Migration 0023 now converts channel,
 profile, publisher, connection and credential ownership to the workspace with
 explicit project attachments, and the existing stores write the converted schema;
 it is registered in the source chain but unreleased (alpha.2 channels remain
-project-owned). Sharing is not delivered: the HTTP/CLI/Studio workflows, live
-authorization adapters for attach/withdraw/transfer, credential execution scope for
-detached admitted effects, cadence and lifecycle integration remain, and a release
-has passed a synthetic AMD64 alpha.2 upgrade and restoration acceptance; native ARM64 and an operator-copied backup remain unclaimed.
+project-owned). Source now includes live sharing authorization, attach/withdraw and
+management-transfer HTTP routes, contextual Studio sharing, shared-calendar occupancy,
+credential scope for admitted effects after detach, and optional channel cadence.
+Cadence covers transactional planning warnings with attributed confirmation and
+persisted automatic spacing, including retries and overdue work. Remaining milestone
+work includes pending-work moves, the workspace Channels page, management transfer in
+Studio, CLI and public documentation, plus grouped lifecycle/release acceptance.
+A pre-cadence candidate passed a synthetic AMD64 alpha.2 upgrade and restoration;
+native ARM64, cadence-container acceptance and an operator-copied backup remain unclaimed.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)

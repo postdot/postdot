@@ -35,6 +35,7 @@ interface PublisherConnectionPanelProps {
     readonly pending: boolean
     readonly onEditProfile: (channel: Channel) => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction, channel: Channel) => void
+    readonly onCadence?: (channel: Channel) => void
     readonly onShare?: (channel: Channel) => void
     readonly onConnectCustomHttpPublisher: (
         channelId: string,
@@ -57,6 +58,7 @@ export function PublisherConnectionPanel({
     pending,
     onEditProfile,
     onLifecycleAction,
+    onCadence,
     onShare,
     onConnectCustomHttpPublisher,
     onPublisherConnected,
@@ -248,6 +250,7 @@ export function PublisherConnectionPanel({
                                 disabled={pending}
                                 onEditProfile={() => onEditProfile(channel)}
                                 onLifecycleAction={action => onLifecycleAction(action, channel)}
+                                onCadence={onCadence ? () => onCadence(channel) : undefined}
                                 onShare={onShare ? () => onShare(channel) : undefined}
                                 readOnly={readOnly}
                             />
@@ -471,6 +474,7 @@ export function PublisherConnectionPanel({
                                         onLifecycleAction={action =>
                                             onLifecycleAction(action, channel)
                                         }
+                                        onCadence={onCadence ? () => onCadence(channel) : undefined}
                                         onShare={onShare ? () => onShare(channel) : undefined}
                                     />
                                 </div>

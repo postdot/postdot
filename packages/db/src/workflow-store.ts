@@ -13,6 +13,7 @@ import {
     type PublicationState,
 } from '@postdot/core'
 
+import { cadenceEligibleAtSql, createChannelCadenceStore } from './channel-cadence'
 import { readChannelDestination, publicationDestinationConfirmed } from './channel-destination'
 import {
     createDatabaseTransaction,
@@ -104,6 +105,7 @@ export function createWorkflowStore(
     database: PostbotDatabase,
     options: { publicMediaUrlAvailable?: boolean } = {}
 ) {
+    const cadence = createChannelCadenceStore(database)
     const client = database.$client
     const createId = () => crypto.randomUUID()
     const profileCompiler = new ChannelProfileCompiler()
@@ -214,7 +216,7 @@ export function createWorkflowStore(
     const nextEventStatement = client.query<{ eventAt: number | null }, []>(`
         select min(event_at) as eventAt
         from (
-            select jobs.run_at as event_at
+            select ${cadenceEligibleAtSql} as event_at
             from jobs
             inner join publications
                 on publications.project_id = jobs.project_id
@@ -283,14 +285,14 @@ export function createWorkflowStore(
                and actors.kind = 'system'
             where jobs.state = 'pending'
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
-              and jobs.run_at <= ?3
+              and ${cadenceEligibleAtSql} <= ?3
               and publications.state in ('scheduled', 'ready')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
-            order by jobs.run_at, jobs.id
+            order by ${cadenceEligibleAtSql}, jobs.id
             limit 1
         )
           and state = 'pending'
@@ -569,6 +571,16 @@ export function createWorkflowStore(
                 return false
             }
 
+            const eligibleAt = cadence.eligibleAt(runningJob.publicationId, runningJob.runAt)
+            if (eligibleAt > now) {
+                client
+                    .query(`update jobs set state='pending', attempts=max(0,attempts-1),
+                    claim_token=null,claimed_by_actor_id=null,claimed_at=null,lease_expires_at=null,
+                    started_at=null,updated_at=? where id=?`)
+                    .run(now, jobId)
+                recordDatabaseCommitProject(database, runningJob.projectId)
+                return false
+            }
             const executionRevisionId = createId()
             const pinned = insertExecutionRevisionStatement.run(
                 executionRevisionId,
@@ -679,6 +691,7 @@ export function createWorkflowStore(
                 )
             }
 
+            cadence.recordEffect(runningJob.publicationId, now)
             const effectStarted = markEffectStartedStatement.run(now, jobId, claimToken)
             if (effectStarted.changes !== 1) {
                 throw new DomainInvariantError(

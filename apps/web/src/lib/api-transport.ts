@@ -1,4 +1,6 @@
 import { createPostbotClient, type PostbotClient } from '@postdot/client'
+
+import type { CadenceWarning } from './cadence-confirmation'
 export const client: PostbotClient = createPostbotClient(window.location.origin)
 export interface ProfileDefinitionIssue {
     readonly code: string
@@ -16,7 +18,9 @@ export class ApiError extends Error {
         message: string,
         blockers: readonly string[] = [],
         readonly profileIssues: readonly ProfileDefinitionIssue[] = [],
-        readonly profileIssueCount: number = profileIssues.length
+        readonly profileIssueCount: number = profileIssues.length,
+        readonly confirmation?: string,
+        readonly warnings?: readonly CadenceWarning[]
     ) {
         super(message)
         this.name = 'ApiError'
@@ -61,7 +65,9 @@ export function errorFrom(status: number, value: unknown) {
             Number.isSafeInteger(details.issueCount) &&
             details.issueCount > 0
             ? details.issueCount
-            : 0
+            : 0,
+        typeof details?.confirmation === 'string' ? details.confirmation : undefined,
+        Array.isArray(details?.warnings) ? (details.warnings as CadenceWarning[]) : undefined
     )
 }
 

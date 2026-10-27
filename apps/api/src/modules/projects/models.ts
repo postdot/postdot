@@ -806,6 +806,7 @@ export const activateChannelProfileBody = Type.Object({
 
 export const createPostBody = Type.Object(
     {
+        cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
         title: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
         sourceContent: sourceContentSchema,
         publications: Type.Array(
@@ -863,6 +864,7 @@ export const rebasePublicationDraftBody = Type.Object({
 })
 
 export const promotePublicationDraftBody = Type.Object({
+    cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
     expectedRevision: Type.Integer({ minimum: 1 }),
     scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
 })
@@ -873,6 +875,7 @@ export const submitPublicationForApprovalBody = Type.Object({
 })
 
 export const approvePublicationRequestBody = Type.Object({
+    cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
     scheduledAt: Type.Optional(Type.Integer({ minimum: 0 })),
     publishNow: Type.Optional(Type.Boolean()),
 })
@@ -882,6 +885,7 @@ export const rejectPublicationRequestBody = Type.Object({
 })
 
 export const reschedulePublicationsBody = Type.Object({
+    cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
     publicationIds: Type.Array(Type.String({ minLength: 1 }), {
         minItems: 1,
         maxItems: 100,
@@ -1032,6 +1036,18 @@ export type PublisherConnectionsResponse = Static<typeof publisherConnectionsSch
 
 export const errorResponse = Type.Object({
     error: Type.Object({
+        confirmation: Type.Optional(Type.String()),
+        warnings: Type.Optional(
+            Type.Array(
+                Type.Object({
+                    channelId: Type.String(),
+                    rule: Type.Union([Type.Literal('daily_max'), Type.Literal('weekly_max')]),
+                    period: Type.String(),
+                    maximum: Type.Integer(),
+                    count: Type.Integer(),
+                })
+            )
+        ),
         code: Type.String(),
         message: Type.String(),
     }),

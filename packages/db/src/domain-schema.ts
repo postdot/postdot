@@ -1493,6 +1493,15 @@ export const publications = sqliteTable(
         index('publications_project_id_post_id_idx').on(table.projectId, table.postId),
         index('publications_project_id_channel_id_idx').on(table.projectId, table.channelId),
         index('publications_state_scheduled_at_idx').on(table.state, table.scheduledAt),
+        index('publications_channel_state_published_at_idx').on(
+            table.channelId,
+            table.state,
+            table.publishedAt
+        ),
+        index('publications_channel_planning_at_idx').on(
+            table.channelId,
+            sql`coalesce(${table.publishedAt},${table.scheduledAt},${table.updatedAt})`
+        ),
         index('publications_project_id_created_by_actor_id_idx').on(
             table.projectId,
             table.createdByActorId
@@ -3287,5 +3296,41 @@ export const resourceLifecycleEvents = sqliteTable('resource_lifecycle_events', 
     action: text('action').notNull(),
     actorId: text('actor_id').notNull(),
     impactJson: text('impact_json').notNull(),
+    createdAt: integer('created_at').notNull(),
+})
+
+export const channelCadence = sqliteTable(
+    'channel_cadence',
+    {
+        channelId: text('channel_id')
+            .primaryKey()
+            .references(() => channels.id, { onDelete: 'cascade' }),
+        revision: integer('revision').notNull(),
+        timeZone: text('time_zone').notNull(),
+        dailyMax: integer('daily_max'),
+        weeklyMax: integer('weekly_max'),
+        minimumIntervalMs: integer('minimum_interval_ms'),
+        lastEffectAt: integer('last_effect_at'),
+        updatedByActorId: text('updated_by_actor_id')
+            .notNull()
+            .references(() => actors.id),
+        updatedAt: integer('updated_at').notNull(),
+    },
+    table => [
+        check('channel_cadence_revision', sql`${table.revision} > 0`),
+        check('channel_cadence_daily', sql`${table.dailyMax} > 0`),
+        check('channel_cadence_weekly', sql`${table.weeklyMax} > 0`),
+        check('channel_cadence_interval', sql`${table.minimumIntervalMs} > 0`),
+    ]
+)
+export const publicationCadenceOverrides = sqliteTable('publication_cadence_overrides', {
+    publicationId: text('publication_id')
+        .primaryKey()
+        .references(() => publications.id, { onDelete: 'cascade' }),
+    rulesRevision: integer('rules_revision').notNull(),
+    scheduledAt: integer('scheduled_at').notNull(),
+    actorId: text('actor_id')
+        .notNull()
+        .references(() => actors.id),
     createdAt: integer('created_at').notNull(),
 })

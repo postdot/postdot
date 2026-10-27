@@ -1,5 +1,6 @@
 import { expect, it } from 'bun:test'
 
+import { CadenceConflictError, cadencePeriod, createChannelCadenceStore } from './channel-cadence'
 import { closeDatabase, createDatabase, setDatabaseCommitObserver } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
@@ -704,6 +705,284 @@ it('reports only time taken by other projects, anonymously unless the project is
             )
         ).toBeNull()
         expect(() => f.store.occupancy(f.ctx, f.source.project.id, { from: 10, to: 10 })).toThrow()
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('configures cadence only through live management, defaults the timezone and rejects stale revisions', () => {
+    const f = fixture()
+    try {
+        const input = {
+            channelId: f.channel.id,
+            expectedRevision: 0,
+            dailyMax: 2,
+            weeklyMax: 5,
+            minimumIntervalMs: 60000,
+        }
+        expect(f.store.getCadence(f.ctx, f.channel.id)).toEqual({ rules: null, canManage: true })
+        const target = f.context({
+            roles: new Map([[f.target.project.id, 'owner']]),
+            contextProjectId: f.target.project.id,
+        })
+        expect(f.store.configureCadence(target, input)).toBeNull()
+        const saved = f.store.configureCadence(f.ctx, input)!
+        expect(saved).toMatchObject({
+            revision: 1,
+            timeZone: f.source.project.timeZone,
+            dailyMax: 2,
+        })
+        expect(() => f.store.configureCadence(f.ctx, input)).toThrow('changed')
+        expect(() =>
+            f.store.configureCadence(f.ctx, {
+                ...input,
+                expectedRevision: 1,
+                timeZone: 'Invalid/Zone',
+            })
+        ).toThrow('timezone')
+        expect(
+            f.store.configureCadence(f.ctx, {
+                ...input,
+                expectedRevision: 1,
+                dailyMax: null,
+                weeklyMax: null,
+                minimumIntervalMs: null,
+            })
+        ).toMatchObject({ revision: 2, dailyMax: null, weeklyMax: null, minimumIntervalMs: null })
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('checks planning atomically, binds confirmation to occupancy and replanning, and ignores drafts and cancellations', () => {
+    const f = fixture()
+    try {
+        const manual = createManualStore(f.database, { now: () => f.now })
+        const projectId = f.source.project.id
+        const channelId = f.channel.id
+        const at = f.now + 86400000
+        const create = (scheduledAt: number | null, confirmation?: string) =>
+            manual.createPost({
+                projectId,
+                subjectId: 'operator',
+                title: 'Private title',
+                sourceContent: { body: { format: 'plain_text', text: 'Private body' }, media: [] },
+                cadenceConfirmation: confirmation,
+                publications: [{ channelId, deliveryMode: 'manual', scheduledAt }],
+            })!
+        const first = create(at).publications[0]!
+        f.store.configureCadence(f.ctx, {
+            channelId,
+            expectedRevision: 0,
+            timeZone: 'Europe/Paris',
+            dailyMax: 1,
+            weeklyMax: 1,
+            minimumIntervalMs: null,
+        })
+        create(null)
+        const capture = (action: () => unknown) => {
+            try {
+                action()
+                throw new Error('Expected cadence conflict')
+            } catch (error) {
+                expect(error).toBeInstanceOf(CadenceConflictError)
+                return error as CadenceConflictError
+            }
+        }
+        const before = f.database.$client
+            .query<{ n: number }, []>('select count(*) as n from posts')
+            .get()!.n
+        const conflict = capture(() => create(at))
+        expect(conflict.warnings.map(w => w.rule)).toEqual(['daily_max', 'weekly_max'])
+        expect(JSON.stringify(conflict)).not.toContain('Private')
+        expect(f.database.$client.query('select count(*) as n from posts').get()).toEqual({
+            n: before,
+        })
+        const second = create(at, conflict.confirmation).publications[0]!
+        expect(
+            f.database.$client
+                .query(
+                    "select action from audit_events where action='publication.cadence_confirmed'"
+                )
+                .all()
+        ).toHaveLength(1)
+        const stale = capture(() => create(at, conflict.confirmation))
+        expect(stale.confirmation).not.toBe(conflict.confirmation)
+        manual.cancelPublications({ projectId, subjectId: 'operator', publicationIds: [second.id] })
+        manual.reschedulePublications({
+            projectId,
+            subjectId: 'operator',
+            publicationIds: [first.id],
+            scheduledAt: at + 8 * 86400000,
+        })
+        expect(create(at).publications[0]!.scheduledAt).toBe(at)
+        const reschedule = capture(() =>
+            manual.reschedulePublications({
+                projectId,
+                subjectId: 'operator',
+                publicationIds: [first.id],
+                scheduledAt: at,
+            })
+        )
+        expect(() =>
+            manual.reschedulePublications({
+                projectId,
+                subjectId: 'operator',
+                publicationIds: [first.id],
+                scheduledAt: at + 1,
+                cadenceConfirmation: reschedule.confirmation,
+            })
+        ).toThrow(CadenceConflictError)
+        expect(
+            manual.reschedulePublications({
+                projectId,
+                subjectId: 'operator',
+                publicationIds: [first.id],
+                scheduledAt: at,
+                cadenceConfirmation: reschedule.confirmation,
+            })
+        ).toHaveLength(1)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('uses civil days and Monday weeks across daylight saving and year boundaries', () => {
+    expect(cadencePeriod(Date.parse('2027-01-03T23:30:00Z'), 'Europe/Paris')).toEqual({
+        day: '2027-01-04',
+        week: '2027-01-04',
+    })
+    expect(cadencePeriod(Date.parse('2027-01-01T12:00:00Z'), 'Europe/Paris')).toEqual({
+        day: '2027-01-01',
+        week: '2026-12-28',
+    })
+    expect(cadencePeriod(Date.parse('2026-10-25T00:30:00Z'), 'Europe/Paris')).toEqual(
+        cadencePeriod(Date.parse('2026-10-25T01:30:00Z'), 'Europe/Paris')
+    )
+})
+
+it('persists an attributed single-effect spacing override and invalidates it on replanning', () => {
+    const f = fixture()
+    try {
+        const manual = createManualStore(f.database, { now: () => f.now })
+        const projectId = f.source.project.id
+        const at = f.now + 10000
+        const created = manual.createPost({
+            projectId,
+            subjectId: 'operator',
+            sourceContent: { body: { format: 'plain_text', text: 'Body' }, media: [] },
+            publications: [{ channelId: f.channel.id, deliveryMode: 'manual', scheduledAt: at }],
+        })!
+        const publication = created.publications[0]!
+        // The pacing service also serves automatic work without requiring a live provider in this fixture.
+        f.database.$client
+            .query("update publications set delivery_mode='automatic' where id=?")
+            .run(publication.id)
+        f.store.configureCadence(f.ctx, {
+            channelId: f.channel.id,
+            expectedRevision: 0,
+            dailyMax: null,
+            weeklyMax: null,
+            minimumIntervalMs: 60000,
+        })
+        f.database.$client
+            .query('update channel_cadence set last_effect_at=? where channel_id=?')
+            .run(f.now, f.channel.id)
+        const cadence = createChannelCadenceStore(f.database)
+        const timing = cadence.timing(projectId, publication.id)!
+        expect(timing).toMatchObject({
+            reason: 'minimum_interval',
+            eligibleAt: f.now + 60000,
+            scheduledAt: at,
+        })
+        expect(() =>
+            cadence.override.immediate({
+                projectId,
+                publicationId: publication.id,
+                actorId: f.source.actor.id,
+                now: f.now,
+                confirmation: 'stale',
+            })
+        ).toThrow(CadenceConflictError)
+        expect(
+            cadence.override.immediate({
+                projectId,
+                publicationId: publication.id,
+                actorId: f.source.actor.id,
+                now: f.now,
+                confirmation: timing.confirmation,
+            })
+        ).toMatchObject({ reason: null, eligibleAt: at })
+        manual.reschedulePublications({
+            projectId,
+            subjectId: 'operator',
+            publicationIds: [publication.id],
+            scheduledAt: at,
+        })
+        expect(cadence.timing(projectId, publication.id)?.reason).toBe('minimum_interval')
+        cadence.override.immediate({
+            projectId,
+            publicationId: publication.id,
+            actorId: f.source.actor.id,
+            now: f.now,
+            confirmation: cadence.timing(projectId, publication.id)!.confirmation,
+        })
+        cadence.recordEffect(publication.id, f.now + 1)
+        expect(cadence.timing(projectId, publication.id)?.eligibleAt).toBe(f.now + 60001)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+it('counts shared manual work at its recorded outcome time without exposing its content', () => {
+    const f = fixture()
+    try {
+        let now = f.now
+        const manual = createManualStore(f.database, { now: () => now })
+        const channelId = f.channel.id
+        f.store.attach(f.ctx, { channelId, projectId: f.target.project.id, expectedRevision: 1 })
+        const hidden = manual.createPost({
+            projectId: f.target.project.id,
+            subjectId: 'operator',
+            title: 'Confidential campaign',
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Confidential content' },
+                media: [],
+            },
+            publications: [{ channelId, deliveryMode: 'manual', scheduledAt: now }],
+        })!.publications[0]!
+        now += 8 * 86400000
+        expect(
+            manual.publishManualPublication({
+                projectId: f.target.project.id,
+                publicationId: hidden.id,
+                subjectId: 'operator',
+            })?.publishedAt
+        ).toBe(now)
+        f.store.configureCadence(f.ctx, {
+            channelId,
+            expectedRevision: 0,
+            dailyMax: 1,
+            weeklyMax: null,
+            minimumIntervalMs: 60000,
+        })
+        try {
+            manual.createPost({
+                projectId: f.source.project.id,
+                subjectId: 'operator',
+                sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
+                publications: [{ channelId, deliveryMode: 'manual', scheduledAt: now + 1 }],
+            })
+            throw new Error('Expected conflict')
+        } catch (error) {
+            expect(error).toBeInstanceOf(CadenceConflictError)
+            expect((error as CadenceConflictError).warnings).toMatchObject([
+                { rule: 'daily_max', count: 2 },
+            ])
+            expect(JSON.stringify(error)).not.toContain('Confidential')
+            expect(JSON.stringify(error)).not.toContain(f.target.project.id)
+        }
+        expect(createChannelCadenceStore(f.database).eligibleAt(hidden.id, now)).toBe(now + 60000)
     } finally {
         closeDatabase(f.database)
     }

@@ -395,3 +395,5 @@ export type {
     WorkspaceChannelContext,
     WorkspaceChannelView,
 } from './workspace-channel-store'
+
+export * from './channel-cadence'
