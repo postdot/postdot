@@ -18,7 +18,7 @@ on:
             previous_image:
                 description: Published image digest to upgrade from and restore with
                 required: true
-                default: ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e
+                default: ghcr.io/postdot/postdot@sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974
                 type: string
             public_visibility_acknowledged:
                 description: Confirm public visibility is approved; a public GHCR package cannot be made private again

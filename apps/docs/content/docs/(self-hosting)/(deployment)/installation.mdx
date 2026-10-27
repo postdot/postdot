@@ -5,9 +5,9 @@ description: Install Postdot with Docker Compose and configure persistent storag
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. The current release is
-`0.1.0-alpha.2`. This guide uses release-matched Compose/configuration files and the public
-`ghcr.io/postdot/postdot:0.1.0-alpha.2` image, accepted on Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.1` and restoration of its pre-update backup have been
+`0.1.0-alpha.3`. This guide uses release-matched Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.3` image, accepted on Linux AMD64 and ARM64.
+Upgrade from `0.1.0-alpha.2` and restoration of its pre-update backup have been
 validated on both platforms; see the [release record](/docs/releases/).
 
 ## First installation
@@ -55,7 +55,7 @@ Git and never publish the output of `docker compose config`, which includes secr
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.2\n' >> .env
+printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.3\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
@@ -89,11 +89,10 @@ administrator; public signup then closes. Create your project and first channel.
 A manual channel lets you prepare and schedule content without configuring a
 provider account. Invite additional users through the application.
 
-### Offline administrator provisioning (source builds)
+### Offline administrator provisioning
 
-The current source supports non-interactive first-administrator provisioning.
-This command is not included in the published `0.1.0-alpha.2` image. Build the
-current source to use it; the browser setup above remains available in alpha.2.
+The image supports non-interactive first-administrator provisioning; the browser
+setup above remains available.
 
 Stop Postdot before provisioning. Create a private `bootstrap.json` file outside
 version control with exactly these fields, replacing the example values:
@@ -171,10 +170,10 @@ Studio also displays the version and source commit under installation settings;
 image. A build without release metadata reports `null` for unknown fields. The
 CLI can read them without opening the database or starting a server.
 
-These identification features are not included in `0.1.0-alpha.2`. For that image,
-inspect its `org.opencontainers.image.version` and
-`org.opencontainers.image.revision` labels. `/health` checks availability, and the
-OpenAPI schema version describes the API; neither identifies the running release.
+`/health` checks availability, and the OpenAPI schema version describes the API;
+neither identifies the running release. The image labels
+`org.opencontainers.image.version` and `org.opencontainers.image.revision` carry
+the same identity.
 
 ### Protect the volume and runtime lock
 

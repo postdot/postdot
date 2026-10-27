@@ -3,6 +3,37 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## 0.1.0-alpha.3
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.3`
+- Manifest digest: `sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974`
+- Platforms: Linux AMD64 and ARM64.
+- [Matching source](https://github.com/postdot/postdot/tree/cf7d7e9465add97c7ac4e3bc57a7e141dd2c2977).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/40586044797).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/40578516559).
+
+### Changes
+
+- Channels, profiles, connections and credentials belong to a workspace. Projects use
+  them through explicit attachments, with a single managing project that can be
+  transferred. See [sharing a channel](/docs/shared-channels/).
+- See other projects' use of a shared channel on the calendar, anonymously when you
+  cannot read them.
+- Set optional daily, weekly and minimum-interval cadence limits, confirm a changed
+  destination, and move pending publications between channels.
+- Manage sharing from Studio, the API (`channel:share` key capability) and the CLI.
+- Retire projects and workspaces, including their derived media, safely.
+- Provision the first administrator offline and read the release identity from the
+  CLI and API.
+
+### Upgrade from 0.1.0-alpha.2
+
+Migration 0023 assigns every project to a workspace and converts project-owned
+channels to workspace ownership. Native checks on both platforms upgraded an
+alpha.2 data set with a live connection and queued work, verified rollback of stale
+writes, and restored the pre-update backup with the previous executable. Back up the
+database and media first; image rollback alone does not reverse the migration.
+
 ## 0.1.0-alpha.2
 
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.2`

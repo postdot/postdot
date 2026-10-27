@@ -14,9 +14,8 @@ public callback or a public client document.
   encryption key in the deployment environment.
 - Keep provider application settings and connected account credentials separate.
   Provider applications are instance-level; connected accounts and channels
-  belong to a workspace in current source builds, with explicit project use and
-  management rights. The published `0.1.0-alpha.2` image still uses project ownership;
-  see [shared channels](/docs/shared-channels/).
+  belong to a workspace from `0.1.0-alpha.3`, with explicit project use and
+  management rights; earlier images use project ownership. See [shared channels](/docs/shared-channels/).
 - In production, use a stable canonical origin for the API and dashboard and
   serve the authenticated application over HTTPS.
 - Do not expose client secrets, access tokens, refresh tokens, or provider

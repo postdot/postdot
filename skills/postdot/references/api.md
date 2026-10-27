@@ -1,4 +1,4 @@
-# API access for Postdot 0.1.0-alpha.2
+# API access for Postdot 0.1.0-alpha.3
 
 Set `POSTBOT_URL` to the chosen instance origin and `POSTBOT_API_KEY` through the
 agent's private secret mechanism or operator-controlled environment. Do not ask
