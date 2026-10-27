@@ -33,7 +33,12 @@ describe('taxonomy domain vocabulary', () => {
     })
 
     it('creates opaque category and project-scoped tag identities', () => {
-        const project = createProject({ id: 'project-1', name: 'Project', now: 100 })
+        const project = createProject({
+            id: 'project-1',
+            workspaceId: 'workspace-1',
+            name: 'Project',
+            now: 100,
+        })
         const category = createProjectCategory({
             id: 'category-opaque-1',
             name: 'Launch',

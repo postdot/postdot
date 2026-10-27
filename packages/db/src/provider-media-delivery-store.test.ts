@@ -13,6 +13,7 @@ import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 import { publishers, publicationExecutionRevisionMedia, publicationRevisionMedia } from './schema'
+import { seedTestWorkspace } from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
@@ -97,6 +98,7 @@ describe('provider media delivery store', () => {
             })
             const manualStore = createManualStore(database, { now: () => now, media })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Media publication project',
                 subjectId: 'subject-1',
                 displayName: 'Media operator',

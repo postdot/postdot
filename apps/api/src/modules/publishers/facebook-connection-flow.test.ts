@@ -10,6 +10,7 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookOAuth,
     createFacebookPublisher,
@@ -41,6 +42,7 @@ function fixture(
     const permissionMode = options.permissionMode ?? 'granted'
     const channels = createManualStore(database, { now })
     const project = channels.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Test',
         subjectId: 'owner',
         displayName: 'Owner',
@@ -740,6 +742,7 @@ test('an operator cannot move pending choices into another project they own', as
     try {
         const pending = await f.pending()
         const project = f.channels.createProject({
+            workspaceId: seedTestWorkspace(f.database),
             name: 'Other project',
             subjectId: 'owner',
             displayName: 'Owner',

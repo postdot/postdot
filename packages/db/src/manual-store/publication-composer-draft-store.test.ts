@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 const now = 1_800_000_000_000
 
@@ -11,6 +12,7 @@ function createFixture() {
     runMigrations(database)
     const store = createManualStore(database, { now: () => now })
     const project = store.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Composer recovery project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',

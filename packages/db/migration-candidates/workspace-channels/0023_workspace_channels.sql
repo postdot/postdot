@@ -4,6 +4,16 @@ CREATE TABLE __share_ownership_guard (valid integer CONSTRAINT workspace_assignm
 --> statement-breakpoint
 INSERT INTO __share_ownership_guard SELECT CASE WHEN EXISTS(SELECT 1 FROM projects p LEFT JOIN workspaces w ON w.id=p.workspace_id WHERE w.id IS NULL) THEN 0 ELSE 1 END;
 --> statement-breakpoint
+DROP VIEW project_channel_contexts;
+--> statement-breakpoint
+DROP VIEW project_channel_profile_contexts;
+--> statement-breakpoint
+DROP VIEW project_publisher_contexts;
+--> statement-breakpoint
+DROP VIEW project_publisher_connection_contexts;
+--> statement-breakpoint
+DROP VIEW project_publisher_credential_contexts;
+--> statement-breakpoint
 DROP TRIGGER jobs_lifecycle_admission;
 --> statement-breakpoint
 DROP TRIGGER publication_comment_replies_lifecycle_admission;
@@ -937,3 +947,22 @@ BEGIN INSERT INTO project_channel_profiles SELECT NEW.project_id,NEW.channel_id,
 CREATE TRIGGER project_channel_publishers_on_reattach AFTER UPDATE OF state ON project_channel_attachments
 WHEN NEW.state='active' AND OLD.state='detached'
 BEGIN INSERT INTO project_channel_publishers SELECT NEW.project_id,NEW.channel_id,p.id FROM publishers p WHERE p.channel_id=NEW.channel_id AND NOT EXISTS(SELECT 1 FROM project_channel_publishers b WHERE b.project_id=NEW.project_id AND b.publisher_id=p.id); END;
+
+--> statement-breakpoint
+CREATE VIEW project_channel_contexts AS
+ SELECT a.project_id,c.*,a.state AS attachment_state,a.revision AS attachment_revision FROM project_channel_attachments a JOIN channels c ON c.workspace_id=a.workspace_id AND c.id=a.channel_id;
+--> statement-breakpoint
+CREATE VIEW project_channel_profile_contexts AS
+ -- Historical readers still need the channel's current metadata after detach.
+ -- This view is not admission: new references use the active-derived bindings.
+ SELECT a.project_id,p.* FROM project_channel_attachments a JOIN channel_profile_versions p ON p.workspace_id=a.workspace_id AND p.channel_id=a.channel_id;
+--> statement-breakpoint
+CREATE VIEW project_publisher_contexts AS
+ SELECT b.project_id,p.* FROM project_channel_publishers b JOIN publishers p ON p.channel_id=b.channel_id AND p.id=b.publisher_id;
+--> statement-breakpoint
+CREATE VIEW project_publisher_connection_contexts AS
+ SELECT b.project_id,c.* FROM project_channel_publishers b JOIN publishers p ON p.channel_id=b.channel_id AND p.id=b.publisher_id JOIN publisher_connections c ON c.workspace_id=p.workspace_id AND c.publisher_id=p.id;
+--> statement-breakpoint
+CREATE VIEW project_publisher_credential_contexts AS
+ SELECT p.id AS project_id,c.* FROM projects p JOIN publisher_credentials c ON c.workspace_id=p.workspace_id
+ WHERE EXISTS(SELECT 1 FROM publisher_connections connection JOIN publishers publisher ON publisher.workspace_id=connection.workspace_id AND publisher.id=connection.publisher_id JOIN project_channel_attachments a ON a.workspace_id=publisher.workspace_id AND a.channel_id=publisher.channel_id WHERE a.project_id=p.id AND connection.credential_id=c.id);

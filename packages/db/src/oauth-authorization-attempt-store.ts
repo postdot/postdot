@@ -291,7 +291,7 @@ export function createAuthorizationAttemptStore(
     >(`
         select 1 as found
         from projects
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = projects.id
            and channels.id = ?2
         inner join actors

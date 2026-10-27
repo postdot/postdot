@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
+import { seedTestWorkspace } from './testing'
 
 describe('project scheduling timezone', () => {
     it('persists a validated timezone and records an owner change without moving data', () => {
@@ -12,6 +13,7 @@ describe('project scheduling timezone', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const created = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Timezone project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -48,6 +50,7 @@ describe('project scheduling timezone', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const created = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Default timezone project',
                 subjectId: 'user-1',
                 displayName: 'Operator',

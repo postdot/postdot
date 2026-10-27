@@ -501,10 +501,10 @@ export function createAnalyticsStore(
                      )
                ) then 1 else 0 end as hasExecutionHistory
         from publications
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        left join publishers
+        left join project_publisher_contexts as publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
         where publications.project_id = ?1
@@ -525,10 +525,10 @@ export function createAnalyticsStore(
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        left join publishers
+        left join project_publisher_contexts as publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
         where jobs.project_id = ?1
@@ -588,7 +588,7 @@ export function createAnalyticsStore(
         left join publications
             on publications.project_id = audit_events.project_id
            and publications.id = audit_events.entity_id
-        left join channels
+        left join project_channel_contexts as channels
             on channels.project_id = audit_events.project_id
            and channels.id = publications.channel_id
         where audit_events.project_id = ?1

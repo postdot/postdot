@@ -13,6 +13,7 @@ import {
     createPublisherCredentialStore,
     runMigrations,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 
 import { restoreCredentialBlueskySession } from './credential-session'
 
@@ -21,6 +22,7 @@ it('coordinates the real SDK across sessions and persists implicit later renewal
     runMigrations(database)
     try {
         const project = createManualStore(database).createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Session fixture',
             subjectId: 'owner',
             displayName: 'Owner',

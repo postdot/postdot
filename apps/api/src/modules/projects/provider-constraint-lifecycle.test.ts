@@ -9,6 +9,7 @@ import {
     createWorkflowStore,
     runMigrations,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import { linkedinChannelProfile } from '@postdot/linkedin'
 
 // Synthetic limits exercise the shipped identity/execution contract, not current provider limits.
@@ -46,6 +47,7 @@ function fixture() {
     const manual = createManualStore(database, { now: () => now, media })
     const workflow = createWorkflowStore(database)
     const { project } = manual.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Constraint evolution',
         subjectId: 'operator',
         displayName: 'Operator',

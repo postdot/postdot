@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 const sourceContent = { body: { text: 'Shared source', format: 'plain_text' as const }, media: [] }
 
@@ -12,6 +13,7 @@ test('adds current-source drafts atomically without changing existing targets or
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const project = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Reuse',
             subjectId: 'owner',
             displayName: 'Owner',

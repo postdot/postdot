@@ -14,6 +14,7 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookPublisher,
     facebookChannelProfile,
@@ -64,6 +65,7 @@ for (const photo of [false, true])
             })
             try {
                 const project = store.createProject({
+                    workspaceId: seedTestWorkspace(database),
                     name: 'Facebook worker',
                     subjectId: 'operator',
                     displayName: 'Operator',

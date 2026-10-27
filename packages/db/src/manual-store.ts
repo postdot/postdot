@@ -387,12 +387,12 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
                publishers.kind as publisherKind,
                publishers.created_at as publisherCreatedAt,
                publishers.updated_at as publisherUpdatedAt
-        from channels
-        inner join channel_profile_versions as channel_profiles
+        from project_channel_contexts as channels
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = channels.project_id
            and channel_profiles.channel_id = channels.id
            and channel_profiles.id = channels.profile_version_id
-        left join publishers
+        left join project_publisher_contexts as publishers
             on publishers.project_id = channels.project_id
            and publishers.channel_id = channels.id
         where channels.project_id = ?1
@@ -413,7 +413,7 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
                created_by_actor_id as createdByActorId,
                created_at as createdAt,
                updated_at as updatedAt
-        from channel_profile_versions
+        from project_channel_profile_contexts as channel_profile_versions
         where project_id = ?1
           and id = ?2
           and state <> 'disabled'

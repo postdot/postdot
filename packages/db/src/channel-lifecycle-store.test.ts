@@ -4,6 +4,7 @@ import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { publishers } from './schema'
+import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 
@@ -12,6 +13,7 @@ function createFixture() {
     runMigrations(database)
     const store = createManualStore(database, { now: () => now })
     const project = store.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Channel lifecycle project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
@@ -204,6 +206,7 @@ describe('channel lifecycle store', () => {
     it('fails closed on stale revisions and project-scoped access', () => {
         const fixture = createFixture()
         const otherProject = fixture.store.createProject({
+            workspaceId: seedTestWorkspace(fixture.database),
             name: 'Other project',
             subjectId: 'user-2',
             displayName: 'Other operator',

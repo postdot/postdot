@@ -176,14 +176,15 @@ export function createProject(
     input: CreateEntityInput & {
         readonly name: string
         readonly timeZone?: string
-        readonly workspaceId?: string | null
+        /** Required: a workspace owns every channel resource a project can attach. */
+        readonly workspaceId: string
     }
 ): Project {
     return {
         ...entityFields(input),
         name: requireNonBlank(input.name, 'name'),
         timeZone: requireProjectTimeZone(input.timeZone),
-        workspaceId: input.workspaceId ?? null,
+        workspaceId: requireNonBlank(input.workspaceId, 'workspaceId'),
         primaryCategoryId: null,
     }
 }

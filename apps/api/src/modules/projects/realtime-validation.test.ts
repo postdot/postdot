@@ -16,6 +16,7 @@ import {
     type EventJournalEntry,
     type PostbotDatabase,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'
@@ -47,6 +48,7 @@ function createFixture(database: PostbotDatabase) {
         now: () => eventTime,
     })
     const project = manual.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Realtime validation project',
         subjectId: 'realtime-106-human',
         displayName: 'Realtime validation human',

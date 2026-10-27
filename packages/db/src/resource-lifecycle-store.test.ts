@@ -4,6 +4,7 @@ import { createDatabase, closeDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createResourceLifecycleStore } from './resource-lifecycle-store'
+import { seedTestWorkspace } from './testing'
 
 it('archives and restores a project, then deletes its SQL data while retaining a receipt', () => {
     const db = createDatabase(':memory:')
@@ -11,6 +12,7 @@ it('archives and restores a project, then deletes its SQL data while retaining a
         runMigrations(db)
         const manual = createManualStore(db)
         const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(db),
             name: 'Disposable',
             subjectId: 'operator',
             displayName: 'Operator',
@@ -69,6 +71,7 @@ it('cancels scheduled work explicitly and restores without rescheduling', () => 
         runMigrations(db)
         const manual = createManualStore(db)
         const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(db),
             name: 'Scheduled',
             subjectId: 'operator',
             displayName: 'Operator',
@@ -148,6 +151,7 @@ it('waits for an admitted request and retries failed object deletion after resta
         runMigrations(db)
         const manual = createManualStore(db)
         const { project } = manual.createProject({
+            workspaceId: seedTestWorkspace(db),
             name: 'With media',
             subjectId: 'operator',
             displayName: 'Operator',

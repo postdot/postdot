@@ -1,6 +1,8 @@
 import { createManualChannelProfile } from '@postdot/core'
 
 import type { PostbotDatabase } from './client'
+import type { CreateAuthorizationAttemptInput } from './oauth-authorization-attempt-store'
+import type { PublisherCredentialCipher } from './publisher-credential-crypto'
 
 /** Historical migration tests must seed historical columns, not today's application stores/schema. */
 export function seedLegacyProjectChannel(database: PostbotDatabase, subjectId: string, at: number) {
@@ -73,4 +75,55 @@ export function seedLegacyPublication(
         )
         .run()
     return { id: 'legacy-publication' }
+}
+
+/** Seed historical columns without constructing today's read-contract-dependent stores. */
+export async function seedLegacyAuthorizationAttempt(
+    database: PostbotDatabase,
+    input: CreateAuthorizationAttemptInput,
+    cipher: PublisherCredentialCipher,
+    now: number
+) {
+    const id = 'legacy-authorization-attempt'
+    const verifier =
+        input.codeVerifier === null
+            ? null
+            : await cipher.encrypt(
+                  { recordId: id, providerId: input.providerId, field: 'pkce_verifier' },
+                  input.codeVerifier
+              )
+    const state =
+        input.providerState == null
+            ? null
+            : await cipher.encrypt(
+                  { recordId: id, providerId: input.providerId, field: 'provider_state' },
+                  input.providerState
+              )
+    database.$client
+        .query(`insert into oauth_authorization_attempts
+        (id,project_id,channel_id,connected_by_actor_id,provider_id,provider_application_id,callback_uri,scopes,return_path,state_digest,pkce_encryption_version,pkce_encryption_key_id,pkce_verifier_ciphertext,pkce_verifier_nonce,provider_state_encryption_version,provider_state_encryption_key_id,provider_state_ciphertext,provider_state_nonce,expires_at,created_at,updated_at)
+        values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(
+            id,
+            input.projectId,
+            input.channelId,
+            input.connectedByActorId,
+            input.providerId,
+            input.providerApplicationId ?? null,
+            input.callbackUri,
+            JSON.stringify(input.scopes),
+            input.returnPath,
+            input.stateDigest,
+            verifier?.version ?? null,
+            verifier?.keyId ?? null,
+            verifier?.ciphertext ?? null,
+            verifier?.nonce ?? null,
+            state?.version ?? null,
+            state?.keyId ?? null,
+            state?.ciphertext ?? null,
+            state?.nonce ?? null,
+            now + 600000,
+            now,
+            now
+        )
 }

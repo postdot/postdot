@@ -10,6 +10,7 @@ import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { jobs, publications, publishers } from './schema'
+import { seedTestWorkspace } from './testing'
 
 const dayMs = 24 * 60 * 60 * 1_000
 
@@ -63,6 +64,7 @@ function createFixture(
         })(),
     })
     const project = store.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Analytics project',
         subjectId: 'user-1',
         displayName: 'Analytics operator',

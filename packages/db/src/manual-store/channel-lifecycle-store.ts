@@ -103,8 +103,8 @@ export function createChannelLifecycleStore(
                channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
-        from channels
-        inner join channel_profile_versions as channel_profiles
+        from project_channel_contexts as channels
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = channels.project_id
            and channel_profiles.channel_id = channels.id
            and channel_profiles.id = channels.profile_version_id
@@ -157,7 +157,7 @@ export function createChannelLifecycleStore(
         [projectId: string, channelId: string]
     >(`
         select 1 as found
-        from publishers
+        from project_publisher_contexts as publishers
         where project_id = ?1
           and channel_id = ?2
         limit 1

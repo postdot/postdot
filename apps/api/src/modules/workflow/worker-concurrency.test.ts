@@ -9,6 +9,7 @@ import {
     createPublisherStore,
     runMigrations,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import { linkedinChannelProfile } from '@postdot/linkedin'
 
 import { linkedInPublisherConnectionPolicy } from '../../providers/linkedin/connection-policy'
@@ -39,6 +40,7 @@ async function fixture() {
     })
     async function project(name: string) {
         const created = manual.createProject({
+            workspaceId: seedTestWorkspace(database),
             name,
             subjectId: 'operator',
             displayName: 'Operator',

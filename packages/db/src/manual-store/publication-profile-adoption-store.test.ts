@@ -11,6 +11,7 @@ import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { createMediaAssetStore } from '../media-asset-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 const profile: ChannelProfileDefinition = {
     id: 'adoption-test',
@@ -39,6 +40,7 @@ function fixture(filename = ':memory:', pathChange = true) {
     const now = 1_800_000_000_000
     const store = createManualStore(database, { now: () => now })
     const project = store.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Adoption',
         subjectId: 'operator',
         displayName: 'Operator',

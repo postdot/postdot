@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 test('saves a shared source after publication without changing drafts, targets or jobs', () => {
     const database = createDatabase(':memory:')
@@ -10,6 +11,7 @@ test('saves a shared source after publication without changing drafts, targets o
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const projectId = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Source editing',
             subjectId: 'owner',
             displayName: 'Owner',

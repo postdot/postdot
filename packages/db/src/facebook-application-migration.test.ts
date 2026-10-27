@@ -6,7 +6,10 @@ import { join } from 'node:path'
 import { providerApplicationPolicies } from '../../../apps/api/src/providers/registry'
 import { closeDatabase, createDatabase } from './client'
 import { createSecretCipher } from './encrypted-secret-crypto'
-import { seedLegacyProjectChannel } from './legacy-migration-fixture'
+import {
+    seedLegacyProjectChannel,
+    seedLegacyAuthorizationAttempt,
+} from './legacy-migration-fixture'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
 import { createAuthorizationAttemptStore } from './oauth-authorization-attempt-store'
 import { createProviderApplicationStore } from './provider-application-store'
@@ -55,30 +58,37 @@ test('Facebook application migration preserves encrypted configurations and refe
         const seeded = seedLegacyProjectChannel(database, 'owner', now)
         const project = { project: seeded.project, actor: seeded.actor }
         const channel = seeded.channel
+        const stateDigest = new Uint8Array(32).fill(8)
+        await seedLegacyAuthorizationAttempt(
+            database,
+            {
+                projectId: project.project.id,
+                channelId: channel.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'linkedin',
+                providerApplicationId: saved.configuration.id,
+                callbackUri: 'https://postbot.example/callback',
+                scopes: [],
+                returnPath: '/dashboard',
+                stateDigest,
+                codeVerifier: 'a'.repeat(43),
+                providerState: 'existing-pending-secret',
+            },
+            createPublisherCredentialCipher({ keyId: 'test', key }),
+            now
+        )
+        expect(
+            database.$client.query('select id from oauth_authorization_attempts').all()
+        ).toHaveLength(1)
+        const before = database.$client
+            .query('select * from provider_application_configurations')
+            .all()
+        runMigrations(database)
         const attempts = createAuthorizationAttemptStore(database, {
             cipher: createPublisherCredentialCipher({ keyId: 'test', key }),
             now: () => now,
             validateReturnPath: path => path,
         })
-        const stateDigest = new Uint8Array(32).fill(8)
-        const created = await attempts.createAuthorizationAttempt({
-            projectId: project.project.id,
-            channelId: channel.id,
-            connectedByActorId: project.actor.id,
-            providerId: 'linkedin',
-            providerApplicationId: saved.configuration.id,
-            callbackUri: 'https://postbot.example/callback',
-            scopes: [],
-            returnPath: '/dashboard',
-            stateDigest,
-            codeVerifier: 'a'.repeat(43),
-            providerState: 'existing-pending-secret',
-        })
-        expect(created.kind).toBe('created')
-        const before = database.$client
-            .query('select * from provider_application_configurations')
-            .all()
-        runMigrations(database)
         expect(
             database.$client.query('select * from provider_application_configurations').all()
         ).toEqual(before)

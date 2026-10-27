@@ -11,6 +11,7 @@ import { runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { projects, publisherCredentials } from './schema'
+import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 
@@ -22,6 +23,7 @@ function createFixture() {
     let sequence = 0
     const manualStore = createManualStore(database, { now: () => timestamp })
     const project = manualStore.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Credential Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
@@ -50,6 +52,7 @@ describe('publisher credential store', () => {
             runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Credential File',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',

@@ -29,6 +29,7 @@ import {
     runMigrations,
 } from '@postdot/db'
 import { auditEvents, providerMediaDeliveries, publications } from '@postdot/db/schema'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createDiscordPublisher,
     discordChannelProfile,
@@ -274,6 +275,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'LinkedIn Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -507,6 +509,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Custom HTTP Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -679,6 +682,7 @@ describe('publication worker', () => {
 
             async function createLinkedInProject(name: string, externalAccountId: string) {
                 const project = manualStore.createProject({
+                    workspaceId: seedTestWorkspace(database),
                     name,
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
@@ -805,6 +809,7 @@ describe('publication worker', () => {
                 now: () => currentTime,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Worker Clock Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -931,6 +936,7 @@ describe('publication worker', () => {
                     now: () => now,
                 })
                 const project = manualStore.createProject({
+                    workspaceId: seedTestWorkspace(database),
                     name: 'LinkedIn Image Worker Project',
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
@@ -1195,6 +1201,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Custom HTTP Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -1355,6 +1362,7 @@ describe('publication worker', () => {
                 now: () => currentTime,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Worker Scheduler Sandbox Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -1612,6 +1620,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Mapped Public Media Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -1783,6 +1792,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Custom HTTP Checksum Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -1934,6 +1944,7 @@ describe('publication worker', () => {
                 now: () => now,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Refresh Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -2132,6 +2143,7 @@ it('releases the worker during video processing and resumes without uploading or
             now: () => clock,
         })
         const project = manualStore.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',
@@ -2372,6 +2384,7 @@ for (const scenario of [
                 now: () => clock,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
@@ -2608,6 +2621,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 now: () => clock,
             })
             const project = manualStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
@@ -2803,6 +2817,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             now: () => clock,
         })
         const project = manualStore.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',

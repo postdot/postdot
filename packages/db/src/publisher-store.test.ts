@@ -20,6 +20,7 @@ import {
     publications,
     publishers,
 } from './schema'
+import { seedTestWorkspace } from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
@@ -87,6 +88,7 @@ async function createFixture() {
         now: () => now,
     })
     const project = manualStore.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Publisher Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
@@ -282,6 +284,7 @@ describe('publisher connection store', () => {
         try {
             const credential = await createCredential(fixture)
             const otherProject = fixture.manualStore.createProject({
+                workspaceId: seedTestWorkspace(fixture.database),
                 name: 'Other Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',

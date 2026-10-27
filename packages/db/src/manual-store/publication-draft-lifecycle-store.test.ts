@@ -4,6 +4,7 @@ import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
 import { createTaxonomyStore } from '../taxonomy-store'
+import { seedTestWorkspace } from '../testing'
 
 const sourceContent = (text: string) => ({
     body: { text, format: 'plain_text' as const },
@@ -20,6 +21,7 @@ describe('publication draft lifecycle store', () => {
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Draft lifecycle project',
                 subjectId: 'user-1',
                 displayName: 'Draft lifecycle operator',

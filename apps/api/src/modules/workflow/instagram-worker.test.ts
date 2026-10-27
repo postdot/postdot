@@ -14,6 +14,7 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createInstagramPublisher,
     instagramChannelProfile,
@@ -69,6 +70,7 @@ for (const scenario of [
         })
         try {
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Instagram worker',
                 subjectId: 'operator',
                 displayName: 'Operator',

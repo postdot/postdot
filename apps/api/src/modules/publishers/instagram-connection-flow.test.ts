@@ -12,6 +12,7 @@ import {
     createPublisherStore,
     createSecretCipher,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     INSTAGRAM_PUBLISH_PERMISSIONS,
     instagramChannelProfile,
@@ -59,6 +60,7 @@ async function fixture(
     })
     const channels = createManualStore(database, { now })
     const project = channels.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Test',
         subjectId: 'owner',
         displayName: 'Owner',
@@ -334,6 +336,7 @@ test('a callback bound to another channel, project, actor or application is refu
             f.flow.complete({ ...f.binding, channelId: other.id }, parameters)
         ).rejects.toMatchObject({ code: 'invalid_attempt' })
         const project = f.channels.createProject({
+            workspaceId: seedTestWorkspace(f.database),
             name: 'Other project',
             subjectId: 'owner',
             displayName: 'Owner',

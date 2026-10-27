@@ -15,6 +15,7 @@ import {
     createPublisherStore,
 } from '@postdot/db'
 import { publications } from '@postdot/db/schema'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 import {
     createTelegramPublisher,
@@ -81,6 +82,7 @@ for (const entry of scenarios) {
         })
         try {
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Telegram worker',
                 subjectId: 'operator',
                 displayName: 'Operator',

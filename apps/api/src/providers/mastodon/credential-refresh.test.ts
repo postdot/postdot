@@ -7,6 +7,7 @@ import {
     runMigrations,
     type PublisherExecutionTarget,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createPublisherRuntime } from '../../modules/publishers/runtime'
@@ -20,6 +21,7 @@ it('shares one renewal between publication and reply preparation and ignores sta
     let clock = now
     try {
         const project = createManualStore(database).createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Refresh fixture',
             subjectId: 'owner',
             displayName: 'Owner',

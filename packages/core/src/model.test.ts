@@ -25,7 +25,12 @@ const sourceContent = (text: string) => ({
 })
 
 function createFixture(prefix = 'one') {
-    const project = createProject({ id: `${prefix}-project`, name: 'Postdot', now })
+    const project = createProject({
+        id: `${prefix}-project`,
+        workspaceId: 'workspace-1',
+        name: 'Postdot',
+        now,
+    })
     const actor = createActor({
         id: `${prefix}-actor`,
         project,

@@ -301,8 +301,8 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
-        from channels
-        inner join channel_profile_versions as channel_profiles
+        from project_channel_contexts as channels
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = channels.project_id
            and channel_profiles.channel_id = channels.id
            and channel_profiles.id = channels.profile_version_id
@@ -314,7 +314,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         [projectId: string, profileVersionId: string]
     >(`
         select profile_json as profileJson
-        from channel_profile_versions
+        from project_channel_profile_contexts as channel_profile_versions
         where project_id = ?1
           and id = ?2
           and state <> 'disabled'
@@ -329,7 +329,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                external_account_name as externalAccountName,
                scopes as scopesJson,
                state
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
           and id = ?2
     `)
@@ -338,7 +338,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         [projectId: string, channelId: string]
     >(`
         select id
-        from publishers
+        from project_publisher_contexts as publishers
         where project_id = ?1
           and channel_id = ?2
         limit 1
@@ -369,11 +369,11 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         [projectId: string]
     >(`
         select ${publisherConnectionColumns}
-        from publisher_connections
-        inner join publishers
+        from project_publisher_connection_contexts as publisher_connections
+        inner join project_publisher_contexts as publishers
             on publishers.project_id = publisher_connections.project_id
            and publishers.id = publisher_connections.publisher_id
-        inner join publisher_credentials
+        inner join project_publisher_credential_contexts as publisher_credentials
             on publisher_credentials.project_id = publisher_connections.project_id
            and publisher_credentials.id = publisher_connections.credential_id
         where publisher_connections.project_id = ?1
@@ -384,11 +384,11 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         [projectId: string, channelId: string]
     >(`
         select ${publisherConnectionColumns}
-        from publisher_connections
-        inner join publishers
+        from project_publisher_connection_contexts as publisher_connections
+        inner join project_publisher_contexts as publishers
             on publishers.project_id = publisher_connections.project_id
            and publishers.id = publisher_connections.publisher_id
-        inner join publisher_credentials
+        inner join project_publisher_credential_contexts as publisher_credentials
             on publisher_credentials.project_id = publisher_connections.project_id
            and publisher_credentials.id = publisher_connections.credential_id
         where publisher_connections.project_id = ?1
@@ -432,19 +432,19 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             on execution.project_id = jobs.project_id
            and execution.job_id = jobs.id
            and execution.publication_id = jobs.publication_id
-        inner join publishers
+        inner join project_publisher_contexts as publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        inner join channel_profile_versions as channel_profiles
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = execution.project_id
            and channel_profiles.id = execution.profile_version_id
-        inner join publisher_connections
+        inner join project_publisher_connection_contexts as publisher_connections
             on publisher_connections.project_id = publishers.project_id
            and publisher_connections.publisher_id = publishers.id
-        inner join publisher_credentials
+        inner join project_publisher_credential_contexts as publisher_credentials
             on publisher_credentials.project_id = publisher_connections.project_id
            and publisher_credentials.id = publisher_connections.credential_id
         where jobs.id = ?1
@@ -670,7 +670,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
 
             const storedIdentity = client
                 .query<{ json: string | null }, [string, string]>(
-                    'select destination_identity_json as json from channels where project_id = ? and id = ?'
+                    'select destination_identity_json as json from project_channel_contexts as channels where project_id = ? and id = ?'
                 )
                 .get(input.projectId, input.channelId)?.json
             const previousIdentity: ChannelDestinationIdentity | null = storedIdentity

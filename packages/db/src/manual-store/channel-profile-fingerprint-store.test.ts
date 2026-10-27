@@ -9,6 +9,7 @@ import {
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 test('draft save owns fingerprints, preserves historical work and guards concurrent edits across channels', () => {
     const database = createDatabase(':memory:')
@@ -16,6 +17,7 @@ test('draft save owns fingerprints, preserves historical work and guards concurr
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Fingerprint project',
             subjectId: 'operator',
             displayName: 'Operator',

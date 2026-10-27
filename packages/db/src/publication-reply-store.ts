@@ -76,9 +76,9 @@ export function createPublicationReplyStore(
                     [string, string, string, string, string, string, string, string | null]
                 >(`
             select p.id from publications p
-            inner join publishers b on b.project_id = p.project_id and b.channel_id = p.channel_id
-            inner join publisher_connections c on c.project_id = b.project_id and c.publisher_id = b.id
-            inner join publisher_credentials k on k.project_id = c.project_id and k.id = c.credential_id
+            inner join project_publisher_contexts b on b.project_id = p.project_id and b.channel_id = p.channel_id
+            inner join project_publisher_connection_contexts c on c.project_id = b.project_id and c.publisher_id = b.id
+            inner join project_publisher_credential_contexts k on k.project_id = c.project_id and k.id = c.credential_id
             where p.project_id = ?1 and p.id = ?2 and p.state = 'published' and p.external_id = ?3
               and c.id = ?4 and c.credential_id = ?5 and b.kind = ?7 and k.provider_id = ?7
               and k.external_account_id = ?6 and k.state = 'active'

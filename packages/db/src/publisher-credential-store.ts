@@ -289,7 +289,7 @@ export function createPublisherCredentialStore(
         [projectId: string, credentialId: string]
     >(`
         select ${metadataColumns}
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
           and id = ?2
     `)
@@ -298,7 +298,7 @@ export function createPublisherCredentialStore(
         [projectId: string, providerId: string, externalAccountId: string]
     >(`
         select ${metadataColumns}
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
           and provider_id = ?2
           and external_account_id = ?3
@@ -308,7 +308,7 @@ export function createPublisherCredentialStore(
         [projectId: string]
     >(`
         select ${metadataColumns}
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
         order by created_at, id
     `)
@@ -317,7 +317,7 @@ export function createPublisherCredentialStore(
         [projectId: string, credentialId: string]
     >(`
         select ${secretColumns}
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
           and id = ?2
     `)
@@ -471,7 +471,7 @@ export function createPublisherCredentialStore(
           and state != 'revoked'
           and not exists (
               select 1
-              from publisher_connections
+              from project_publisher_connection_contexts as publisher_connections
               where publisher_connections.project_id = publisher_credentials.project_id
                 and publisher_connections.credential_id = publisher_credentials.id
           )

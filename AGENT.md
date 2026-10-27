@@ -40,6 +40,7 @@ content generator.
   use the actual semantic impact to choose checks and record the scope honestly.
   Run full validation for a meaningful integration milestone or demonstrated
   cross-cutting risk, not mechanically for every change. Never weaken assertions.
+- **Browser modes:** The default Playwright matrix includes the development-only `/editor-lab`. Run that complete matrix in its default development mode. Use `POSTBOT_E2E_PRODUCTION_WEB=true` for supported application journeys; the lab intentionally redirects in a production build.
 - **Evidence records are documentation:** `.autonomos/**`, authored Markdown/MDX, and evidence records
   are observed by no scenario, so a worklog or task-board change does not by itself
   require the matrix. A code path in the same change set decides on its own terms,

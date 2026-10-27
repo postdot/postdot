@@ -8,6 +8,7 @@ import { runMigrations, rehearseMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
+import { seedTestWorkspace } from './testing'
 import { planWorkspaceChannelMigration } from './workspace-channel-migration-plan'
 
 function fixture() {
@@ -26,10 +27,13 @@ it('refuses unknown ownership without assigning a default or modifying existing 
     const f = fixture()
     try {
         const project = f.manual.createProject({
+            workspaceId: seedTestWorkspace(f.database),
             name: 'Unassigned project',
             subjectId: 'owner',
             displayName: 'Owner',
         })
+        // New projects must be assigned; this models historical data that never was.
+        f.database.$client.query('update projects set workspace_id = null').run()
         const before = f.database.$client.query('select * from projects').all()
         expect(() => planWorkspaceChannelMigration(f.database)).toThrow(project.project.id)
         expect(f.database.$client.query('select * from projects').all()).toEqual(before)

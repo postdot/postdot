@@ -47,7 +47,7 @@ export function createPublicationDestinationStore(
             select p.channel_id as channelId, p.target_revision_id as targetId, p.state, p.delivery_mode as mode,
                    c.destination_revision as revision, p.confirmed_destination_revision as confirmedRevision,
                    c.state as channelState
-            from publications p join channels c on c.project_id = p.project_id and c.id = p.channel_id
+            from publications p join project_channel_contexts c on c.project_id = p.project_id and c.id = p.channel_id
             where p.project_id = ? and p.id = ?
         `)
             .get(projectId, publicationId)
@@ -71,9 +71,9 @@ export function createPublicationDestinationStore(
             connected:
                 client
                     .query<{ state: string }, [string, string]>(`
-                select cr.state from publisher_connections pc
-                join publishers pub on pub.project_id = pc.project_id and pub.id = pc.publisher_id
-                join publisher_credentials cr on cr.project_id = pc.project_id and cr.id = pc.credential_id
+                select cr.state from project_publisher_connection_contexts pc
+                join project_publisher_contexts pub on pub.project_id = pc.project_id and pub.id = pc.publisher_id
+                join project_publisher_credential_contexts cr on cr.project_id = pc.project_id and cr.id = pc.credential_id
                 where pub.project_id = ? and pub.channel_id = ?
             `)
                     .get(projectId, row.channelId)?.state === 'active',

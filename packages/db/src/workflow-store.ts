@@ -144,7 +144,7 @@ export function createWorkflowStore(
     >(`
         select publishers.kind
         from publications
-        inner join publishers
+        inner join project_publisher_contexts as publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
         where publications.project_id = ?1
@@ -219,21 +219,21 @@ export function createWorkflowStore(
             inner join publications
                 on publications.project_id = jobs.project_id
                and publications.id = jobs.publication_id
-            inner join publishers
+            inner join project_publisher_contexts as publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
             inner join publication_target_revisions as target_revisions
                 on target_revisions.project_id = publications.project_id
                and target_revisions.id = publications.target_revision_id
                and target_revisions.publication_id = publications.id
-            inner join channel_profile_versions as channel_profiles
+            inner join project_channel_profile_contexts as channel_profiles
                 on channel_profiles.project_id = target_revisions.project_id
                and channel_profiles.id = target_revisions.profile_version_id
             where jobs.state = 'pending'
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
-              and publications.confirmed_destination_revision = (select destination_revision from channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
+              and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
 
@@ -267,14 +267,14 @@ export function createWorkflowStore(
             inner join publications
                 on publications.project_id = jobs.project_id
                and publications.id = jobs.publication_id
-            inner join publishers
+            inner join project_publisher_contexts as publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
             inner join publication_target_revisions as target_revisions
                 on target_revisions.project_id = publications.project_id
                and target_revisions.id = publications.target_revision_id
                and target_revisions.publication_id = publications.id
-            inner join channel_profile_versions as channel_profiles
+            inner join project_channel_profile_contexts as channel_profiles
                 on channel_profiles.project_id = target_revisions.project_id
                and channel_profiles.id = target_revisions.profile_version_id
             inner join actors
@@ -287,7 +287,7 @@ export function createWorkflowStore(
               and publications.state in ('scheduled', 'ready')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
-              and publications.confirmed_destination_revision = (select destination_revision from channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
+              and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
             order by jobs.run_at, jobs.id
@@ -436,7 +436,7 @@ export function createWorkflowStore(
             on revisions.project_id = publications.project_id
            and revisions.id = publications.target_revision_id
            and revisions.publication_id = publications.id
-        inner join channel_profile_versions as channel_profiles
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = revisions.project_id
            and channel_profiles.id = revisions.profile_version_id
            and channel_profiles.state <> 'disabled'
@@ -495,7 +495,7 @@ export function createWorkflowStore(
         select channel_profiles.profile_json as profileJson,
                revisions.content_json as contentJson
         from publication_target_revisions as revisions
-        inner join channel_profile_versions as channel_profiles
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = revisions.project_id
            and channel_profiles.id = revisions.profile_version_id
            and channel_profiles.state <> 'disabled'
@@ -604,7 +604,7 @@ export function createWorkflowStore(
                 const channel = client
                     .query<{ channelId: string; revision: number }, [string, string]>(`
                     select p.channel_id as channelId, c.destination_revision as revision from publications p
-                    join channels c on c.project_id = p.project_id and c.id = p.channel_id
+                    join project_channel_contexts c on c.project_id = p.project_id and c.id = p.channel_id
                     where p.project_id = ? and p.id = ?
                 `)
                     .get(runningJob.projectId, runningJob.publicationId)!

@@ -724,7 +724,7 @@ export function createMediaAssetStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         , json_tree(drafts.content_json) as content
@@ -753,7 +753,7 @@ export function createMediaAssetStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         where revision_media.project_id = ?1
@@ -776,7 +776,7 @@ export function createMediaAssetStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         , json_tree(target_revisions.content_json) as content
@@ -805,7 +805,7 @@ export function createMediaAssetStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         where execution_media.project_id = ?1
@@ -828,7 +828,7 @@ export function createMediaAssetStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         , json_tree(execution_revisions.content_json) as content

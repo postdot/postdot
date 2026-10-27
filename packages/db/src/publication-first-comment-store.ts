@@ -153,7 +153,7 @@ const nativeReceiptProof = `
            and proof_executions.job_id = proof_jobs.id
            and proof_executions.publication_id = proof_publications.id
            and proof_executions.delivery_mode = 'automatic'
-        inner join channel_profile_versions as proof_profiles
+        inner join project_channel_profile_contexts as proof_profiles
             on proof_profiles.project_id = proof_executions.project_id
            and proof_profiles.id = proof_executions.profile_version_id
         where proof_publications.project_id = publication_first_comments.project_id
@@ -204,7 +204,7 @@ export function createPublicationFirstCommentStore(
            and proof_executions.job_id = proof_jobs.id
            and proof_executions.publication_id = proof_publications.id
            and proof_executions.delivery_mode = 'automatic'
-        inner join channel_profile_versions as proof_profiles
+        inner join project_channel_profile_contexts as proof_profiles
             on proof_profiles.project_id = proof_executions.project_id
            and proof_profiles.id = proof_executions.profile_version_id
         where proof_publications.project_id = ?1
@@ -229,11 +229,11 @@ export function createPublicationFirstCommentStore(
                proof_credentials.external_account_id as accountId,
                proof_credentials.scopes as scopes,
                proof_credentials.state as credentialState
-        from publishers as proof_publishers
-        inner join publisher_connections as proof_connections
+        from project_publisher_contexts as proof_publishers
+        inner join project_publisher_connection_contexts as proof_connections
             on proof_connections.project_id = proof_publishers.project_id
            and proof_connections.publisher_id = proof_publishers.id
-        inner join publisher_credentials as proof_credentials
+        inner join project_publisher_credential_contexts as proof_credentials
             on proof_credentials.project_id = proof_connections.project_id
            and proof_credentials.id = proof_connections.credential_id
            and proof_credentials.provider_id = ?3
@@ -258,7 +258,7 @@ export function createPublicationFirstCommentStore(
            and proof_publications.id = proof_executions.publication_id
            and proof_publications.state = 'published'
            and proof_publications.published_at = proof_jobs.completed_at
-        inner join channel_profile_versions as proof_profiles
+        inner join project_channel_profile_contexts as proof_profiles
             on proof_profiles.project_id = proof_executions.project_id
            and proof_profiles.id = proof_executions.profile_version_id
            and proof_profiles.state <> 'disabled'
@@ -276,7 +276,7 @@ export function createPublicationFirstCommentStore(
                external_account_id as externalAccountId,
                scopes,
                state
-        from publisher_credentials
+        from project_publisher_credential_contexts as publisher_credentials
         where project_id = ?1
           and id = ?2
     `)
@@ -285,7 +285,7 @@ export function createPublicationFirstCommentStore(
                publisher_id as publisherId,
                credential_id as credentialId,
                endpoint_url as endpointUrl
-        from publisher_connections
+        from project_publisher_connection_contexts as publisher_connections
         where project_id = ?1
           and id = ?2
     `)
@@ -293,7 +293,7 @@ export function createPublicationFirstCommentStore(
         select id,
                channel_id as channelId,
                kind
-        from publishers
+        from project_publisher_contexts as publishers
         where project_id = ?1
           and id = ?2
     `)
@@ -302,8 +302,8 @@ export function createPublicationFirstCommentStore(
         [string, string]
     >(`
         select json_extract(channel_profile_versions.profile_json, '$.execution.contractId') as contractId
-        from channels
-        inner join channel_profile_versions
+        from project_channel_contexts as channels
+        inner join project_channel_profile_contexts as channel_profile_versions
             on channel_profile_versions.project_id = channels.project_id
            and channel_profile_versions.id = channels.profile_version_id
         where channels.project_id = ?1

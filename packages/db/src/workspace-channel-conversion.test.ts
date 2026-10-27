@@ -1,10 +1,15 @@
 import { expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { createManualChannelProfile } from '@postdot/core'
+import {
+    createManualChannelProfile,
+    fingerprintChannelProfile,
+    type ChannelProfileDefinition,
+} from '@postdot/core'
 
 import { closeDatabase, createDatabase, type PostbotDatabase } from './client'
 import { createManualStore } from './manual-store'
@@ -12,6 +17,7 @@ import { rehearseMigrations, runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
+import { seedTestWorkspace } from './testing'
 import { planWorkspaceChannelMigration } from './workspace-channel-migration-plan'
 
 const candidate = fileURLToPath(
@@ -108,7 +114,7 @@ async function fixture(filename = ':memory:') {
             post,
         })
     }
-    return { database, manual, cipher, records }
+    return { database, manual, cipher, records, credentials, publishers }
 }
 
 function unchanged(db: PostbotDatabase) {
@@ -235,6 +241,12 @@ it('enforces attachment/workspace relations while retaining a shared resource af
             displayName: 'Foreign',
             workspaceId: 'foreign',
         })
+        const unrelated = f.manual.createProject({
+            name: 'Unrelated',
+            subjectId: 'unrelated',
+            displayName: 'Unrelated',
+            workspaceId: 'workspace',
+        })
         runMigrations(f.database, candidate)
         closeDatabase(f.database)
         f.database = createDatabase(filename)
@@ -249,7 +261,43 @@ it('enforces attachment/workspace relations while retaining a shared resource af
         expect(() =>
             attach.run(foreign.project.id, first.channel.id, 'foreign', actor.id)
         ).toThrow()
+        expect(
+            f.database.$client
+                .query(
+                    'select id from project_publisher_credential_contexts where project_id=? and id=?'
+                )
+                .all(second.project.project.id, first.credential.id)
+        ).toEqual([])
         attach.run(second.project.project.id, first.channel.id, 'workspace', actor.id)
+        expect(
+            f.database.$client
+                .query('select id from project_channel_contexts where project_id=? and id=?')
+                .get(second.project.project.id, first.channel.id)
+        ).toEqual({ id: first.channel.id })
+        expect(
+            f.database.$client
+                .query(
+                    'select id from project_publisher_connection_contexts where project_id=? and id=?'
+                )
+                .get(second.project.project.id, first.connection.id)
+        ).toEqual({ id: first.connection.id })
+        expect(
+            f.database.$client
+                .query(
+                    'select id from project_publisher_credential_contexts where project_id=? and id=?'
+                )
+                .get(second.project.project.id, first.credential.id)
+        ).toEqual({ id: first.credential.id })
+        expect(
+            f.database.$client
+                .query('select id from project_publisher_credential_contexts where project_id=?')
+                .all(unrelated.project.id)
+        ).toEqual([])
+        expect(
+            f.database.$client
+                .query('select id from project_publisher_credential_contexts where project_id=?')
+                .all(foreign.project.id)
+        ).toEqual([])
         expect(
             f.database.$client
                 .query(
@@ -301,6 +349,13 @@ it('enforces attachment/workspace relations while retaining a shared resource af
                 .all(first.channel.id)
         ).toEqual([{ project_id: second.project.project.id }])
         expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        expect(
+            f.database.$client
+                .query(
+                    'select id from project_publisher_connection_contexts where project_id=? and id=?'
+                )
+                .get(second.project.project.id, first.connection.id)
+        ).toEqual({ id: first.connection.id })
         f.database.$client
             .query(
                 "update project_channel_attachments set state='detached',detached_at=300,revision=revision+1 where project_id=? and channel_id=?"
@@ -434,10 +489,13 @@ it('refuses unknown workspace ownership and rolls back every conversion change',
     try {
         runMigrations(database)
         const project = createManualStore(database).createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Unassigned',
             subjectId: 'owner',
             displayName: 'Owner',
         })
+        // New projects must be assigned; this models historical data that never was.
+        database.$client.query('update projects set workspace_id = null').run()
         const before = database.$client.query('select * from projects').all()
         expect(() => runMigrations(database, candidate)).toThrow('workspace_assignment_required')
         expect(database.$client.query('select * from projects').all()).toEqual(before)
@@ -455,5 +513,131 @@ it('refuses unknown workspace ownership and rolls back every conversion change',
         ).toEqual([])
     } finally {
         closeDatabase(database)
+    }
+})
+
+it('keeps editorial readers and content on their project context when a detached channel later changes profile', async () => {
+    const f = await fixture()
+    try {
+        const [first, second] = f.records
+        if (!first || !second || !second.project.actor.subjectId)
+            throw new Error('Missing projects')
+        const unrelated = f.manual.createProject({
+            name: 'Unrelated',
+            subjectId: 'unrelated',
+            displayName: 'Unrelated',
+            workspaceId: 'workspace',
+        })
+        runMigrations(f.database, candidate)
+        const actor = f.database.$client
+            .query<{ id: string }, [string]>(
+                "select id from actors where workspace_id='workspace' and origin_actor_id=?"
+            )
+            .get(first.project.actor.id)!
+        f.database.$client
+            .query(
+                "insert into project_channel_attachments(project_id,channel_id,workspace_id,origin,attached_by_actor_id,attached_at) values (?,?,'workspace','explicit',?,200)"
+            )
+            .run(second.project.project.id, first.channel.id, actor.id)
+        expect(
+            f.publishers.getPublisherConnection(
+                second.project.project.id,
+                first.channel.id,
+                second.project.actor.subjectId
+            )
+        ).toMatchObject({
+            projectId: second.project.project.id,
+            credentialId: first.credential.id,
+            id: first.connection.id,
+        })
+        expect(
+            await f.credentials.resolvePublisherCredentialSecrets(
+                second.project.project.id,
+                first.credential.id
+            )
+        ).toMatchObject({ accessToken: 'synthetic-first' })
+        expect(
+            await f.credentials.resolvePublisherCredentialSecrets(
+                unrelated.project.id,
+                first.credential.id
+            )
+        ).toBeNull()
+        const post = f.manual.createPost({
+            projectId: second.project.project.id,
+            subjectId: second.project.actor.subjectId,
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Content belongs to the second project' },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId: first.channel.id,
+                    deliveryMode: 'automatic',
+                    scheduledAt: Date.now() + 60000,
+                },
+            ],
+        })!
+        const publication = post.publications[0]!
+        const before = f.manual.getPublicationEditorState(
+            second.project.project.id,
+            publication.id,
+            second.project.actor.subjectId
+        )!
+        expect(before).not.toBeNull()
+        f.database.$client
+            .query(
+                "update project_channel_attachments set state='detached',detached_at=300,revision=revision+1 where project_id=? and channel_id=?"
+            )
+            .run(second.project.project.id, first.channel.id)
+        const original = f.database.$client
+            .query<{ json: string }, [string]>(
+                'select profile_json as json from channel_profile_versions where id=?'
+            )
+            .get(first.channel.profileVersionId)!
+        const definition = JSON.parse(original.json) as ChannelProfileDefinition
+        const replacement = fingerprintChannelProfile(
+            { ...definition, version: definition.version + 1, profileHash: '', schemaHash: '' },
+            value => `sha256:${createHash('sha256').update(value).digest('hex')}`
+        )
+        f.database.$client
+            .query("update channel_profile_versions set state='superseded' where id=?")
+            .run(first.channel.profileVersionId)
+        f.database.$client
+            .query(
+                `insert into channel_profile_versions (id,workspace_id,channel_id,profile_id,version,origin,state,profile_json,profile_hash,schema_hash,created_by_actor_id) values ('replacement-profile','workspace',?,?,?,?,'active',?,?,?,?)`
+            )
+            .run(
+                first.channel.id,
+                replacement.id,
+                replacement.version,
+                replacement.origin,
+                JSON.stringify(replacement),
+                replacement.profileHash,
+                replacement.schemaHash,
+                actor.id
+            )
+        f.database.$client
+            .query("update channels set profile_version_id='replacement-profile' where id=?")
+            .run(first.channel.id)
+        expect(
+            f.database.$client
+                .query(
+                    "select * from project_channel_profiles where project_id=? and profile_id='replacement-profile'"
+                )
+                .all(second.project.project.id)
+        ).toEqual([])
+        const after = f.manual.getPublicationEditorState(
+            second.project.project.id,
+            publication.id,
+            second.project.actor.subjectId
+        )
+        expect(after).not.toBeNull()
+        expect(after?.post).toEqual(before.post)
+        expect(before.selectedTarget).not.toBeNull()
+        expect(after?.selectedTarget).toEqual(before.selectedTarget)
+        expect(after?.draft.content).toEqual(before.draft.content)
+        expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+    } finally {
+        closeDatabase(f.database)
     }
 })

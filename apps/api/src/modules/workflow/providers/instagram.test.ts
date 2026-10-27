@@ -23,6 +23,7 @@ import {
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
+import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createInstagramOAuth,
     createInstagramPublisher,
@@ -146,6 +147,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             publicMediaUrlAvailable: true,
         })
         const project = manualStore.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Instagram publication project',
             subjectId: 'subject-1',
             displayName: 'Instagram operator',

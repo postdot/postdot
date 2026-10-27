@@ -156,7 +156,7 @@ export function createPublicationOutcomeStore(
         inner join posts
             on posts.project_id = publications.project_id
            and posts.id = publications.post_id
-        inner join channels
+        inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
         inner join publication_target_revisions as target_revisions

@@ -4,6 +4,7 @@ import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createProviderAnalyticsStore } from './provider-analytics-store'
+import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 const did = 'did:plc:provider-analytics'
@@ -46,11 +47,13 @@ describe('provider analytics store', () => {
             runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const first = manual.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'First analytics project',
                 subjectId: 'user-1',
                 displayName: 'First operator',
             })
             const second = manual.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Second analytics project',
                 subjectId: 'user-2',
                 displayName: 'Second operator',
@@ -136,11 +139,13 @@ describe('provider analytics store', () => {
             runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const { project } = manual.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Latest reports',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
             const foreign = manual.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Other project',
                 subjectId: 'user-2',
                 displayName: 'Other operator',
@@ -239,6 +244,7 @@ describe('provider analytics store', () => {
             runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const project = manual.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Known content project',
                 subjectId: 'user-1',
                 displayName: 'Operator',

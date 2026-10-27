@@ -5,6 +5,7 @@ import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@p
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
 import { runMigrations } from '../migrations'
+import { seedTestWorkspace } from '../testing'
 
 function customBase(): Record<string, unknown> {
     return {
@@ -37,6 +38,7 @@ test('custom creation derives fingerprints, replaces legacy values and preserves
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Creation fingerprints',
             subjectId: 'operator',
             displayName: 'Operator',
@@ -94,6 +96,7 @@ test('custom creation reuses templates with altered schemas and keeps built-ins 
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Creation reuse',
             subjectId: 'operator',
             displayName: 'Operator',
@@ -144,6 +147,7 @@ test('custom creation preserves normalized issues and creates nothing on refusal
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Creation refusal',
             subjectId: 'operator',
             displayName: 'Operator',
@@ -210,6 +214,7 @@ test('channel lists summarize the active execution without exposing its configur
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = store.createProject({
+            workspaceId: seedTestWorkspace(database),
             name: 'Readiness',
             subjectId: 'operator',
             displayName: 'Operator',

@@ -6,6 +6,7 @@ import { runMigrations } from './migrations'
 import { createAuthorizationAttemptStore } from './oauth-authorization-attempt-store'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { actors, oauthAuthorizationAttempts } from './schema'
+import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 const codeVerifier = 'a'.repeat(43)
@@ -22,6 +23,7 @@ function createFixture() {
     let sequence = 0
     const manualStore = createManualStore(database, { now: () => timestamp })
     const project = manualStore.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'OAuth Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',

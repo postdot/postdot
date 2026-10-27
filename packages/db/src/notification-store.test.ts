@@ -7,6 +7,7 @@ import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createNotificationStore } from './notification-store'
+import { seedTestWorkspace } from './testing'
 
 const eventTime = 1_800_000_000_000
 const operationTime = eventTime + 1_000
@@ -18,6 +19,7 @@ function createFixture() {
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
     const project = manual.createProject({
+        workspaceId: seedTestWorkspace(database),
         name: 'Postdot',
         subjectId: 'human-1',
         displayName: 'First human',
@@ -333,6 +335,7 @@ describe('notification store', () => {
         const fixture = createFixture()
         try {
             const second = fixture.manual.createProject({
+                workspaceId: seedTestWorkspace(fixture.database),
                 name: 'Second project',
                 subjectId: 'human-1',
                 displayName: 'First human',

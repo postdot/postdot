@@ -64,10 +64,10 @@ export function createRetainedTargetAssessor(
                    p.review_state as reviewState, p.last_assessed_profile_version_id as assessedId,
                    p.profile_assessment_issues_json as issuesJson
             from publications p
-            join channels c on c.project_id = p.project_id and c.id = p.channel_id
-            join channel_profile_versions active on active.project_id = c.project_id and active.id = c.profile_version_id and active.channel_id = c.id
+            join project_channel_contexts c on c.project_id = p.project_id and c.id = p.channel_id
+            join project_channel_profile_contexts active on active.project_id = c.project_id and active.id = c.profile_version_id and active.channel_id = c.id
             join publication_target_revisions target on target.project_id = p.project_id and target.id = p.target_revision_id and target.publication_id = p.id
-            join channel_profile_versions owned on owned.project_id = target.project_id and owned.id = target.profile_version_id and owned.channel_id = c.id
+            join project_channel_profile_contexts owned on owned.project_id = target.project_id and owned.id = target.profile_version_id and owned.channel_id = c.id
             where p.project_id = ? and p.id = ?
         `)
             .get(projectId, publicationId)

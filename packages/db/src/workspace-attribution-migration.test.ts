@@ -20,6 +20,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
         const journal = JSON.parse(
             readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
         ) as { entries: { idx: number; tag: string }[] }
+        const pendingCount = journal.entries.filter(entry => entry.idx >= 21).length
         journal.entries = journal.entries.filter(entry => entry.idx < 21)
         writeFileSync(join(previous, 'meta/_journal.json'), JSON.stringify(journal))
         for (const entry of journal.entries)
@@ -30,21 +31,34 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
         runMigrations(database, previous)
         const legacy = seedLegacyProjectChannel(database, 'owner', 100)
         seedLegacyPublication(database, legacy, 101)
-        const credentials = createPublisherCredentialStore(database, {
-            cipher: createPublisherCredentialCipher({
-                keyId: 'fixture',
-                key: new Uint8Array(32).fill(1),
-            }),
+        const cipher = createPublisherCredentialCipher({
+            keyId: 'fixture',
+            key: new Uint8Array(32).fill(1),
         })
-        const credential = await credentials.createPublisherCredential({
-            projectId: legacy.project.id,
-            connectedByActorId: legacy.actor.id,
-            providerId: 'fixture',
-            externalAccountId: 'fixture-account',
-            accessToken: 'synthetic-preserved-access',
-            refreshToken: 'synthetic-preserved-refresh',
-        })
-        expect(credential.kind).toBe('created')
+        const credentialId = 'legacy-credential'
+        const access = await cipher.encrypt(
+            { recordId: credentialId, providerId: 'fixture', field: 'access_token' },
+            'synthetic-preserved-access'
+        )
+        const refresh = await cipher.encrypt(
+            { recordId: credentialId, providerId: 'fixture', field: 'refresh_token' },
+            'synthetic-preserved-refresh'
+        )
+        database.$client
+            .query(`insert into publisher_credentials
+            (id,project_id,provider_id,external_account_id,scopes,state,connected_by_actor_id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,refresh_token_ciphertext,refresh_token_nonce)
+            values (?,?,'fixture','fixture-account','[]','active',?,?,?,?,?,?,?)`)
+            .run(
+                credentialId,
+                legacy.project.id,
+                legacy.actor.id,
+                access.version,
+                access.keyId,
+                access.ciphertext,
+                access.nonce,
+                refresh.ciphertext,
+                refresh.nonce
+            )
         const insertEvent = database.$client
             .query(`insert into audit_events (sequence,id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at)
             values (?, ?, ?, ?, 'legacy.fact', 'publication','legacy-publication','{"preserve":true}',102)`)
@@ -96,7 +110,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         }
         const report = rehearseMigrations(database, undefined, { verify })
-        expect(report.pending).toHaveLength(1)
+        expect(report.pending).toHaveLength(pendingCount)
         expect(snapshot()).toEqual(before)
         expect(
             database.$client
@@ -121,7 +135,6 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
         expect(
             database.$client.query('select workspace_id,origin_actor_id from actors').all()
         ).toEqual([{ workspace_id: null, origin_actor_id: null }])
-        if (credential.kind !== 'created') throw new Error('Missing credential')
         const reopenedCredentials = createPublisherCredentialStore(database, {
             cipher: createPublisherCredentialCipher({
                 keyId: 'fixture',
@@ -131,7 +144,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
         expect(
             await reopenedCredentials.resolvePublisherCredentialSecrets(
                 legacy.project.id,
-                credential.credential.id
+                credentialId
             )
         ).toMatchObject({
             accessToken: 'synthetic-preserved-access',

@@ -1,12 +1,9 @@
-import { createHash } from 'node:crypto'
-
 import {
     ChannelProfileCompiler,
     createActor,
     createChannel,
     createManualChannelProfile,
     createProject,
-    fingerprintChannelProfile,
     requireNonBlank,
     requireProjectTimeZone,
     requireTimestamp,
@@ -21,6 +18,7 @@ import {
     recordDatabaseCommitProject,
     type PostbotDatabase,
 } from '../client'
+import { normalizeCreationProfile } from './channel-profile-definition'
 import { invalidProfileError, parseProfile } from './content-codec'
 import { toChannel, toProject } from './project-channel-mappers'
 import type { ActorRow, ChannelRow, ProjectRow } from './rows'
@@ -37,8 +35,8 @@ export interface CreateProjectInput {
     readonly name: string
     readonly subjectId: string
     readonly displayName: string
-    /** The workspace is the user-facing access boundary. */
-    readonly workspaceId?: string | null
+    /** The workspace is the user-facing access boundary and owns attached channel resources. */
+    readonly workspaceId: string
     readonly timeZone?: string
 }
 
@@ -140,8 +138,8 @@ export function createProjectChannelStore(
                channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
-        from channels
-        inner join channel_profile_versions as channel_profiles
+        from project_channel_contexts as channels
+        inner join project_channel_profile_contexts as channel_profiles
             on channel_profiles.project_id = channels.project_id
            and channel_profiles.channel_id = channels.id
            and channel_profiles.id = channels.profile_version_id
@@ -301,7 +299,7 @@ export function createProjectChannelStore(
                 project.id,
                 project.name,
                 project.timeZone,
-                input.workspaceId ?? null,
+                input.workspaceId,
                 timestamp
             )
             insertActorStatement.run(
@@ -493,37 +491,5 @@ export function createProjectChannelStore(
                 }
             })
         },
-    }
-}
-
-/**
- * Derive server-owned fingerprints for a newly created custom profile while
- * preserving the declared identity, origin and version. Built-in profiles and
- * already stored definitions are untouched; supplied fingerprints (including
- * legacy symbolic or arbitrary values, or none at all) are always replaced.
- * Runs before compilation and persistence so both observe derived values.
- */
-function normalizeCreationProfile(profile: ChannelProfileDefinition): ChannelProfileDefinition {
-    if (profile.origin !== 'custom') return profile
-
-    try {
-        return fingerprintChannelProfile(
-            {
-                ...profile,
-                profileHash: '',
-                schemaHash: '',
-            },
-            value => `sha256:${createHash('sha256').update(value).digest('hex')}`
-        )
-    } catch {
-        throw invalidProfileError([
-            {
-                path: '',
-                code: 'profile.invalid_json_value',
-                message: 'Channel profile must contain only JSON values',
-                severity: 'error',
-                source: 'domain',
-            },
-        ])
     }
 }

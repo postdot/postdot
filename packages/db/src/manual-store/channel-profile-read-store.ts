@@ -85,7 +85,7 @@ export function createChannelProfileReadStore(
                created_by_actor_id as createdByActorId,
                created_at as createdAt,
                updated_at as updatedAt
-        from channel_profile_versions
+        from project_channel_profile_contexts as channel_profile_versions
         where project_id = ?1
           and channel_id = ?2
           and state = 'draft'

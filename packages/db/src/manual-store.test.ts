@@ -22,6 +22,7 @@ import {
     publishers,
 } from './schema'
 import { createTaxonomyStore } from './taxonomy-store'
+import { seedTestWorkspace } from './testing'
 
 const automaticTestProfile: ChannelProfileDefinition = {
     id: 'future-provider',
@@ -280,6 +281,7 @@ describe('manual workflow store', () => {
             })
 
             const createdProject = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Postdot Launch',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
@@ -389,6 +391,7 @@ describe('manual workflow store', () => {
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -450,6 +453,7 @@ describe('manual workflow store', () => {
             })
 
             const otherProject = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Other Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -505,6 +509,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Publication Pagination Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -629,6 +634,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Outcome Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -749,6 +755,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -793,6 +800,7 @@ describe('manual workflow store', () => {
             }
             const store = createManualStore(database, { now: () => now, media })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Creation Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -891,6 +899,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Automatic Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -939,6 +948,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1076,6 +1086,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Bulk scheduling project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1310,6 +1321,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Revision Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1472,6 +1484,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Promotion Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1579,6 +1592,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Review Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1633,6 +1647,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Superseded Profile Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1890,6 +1905,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const setupStore = createManualStore(database, { now: () => now })
             const project = setupStore.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Active Media Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2034,6 +2050,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Execution Contract Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2185,6 +2202,7 @@ describe('manual workflow store', () => {
             }
             const store = createManualStore(database, { now: () => now, media })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Scheduled Media Validation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2243,6 +2261,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Profile Lifecycle Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2445,6 +2464,7 @@ describe('manual workflow store', () => {
             }
             const store = createManualStore(database, { now: () => now, media })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Media Profile Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2558,6 +2578,7 @@ describe('manual workflow store', () => {
             }
             const store = createManualStore(database, { now: () => now, media })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Draft Media Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2627,6 +2648,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Shared Source Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2799,6 +2821,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Reconciliation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2899,6 +2922,7 @@ describe('manual workflow store', () => {
                 runMigrations(database)
                 const store = createManualStore(database, { now: () => now })
                 const { project } = store.createProject({
+                    workspaceId: seedTestWorkspace(database),
                     name: 'Active Profile Approval',
                     subjectId: 'user-1',
                     displayName: 'Operator',
@@ -2979,6 +3003,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const { project } = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Compatible Profile Approval',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3030,6 +3055,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3107,6 +3133,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => (advanceClock ? now++ : now) })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Overdue Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3171,6 +3198,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Overdue Reschedule Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3217,6 +3245,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Repeated Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3260,6 +3289,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Edited Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -3312,6 +3342,7 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const project = store.createProject({
+                workspaceId: seedTestWorkspace(database),
                 name: 'Rejected Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',

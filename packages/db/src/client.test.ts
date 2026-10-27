@@ -9,6 +9,7 @@ import {
 } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
+import { seedTestWorkspace } from './testing'
 
 function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
     const projectId = `project-${suffix}`
@@ -129,6 +130,7 @@ describe('database post-commit observer', () => {
                     })(),
                 })
                 const created = store.createProject({
+                    workspaceId: seedTestWorkspace(database),
                     name: 'Observed project',
                     subjectId: 'subject-manual',
                     displayName: 'Manual actor',

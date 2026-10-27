@@ -343,7 +343,7 @@ export function createProviderAnalyticsStore(
                publications.id as postbotEntityId,
                publications.external_id as providerSubjectId
         from publications
-        inner join publishers
+        inner join project_publisher_contexts as publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
            and publishers.kind = ?3
@@ -363,7 +363,7 @@ export function createProviderAnalyticsStore(
                    publications.id as postbotEntityId,
                    publications.external_id as providerSubjectId
             from publications
-            inner join publishers
+            inner join project_publisher_contexts as publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
                and publishers.kind = ?3
