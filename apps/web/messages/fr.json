@@ -1651,6 +1651,8 @@
         }
     ],
     "calendar_review_queue": "Voir la file d’attente",
+    "calendar_occupied": "Créneau pris sur {channel}",
+    "calendar_occupied_note": "Les entrées atténuées sont des créneaux que d’autres projets utilisent déjà sur un canal partagé. Les projets que vous ne pouvez pas lire sont affichés sans nom ni contenu.",
     "calendar_add_event": "Créer une publication",
     "calendar_all_day": "Toute la journée",
     "calendar_continues": "continue",

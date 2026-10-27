@@ -164,6 +164,10 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         return null
     }
 
+    if (resource === 'channel-occupancy' && detail.length === 0 && normalizedMethod === 'GET') {
+        return 'project:read'
+    }
+
     if (resource === 'publishers' && detail.length === 0 && normalizedMethod === 'GET') {
         return 'project:read'
     }

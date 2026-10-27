@@ -928,6 +928,12 @@ export const api = {
         )
     },
 
+    async listChannelOccupancy(projectId: string, range: { from: number; to: number }) {
+        return unwrap(
+            await client.api.projects({ projectId })['channel-occupancy'].get({ query: range })
+        )
+    },
+
     async getChannelSharing(projectId: string, channelId: string) {
         return unwrap(
             await client.api.projects({ projectId }).channels({ channelId }).sharing.get()
@@ -1468,3 +1474,8 @@ function apiErrorMessage(code: string): string {
 }
 
 export type { EmailSettings, EmailSettingsInput }
+
+/** Time taken on a shared channel by another project; anonymous unless that project is readable. */
+export type ChannelOccupancy = Awaited<
+    ReturnType<typeof api.listChannelOccupancy>
+>['occupancy'][number]

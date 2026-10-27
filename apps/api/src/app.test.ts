@@ -1155,6 +1155,7 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/channels/{channelId}',
                 '/api/projects/{projectId}/channels/{channelId}/archive',
                 '/api/projects/{projectId}/channels/{channelId}/restore',
+                '/api/projects/{projectId}/channel-occupancy',
                 '/api/projects/{projectId}/channels/{channelId}/sharing',
                 '/api/projects/{projectId}/channels/{channelId}/attachments',
                 '/api/projects/{projectId}/channels/{channelId}/attachments/{attachedProjectId}/withdraw',

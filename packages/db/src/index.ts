@@ -387,6 +387,7 @@ export type {
 export type {
     ChannelAccessPolicy,
     ChannelManagementIntent,
+    ChannelOccupancyItem,
     ChannelProjectAction,
     ChannelRecord,
     MutationResult as SharedChannelMutationResult,

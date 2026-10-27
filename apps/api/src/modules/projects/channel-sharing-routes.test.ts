@@ -260,3 +260,83 @@ describe('shared channel HTTP routes', () => {
         }
     })
 })
+
+describe('shared channel occupancy HTTP route', () => {
+    it('shows other projects as anonymous time and keeps drafts and names out of the response', async () => {
+        const f = await setup()
+        try {
+            const credential = { cookie: f.cookie }
+            const attached = await call(
+                f.app,
+                `/api/projects/${f.source}/channels/${f.channel.id}/attachments`,
+                credential,
+                post({ projectId: f.target, expectedRevision: f.channel.revision })
+            )
+            expect(attached.status).toBe(200)
+            // The app clock is fixed by the fixture, so schedule relative to it.
+            const at = now + 86_400_000
+            const create = (title: string, scheduledAt?: number) =>
+                call(
+                    f.app,
+                    `/api/projects/${f.target}/posts`,
+                    credential,
+                    post({
+                        title,
+                        sourceContent: { body: { format: 'plain_text', text: title }, media: [] },
+                        publications: [
+                            {
+                                channelId: f.channel.id,
+                                deliveryMode: 'manual',
+                                ...(scheduledAt === undefined ? {} : { scheduledAt }),
+                            },
+                        ],
+                    })
+                )
+            expect((await create('Target confidential launch', at)).status).toBe(201)
+            expect((await create('Target hidden draft')).status).toBe(201)
+
+            const query = `from=${at - 60_000}&to=${at + 3_600_000}`
+            const path = `/api/projects/${f.source}/channel-occupancy?${query}`
+            // The owner can read both projects, so the target is described in full.
+            const readable = await call(f.app, path, credential)
+            expect(readable.status).toBe(200)
+            expect(await readable.json()).toMatchObject({
+                occupancy: [
+                    {
+                        channelId: f.channel.id,
+                        at,
+                        state: 'scheduled',
+                        project: { id: f.target, title: 'Target confidential launch' },
+                    },
+                ],
+            })
+
+            // A key scoped to the source project cannot read the target: the slot stays, nothing else.
+            const sourceOnly = await f.apiKey({
+                name: 'Source reader',
+                projectIds: [f.source],
+                actionAccess: ['project:read'],
+            })
+            const anonymous = await call(f.app, path, { token: sourceOnly })
+            expect(anonymous.status).toBe(200)
+            const body = (await anonymous.json()) as { occupancy: { project: unknown }[] }
+            expect(body.occupancy).toHaveLength(1)
+            expect(body.occupancy[0]!.project).toBeNull()
+            const text = JSON.stringify(body)
+            for (const hidden of ['confidential', 'hidden draft', f.target, 'Target'])
+                expect(text).not.toContain(hidden)
+
+            // The route is read-only for keys and masks a project the caller cannot access.
+            const outsider = await signUp(f.app, 'occupancy-outsider@postbot.local')
+            expect((await call(f.app, path, { cookie: outsider })).status).toBe(404)
+            const invalid = await call(
+                f.app,
+                `/api/projects/${f.source}/channel-occupancy?from=10&to=10`,
+                credential
+            )
+            expect(invalid.status).toBe(404)
+        } finally {
+            closeDatabase(f.database)
+        }
+    })
+})

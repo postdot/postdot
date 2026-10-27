@@ -80,6 +80,23 @@ export type WorkspaceChannelView = Omit<
     'projectId' | 'attachmentState' | 'attachmentRevision' | 'canWithdraw'
 >
 
+export interface ChannelOccupancyItem {
+    readonly channelId: string
+    /** Scheduled time, or the recorded publication time once published. */
+    readonly at: number
+    readonly state: 'scheduled' | 'ready' | 'publishing' | 'published' | 'ambiguous'
+    /**
+     * Present only for a project the caller can read. Otherwise the item is anonymous:
+     * no name, content, publication identity or project count.
+     */
+    readonly project: {
+        readonly id: string
+        readonly name: string
+        readonly publicationId: string
+        readonly title: string | null
+    } | null
+}
+
 export type MutationResult =
     | { readonly kind: 'not_found' }
     | { readonly kind: 'stale'; readonly revision: number }
@@ -558,6 +575,67 @@ export function createWorkspaceChannelStore(
                               ctx.authorization.authorizeSharing(affected(ctx, row, id)) === true),
                 }
             })
+        },
+        /**
+         * Time already taken on the channels this project uses by OTHER attached projects.
+         * Drafts, cancelled and definitely failed work occupy nothing and are never reported.
+         */
+        occupancy(
+            ctx: WorkspaceChannelContext,
+            projectId: string,
+            range: { readonly from: number; readonly to: number }
+        ): readonly ChannelOccupancyItem[] | null {
+            const id = requireNonBlank(projectId, 'projectId')
+            if (ctx.authorization.authorizeProject(id, 'read_channels') !== true) return null
+            if (
+                !Number.isSafeInteger(range.from) ||
+                !Number.isSafeInteger(range.to) ||
+                range.to <= range.from
+            )
+                throw new DomainInvariantError('invalid_input', 'The occupancy range is invalid')
+            const rows = client
+                .query<
+                    {
+                        publicationId: string
+                        projectId: string
+                        projectName: string
+                        channelId: string
+                        state: ChannelOccupancyItem['state']
+                        at: number
+                        title: string | null
+                    },
+                    [string, number, number]
+                >(`select p.id as publicationId,p.project_id as projectId,pr.name as projectName,p.channel_id as channelId,p.state,
+                    case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end as at,
+                    post.title as title
+                    from publications p
+                    join project_channel_attachments mine on mine.project_id=?1 and mine.channel_id=p.channel_id and mine.state='active'
+                    join projects pr on pr.id=p.project_id
+                    left join posts post on post.project_id=p.project_id and post.id=p.post_id
+                    left join project_channel_attachments theirs on theirs.project_id=p.project_id and theirs.channel_id=p.channel_id
+                    where p.project_id<>?1
+                      and p.state in ('scheduled','ready','publishing','published','ambiguous')
+                      and (theirs.state='active' or p.state in ('published','ambiguous'))
+                      and (case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end) >= ?2
+                      and (case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end) < ?3
+                    order by at,p.id limit 500`)
+                .all(id, range.from, range.to)
+            return rows
+                .filter(row => isActive('project', row.projectId))
+                .map(row => ({
+                    channelId: row.channelId,
+                    at: row.at,
+                    state: row.state,
+                    project:
+                        ctx.authorization.authorizeProject(row.projectId, 'read_channels') === true
+                            ? {
+                                  id: row.projectId,
+                                  name: row.projectName,
+                                  publicationId: row.publicationId,
+                                  title: row.title,
+                              }
+                            : null,
+                }))
         },
         listWorkspace(
             ctx: WorkspaceChannelContext,

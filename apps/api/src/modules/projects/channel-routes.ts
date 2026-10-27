@@ -7,6 +7,8 @@ import { createChannelAccessPolicy } from './channel-access-policy'
 import {
     attachChannelBody,
     attachedChannelParams,
+    channelOccupancyQuery,
+    channelOccupancyResponse,
     channelSharingConflictResponse,
     channelSharingMutationResponse,
     channelSharingResponse,
@@ -397,6 +399,50 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     })
                 }
                 return { deleted: true }
+            }
+        )
+        .get(
+            '/api/projects/:projectId/channel-occupancy',
+            {
+                auth: true,
+                params: projectParams,
+                query: channelOccupancyQuery,
+                response: {
+                    200: channelOccupancyResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'listProjectChannelOccupancy',
+                    summary: 'List time taken on shared channels by other projects',
+                    description:
+                        'Projects the caller can read are described in full; every other project is anonymous. Drafts, cancelled and failed work are never reported.',
+                    tags: ['Channels'],
+                },
+            },
+            ({ apiKeyPermissions, apiKeyProjectIds, authMethod, params, query, status, user }) => {
+                if (query.to <= query.from) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                const ctx = sharingContext({
+                    apiKeyPermissions,
+                    apiKeyProjectIds,
+                    authMethod,
+                    projectId: params.projectId,
+                    userId: user.id,
+                })
+                const occupancy = ctx
+                    ? manualStore.sharedChannels.occupancy(ctx, params.projectId, query)
+                    : null
+                if (occupancy === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return { occupancy: [...occupancy] }
             }
         )
         .get(

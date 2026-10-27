@@ -611,3 +611,100 @@ it('withdraws from an already archived channel without repeating the archive dec
         closeDatabase(f.database)
     }
 })
+
+it('reports only time taken by other projects, anonymously unless the project is readable', () => {
+    const f = fixture()
+    try {
+        const manual = createManualStore(f.database)
+        const attach = (projectId: string, expectedRevision: number) =>
+            f.store.attach(f.ctx, { channelId: f.channel.id, projectId, expectedRevision })
+        expect(attach(f.target.project.id, 1)).toEqual({ kind: 'changed', revision: 2 })
+        expect(attach(f.other.project.id, 2)).toEqual({ kind: 'changed', revision: 3 })
+        const post = (
+            project: typeof f.target,
+            title: string,
+            publications: { channelId: string; scheduledAt?: number }[]
+        ) =>
+            manual.createPost({
+                projectId: project.project.id,
+                subjectId: 'operator',
+                title,
+                sourceContent: { body: { format: 'plain_text', text: title }, media: [] },
+                publications: publications.map(item => ({ ...item, deliveryMode: 'manual' })),
+            })
+        const at = Date.now() + 86_400_000
+        post(f.target, 'Visible launch', [{ channelId: f.channel.id, scheduledAt: at }])
+        post(f.target, 'Unscheduled draft', [{ channelId: f.channel.id }])
+        post(f.other, 'Confidential plan', [
+            { channelId: f.channel.id, scheduledAt: at + 3_600_000 },
+        ])
+        const range = { from: at - 60_000, to: at + 7_200_000 }
+
+        // A reader of the target sees that project in full and the other one anonymously.
+        const partial = f.store.occupancy(
+            f.context({
+                roles: new Map([
+                    [f.source.project.id, 'viewer'],
+                    [f.target.project.id, 'viewer'],
+                ]),
+                contextProjectId: f.source.project.id,
+            }),
+            f.source.project.id,
+            range
+        )!
+        expect(partial.map(item => [item.at, item.state, item.project?.title ?? null])).toEqual([
+            [at, 'scheduled', 'Visible launch'],
+            [at + 3_600_000, 'scheduled', null],
+        ])
+        expect(partial[0]!.project).toMatchObject({ id: f.target.project.id })
+        expect(partial[1]!.project).toBeNull()
+        expect(JSON.stringify(partial[1])).not.toContain('Confidential')
+        expect(JSON.stringify(partial[1])).not.toContain(f.other.project.id)
+
+        // With no other readable project every item is anonymous: drafts are neither shown nor counted.
+        const anonymous = f.store.occupancy(
+            f.context({
+                roles: new Map([[f.source.project.id, 'viewer']]),
+                contextProjectId: f.source.project.id,
+            }),
+            f.source.project.id,
+            range
+        )!
+        expect(anonymous).toHaveLength(2)
+        const text = JSON.stringify(anonymous)
+        for (const secret of [
+            'Visible launch',
+            'Confidential plan',
+            'Unscheduled draft',
+            f.target.project.id,
+            f.other.project.id,
+            'Target',
+        ])
+            expect(text).not.toContain(secret)
+        expect(anonymous.every(item => item.project === null)).toBe(true)
+
+        // Own work is never reported back, and a caller without read access learns nothing.
+        expect(
+            f.store
+                .occupancy(
+                    f.context({
+                        roles: new Map([[f.target.project.id, 'viewer']]),
+                        contextProjectId: f.target.project.id,
+                    }),
+                    f.target.project.id,
+                    range
+                )!
+                .map(item => item.at)
+        ).toEqual([at + 3_600_000])
+        expect(
+            f.store.occupancy(
+                f.context({ roles: new Map(), contextProjectId: f.source.project.id }),
+                f.source.project.id,
+                range
+            )
+        ).toBeNull()
+        expect(() => f.store.occupancy(f.ctx, f.source.project.id, { from: 10, to: 10 })).toThrow()
+    } finally {
+        closeDatabase(f.database)
+    }
+})

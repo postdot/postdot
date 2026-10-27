@@ -73,6 +73,25 @@ export function PublicationCalendarPage({
         retry: 1,
     })
     const calendarPublications = calendarPublicationsQuery.data ?? []
+    // Another project's time on a shared channel is read beside this project's own work.
+    const hasSharedChannel = channels.some(channel => channel.shared)
+    const occupancyQuery = useQuery({
+        queryKey: [
+            ...projectQueryKeys.calendarPublications(project.id),
+            'occupancy',
+            calendarRange.from,
+            calendarRange.to,
+        ],
+        queryFn: async () => (await api.listChannelOccupancy(project.id, calendarRange)).occupancy,
+        enabled: hasSharedChannel,
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: 1,
+    })
+    const occupancy = hasSharedChannel ? (occupancyQuery.data ?? []) : []
+    const channelNames = useMemo(
+        () => new Map(channels.map(channel => [channel.id, channel.name])),
+        [channels]
+    )
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
     const nextScheduledPublication = useMemo(() => {
         const upcoming = calendarPublications.filter(
@@ -262,6 +281,8 @@ export function PublicationCalendarPage({
                         <>
                             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                                 <PublicationCalendar
+                                    channelNames={channelNames}
+                                    occupancy={occupancy}
                                     duePublicationIds={dueIds}
                                     loading={calendarPublicationsQuery.isFetching}
                                     locale={locale}
@@ -277,6 +298,11 @@ export function PublicationCalendarPage({
                                     selectedPublicationIds={selectedPublicationIds}
                                     timeZone={project.timeZone}
                                 />
+                                {occupancy.length > 0 ? (
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        {m.calendar_occupied_note()}
+                                    </p>
+                                ) : null}
                             </section>
 
                             {unscheduledPublications.length > 0 ? (

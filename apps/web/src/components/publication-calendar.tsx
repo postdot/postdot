@@ -33,17 +33,19 @@ import {
 import { EventCalendarMonthView } from '@/components/reui/event-calendar/event-calendar-month-view'
 import { EventCalendarTimeGrid } from '@/components/reui/event-calendar/event-calendar-time-grid'
 import type {
+    CalendarEvent,
     CalendarView,
     EventCalendarOccurrence,
     EventCalendarSlotInfo,
 } from '@/components/reui/event-calendar/event-calendar-types'
-import type { PublicationSummary } from '@/lib/api'
+import type { ChannelOccupancy, PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts } from '@/lib/date-time'
 import { formatTime } from '@/lib/format'
 import { formatCalendarTitle } from '@/lib/publication-calendar'
 import { toDateKey } from '@/lib/publication-calendar'
 import {
     type PublicationCalendarEventData,
+    toOccupancyCalendarEvents,
     isPublicationCalendarView,
     type PublicationCalendarView,
     toPublicationCalendarEvents,
@@ -67,24 +69,30 @@ const CALENDAR_VIEW_SHORTCUTS = {
 } satisfies Record<CalendarView, RegisterableHotkey>
 
 export function PublicationCalendar({
+    channelNames = new Map<string, string>(),
     duePublicationIds,
     loading,
     locale,
     calendarDate,
     initialView,
     onSelectedPublicationIdsChange,
+    occupancy = [],
     projectId,
     publications,
     readOnly = false,
     selectedPublicationIds,
     timeZone,
 }: {
+    /** Names of this project's channels, to label time taken elsewhere on the same channel. */
+    readonly channelNames?: ReadonlyMap<string, string>
     readonly duePublicationIds: ReadonlySet<string>
     readonly loading: boolean
     readonly locale: string
     readonly calendarDate: Date
     readonly initialView?: PublicationCalendarView
     readonly onSelectedPublicationIdsChange: (publicationIds: readonly string[]) => void
+    /** Time other projects already use on this project's shared channels. */
+    readonly occupancy?: readonly ChannelOccupancy[]
     readonly projectId: string
     readonly publications: readonly PublicationSummary[]
     /**
@@ -97,9 +105,23 @@ export function PublicationCalendar({
     readonly timeZone: string
 }) {
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/overview' })
-    const events = useMemo(
+    const publicationEvents = useMemo(
         () => toPublicationCalendarEvents(publications, duePublicationIds),
         [duePublicationIds, publications]
+    )
+    const occupancyEvents = useMemo(
+        () =>
+            toOccupancyCalendarEvents(occupancy, item => {
+                const channel = channelNames.get(item.channelId) ?? ''
+                return item.project === null
+                    ? m.calendar_occupied({ channel })
+                    : `${item.project.title ?? m.calendar_occupied({ channel })} · ${item.project.name}`
+            }),
+        [channelNames, occupancy]
+    )
+    const events = useMemo<CalendarEvent<PublicationCalendarEventData>[]>(
+        () => [...publicationEvents, ...occupancyEvents],
+        [occupancyEvents, publicationEvents]
     )
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
@@ -113,12 +135,15 @@ export function PublicationCalendar({
     const viewPreference = initialView ?? 'auto'
     const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
     const eventIdsByKey = useMemo(
-        () => new Map(events.map(event => [calendarEventKey(event), event.id])),
-        [events]
+        () => new Map(publicationEvents.map(event => [calendarEventKey(event), event.id])),
+        [publicationEvents]
     )
     const selectedEventKeys = useMemo(
-        () => events.filter(event => selectedPublicationIds.has(event.id)).map(calendarEventKey),
-        [events, selectedPublicationIds]
+        () =>
+            publicationEvents
+                .filter(event => selectedPublicationIds.has(event.id))
+                .map(calendarEventKey),
+        [publicationEvents, selectedPublicationIds]
     )
 
     const openPublication = useCallback(
@@ -611,7 +636,27 @@ function PublicationCalendarAgenda({
                     <div className="grid gap-1">
                         {group.occurrences.map(occurrence => {
                             const publication = occurrence.event.data?.publication
-                            if (publication === undefined) return null
+                            if (publication === undefined) {
+                                const taken = occurrence.event.data?.occupancy
+                                if (taken === undefined) return null
+                                return (
+                                    <div
+                                        className="flex min-w-0 items-center gap-3 rounded-md bg-surface-inset px-3 py-2.5 text-muted-foreground italic"
+                                        data-occupancy="true"
+                                        key={occurrence.key}>
+                                        <span
+                                            aria-hidden="true"
+                                            className="h-5 w-px shrink-0 bg-current"
+                                        />
+                                        <span className="min-w-0 truncate text-sm">
+                                            {occurrence.event.title}
+                                        </span>
+                                        <span className="ml-auto shrink-0 text-xs">
+                                            {formatTime(taken.at, timeZone, locale)}
+                                        </span>
+                                    </div>
+                                )
+                            }
                             const time = formatTime(
                                 publication.scheduledAt as number,
                                 timeZone,
@@ -677,7 +722,21 @@ function PublicationEventContent({
     readonly view?: CalendarView
 }) {
     const publication = occurrence.event.data?.publication
-    if (publication === undefined) return null
+    if (publication === undefined) {
+        if (occurrence.event.data?.occupancy === undefined) return null
+        // Time taken by another project: muted, never interactive, only what the caller may know.
+        return (
+            <span
+                className="flex min-w-0 items-center gap-1.5 text-muted-foreground italic"
+                data-occupancy="true">
+                <span aria-hidden="true" className="h-3 w-px shrink-0 self-center bg-current" />
+                <span className="min-w-0 truncate">{occurrence.event.title}</span>
+                <span className="hidden shrink-0 @[12rem]:inline">
+                    {formatTime(occurrence.event.data.occupancy.at, timeZone, locale)}
+                </span>
+            </span>
+        )
+    }
     const time = formatTime(publication.scheduledAt as number, timeZone, locale)
     const statusMarker = (
         <span

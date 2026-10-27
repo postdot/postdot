@@ -1651,6 +1651,8 @@
         }
     ],
     "calendar_review_queue": "Review the Queue",
+    "calendar_occupied": "Time taken on {channel}",
+    "calendar_occupied_note": "Muted entries are time other projects already use on a shared channel. Projects you cannot read are shown without a name or content.",
     "calendar_add_event": "Create publication",
     "calendar_all_day": "All day",
     "calendar_continues": "continues",

@@ -44,6 +44,7 @@ describe('user API-key capability policy', () => {
             'publication:dispatch',
         ],
         ['POST', '/api/projects/project-1/channels', 'channel:manage'],
+        ['GET', '/api/projects/project-1/channel-occupancy', 'project:read'],
         ['GET', '/api/projects/project-1/channels/channel-1/sharing', 'project:read'],
         ['POST', '/api/projects/project-1/channels/channel-1/attachments', 'channel:share'],
         [
@@ -105,6 +106,8 @@ describe('user API-key capability policy', () => {
         ['POST', '/api/projects/project-1/publications/publication-1/publish/extra'],
         ['POST', '/api/projects/project-1/publications/publication-1/draft/promote/extra'],
         ['POST', '/api/api-keys'],
+        ['POST', '/api/projects/project-1/channel-occupancy'],
+        ['GET', '/api/projects/project-1/channel-occupancy/extra'],
         ['GET', '/api/instance/users'],
         ['GET', '/api/unregistered-project-operation'],
     ] as const)('keeps %s %s outside API-key access', (method, path) => {

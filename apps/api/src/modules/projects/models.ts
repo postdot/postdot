@@ -433,6 +433,37 @@ export const channelSharingResponse = Type.Object({
     ),
 })
 
+export const channelOccupancyQuery = Type.Object({
+    from: Type.Integer({ minimum: 0 }),
+    to: Type.Integer({ minimum: 1 }),
+})
+
+export const channelOccupancyResponse = Type.Object({
+    occupancy: Type.Array(
+        Type.Object({
+            channelId: Type.String(),
+            at: Type.Integer(),
+            state: Type.Union([
+                Type.Literal('scheduled'),
+                Type.Literal('ready'),
+                Type.Literal('publishing'),
+                Type.Literal('published'),
+                Type.Literal('ambiguous'),
+            ]),
+            /** Null for a project the caller cannot read: nothing about it is revealed. */
+            project: Type.Union([
+                Type.Object({
+                    id: Type.String(),
+                    name: Type.String(),
+                    publicationId: Type.String(),
+                    title: Type.Union([Type.String(), Type.Null()]),
+                }),
+                Type.Null(),
+            ]),
+        })
+    ),
+})
+
 export const channelSharingMutationResponse = Type.Object({
     result: Type.Union([Type.Literal('changed'), Type.Literal('unchanged')]),
     revision: Type.Integer(),
