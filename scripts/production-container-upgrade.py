@@ -2,6 +2,9 @@
 
 Requires Docker, Python 3 and a locally built candidate. No real provider calls.
 The previous image is pinned; the candidate is resolved to its immutable local ID.
+The previous release is seeded with a connected custom webhook channel and a scheduled
+automatic publication, so the ownership conversion is exercised on a live connection and
+queued work. Nothing is dispatched: the endpoint is unreachable and the time is distant.
 """
 
 import argparse
@@ -14,14 +17,50 @@ import secrets
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
-PREVIOUS = "ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e"
+PREVIOUS = "ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--image", required=True)
 parser.add_argument("--previous-image", default=PREVIOUS)
 args = parser.parse_args()
+
+
+def differences(before, after, path="$"):
+    # Paths and short values only; the compared API state holds no credentials.
+    if type(before) is not type(after):
+        return [[path, str(before)[:80], str(after)[:80]]]
+    if isinstance(before, dict):
+        found = []
+        for key in sorted(set(before) | set(after)):
+            if key not in before or key not in after:
+                found.append([f"{path}.{key}", "missing" if key not in before else "present", "missing" if key not in after else "present"])
+            else:
+                found += differences(before[key], after[key], f"{path}.{key}")
+        return found
+    if isinstance(before, list):
+        if len(before) != len(after):
+            return [[path, f"len {len(before)}", f"len {len(after)}"]]
+        return [d for i, (a, b) in enumerate(zip(before, after)) for d in differences(a, b, f"{path}[{i}]")]
+    return [] if before == after else [[path, str(before)[:80], str(after)[:80]]]
+
+
+def comparable(editor, shared=False):
+    # Profile attribution becomes a workspace actor snapshot in the upgrade; every other field must match.
+    copy = json.loads(json.dumps(editor))
+    for name in ("profile", "selectedTargetProfile"):
+        profile = copy.get("editor", {}).get(name)
+        if isinstance(profile, dict):
+            profile.pop("createdByActorId", None)
+    if shared:
+        # Attaching a project is a channel mutation: its revision and time advance by design.
+        channel = copy.get("editor", {}).get("channel")
+        if isinstance(channel, dict):
+            channel.pop("revision", None)
+            channel.pop("updatedAt", None)
+    return copy
 
 
 def docker(*arguments):
@@ -87,13 +126,18 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
                 "Origin": "http://localhost:3000",
             },
         )
-        with client.open(req, timeout=15) as response:
-            data = response.read()
-            return (
-                json.loads(data)
-                if "json" in response.headers.get("Content-Type", "")
-                else data
-            )
+        try:
+            with client.open(req, timeout=15) as response:
+                data = response.read()
+                return (
+                    json.loads(data)
+                    if "json" in response.headers.get("Content-Type", "")
+                    else data
+                )
+        except urllib.error.HTTPError as error:
+            # Keep the refusal visible: the response never contains credentials.
+            print(f"{method} {path} -> {error.code}: {error.read().decode()[:400]}", flush=True)
+            raise
 
     def start(image, data):
         global origin, client, running
@@ -217,8 +261,98 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         editor_before = request(
             "GET", f"/api/projects/{project}/publications/{publication}/editor"
         )
+        webhook_profile = {
+            "id": "custom-webhook",
+            "version": 1,
+            "origin": "custom",
+            "contentSchema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {"body": {"type": "string", "minLength": 1, "maxLength": 1000000}},
+                "required": ["body"],
+                "additionalProperties": False,
+            },
+            "fieldBindings": [{"id": "body", "semantic": "primary_text", "path": "/body"}],
+            "capabilities": {
+                "revision": "postbot-custom-v1",
+                "textFields": [
+                    {
+                        "bindingId": "body",
+                        "acceptedSourceFormats": ["plain_text", "markdown"],
+                        "maxLength": 1000000,
+                    }
+                ],
+                "mediaFields": [],
+                "relations": [],
+            },
+            "execution": {
+                "kind": "declarative_http",
+                "contractId": "custom-webhook",
+                "revision": "v1",
+                "mode": "postbot_webhook",
+            },
+        }
+        webhook = request(
+            "POST",
+            f"/api/projects/{project}/channels",
+            {"name": "Connected webhook", "profile": webhook_profile},
+        )["channel"]["id"]
+        request(
+            "POST",
+            f"/api/projects/{project}/channels/{webhook}/publisher/custom-http/connect",
+            {
+                "endpointUrl": "https://receiver.invalid",
+                "authentication": {"kind": "none"},
+                "secret": secrets.token_hex(24),
+            },
+        )
+        scheduled_at = int(time.time() * 1000) + 30 * 86_400_000
+        queued = request(
+            "POST",
+            f"/api/projects/{project}/posts",
+            {
+                "title": "Queued automatic work",
+                "sourceContent": {
+                    "body": {"text": "Queued across the upgrade", "format": "plain_text"},
+                    "media": [],
+                },
+                "publications": [
+                    {
+                        "channelId": webhook,
+                        "deliveryMode": "automatic",
+                        "scheduledAt": scheduled_at,
+                        "targetContent": {"body": "Queued across the upgrade"},
+                    }
+                ],
+            },
+        )["publications"][0]["id"]
+        queued_before = request(
+            "GET", f"/api/projects/{project}/publications/{queued}/editor"
+        )
 
-        def verify_preservation():
+        def stable_connection():
+            # The attribution actor is a workspace snapshot after the upgrade, so it is excluded.
+            connections = request("GET", f"/api/projects/{project}/publishers")["connections"]
+            match = next(item for item in connections if item["channelId"] == webhook)
+            return {
+                key: match[key]
+                for key in [
+                    "id",
+                    "publisherId",
+                    "channelId",
+                    "kind",
+                    "credentialId",
+                    "endpointUrl",
+                    "state",
+                    "destination",
+                ]
+            }
+
+        connection_before = stable_connection()
+        if connection_before["state"] != "active":
+            raise RuntimeError("Previous-release connection was not active")
+
+        def verify_preservation(shared=False):
             projects = request("GET", "/api/projects")["projects"]
             if not any(item["id"] == project for item in projects):
                 raise RuntimeError("Project was not preserved")
@@ -232,8 +366,17 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
             editor = request(
                 "GET", f"/api/projects/{project}/publications/{publication}/editor"
             )
-            if editor != editor_before:
+            if comparable(editor, shared) != comparable(editor_before, shared):
+                print("Editor differences:", json.dumps(differences(editor_before, editor))[:1500], flush=True)
                 raise RuntimeError("Draft editor state changed")
+            if stable_connection() != connection_before:
+                raise RuntimeError("Publisher connection changed")
+            queued_editor = request(
+                "GET", f"/api/projects/{project}/publications/{queued}/editor"
+            )
+            if comparable(queued_editor, shared) != comparable(queued_before, shared):
+                print("Queued differences:", json.dumps(differences(queued_before, queued_editor))[:1500], flush=True)
+                raise RuntimeError("Queued automatic publication changed")
             content = request("GET", f"/api/projects/{project}/media/{asset}/content")
             if hashlib.sha256(content).digest() != digest:
                 raise RuntimeError("Media bytes were not preserved")
@@ -253,9 +396,36 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         verify_preservation()
         if request("GET", "/api/recovery/status")["held"]:
             raise RuntimeError("Ordinary upgrade unexpectedly entered recovery hold")
+        # Sharing works on the converted data: the migrated channel keeps its live connection.
+        target = request(
+            "POST", "/api/projects", {"name": "Candidate-only sharing target"}
+        )["project"]["id"]
+        sharing = request(
+            "GET", f"/api/projects/{project}/channels/{webhook}/sharing"
+        )
+        if sharing["channel"]["shared"] or len(sharing["usages"]) != 1:
+            raise RuntimeError("Migrated channel should start with one attachment")
+        request(
+            "POST",
+            f"/api/projects/{project}/channels/{webhook}/attachments",
+            {"projectId": target, "expectedRevision": sharing["channel"]["revision"]},
+        )
+        shared_channel = next(
+            item
+            for item in request("GET", f"/api/projects/{target}/channels")["channels"]
+            if item["id"] == webhook
+        )
+        if not shared_channel["shared"]:
+            raise RuntimeError("Attached channel is not reported as shared")
+        target_connections = request("GET", f"/api/projects/{target}/publishers")[
+            "connections"
+        ]
+        if not any(item["channelId"] == webhook for item in target_connections):
+            raise RuntimeError("Attached project cannot use the channel connection")
+        verify_preservation(shared=True)
         request("POST", "/api/projects", {"name": "Candidate-only project"})
         print(
-            "PASS: previous-image data upgraded; login, project, channel, draft and media preserved; candidate accepts writes.",
+            "PASS: previous-image data upgraded; login, project, channel, draft, media, live connection and queued automatic work preserved; sharing works on migrated data; candidate accepts writes.",
             flush=True,
         )
         stop()
@@ -273,12 +443,10 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         if not request("GET", "/api/recovery/status")["held"]:
             raise RuntimeError("Restoration did not enable recovery hold")
         if any(
-            item["name"] == "Candidate-only project"
+            item["name"] in ("Candidate-only project", "Candidate-only sharing target")
             for item in request("GET", "/api/projects")["projects"]
         ):
             raise RuntimeError("Restored backup includes post-upgrade writes")
-        import urllib.error
-
         try:
             request("POST", "/api/projects", {"name": "Must remain blocked"})
         except urllib.error.HTTPError as error:

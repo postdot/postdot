@@ -17,7 +17,7 @@ it is registered in the source chain but unreleased (alpha.2 channels remain
 project-owned). Sharing is not delivered: the HTTP/CLI/Studio workflows, live
 authorization adapters for attach/withdraw/transfer, credential execution scope for
 detached admitted effects, cadence and lifecycle integration remain, and a release
-still needs the grouped upgrade/restore acceptance.
+has passed a synthetic AMD64 alpha.2 upgrade and restoration acceptance; native ARM64 and an operator-copied backup remain unclaimed.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)
