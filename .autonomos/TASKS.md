@@ -98,7 +98,7 @@ receipt while durable media cleanup retries independently.
 
 - [x] **[WEB-587]** Reduce anonymous entry JavaScript without changing authentication `Priority: 🟠` `Complexity: L` — ISSUE-191; attribute the current login entry graph, defer avoidable authenticated-only code and compare production artifacts against the existing 180 KiB target with focused browser regressions. Completed 2026-10-25: 154,814 aggregate gzip bytes, below 180 KiB; [evidence](worklogs/2026-10-25-WEB-587.md).
 
-- [x] **[DEPLOY-586]** Add one-time offline administrator bootstrap and shared release identification `Priority: 🟠` `Complexity: L` — GitHub #8; private-file provisioning under the runtime lock, refusal after claim, baked version/revision exposed through CLI and Studio, deployment guidance and isolated acceptance. Completed 2026-10-25; source-only pending image publication, see [worklog](worklogs/2026-10-25-DEPLOY-586.md).
+- [x] **[DEPLOY-586]** Add one-time offline administrator bootstrap and shared release identification `Priority: 🟠` `Complexity: L` — GitHub #8; private-file provisioning under the runtime lock, refusal after claim, baked version/revision exposed through CLI and Studio, deployment guidance and isolated acceptance. Completed 2026-10-25; published in `0.1.0-alpha.3`, see [worklog](worklogs/2026-10-25-DEPLOY-586.md).
 
 - [x] **[CLI-585]** Handle global container help without server startup `Priority: 🟠` `Complexity: S` `Completed: 2026-10-25` — deployed alpha.2 feedback; recognize global --help/-h before configuration or storage access, list supported commands and retain maintenance-specific help. Thirteen isolated command tests and bundled global help pass; pending a future image release. [Evidence](worklogs/2026-10-25-CLI-585.md).
 
