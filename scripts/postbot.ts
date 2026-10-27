@@ -37,6 +37,7 @@ export class CliError extends Error {
     readonly code: string
     readonly status?: number
     media?: { assetId: string; intentId?: string }
+    cadence?: { confirmation: string; warnings: CadenceWarning[] }
 
     constructor(message: string, exitCode = 1, code = 'command_failed', status?: number) {
         super(message)
@@ -164,7 +165,12 @@ export async function runCli(
     }
 
     if (resource === 'projects' && action === 'create') {
-        const body = await call(client.api.projects.post({ name: requiredOption(args, '--name') }))
+        const body = await call(
+            client.api.projects.post({
+                name: requiredOption(args, '--name'),
+                workspaceId: optionValue(args, '--workspace'),
+            })
+        )
         write(body, 'Project created.')
         return
     }
@@ -206,11 +212,117 @@ export async function runCli(
     }
 
     if (resource === 'channels' && action === 'list') {
-        const projectId = requiredOption(args, '--project')
-        const body = await call<{ channels: Array<{ id: string; name: string }> }>(
-            client.api.projects({ projectId }).channels.get()
+        const context = channelContext(args)
+        if (context.kind === 'workspace') {
+            const body = await call(
+                client.api.workspaces({ workspaceId: context.id }).channels.get({
+                    query: { includeArchived: args.includes('--include-archived') },
+                })
+            )
+            write(body, JSON.stringify(body, null, 2))
+        } else {
+            const body = await call<{ channels: Array<{ id: string; name: string }> }>(
+                client.api.projects({ projectId: context.id }).channels.get()
+            )
+            write(body, body.channels.map(channel => `${channel.id}\t${channel.name}`).join('\n'))
+        }
+        return
+    }
+
+    if (resource === 'channels' && action === 'sharing') {
+        const result = await call(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                .channels({ channelId: requiredOption(args, '--channel') })
+                .sharing.get()
         )
-        write(body, body.channels.map(channel => `${channel.id}\t${channel.name}`).join('\n'))
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (resource === 'channels' && action === 'occupancy') {
+        const from = integerOption(args, '--from', 0)
+        const to = integerOption(args, '--to', 1)
+        if (to <= from) throw new CliError('--to must be later than --from', 2, 'invalid_input')
+        const result = await call(
+            client.api
+                .projects({ projectId: requiredOption(args, '--project') })
+                ['channel-occupancy'].get({ query: { from, to } })
+        )
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (
+        resource === 'channels' &&
+        ['attach', 'withdraw', 'transfer', 'cadence', 'configure-cadence'].includes(action ?? '')
+    ) {
+        const context = channelContext(args)
+        const channelId = requiredOption(args, '--channel')
+        const route =
+            context.kind === 'workspace'
+                ? client.api.workspaces({ workspaceId: context.id }).channels({ channelId })
+                : client.api.projects({ projectId: context.id }).channels({ channelId })
+        let result: unknown
+        if (action === 'cadence') {
+            result = await call(route.cadence.get())
+        } else if (action === 'configure-cadence') {
+            result = await call(
+                route.cadence.put(await readJsonInput<ConfigureCadenceInput>(args, dependencies))
+            )
+        } else {
+            const expectedRevision = integerOption(args, '--expected-revision', 1)
+            const projectId = requiredOption(args, '--target-project')
+            if (action === 'attach')
+                result = await call(route.attachments.post({ projectId, expectedRevision }))
+            else if (action === 'transfer')
+                result = await call(route.management.post({ projectId, expectedRevision }))
+            else {
+                const lastAttachment = args.includes('--archive-last')
+                    ? ('archive' as const)
+                    : undefined
+                result =
+                    context.kind === 'workspace'
+                        ? await call(
+                              client.api
+                                  .workspaces({ workspaceId: context.id })
+                                  .channels({ channelId })
+                                  .withdraw.post({ projectId, expectedRevision, lastAttachment })
+                          )
+                        : await call(
+                              client.api
+                                  .projects({ projectId: context.id })
+                                  .channels({ channelId })
+                                  .attachments({ attachedProjectId: projectId })
+                                  .withdraw.post({ expectedRevision, lastAttachment })
+                          )
+            }
+        }
+        write(result, JSON.stringify(result, null, 2))
+        return
+    }
+
+    if (
+        resource === 'publications' &&
+        ['move', 'cadence', 'override-cadence'].includes(action ?? '')
+    ) {
+        const route = client.api
+            .projects({ projectId: requiredOption(args, '--project') })
+            .publications({ publicationId: requiredOption(args, '--publication') })
+        const result =
+            action === 'move'
+                ? await call(
+                      route.move.post(await readJsonInput<MovePublicationInput>(args, dependencies))
+                  )
+                : action === 'cadence'
+                  ? await call(route.cadence.get(), true)
+                  : await call(
+                        route['cadence-override'].post({
+                            confirmation: requiredOption(args, '--confirmation'),
+                        }),
+                        true
+                    )
+        write(result, JSON.stringify(result, null, 2))
         return
     }
 
@@ -414,6 +526,7 @@ export async function runCli(
                 .draft.promote.post({
                     expectedRevision: integerOption(args, '--expected-revision', 1),
                     scheduledAt: integerOption(args, '--at', 0),
+                    cadenceConfirmation: optionValue(args, '--cadence-confirmation'),
                 })
         )
         write(result, 'Draft promoted and scheduled.')
@@ -431,6 +544,7 @@ export async function runCli(
                       route.schedule.patch({
                           publicationIds,
                           scheduledAt: integerOption(args, '--at', 0),
+                          cadenceConfirmation: optionValue(args, '--cadence-confirmation'),
                       })
                   )
                 : await call(route.cancel.patch({ publicationIds }))
@@ -445,7 +559,10 @@ export async function runCli(
         const projectId = requiredOption(args, '--project')
         const publicationId = requiredOption(args, '--publication')
         const result = await call(
-            client.api.projects({ projectId }).publications({ publicationId }).retry.post()
+            client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .retry.post({ cadenceConfirmation: optionValue(args, '--cadence-confirmation') })
         )
         write(result, 'Publication retry requested.')
         return
@@ -532,6 +649,8 @@ type ProjectRoutes = ReturnType<PostbotClient['api']['projects']>
 type PublicationRoutes = ReturnType<ProjectRoutes['publications']>
 type CreatePostInput = Parameters<ProjectRoutes['posts']['post']>[0]
 type SaveDraftInput = Parameters<PublicationRoutes['draft']['patch']>[0]
+type MovePublicationInput = Parameters<PublicationRoutes['move']['post']>[0]
+type ConfigureCadenceInput = Parameters<ReturnType<ProjectRoutes['channels']>['cadence']['put']>[0]
 
 async function readJsonInput<T>(
     args: readonly string[],
@@ -633,7 +752,8 @@ async function requestAuthenticated<T>(
 }
 
 async function call<T>(
-    request: Promise<{ data: unknown; error: unknown; status: number; response?: Response }>
+    request: Promise<{ data: unknown; error: unknown; status: number; response?: Response }>,
+    nullable = false
 ) {
     let result: Awaited<typeof request>
     try {
@@ -653,15 +773,83 @@ async function call<T>(
         )
     }
     if (result.error !== null) {
-        throw new CliError(
+        const failure = new CliError(
             errorMessage(result.error) ?? `Request failed with status ${result.status}`,
             1,
             errorCode(result.error) ?? 'http_error',
             result.status
         )
+        failure.cadence = cadenceDetails(result.error)
+        throw failure
     }
+    // Elysia's nullable timing route can serialize absence as an empty 200 body.
+    if (nullable && (result.data === null || result.data === undefined || result.data === ''))
+        return null as T
     if (result.data === null || result.data === undefined) throw new CliError('Empty API response')
     return result.data as T
+}
+
+interface CadenceWarning {
+    channelId: string
+    rule: 'daily_max' | 'weekly_max'
+    period: string
+    maximum: number
+    count: number
+}
+
+function cadenceDetails(value: unknown): CliError['cadence'] {
+    if (!value || typeof value !== 'object' || !('value' in value)) return undefined
+    const body = value.value
+    if (!body || typeof body !== 'object' || !('error' in body)) return undefined
+    const error = body.error
+    if (
+        !error ||
+        typeof error !== 'object' ||
+        !('code' in error) ||
+        error.code !== 'cadence_conflict' ||
+        !('confirmation' in error) ||
+        typeof error.confirmation !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(error.confirmation) ||
+        !('warnings' in error) ||
+        !Array.isArray(error.warnings)
+    )
+        return undefined
+    const warnings: CadenceWarning[] = []
+    for (const warning of error.warnings) {
+        if (
+            !warning ||
+            typeof warning !== 'object' ||
+            typeof warning.channelId !== 'string' ||
+            !['daily_max', 'weekly_max'].includes(warning.rule) ||
+            !(
+                typeof warning.period === 'string' ||
+                (warning.period instanceof Date && Number.isFinite(warning.period.getTime()))
+            ) ||
+            !Number.isSafeInteger(warning.maximum) ||
+            !Number.isSafeInteger(warning.count)
+        )
+            return undefined
+        warnings.push({
+            channelId: warning.channelId,
+            rule: warning.rule,
+            // Treaty parses YYYY-MM-DD strings as dates; retain the civil period.
+            period:
+                warning.period instanceof Date
+                    ? warning.period.toISOString().slice(0, 10)
+                    : warning.period,
+            maximum: warning.maximum,
+            count: warning.count,
+        })
+    }
+    return { confirmation: error.confirmation, warnings }
+}
+
+function channelContext(args: readonly string[]): { kind: 'project' | 'workspace'; id: string } {
+    const project = optionValue(args, '--project')
+    const workspace = optionValue(args, '--workspace')
+    if (Boolean(project) === Boolean(workspace))
+        throw new CliError('Choose exactly one of --project or --workspace', 2, 'invalid_input')
+    return workspace ? { kind: 'workspace', id: workspace } : { kind: 'project', id: project! }
 }
 
 function errorMessage(value: unknown) {
@@ -743,12 +931,23 @@ Resources:
   workspaces impact --workspace <id>  Preview combined workspace impact
   workspaces archive|restore|delete --workspace <id> --fingerprint <value>
     [--cancel-pending] [--confirm-name <name>] [--replacement-workspace <id>]
-  projects create --name <name>      Create a project
+  projects create --name <name> [--workspace <id>] Create a project
   api-keys list                      List your API keys
   api-keys create [--name <name>]    Create a user-owned API key
   api-keys revoke --key-id <id>      Revoke one of your API keys
   publishers list --project <id>     Inspect connections and OAuth configuration
-  channels list --project <id>       List project channels
+  channels list (--project <id> | --workspace <id>) [--include-archived]
+                                    List scoped channels; archived inspection uses --workspace
+  channels sharing --project <id> --channel <id>
+                                    Inspect sharing, revision and eligible projects
+  channels attach|withdraw|transfer (--project <id> | --workspace <id>)
+    --channel <id> --target-project <id> --expected-revision <n> [--archive-last]
+                                    Change use/management explicitly; withdrawal preserves history
+  channels cadence|configure-cadence (--project <id> | --workspace <id>)
+    --channel <id> [--input <file|->]
+                                    Read rules or configure with expectedRevision and nullable limits
+  channels occupancy --project <id> --from <epoch-ms> --to <epoch-ms>
+                                    Read scoped activity; other projects may be anonymous
   channels profile --project <id> --channel <id>
                                     Inspect active/draft destination contracts
   channels create --project <id> --name <name>
@@ -761,6 +960,12 @@ Resources:
   posts create --project <id> --input <file|->
   publications list --project <id> [--cursor <cursor>]
   publications show --project <id> --publication <id>
+  publications move --project <id> --publication <id> --input <file|->
+                                    Submit destination, mode and expected revisions from show/profile
+  publications cadence --project <id> --publication <id>
+                                    Inspect timing and current override confirmation
+  publications override-cadence --project <id> --publication <id> --confirmation <value>
+                                    Override one minimum interval; provider limits still apply
   publications save --project <id> --publication <id> --input <file|->
   publications promote --project <id> --publication <id> --expected-revision <n> --at <epoch-ms>
   publications schedule --project <id> --publications <id,id,...> --at <epoch-ms>
@@ -772,6 +977,9 @@ Resources:
   audit list --project <id>          List project audit events
 
 Options:
+  --cadence-confirmation <value>      Explicit planning exception for promote/schedule/retry
+                                    For posts create/move, put cadenceConfirmation in --input
+  --archive-last                     Explicitly archive when withdrawing the final attachment
   --timeout-ms <n>                    Per-request deadline (default: 30000)
   --json                             Print structured JSON
   --base-url <url>                   Postdot API URL (default: http://localhost:3000)
@@ -779,6 +987,15 @@ Options:
   --token <value>                    Postdot API key for machine requests
   --projects <id,id,...>             Limit a new API key to selected projects
   --expires-at <epoch-ms>            Expiration for a new token
+
+Sharing grants publication use, not connection management. Attached projects can see
+anonymous occupied times. Inspect before writing; stale revisions require review.
+Cadence conflicts exit without retry and return confirmation/warnings in --json.
+Cadence input: {expectedRevision,timeZone?,dailyMax,weeklyMax,minimumIntervalMs}.
+Move input: {targetChannelId,deliveryMode,expectedPublicationUpdatedAt,
+  expectedDraftRevision,expectedSourceRevision,expectedTargetRevisionId,
+  expectedScheduledAt,expectedTargetProfileVersionId,cadenceConfirmation?}.
+Incompatible moved content remains an unscheduled review draft; requested time is retained.
 
 Environment:
   POSTBOT_URL
@@ -815,9 +1032,10 @@ if (import.meta.main) {
                           message: cliError.message,
                           ...(cliError.status === undefined ? {} : { status: cliError.status }),
                           ...(cliError.media === undefined ? {} : { media: cliError.media }),
+                          ...(cliError.cadence === undefined ? {} : cliError.cadence),
                       },
                   })
-                : `Error: ${cliError.message}${cliError.media ? ` (asset ${cliError.media.assetId}, intent ${cliError.media.intentId ?? 'unknown'})` : ''}`
+                : `Error: ${cliError.message}${cliError.media ? ` (asset ${cliError.media.assetId}, intent ${cliError.media.intentId ?? 'unknown'})` : ''}${cliError.cadence ? `\nCadence warnings: ${JSON.stringify(cliError.cadence.warnings)}\nConfirmation: ${cliError.cadence.confirmation}\nReview these warnings, then resubmit the same operation with this cadence confirmation.` : ''}`
         )
         process.exitCode = cliError.exitCode
     }

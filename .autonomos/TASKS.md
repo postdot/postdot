@@ -19,8 +19,10 @@ management-transfer HTTP routes, contextual Studio sharing, shared-calendar occu
 credential scope for admitted effects after detach, and optional channel cadence.
 Cadence covers transactional planning warnings with attributed confirmation and
 persisted automatic spacing, including retries and overdue work. Remaining milestone
-work includes CLI and public documentation, plus grouped lifecycle/release
-acceptance. Explicit pending-work moves now create a revalidated publication in the
+work includes public documentation and grouped lifecycle/release acceptance.
+CLI commands now cover scoped channel reads, sharing/withdrawal, management transfer,
+cadence rules/timing/overrides, occupancy and explicit pending moves through the same
+HTTP contracts, with revision-bound writes and explicit cadence confirmation. Explicit pending-work moves now create a revalidated publication in the
 same post, retain the requested schedule, and link/cancel the original atomically;
 incompatible content remains an unscheduled review draft. Workspace Channels and explicit management transfer
 are available in source, with scoped usage, archived inspection and live management
