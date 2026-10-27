@@ -73,7 +73,7 @@ async function render(card: Card) {
                 {PostbotLogo({ width: 44, height: 44, style: { color: '#1c1c1c' } })}
                 <span style={{ display: 'flex', fontSize: 34, letterSpacing: '-1.5px' }}>
                     <span style={{ fontWeight: 600 }}>post</span>
-                    <span style={{ opacity: 0.6 }}>bot</span>
+                    <span style={{ opacity: 0.6 }}>dot</span>
                 </span>
             </div>
             <div
