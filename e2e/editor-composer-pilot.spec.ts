@@ -326,7 +326,14 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
         ).ok()
     ).toBe(true)
     const base = `/dashboard/projects/${id}/publications/new`
+    const draftLoaded = page.waitForResponse(
+        response =>
+            response.url().includes('/publication-composer-draft') &&
+            response.request().method() === 'GET' &&
+            response.ok()
+    )
     await page.goto(`${base}?editor=legacy`)
+    await draftLoaded
     const text = '  Original 👋\n\n**literal**\n'
     const saved = page.waitForResponse(
         response =>

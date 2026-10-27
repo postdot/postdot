@@ -95,3 +95,105 @@ for (const [locale, messages] of [
         ).toHaveCount(0)
     })
 }
+
+test('shows another project’s time anonymously to a member who cannot read that project', async ({
+    page,
+}) => {
+    test.setTimeout(120_000)
+    const suffix = randomUUID().slice(0, 6)
+    const signup = await page.request.post('/api/auth/sign-up/email', {
+        data: {
+            name: 'Shared calendar owner',
+            email: `shared-calendar-owner-${suffix}@example.test`,
+            password: 'shared-calendar-browser-password-123',
+        },
+    })
+    expect(signup.status()).toBe(200)
+    const createProject = async (name: string) => {
+        const response = await page.request.post('/api/projects', { data: { name } })
+        return ((await response.json()) as { project: { id: string } }).project.id
+    }
+    const sourceName = `Anonymous source ${suffix}`
+    const targetName = `Hidden target ${suffix}`
+    const source = await createProject(sourceName)
+    const target = await createProject(targetName)
+    const channelName = `Anonymous news ${suffix}`
+    const channel = (
+        (await (
+            await page.request.post(`/api/projects/${source}/channels`, {
+                data: { name: channelName },
+            })
+        ).json()) as { channel: { id: string; revision: number } }
+    ).channel
+    expect(
+        (
+            await page.request.post(`/api/projects/${source}/channels/${channel.id}/attachments`, {
+                data: { projectId: target, expectedRevision: channel.revision },
+            })
+        ).status()
+    ).toBe(200)
+    const title = `Secret launch ${suffix}`
+    expect(
+        (
+            await page.request.post(`/api/projects/${target}/posts`, {
+                data: {
+                    title,
+                    sourceContent: { body: { format: 'plain_text', text: title }, media: [] },
+                    publications: [
+                        {
+                            channelId: channel.id,
+                            deliveryMode: 'manual',
+                            scheduledAt: Date.now() + 36 * 3_600_000,
+                        },
+                    ],
+                },
+            })
+        ).status()
+    ).toBe(201)
+
+    // A second account belongs to the source project only.
+    const email = `shared-calendar-viewer-${suffix}@example.test`
+    const invited = await page.request.post(`/api/projects/${source}/invitations`, {
+        data: { email, role: 'viewer' },
+    })
+    expect(invited.status()).toBe(201)
+    const invitation = (
+        (await invited.json()) as {
+            invitation: { id: string; organizationId: string }
+        }
+    ).invitation
+    const browser = page.context().browser()
+    if (browser === null) throw new Error('The second browser context was not created')
+    const context = await browser.newContext()
+    const viewer = await context.newPage()
+    try {
+        await viewer.goto(
+            `/invite?invitationId=${invitation.id}&organizationId=${invitation.organizationId}&projectId=${source}`
+        )
+        await expect(viewer).toHaveURL(/\/login\?continue=/)
+        await viewer.getByRole('button', { name: 'Create an account instead' }).click()
+        await viewer.getByLabel('Name', { exact: true }).fill('Calendar viewer')
+        await viewer.getByLabel('Email', { exact: true }).fill(email)
+        await viewer.getByLabel('Password', { exact: true }).fill('shared-calendar-viewer-123')
+        await Promise.all([
+            viewer.waitForResponse(
+                response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+            ),
+            viewer.getByRole('button', { name: 'Create account', exact: true }).click(),
+        ])
+        await viewer.getByRole('button', { name: 'Join project', exact: true }).click()
+        await expect(viewer).toHaveURL(new RegExp(`/dashboard/projects/${source}/overview$`))
+
+        // The viewer cannot read the other project at all.
+        expect((await viewer.request.get(`/api/projects/${target}`)).status()).toBe(404)
+
+        await viewer.goto(`/dashboard/projects/${source}/overview?view=agenda`)
+        const taken = viewer.locator('[data-occupancy="true"]')
+        await expect(taken).toHaveCount(1)
+        await expect(taken).toContainText(channelName)
+        await expect(viewer.getByText(targetName)).toHaveCount(0)
+        await expect(viewer.getByText(title)).toHaveCount(0)
+    } finally {
+        await context.close()
+    }
+})
