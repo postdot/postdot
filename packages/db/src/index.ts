@@ -25,7 +25,8 @@ export type {
 } from './local-account-recovery'
 export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
-export { defaultMigrationsFolder, runMigrations } from './migrations'
+export { defaultMigrationsFolder, runMigrations, rehearseMigrations } from './migrations'
+export type { MigrationChecks, MigrationRehearsal } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export {
     createEventJournalStore,
@@ -374,3 +375,9 @@ export * from './publication-reply-store'
 export * from './resource-lifecycle-store'
 
 export type { PublicationDestinationState } from './publication-destination-store'
+
+export { planWorkspaceChannelMigration } from './workspace-channel-migration-plan'
+export type {
+    WorkspaceChannelMigrationPlan,
+    WorkspaceChannelResourceOwner,
+} from './workspace-channel-migration-plan'
