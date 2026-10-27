@@ -10,7 +10,7 @@ import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
-import { projects, publisherCredentials } from './schema'
+import { projects, publisherCredentials, workspaces } from './schema'
 import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
@@ -112,9 +112,16 @@ describe('publisher credential store', () => {
 
             expect(result.kind).toBe('created')
             if (result.kind !== 'created') return
+            // Attribution is a workspace actor snapshot whose provenance is the project actor.
+            expect(
+                fixture.database.$client
+                    .query<{ origin: string }, [string]>(
+                        'select origin_actor_id as origin from actors where id = ?'
+                    )
+                    .get(result.credential.connectedByActorId)?.origin
+            ).toBe(fixture.project.actor.id)
             expect(result.credential).toMatchObject({
                 projectId: fixture.project.project.id,
-                connectedByActorId: fixture.project.actor.id,
                 providerId: 'linkedin',
                 externalAccountId: 'member-1',
                 scopes: ['openid', 'w_member_social'],
@@ -182,7 +189,7 @@ describe('publisher credential store', () => {
         }
     })
 
-    it('preserves project ownership independently from application users', async () => {
+    it('preserves workspace ownership independently from application users and source projects', async () => {
         const fixture = createFixture()
 
         try {
@@ -205,14 +212,20 @@ describe('publisher credential store', () => {
                 'provider_application_configurations',
                 'actors',
                 'actors',
-                'projects',
+                'workspaces',
             ])
             expect(foreignKeys).not.toContain('user')
             expect(foreignKeys).not.toContain('account')
 
+            // The credential belongs to the workspace: its source project is provenance, not its owner.
             fixture.database
                 .delete(projects)
                 .where(eq(projects.id, fixture.project.project.id))
+                .run()
+            expect(fixture.database.select().from(publisherCredentials).all()).toHaveLength(1)
+            fixture.database
+                .delete(workspaces)
+                .where(eq(workspaces.id, fixture.project.project.workspaceId!))
                 .run()
             expect(fixture.database.select().from(publisherCredentials).all()).toEqual([])
         } finally {

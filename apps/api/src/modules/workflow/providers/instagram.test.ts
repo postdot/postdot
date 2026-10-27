@@ -23,7 +23,7 @@ import {
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { seedTestWorkspace, workspaceOf } from '@postdot/db/testing'
 import {
     createInstagramOAuth,
     createInstagramPublisher,
@@ -163,7 +163,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             .insert(publishers)
             .values({
                 id: 'publisher-instagram',
-                projectId: project.project.id,
+                workspaceId: workspaceOf(database, project.project.id),
                 channelId: channel.id,
                 kind: 'instagram',
             })

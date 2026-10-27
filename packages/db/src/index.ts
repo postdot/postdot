@@ -376,12 +376,6 @@ export * from './resource-lifecycle-store'
 
 export type { PublicationDestinationState } from './publication-destination-store'
 
-export { planWorkspaceChannelMigration } from './workspace-channel-migration-plan'
-export type {
-    WorkspaceChannelMigrationPlan,
-    WorkspaceChannelResourceOwner,
-} from './workspace-channel-migration-plan'
-
 export { createWorkspaceActorStore } from './workspace-actor-store'
 export type {
     WorkspaceEventJournalEntry,

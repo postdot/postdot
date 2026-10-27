@@ -7,7 +7,9 @@ import {
     createDatabase,
     createManualStore,
     runMigrations,
+    createWorkspaceActorStore,
 } from '@postdot/db'
+import { workspaceOf } from '@postdot/db/testing'
 import { devtoChannelProfile } from '@postdot/devto'
 
 import { createApp } from '../../app'
@@ -177,41 +179,47 @@ describe('provider analytics routes', () => {
             if (actor === null || actor === undefined)
                 throw new Error('The project actor is missing')
 
+            const workspaceId = workspaceOf(database, project.project.id)
+            const workspaceActor = createWorkspaceActorStore(database).ensureFromProjectActor({
+                workspaceId,
+                projectActorId: actor.id,
+            })
+            if (workspaceActor === null) throw new Error('The workspace actor is missing')
             database.$client
                 .query(
                     'insert into publisher_credentials ' +
-                        '(id, project_id, provider_id, external_account_id, external_account_name, scopes, state, connected_by_actor_id, revision, created_at, updated_at) ' +
+                        '(id, workspace_id, provider_id, external_account_id, external_account_name, scopes, state, connected_by_actor_id, revision, created_at, updated_at) ' +
                         "values (?1, ?2, 'bluesky', ?3, ?4, ?5, 'revoked', ?6, 1, ?7, ?7)"
                 )
                 .run(
                     'credential-1',
-                    project.project.id,
+                    workspaceId,
                     did,
                     'api.analytics.test',
                     JSON.stringify(['atproto']),
-                    actor.id,
+                    workspaceActor.id,
                     now
                 )
             database.$client
                 .query(
-                    'insert into publishers (id, project_id, channel_id, kind, created_at, updated_at) ' +
+                    'insert into publishers (id, workspace_id, channel_id, kind, created_at, updated_at) ' +
                         "values (?1, ?2, ?3, 'bluesky', ?4, ?4)"
                 )
-                .run('publisher-1', project.project.id, channel.id, now)
+                .run('publisher-1', workspaceId, channel.id, now)
             database.$client
                 .query(
                     'insert into publisher_connections ' +
-                        '(id, project_id, publisher_id, credential_id, destination_type, destination_id, destination_name, connected_by_actor_id, created_at, updated_at) ' +
+                        '(id, workspace_id, publisher_id, credential_id, destination_type, destination_id, destination_name, connected_by_actor_id, created_at, updated_at) ' +
                         "values (?1, ?2, ?3, ?4, 'account', ?5, ?6, ?7, ?8, ?8)"
                 )
                 .run(
                     'connection-1',
-                    project.project.id,
+                    workspaceId,
                     'publisher-1',
                     'credential-1',
                     did,
                     'api.analytics.test',
-                    actor.id,
+                    workspaceActor.id,
                     now
                 )
             database.$client

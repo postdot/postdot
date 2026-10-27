@@ -82,10 +82,15 @@ export type ProjectTagResponse = Static<typeof projectTagSchema>
 export const channelSchema = Type.Unsafe<Channel>(
     Type.Intersect([
         Type.Omit(createElysiaSelectSchema(channels), [
+            'workspaceId',
             'destinationRevision',
             'destinationIdentityJson',
         ]),
-        Type.Object({ profileId: Type.String({ minLength: 1 }) }),
+        // The project is the attachment context, not the owner (the workspace is).
+        Type.Object({
+            projectId: Type.String({ minLength: 1 }),
+            profileId: Type.String({ minLength: 1 }),
+        }),
     ])
 )
 export const channelListItemSchema = Type.Intersect([
@@ -356,6 +361,7 @@ const channelLifecycleBlockerSchema = Type.Union([
     Type.Literal('publications'),
     Type.Literal('publisher'),
     Type.Literal('must_be_archived'),
+    Type.Literal('shared'),
 ])
 
 export const channelLifecycleConflictResponse = Type.Object({

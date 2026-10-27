@@ -9,13 +9,14 @@ import {
     type PublisherCredentialState,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostbotDatabase } from './client'
 import {
     type EncryptedPublisherSecret,
     type PublisherCredentialCipher,
     type PublisherSecretField,
 } from './publisher-credential-crypto'
 import { coordinatePublisherCredentialRefresh } from './publisher-credential-refresh'
+import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export interface CreatePublisherCredentialInput {
     readonly projectId: string
@@ -347,7 +348,7 @@ export function createPublisherCredentialStore(
     >(`
         insert into publisher_credentials (
             id,
-            project_id,
+            workspace_id,
             provider_id,
             external_account_id,
             external_account_name,
@@ -367,9 +368,8 @@ export function createPublisherCredentialStore(
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19
+            ?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19
         )
-        on conflict (project_id, provider_id, external_account_id) do nothing
     `)
     const replaceTokensStatement = client.query<
         { changes: number },
@@ -406,9 +406,14 @@ export function createPublisherCredentialStore(
             state = 'active',
             revision = revision + 1,
             updated_at = ?12
-        where project_id = ?13
-          and id = ?14
+        where id = ?14
           and revision = ?15
+          and exists (
+              select 1
+              from project_publisher_credential_contexts as visible
+              where visible.project_id = ?13
+                and visible.id = publisher_credentials.id
+          )
     `)
     const markReconnectRequiredStatement = client.query<
         { changes: number },
@@ -423,10 +428,15 @@ export function createPublisherCredentialStore(
         set state = 'reconnect_required',
             revision = revision + 1,
             updated_at = ?1
-        where project_id = ?2
-          and id = ?3
+        where id = ?3
           and state != 'revoked'
           and (?4 is null or revision = ?4)
+          and exists (
+              select 1
+              from project_publisher_credential_contexts as visible
+              where visible.project_id = ?2
+                and visible.id = publisher_credentials.id
+          )
     `)
     const revokeCredentialStatement = client.query<
         { changes: number },
@@ -445,9 +455,14 @@ export function createPublisherCredentialStore(
             provider_session_nonce = null,
             revision = revision + 1,
             updated_at = ?1
-        where project_id = ?2
-          and id = ?3
+        where id = ?3
           and state != 'revoked'
+          and exists (
+              select 1
+              from project_active_publisher_credential_contexts as visible
+              where visible.project_id = ?2
+                and visible.id = publisher_credentials.id
+          )
     `)
     const revokeUnreferencedCredentialStatement = client.query<
         { changes: number },
@@ -466,16 +481,49 @@ export function createPublisherCredentialStore(
             provider_session_nonce = null,
             revision = revision + 1,
             updated_at = ?1
-        where project_id = ?2
-          and id = ?3
+        where id = ?3
           and state != 'revoked'
+          and exists (
+              select 1
+              from project_active_publisher_credential_contexts as visible
+              where visible.project_id = ?2
+                and visible.id = publisher_credentials.id
+          )
           and not exists (
               select 1
-              from project_publisher_connection_contexts as publisher_connections
-              where publisher_connections.project_id = publisher_credentials.project_id
-                and publisher_connections.credential_id = publisher_credentials.id
+              from publisher_connections
+              where publisher_connections.credential_id = publisher_credentials.id
           )
     `)
+
+    const workspaceActors = createWorkspaceActorStore(database, { now, createId })
+    const persistCredential = createDatabaseTransaction(
+        database,
+        (
+            workspaceId: string,
+            projectId: string,
+            projectActorId: string,
+            values: () => Parameters<typeof insertCredentialStatement.run>
+        ):
+            | { readonly kind: 'not_found' }
+            | { readonly kind: 'already_exists'; readonly row: CredentialMetadataRow }
+            | { readonly kind: 'created'; readonly workspaceActorId: string } => {
+            const actor = workspaceActors.ensureFromProjectActor({ workspaceId, projectActorId })
+            if (actor === null) return { kind: 'not_found' }
+            const args = values()
+            const existing = loadCredentialByExternalAccountStatement.get(
+                projectId,
+                args[2] as string,
+                args[3] as string
+            )
+            if (existing !== null) return { kind: 'already_exists', row: existing }
+            args[8] = actor.id
+            const inserted = insertCredentialStatement.run(...args)
+            if (inserted.changes !== 1)
+                throw new Error('Publisher credential insertion did not persist a row')
+            return { kind: 'created', workspaceActorId: actor.id }
+        }
+    )
 
     const store = {
         async withPublisherCredentialRefresh<T>(
@@ -592,41 +640,43 @@ export function createPublisherCredentialStore(
                           input.providerSession
                       )
 
-            const inserted = insertCredentialStatement.run(
-                credential.id,
+            // Check-and-insert is one synchronous transaction: encryption above awaited,
+            // so a concurrent flow may have staged the same account in between.
+            const outcome = persistCredential.immediate(
+                projectRow.workspaceId!,
                 credential.projectId,
-                credential.providerId,
-                credential.externalAccountId,
-                credential.externalAccountName,
-                JSON.stringify(credential.scopes),
-                credential.state,
-                credential.expiresAt,
-                credential.connectedByActorId,
-                credential.providerApplicationId ?? null,
-                accessToken.version,
-                accessToken.keyId,
-                accessToken.ciphertext,
-                accessToken.nonce,
-                refreshToken?.ciphertext ?? null,
-                refreshToken?.nonce ?? null,
-                providerSession?.ciphertext ?? null,
-                providerSession?.nonce ?? null,
-                timestamp
-            )
-
-            if (inserted.changes !== 1) {
-                const concurrent = loadCredentialByExternalAccountStatement.get(
+                connectedByActorId,
+                () => [
+                    credential.id,
                     credential.projectId,
                     credential.providerId,
-                    credential.externalAccountId
-                )
-                if (concurrent === null) {
-                    throw new Error('Publisher credential insertion did not persist a row')
-                }
-                return { kind: 'already_exists', credential: toCredential(concurrent) }
+                    credential.externalAccountId,
+                    credential.externalAccountName,
+                    JSON.stringify(credential.scopes),
+                    credential.state,
+                    credential.expiresAt,
+                    '',
+                    credential.providerApplicationId ?? null,
+                    accessToken.version,
+                    accessToken.keyId,
+                    accessToken.ciphertext,
+                    accessToken.nonce,
+                    refreshToken?.ciphertext ?? null,
+                    refreshToken?.nonce ?? null,
+                    providerSession?.ciphertext ?? null,
+                    providerSession?.nonce ?? null,
+                    timestamp,
+                ]
+            )
+            if (outcome.kind === 'not_found') return outcome
+            if (outcome.kind === 'already_exists') {
+                return { kind: 'already_exists', credential: toCredential(outcome.row) }
             }
-
-            return { kind: 'created', credential }
+            // Attribution is the workspace actor snapshot, matching every later read.
+            return {
+                kind: 'created',
+                credential: { ...credential, connectedByActorId: outcome.workspaceActorId },
+            }
         },
 
         getPublisherCredential(

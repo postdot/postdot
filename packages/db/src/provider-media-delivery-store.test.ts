@@ -13,7 +13,7 @@ import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 import { publishers, publicationExecutionRevisionMedia, publicationRevisionMedia } from './schema'
-import { seedTestWorkspace } from './testing'
+import { seedTestWorkspace, workspaceOf } from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
@@ -114,7 +114,7 @@ describe('provider media delivery store', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-1',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })

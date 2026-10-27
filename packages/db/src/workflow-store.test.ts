@@ -18,7 +18,6 @@ import {
     auditEvents,
     actors,
     channelProfileVersions,
-    channels,
     jobs,
     posts,
     projects,
@@ -27,6 +26,7 @@ import {
     publications,
     publishers,
 } from './schema'
+import { seedWorkspaceChannel, workspaceOf } from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
@@ -110,31 +110,19 @@ function seedDueJob(database: PostbotDatabase, suffix = 'one') {
             },
         ])
         .run()
-    database
-        .insert(channels)
-        .values({ id: channelId, projectId, name: `Channel ${suffix}`, profileVersionId })
-        .run()
-    database
-        .insert(channelProfileVersions)
-        .values({
-            id: profileVersionId,
-            projectId,
-            channelId,
-            profileId: testProfile.id,
-            version: testProfile.version,
-            origin: testProfile.origin,
-            state: 'active',
-            profileJson: testProfile,
-            profileHash: testProfile.profileHash,
-            schemaHash: testProfile.schemaHash,
-            createdByActorId: humanActorId,
-        })
-        .run()
+    seedWorkspaceChannel(database, {
+        projectId,
+        channelId: channelId,
+        name: `Channel ${suffix}`,
+        profileVersionId,
+        profile: testProfile,
+        createdByActorId: humanActorId,
+    })
     database
         .insert(publishers)
         .values({
             id: `publisher-${suffix}`,
-            projectId,
+            workspaceId: workspaceOf(database, projectId),
             channelId,
             kind: 'test',
         })

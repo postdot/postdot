@@ -10,11 +10,13 @@ export function formatChannelLifecycleConflict(blockers: readonly string[]): str
                   ? m.channel_blocked_publisher()
                   : blocker === 'pending_authorization'
                     ? m.channel_blocked_authorization()
-                    : blocker === 'must_be_archived'
-                      ? m.channel_blocked_archive()
-                      : blocker === 'active_work'
-                        ? m.channel_blocked_work()
-                        : m.channel_blocked_generic()
+                    : blocker === 'shared'
+                      ? m.channel_blocked_shared()
+                      : blocker === 'must_be_archived'
+                        ? m.channel_blocked_archive()
+                        : blocker === 'active_work'
+                          ? m.channel_blocked_work()
+                          : m.channel_blocked_generic()
         )
         .join(' ')
 }

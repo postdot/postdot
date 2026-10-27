@@ -22,7 +22,7 @@ import {
     publishers,
 } from './schema'
 import { createTaxonomyStore } from './taxonomy-store'
-import { seedTestWorkspace } from './testing'
+import { seedTestWorkspace, workspaceOf } from './testing'
 
 const automaticTestProfile: ChannelProfileDefinition = {
     id: 'future-provider',
@@ -190,7 +190,7 @@ function createApprovalDraft(
         .insert(publishers)
         .values({
             id: `approval-publisher-${suffix}`,
-            projectId,
+            workspaceId: workspaceOf(database, projectId),
             channelId: channel.id,
             kind: 'future-provider',
         })
@@ -827,7 +827,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'creation-rollback-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
@@ -915,7 +915,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-1',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel?.id ?? '',
                     kind: 'future-provider',
                 })
@@ -965,7 +965,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'retry-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -1118,19 +1118,19 @@ describe('manual workflow store', () => {
                 .values([
                     {
                         id: 'bulk-scheduling-publisher-1',
-                        projectId: project.project.id,
+                        workspaceId: workspaceOf(database, project.project.id),
                         channelId: firstChannel.id,
                         kind: 'future-provider',
                     },
                     {
                         id: 'bulk-scheduling-publisher-2',
-                        projectId: project.project.id,
+                        workspaceId: workspaceOf(database, project.project.id),
                         channelId: secondChannel.id,
                         kind: 'future-provider',
                     },
                     {
                         id: 'bulk-scheduling-publisher-3',
-                        projectId: project.project.id,
+                        workspaceId: workspaceOf(database, project.project.id),
                         channelId: draftChannel.id,
                         kind: 'future-provider',
                     },
@@ -1338,7 +1338,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'revision-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -1501,7 +1501,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'promotion-rollback-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -1665,7 +1665,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'superseded-profile-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -2070,7 +2070,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'execution-contract-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -2219,7 +2219,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'scheduled-media-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
@@ -2278,7 +2278,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'profile-lifecycle-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
@@ -2492,7 +2492,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'media-profile-publisher',
-                    projectId: project.project.id,
+                    workspaceId: workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })

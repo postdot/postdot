@@ -167,10 +167,17 @@ describe('publisher connection store', () => {
             expect(result.kind).toBe('created')
             if (result.kind !== 'created') return
 
+            // Attribution is the workspace actor snapshot of the connecting project actor.
+            expect(
+                fixture.database.$client
+                    .query<{ origin: string }, [string]>(
+                        'select origin_actor_id as origin from actors where id = ?'
+                    )
+                    .get(result.connection.connectedByActorId)?.origin
+            ).toBe(fixture.project.actor.id)
             expect(result.connection).toMatchObject({
                 credentialId: credential.id,
                 channelId: fixture.channel.id,
-                connectedByActorId: fixture.project.actor.id,
                 externalAccountId: 'member-42',
                 kind: 'linkedin',
                 providerId: 'linkedin',

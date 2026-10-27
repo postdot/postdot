@@ -10,7 +10,7 @@ import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { jobs, publications, publishers } from './schema'
-import { seedTestWorkspace } from './testing'
+import { seedTestWorkspace, workspaceOf } from './testing'
 
 const dayMs = 24 * 60 * 60 * 1_000
 
@@ -88,7 +88,7 @@ function createFixture(
         .insert(publishers)
         .values({
             id: prefix + '-publisher',
-            projectId: project.project.id,
+            workspaceId: workspaceOf(database, project.project.id),
             channelId: automaticChannel.id,
             kind: 'analytics-provider',
         })

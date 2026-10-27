@@ -465,9 +465,9 @@ export const channels = sqliteTable(
     'channels',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
+        workspaceId: text('workspace_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+            .references(() => workspaces.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
         destinationRevision: integer('destination_revision').default(0).notNull(),
         destinationIdentityJson: text('destination_identity_json', { mode: 'json' }).$type<Record<
@@ -481,7 +481,7 @@ export const channels = sqliteTable(
         ...timestamps(),
     },
     table => [
-        uniqueIndex('channels_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('channels_workspace_id_id_uidx').on(table.workspaceId, table.id),
         check(
             'channels_profile_version_id_nonblank',
             sql`length(trim(${table.profileVersionId})) > 0`
@@ -501,9 +501,9 @@ export const channelProfileVersions = sqliteTable(
     'channel_profile_versions',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
+        workspaceId: text('workspace_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+            .references(() => workspaces.id, { onDelete: 'cascade' }),
         channelId: text('channel_id').notNull(),
         profileId: text('profile_id').notNull(),
         version: integer('version').notNull(),
@@ -519,32 +519,36 @@ export const channelProfileVersions = sqliteTable(
         ...timestamps(),
     },
     table => [
-        uniqueIndex('channel_profile_versions_project_id_id_uidx').on(table.projectId, table.id),
-        uniqueIndex('channel_profile_versions_project_channel_version_uidx').on(
-            table.projectId,
+        uniqueIndex('channel_profile_versions_workspace_id_id_uidx').on(
+            table.workspaceId,
+            table.id
+        ),
+        uniqueIndex('channel_profiles_channel_id_id_uidx').on(table.channelId, table.id),
+        uniqueIndex('channel_profile_versions_workspace_channel_version_uidx').on(
+            table.workspaceId,
             table.channelId,
             table.version
         ),
-        index('channel_profile_versions_project_channel_state_idx').on(
-            table.projectId,
+        index('channel_profile_versions_workspace_channel_state_idx').on(
+            table.workspaceId,
             table.channelId,
             table.state
         ),
-        uniqueIndex('channel_profile_versions_project_channel_active_uidx')
-            .on(table.projectId, table.channelId)
+        uniqueIndex('channel_profile_versions_workspace_channel_active_uidx')
+            .on(table.workspaceId, table.channelId)
             .where(sql`${table.state} = 'active'`),
-        uniqueIndex('channel_profile_versions_project_channel_draft_uidx')
-            .on(table.projectId, table.channelId)
+        uniqueIndex('channel_profile_versions_workspace_channel_draft_uidx')
+            .on(table.workspaceId, table.channelId)
             .where(sql`${table.state} = 'draft'`),
         foreignKey({
-            name: 'channel_profile_versions_project_channel_fk',
-            columns: [table.projectId, table.channelId],
-            foreignColumns: [channels.projectId, channels.id],
+            name: 'channel_profile_versions_workspace_channel_fk',
+            columns: [table.workspaceId, table.channelId],
+            foreignColumns: [channels.workspaceId, channels.id],
         }).onDelete('cascade'),
         foreignKey({
-            name: 'channel_profile_versions_project_actor_fk',
-            columns: [table.projectId, table.createdByActorId],
-            foreignColumns: [actors.projectId, actors.id],
+            name: 'channel_profile_versions_workspace_actor_fk',
+            columns: [table.workspaceId, table.createdByActorId],
+            foreignColumns: [actors.workspaceId, actors.id],
         }).onDelete('restrict'),
         check(
             'channel_profile_versions_profile_id_nonblank',
@@ -575,20 +579,24 @@ export const publishers = sqliteTable(
     'publishers',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
+        workspaceId: text('workspace_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+            .references(() => workspaces.id, { onDelete: 'cascade' }),
         channelId: text('channel_id').notNull(),
         kind: text('kind').notNull(),
         ...timestamps(),
     },
     table => [
-        uniqueIndex('publishers_project_id_id_uidx').on(table.projectId, table.id),
-        uniqueIndex('publishers_project_id_channel_id_uidx').on(table.projectId, table.channelId),
+        uniqueIndex('publishers_workspace_id_id_uidx').on(table.workspaceId, table.id),
+        uniqueIndex('publishers_channel_id_id_uidx').on(table.channelId, table.id),
+        uniqueIndex('publishers_workspace_id_channel_id_uidx').on(
+            table.workspaceId,
+            table.channelId
+        ),
         foreignKey({
-            name: 'publishers_project_channel_fk',
-            columns: [table.projectId, table.channelId],
-            foreignColumns: [channels.projectId, channels.id],
+            name: 'publishers_workspace_channel_fk',
+            columns: [table.workspaceId, table.channelId],
+            foreignColumns: [channels.workspaceId, channels.id],
         }).onDelete('cascade'),
         check('publishers_kind_nonblank', sql`length(trim(${table.kind})) > 0`),
     ]
@@ -598,9 +606,9 @@ export const publisherCredentials = sqliteTable(
     'publisher_credentials',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
+        workspaceId: text('workspace_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+            .references(() => workspaces.id, { onDelete: 'cascade' }),
         providerId: text('provider_id').notNull(),
         externalAccountId: text('external_account_id').notNull(),
         externalAccountName: text('external_account_name'),
@@ -621,25 +629,25 @@ export const publisherCredentials = sqliteTable(
         ...timestamps(),
     },
     table => [
-        uniqueIndex('publisher_credentials_project_id_id_uidx').on(table.projectId, table.id),
-        uniqueIndex('publisher_credentials_project_provider_external_uidx').on(
-            table.projectId,
+        uniqueIndex('publisher_credentials_workspace_id_id_uidx').on(table.workspaceId, table.id),
+        index('publisher_credentials_workspace_provider_external_idx').on(
+            table.workspaceId,
             table.providerId,
             table.externalAccountId
         ),
-        index('publisher_credentials_project_state_expires_idx').on(
-            table.projectId,
+        index('publisher_credentials_workspace_state_expires_idx').on(
+            table.workspaceId,
             table.state,
             table.expiresAt
         ),
-        index('publisher_credentials_project_actor_idx').on(
-            table.projectId,
+        index('publisher_credentials_workspace_actor_idx').on(
+            table.workspaceId,
             table.connectedByActorId
         ),
         foreignKey({
-            name: 'publisher_credentials_project_actor_fk',
-            columns: [table.projectId, table.connectedByActorId],
-            foreignColumns: [actors.projectId, actors.id],
+            name: 'publisher_credentials_workspace_actor_fk',
+            columns: [table.workspaceId, table.connectedByActorId],
+            foreignColumns: [actors.workspaceId, actors.id],
         }).onDelete('restrict'),
         foreignKey({
             name: 'publisher_credentials_provider_application_fk',
@@ -764,7 +772,10 @@ export const oauthAuthorizationAttempts = sqliteTable(
         foreignKey({
             name: 'oauth_authorization_attempts_project_channel_fk',
             columns: [table.projectId, table.channelId],
-            foreignColumns: [channels.projectId, channels.id],
+            foreignColumns: [
+                projectChannelAttachments.projectId,
+                projectChannelAttachments.channelId,
+            ],
         }).onDelete('cascade'),
         foreignKey({
             name: 'oauth_authorization_attempts_project_actor_fk',
@@ -873,9 +884,9 @@ export const publisherConnections = sqliteTable(
     'publisher_connections',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
+        workspaceId: text('workspace_id')
             .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
+            .references(() => workspaces.id, { onDelete: 'cascade' }),
         publisherId: text('publisher_id').notNull(),
         credentialId: text('credential_id').notNull(),
         endpointUrl: text('endpoint_url'),
@@ -889,29 +900,29 @@ export const publisherConnections = sqliteTable(
         ...timestamps(),
     },
     table => [
-        uniqueIndex('publisher_connections_project_id_publisher_id_uidx').on(
-            table.projectId,
+        uniqueIndex('publisher_connections_workspace_id_publisher_id_uidx').on(
+            table.workspaceId,
             table.publisherId
         ),
         index('publisher_connections_credential_id_idx').on(table.credentialId),
-        index('publisher_connections_project_id_actor_id_idx').on(
-            table.projectId,
+        index('publisher_connections_workspace_id_actor_id_idx').on(
+            table.workspaceId,
             table.connectedByActorId
         ),
         foreignKey({
-            name: 'publisher_connections_project_publisher_fk',
-            columns: [table.projectId, table.publisherId],
-            foreignColumns: [publishers.projectId, publishers.id],
+            name: 'publisher_connections_workspace_publisher_fk',
+            columns: [table.workspaceId, table.publisherId],
+            foreignColumns: [publishers.workspaceId, publishers.id],
         }).onDelete('cascade'),
         foreignKey({
-            name: 'publisher_connections_project_credential_fk',
-            columns: [table.projectId, table.credentialId],
-            foreignColumns: [publisherCredentials.projectId, publisherCredentials.id],
+            name: 'publisher_connections_workspace_credential_fk',
+            columns: [table.workspaceId, table.credentialId],
+            foreignColumns: [publisherCredentials.workspaceId, publisherCredentials.id],
         }).onDelete('cascade'),
         foreignKey({
-            name: 'publisher_connections_project_actor_fk',
-            columns: [table.projectId, table.connectedByActorId],
-            foreignColumns: [actors.projectId, actors.id],
+            name: 'publisher_connections_workspace_actor_fk',
+            columns: [table.workspaceId, table.connectedByActorId],
+            foreignColumns: [actors.workspaceId, actors.id],
         }).onDelete('restrict'),
         check(
             'publisher_connections_endpoint_url_nonblank',
@@ -932,6 +943,137 @@ export const publisherConnections = sqliteTable(
                     and (${table.destinationName} is null or length(trim(${table.destinationName})) > 0))
             )`
         ),
+    ]
+)
+
+/** Explicit project use of a workspace channel. Not ownership; the managing relation is separate. */
+export const projectChannelAttachments = sqliteTable(
+    'project_channel_attachments',
+    {
+        projectId: text('project_id').notNull(),
+        channelId: text('channel_id').notNull(),
+        workspaceId: text('workspace_id').notNull(),
+        state: text('state', { enum: ['active', 'detached'] })
+            .default('active')
+            .notNull(),
+        origin: text('origin', { enum: ['migrated', 'explicit'] }).notNull(),
+        attachedByActorId: text('attached_by_actor_id'),
+        attachedAt: integer('attached_at').notNull(),
+        detachedAt: integer('detached_at'),
+        revision: integer('revision').default(1).notNull(),
+    },
+    table => [
+        primaryKey({ columns: [table.projectId, table.channelId] }),
+        index('project_channel_attachments_channel_state_idx').on(
+            table.channelId,
+            table.state,
+            table.projectId
+        ),
+        foreignKey({
+            columns: [table.workspaceId, table.projectId],
+            foreignColumns: [projects.workspaceId, projects.id],
+        }).onDelete('no action'),
+        foreignKey({
+            columns: [table.workspaceId, table.channelId],
+            foreignColumns: [channels.workspaceId, channels.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.workspaceId, table.attachedByActorId],
+            foreignColumns: [actors.workspaceId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'project_channel_attachments_state_valid',
+            sql`${table.state} in ('active', 'detached')`
+        ),
+        check(
+            'project_channel_attachments_origin_valid',
+            sql`${table.origin} in ('migrated', 'explicit')`
+        ),
+        check('project_channel_attachments_revision_positive', sql`${table.revision} > 0`),
+        check(
+            'project_channel_attachments_detached_valid',
+            sql`(${table.state} = 'active' and ${table.detachedAt} is null) or (${table.state} = 'detached' and ${table.detachedAt} is not null)`
+        ),
+        check(
+            'project_channel_attachments_origin_actor_valid',
+            sql`(${table.origin} = 'migrated' and ${table.attachedByActorId} is null) or (${table.origin} = 'explicit' and ${table.attachedByActorId} is not null)`
+        ),
+    ]
+)
+
+/** Derived binding that lets project-scoped rows reference only profiles of attached channels. */
+export const projectChannelProfiles = sqliteTable(
+    'project_channel_profiles',
+    {
+        projectId: text('project_id').notNull(),
+        channelId: text('channel_id').notNull(),
+        profileId: text('profile_id').notNull(),
+    },
+    table => [
+        primaryKey({ columns: [table.projectId, table.profileId] }),
+        foreignKey({
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [
+                projectChannelAttachments.projectId,
+                projectChannelAttachments.channelId,
+            ],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.channelId, table.profileId],
+            foreignColumns: [channelProfileVersions.channelId, channelProfileVersions.id],
+        }).onDelete('cascade'),
+    ]
+)
+
+/** Derived binding that lets project-scoped execution rows reference only publishers of attached channels. */
+export const projectChannelPublishers = sqliteTable(
+    'project_channel_publishers',
+    {
+        projectId: text('project_id').notNull(),
+        channelId: text('channel_id').notNull(),
+        publisherId: text('publisher_id').notNull(),
+    },
+    table => [
+        primaryKey({ columns: [table.projectId, table.publisherId] }),
+        foreignKey({
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [
+                projectChannelAttachments.projectId,
+                projectChannelAttachments.channelId,
+            ],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.channelId, table.publisherId],
+            foreignColumns: [publishers.channelId, publishers.id],
+        }).onDelete('cascade'),
+    ]
+)
+
+/** One stable managing project per channel; its removal never promotes another project. */
+export const channelManagers = sqliteTable(
+    'channel_managers',
+    {
+        channelId: text('channel_id').primaryKey(),
+        projectId: text('project_id').notNull(),
+        workspaceId: text('workspace_id').notNull(),
+    },
+    table => [
+        index('channel_managers_workspace_project_idx').on(table.workspaceId, table.projectId),
+        foreignKey({
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [
+                projectChannelAttachments.projectId,
+                projectChannelAttachments.channelId,
+            ],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.workspaceId, table.channelId],
+            foreignColumns: [channels.workspaceId, channels.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.workspaceId, table.projectId],
+            foreignColumns: [projects.workspaceId, projects.id],
+        }).onDelete('cascade'),
     ]
 )
 
@@ -1375,7 +1517,10 @@ export const publications = sqliteTable(
         foreignKey({
             name: 'publications_project_channel_fk',
             columns: [table.projectId, table.channelId],
-            foreignColumns: [channels.projectId, channels.id],
+            foreignColumns: [
+                projectChannelAttachments.projectId,
+                projectChannelAttachments.channelId,
+            ],
         }).onDelete('restrict'),
         foreignKey({
             name: 'publications_project_created_by_actor_fk',
@@ -1400,7 +1545,7 @@ export const publications = sqliteTable(
         foreignKey({
             name: 'publications_project_assessed_profile_fk',
             columns: [table.projectId, table.lastAssessedProfileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         check(
             'publications_target_revision_id_nonblank',
@@ -1655,12 +1800,12 @@ export const publicationWorkingDrafts = sqliteTable(
         foreignKey({
             name: 'publication_working_drafts_project_profile_fk',
             columns: [table.projectId, table.profileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         foreignKey({
             name: 'publication_working_drafts_project_assessed_profile_fk',
             columns: [table.projectId, table.lastAssessedProfileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         foreignKey({
             name: 'publication_working_drafts_project_actor_fk',
@@ -1715,11 +1860,11 @@ export const publicationDraftAdoptions = sqliteTable(
         }).onDelete('cascade'),
         foreignKey({
             columns: [table.projectId, table.profileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         foreignKey({
             columns: [table.projectId, table.adoptedProfileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         foreignKey({
             columns: [table.projectId, table.createdByActorId],
@@ -1787,7 +1932,7 @@ export const publicationTargetRevisions = sqliteTable(
         foreignKey({
             name: 'publication_target_revisions_project_profile_fk',
             columns: [table.projectId, table.profileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         foreignKey({
             name: 'publication_target_revisions_project_actor_fk',
@@ -2114,7 +2259,7 @@ export const publicationExecutionRevisions = sqliteTable(
         foreignKey({
             name: 'publication_execution_revisions_project_profile_fk',
             columns: [table.projectId, table.profileVersionId],
-            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+            foreignColumns: [projectChannelProfiles.projectId, projectChannelProfiles.profileId],
         }).onDelete('restrict'),
         check(
             'publication_execution_revisions_delivery_mode_automatic',
@@ -2259,7 +2404,10 @@ export const providerMediaDeliveries = sqliteTable(
         foreignKey({
             name: 'provider_media_deliveries_project_publisher_fk',
             columns: [table.projectId, table.publisherId],
-            foreignColumns: [publishers.projectId, publishers.id],
+            foreignColumns: [
+                projectChannelPublishers.projectId,
+                projectChannelPublishers.publisherId,
+            ],
         }).onDelete('cascade'),
         check(
             'provider_media_deliveries_provider_nonblank',

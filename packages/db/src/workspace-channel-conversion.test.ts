@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import {
     createManualChannelProfile,
@@ -12,17 +11,12 @@ import {
 } from '@postdot/core'
 
 import { closeDatabase, createDatabase, type PostbotDatabase } from './client'
+import { migrationsThrough, seedLegacyScheduledChannel } from './legacy-migration-fixture'
 import { createManualStore } from './manual-store'
 import { rehearseMigrations, runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
-import { seedTestWorkspace } from './testing'
-import { planWorkspaceChannelMigration } from './workspace-channel-migration-plan'
-
-const candidate = fileURLToPath(
-    new URL('../migration-candidates/workspace-channels', import.meta.url)
-)
 
 function workspace(db: PostbotDatabase, id: string) {
     db.$client
@@ -136,22 +130,27 @@ function unchanged(db: PostbotDatabase) {
     }))
 }
 
-it('converts preserved IDs, duplicate accounts, profiles, queued work and attribution without inventing historical events', async () => {
-    const f = await fixture()
+it('converts preserved IDs, duplicate accounts, profiles, queued work and attribution without inventing historical events', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'postdot-channel-upgrade-'))
+    const database = createDatabase(':memory:')
     try {
-        const before = unchanged(f.database)
-        const plan = planWorkspaceChannelMigration(f.database)
-        const profiles = f.database.$client
+        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 22))
+        workspace(database, 'workspace')
+        const legacy = ['first', 'second'].map(prefix =>
+            seedLegacyScheduledChannel(database, { prefix, workspaceId: 'workspace', at: 1000 })
+        )
+        const before = unchanged(database)
+        const profiles = database.$client
             .query(
                 'select id,profile_json,profile_hash,schema_hash from channel_profile_versions order by id'
             )
             .all()
-        const actors = f.database.$client.query('select * from actors order by id').all()
-        const envelopes = f.database.$client
-            .query(
-                'select id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,refresh_token_ciphertext,refresh_token_nonce,provider_session_ciphertext,provider_session_nonce from publisher_credentials order by id'
-            )
-            .all()
+        const actors = database.$client.query('select * from actors order by id').all()
+        const envelopeSql =
+            'select id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,refresh_token_ciphertext,refresh_token_nonce,provider_session_ciphertext,provider_session_nonce from publisher_credentials order by id'
+        const envelopes = database.$client.query(envelopeSql).all()
+        const ids = (key: 'channel' | 'credential') =>
+            legacy.map(row => ({ id: row[key] })).sort((a, b) => a.id.localeCompare(b.id))
         const verify = (db: PostbotDatabase) => {
             expect(unchanged(db)).toEqual(before)
             expect(
@@ -162,48 +161,42 @@ it('converts preserved IDs, duplicate accounts, profiles, queued work and attrib
                     .all()
             ).toEqual(profiles)
             expect(db.$client.query('pragma foreign_key_check').all()).toEqual([])
-            expect(
-                db.$client
-                    .query(
-                        'select id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,refresh_token_ciphertext,refresh_token_nonce,provider_session_ciphertext,provider_session_nonce from publisher_credentials order by id'
-                    )
-                    .all()
-            ).toEqual(envelopes)
+            expect(db.$client.query(envelopeSql).all()).toEqual(envelopes)
             expect(db.$client.query('select id from channels order by id').all()).toEqual(
-                plan.channels.map(row => ({ id: row.id }))
+                ids('channel')
             )
             expect(
                 db.$client.query('select id from publisher_credentials order by id').all()
-            ).toEqual(plan.credentials.map(row => ({ id: row.id })))
+            ).toEqual(ids('credential'))
             expect(
                 db.$client.query("select count(*) as count from jobs where state='pending'").get()
             ).toEqual({ count: 2 })
         }
-        expect(rehearseMigrations(f.database, candidate, { verify }).pending).toHaveLength(1)
-        expect(unchanged(f.database)).toEqual(before)
-        expect(f.database.$client.query('select project_id from channels').all()).toHaveLength(2)
+        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(1)
+        expect(unchanged(database)).toEqual(before)
+        expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
         expect(() =>
-            runMigrations(f.database, candidate, {
+            runMigrations(database, undefined, {
                 verify: db => {
                     verify(db)
                     throw new Error('Reject converted graph')
                 },
             })
         ).toThrow('Reject converted graph')
-        expect(f.database.$client.query('select * from actors order by id').all()).toEqual(actors)
-        expect(f.database.$client.query('select project_id from channels').all()).toHaveLength(2)
-        runMigrations(f.database, candidate, { verify })
-        expect(f.database.$client.query('select workspace_id from channels').all()).toEqual([
+        expect(database.$client.query('select * from actors order by id').all()).toEqual(actors)
+        expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
+        runMigrations(database, undefined, { verify })
+        expect(database.$client.query('select workspace_id from channels').all()).toEqual([
             { workspace_id: 'workspace' },
             { workspace_id: 'workspace' },
         ])
         expect(
-            f.database.$client
+            database.$client
                 .query('pragma table_info(channels)')
                 .all()
                 .some((row: unknown) => (row as { name: string }).name === 'project_id')
         ).toBe(false)
-        const attachments = f.database.$client
+        const attachments = database.$client
             .query<{ origin: string; attached_at: number; attached_by_actor_id: null }, []>(
                 'select origin,attached_at,attached_by_actor_id from project_channel_attachments'
             )
@@ -218,12 +211,21 @@ it('converts preserved IDs, duplicate accounts, profiles, queued work and attrib
             )
         ).toBe(true)
         expect(
-            f.database.$client
+            database.$client
                 .query("select count(*) as count from actors where workspace_id='workspace'")
                 .get()
         ).toEqual({ count: 2 })
+        // Each connected channel keeps its own credential even though both name one external account.
+        expect(
+            database.$client
+                .query(
+                    'select count(*) as count from project_publisher_credential_contexts where project_id = ?'
+                )
+                .get(legacy[0]!.project)
+        ).toEqual({ count: 1 })
     } finally {
-        closeDatabase(f.database)
+        closeDatabase(database)
+        rmSync(directory, { recursive: true, force: true })
     }
 })
 
@@ -247,7 +249,6 @@ it('enforces attachment/workspace relations while retaining a shared resource af
             displayName: 'Unrelated',
             workspaceId: 'workspace',
         })
-        runMigrations(f.database, candidate)
         closeDatabase(f.database)
         f.database = createDatabase(filename)
         const actor = f.database.$client
@@ -376,7 +377,6 @@ it('enforces attachment/workspace relations while retaining a shared resource af
 it('blocks new effects after detach while allowing an admitted effect to finalize', async () => {
     const f = await fixture()
     try {
-        runMigrations(f.database, candidate)
         for (const [index, record] of f.records.entries()) {
             const publication = record.post.publications[0]!
             f.database.$client
@@ -485,24 +485,20 @@ it('blocks new effects after detach while allowing an admitted effect to finaliz
 })
 
 it('refuses unknown workspace ownership and rolls back every conversion change', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'postdot-channel-upgrade-'))
     const database = createDatabase(':memory:')
     try {
-        runMigrations(database)
-        const project = createManualStore(database).createProject({
-            workspaceId: seedTestWorkspace(database),
-            name: 'Unassigned',
-            subjectId: 'owner',
-            displayName: 'Owner',
-        })
-        // New projects must be assigned; this models historical data that never was.
-        database.$client.query('update projects set workspace_id = null').run()
+        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 22))
+        database.$client
+            .query(
+                "insert into projects (id,name,created_at,updated_at) values ('unassigned','Unassigned',100,100)"
+            )
+            .run()
         const before = database.$client.query('select * from projects').all()
-        expect(() => runMigrations(database, candidate)).toThrow('workspace_assignment_required')
+        expect(() => runMigrations(database)).toThrow('workspace_assignment_required')
         expect(database.$client.query('select * from projects').all()).toEqual(before)
         expect(
-            database.$client
-                .query('select workspace_id from projects where id=?')
-                .get(project.project.id)
+            database.$client.query("select workspace_id from projects where id='unassigned'").get()
         ).toEqual({ workspace_id: null })
         expect(
             database.$client
@@ -513,6 +509,7 @@ it('refuses unknown workspace ownership and rolls back every conversion change',
         ).toEqual([])
     } finally {
         closeDatabase(database)
+        rmSync(directory, { recursive: true, force: true })
     }
 })
 
@@ -528,7 +525,6 @@ it('keeps editorial readers and content on their project context when a detached
             displayName: 'Unrelated',
             workspaceId: 'workspace',
         })
-        runMigrations(f.database, candidate)
         const actor = f.database.$client
             .query<{ id: string }, [string]>(
                 "select id from actors where workspace_id='workspace' and origin_actor_id=?"

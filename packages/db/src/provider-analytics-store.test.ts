@@ -270,8 +270,8 @@ describe('provider analytics store', () => {
 
             database.$client
                 .query(
-                    'insert into publishers (id, project_id, channel_id, kind, created_at, updated_at) ' +
-                        "values (?1, ?2, ?3, 'bluesky', ?4, ?4)"
+                    'insert into publishers (id, workspace_id, channel_id, kind, created_at, updated_at) ' +
+                        "values (?1, (select workspace_id from projects where id = ?2), ?3, 'bluesky', ?4, ?4)"
                 )
                 .run('publisher-1', project.project.id, channel.id, now)
             database.$client

@@ -16,18 +16,30 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
     const filename = join(directory, 'instance.sqlite')
     let database = createDatabase(filename)
     try {
-        mkdirSync(join(previous, 'meta'), { recursive: true })
+        // `previous` is the chain before this migration; `attributed` stops where this
+        // migration's own contract ends. Later ownership conversion is covered elsewhere.
         const journal = JSON.parse(
             readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
         ) as { entries: { idx: number; tag: string }[] }
-        const pendingCount = journal.entries.filter(entry => entry.idx >= 21).length
-        journal.entries = journal.entries.filter(entry => entry.idx < 21)
-        writeFileSync(join(previous, 'meta/_journal.json'), JSON.stringify(journal))
-        for (const entry of journal.entries)
-            copyFileSync(
-                join(defaultMigrationsFolder, `${entry.tag}.sql`),
-                join(previous, `${entry.tag}.sql`)
+        const chain = (target: string, keep: (idx: number) => boolean) => {
+            mkdirSync(join(target, 'meta'), { recursive: true })
+            const entries = journal.entries.filter(entry => keep(entry.idx))
+            writeFileSync(
+                join(target, 'meta/_journal.json'),
+                JSON.stringify({ ...journal, entries })
             )
+            for (const entry of entries)
+                copyFileSync(
+                    join(defaultMigrationsFolder, `${entry.tag}.sql`),
+                    join(target, `${entry.tag}.sql`)
+                )
+            return entries
+        }
+        chain(previous, idx => idx < 21)
+        const attributed = join(directory, 'attributed')
+        const pendingCount = chain(attributed, idx => idx <= 22).filter(
+            entry => entry.idx >= 21
+        ).length
         runMigrations(database, previous)
         const legacy = seedLegacyProjectChannel(database, 'owner', 100)
         seedLegacyPublication(database, legacy, 101)
@@ -109,7 +121,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             expect(highWater()).toEqual({ seq: 9001 })
             expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         }
-        const report = rehearseMigrations(database, undefined, { verify })
+        const report = rehearseMigrations(database, attributed, { verify })
         expect(report.pending).toHaveLength(pendingCount)
         expect(snapshot()).toEqual(before)
         expect(
@@ -119,7 +131,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
                 .some((row: unknown) => (row as { name: string }).name === 'workspace_id')
         ).toBe(false)
         expect(() =>
-            runMigrations(database, undefined, {
+            runMigrations(database, attributed, {
                 verify: () => {
                     verify()
                     throw new Error('Reject after rebuilding')
@@ -128,28 +140,13 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
         ).toThrow('Reject after rebuilding')
         expect(snapshot()).toEqual(before)
         expect(highWater()).toEqual({ seq: 9001 })
-        runMigrations(database, undefined, { verify })
+        runMigrations(database, attributed, { verify })
         closeDatabase(database)
         database = createDatabase(filename)
         expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         expect(
             database.$client.query('select workspace_id,origin_actor_id from actors').all()
         ).toEqual([{ workspace_id: null, origin_actor_id: null }])
-        const reopenedCredentials = createPublisherCredentialStore(database, {
-            cipher: createPublisherCredentialCipher({
-                keyId: 'fixture',
-                key: new Uint8Array(32).fill(1),
-            }),
-        })
-        expect(
-            await reopenedCredentials.resolvePublisherCredentialSecrets(
-                legacy.project.id,
-                credentialId
-            )
-        ).toMatchObject({
-            accessToken: 'synthetic-preserved-access',
-            refreshToken: 'synthetic-preserved-refresh',
-        })
         const store = createEventJournalStore(database)
         expect(store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9001'))
         const next = store.append({
@@ -166,6 +163,22 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             next.id,
         ])
         runMigrations(database)
+        // The next committed migrations convert channel ownership; the staged secret still decrypts.
+        const reopenedCredentials = createPublisherCredentialStore(database, {
+            cipher: createPublisherCredentialCipher({
+                keyId: 'fixture',
+                key: new Uint8Array(32).fill(1),
+            }),
+        })
+        expect(
+            await reopenedCredentials.resolvePublisherCredentialSecrets(
+                legacy.project.id,
+                credentialId
+            )
+        ).toMatchObject({
+            accessToken: 'synthetic-preserved-access',
+            refreshToken: 'synthetic-preserved-refresh',
+        })
         expect(store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9002'))
     } finally {
         closeDatabase(database)

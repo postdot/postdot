@@ -25,6 +25,7 @@ import {
     recordDatabaseCommitProject,
     type PostbotDatabase,
 } from './client'
+import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export interface PublisherConnectionDestination {
     readonly type: 'account' | 'member' | 'organization' | 'channel'
@@ -225,6 +226,7 @@ interface PublisherExecutionTargetRow extends Omit<
 
 interface ScheduledPublicationRow {
     readonly id: string
+    readonly projectId: string
     readonly scheduledAt: number
 }
 
@@ -494,13 +496,13 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
     `)
     const listUnqueuedScheduledPublicationsStatement = client.query<
         ScheduledPublicationRow,
-        [projectId: string, channelId: string]
+        [channelId: string]
     >(`
         select publications.id,
+               publications.project_id as projectId,
                publications.scheduled_at as scheduledAt
         from publications
-        where publications.project_id = ?1
-          and publications.channel_id = ?2
+        where publications.channel_id = ?1
           and publications.state = 'scheduled'
           and publications.delivery_mode = 'automatic'
           and publications.review_state = 'compatible'
@@ -514,14 +516,10 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
           )
         order by publications.scheduled_at, publications.id
     `)
-    const loadActiveWorkStatement = client.query<
-        { id: string },
-        [projectId: string, channelId: string]
-    >(`
+    const loadActiveWorkStatement = client.query<{ id: string }, [channelId: string]>(`
         select publications.id
         from publications
-        where publications.project_id = ?1
-          and publications.channel_id = ?2
+        where publications.channel_id = ?1
           and publications.state in ('scheduled', 'ready', 'publishing')
 
         union all
@@ -531,8 +529,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
-        where jobs.project_id = ?1
-          and publications.channel_id = ?2
+        where publications.channel_id = ?1
           and jobs.state in ('pending', 'running')
         limit 1
     `)
@@ -541,8 +538,8 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
         [id: string, projectId: string, channelId: string, kind: string, timestamp: number]
     >(`
         insert into publishers (
-            id, project_id, channel_id, kind, created_at, updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?5)
+            id, workspace_id, channel_id, kind, created_at, updated_at
+        ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?5)
     `)
     const insertConnectionStatement = client.query<
         void,
@@ -562,7 +559,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
     >(`
         insert into publisher_connections (
             id,
-            project_id,
+            workspace_id,
             publisher_id,
             credential_id,
             endpoint_url,
@@ -573,7 +570,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             connected_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
+        ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
     `)
     const insertJobStatement = client.query<
         void,
@@ -613,13 +610,29 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
+    const activeAttachmentStatement = client.query<
+        { found: number },
+        [projectId: string, channelId: string]
+    >(`
+        select 1 as found
+        from project_channel_attachments
+        where project_id = ?1
+          and channel_id = ?2
+          and state = 'active'
+    `)
+    const workspaceActors = createWorkspaceActorStore(database, { now, createId })
     const deletePublisherStatement = client.query<
         { changes: number },
         [projectId: string, publisherId: string]
     >(`
         delete from publishers
-        where project_id = ?1
-          and id = ?2
+        where id = ?2
+          and exists (
+              select 1
+              from project_publisher_contexts as visible
+              where visible.project_id = ?1
+                and visible.id = publishers.id
+          )
     `)
 
     const createPublisherConnectionTransaction = createDatabaseTransaction(
@@ -637,6 +650,18 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                     `Cannot connect a publisher to an ${channelRow.state} channel`
                 )
             }
+            // A detached project keeps historical reads but cannot change the connection.
+            if (
+                activeAttachmentStatement.get(input.projectId, input.channelId) === null ||
+                projectRow.workspaceId === null
+            ) {
+                return { kind: 'not_found' }
+            }
+            const workspaceActor = workspaceActors.ensureFromProjectActor({
+                workspaceId: projectRow.workspaceId,
+                projectActorId: actorRow.id,
+            })
+            if (workspaceActor === null) return { kind: 'not_found' }
 
             const credentialRow = loadCredentialStatement.get(input.projectId, input.credentialId)
             if (credentialRow === null || credentialRow.providerId !== input.kind) {
@@ -718,15 +743,15 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
 
             client
                 .query(
-                    `update channels set destination_identity_json = ?, destination_revision = destination_revision + ? where project_id = ? and id = ?`
+                    `update channels set destination_identity_json = ?, destination_revision = destination_revision + ? where id = ? and exists (select 1 from project_channel_contexts as visible where visible.project_id = ? and visible.id = channels.id)`
                 )
                 .run(
                     JSON.stringify(nextIdentity),
                     previousIdentity !== null && !sameDestination(previousIdentity, nextIdentity)
                         ? 1
                         : 0,
-                    input.projectId,
-                    input.channelId
+                    input.channelId,
+                    input.projectId
                 )
 
             const timestamp = requireTimestamp(now(), 'now')
@@ -761,16 +786,16 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                 connectionSettings.destination?.type ?? null,
                 connectionSettings.destination?.id ?? null,
                 connectionSettings.destination?.name ?? null,
-                actor.id,
+                workspaceActor.id,
                 timestamp
             )
+            // The connection is common: scheduled work in every attached project becomes executable.
             for (const publication of listUnqueuedScheduledPublicationsStatement.all(
-                publisher.projectId,
                 publisher.channelId
             )) {
                 insertJobStatement.run(
                     createId(),
-                    publisher.projectId,
+                    publication.projectId,
                     publication.id,
                     Math.max(publication.scheduledAt, timestamp),
                     timestamp
@@ -804,7 +829,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
                     endpointUrl: connectionSettings.endpointUrl,
                     authentication: connectionSettings.authentication,
                     destination: connectionSettings.destination,
-                    connectedByActorId: actor.id,
+                    connectedByActorId: workspaceActor.id,
                     createdAt: timestamp,
                     updatedAt: timestamp,
                 },
@@ -822,7 +847,7 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             )
             if (actorRow === null || connection === null) return { kind: 'not_found' }
 
-            if (loadActiveWorkStatement.get(input.projectId, input.channelId) !== null) {
+            if (loadActiveWorkStatement.get(input.channelId) !== null) {
                 return { kind: 'active_work' }
             }
 
@@ -831,9 +856,9 @@ export function createPublisherStore(database: PostbotDatabase, options: Publish
             if (identity !== null)
                 client
                     .query(
-                        'update channels set destination_identity_json = coalesce(destination_identity_json, ?) where project_id = ? and id = ?'
+                        'update channels set destination_identity_json = coalesce(destination_identity_json, ?) where id = ? and exists (select 1 from project_channel_contexts as visible where visible.project_id = ? and visible.id = channels.id)'
                     )
-                    .run(JSON.stringify(identity), input.projectId, input.channelId)
+                    .run(JSON.stringify(identity), input.channelId, input.projectId)
             const deleted = deletePublisherStatement.run(input.projectId, connection.publisherId)
             if (deleted.changes < 1) return { kind: 'not_found' }
 

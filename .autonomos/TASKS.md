@@ -9,16 +9,15 @@
 
 Shared-channel development follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
 and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md) under SHARE-592/GitHub #12.
-Sharing remains an accepted target, not delivered functionality. Destination
-confirmation, credential renewal coordination and workspace-scoped attribution are implemented in source.
-Project-context read views are wired through the existing stores (migration 0022).
-The canonical workspace-channel store is tested against the ownership candidate
-under `packages/db/migration-candidates/workspace-channels/` (0023), but is not yet
-wired to HTTP or the default schema. Common-resource writers, credential execution
-scope, live authorization adapters and lifecycle integration must precede activation.
-Channels in source and alpha.2 remain project-owned until
-the migration and complete workflow are validated.
-
+Destination confirmation, credential renewal coordination and workspace-scoped
+attribution are implemented in source. Migration 0023 now converts channel,
+profile, publisher, connection and credential ownership to the workspace with
+explicit project attachments, and the existing stores write the converted schema;
+it is registered in the source chain but unreleased (alpha.2 channels remain
+project-owned). Sharing is not delivered: the HTTP/CLI/Studio workflows, live
+authorization adapters for attach/withdraw/transfer, credential execution scope for
+detached admitted effects, cadence and lifecycle integration remain, and a release
+still needs the grouped upgrade/restore acceptance.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)

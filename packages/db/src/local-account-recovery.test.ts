@@ -33,19 +33,28 @@ function seedRecoveryFixture(database: ReturnType<typeof createDatabase>): void 
             ('reset-1', 'reset-password:target-token', 'user-1', ${now + 60_000}, ${now}, ${now}),
             ('reset-2', 'reset-password:other-token', 'user-2', ${now + 60_000}, ${now}, ${now});
 
-        INSERT INTO projects (id, name, created_at, updated_at)
-        VALUES ('project-1', 'Preserved project', ${now}, ${now});
+        INSERT INTO organization (id, name, slug, created_at)
+        VALUES ('organization-1', 'Workspace', 'workspace', ${now});
+
+        INSERT INTO workspaces (id, organization_id, name, slug, created_at, updated_at)
+        VALUES ('workspace-1', 'organization-1', 'Workspace', 'workspace', ${now}, ${now});
+
+        INSERT INTO projects (id, name, workspace_id, created_at, updated_at)
+        VALUES ('project-1', 'Preserved project', 'workspace-1', ${now}, ${now});
 
         INSERT INTO actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
         VALUES ('actor-1', 'project-1', 'human', 'user-1', 'Recovery Operator', ${now}, ${now});
 
+        INSERT INTO actors (id, workspace_id, origin_actor_id, kind, subject_id, display_name, created_at, updated_at)
+        VALUES ('workspace-actor-1', 'workspace-1', 'actor-1', 'human', 'user-1', 'Recovery Operator', ${now}, ${now});
+
         INSERT INTO publisher_credentials (
-            id, project_id, provider_id, external_account_id, scopes, state,
+            id, workspace_id, provider_id, external_account_id, scopes, state,
             connected_by_actor_id, encryption_version, encryption_key_id,
             access_token_ciphertext, access_token_nonce, revision, created_at, updated_at
         ) VALUES (
-            'publisher-credential-1', 'project-1', 'bluesky', 'did:plc:preserved', '[]', 'active',
-            'actor-1', 1, 'publisher-key-v1', zeroblob(32), zeroblob(12), 1, ${now}, ${now}
+            'publisher-credential-1', 'workspace-1', 'bluesky', 'did:plc:preserved', '[]', 'active',
+            'workspace-actor-1', 1, 'publisher-key-v1', zeroblob(32), zeroblob(12), 1, ${now}, ${now}
         );
 
         INSERT INTO apikey (id, reference_id, key, created_at, updated_at)

@@ -74,6 +74,7 @@ export type ChannelLifecycleBlocker =
     | 'publications'
     | 'publisher'
     | 'must_be_archived'
+    | 'shared'
 
 type UntypedBoundaryPath =
     | `/api/auth/${string}`
@@ -1318,6 +1319,7 @@ function channelLifecycleBlockerLabel(blocker: string): string {
     if (blocker === 'publications') return m.api_blocker_publications()
     if (blocker === 'publisher') return m.api_blocker_publisher()
     if (blocker === 'must_be_archived') return m.api_blocker_must_be_archived()
+    if (blocker === 'shared') return m.api_blocker_shared()
     return m.api_validation_issue({ code: blocker })
 }
 

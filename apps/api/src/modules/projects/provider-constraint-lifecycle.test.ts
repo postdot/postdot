@@ -59,7 +59,9 @@ function fixture() {
         profile: limitedProfile(500),
     })!
     database.$client
-        .query("insert into publishers (id,project_id,channel_id,kind) values (?,?,?,'linkedin')")
+        .query(
+            "insert into publishers (id,workspace_id,channel_id,kind) values (?,(select workspace_id from projects where id = ?),?,'linkedin')"
+        )
         .run('publisher', project.id, channel.id)
     const actorId = workflow.ensureSystemActor(project.id, now)!
     let sequence = 0

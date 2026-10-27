@@ -965,4 +965,13 @@ CREATE VIEW project_publisher_connection_contexts AS
 --> statement-breakpoint
 CREATE VIEW project_publisher_credential_contexts AS
  SELECT p.id AS project_id,c.* FROM projects p JOIN publisher_credentials c ON c.workspace_id=p.workspace_id
- WHERE EXISTS(SELECT 1 FROM publisher_connections connection JOIN publishers publisher ON publisher.workspace_id=connection.workspace_id AND publisher.id=connection.publisher_id JOIN project_channel_attachments a ON a.workspace_id=publisher.workspace_id AND a.channel_id=publisher.channel_id WHERE a.project_id=p.id AND connection.credential_id=c.id);
+ WHERE EXISTS(SELECT 1 FROM publisher_connections connection JOIN publishers publisher ON publisher.workspace_id=connection.workspace_id AND publisher.id=connection.publisher_id JOIN project_channel_attachments a ON a.workspace_id=publisher.workspace_id AND a.channel_id=publisher.channel_id WHERE a.project_id=p.id AND connection.credential_id=c.id)
+ -- A credential not yet connected to any destination is staged by the project whose flow created it
+ -- (provenance, not authorization: the caller's live project access is still checked above this layer).
+ OR (NOT EXISTS(SELECT 1 FROM publisher_connections unconnected WHERE unconnected.credential_id=c.id)
+ AND EXISTS(SELECT 1 FROM actors staged JOIN actors origin ON origin.id=staged.origin_actor_id WHERE staged.workspace_id=c.workspace_id AND staged.id=c.connected_by_actor_id AND origin.project_id=p.id));
+--> statement-breakpoint
+CREATE VIEW project_active_publisher_credential_contexts AS
+ SELECT c.* FROM project_publisher_credential_contexts c
+ WHERE EXISTS(SELECT 1 FROM publisher_connections connection JOIN publishers publisher ON publisher.workspace_id=connection.workspace_id AND publisher.id=connection.publisher_id JOIN project_channel_attachments a ON a.workspace_id=publisher.workspace_id AND a.channel_id=publisher.channel_id WHERE a.project_id=c.project_id AND a.state='active' AND connection.credential_id=c.id)
+ OR NOT EXISTS(SELECT 1 FROM publisher_connections unconnected WHERE unconnected.credential_id=c.id);

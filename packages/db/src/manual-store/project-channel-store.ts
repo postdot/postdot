@@ -1,8 +1,5 @@
 import {
-    ChannelProfileCompiler,
     createActor,
-    createChannel,
-    createManualChannelProfile,
     createProject,
     requireNonBlank,
     requireProjectTimeZone,
@@ -18,8 +15,9 @@ import {
     recordDatabaseCommitProject,
     type PostbotDatabase,
 } from '../client'
-import { normalizeCreationProfile } from './channel-profile-definition'
-import { invalidProfileError, parseProfile } from './content-codec'
+import { createWorkspaceActorStore } from '../workspace-actor-store'
+import { createWorkspaceChannelStore } from '../workspace-channel-store'
+import { parseProfile } from './content-codec'
 import { toChannel, toProject } from './project-channel-mappers'
 import type { ActorRow, ChannelRow, ProjectRow } from './rows'
 
@@ -68,7 +66,6 @@ export function createProjectChannelStore(
     options: ProjectChannelStoreOptions
 ) {
     const client = database.$client
-    const profileCompiler = new ChannelProfileCompiler()
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
         select id,
@@ -181,66 +178,6 @@ export function createProjectChannelStore(
     >(`
         insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
         values (?1, ?2, ?3, ?4, ?5, ?6, ?6)
-    `)
-    const insertChannelStatement = client.query<
-        void,
-        [
-            id: string,
-            projectId: string,
-            name: string,
-            profileVersionId: string,
-            state: Channel['state'],
-            archivedAt: number | null,
-            revision: number,
-            now: number,
-        ]
-    >(`
-        insert into channels (
-            id,
-            project_id,
-            name,
-            profile_version_id,
-            state,
-            archived_at,
-            revision,
-            created_at,
-            updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
-    `)
-    const insertProfileStatement = client.query<
-        void,
-        [
-            id: string,
-            projectId: string,
-            channelId: string,
-            profileId: string,
-            version: number,
-            origin: ChannelProfileDefinition['origin'],
-            state: 'active',
-            revision: number,
-            profileJson: string,
-            profileHash: string,
-            schemaHash: string,
-            actorId: string,
-            now: number,
-        ]
-    >(`
-        insert into channel_profile_versions (
-            id,
-            project_id,
-            channel_id,
-            profile_id,
-            version,
-            origin,
-            state,
-            revision,
-            profile_json,
-            profile_hash,
-            schema_hash,
-            created_by_actor_id,
-            created_at,
-            updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
     `)
     const insertAuditEventStatement = client.query<
         void,
@@ -365,71 +302,51 @@ export function createProjectChannelStore(
         }
     )
 
+    const workspaceActors = createWorkspaceActorStore(database, options)
+    const workspaceChannels = createWorkspaceChannelStore(database, options)
     const createChannelTransaction = createDatabaseTransaction(
         database,
         (input: CreateChannelInput): Channel | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const projectRow = loadProjectStatement.get(input.projectId)
-            if (actor === null || projectRow === null) return null
-
-            const timestamp = requireTimestamp(options.now(), 'now')
-            const project = toProject(projectRow)
-            const profileResult = profileCompiler.compile(
-                normalizeCreationProfile(input.profile ?? createManualChannelProfile())
-            )
-            if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
-            const profile = profileResult.value.profile
-            const profileVersionId = options.createId()
-            const channel = createChannel({
-                id: options.createId(),
-                project,
-                name: input.name,
-                profileId: profile.id,
-                profileVersionId,
-                now: timestamp,
+            if (actor === null || projectRow === null || projectRow.workspaceId === null)
+                return null
+            const attribution = workspaceActors.ensureFromProjectActor({
+                workspaceId: projectRow.workspaceId,
+                projectActorId: actor.id,
             })
+            if (attribution === null) return null
 
-            insertChannelStatement.run(
-                channel.id,
-                project.id,
-                channel.name,
-                channel.profileVersionId,
-                channel.state,
-                channel.archivedAt,
-                channel.revision,
-                timestamp
+            // The caller already authenticated the project actor; this port only admits that project.
+            const created = workspaceChannels.create(
+                {
+                    actorId: attribution.id,
+                    contextProjectId: projectRow.id,
+                    authorization: {
+                        authorizeProject: (projectId, action) =>
+                            projectId === projectRow.id && action === 'create_channels',
+                        authorizeWorkspace: () => false,
+                        authorizeSharing: () => false,
+                    },
+                },
+                { projectId: input.projectId, name: input.name, profile: input.profile }
             )
-            insertProfileStatement.run(
-                profileVersionId,
-                project.id,
-                channel.id,
-                profile.id,
-                profile.version,
-                profile.origin,
-                'active',
-                1,
-                JSON.stringify(profile),
-                profile.profileHash,
-                profile.schemaHash,
-                actor.id,
-                timestamp
-            )
-            recordDatabaseCommitProject(database, project.id)
+            if (created.kind !== 'created') return null
+
+            const channel = toChannel({ ...created.channel, projectId: projectRow.id })
             insertAuditEventStatement.run(
                 options.createId(),
-                project.id,
+                projectRow.id,
                 actor.id,
                 'channel.created',
                 'channel',
                 channel.id,
                 JSON.stringify({
                     name: channel.name,
-                    profileId: profile.id,
-                    profileVersion: profile.version,
+                    profileId: channel.profileId,
                 }),
-                timestamp
+                channel.createdAt
             )
-
             return channel
         }
     )

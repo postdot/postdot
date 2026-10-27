@@ -19,8 +19,14 @@ export function createSearchStore(database: PostbotDatabase) {
             const needle = query.trim()
             const results: SearchResult[] = []
             for (const kind of ['project', 'channel', 'post'] as const) {
+                // Channels are workspace-owned; a project searches the ones it actively uses.
                 const table =
-                    kind === 'project' ? 'projects' : kind === 'channel' ? 'channels' : 'posts'
+                    kind === 'project'
+                        ? 'projects'
+                        : kind === 'channel'
+                          ? 'project_channel_contexts'
+                          : 'posts'
+                const active = kind === 'channel' ? "and item.attachment_state = 'active'" : ''
                 const title =
                     kind === 'post'
                         ? "coalesce(json_extract(item.source_content, '$.headline'), item.title, '')"
@@ -42,7 +48,7 @@ export function createSearchStore(database: PostbotDatabase) {
                     select item.id, ${projectColumn} as projectId, ${projectName} as projectName,
                            ${title} as title, substr(${body}, 1, 180) as description
                     from ${table} item ${join}
-                    where ${projectColumn} in (${parameters})
+                    where ${projectColumn} in (${parameters}) ${active}
                       and (instr(lower(${matchingTitle}), lower(?)) > 0 or instr(lower(${body}), lower(?)) > 0)
                     order by item.updated_at desc, item.id asc limit 10
                 `)

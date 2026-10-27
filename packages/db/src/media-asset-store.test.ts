@@ -11,6 +11,7 @@ import { createManualStore } from './manual-store'
 import { createMediaAssetStore, type MediaAssetStoreOptions } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { actors, posts, projects } from './schema'
+import { seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 
@@ -38,7 +39,11 @@ function seedProject(database: ReturnType<typeof createDatabase>, suffix: string
     const actorId = `actor-${suffix}`
     database
         .insert(projects)
-        .values({ id: projectId, name: `Project ${suffix}` })
+        .values({
+            id: projectId,
+            name: `Project ${suffix}`,
+            workspaceId: seedTestWorkspace(database),
+        })
         .run()
     database
         .insert(actors)

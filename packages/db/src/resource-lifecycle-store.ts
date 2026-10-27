@@ -68,12 +68,10 @@ export function createResourceLifecycleStore(database: PostbotDatabase) {
         let changedAt = 0
         for (const project of items) {
             for (const table of [
-                'channels',
                 'posts',
                 'publication_composer_drafts',
                 'publications',
                 'media_assets',
-                'publishers',
                 'audit_events',
                 'project_user_grants',
                 'project_team_grants',
@@ -82,6 +80,19 @@ export function createResourceLifecycleStore(database: PostbotDatabase) {
                     (totals[table] ?? 0) +
                     count(`select count(*) as n from ${table} where project_id = ?`, project.id)
             }
+            // Channel resources are workspace-owned; a project uses them through active attachments.
+            totals.channels =
+                (totals.channels ?? 0) +
+                count(
+                    "select count(*) as n from project_channel_attachments where project_id = ? and state = 'active'",
+                    project.id
+                )
+            totals.publishers =
+                (totals.publishers ?? 0) +
+                count(
+                    'select count(*) as n from project_channel_publishers where project_id = ?',
+                    project.id
+                )
             totals.mediaBytes =
                 (totals.mediaBytes ?? 0) +
                 count(
@@ -127,6 +138,12 @@ export function createResourceLifecycleStore(database: PostbotDatabase) {
                   )
                 : 0
         if (kind === 'workspace') {
+            // Shared channels are one resource, not one per attached project.
+            totals.channels = count('select count(*) as n from channels where workspace_id = ?', id)
+            totals.publishers = count(
+                'select count(*) as n from publishers where workspace_id = ?',
+                id
+            )
             totals.workspaceMembers = members
             totals.workspaceGroups = count(
                 'select count(*) as n from team where organization_id = (select organization_id from workspaces where id = ?)',

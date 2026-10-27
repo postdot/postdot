@@ -20,6 +20,7 @@ import type {
     ChannelProfileVersion,
     CreateChannelProfileDraftInput,
 } from '../manual-store'
+import { createWorkspaceActorStore } from '../workspace-actor-store'
 import {
     assertActiveAndDraftProfiles,
     createChannelProfileReadStore,
@@ -117,6 +118,24 @@ export function createChannelProfileStore(
     })
     const loadDraftProfile = profileReadStore.loadDraftProfile
     const assessChannelProfileImpact = profileReadStore.assessChannelProfileImpact
+    const activeAttachmentStatement = client.query<{ found: number }, [string, string]>(
+        `select 1 as found from project_channel_attachments where project_id = ?1 and channel_id = ?2 and state = 'active'`
+    )
+    const projectWorkspaceStatement = client.query<{ workspaceId: string | null }, [string]>(
+        'select workspace_id as workspaceId from projects where id = ?1'
+    )
+    const workspaceActors = createWorkspaceActorStore(database, {
+        now: options.now,
+        createId: options.createId,
+    })
+    const workspaceActorId = (projectId: string, projectActorId: string) => {
+        const workspaceId = projectWorkspaceStatement.get(projectId)?.workspaceId
+        const actor = workspaceId
+            ? workspaceActors.ensureFromProjectActor({ workspaceId, projectActorId })
+            : null
+        if (actor === null) throw new Error('Project actor has no workspace attribution')
+        return actor.id
+    }
     const insertProfileStatement = client.query<
         void,
         [
@@ -137,7 +156,7 @@ export function createChannelProfileStore(
     >(`
         insert into channel_profile_versions (
             id,
-            project_id,
+            workspace_id,
             channel_id,
             profile_id,
             version,
@@ -150,7 +169,7 @@ export function createChannelProfileStore(
             created_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
+        ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
     `)
     const updateProfileDraftStatement = client.query<
         { changes: number },
@@ -171,11 +190,16 @@ export function createChannelProfileStore(
             schema_hash = ?3,
             revision = revision + 1,
             updated_at = ?4
-        where project_id = ?5
-          and channel_id = ?6
+        where channel_id = ?6
           and id = ?7
           and state = 'draft'
           and revision = ?8
+          and exists (
+              select 1
+              from project_channel_profile_contexts as visible
+              where visible.project_id = ?5
+                and visible.id = channel_profile_versions.id
+          )
     `)
     const updateProfileStateStatement = client.query<
         { changes: number },
@@ -189,8 +213,13 @@ export function createChannelProfileStore(
         update channel_profile_versions
         set state = ?1,
             updated_at = ?2
-        where project_id = ?3
-          and id = ?4
+        where id = ?4
+          and exists (
+              select 1
+              from project_channel_profile_contexts as visible
+              where visible.project_id = ?3
+                and visible.id = channel_profile_versions.id
+          )
     `)
     const updateChannelProfileStatement = client.query<
         { changes: number },
@@ -205,9 +234,14 @@ export function createChannelProfileStore(
         update channels
         set profile_version_id = ?1,
             updated_at = ?2
-        where project_id = ?3
-          and id = ?4
+        where id = ?4
           and profile_version_id = ?5
+          and exists (
+              select 1
+              from project_channel_contexts as visible
+              where visible.project_id = ?3
+                and visible.id = channels.id
+          )
     `)
 
     const createChannelProfileDraftTransaction = createDatabaseTransaction(
@@ -216,6 +250,8 @@ export function createChannelProfileStore(
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
+            if (activeAttachmentStatement.get(input.projectId, input.channelId) === null)
+                return null
             if (channelRow.state !== 'active') {
                 throw new DomainInvariantError(
                     'invalid_transition',
@@ -307,7 +343,7 @@ export function createChannelProfileStore(
                 JSON.stringify(profile),
                 profile.profileHash,
                 profile.schemaHash,
-                actor.id,
+                workspaceActorId(input.projectId, actor.id),
                 timestamp
             )
             options.insertAuditEvent({
@@ -339,6 +375,8 @@ export function createChannelProfileStore(
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
+            if (activeAttachmentStatement.get(input.projectId, input.channelId) === null)
+                return null
             if (channelRow.state !== 'active') {
                 throw new DomainInvariantError(
                     'invalid_transition',

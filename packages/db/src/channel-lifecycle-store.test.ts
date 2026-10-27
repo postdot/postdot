@@ -4,7 +4,7 @@ import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { publishers } from './schema'
-import { seedTestWorkspace } from './testing'
+import { seedTestWorkspace, workspaceOf } from './testing'
 
 const now = 1_800_000_000_000
 
@@ -172,7 +172,7 @@ describe('channel lifecycle store', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-1',
-                    projectId: fixture.project.project.id,
+                    workspaceId: workspaceOf(fixture.database, fixture.project.project.id),
                     channelId: fixture.channel.id,
                     kind: 'manual',
                 })
@@ -188,8 +188,8 @@ describe('channel lifecycle store', () => {
             ).toEqual({ kind: 'blocked', blockers: ['publisher'] })
 
             fixture.database.$client
-                .query('delete from publishers where project_id = ?1 and id = ?2')
-                .run(fixture.project.project.id, 'publisher-1')
+                .query('delete from publishers where id = ?1')
+                .run('publisher-1')
             expect(
                 fixture.store.deleteChannel({
                     projectId: fixture.project.project.id,

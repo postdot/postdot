@@ -4,8 +4,6 @@ import { join } from 'node:path'
 
 import {
     actors,
-    channelProfileVersions,
-    channels,
     closeDatabase,
     createAnalyticsStore,
     createDatabase,
@@ -13,6 +11,7 @@ import {
     projects,
     runMigrations,
 } from '../packages/db/src'
+import { seedTestWorkspace, seedWorkspaceChannel } from '../packages/db/src/testing'
 
 const benchmarkBaseTime = 1_800_000_000_000
 const benchmarkScales = [1_000, 5_000, 20_000]
@@ -173,6 +172,7 @@ function seedDatabase(databasePath: string, publicationCount: number): Benchmark
                 id: projectId,
                 name: 'Analytics benchmark project',
                 timeZone: 'UTC',
+                workspaceId: seedTestWorkspace(database),
                 createdAt: from,
                 updatedAt: from,
             })
@@ -189,47 +189,19 @@ function seedDatabase(databasePath: string, publicationCount: number): Benchmark
                 updatedAt: from,
             })
             .run()
-        database.$client.run('PRAGMA foreign_keys = OFF')
-        try {
-            database
-                .insert(channelProfileVersions)
-                .values({
-                    id: profileVersionId,
-                    projectId,
-                    channelId,
-                    profileId: benchmarkProfile.id,
-                    version: benchmarkProfile.version,
-                    origin: benchmarkProfile.origin,
-                    state: 'active',
-                    profileJson: benchmarkProfile,
-                    profileHash: benchmarkProfile.profileHash,
-                    schemaHash: benchmarkProfile.schemaHash,
-                    createdByActorId: actorId,
-                    createdAt: from,
-                    updatedAt: from,
-                })
-                .run()
-            database
-                .insert(channels)
-                .values({
-                    id: channelId,
-                    projectId,
-                    name: 'Analytics benchmark channel',
-                    profileVersionId,
-                    state: 'active',
-                    revision: 1,
-                    createdAt: from,
-                    updatedAt: from,
-                })
-                .run()
-        } finally {
-            database.$client.run('PRAGMA foreign_keys = ON')
-        }
+        const owned = seedWorkspaceChannel(database, {
+            projectId,
+            channelId,
+            name: 'Analytics benchmark channel',
+            profileVersionId,
+            profile: benchmarkProfile,
+            createdByActorId: actorId,
+        })
         database
             .insert(publishers)
             .values({
                 id: publisherId,
-                projectId,
+                workspaceId: owned.workspaceId,
                 channelId,
                 kind: 'benchmark-provider',
                 createdAt: from,

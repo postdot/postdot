@@ -19,6 +19,7 @@ export const channelLifecycleBlockerCodes = [
     'publications',
     'publisher',
     'must_be_archived',
+    'shared',
 ] as const
 
 export type ChannelLifecycleBlockerCode = (typeof channelLifecycleBlockerCodes)[number]
@@ -117,8 +118,7 @@ export function createChannelLifecycleStore(
     >(`
         select 1 as found
         from publications
-        where project_id = ?1
-          and channel_id = ?2
+        where channel_id = ?2
           and state in ('scheduled', 'ready', 'publishing', 'ambiguous')
         union all
         select 1 as found
@@ -126,8 +126,7 @@ export function createChannelLifecycleStore(
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
-        where jobs.project_id = ?1
-          and publications.channel_id = ?2
+        where publications.channel_id = ?2
           and jobs.state in ('pending', 'running')
         limit 1
     `)
@@ -137,8 +136,7 @@ export function createChannelLifecycleStore(
     >(`
         select 1 as found
         from oauth_authorization_attempts
-        where project_id = ?1
-          and channel_id = ?2
+        where channel_id = ?2
           and status = 'pending'
         limit 1
     `)
@@ -148,8 +146,7 @@ export function createChannelLifecycleStore(
     >(`
         select 1 as found
         from publications
-        where project_id = ?1
-          and channel_id = ?2
+        where channel_id = ?2
         limit 1
     `)
     const loadPublisherReferenceStatement = client.query<
@@ -162,6 +159,16 @@ export function createChannelLifecycleStore(
           and channel_id = ?2
         limit 1
     `)
+    const loadOtherAttachmentStatement = client.query<
+        { readonly found: number },
+        [projectId: string, channelId: string]
+    >(`
+        select 1 as found
+        from project_channel_attachments
+        where channel_id = ?2
+          and project_id <> ?1
+        limit 1
+    `)
     const renameChannelStatement = client.query<
         { readonly changes: number },
         [name: string, updatedAt: number, projectId: string, channelId: string, revision: number]
@@ -170,9 +177,15 @@ export function createChannelLifecycleStore(
         set name = ?1,
             updated_at = ?2,
             revision = revision + 1
-        where project_id = ?3
-          and id = ?4
+        where id = ?4
           and revision = ?5
+          and exists (
+              select 1
+              from project_channel_contexts as visible
+              where visible.project_id = ?3
+                and visible.id = channels.id
+                and visible.attachment_state = 'active'
+          )
     `)
     const archiveChannelStatement = client.query<
         { readonly changes: number },
@@ -183,10 +196,16 @@ export function createChannelLifecycleStore(
             archived_at = ?1,
             updated_at = ?1,
             revision = revision + 1
-        where project_id = ?2
-          and id = ?3
+        where id = ?3
           and state = 'active'
           and revision = ?4
+          and exists (
+              select 1
+              from project_channel_contexts as visible
+              where visible.project_id = ?2
+                and visible.id = channels.id
+                and visible.attachment_state = 'active'
+          )
     `)
     const restoreChannelStatement = client.query<
         { readonly changes: number },
@@ -197,20 +216,38 @@ export function createChannelLifecycleStore(
             archived_at = null,
             updated_at = ?1,
             revision = revision + 1
-        where project_id = ?2
-          and id = ?3
+        where id = ?3
           and state = 'archived'
           and revision = ?4
+          and exists (
+              select 1
+              from project_channel_contexts as visible
+              where visible.project_id = ?2
+                and visible.id = channels.id
+                and visible.attachment_state = 'active'
+          )
     `)
     const deleteChannelStatement = client.query<
         { readonly changes: number },
         [projectId: string, channelId: string, revision: number]
     >(`
         delete from channels
-        where project_id = ?1
-          and id = ?2
+        where id = ?2
           and state = 'archived'
           and revision = ?3
+          and exists (
+              select 1
+              from project_channel_contexts as visible
+              where visible.project_id = ?1
+                and visible.id = channels.id
+                and visible.attachment_state = 'active'
+          )
+          and not exists (
+              select 1
+              from project_channel_attachments as other
+              where other.channel_id = channels.id
+                and other.project_id <> ?1
+          )
     `)
     const insertAuditEventStatement = client.query<
         void,
@@ -390,6 +427,9 @@ export function createChannelLifecycleStore(
             }
             if (loadPendingAuthorizationStatement.get(input.projectId, input.channelId) !== null) {
                 blockers.push('pending_authorization')
+            }
+            if (loadOtherAttachmentStatement.get(input.projectId, input.channelId) !== null) {
+                blockers.push('shared')
             }
             if (blockers.length > 0) return { kind: 'blocked', blockers }
 

@@ -8,8 +8,6 @@ import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
     actors,
-    channels,
-    channelProfileVersions,
     jobs,
     mediaAssets,
     mediaRepresentations,
@@ -21,6 +19,7 @@ import {
     publisherCredentials,
     publishers,
 } from './schema'
+import { seedTestWorkspace, seedWorkspaceChannel, workspaceOf } from './testing'
 
 function seedProject(database: PostbotDatabase, suffix: string) {
     const projectId = `project-${suffix}`
@@ -32,7 +31,11 @@ function seedProject(database: PostbotDatabase, suffix: string) {
 
     database
         .insert(projects)
-        .values({ id: projectId, name: `Project ${suffix}` })
+        .values({
+            id: projectId,
+            name: `Project ${suffix}`,
+            workspaceId: seedTestWorkspace(database, `workspace-${suffix}`),
+        })
         .run()
     database
         .insert(actors)
@@ -43,26 +46,14 @@ function seedProject(database: PostbotDatabase, suffix: string) {
             displayName: `Editor ${suffix}`,
         })
         .run()
-    database
-        .insert(channels)
-        .values({ id: channelId, projectId, name: `Channel ${suffix}`, profileVersionId })
-        .run()
-    database
-        .insert(channelProfileVersions)
-        .values({
-            id: profileVersionId,
-            projectId,
-            channelId,
-            profileId: profile.id,
-            version: profile.version,
-            origin: profile.origin,
-            state: 'active',
-            profileJson: profile,
-            profileHash: profile.profileHash,
-            schemaHash: profile.schemaHash,
-            createdByActorId: actorId,
-        })
-        .run()
+    const owned = seedWorkspaceChannel(database, {
+        projectId,
+        channelId: channelId,
+        name: `Channel ${suffix}`,
+        profileVersionId,
+        profile: profile,
+        createdByActorId: actorId,
+    })
     database
         .insert(posts)
         .values({
@@ -77,7 +68,7 @@ function seedProject(database: PostbotDatabase, suffix: string) {
         })
         .run()
 
-    return { projectId, actorId, channelId, postId }
+    return { projectId, actorId, channelId, postId, ...owned }
 }
 
 describe('domain schema', () => {
@@ -169,7 +160,7 @@ describe('domain schema', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-one',
-                    projectId: fixture.projectId,
+                    workspaceId: workspaceOf(database, fixture.projectId),
                     channelId: fixture.channelId,
                     kind: 'mastodon',
                 })
@@ -180,7 +171,7 @@ describe('domain schema', () => {
                     .insert(publishers)
                     .values({
                         id: 'publisher-two',
-                        projectId: fixture.projectId,
+                        workspaceId: workspaceOf(database, fixture.projectId),
                         channelId: fixture.channelId,
                         kind: 'bluesky',
                     })
@@ -265,12 +256,12 @@ describe('domain schema', () => {
             const first = seedProject(database, 'credential-first')
             const second = seedProject(database, 'credential-second')
             const activeCredential = {
-                projectId: first.projectId,
+                workspaceId: first.workspaceId,
                 providerId: 'linkedin',
                 externalAccountId: 'member-1',
                 scopes: [],
                 state: 'active' as const,
-                connectedByActorId: first.actorId,
+                connectedByActorId: first.workspaceActorId,
                 encryptionVersion: 1,
                 encryptionKeyId: 'primary',
                 accessTokenCiphertext: Buffer.alloc(17, 1),
@@ -302,7 +293,7 @@ describe('domain schema', () => {
                     .values({
                         ...activeCredential,
                         id: 'cross-project-actor',
-                        connectedByActorId: second.actorId,
+                        connectedByActorId: second.workspaceActorId,
                         accessTokenNonce: Buffer.alloc(12, 2),
                     })
                     .run()

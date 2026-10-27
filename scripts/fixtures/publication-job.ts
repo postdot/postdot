@@ -1,8 +1,6 @@
 import { createExponentialRetryPolicy, processNextWorkflowEvent } from '../../packages/core/src'
 import {
     actors,
-    channelProfileVersions,
-    channels,
     closeDatabase,
     createDatabase,
     createWorkflowStore,
@@ -14,6 +12,7 @@ import {
     publishers,
     runMigrations,
 } from '../../packages/db/src'
+import { seedTestWorkspace, seedWorkspaceChannel } from '../../packages/db/src/testing'
 
 const databaseFilename = Bun.env.PUBLICATION_JOB_DB
 if (!databaseFilename) throw new Error('PUBLICATION_JOB_DB is required')
@@ -54,7 +53,14 @@ const database = createDatabase(databaseFilename)
 
 try {
     runMigrations(database, migrationsFolder)
-    database.insert(projects).values({ id: 'project', name: 'Footprint project' }).run()
+    database
+        .insert(projects)
+        .values({
+            id: 'project',
+            name: 'Footprint project',
+            workspaceId: seedTestWorkspace(database),
+        })
+        .run()
     database
         .insert(actors)
         .values([
@@ -72,36 +78,19 @@ try {
             },
         ])
         .run()
-    database
-        .insert(channels)
-        .values({
-            id: 'channel',
-            projectId: 'project',
-            name: 'Footprint channel',
-            profileVersionId,
-        })
-        .run()
-    database
-        .insert(channelProfileVersions)
-        .values({
-            id: profileVersionId,
-            projectId: 'project',
-            channelId: 'channel',
-            profileId: fixtureProfile.id,
-            version: fixtureProfile.version,
-            origin: fixtureProfile.origin,
-            state: 'active',
-            profileJson: fixtureProfile,
-            profileHash: fixtureProfile.profileHash,
-            schemaHash: fixtureProfile.schemaHash,
-            createdByActorId: 'human',
-        })
-        .run()
+    const owned = seedWorkspaceChannel(database, {
+        projectId: 'project',
+        channelId: 'channel',
+        name: 'Footprint channel',
+        profileVersionId,
+        profile: fixtureProfile,
+        createdByActorId: 'human',
+    })
     database
         .insert(publishers)
         .values({
             id: 'publisher',
-            projectId: 'project',
+            workspaceId: owned.workspaceId,
             channelId: 'channel',
             kind: 'fixture',
         })

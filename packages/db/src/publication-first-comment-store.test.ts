@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import type { ChannelProfileDefinition } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
 import { createMastodonCommentPolicy } from '../../../apps/api/src/providers/mastodon/comment-policy'
@@ -27,6 +28,12 @@ import {
     publisherCredentials,
     publishers,
 } from './schema'
+import {
+    seedTestWorkspace,
+    seedWorkspaceChannel,
+    seedWorkspaceMember,
+    workspaceOf,
+} from './testing'
 
 const now = 1_800_000_000_000
 const accountDid = 'did:plc:bluesky-operator'
@@ -133,6 +140,7 @@ interface Fixture {
     readonly projectId: string
     readonly editorSubjectId: string
     readonly editorActorId: string
+    readonly workspaceActorId: string
     readonly otherEditorSubjectId: string
     readonly otherEditorActorId: string
     readonly viewerSubjectId: string
@@ -157,6 +165,80 @@ function seedAccess(
         .insert(projectUserGrants)
         .values({ id: `grant:${projectId}:${subjectId}`, projectId, userId: subjectId, role })
         .run()
+}
+
+function seedHistoricalProjectResources(
+    database: Fixture['database'],
+    input: {
+        readonly projectId: string
+        readonly suffix: string
+        readonly provider: 'bluesky' | 'mastodon'
+        readonly channelId: string
+        readonly profileVersionId: string
+        readonly profile: ChannelProfileDefinition
+        readonly editorActorId: string
+        readonly credentialId: string
+        readonly connectionId: string
+        readonly accountId: string
+        readonly endpointUrl: string | null
+    }
+): { readonly workspaceId: string; readonly workspaceActorId: string } {
+    const client = database.$client
+    // The upgrade refuses projects that never had a workspace, so the historical project has one.
+    const workspaceId = seedTestWorkspace(database)
+    client
+        .query('update projects set workspace_id = ? where id = ?')
+        .run(workspaceId, input.projectId)
+    client
+        .query('insert into channels (id,project_id,name,profile_version_id) values (?,?,?,?)')
+        .run(input.channelId, input.projectId, `${input.provider} channel`, input.profileVersionId)
+    client
+        .query(`insert into channel_profile_versions
+            (id,project_id,channel_id,profile_id,version,origin,state,profile_json,profile_hash,schema_hash,created_by_actor_id)
+            values (?,?,?,?,?,?,'active',?,?,?,?)`)
+        .run(
+            input.profileVersionId,
+            input.projectId,
+            input.channelId,
+            input.profile.id,
+            input.profile.version,
+            input.profile.origin,
+            JSON.stringify(input.profile),
+            input.profile.profileHash,
+            input.profile.schemaHash,
+            input.editorActorId
+        )
+    client
+        .query('insert into publishers (id,project_id,channel_id,kind) values (?,?,?,?)')
+        .run(`publisher-${input.suffix}`, input.projectId, input.channelId, input.provider)
+    client
+        .query(`insert into publisher_credentials
+            (id,project_id,provider_id,external_account_id,external_account_name,scopes,state,connected_by_actor_id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce)
+            values (?,?,?,?,?,?,'active',?,1,'first-comment-test-key',?,?)`)
+        .run(
+            input.credentialId,
+            input.projectId,
+            input.provider,
+            input.accountId,
+            `${input.provider} operator`,
+            input.provider === 'bluesky' ? '["atproto"]' : '["read:accounts","write:statuses"]',
+            input.editorActorId,
+            Buffer.alloc(24, 3),
+            Buffer.alloc(12, 4)
+        )
+    client
+        .query(`insert into publisher_connections
+            (id,project_id,publisher_id,credential_id,endpoint_url,connected_by_actor_id)
+            values (?,?,?,?,?,?)`)
+        .run(
+            input.connectionId,
+            input.projectId,
+            `publisher-${input.suffix}`,
+            input.credentialId,
+            input.endpointUrl,
+            input.editorActorId
+        )
+    return { workspaceId, workspaceActorId: input.editorActorId }
 }
 
 function createFixture(
@@ -231,62 +313,76 @@ function createFixture(
     ])
         insertActor.run(id!, projectId, subjectId!, displayName!)
     const profile = provider === 'bluesky' ? blueskyProfile : mastodonProfile
-    database.$client
-        .query('insert into channels (id,project_id,name,profile_version_id) values (?,?,?,?)')
-        .run(
-            channelId,
-            projectId,
-            provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
-            profileVersionId
-        )
-    database
-        .insert(channelProfileVersions)
-        .values({
-            id: profileVersionId,
-            projectId,
-            channelId,
-            profileId: profile.id,
-            version: profile.version,
-            origin: profile.origin,
-            state: 'active',
-            profileJson: profile,
-            profileHash: profile.profileHash,
-            schemaHash: profile.schemaHash,
-            createdByActorId: editorActorId,
-        })
-        .run()
-    database
-        .insert(publishers)
-        .values({ id: `publisher-${suffix}`, projectId, channelId, kind: provider })
-        .run()
-    database
-        .insert(publisherCredentials)
-        .values({
-            id: credentialId,
-            projectId,
-            providerId: provider,
-            externalAccountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
-            externalAccountName: provider === 'bluesky' ? 'Bluesky Operator' : 'Mastodon Operator',
-            scopes: provider === 'bluesky' ? ['atproto'] : ['read:accounts', 'write:statuses'],
-            state: 'active',
-            connectedByActorId: editorActorId,
-            encryptionVersion: 1,
-            encryptionKeyId: 'first-comment-test-key',
-            accessTokenCiphertext: Buffer.alloc(24, 3),
-            accessTokenNonce: Buffer.alloc(12, 4),
-        })
-        .run()
-    database
-        .insert(publisherConnections)
-        .values({
-            id: connectionId,
-            projectId,
-            publisherId: `publisher-${suffix}`,
-            credentialId,
-            endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
-            connectedByActorId: editorActorId,
-        })
-        .run()
+    // A historical chain (project-owned columns) cannot use today's workspace-owned seeding.
+    const historical = options.migrationsFolder !== undefined
+    const owned = historical
+        ? seedHistoricalProjectResources(database, {
+              projectId,
+              suffix,
+              provider,
+              channelId,
+              profileVersionId,
+              profile,
+              editorActorId,
+              credentialId,
+              connectionId,
+              accountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
+              endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
+          })
+        : (() => {
+              const seeded = seedWorkspaceChannel(database, {
+                  projectId,
+                  channelId,
+                  name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
+                  profileVersionId,
+                  profile,
+                  createdByActorId: editorActorId,
+              })
+              for (const subjectId of [editorSubjectId, otherEditorSubjectId, viewerSubjectId])
+                  seedWorkspaceMember(database, seeded.workspaceId, subjectId)
+              database
+                  .insert(publishers)
+                  .values({
+                      id: `publisher-${suffix}`,
+                      workspaceId: seeded.workspaceId,
+                      channelId,
+                      kind: provider,
+                  })
+                  .run()
+              database
+                  .insert(publisherCredentials)
+                  .values({
+                      id: credentialId,
+                      workspaceId: seeded.workspaceId,
+                      providerId: provider,
+                      externalAccountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
+                      externalAccountName:
+                          provider === 'bluesky' ? 'Bluesky Operator' : 'Mastodon Operator',
+                      scopes:
+                          provider === 'bluesky'
+                              ? ['atproto']
+                              : ['read:accounts', 'write:statuses'],
+                      state: 'active',
+                      connectedByActorId: seeded.workspaceActorId,
+                      encryptionVersion: 1,
+                      encryptionKeyId: 'first-comment-test-key',
+                      accessTokenCiphertext: Buffer.alloc(24, 3),
+                      accessTokenNonce: Buffer.alloc(12, 4),
+                  })
+                  .run()
+              database
+                  .insert(publisherConnections)
+                  .values({
+                      id: connectionId,
+                      workspaceId: seeded.workspaceId,
+                      publisherId: `publisher-${suffix}`,
+                      credentialId,
+                      endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
+                      connectedByActorId: seeded.workspaceActorId,
+                  })
+                  .run()
+              return seeded
+          })()
     database
         .insert(posts)
         .values({
@@ -336,6 +432,7 @@ function createFixture(
         projectId,
         editorSubjectId,
         editorActorId,
+        workspaceActorId: owned.workspaceActorId,
         otherEditorSubjectId,
         otherEditorActorId,
         viewerSubjectId,
@@ -1911,7 +2008,7 @@ describe('publication first comment store (mastodon)', () => {
                 .insert(channelProfileVersions)
                 .values({
                     id: blueskyProfileVersionId,
-                    projectId: fixture.projectId,
+                    workspaceId: workspaceOf(fixture.database, fixture.projectId),
                     channelId: fixture.channelId,
                     profileId: blueskyProfile.id,
                     version: 3,
@@ -1920,7 +2017,7 @@ describe('publication first comment store (mastodon)', () => {
                     profileJson: blueskyProfile,
                     profileHash: blueskyProfile.profileHash,
                     schemaHash: blueskyProfile.schemaHash,
-                    createdByActorId: fixture.editorActorId,
+                    createdByActorId: fixture.workspaceActorId,
                 })
                 .run()
 

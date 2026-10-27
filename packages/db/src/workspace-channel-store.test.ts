@@ -1,5 +1,4 @@
 import { expect, it } from 'bun:test'
-import { fileURLToPath } from 'node:url'
 
 import { closeDatabase, createDatabase, setDatabaseCommitObserver } from './client'
 import { createEventJournalStore } from './event-journal-store'
@@ -11,10 +10,6 @@ import {
     type ChannelAccessPolicy,
     type WorkspaceChannelContext,
 } from './workspace-channel-store'
-
-const candidate = fileURLToPath(
-    new URL('../migration-candidates/workspace-channels', import.meta.url)
-)
 
 function fixture() {
     const database = createDatabase(':memory:')
@@ -64,7 +59,6 @@ function fixture() {
         subjectId: 'operator',
         name: 'Foreign destination',
     })
-    runMigrations(database, candidate)
     const actor = createWorkspaceActorStore(database).ensureFromProjectActor({
         workspaceId: 'workspace',
         projectActorId: source.actor.id,
@@ -159,9 +153,11 @@ it('creates one workspace-owned channel, profile, attachment, manager and attrib
         const events = createEventJournalStore(f.database).readWorkspaceAfter({
             workspaceId: 'workspace',
         })
-        expect(events.map(event => [event.name, event.actorId, event.subject.id])).toEqual([
-            ['channel.created', f.actor.id, f.channel.id],
-        ])
+        expect(
+            events
+                .filter(event => event.subject.id === f.channel.id)
+                .map(event => [event.name, event.actorId, event.subject.id])
+        ).toEqual([['channel.created', f.actor.id, f.channel.id]])
         expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
     } finally {
         closeDatabase(f.database)
