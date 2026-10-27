@@ -717,6 +717,10 @@ export function createPublicationCreationStore(
                 )
             }).immediate()
         },
+        /** Internal same-post creation; callers own source/profile concurrency and authorization. */
+        createPublicationsForPost(input: CreatePostInput, post: Post): CreatedPost | null {
+            return createPostTransaction.immediate(input, post)
+        },
         createPost(input: CreatePostInput): CreatedPost | null {
             return createPostTransaction.immediate({
                 ...input,

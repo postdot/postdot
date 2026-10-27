@@ -3,6 +3,7 @@ import type { AccessStore, PublicationDestinationState } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
+import { apiKeyHasCapability } from './api-key-permissions'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     duePublicationSchema,
@@ -72,6 +73,90 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
         confirmation: Type.String(),
     })
     return app
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/move',
+            {
+                auth: true,
+                params: publicationParams,
+                body: Type.Object({
+                    targetChannelId: Type.String({ minLength: 1 }),
+                    deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
+                    expectedPublicationUpdatedAt: Type.Integer({ minimum: 0 }),
+                    expectedDraftRevision: Type.Integer({ minimum: 1 }),
+                    expectedSourceRevision: Type.Integer({ minimum: 1 }),
+                    expectedTargetRevisionId: Type.Union([
+                        Type.String({ minLength: 1 }),
+                        Type.Null(),
+                    ]),
+                    expectedScheduledAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+                    expectedTargetProfileVersionId: Type.String({ minLength: 1 }),
+                    cadenceConfirmation: Type.Optional(
+                        Type.String({ minLength: 64, maxLength: 64 })
+                    ),
+                }),
+                response: {
+                    201: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'movePublication',
+                    summary:
+                        'Explicitly move future work to another channel without rewriting history',
+                    tags: ['Publications'],
+                },
+            },
+            ({ params, body, user, status, authMethod, apiKeyPermissions }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(403, forbiddenProjectMutation())
+                const current = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (!current)
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                if (
+                    authMethod === 'user_api_key' &&
+                    current.publication.scheduledAt !== null &&
+                    !apiKeyHasCapability(apiKeyPermissions ?? null, 'publication:dispatch')
+                )
+                    return status(403, {
+                        error: {
+                            code: 'insufficient_api_key_permissions',
+                            message:
+                                'Moving scheduled work requires publication dispatch permission',
+                        },
+                    })
+                const editor = manualStore.movePublication({
+                    ...params,
+                    ...body,
+                    subjectId: user.id,
+                })
+                if (!editor)
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Publication or destination not found',
+                        },
+                    })
+                options.onWorkScheduled?.()
+                return status(201, { editor })
+            }
+        )
         .get(
             '/api/projects/:projectId/publications/:publicationId/cadence',
             {

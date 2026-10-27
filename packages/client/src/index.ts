@@ -230,6 +230,7 @@ type ReadonlyRequest<Body> = { readonly [Key in keyof Body]: ReadonlyInput<Body[
 
 /** Schema-owned bodies and query subsets accepted by the web's convenience methods. */
 export type WebApiRequests = {
+    movePublication: RequestBody<PublicationRoute['move']['post']>
     confirmPublicationDestination: Readonly<
         RequestBody<PublicationRoute['confirm-destination']['post']>
     >

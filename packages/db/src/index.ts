@@ -397,3 +397,5 @@ export type {
 } from './workspace-channel-store'
 
 export * from './channel-cadence'
+
+export type { MovePublicationInput } from './manual-store/publication-move-store'

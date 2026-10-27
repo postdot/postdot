@@ -47,6 +47,7 @@ export function createPublicationAuthoringStore(
 ) {
     const client = database.$client
     const publicationReadStore = createPublicationReadStore(database, {
+        now: options.now,
         loadActor: options.loadActor,
         loadPublication: options.loadPublication,
         loadChannel: options.loadChannel,

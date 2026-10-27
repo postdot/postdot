@@ -45,6 +45,7 @@ describe('user API-key capability policy', () => {
         ],
         ['POST', '/api/projects/project-1/channels', 'channel:manage'],
         ['GET', '/api/projects/project-1/channel-occupancy', 'project:read'],
+        ['POST', '/api/projects/project-1/publications/publication-1/move', 'publication:manage'],
         ['GET', '/api/workspaces/workspace-1/channels', 'project:read'],
         ['POST', '/api/workspaces/workspace-1/channels/channel-1/attachments', 'channel:share'],
         ['POST', '/api/workspaces/workspace-1/channels/channel-1/withdraw', 'channel:share'],

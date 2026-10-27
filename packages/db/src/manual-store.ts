@@ -34,6 +34,7 @@ import {
     assessWorkingDraftMedia,
     resolveTargetMedia,
 } from './manual-store/publication-media'
+import { createPublicationMoveStore } from './manual-store/publication-move-store'
 import { createPublicationOutcomeStore } from './manual-store/publication-outcome-store'
 import { createPublicationRetryStore } from './manual-store/publication-retry-store'
 import { createPublicationSchedulingStore } from './manual-store/publication-scheduling-store'
@@ -49,6 +50,7 @@ import { createSearchStore } from './manual-store/search-store'
 import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 import { createPublicationDestinationStore } from './publication-destination-store'
+import type { PublicationMovement } from './publication-move-state'
 import { createWorkspaceChannelStore } from './workspace-channel-store'
 
 export type {
@@ -329,6 +331,7 @@ export interface PublicationSummary extends Publication {
 }
 
 export interface PublicationEditorState {
+    readonly movement?: PublicationMovement
     readonly publication: Publication
     readonly post: Post
     readonly channel: Channel
@@ -1084,7 +1087,10 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
         ...createSearchStore(database),
         ...channelLifecycleStore,
         ...channelProfileStore,
-        ...publicationCreationStore,
+        createPost: publicationCreationStore.createPost,
+        getPost: publicationCreationStore.getPost,
+        addPostDestinations: publicationCreationStore.addPostDestinations,
+        savePostSource: publicationCreationStore.savePostSource,
         ...publicationAuthoringStore,
         ...publicationSchedulingStore,
         ...publicationCancellationStore,
@@ -1092,6 +1098,24 @@ export function createManualStore(database: PostbotDatabase, options: ManualStor
         ...publicationRetryStore,
         ...publicationComposerDraftStore,
         ...publicationDraftLifecycleStore,
+        ...createPublicationMoveStore(database, {
+            now,
+            createId,
+            profileCompiler,
+            getEditor: publicationAuthoringStore.getPublicationEditorState,
+            loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
+            loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
+            assessMedia: (profile, content, projectId, subjectId) =>
+                assessWorkingDraftMedia(
+                    profile,
+                    content,
+                    projectId,
+                    subjectId,
+                    media,
+                    publicMediaUrlAvailable
+                ),
+            createForPost: publicationCreationStore.createPublicationsForPost,
+        }),
 
         listAuditEvents(projectId: string, subjectId: string, limit = 100): AuditEvent[] | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')

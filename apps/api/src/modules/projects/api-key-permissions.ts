@@ -209,6 +209,8 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
     }
 
     if (resource === 'publications') {
+        if (detail.length === 2 && detail[1] === 'move' && normalizedMethod === 'POST')
+            return 'publication:manage'
         if (detail.length === 2 && detail[1] === 'cadence' && normalizedMethod === 'GET')
             return 'project:read'
         if (detail.length === 2 && detail[1] === 'cadence-override' && normalizedMethod === 'POST')

@@ -3334,3 +3334,36 @@ export const publicationCadenceOverrides = sqliteTable('publication_cadence_over
         .references(() => actors.id),
     createdAt: integer('created_at').notNull(),
 })
+
+export const publicationMoves = sqliteTable(
+    'publication_moves',
+    {
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        sourcePublicationId: text('source_publication_id').primaryKey(),
+        destinationPublicationId: text('destination_publication_id').notNull().unique(),
+        requestedScheduledAt: integer('requested_scheduled_at'),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        createdAt: integer('created_at').notNull(),
+    },
+    table => [
+        foreignKey({
+            columns: [table.projectId, table.sourcePublicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.projectId, table.destinationPublicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }),
+        check(
+            'publication_moves_distinct',
+            sql`${table.sourcePublicationId} <> ${table.destinationPublicationId}`
+        ),
+        index('publication_moves_project_idx').on(table.projectId),
+    ]
+)

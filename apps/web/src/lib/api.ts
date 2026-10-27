@@ -1251,6 +1251,20 @@ export const api = {
         )
     },
 
+    async movePublication(
+        projectId: string,
+        publicationId: string,
+        input: WebApiRequests['movePublication']
+    ) {
+        return withCadenceConfirmation(async cadenceConfirmation =>
+            unwrap(
+                await client.api
+                    .projects({ projectId })
+                    .publications({ publicationId })
+                    .move.post({ ...input, cadenceConfirmation })
+            )
+        )
+    },
     async promotePublicationDraft(
         projectId: string,
         publicationId: string,

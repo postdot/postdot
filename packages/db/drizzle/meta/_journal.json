@@ -176,6 +176,13 @@
             "when": 1793111053137,
             "tag": "0024_channel_cadence",
             "breakpoints": true
+        },
+        {
+            "idx": 25,
+            "version": "6",
+            "when": 1793115125684,
+            "tag": "0025_publication_moves",
+            "breakpoints": true
         }
     ]
 }

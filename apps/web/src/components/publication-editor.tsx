@@ -88,6 +88,7 @@ import * as m from '@/paraglide/messages.js'
 import { providerForProfile } from '@/providers/registry'
 
 import { PublicationCadenceStatus } from './publication-cadence-status'
+import { PublicationMoveDialog } from './publication-move-dialog'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
@@ -259,6 +260,7 @@ export function PublicationEditor({
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const [readOnlyMedia, setReadOnlyMedia] = useState<MediaReference[]>([])
     const [manualPublishPending, setManualPublishPending] = useState(false)
+    const [moveOpen, setMoveOpen] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [promotionPending, setPromotionPending] = useState(false)
     const [adoptionOpen, setAdoptionOpen] = useState(false)
@@ -266,7 +268,7 @@ export function PublicationEditor({
     const [promotionRecoveryRequired, setPromotionRecoveryRequired] = useState(false)
     const [serverReadPending, setServerReadPending] = useState(false)
     const serverReadInFlight = useRef(false)
-    const editorMutationPending = promotionPending || serverReadPending || adoptionOpen
+    const editorMutationPending = promotionPending || serverReadPending || adoptionOpen || moveOpen
     const [cancelPending, setCancelPending] = useState(false)
     const [retryPending, setRetryPending] = useState(false)
     const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
@@ -1524,6 +1526,79 @@ export function PublicationEditor({
                     ) : null}
                 </header>
 
+                {editor.movement?.fromPublicationId || editor.movement?.toPublicationId ? (
+                    <div className="mb-4 space-y-2 text-sm">
+                        {editor.movement.fromPublicationId ? (
+                            <Link
+                                className="text-link hover:underline"
+                                to="/dashboard/projects/$projectId/publications/$publicationId"
+                                params={{
+                                    projectId,
+                                    publicationId: editor.movement.fromPublicationId,
+                                }}>
+                                {m.publication_move_original()}
+                            </Link>
+                        ) : null}
+                        {editor.movement.toPublicationId ? (
+                            <Link
+                                className="text-link hover:underline"
+                                to="/dashboard/projects/$projectId/publications/$publicationId"
+                                params={{
+                                    projectId,
+                                    publicationId: editor.movement.toPublicationId,
+                                }}>
+                                {m.publication_move_replacement()}
+                            </Link>
+                        ) : null}
+                        {editor.publication.state === 'draft' &&
+                        editor.movement.requestedScheduledAt !== null ? (
+                            <p>
+                                {m.publication_move_requested({
+                                    time: new Intl.DateTimeFormat(locale, {
+                                        dateStyle: 'medium',
+                                        timeStyle: 'short',
+                                        timeZone,
+                                    }).format(editor.movement.requestedScheduledAt),
+                                })}
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
+                {!readOnly && editor.movement?.canMove ? (
+                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={cancellationBlocked}
+                            onClick={() => setMoveOpen(true)}>
+                            {m.publication_move_action()}
+                        </Button>
+                        {hasLocalChanges ? (
+                            <span className="text-xs text-muted-foreground">
+                                {m.publication_move_save_first()}
+                            </span>
+                        ) : null}
+                    </div>
+                ) : null}
+                {moveOpen ? (
+                    <PublicationMoveDialog
+                        editor={editor}
+                        channels={channels}
+                        disabled={accessWritesBlocked}
+                        onError={reportAccessRefusal}
+                        onClose={() => setMoveOpen(false)}
+                        onMoved={async publicationId => {
+                            if (accessEpoch !== accessEpochRef.current) return
+                            removeRecovery(recoveryKey)
+                            invalidatePublicationQueries()
+                            setMoveOpen(false)
+                            await navigate({
+                                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                                params: { projectId, publicationId },
+                            })
+                        }}
+                    />
+                ) : null}
                 <PublicationLifecyclePanel
                     connection={
                         publisherConnections === undefined

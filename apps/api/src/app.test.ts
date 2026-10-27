@@ -1193,6 +1193,7 @@ describe('Postdot API', () => {
                 '/api/projects/{projectId}/posts/{postId}',
                 '/api/projects/{projectId}/posts/{postId}/destinations',
                 '/api/projects/{projectId}/posts',
+                '/api/projects/{projectId}/publications/{publicationId}/move',
                 '/api/projects/{projectId}/publications/{publicationId}/cadence',
                 '/api/projects/{projectId}/publications/{publicationId}/cadence-override',
                 '/api/projects/{projectId}/publications/{publicationId}/destination',

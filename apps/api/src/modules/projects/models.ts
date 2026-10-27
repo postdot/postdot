@@ -545,6 +545,14 @@ export const publicationEditorStateSchema = Type.Unsafe<PublicationEditorState>(
         channel: channelSchema,
         profile: channelProfileVersionSchema,
         draft: publicationWorkingDraftSchema,
+        movement: Type.Optional(
+            Type.Object({
+                canMove: Type.Boolean(),
+                fromPublicationId: Type.Union([Type.String(), Type.Null()]),
+                toPublicationId: Type.Union([Type.String(), Type.Null()]),
+                requestedScheduledAt: Type.Union([Type.Integer(), Type.Null()]),
+            })
+        ),
         adoptionCount: Type.Optional(Type.Integer({ minimum: 0 })),
         selectedTargetProfile: Type.Optional(
             Type.Union([channelProfileVersionSchema, Type.Null()])

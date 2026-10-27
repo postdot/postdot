@@ -12,6 +12,7 @@ import type {
     PublicationSummary,
     PublicationWorkingDraft,
 } from '../manual-store'
+import { readPublicationMovement } from '../publication-move-state'
 import {
     toPost,
     toProfileVersion,
@@ -34,6 +35,7 @@ import type {
 import { publicationColumns } from './sql-fragments'
 
 export interface PublicationReadStoreOptions {
+    readonly now?: () => number
     readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
     readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
     readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
@@ -906,6 +908,11 @@ export function createPublicationReadStore(
                     channel: toChannel(channelRow),
                     profile: toProfileVersion(profileRow),
                     draft: toWorkingDraft(draftRow),
+                    movement: readPublicationMovement(
+                        database,
+                        toPublication(publicationRow),
+                        (options.now ?? Date.now)()
+                    ),
                     adoptionCount:
                         client
                             .query<{ count: number }, [string, string]>(
