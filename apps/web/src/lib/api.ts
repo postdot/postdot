@@ -928,6 +928,41 @@ export const api = {
         )
     },
 
+    async getChannelSharing(projectId: string, channelId: string) {
+        return unwrap(
+            await client.api.projects({ projectId }).channels({ channelId }).sharing.get()
+        )
+    },
+
+    async attachChannel(
+        projectId: string,
+        channelId: string,
+        targetProjectId: string,
+        expectedRevision: number
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .attachments.post({ projectId: targetProjectId, expectedRevision })
+        )
+    },
+
+    async withdrawChannel(
+        projectId: string,
+        channelId: string,
+        attachedProjectId: string,
+        input: { readonly expectedRevision: number; readonly lastAttachment?: 'archive' }
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .attachments({ attachedProjectId })
+                .withdraw.post(input)
+        )
+    },
+
     async connectCustomHttpPublisher(
         projectId: string,
         channelId: string,
@@ -1341,6 +1376,10 @@ function apiErrorMessage(code: string): string {
             return m.lifecycle_error_started()
         case 'resource_read_only':
             return m.lifecycle_error_read_only()
+        case 'stale_revision':
+            return m.api_write_conflict()
+        case 'retirement_required':
+            return m.api_retirement_required()
 
         case 'empty_response':
             return m.api_empty_response()

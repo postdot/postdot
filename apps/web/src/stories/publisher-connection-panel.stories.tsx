@@ -102,6 +102,7 @@ function createChannel(id: string, name: string, profileId: string): ChannelList
         id,
         projectId: STORY_PROJECT_ID,
         profileId,
+        shared: false,
         execution:
             profileId === 'manual-message'
                 ? { kind: 'manual' }

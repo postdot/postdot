@@ -96,6 +96,8 @@ export const channelSchema = Type.Unsafe<Channel>(
 export const channelListItemSchema = Type.Intersect([
     channelSchema,
     Type.Object({
+        /** More than one project actively uses the channel; the count is never exposed. */
+        shared: Type.Boolean(),
         execution: Type.Union([
             Type.Object({ kind: Type.Literal('manual') }),
             Type.Object({ kind: Type.Literal('declarative_http') }),

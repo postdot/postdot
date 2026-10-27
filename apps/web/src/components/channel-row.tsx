@@ -12,6 +12,7 @@ import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { ShareIcon } from '@solar-icons/react/linear/share'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
@@ -28,6 +29,7 @@ export function ChannelRow({
     disabled,
     onEditProfile,
     onLifecycleAction,
+    onShare,
     readOnly = false,
 }: {
     readonly channel: ChannelListItem
@@ -35,6 +37,7 @@ export function ChannelRow({
     readonly disabled: boolean
     readonly onEditProfile: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
+    readonly onShare?: () => void
     readonly readOnly?: boolean
 }) {
     useLanguage()
@@ -56,6 +59,9 @@ export function ChannelRow({
                         <Badge variant={archived ? 'outline' : 'secondary'}>
                             {channelConnectionLabel(channel, connection)}
                         </Badge>
+                        {channel.shared && !archived ? (
+                            <Badge variant="outline">{m.channel_shared_badge()}</Badge>
+                        ) : null}
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
                         {channelProfileLabel(channel.profileId)}
@@ -69,6 +75,7 @@ export function ChannelRow({
                     disabled={disabled}
                     onEditProfile={onEditProfile}
                     onLifecycleAction={onLifecycleAction}
+                    onShare={onShare}
                 />
             )}
         </div>
@@ -81,11 +88,13 @@ export function ChannelActionsMenu({
     onEditProfile,
     onLifecycleAction,
     onDisconnect,
+    onShare,
 }: {
     readonly channel: Channel
     readonly disabled: boolean
     readonly onEditProfile: () => void
     readonly onDisconnect?: () => void
+    readonly onShare?: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
 }) {
     useLanguage()
@@ -121,6 +130,12 @@ export function ChannelActionsMenu({
                     <Pen2Icon aria-hidden="true" />
                     {m.channel_rename()}
                 </DropdownMenuItem>
+                {onShare && !archived ? (
+                    <DropdownMenuItem onClick={onShare}>
+                        <ShareIcon aria-hidden="true" />
+                        {m.channel_share_action()}
+                    </DropdownMenuItem>
+                ) : null}
                 {onDisconnect ? (
                     <DropdownMenuItem variant="destructive" onClick={onDisconnect}>
                         {m.publisher_disconnect()}

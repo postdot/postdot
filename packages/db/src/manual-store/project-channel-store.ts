@@ -23,6 +23,8 @@ import type { ActorRow, ChannelRow, ProjectRow } from './rows'
 
 /** Active-version metadata for channel list readers, without execution configuration. */
 export interface ChannelListItem extends Channel {
+    /** More than one project actively uses the channel. The number of projects is never exposed. */
+    readonly shared: boolean
     readonly execution:
         | { readonly kind: 'manual' }
         | { readonly kind: 'declarative_http' }
@@ -121,10 +123,17 @@ export function createProjectChannelStore(
         order by projects.created_at, projects.id
     `)
     const listChannelsStatement = client.query<
-        ChannelRow & { readonly profileJson: string },
+        ChannelRow & { readonly profileJson: string; readonly shared: number },
         [projectId: string]
     >(`
-        select channels.id,
+        select exists (
+                   select 1
+                   from project_channel_attachments as other
+                   where other.channel_id = channels.id
+                     and other.state = 'active'
+                     and other.project_id <> channels.project_id
+               ) as shared,
+               channels.id,
                channels.project_id as projectId,
                channels.name,
                channel_profiles.profile_id as profileId,
@@ -141,6 +150,7 @@ export function createProjectChannelStore(
            and channel_profiles.channel_id = channels.id
            and channel_profiles.id = channels.profile_version_id
         where channels.project_id = ?1
+          and channels.attachment_state = 'active'
         order by channels.created_at, channels.id
     `)
     const insertProjectStatement = client.query<
@@ -401,6 +411,7 @@ export function createProjectChannelStore(
                 const execution = parseProfile(row.profileJson).execution
                 return {
                     ...toChannel(row),
+                    shared: row.shared === 1,
                     execution:
                         execution.kind === 'built_in'
                             ? { kind: execution.kind, contractId: execution.contractId }

@@ -18,6 +18,7 @@ const channels: ChannelListItem[] = ['linkedin', 'bluesky', 'mastodon', 'x'].map
         id: profileId,
         projectId: 'composer-demo',
         profileId,
+        shared: false,
         execution: { kind: 'built_in', contractId: profileId },
         profileVersionId: profileId,
         name: ['Postdot', 'Studio', 'Community', 'News'][index]!,

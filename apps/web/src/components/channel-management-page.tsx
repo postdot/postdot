@@ -13,6 +13,7 @@ import {
     type ChannelLifecycleAction,
 } from '@/components/channel-lifecycle-dialog'
 import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
+import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { FacebookPagePickerDialog } from '@/components/facebook-page-picker-dialog'
@@ -44,7 +45,7 @@ export function ChannelManagementPage({
     facebookSelection,
 }: ChannelManagementPageProps) {
     useLanguage()
-    const { isInstanceAdmin } = useDashboardGlobal()
+    const { isInstanceAdmin, projects } = useDashboardGlobal()
     const { channels, connections, project, projectRole } = useProjectDashboard()
     const { postContent, postTitle, publicationTargets, sourceMedia } = usePublicationComposer()
     const {
@@ -74,6 +75,7 @@ export function ChannelManagementPage({
         ? m.publication_resume_composition()
         : m.nav_back_to_overview()
     const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
+    const [sharingChannel, setSharingChannel] = useState<Channel | null>(null)
     const [lifecycle, setLifecycle] = useState<{
         readonly action: ChannelLifecycleAction
         readonly channel: Channel
@@ -179,6 +181,7 @@ export function ChannelManagementPage({
                         pending={pending}
                         onEditProfile={setProfileChannel}
                         onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
+                        onShare={canEditProject ? setSharingChannel : undefined}
                         onPublisherConnected={onPublisherConnected}
                         onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
                         onDisconnectPublisher={onDisconnectPublisher}
@@ -205,6 +208,22 @@ export function ChannelManagementPage({
                         if (!open) setProfileChannel(null)
                     }}
                     onRefreshProject={onRefreshProject}
+                />
+            ) : null}
+            {canEditProject ? (
+                <ChannelSharingDialog
+                    candidates={projects.filter(
+                        candidate =>
+                            candidate.workspaceId === project.workspaceId &&
+                            candidate.id !== project.id
+                    )}
+                    channel={sharingChannel}
+                    open={sharingChannel !== null}
+                    projectId={project.id}
+                    onChanged={onRefreshProject}
+                    onOpenChange={open => {
+                        if (!open) setSharingChannel(null)
+                    }}
                 />
             ) : null}
             {canEditProject ? (

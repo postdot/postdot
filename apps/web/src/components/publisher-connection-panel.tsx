@@ -35,6 +35,7 @@ interface PublisherConnectionPanelProps {
     readonly pending: boolean
     readonly onEditProfile: (channel: Channel) => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction, channel: Channel) => void
+    readonly onShare?: (channel: Channel) => void
     readonly onConnectCustomHttpPublisher: (
         channelId: string,
         input: {
@@ -56,6 +57,7 @@ export function PublisherConnectionPanel({
     pending,
     onEditProfile,
     onLifecycleAction,
+    onShare,
     onConnectCustomHttpPublisher,
     onPublisherConnected,
     onDisconnectPublisher,
@@ -246,6 +248,7 @@ export function PublisherConnectionPanel({
                                 disabled={pending}
                                 onEditProfile={() => onEditProfile(channel)}
                                 onLifecycleAction={action => onLifecycleAction(action, channel)}
+                                onShare={onShare ? () => onShare(channel) : undefined}
                                 readOnly={readOnly}
                             />
                         )
@@ -314,6 +317,11 @@ export function PublisherConnectionPanel({
                                                 {connectionLabel}
                                             </Badge>
                                         )}
+                                        {channel.shared && channel.state !== 'archived' ? (
+                                            <Badge variant="outline">
+                                                {m.channel_shared_badge()}
+                                            </Badge>
+                                        ) : null}
                                     </div>
                                     {channel.state === 'archived' ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
@@ -463,6 +471,7 @@ export function PublisherConnectionPanel({
                                         onLifecycleAction={action =>
                                             onLifecycleAction(action, channel)
                                         }
+                                        onShare={onShare ? () => onShare(channel) : undefined}
                                     />
                                 </div>
                             )}
