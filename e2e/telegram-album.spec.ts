@@ -11,7 +11,7 @@ test('retains and reorders a mixed Telegram album through reload and target sele
             await page.request.post('/api/auth/sign-up/email', {
                 data: {
                     name: 'Album editor',
-                    email: `album-${randomUUID()}@postbot.local`,
+                    email: `album-${randomUUID()}@postdot.local`,
                     password: 'album-fixture-password',
                 },
             })

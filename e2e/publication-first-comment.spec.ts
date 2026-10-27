@@ -11,7 +11,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         await page.request.post('/api/auth/sign-up/email', {
             data: {
                 name: 'First comment editor',
-                email: `first-comment-${randomUUID()}@postbot.local`,
+                email: `first-comment-${randomUUID()}@postdot.local`,
                 password: 'first-comment-fixture-password',
             },
         })

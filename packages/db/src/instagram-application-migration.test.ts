@@ -18,7 +18,7 @@ import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 const instagramMigrationPrefix = '0016_'
 
 test('Instagram application migration preserves existing encrypted configurations and referenced OAuth attempts', async () => {
-    const folder = mkdtempSync(join(tmpdir(), 'postbot-instagram-migration-'))
+    const folder = mkdtempSync(join(tmpdir(), 'postdot-instagram-migration-'))
     const database = createDatabase(':memory:')
     try {
         const journal = JSON.parse(
@@ -50,7 +50,7 @@ test('Instagram application migration preserves existing encrypted configuration
         const applications = createProviderApplicationStore(database, {
             policies: providerApplicationPolicies,
             cipher: createSecretCipher({
-                domain: 'postbot.provider-application',
+                domain: 'postdot.provider-application',
                 keyId: 'test',
                 key,
             }),
@@ -76,7 +76,7 @@ test('Instagram application migration preserves existing encrypted configuration
                 connectedByActorId: project.actor.id,
                 providerId: 'facebook',
                 providerApplicationId: saved.configuration.id,
-                callbackUri: 'https://postbot.example/callback',
+                callbackUri: 'https://postdot.example/callback',
                 scopes: [],
                 returnPath: '/dashboard',
                 stateDigest,
@@ -132,7 +132,7 @@ test('Instagram application migration preserves existing encrypted configuration
                 stateDigest,
                 connectedByActorId: project.actor.id,
                 providerId: 'facebook',
-                callbackUri: 'https://postbot.example/callback',
+                callbackUri: 'https://postdot.example/callback',
             })
         ).toMatchObject({ kind: 'ready', providerState: 'existing-pending-secret' })
         expect(database.$client.query('PRAGMA foreign_key_check').all()).toEqual([])

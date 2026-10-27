@@ -1,15 +1,15 @@
-import type { PostbotAuthEmailOptions, PostbotAuthRuntimeOptions } from '@postdot/auth'
+import type { PostdotAuthEmailOptions, PostdotAuthRuntimeOptions } from '@postdot/auth'
 import {
-    renderPostbotEmailVerificationEmail,
-    renderPostbotOrganizationInvitationEmail,
-    renderPostbotPasswordResetEmail,
-    type PostbotRenderedEmail,
+    renderPostdotEmailVerificationEmail,
+    renderPostdotOrganizationInvitationEmail,
+    renderPostdotPasswordResetEmail,
+    type PostdotRenderedEmail,
 } from '@postdot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
-export type PostbotEmailKind = 'organization_invitation' | 'email_verification' | 'password_reset'
+export type PostdotEmailKind = 'organization_invitation' | 'email_verification' | 'password_reset'
 
-export interface PostbotSmtpConfig {
+export interface PostdotSmtpConfig {
     readonly host: string
     readonly port: number
     readonly secure: boolean
@@ -18,26 +18,26 @@ export interface PostbotSmtpConfig {
     readonly password?: string
 }
 
-export interface PostbotEmailTransport {
+export interface PostdotEmailTransport {
     sendMail(message: SendMailOptions): Promise<unknown>
 }
 
-export interface PostbotEmailDeliveryOptions {
-    readonly smtp?: PostbotSmtpConfig
-    readonly getSmtp?: () => PostbotSmtpConfig | undefined
+export interface PostdotEmailDeliveryOptions {
+    readonly smtp?: PostdotSmtpConfig
+    readonly getSmtp?: () => PostdotSmtpConfig | undefined
     readonly webOrigin: string
-    readonly transport?: PostbotEmailTransport
-    readonly onDeliveryError?: (kind: PostbotEmailKind, error: unknown) => void
+    readonly transport?: PostdotEmailTransport
+    readonly onDeliveryError?: (kind: PostdotEmailKind, error: unknown) => void
 }
 
-export type PostbotConfiguredAuthEmailOptions = Pick<
-    PostbotAuthRuntimeOptions,
-    keyof PostbotAuthEmailOptions | 'organizationInvitationURL' | 'sendOrganizationInvitationEmail'
+export type PostdotConfiguredAuthEmailOptions = Pick<
+    PostdotAuthRuntimeOptions,
+    keyof PostdotAuthEmailOptions | 'organizationInvitationURL' | 'sendOrganizationInvitationEmail'
 >
 
-export function createPostbotAuthEmailDelivery(
-    options: PostbotEmailDeliveryOptions
-): PostbotConfiguredAuthEmailOptions {
+export function createPostdotAuthEmailDelivery(
+    options: PostdotEmailDeliveryOptions
+): PostdotConfiguredAuthEmailOptions {
     if (options.smtp === undefined && options.transport === undefined) return {}
 
     const transport =
@@ -56,7 +56,7 @@ export function createPostbotAuthEmailDelivery(
                   }),
         })
 
-    const send = (kind: PostbotEmailKind, createMessage: () => Promise<SendMailOptions>): void => {
+    const send = (kind: PostdotEmailKind, createMessage: () => Promise<SendMailOptions>): void => {
         if (options.getSmtp && !options.getSmtp()) return
         try {
             void createMessage()
@@ -97,7 +97,7 @@ export function createPostbotAuthEmailDelivery(
             send('organization_invitation', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderPostbotOrganizationInvitationEmail({
+                    await renderPostdotOrganizationInvitationEmail({
                         email: invitation.email,
                         role: invitation.role,
                         organizationName: invitation.organizationName,
@@ -112,7 +112,7 @@ export function createPostbotAuthEmailDelivery(
             send('email_verification', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderPostbotEmailVerificationEmail({
+                    await renderPostdotEmailVerificationEmail({
                         user: verification.user,
                         url: verification.url,
                     })
@@ -124,7 +124,7 @@ export function createPostbotAuthEmailDelivery(
             send('password_reset', async () =>
                 withFrom(
                     (options.getSmtp?.() ?? options.smtp)?.from,
-                    await renderPostbotPasswordResetEmail({
+                    await renderPostdotPasswordResetEmail({
                         user: reset.user,
                         url: reset.url,
                     })
@@ -134,7 +134,7 @@ export function createPostbotAuthEmailDelivery(
     }
 }
 
-function withFrom(from: string | undefined, email: PostbotRenderedEmail): SendMailOptions {
+function withFrom(from: string | undefined, email: PostdotRenderedEmail): SendMailOptions {
     return {
         to: email.to,
         ...(from === undefined ? {} : { from }),

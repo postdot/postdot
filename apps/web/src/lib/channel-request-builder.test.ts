@@ -143,7 +143,7 @@ test('does not convert manual, built-in or webhook contracts into mapped HTTP', 
         {},
         { ...source, origin: 'built_in' },
         { ...source, execution: { kind: 'manual' } },
-        { ...source, execution: { kind: 'declarative_http', mode: 'postbot_webhook' } },
+        { ...source, execution: { kind: 'declarative_http', mode: 'postdot_webhook' } },
         { ...source, execution: { kind: 'declarative_http', mode: 'mapped_http' } },
     ]) {
         expect(projectMappedRequest(value)).toBeNull()

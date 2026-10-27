@@ -41,7 +41,7 @@ const accountId = '17841400000000000'
 const containerId = '17900000000000001'
 const mediaId = '17900000000000002'
 const signedImageUrl =
-    'https://media.postbot.test/assets/photo.jpg?X-Signature=9f8e7d6c5b4a3f2e%3D%3D' +
+    'https://media.postdot.test/assets/photo.jpg?X-Signature=9f8e7d6c5b4a3f2e%3D%3D' +
     '&X-Expires=1758360000&X-Credential=media%2F20261020'
 const dayMs = 24 * 60 * 60 * 1000
 
@@ -120,7 +120,7 @@ interface Fixture {
 }
 
 async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-instagram-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-'))
     const database = createDatabase(':memory:')
     const mediaStore = createLocalMediaStore({
         storeId: 'local-default',
@@ -614,7 +614,7 @@ test('refuses unusable pinned media before any provider write', async () => {
         { name: 'no public media URL', options: { mediaUrl: null } },
         {
             name: 'an insecure media URL',
-            options: { mediaUrl: 'http://media.postbot.test/photo.jpg' },
+            options: { mediaUrl: 'http://media.postdot.test/photo.jpg' },
         },
         {
             name: 'a private media URL',
@@ -783,7 +783,7 @@ test('refreshes an expiring credential and publishes with the new token', async 
     const oauth = createInstagramOAuth({
         clientId: '1234567890',
         clientSecret: 'synthetic-instagram-secret',
-        callbackUri: 'https://postbot.test/api/oauth/instagram/callback',
+        callbackUri: 'https://postdot.test/api/oauth/instagram/callback',
         fetcher: async input => {
             refreshRequests.push(String(input))
             return Response.json({
@@ -1018,7 +1018,7 @@ test('coordinates real Instagram renewal across concurrent preparation with stal
     const oauth = createInstagramOAuth({
         clientId: '1234567890',
         clientSecret: 'synthetic-secret',
-        callbackUri: 'https://postbot.test/api/oauth/instagram/callback',
+        callbackUri: 'https://postdot.test/api/oauth/instagram/callback',
         now: () => now,
         fetcher: async () => {
             renewals++

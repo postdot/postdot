@@ -5,7 +5,7 @@ import {
     createPublisherStore,
     createProviderApplicationStore,
     createSecretCipher,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '@postdot/db'
 import { validateReturnPath } from '@postdot/oauth'
 
@@ -25,7 +25,7 @@ export interface PublisherRuntimeBaseOptions {
 }
 export type PublisherRuntimeOptions = PublisherRuntimeBaseOptions & ProviderRuntimeOptions
 export function createPublisherRuntime(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublisherRuntimeOptions
 ) {
     const now = options.now ?? Date.now
@@ -35,7 +35,7 @@ export function createPublisherRuntime(
         key: options.publisherEncryptionKey,
     })
     const applicationCipher = createSecretCipher({
-        domain: 'postbot.provider-application',
+        domain: 'postdot.provider-application',
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
     })

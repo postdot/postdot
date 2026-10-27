@@ -50,7 +50,7 @@ export interface TargetEditorField {
     readonly schemaType: string | null
 }
 
-export const unsetTargetFieldValue = '__postbot_target_field_unset__'
+export const unsetTargetFieldValue = '__postdot_target_field_unset__'
 
 interface TargetEditorBinding {
     readonly id: string

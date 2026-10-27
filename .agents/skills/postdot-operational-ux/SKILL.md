@@ -1,13 +1,13 @@
 ---
-name: postbot-operational-ux
-description: Review and build Postbot's authenticated operational UI with disciplined hierarchy, progressive disclosure, and unambiguous interaction intent.
+name: postdot-operational-ux
+description: Review and build Postdot's authenticated operational UI with disciplined hierarchy, progressive disclosure, and unambiguous interaction intent.
 metadata:
-    short-description: Apply Postbot's operational UX rules
+    short-description: Apply Postdot's operational UX rules
 ---
 
-# Postbot operational UX
+# Postdot operational UX
 
-Use this skill for authenticated Postbot surfaces, especially calendar,
+Use this skill for authenticated Postdot surfaces, especially calendar,
 queue, compose, contextual panels, drawers, dialogs, and responsive shell
 changes. It turns the product direction into an operational review gate; it
 does not replace the route contract in `DESIGN.md` or decide unresolved product
@@ -98,7 +98,7 @@ Use these as diagnosis before accepting a change:
 2. Intent: can a reasonable operator predict the result of clicking each
    adjacent target without reading helper prose?
 3. Subject swap: would the composition still look natural for an unrelated
-   SaaS dashboard, or does it express Postbot's source-to-destinations work?
+   SaaS dashboard, or does it express Postdot's source-to-destinations work?
 4. Continuity: after opening a contextual surface, does the underlying date,
    publication, and return path remain clear?
 

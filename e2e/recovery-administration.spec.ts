@@ -7,12 +7,12 @@ import en from '../apps/web/messages/en.json' with { type: 'json' }
 test('requires explicit recovery acknowledgement and keeps a refused resumption visible', async ({
     page,
 }) => {
-    await page.addInitScript(() => localStorage.setItem('postbot-locale', 'en'))
+    await page.addInitScript(() => localStorage.setItem('postdot-locale', 'en'))
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Recovery operator')
-    await page.getByLabel('Email', { exact: true }).fill(`recovery-${randomUUID()}@postbot.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`recovery-${randomUUID()}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('correct-horse-battery-staple')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard/)

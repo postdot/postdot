@@ -78,7 +78,7 @@ export function DashboardShell({
 
     return (
         <SidebarProvider
-            className="postbot-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
+            className="postdot-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
             style={{ '--sidebar-width-icon': '2rem' } as CSSProperties}>
             <CadenceConfirmationDialog channels={channels} />
             <DashboardSidebar

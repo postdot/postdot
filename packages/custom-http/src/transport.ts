@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 
 import {
     isCustomHttpAuthentication,
+    isWebhookMode,
     validateCustomHttpAuthenticationBinding,
     validateDeclarativeHttpExecution,
     type DeclarativeHttpBodyMapping,
@@ -12,8 +13,8 @@ import {
 
 import {
     customHttpLimits,
-    POSTBOT_WEBHOOK_EVENT,
-    POSTBOT_WEBHOOK_VERSION,
+    POSTDOT_WEBHOOK_EVENT,
+    POSTDOT_WEBHOOK_VERSION,
     type CustomHttpConnection,
     type CustomHttpDeliveryContext,
     type CustomHttpDeliveryInput,
@@ -106,10 +107,9 @@ export function createCustomHttpTransport(
             const controller = new AbortController()
             const timeout = setTimeout(() => controller.abort(), timeoutMs)
             try {
-                const request =
-                    input.execution.mode === 'postbot_webhook'
-                        ? await buildWebhookRequest(input, endpoint, maxResponseBytes, now())
-                        : await buildMappedRequest(input, endpoint, maxResponseBytes, now())
+                const request = isWebhookMode(input.execution.mode)
+                    ? await buildWebhookRequest(input, endpoint, maxResponseBytes, now())
+                    : await buildMappedRequest(input, endpoint, maxResponseBytes, now())
                 let response: CustomHttpResponse
                 try {
                     input.signal?.throwIfAborted()
@@ -169,11 +169,11 @@ async function buildWebhookRequest(
         address: endpoint.selectedAddress,
         headers: {
             'content-type': 'application/json',
-            'x-postbot-webhook-version': POSTBOT_WEBHOOK_VERSION,
-            'x-postbot-event': POSTBOT_WEBHOOK_EVENT,
-            'x-postbot-delivery-id': input.context.deliveryId,
-            'x-postbot-timestamp': timestamp,
-            'x-postbot-signature': `sha256=${signature}`,
+            'x-postdot-webhook-version': POSTDOT_WEBHOOK_VERSION,
+            'x-postdot-event': POSTDOT_WEBHOOK_EVENT,
+            'x-postdot-delivery-id': input.context.deliveryId,
+            'x-postdot-timestamp': timestamp,
+            'x-postdot-signature': `sha256=${signature}`,
         },
         body: requestBody,
         maxResponseBytes,
@@ -221,8 +221,8 @@ function createWebhookEnvelope(
     media: readonly CustomHttpMediaDescriptor[]
 ) {
     return {
-        event: POSTBOT_WEBHOOK_EVENT,
-        webhookVersion: POSTBOT_WEBHOOK_VERSION,
+        event: POSTDOT_WEBHOOK_EVENT,
+        webhookVersion: POSTDOT_WEBHOOK_VERSION,
         deliveryId: context.deliveryId,
         publication: {
             id: context.publicationId,
@@ -529,7 +529,7 @@ function multipartBody(
         | undefined,
     maximumBytes: number
 ): CustomHttpRequestBody {
-    const boundary = `----postbot-${randomUUID().replaceAll('-', '')}`
+    const boundary = `----postdot-${randomUUID().replaceAll('-', '')}`
     const encodedFields = [...fields.entries()].map(([name, value]) => ({
         header: encodeText(
             `--${boundary}\r\nContent-Disposition: form-data; name="${escapeQuoted(name)}"\r\n\r\n`

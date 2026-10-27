@@ -46,8 +46,8 @@ describe('Mastodon publisher', () => {
             jsonResponse({ client_id: 'client-id', client_secret: 'client-secret' }),
             jsonResponse({
                 id: 'account-1',
-                acct: 'postbot@example.social',
-                username: 'postbot',
+                acct: 'postdot@example.social',
+                username: 'postdot',
                 display_name: 'Postdot',
             }),
         ])
@@ -59,9 +59,9 @@ describe('Mastodon publisher', () => {
         await expect(
             publisher.registerApplication({
                 clientName: 'Postdot',
-                redirectUri: 'https://postbot.example/api/oauth/mastodon/callback',
+                redirectUri: 'https://postdot.example/api/oauth/mastodon/callback',
                 scopes: ['read:accounts', 'write:media'],
-                website: 'https://postbot.example',
+                website: 'https://postdot.example',
             })
         ).resolves.toEqual({
             kind: 'success',
@@ -71,8 +71,8 @@ describe('Mastodon publisher', () => {
             kind: 'success',
             value: {
                 id: 'account-1',
-                acct: 'postbot@example.social',
-                username: 'postbot',
+                acct: 'postdot@example.social',
+                username: 'postdot',
                 displayName: 'Postdot',
             },
         })

@@ -135,7 +135,7 @@ it('delivers escaped HTML and text, recovers startup backlog, and keeps SMTP unc
     let reject = false
     const runtime = createNotificationEmailRuntime({
         store: f.store,
-        webOrigin: 'https://postbot.example.test',
+        webOrigin: 'https://postdot.example.test',
         smtp: { host: 'unused', port: 25, secure: false, from: 'alerts@example.test' },
         transport: {
             async sendMail(message) {
@@ -151,7 +151,7 @@ it('delivers escaped HTML and text, recovers startup backlog, and keeps SMTP unc
             .poll(() => f.store.deliveries.list(f.projectId, 'owner')?.[0]?.state)
             .toBe('delivered')
         expect(sent[0]?.to).toBe('owner@example.test')
-        expect(sent[0]?.text).toContain('https://postbot.example.test/dashboard/projects/')
+        expect(sent[0]?.text).toContain('https://postdot.example.test/dashboard/projects/')
         expect(sent[0]?.html).toContain('Open publication')
         reject = true
         f.append('publication.execution.ambiguous')
@@ -237,7 +237,7 @@ it('keeps disabled SMTP work pending and resumes it when configuration becomes a
     const runtime = createNotificationEmailRuntime({
         store: f.store,
         getSmtp: () => smtp,
-        webOrigin: 'https://postbot.example.test',
+        webOrigin: 'https://postdot.example.test',
         transport: {
             async sendMail(message) {
                 messages.push(message)

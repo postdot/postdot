@@ -20,8 +20,7 @@ Postdot runs its API, dashboard, scheduler and publication worker in one service
 with SQLite and local media storage. S3-compatible media storage is optional.
 
 **Alpha software, under active development.** The current container release, `0.1.0-alpha.3`, is available for Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.1` and restoration of its pre-update backup are validated on both platforms. The project is being renamed from Postbot. Environment variables, stored protocol
-identifiers and the screenshot retain that name for [existing installation compatibility](https://postdot.app/docs/installation/#existing-installation-names).
+Upgrade from `0.1.0-alpha.2` and restoration of its pre-update backup are validated on both platforms. Releases up to `0.1.0-alpha.3` were called Postbot; see [moving from the Postbot names](https://postdot.app/docs/installation/#move-from-the-postbot-names).
 
 ## Run it yourself
 
@@ -57,7 +56,7 @@ openssl rand -hex 32
 ```
 
 Paste those three independent values into `BETTER_AUTH_SECRET`,
-`POSTBOT_MEDIA_PUBLIC_URL_SECRET` and `POSTBOT_PUBLISHER_ENCRYPTION_KEY`, respectively,
+`POSTDOT_MEDIA_PUBLIC_URL_SECRET` and `POSTDOT_PUBLISHER_ENCRYPTION_KEY`, respectively,
 in `apps/api/.env`. Keep that file private. Then start the application:
 
 ```sh

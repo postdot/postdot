@@ -3,7 +3,7 @@ import { createTransport, type SendMailOptions } from 'nodemailer'
 import { Type, type Static } from 'typebox'
 import { Value } from 'typebox/value'
 
-import type { PostbotSmtpConfig } from './delivery'
+import type { PostdotSmtpConfig } from './delivery'
 
 const smtpFields = {
     host: Type.String({ minLength: 1, maxLength: 253, pattern: '^[^\\s/:]+$' }),
@@ -40,10 +40,10 @@ const storedSchema = Type.Object({
 
 export async function createEmailSettingsService(options: {
     store: ReturnType<typeof createInstallationEmailSettingsStore>
-    initial?: PostbotSmtpConfig
+    initial?: PostdotSmtpConfig
     onChange?: () => void
     deliveryAllowed?: () => boolean
-    createTransport?: (smtp: PostbotSmtpConfig) => {
+    createTransport?: (smtp: PostdotSmtpConfig) => {
         sendMail(message: SendMailOptions): Promise<unknown>
     }
 }) {
@@ -56,7 +56,7 @@ export async function createEmailSettingsService(options: {
         stored = decoded
     }
     const configured = () => stored?.smtp ?? options.initial
-    const current = (): PostbotSmtpConfig | undefined =>
+    const current = (): PostdotSmtpConfig | undefined =>
         stored?.enabled === false ? undefined : configured()
     const view = (): EmailSettingsResponse => {
         const smtp = configured()

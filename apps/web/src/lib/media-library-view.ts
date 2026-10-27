@@ -4,7 +4,7 @@ export type MediaLibraryViewMode = (typeof MEDIA_LIBRARY_VIEW_MODES)[number]
 
 export const DEFAULT_MEDIA_LIBRARY_VIEW_MODE: MediaLibraryViewMode = 'grid'
 
-const MEDIA_LIBRARY_VIEW_STORAGE_KEY = 'postbot:media-library:view:v1'
+const MEDIA_LIBRARY_VIEW_STORAGE_KEY = 'postdot:media-library:view:v1'
 
 export function isMediaLibraryViewMode(value: unknown): value is MediaLibraryViewMode {
     return (

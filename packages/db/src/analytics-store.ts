@@ -9,7 +9,7 @@ import {
     type PublicationState,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 const analyticsContractVersion = 1
 const supportedEventVersion = 1
@@ -453,7 +453,7 @@ interface HistoricalAccumulator {
 }
 
 export function createAnalyticsStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: AnalyticsStoreOptions = {}
 ) {
     const client = database.$client

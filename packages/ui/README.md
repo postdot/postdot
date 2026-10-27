@@ -24,7 +24,7 @@ import { Button } from '@postdot/ui/components/button'
 The package exposes `cn` from `@postdot/ui/lib/utils` for class composition.
 
 Product brand assets live under `src/assets/brand`, with reusable inline marks
-exported as shared components. Use `PostbotLogo` when the mark must inherit the
+exported as shared components. Use `PostdotLogo` when the mark must inherit the
 current text color across themes.
 
 Each consuming application owns its Tailwind entrypoint and must declare its

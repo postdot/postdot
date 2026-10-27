@@ -16,8 +16,8 @@ import {
 export const blueskyImageChannelProfile: ChannelProfileDefinition = {
     id: BLUESKY_PROVIDER,
     version: 1,
-    profileHash: 'sha256:postbot-bluesky-post-v1',
-    schemaHash: 'sha256:postbot-bluesky-post-schema-v1',
+    profileHash: 'sha256:postdot-bluesky-post-v1',
+    schemaHash: 'sha256:postdot-bluesky-post-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -85,8 +85,8 @@ export const blueskyImageChannelProfile: ChannelProfileDefinition = {
 export const blueskyChannelProfile: ChannelProfileDefinition = {
     ...blueskyImageChannelProfile,
     version: 2,
-    profileHash: 'sha256:postbot-bluesky-post-v2',
-    schemaHash: 'sha256:postbot-bluesky-post-schema-v2',
+    profileHash: 'sha256:postdot-bluesky-post-v2',
+    schemaHash: 'sha256:postdot-bluesky-post-schema-v2',
     capabilities: {
         ...blueskyImageChannelProfile.capabilities,
         revision: 'bluesky-post-v2',

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import { createMediaPublicDelivery, mediaPublicDeliveryLimits } from './public-delivery'
 
-const baseURL = 'https://postbot.example.test'
+const baseURL = 'https://postdot.example.test'
 const signingSecret = 'media-public-delivery-secret-with-at-least-32-bytes'
 const now = 1_800_000_000_000
 
@@ -68,7 +68,7 @@ describe('media public delivery authority', () => {
     it('keeps the URL origin and token inputs bounded', () => {
         expect(() =>
             createMediaPublicDelivery({
-                baseURL: 'http://user:password@postbot.example.test',
+                baseURL: 'http://user:password@postdot.example.test',
                 signingSecret,
             })
         ).toThrow()

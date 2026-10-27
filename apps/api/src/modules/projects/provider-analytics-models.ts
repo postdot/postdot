@@ -42,8 +42,8 @@ export const providerAnalyticsObservationSchema = Type.Unsafe<ProviderAnalyticsO
         providerSubjectId: Type.String({ minLength: 1 }),
         providerSubjectLabel: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
         providerContentRevisionId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
-        postbotEntityType: Type.Union([providerAnalyticsEntityTypeSchema, Type.Null()]),
-        postbotEntityId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+        postdotEntityType: Type.Union([providerAnalyticsEntityTypeSchema, Type.Null()]),
+        postdotEntityId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
         metricName: Type.String({ minLength: 1 }),
         value: Type.Union([Type.Number({ minimum: 0 }), Type.Null()]),
         unit: Type.String({ minLength: 1 }),
@@ -61,7 +61,7 @@ export const providerAnalyticsObservationSchema = Type.Unsafe<ProviderAnalyticsO
 export const providerAnalyticsQuery = Type.Object({
     subjectType: Type.Optional(providerAnalyticsSubjectTypeSchema),
     providerSubjectId: Type.Optional(Type.String({ minLength: 1 })),
-    postbotEntityId: Type.Optional(Type.String({ minLength: 1 })),
+    postdotEntityId: Type.Optional(Type.String({ minLength: 1 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
 })
 

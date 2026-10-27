@@ -49,12 +49,12 @@ def main():
     assets = Path(__file__).resolve().parent.parent / "assets"
     config = (assets / "compose.env.example").read_text()
     replacements = {
-        "POSTBOT_HTTP_PORT": str(args.port),
+        "POSTDOT_HTTP_PORT": str(args.port),
         "BETTER_AUTH_URL": args.origin.rstrip("/"),
-        "POSTBOT_WEB_ORIGIN": args.origin.rstrip("/"),
+        "POSTDOT_WEB_ORIGIN": args.origin.rstrip("/"),
         "BETTER_AUTH_SECRET": secrets.token_hex(32),
-        "POSTBOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
-        "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
+        "POSTDOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
+        "POSTDOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
     }
     config = (
         "\n".join(
@@ -63,7 +63,7 @@ def main():
             else line
             for line in config.splitlines()
         )
-        + "\nPOSTBOT_IMAGE="
+        + "\nPOSTDOT_IMAGE="
         + IMAGE
         + "\n"
     )

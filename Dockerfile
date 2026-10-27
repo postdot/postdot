@@ -48,7 +48,7 @@ COPY . .
 
 RUN bunx --no-install turbo run build --filter=@postdot/api --filter=@postdot/web
 RUN mkdir -p /out/migrations /out/public
-RUN cp apps/api/dist/index.js /out/postbot.js
+RUN cp apps/api/dist/index.js /out/postdot.js
 RUN cp -R packages/db/drizzle/. /out/migrations/
 RUN cp -R apps/web/dist/. /out/public/
 
@@ -56,7 +56,7 @@ FROM oven/bun:1.4.4-slim
 
 WORKDIR /app
 
-COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/postbot-poster
+COPY --from=poster /src/ffmpeg-9.0.2/ffmpeg /usr/local/bin/postdot-poster
 COPY --from=poster /src/ffmpeg-9.0.2/COPYING.LGPLv2.1 ./licenses/FFmpeg.LICENSE
 COPY --from=poster /src/source.tar.xz ./licenses/sources/ffmpeg-9.0.2.tar.xz
 COPY --from=poster /src/FFmpeg-build.txt ./licenses/FFmpeg-build.txt
@@ -64,7 +64,7 @@ COPY --from=poster /src/ffmpeg-9.0.2/config.h ./licenses/FFmpeg-config.h
 COPY --from=poster /src/ffmpeg-9.0.2/ffbuild/config.mak ./licenses/FFmpeg-config.mak
 COPY --from=build --chown=bun:bun /app/LICENSE ./LICENSE
 COPY --from=build --chown=bun:bun /app/THIRD_PARTY_NOTICES.md ./THIRD_PARTY_NOTICES.md
-COPY --from=build --chown=bun:bun /out/postbot.js ./postbot.js
+COPY --from=build --chown=bun:bun /out/postdot.js ./postdot.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
 COPY --from=build --chown=bun:bun /app/licenses/ ./licenses/
@@ -79,9 +79,9 @@ RUN POSTDOT_VERSION="$POSTDOT_VERSION" POSTDOT_REVISION="$POSTDOT_REVISION" bun 
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DB_FILE_NAME=/data/postbot.sqlite
-ENV POSTBOT_MIGRATIONS_DIR=/app/migrations
-ENV POSTBOT_WEB_ASSETS_DIR=/app/public
+ENV DB_FILE_NAME=/data/postdot.sqlite
+ENV POSTDOT_MIGRATIONS_DIR=/app/migrations
+ENV POSTDOT_WEB_ASSETS_DIR=/app/public
 
 USER bun
 
@@ -92,4 +92,4 @@ EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD ["bun", "-e", "if (!(await fetch('http://127.0.0.1:3000/health')).ok) process.exit(1)"]
 
-ENTRYPOINT ["bun", "/app/postbot.js"]
+ENTRYPOINT ["bun", "/app/postdot.js"]

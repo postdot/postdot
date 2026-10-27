@@ -16,7 +16,7 @@ import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const did = 'did:plc:api-analytics'
 const postUri = 'at://' + did + '/app.bsky.feed.post/3api'
@@ -72,7 +72,7 @@ describe('provider analytics routes', () => {
             publisherEncryptionKeyId: 'test-v1',
             bluesky: {
                 clientMetadataUrl:
-                    'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+                    'https://postdot.example.test/oauth/bluesky/client-metadata.json',
                 handleResolver: 'https://bsky.social',
             },
         })
@@ -133,10 +133,10 @@ describe('provider analytics routes', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'provider-analytics@postbot.local')
+            const cookie = await signUp(app, 'provider-analytics@postdot.local')
             const user = database.$client
                 .query<{ id: string }, [string]>('select id from user where email = ?1')
-                .get('provider-analytics@postbot.local')
+                .get('provider-analytics@postdot.local')
             if (user === null || user === undefined) throw new Error('The auth user is missing')
 
             const manual = createManualStore(database, { now: () => now })
@@ -303,7 +303,7 @@ describe('provider analytics routes', () => {
                 limit: 500,
                 observations: expect.arrayContaining([
                     expect.objectContaining({
-                        postbotEntityId: publicationId,
+                        postdotEntityId: publicationId,
                         metricName: 'likeCount',
                         value: 1,
                     }),
@@ -439,7 +439,7 @@ describe('provider analytics routes', () => {
                 app,
                 '/api/projects/' +
                     project.project.id +
-                    '/analytics/provider/devto?postbotEntityId=' +
+                    '/analytics/provider/devto?postdotEntityId=' +
                     devtoPublicationId,
                 cookie
             )

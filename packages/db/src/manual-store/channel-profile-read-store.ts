@@ -6,7 +6,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from '../client'
+import type { PostdotDatabase } from '../client'
 import type {
     ChannelProfileState,
     ChannelProfileVersion,
@@ -64,7 +64,7 @@ export interface ChannelProfileReadStoreHandle {
 }
 
 export function createChannelProfileReadStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: ChannelProfileReadStoreOptions
 ): ChannelProfileReadStoreHandle {
     const loadDraftProfileStatement = database.$client.query<

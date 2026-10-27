@@ -47,7 +47,7 @@ export function recoverLocalAccountPassword(
         const preflight = openReadOnlyDatabase(databaseFilename)
         let credential: RecoverableCredential
         try {
-            assertPostbotSchema(preflight, databaseFilename)
+            assertPostdotSchema(preflight, databaseFilename)
             credential = findRecoverableCredential(preflight, email)
         } finally {
             preflight.close()
@@ -163,7 +163,7 @@ function openReadOnlyDatabase(filename: string): Database {
     return database
 }
 
-function assertPostbotSchema(database: Database, filename: string): void {
+function assertPostdotSchema(database: Database, filename: string): void {
     const migrationsTable = database
         .query<{ readonly name: string }, []>(
             `SELECT name FROM sqlite_master

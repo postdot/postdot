@@ -4,7 +4,7 @@ import {
     createAccessStore,
     createManualStore,
     createPublicationReplyStore,
-    type PostbotDatabase,
+    type PostdotDatabase,
     type PublicationReplyWork,
 } from '@postdot/db'
 import { Value } from 'typebox/value'
@@ -16,7 +16,7 @@ import type { PublisherRuntime } from '../publishers/runtime'
 import { publicationCommentSnapshotSchema } from './publication-comments-models'
 
 export function createPublicationRepliesService(options: {
-    database: PostbotDatabase
+    database: PostdotDatabase
     publisher: PublisherRuntime
     now?: () => number
     restoreSession?: typeof restoreBlueskySession

@@ -135,5 +135,5 @@ export function createNotificationProjectionRuntime(
 }
 
 function defaultNotificationProjectionErrorHandler(error: unknown): void {
-    console.error('[postbot-notifications] projection failed', error)
+    console.error('[postdot-notifications] projection failed', error)
 }

@@ -12,7 +12,7 @@ import {
 import { mediaPublicDeliveryLimits } from './modules/media/public-delivery'
 
 export const defaultDatabaseFileName = fileURLToPath(
-    new URL('../../../postbot.sqlite', import.meta.url)
+    new URL('../../../postdot.sqlite', import.meta.url)
 )
 const defaultMigrationsDirectory = fileURLToPath(
     new URL('../../../packages/db/drizzle', import.meta.url)
@@ -25,33 +25,33 @@ const examplePublisherEncryptionKey = 'replace-with-64-hex-characters'
 
 const mediaEnvironmentDefinitions = {
     DB_FILE_NAME: env.string({ defaultValue: defaultDatabaseFileName }),
-    POSTBOT_MEDIA_STORE: env.enum(['local', 's3'], { defaultValue: 'local' }),
-    POSTBOT_MEDIA_DIRECTORY: env.string({ defaultValue: defaultMediaDirectory, minLength: 1 }),
-    POSTBOT_MEDIA_STORE_ID: env.string({ defaultValue: 'local-default', minLength: 1 }),
-    POSTBOT_MEDIA_MAX_OBJECT_BYTES: env.integer({
+    POSTDOT_MEDIA_STORE: env.enum(['local', 's3'], { defaultValue: 'local' }),
+    POSTDOT_MEDIA_DIRECTORY: env.string({ defaultValue: defaultMediaDirectory, minLength: 1 }),
+    POSTDOT_MEDIA_STORE_ID: env.string({ defaultValue: 'local-default', minLength: 1 }),
+    POSTDOT_MEDIA_MAX_OBJECT_BYTES: env.integer({
         defaultValue: 100_000_000,
         minimum: 1,
     }),
-    POSTBOT_MEDIA_UPLOAD_TTL_MS: env.integer({
+    POSTDOT_MEDIA_UPLOAD_TTL_MS: env.integer({
         defaultValue: 15 * 60 * 1_000,
         minimum: 1,
     }),
-    POSTBOT_MEDIA_DELETION_GRACE_MS: env.integer({
+    POSTDOT_MEDIA_DELETION_GRACE_MS: env.integer({
         defaultValue: 24 * 60 * 60 * 1_000,
         minimum: 0,
     }),
-    POSTBOT_MEDIA_PUBLIC_URL_TTL_MS: env.integer({
+    POSTDOT_MEDIA_PUBLIC_URL_TTL_MS: env.integer({
         defaultValue: mediaPublicDeliveryLimits.defaultLifetimeMs,
         minimum: 60 * 1_000,
         maximum: mediaPublicDeliveryLimits.maximumLifetimeMs,
     }),
-    POSTBOT_MEDIA_S3_BUCKET: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_REGION: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_ENDPOINT: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_ACCESS_KEY_ID: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_SESSION_TOKEN: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_S3_PREFIX: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_BUCKET: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_REGION: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_ENDPOINT: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_ACCESS_KEY_ID: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_SECRET_ACCESS_KEY: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_SESSION_TOKEN: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_S3_PREFIX: env.optionalString({ minLength: 1 }),
 } as const
 
 const environmentDefinitions = {
@@ -59,8 +59,8 @@ const environmentDefinitions = {
         defaultValue: 'development',
     }),
     PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
-    POSTBOT_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
-    POSTBOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
+    POSTDOT_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
+    POSTDOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
     ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
         defaultValue: values => {
@@ -73,28 +73,28 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
-    POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
+    POSTDOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
         defaultValue: false,
     }),
-    POSTBOT_EMAIL_SMTP_HOST: env.optionalString({ minLength: 1 }),
-    POSTBOT_EMAIL_SMTP_PORT: env.optionalInteger({ minimum: 1, maximum: 65_535 }),
-    POSTBOT_EMAIL_SMTP_SECURE: env.boolean({ defaultValue: false }),
-    POSTBOT_EMAIL_SMTP_USERNAME: env.optionalString({ minLength: 1 }),
-    POSTBOT_EMAIL_SMTP_PASSWORD: env.optionalString({ minLength: 1 }),
-    POSTBOT_EMAIL_FROM: env.optionalString({ minLength: 1 }),
-    POSTBOT_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
-    POSTBOT_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
-    POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
+    POSTDOT_EMAIL_SMTP_HOST: env.optionalString({ minLength: 1 }),
+    POSTDOT_EMAIL_SMTP_PORT: env.optionalInteger({ minimum: 1, maximum: 65_535 }),
+    POSTDOT_EMAIL_SMTP_SECURE: env.boolean({ defaultValue: false }),
+    POSTDOT_EMAIL_SMTP_USERNAME: env.optionalString({ minLength: 1 }),
+    POSTDOT_EMAIL_SMTP_PASSWORD: env.optionalString({ minLength: 1 }),
+    POSTDOT_EMAIL_FROM: env.optionalString({ minLength: 1 }),
+    POSTDOT_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
+    POSTDOT_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
+    POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
     BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
     X_CLIENT_ID: env.optionalString({ minLength: 1 }),
     X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
-    POSTBOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
-    POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
-    POSTBOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
-    POSTBOT_METRICS_TOKEN: env.optionalString(),
+    POSTDOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
+    POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
+    POSTDOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
+    POSTDOT_METRICS_TOKEN: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'error' : 'info'),
     }),
@@ -103,16 +103,16 @@ const environmentDefinitions = {
     }),
 } as const
 
-type PostbotEnvironment = InferEnvironment<typeof environmentDefinitions>
+type PostdotEnvironment = InferEnvironment<typeof environmentDefinitions>
 
-export interface PostbotLoggingConfig {
+export interface PostdotLoggingConfig {
     readonly enabled: boolean
     readonly level: LevelWithSilent
     readonly pretty: boolean
 }
 
-export interface PostbotConfig {
-    readonly environment: PostbotEnvironment['NODE_ENV']
+export interface PostdotConfig {
+    readonly environment: PostdotEnvironment['NODE_ENV']
     readonly server: {
         readonly port: number
     }
@@ -182,31 +182,31 @@ export interface PostbotConfig {
         readonly origin: string
         readonly assetsDirectory: string
     }
-    readonly logging: PostbotLoggingConfig
+    readonly logging: PostdotLoggingConfig
 }
 
-export interface PostbotMaintenanceConfig {
+export interface PostdotMaintenanceConfig {
     readonly databaseFileName: string
-    readonly media: PostbotConfig['media']
+    readonly media: PostdotConfig['media']
 }
 
-type PostbotMediaEnvironment = Omit<
+type PostdotMediaEnvironment = Omit<
     InferEnvironment<typeof mediaEnvironmentDefinitions>,
     'DB_FILE_NAME'
 >
 
-export function createPostbotBootstrapConfig(source: EnvironmentSource = Bun.env) {
+export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env) {
     return createEnvironment(
         {
-            POSTBOT_MIGRATIONS_DIR: environmentDefinitions.POSTBOT_MIGRATIONS_DIR,
+            POSTDOT_MIGRATIONS_DIR: environmentDefinitions.POSTDOT_MIGRATIONS_DIR,
         },
         source
     )
 }
 
-export function createPostbotMaintenanceConfig(
+export function createPostdotMaintenanceConfig(
     source: EnvironmentSource = Bun.env
-): PostbotMaintenanceConfig {
+): PostdotMaintenanceConfig {
     const environment = createEnvironment(mediaEnvironmentDefinitions, source)
     return {
         databaseFileName: environment.DB_FILE_NAME,
@@ -214,13 +214,13 @@ export function createPostbotMaintenanceConfig(
     }
 }
 
-export function createPostbotConfig(source: EnvironmentSource = Bun.env): PostbotConfig {
+export function createPostdotConfig(source: EnvironmentSource = Bun.env): PostdotConfig {
     const environment = createEnvironment(environmentDefinitions, source)
-    if (environment.POSTBOT_METRICS_ENABLED && environment.POSTBOT_METRICS_TOKEN === undefined) {
-        throw new Error('POSTBOT_METRICS_TOKEN is required when POSTBOT_METRICS_ENABLED=true')
+    if (environment.POSTDOT_METRICS_ENABLED && environment.POSTDOT_METRICS_TOKEN === undefined) {
+        throw new Error('POSTDOT_METRICS_TOKEN is required when POSTDOT_METRICS_ENABLED=true')
     }
-    if (environment.POSTBOT_METRICS_ENABLED && environment.POSTBOT_METRICS_TOKEN!.length < 32) {
-        throw new Error('POSTBOT_METRICS_TOKEN must contain at least 32 characters')
+    if (environment.POSTDOT_METRICS_ENABLED && environment.POSTDOT_METRICS_TOKEN!.length < 32) {
+        throw new Error('POSTDOT_METRICS_TOKEN must contain at least 32 characters')
     }
     const hasLinkedInClientId = environment.LINKEDIN_CLIENT_ID !== undefined
     const hasLinkedInClientSecret = environment.LINKEDIN_CLIENT_SECRET !== undefined
@@ -272,13 +272,13 @@ export function createPostbotConfig(source: EnvironmentSource = Bun.env): Postbo
                   }
               })()
     const outboundPrivateDestinations = parsePrivateDestinationRules(
-        environment.POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS,
-        'POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS'
+        environment.POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS,
+        'POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS'
     )
     const email = createEmailConfig(environment)
-    if (environment.POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION && email === undefined) {
+    if (environment.POSTDOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION && email === undefined) {
         throw new Error(
-            'POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION requires a configured email transport'
+            'POSTDOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION requires a configured email transport'
         )
     }
 
@@ -289,20 +289,20 @@ export function createPostbotConfig(source: EnvironmentSource = Bun.env): Postbo
         },
         database: {
             fileName: environment.DB_FILE_NAME,
-            migrationsDirectory: environment.POSTBOT_MIGRATIONS_DIR,
+            migrationsDirectory: environment.POSTDOT_MIGRATIONS_DIR,
         },
         media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
             requireEmailVerificationOnInvitation:
-                environment.POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
+                environment.POSTDOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
         },
         ...(email === undefined ? {} : { email }),
         security: {
-            mediaPublicUrlSecret: environment.POSTBOT_MEDIA_PUBLIC_URL_SECRET,
-            publisherEncryptionKey: environment.POSTBOT_PUBLISHER_ENCRYPTION_KEY,
-            publisherEncryptionKeyId: environment.POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID,
+            mediaPublicUrlSecret: environment.POSTDOT_MEDIA_PUBLIC_URL_SECRET,
+            publisherEncryptionKey: environment.POSTDOT_PUBLISHER_ENCRYPTION_KEY,
+            publisherEncryptionKeyId: environment.POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID,
         },
         publishers: {
             ...(linkedin === undefined ? {} : { linkedin }),
@@ -313,57 +313,57 @@ export function createPostbotConfig(source: EnvironmentSource = Bun.env): Postbo
             privateDestinations: outboundPrivateDestinations,
         },
         web: {
-            origin: environment.POSTBOT_WEB_ORIGIN,
-            assetsDirectory: environment.POSTBOT_WEB_ASSETS_DIR,
+            origin: environment.POSTDOT_WEB_ORIGIN,
+            assetsDirectory: environment.POSTDOT_WEB_ASSETS_DIR,
         },
         logging: {
             enabled: environment.LOG_LEVEL !== 'silent',
             level: environment.LOG_LEVEL,
             pretty: environment.LOG_PRETTY,
         },
-        ...(environment.POSTBOT_METRICS_ENABLED
-            ? { metrics: { bearerToken: environment.POSTBOT_METRICS_TOKEN! } }
+        ...(environment.POSTDOT_METRICS_ENABLED
+            ? { metrics: { bearerToken: environment.POSTDOT_METRICS_TOKEN! } }
             : {}),
     }
 }
 
-function createMediaConfig(environment: PostbotMediaEnvironment): PostbotConfig['media'] {
+function createMediaConfig(environment: PostdotMediaEnvironment): PostdotConfig['media'] {
     const mediaS3Values = {
-        bucket: environment.POSTBOT_MEDIA_S3_BUCKET,
-        region: environment.POSTBOT_MEDIA_S3_REGION,
-        endpoint: environment.POSTBOT_MEDIA_S3_ENDPOINT,
-        accessKeyId: environment.POSTBOT_MEDIA_S3_ACCESS_KEY_ID,
-        secretAccessKey: environment.POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY,
-        sessionToken: environment.POSTBOT_MEDIA_S3_SESSION_TOKEN,
-        prefix: environment.POSTBOT_MEDIA_S3_PREFIX,
+        bucket: environment.POSTDOT_MEDIA_S3_BUCKET,
+        region: environment.POSTDOT_MEDIA_S3_REGION,
+        endpoint: environment.POSTDOT_MEDIA_S3_ENDPOINT,
+        accessKeyId: environment.POSTDOT_MEDIA_S3_ACCESS_KEY_ID,
+        secretAccessKey: environment.POSTDOT_MEDIA_S3_SECRET_ACCESS_KEY,
+        sessionToken: environment.POSTDOT_MEDIA_S3_SESSION_TOKEN,
+        prefix: environment.POSTDOT_MEDIA_S3_PREFIX,
     }
 
-    if (environment.POSTBOT_MEDIA_STORE === 's3') {
+    if (environment.POSTDOT_MEDIA_STORE === 's3') {
         if (
             mediaS3Values.bucket === undefined ||
             mediaS3Values.accessKeyId === undefined ||
             mediaS3Values.secretAccessKey === undefined
         ) {
             throw new Error(
-                'POSTBOT_MEDIA_S3_BUCKET, POSTBOT_MEDIA_S3_ACCESS_KEY_ID, and POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY are required when POSTBOT_MEDIA_STORE=s3'
+                'POSTDOT_MEDIA_S3_BUCKET, POSTDOT_MEDIA_S3_ACCESS_KEY_ID, and POSTDOT_MEDIA_S3_SECRET_ACCESS_KEY are required when POSTDOT_MEDIA_STORE=s3'
             )
         }
         if (mediaS3Values.region === undefined && mediaS3Values.endpoint === undefined) {
             throw new Error(
-                'POSTBOT_MEDIA_S3_REGION or POSTBOT_MEDIA_S3_ENDPOINT is required when POSTBOT_MEDIA_STORE=s3'
+                'POSTDOT_MEDIA_S3_REGION or POSTDOT_MEDIA_S3_ENDPOINT is required when POSTDOT_MEDIA_STORE=s3'
             )
         }
     }
 
     return {
-        driver: environment.POSTBOT_MEDIA_STORE,
-        directory: environment.POSTBOT_MEDIA_DIRECTORY,
-        storeId: environment.POSTBOT_MEDIA_STORE_ID,
-        maxObjectBytes: environment.POSTBOT_MEDIA_MAX_OBJECT_BYTES,
-        uploadIntentTtlMs: environment.POSTBOT_MEDIA_UPLOAD_TTL_MS,
-        deletionGracePeriodMs: environment.POSTBOT_MEDIA_DELETION_GRACE_MS,
-        publicUrlLifetimeMs: environment.POSTBOT_MEDIA_PUBLIC_URL_TTL_MS,
-        ...(environment.POSTBOT_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
+        driver: environment.POSTDOT_MEDIA_STORE,
+        directory: environment.POSTDOT_MEDIA_DIRECTORY,
+        storeId: environment.POSTDOT_MEDIA_STORE_ID,
+        maxObjectBytes: environment.POSTDOT_MEDIA_MAX_OBJECT_BYTES,
+        uploadIntentTtlMs: environment.POSTDOT_MEDIA_UPLOAD_TTL_MS,
+        deletionGracePeriodMs: environment.POSTDOT_MEDIA_DELETION_GRACE_MS,
+        publicUrlLifetimeMs: environment.POSTDOT_MEDIA_PUBLIC_URL_TTL_MS,
+        ...(environment.POSTDOT_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
             ? {
                   s3: {
                       bucket: mediaS3Values.bucket,
@@ -387,44 +387,44 @@ function createMediaConfig(environment: PostbotMediaEnvironment): PostbotConfig[
     }
 }
 
-function createEmailConfig(environment: PostbotEnvironment): PostbotConfig['email'] | undefined {
+function createEmailConfig(environment: PostdotEnvironment): PostdotConfig['email'] | undefined {
     const hasEmailConfiguration =
-        environment.POSTBOT_EMAIL_SMTP_HOST !== undefined ||
-        environment.POSTBOT_EMAIL_SMTP_PORT !== undefined ||
-        environment.POSTBOT_EMAIL_SMTP_SECURE ||
-        environment.POSTBOT_EMAIL_SMTP_USERNAME !== undefined ||
-        environment.POSTBOT_EMAIL_SMTP_PASSWORD !== undefined ||
-        environment.POSTBOT_EMAIL_FROM !== undefined
+        environment.POSTDOT_EMAIL_SMTP_HOST !== undefined ||
+        environment.POSTDOT_EMAIL_SMTP_PORT !== undefined ||
+        environment.POSTDOT_EMAIL_SMTP_SECURE ||
+        environment.POSTDOT_EMAIL_SMTP_USERNAME !== undefined ||
+        environment.POSTDOT_EMAIL_SMTP_PASSWORD !== undefined ||
+        environment.POSTDOT_EMAIL_FROM !== undefined
 
     if (!hasEmailConfiguration) return undefined
 
-    if (environment.POSTBOT_EMAIL_SMTP_HOST === undefined) {
+    if (environment.POSTDOT_EMAIL_SMTP_HOST === undefined) {
         throw new Error(
-            'POSTBOT_EMAIL_SMTP_HOST is required when email transport configuration is present'
+            'POSTDOT_EMAIL_SMTP_HOST is required when email transport configuration is present'
         )
     }
-    if (environment.POSTBOT_EMAIL_FROM === undefined) {
-        throw new Error('POSTBOT_EMAIL_FROM is required when SMTP email delivery is enabled')
+    if (environment.POSTDOT_EMAIL_FROM === undefined) {
+        throw new Error('POSTDOT_EMAIL_FROM is required when SMTP email delivery is enabled')
     }
 
-    const hasUsername = environment.POSTBOT_EMAIL_SMTP_USERNAME !== undefined
-    const hasPassword = environment.POSTBOT_EMAIL_SMTP_PASSWORD !== undefined
+    const hasUsername = environment.POSTDOT_EMAIL_SMTP_USERNAME !== undefined
+    const hasPassword = environment.POSTDOT_EMAIL_SMTP_PASSWORD !== undefined
     if (hasUsername !== hasPassword) {
         throw new Error(
-            'POSTBOT_EMAIL_SMTP_USERNAME and POSTBOT_EMAIL_SMTP_PASSWORD must be set together'
+            'POSTDOT_EMAIL_SMTP_USERNAME and POSTDOT_EMAIL_SMTP_PASSWORD must be set together'
         )
     }
 
     return {
         smtp: {
-            host: environment.POSTBOT_EMAIL_SMTP_HOST,
-            port: environment.POSTBOT_EMAIL_SMTP_PORT ?? 587,
-            secure: environment.POSTBOT_EMAIL_SMTP_SECURE,
-            from: environment.POSTBOT_EMAIL_FROM,
+            host: environment.POSTDOT_EMAIL_SMTP_HOST,
+            port: environment.POSTDOT_EMAIL_SMTP_PORT ?? 587,
+            secure: environment.POSTDOT_EMAIL_SMTP_SECURE,
+            from: environment.POSTDOT_EMAIL_FROM,
             ...(hasUsername
                 ? {
-                      username: environment.POSTBOT_EMAIL_SMTP_USERNAME!,
-                      password: environment.POSTBOT_EMAIL_SMTP_PASSWORD!,
+                      username: environment.POSTDOT_EMAIL_SMTP_USERNAME!,
+                      password: environment.POSTDOT_EMAIL_SMTP_PASSWORD!,
                   }
                 : {}),
         },

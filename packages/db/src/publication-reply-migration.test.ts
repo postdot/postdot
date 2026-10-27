@@ -8,7 +8,7 @@ import { seedLegacyProjectChannel, seedLegacyPublication } from './legacy-migrat
 import { defaultMigrationsFolder, runMigrations } from './migrations'
 
 test('upgrades existing Bluesky reply history without losing intent, claims or outcomes', () => {
-    const folder = mkdtempSync(join(tmpdir(), 'postbot-reply-migration-'))
+    const folder = mkdtempSync(join(tmpdir(), 'postdot-reply-migration-'))
     const database = createDatabase(':memory:')
     try {
         const journal = JSON.parse(

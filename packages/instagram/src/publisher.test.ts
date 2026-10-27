@@ -15,7 +15,7 @@ const accountId = '17841400000000000'
 const containerId = '17900000000000001'
 const mediaId = '17900000000000002'
 const signedImageUrl =
-    'https://media.postbot.test/assets/photo.jpg?X-Signature=9f8e7d6c5b4a3f2e%3D%3D' +
+    'https://media.postdot.test/assets/photo.jpg?X-Signature=9f8e7d6c5b4a3f2e%3D%3D' +
     '&X-Expires=1758360000&X-Credential=media%2F20261020'
 
 function fixture(reply: () => Response | Promise<Response>) {
@@ -102,10 +102,10 @@ test('insecure, credentialed and private image URLs never reach the transport', 
         throw new Error('Unexpected request')
     })
     for (const imageUrl of [
-        'http://media.postbot.test/photo.jpg',
-        'https://user:secret@media.postbot.test/photo.jpg',
-        'https://media.postbot.test/photo.jpg#fragment',
-        'https://media.postbot.test/photo.jpg ',
+        'http://media.postdot.test/photo.jpg',
+        'https://user:secret@media.postdot.test/photo.jpg',
+        'https://media.postdot.test/photo.jpg#fragment',
+        'https://media.postdot.test/photo.jpg ',
         'https://localhost/photo.jpg',
         'https://api.localhost/photo.jpg',
         'https://127.0.0.1/photo.jpg',
@@ -116,7 +116,7 @@ test('insecure, credentialed and private image URLs never reach the transport', 
         'https://169.254.1.1/photo.jpg',
         'https://[::1]/photo.jpg',
         'https://[fd00::1]/photo.jpg',
-        'https://media.postbot.test/photo jpg',
+        'https://media.postdot.test/photo jpg',
         'not-a-url',
         '',
     ]) {

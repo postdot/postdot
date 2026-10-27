@@ -23,7 +23,7 @@ import { createInstagramConnectionFlow } from '../../providers/instagram/connect
 import { instagramPublisherConnectionPolicy } from '../../providers/instagram/connection-policy'
 import { providerApplicationPolicies } from '../../providers/registry'
 
-const callbackUri = 'https://postbot.example/api/oauth/instagram/callback'
+const callbackUri = 'https://postdot.example/api/oauth/instagram/callback'
 const professionalAccountId = '987654321'
 const appScopedAccountId = '111222333'
 const accessToken = 'synthetic-instagram-token'
@@ -53,7 +53,7 @@ async function fixture(
     const applications = createProviderApplicationStore(database, {
         policies: providerApplicationPolicies,
         cipher: createSecretCipher({
-            domain: 'postbot.provider-application',
+            domain: 'postdot.provider-application',
             keyId: 'test',
             key,
         }),
@@ -131,7 +131,7 @@ async function fixture(
                 account: {
                     id: professionalAccountId,
                     appScopedId: appScopedAccountId,
-                    username: 'postbot.studio',
+                    username: 'postdot.studio',
                     accountType: 'BUSINESS',
                 },
             }
@@ -257,7 +257,7 @@ test('the callback connects the professional account under its issuing applicati
         expect(result.connection.destination).toEqual({
             type: 'account',
             id: professionalAccountId,
-            name: 'postbot.studio',
+            name: 'postdot.studio',
         })
         expect(result.connection.externalAccountId).toBe(professionalAccountId)
         expect(JSON.stringify(result)).not.toContain(accessToken)

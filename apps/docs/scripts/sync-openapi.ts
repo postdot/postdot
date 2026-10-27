@@ -4,7 +4,7 @@ import { generateFiles, type OpenAPIV3 } from 'fumadocs-openapi'
 
 // Only generated content lives here; authored introductions remain siblings.
 const output = './content/docs/reference/(generated)'
-const schema = JSON.parse(await readFile('./.openapi/postbot.json', 'utf8')) as OpenAPIV3.Document
+const schema = JSON.parse(await readFile('./.openapi/postdot.json', 'utf8')) as OpenAPIV3.Document
 if (!schema.paths) throw new Error('OpenAPI document has no paths')
 const operationsDirectory = './.openapi/operations'
 await rm(operationsDirectory, { recursive: true, force: true })
@@ -24,7 +24,7 @@ for (const [path, item] of Object.entries(schema.paths)) {
                 ...schema,
                 servers: [
                     {
-                        url: 'https://postbot.example',
+                        url: 'https://postdot.example',
                         description: 'Replace with your Postdot instance origin.',
                     },
                 ],
@@ -95,4 +95,4 @@ await writeFile(
     JSON.stringify({ pages: folders.map(folder => folder.name).sort() }, null, 2)
 )
 await mkdir('./public/reference', { recursive: true })
-await copyFile('./.openapi/postbot.json', './public/reference/postbot-openapi.json')
+await copyFile('./.openapi/postdot.json', './public/reference/postdot-openapi.json')

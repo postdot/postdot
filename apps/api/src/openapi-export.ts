@@ -13,14 +13,14 @@ import { createPublisherRuntime } from './modules/publishers/runtime'
 
 /** Assemble route contracts without a listener, scheduler, worker or persistent data. */
 export async function exportOpenAPISchema(): Promise<OpenAPIV3.Document> {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-openapi-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-openapi-'))
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
-        const origin = 'http://postbot.invalid'
+        const origin = 'http://postdot.invalid'
         const auth = createAuth(database, {
             baseURL: origin,
-            secret: 'postbot-documentation-only-secret-not-for-runtime-use',
+            secret: 'postdot-documentation-only-secret-not-for-runtime-use',
         })
         const publisher = createPublisherRuntime(database, {
             apiOrigin: origin,

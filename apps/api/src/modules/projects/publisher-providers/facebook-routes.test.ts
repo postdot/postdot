@@ -7,7 +7,7 @@ import { FACEBOOK_PUBLISH_PERMISSIONS } from '@postdot/facebook'
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
 
-const origin = 'https://postbot.test'
+const origin = 'https://postdot.test'
 async function fixture(configured = true) {
     const database = createDatabase(':memory:')
     runMigrations(database)
@@ -56,7 +56,7 @@ async function fixture(configured = true) {
     const auth = createAuth(database, {
         baseURL: origin,
         allowAdditionalSignups: true,
-        secret: 'postbot-test-secret-with-at-least-32-characters',
+        secret: 'postdot-test-secret-with-at-least-32-characters',
     })
     const app = createApp({
         database,
@@ -89,7 +89,7 @@ async function fixture(configured = true) {
         const body = (await response.json()) as { user: { id: string } }
         return { cookie: response.headers.get('set-cookie')!.split(';', 1)[0]!, id: body.user.id }
     }
-    const owner = await signup('owner@postbot.test')
+    const owner = await signup('owner@postdot.test')
     const projectResponse = await request('/api/projects', owner.cookie, {
         method: 'POST',
         body: JSON.stringify({ name: 'Facebook project' }),
@@ -165,7 +165,7 @@ test('Facebook HTTP routes require authentication and mask channels belonging to
     const f = await fixture()
     try {
         expect((await f.request(`${f.path}/connect`, '', { method: 'POST' })).status).toBe(401)
-        const stranger = await f.signup('stranger@postbot.test')
+        const stranger = await f.signup('stranger@postdot.test')
         expect(
             (await f.request(`${f.path}/connect`, stranger.cookie, { method: 'POST' })).status
         ).toBe(404)
@@ -296,7 +296,7 @@ test('a foreign callback session learns no project return path and does not cons
         const start = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
         const url = new URL(((await start.json()) as { url: string }).url)
         const path = `/api/oauth/facebook/callback?state=${url.searchParams.get('state')}&code=code`
-        const stranger = await f.signup('callback-stranger@postbot.test')
+        const stranger = await f.signup('callback-stranger@postdot.test')
         const rejected = await f.request(path, stranger.cookie)
         expect(new URL(rejected.headers.get('location')!).pathname).toBe('/dashboard')
         expect(f.calls).toBe(0)

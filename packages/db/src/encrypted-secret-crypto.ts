@@ -46,11 +46,11 @@ export interface CreateSecretCipherOptions {
 // Authenticated-data bytes are a storage protocol, independent of the product name.
 // Keep these protocol identifiers stable so existing encrypted credentials remain readable.
 const domainProtocolIds: Readonly<Record<string, string>> = {
-    'postbot.publisher-secret': '686572616c642e7075626c69736865722d736563726574',
-    'postbot.notification-destination-secret':
+    'postdot.publisher-secret': '686572616c642e7075626c69736865722d736563726574',
+    'postdot.notification-destination-secret':
         '686572616c642e6e6f74696669636174696f6e2d64657374696e6174696f6e2d736563726574',
-    'postbot.provider-application': '686572616c642e70726f76696465722d6170706c69636174696f6e',
-    'postbot.installation-email': '686572616c642e696e7374616c6c6174696f6e2d656d61696c',
+    'postdot.provider-application': '686572616c642e70726f76696465722d6170706c69636174696f6e',
+    'postdot.installation-email': '686572616c642e696e7374616c6c6174696f6e2d656d61696c',
 }
 const encoder = new TextEncoder()
 const decoder = new TextDecoder('utf-8', { fatal: true })

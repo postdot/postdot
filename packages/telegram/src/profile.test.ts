@@ -50,14 +50,14 @@ test('keeps the historical message and poll profiles immutable beside the album 
         revision: TELEGRAM_EXECUTION_REVISION,
     })
     expect(TELEGRAM_EXECUTION_REVISION).toBe('message-v1')
-    expect(telegramMessageChannelProfile.profileHash).toBe('sha256:postbot-telegram-message-v1')
+    expect(telegramMessageChannelProfile.profileHash).toBe('sha256:postdot-telegram-message-v1')
     expect(telegramMessageChannelProfile.schemaHash).toBe(
-        'sha256:postbot-telegram-message-schema-v1'
+        'sha256:postdot-telegram-message-schema-v1'
     )
     expect(telegramPollChannelProfile.id).toBe(telegramMessageChannelProfile.id)
     expect(telegramPollChannelProfile.version).toBe(2)
-    expect(telegramPollChannelProfile.profileHash).toBe('sha256:postbot-telegram-message-v2')
-    expect(telegramPollChannelProfile.schemaHash).toBe('sha256:postbot-telegram-message-schema-v2')
+    expect(telegramPollChannelProfile.profileHash).toBe('sha256:postdot-telegram-message-v2')
+    expect(telegramPollChannelProfile.schemaHash).toBe('sha256:postdot-telegram-message-schema-v2')
     expect(telegramPollChannelProfile.execution).toEqual({
         kind: 'built_in',
         contractId: 'telegram',

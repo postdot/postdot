@@ -3,13 +3,13 @@ import { join } from 'node:path'
 
 import { createManualChannelProfile } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { defaultMigrationsFolder } from './migrations'
 import type { CreateAuthorizationAttemptInput } from './oauth-authorization-attempt-store'
 import type { PublisherCredentialCipher } from './publisher-credential-crypto'
 
 /** Historical migration tests must seed historical columns, not today's application stores/schema. */
-export function seedLegacyProjectChannel(database: PostbotDatabase, subjectId: string, at: number) {
+export function seedLegacyProjectChannel(database: PostdotDatabase, subjectId: string, at: number) {
     const project = { id: 'legacy-project' }
     const actor = { id: 'legacy-actor' }
     const channel = { id: 'legacy-channel' }
@@ -58,7 +58,7 @@ export function seedLegacyProjectChannel(database: PostbotDatabase, subjectId: s
 }
 
 export function seedLegacyPublication(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     fixture: ReturnType<typeof seedLegacyProjectChannel>,
     at: number
 ) {
@@ -96,7 +96,7 @@ export function seedLegacyPublication(
 
 /** Seed historical columns without constructing today's read-contract-dependent stores. */
 export async function seedLegacyAuthorizationAttempt(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     input: CreateAuthorizationAttemptInput,
     cipher: PublisherCredentialCipher,
     now: number
@@ -147,7 +147,7 @@ export async function seedLegacyAuthorizationAttempt(
 
 /** A connected, scheduled channel written with the project-owned columns that existed before the ownership conversion. */
 export function seedLegacyScheduledChannel(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     input: { readonly prefix: string; readonly workspaceId: string; readonly at: number }
 ) {
     const { prefix, workspaceId, at } = input

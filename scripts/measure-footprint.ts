@@ -70,12 +70,12 @@ async function measureRuntimeSample(databaseFilename: string): Promise<RuntimeSa
         cwd: import.meta.dir.replace(/\/scripts$/, ''),
         env: {
             ...Bun.env,
-            BETTER_AUTH_SECRET: 'postbot-footprint-secret-with-at-least-32-characters',
+            BETTER_AUTH_SECRET: 'postdot-footprint-secret-with-at-least-32-characters',
             BETTER_AUTH_URL: baseURL,
-            POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-                'postbot-footprint-media-public-url-secret-with-at-least-32-characters',
-            POSTBOT_PUBLISHER_ENCRYPTION_KEY: '00'.repeat(32),
-            POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID: 'footprint-v1',
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+                'postdot-footprint-media-public-url-secret-with-at-least-32-characters',
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: '00'.repeat(32),
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID: 'footprint-v1',
             DB_FILE_NAME: databaseFilename,
             PORT: String(port),
         },
@@ -213,7 +213,7 @@ if (process.platform !== 'linux' || process.arch !== 'x64') {
     throw new Error('The reference footprint measurement requires Linux x64')
 }
 
-const temporaryDirectory = await mkdtemp(join(tmpdir(), 'postbot-footprint-'))
+const temporaryDirectory = await mkdtemp(join(tmpdir(), 'postdot-footprint-'))
 
 try {
     const fixtureBuild = await Bun.build({

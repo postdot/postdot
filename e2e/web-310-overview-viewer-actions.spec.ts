@@ -36,7 +36,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
     await expect(page.getByRole('button', { name: 'Reschedule', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
 
-    const viewerEmail = `e2e-310-viewer-${suffix}@postbot.local`
+    const viewerEmail = `e2e-310-viewer-${suffix}@postdot.local`
     const viewerInvitation = await createProjectInvitation(
         page,
         owner.projectId,
@@ -162,7 +162,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         await viewerContext.close()
     }
 
-    const editorEmail = `e2e-310-editor-${suffix}@postbot.local`
+    const editorEmail = `e2e-310-editor-${suffix}@postdot.local`
     const editorInvitation = await createProjectInvitation(
         page,
         owner.projectId,
@@ -326,7 +326,7 @@ async function acceptProjectInvitation(
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-310-owner-${suffix}@postbot.local`
+    const email = `e2e-310-owner-${suffix}@postdot.local`
     const projectName = `E2E-310 project ${suffix}`
 
     await page.goto('/setup')

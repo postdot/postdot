@@ -13,8 +13,8 @@ export const INSTAGRAM_CAPABILITIES_REVISION = 'instagram-image-v1'
 export const instagramChannelProfile: ChannelProfileDefinition = {
     id: 'instagram',
     version: 1,
-    profileHash: 'sha256:postbot-instagram-image-v1',
-    schemaHash: 'sha256:postbot-instagram-image-schema-v1',
+    profileHash: 'sha256:postdot-instagram-image-v1',
+    schemaHash: 'sha256:postdot-instagram-image-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

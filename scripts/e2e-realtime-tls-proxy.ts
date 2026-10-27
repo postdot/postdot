@@ -325,31 +325,31 @@ function parseTargetOrigin(value: string, listenerPort: number): URL {
     try {
         target = new URL(value)
     } catch {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must be a valid origin')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must be a valid origin')
     }
 
     if (target.protocol !== 'http:') {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must use http')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must use http')
     }
     if (target.hostname !== '127.0.0.1') {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must target 127.0.0.1')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must target 127.0.0.1')
     }
     if (target.username !== '' || target.password !== '') {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must not contain credentials')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must not contain credentials')
     }
     if (target.port === '') {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must include an explicit port')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must include an explicit port')
     }
     const origin = target.origin
     if (value !== origin && value !== `${origin}/`) {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must not contain a path, query, or hash')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must not contain a path, query, or hash')
     }
     const targetPort = Number(target.port)
     if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65_535) {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must use a valid port')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must use a valid port')
     }
     if (targetPort === listenerPort) {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET must not use the TLS listener port')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET must not use the TLS listener port')
     }
 
     return target
@@ -357,7 +357,7 @@ function parseTargetOrigin(value: string, listenerPort: number): URL {
 
 function assertPort(port: number): void {
     if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_PORT must be an integer between 1 and 65535')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_PORT must be an integer between 1 and 65535')
     }
 }
 
@@ -538,23 +538,23 @@ async function runCli(): Promise<void> {
     const environment = process.env
     if (
         environment.NODE_ENV !== 'test' ||
-        environment.POSTBOT_E2E_REALTIME_ACCEPTANCE !== 'true' ||
-        environment.POSTBOT_E2E_TLS_PROXY !== 'true'
+        environment.POSTDOT_E2E_REALTIME_ACCEPTANCE !== 'true' ||
+        environment.POSTDOT_E2E_TLS_PROXY !== 'true'
     ) {
         throw new Error('The realtime TLS proxy is not enabled for isolated acceptance')
     }
 
-    const dataDirectory = environment.POSTBOT_E2E_DATA_DIRECTORY
+    const dataDirectory = environment.POSTDOT_E2E_DATA_DIRECTORY
     if (!isSafeE2EDataDirectory(dataDirectory)) {
         throw new Error('The realtime TLS proxy data directory is not safely configured')
     }
 
-    const port = Number(environment.POSTBOT_E2E_TLS_PROXY_PORT)
+    const port = Number(environment.POSTDOT_E2E_TLS_PROXY_PORT)
     assertPort(port)
 
-    const targetOrigin = environment.POSTBOT_E2E_TLS_PROXY_TARGET
+    const targetOrigin = environment.POSTDOT_E2E_TLS_PROXY_TARGET
     if (targetOrigin === undefined) {
-        throw new Error('POSTBOT_E2E_TLS_PROXY_TARGET is required')
+        throw new Error('POSTDOT_E2E_TLS_PROXY_TARGET is required')
     }
     parseTargetOrigin(targetOrigin, port)
 

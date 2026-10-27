@@ -19,7 +19,7 @@ function hasValidBearerToken(request: Request, expectedToken: string) {
 }
 
 export function createMetricsRoutes(options?: MetricsRouteOptions) {
-    const routes = new Elysia({ name: 'postbot-metrics' })
+    const routes = new Elysia({ name: 'postdot-metrics' })
     if (options === undefined) return routes
 
     return routes.get(

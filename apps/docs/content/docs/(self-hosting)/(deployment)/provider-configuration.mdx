@@ -29,14 +29,14 @@ requires a public web client or callback.
 
 Postdot can deliver project invitations, signup verification, and password-reset
 messages through an operator-supplied SMTP relay. Configure
-`POSTBOT_EMAIL_SMTP_HOST` and `POSTBOT_EMAIL_FROM` in the API environment; port `587`
-is the default, `POSTBOT_EMAIL_SMTP_SECURE` selects TLS mode, and username/password
+`POSTDOT_EMAIL_SMTP_HOST` and `POSTDOT_EMAIL_FROM` in the API environment; port `587`
+is the default, `POSTDOT_EMAIL_SMTP_SECURE` selects TLS mode, and username/password
 are optional but must be supplied together. Keep credentials in the deployment
 secret store or ignored environment file.
 
 SMTP is not required for the local profile: without it, project invitations remain
 copyable one-use links. Enable
-`POSTBOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION=true` only alongside a working
+`POSTDOT_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION=true` only alongside a working
 mail transport. SMTP submission is asynchronous and best-effort; delivery
 guarantees, retries, bounces, and provider webhooks are outside this boundary.
 
@@ -62,10 +62,10 @@ recommended setup is:
 ```dotenv
 # apps/api/.env
 BETTER_AUTH_URL=http://127.0.0.1:3000
-POSTBOT_WEB_ORIGIN=http://127.0.0.1:5173
+POSTDOT_WEB_ORIGIN=http://127.0.0.1:5173
 
 # apps/web/.env
-POSTBOT_API_ORIGIN=http://127.0.0.1:3000
+POSTDOT_API_ORIGIN=http://127.0.0.1:3000
 ```
 
 Open the dashboard at `http://127.0.0.1:5173`, not `http://localhost:5173`.

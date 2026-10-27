@@ -10,7 +10,7 @@ import {
     notificationKinds,
     notificationSeverities,
     providerAnalyticsAvailabilityStates,
-    providerAnalyticsPostbotEntityTypes,
+    providerAnalyticsPostdotEntityTypes,
     providerAnalyticsFreshnessStates,
     providerAnalyticsSubjectTypes,
     providerMediaDeliveryStates,
@@ -1651,10 +1651,10 @@ export const providerAnalyticsObservations = sqliteTable(
         providerSubjectId: text('provider_subject_id').notNull(),
         providerSubjectLabel: text('provider_subject_label'),
         providerContentRevisionId: text('provider_content_revision_id'),
-        postbotEntityType: text('postbot_entity_type', {
-            enum: providerAnalyticsPostbotEntityTypes,
+        postdotEntityType: text('postdot_entity_type', {
+            enum: providerAnalyticsPostdotEntityTypes,
         }),
-        postbotEntityId: text('postbot_entity_id'),
+        postdotEntityId: text('postdot_entity_id'),
         metricName: text('metric_name').notNull(),
         value: real('value'),
         unit: text('unit').notNull(),
@@ -1691,8 +1691,8 @@ export const providerAnalyticsObservations = sqliteTable(
         ),
         index('provider_analytics_observations_project_entity_idx').on(
             table.projectId,
-            table.postbotEntityType,
-            table.postbotEntityId,
+            table.postdotEntityType,
+            table.postdotEntityId,
             table.fetchedAt
         ),
         check(
@@ -1713,10 +1713,10 @@ export const providerAnalyticsObservations = sqliteTable(
         ),
         check(
             'provider_analytics_observations_entity_pair_valid',
-            sql`(${table.postbotEntityType} is null and ${table.postbotEntityId} is null)
-                or (${table.postbotEntityType} is not null
-                    and ${table.postbotEntityId} is not null
-                    and length(trim(${table.postbotEntityId})) > 0)`
+            sql`(${table.postdotEntityType} is null and ${table.postdotEntityId} is null)
+                or (${table.postdotEntityType} is not null
+                    and ${table.postdotEntityId} is not null
+                    and length(trim(${table.postdotEntityId})) > 0)`
         ),
         check(
             'provider_analytics_observations_metric_nonblank',
@@ -1759,7 +1759,7 @@ export const providerAnalyticsObservations = sqliteTable(
         check(
             'provider_analytics_observations_enum_valid',
             sql`${table.subjectType} in ('account', 'content')
-                and (${table.postbotEntityType} is null or ${table.postbotEntityType} in ('channel', 'publication'))
+                and (${table.postdotEntityType} is null or ${table.postdotEntityType} in ('channel', 'publication'))
                 and ${table.availability} in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'partial_response', 'not_configured', 'not_authorized', 'not_supported')
                 and ${table.freshness} in ('fresh', 'stale', 'unknown')`
         ),

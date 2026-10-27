@@ -16,14 +16,14 @@ function createFixture() {
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
-        .run('user-1', 'Postdot Operator', 'operator@postbot.test', now)
+        .run('user-1', 'Postdot Operator', 'operator@postdot.test', now)
 
     let timestamp = now
     let sequence = 0
     const store = createProviderApplicationStore(database, {
         policies: providerApplicationPolicies,
         cipher: createSecretCipher({
-            domain: 'postbot.provider-application',
+            domain: 'postdot.provider-application',
             keyId: 'primary',
             key: new Uint8Array(32).fill(7),
         }),
@@ -158,7 +158,7 @@ describe('provider application store', () => {
             const result = await fixture.store.createProviderApplication({
                 providerId: 'bluesky',
                 name: 'Postdot Bluesky',
-                clientMetadataUrl: 'https://postbot.example.test/client-metadata.json',
+                clientMetadataUrl: 'https://postdot.example.test/client-metadata.json',
                 createdByUserId: 'user-1',
             })
             expect(result.kind).toBe('created')
@@ -166,7 +166,7 @@ describe('provider application store', () => {
             expect(result.configuration).toMatchObject({
                 providerId: 'bluesky',
                 clientId: null,
-                clientMetadataUrl: 'https://postbot.example.test/client-metadata.json',
+                clientMetadataUrl: 'https://postdot.example.test/client-metadata.json',
                 oauthMode: 'web',
                 handleResolver: 'https://bsky.social/',
                 hasClientSecret: false,
@@ -284,7 +284,7 @@ it('rejects unusable Instagram application identifiers and public configuration 
                 providerId: 'instagram',
                 name: 'Instagram',
                 clientId: '12345',
-                clientMetadataUrl: 'https://postbot.example.test/client-metadata.json',
+                clientMetadataUrl: 'https://postdot.example.test/client-metadata.json',
                 clientSecret: 'synthetic-secret',
                 createdByUserId: 'user-1',
             })

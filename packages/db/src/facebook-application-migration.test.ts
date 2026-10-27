@@ -16,7 +16,7 @@ import { createProviderApplicationStore } from './provider-application-store'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 
 test('Facebook application migration preserves encrypted configurations and referenced OAuth attempts', async () => {
-    const folder = mkdtempSync(join(tmpdir(), 'postbot-facebook-migration-'))
+    const folder = mkdtempSync(join(tmpdir(), 'postdot-facebook-migration-'))
     const database = createDatabase(':memory:')
     try {
         const journal = JSON.parse(
@@ -41,7 +41,7 @@ test('Facebook application migration preserves encrypted configurations and refe
         const applications = createProviderApplicationStore(database, {
             policies: providerApplicationPolicies,
             cipher: createSecretCipher({
-                domain: 'postbot.provider-application',
+                domain: 'postdot.provider-application',
                 keyId: 'test',
                 key,
             }),
@@ -67,7 +67,7 @@ test('Facebook application migration preserves encrypted configurations and refe
                 connectedByActorId: project.actor.id,
                 providerId: 'linkedin',
                 providerApplicationId: saved.configuration.id,
-                callbackUri: 'https://postbot.example/callback',
+                callbackUri: 'https://postdot.example/callback',
                 scopes: [],
                 returnPath: '/dashboard',
                 stateDigest,
@@ -103,7 +103,7 @@ test('Facebook application migration preserves encrypted configurations and refe
                 stateDigest,
                 connectedByActorId: project.actor.id,
                 providerId: 'linkedin',
-                callbackUri: 'https://postbot.example/callback',
+                callbackUri: 'https://postdot.example/callback',
             })
         ).toMatchObject({ kind: 'ready', providerState: 'existing-pending-secret' })
         expect(database.$client.query('PRAGMA foreign_key_check').all()).toEqual([])

@@ -6,7 +6,7 @@ import {
     type Publication,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type { CancelPublicationsInput } from '../manual-store'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -41,7 +41,7 @@ export interface PublicationCancellationStoreOptions {
 }
 
 export function createPublicationCancellationStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationCancellationStoreOptions
 ) {
     const client = database.$client

@@ -68,7 +68,7 @@ export function registerMastodonAnalyticsRoutes<const Routes extends Record<stri
                     provider: 'mastodon',
                     subjectType: query.subjectType,
                     providerSubjectId: query.providerSubjectId,
-                    postbotEntityId: query.postbotEntityId,
+                    postdotEntityId: query.postdotEntityId,
                     limit: query.limit,
                 })
                 return result === null

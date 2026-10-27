@@ -124,7 +124,7 @@ test('recovers unsaved destination changes after another session saves a newer d
             .locator('[data-target-field="media"]')
             .getByRole('button', { name: 'Remove second.png', exact: true })
             .click()
-        const key = `postbot:publication-editor:v3:${pair.id}:${pair.first}`
+        const key = `postdot:publication-editor:v3:${pair.id}:${pair.first}`
         await expect
             .poll(async () =>
                 other.evaluate(
@@ -191,7 +191,7 @@ test('recovers unsaved destination changes after another session saves a newer d
         await other.evaluate(
             ({ key, buffer }) => {
                 localStorage.setItem(key, JSON.stringify(buffer))
-                localStorage.setItem('postbot-theme', 'light')
+                localStorage.setItem('postdot-theme', 'light')
             },
             {
                 key,
@@ -289,7 +289,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'
         )
-        const key = `postbot:publication-editor:v3:${pair.id}:${pair.first}`
+        const key = `postdot:publication-editor:v3:${pair.id}:${pair.first}`
         await expect
             .poll(async () =>
                 other.evaluate(
@@ -672,7 +672,7 @@ async function createDraftPair(page: Page) {
     await page.goto('/')
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Concurrent editor owner')
-    await page.getByLabel('Email', { exact: true }).fill(`concurrent-${suffix}@postbot.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`concurrent-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('concurrent-editor-password')
     await Promise.all([
         page.waitForResponse(

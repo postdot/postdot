@@ -9,12 +9,12 @@ import { verifyProductionDashboard } from './production-web-assets'
 
 const repositoryRoot = resolve(import.meta.dir, '..')
 const runId = randomUUID().replaceAll('-', '').slice(0, 12)
-const suppliedImage = process.env.POSTBOT_CONTAINER_TEST_IMAGE
-const imageTag = suppliedImage ?? `postbot-recovery:${runId}`
+const suppliedImage = process.env.POSTDOT_CONTAINER_TEST_IMAGE
+const imageTag = suppliedImage ?? `postdot-recovery:${runId}`
 let executionImage = imageTag
 let imageArchitecture: string | undefined
 let acceptanceProjectId: string | undefined
-const containerName = `postbot-recovery-${runId}`
+const containerName = `postdot-recovery-${runId}`
 
 /**
  * The scenarios this script can run.
@@ -26,10 +26,10 @@ const containerName = `postbot-recovery-${runId}`
  */
 const fullScenario = 'full'
 const startupTerminationScenario = 'startup-termination'
-const selectedScenario = process.env.POSTBOT_CONTAINER_TEST_SCENARIO ?? fullScenario
+const selectedScenario = process.env.POSTDOT_CONTAINER_TEST_SCENARIO ?? fullScenario
 if (selectedScenario !== fullScenario && selectedScenario !== startupTerminationScenario) {
     throw new Error(
-        `Unsupported POSTBOT_CONTAINER_TEST_SCENARIO "${selectedScenario}"; use "${fullScenario}" or "${startupTerminationScenario}".`
+        `Unsupported POSTDOT_CONTAINER_TEST_SCENARIO "${selectedScenario}"; use "${fullScenario}" or "${startupTerminationScenario}".`
     )
 }
 
@@ -46,7 +46,7 @@ const startupProbeTimeoutMs = 2_000
 /** The bounded deadline for the probe request inside the container. */
 const startupProbeRequestTimeoutMs = 500
 
-const testRoot = await mkdtemp(join(tmpdir(), 'postbot-production-recovery-'))
+const testRoot = await mkdtemp(join(tmpdir(), 'postdot-production-recovery-'))
 const sourceData = join(testRoot, 'source-data')
 const restoredData = join(testRoot, 'restored-data')
 const backupDirectory = join(testRoot, 'backups')
@@ -144,7 +144,7 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
             runtimeArchitecture !== imageArchitecture ||
             command.length !== 2 ||
             !['bun', '/usr/local/bin/bun'].includes(command[0]!) ||
-            command[1] !== '/app/postbot.js'
+            command[1] !== '/app/postdot.js'
         )
             throw new Error('The production entrypoint is not the expected Bun application')
         console.log(
@@ -190,7 +190,7 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
                 `Container logs:\n${logs}`
         )
     }
-    const retainedLock = join(dataDirectory, 'postbot.sqlite.runtime.lock')
+    const retainedLock = join(dataDirectory, 'postdot.sqlite.runtime.lock')
     if (await Bun.file(retainedLock).exists()) {
         throw new Error(
             `The ${stage} production container exited 0 but retained its runtime lock at ${retainedLock}; graceful shutdown must release the lock.`
@@ -216,7 +216,7 @@ async function verifyAuthenticatedProject(port: number): Promise<void> {
         headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
         body: JSON.stringify({
             name: 'Container acceptance operator',
-            email: `container-${runId}@postbot.local`,
+            email: `container-${runId}@postdot.local`,
             password: 'production-container-test-password',
         }),
     })
@@ -255,13 +255,13 @@ function serverEnvironment(dataDirectory: string): string[] {
         '--env',
         'BETTER_AUTH_URL=http://localhost:3000',
         '--env',
-        'POSTBOT_WEB_ORIGIN=http://localhost:3000',
+        'POSTDOT_WEB_ORIGIN=http://localhost:3000',
         '--env',
         `BETTER_AUTH_SECRET=${authSecret}`,
         '--env',
-        `POSTBOT_MEDIA_PUBLIC_URL_SECRET=${mediaUrlSecret}`,
+        `POSTDOT_MEDIA_PUBLIC_URL_SECRET=${mediaUrlSecret}`,
         '--env',
-        `POSTBOT_PUBLISHER_ENCRYPTION_KEY=${publisherEncryptionKey}`,
+        `POSTDOT_PUBLISHER_ENCRYPTION_KEY=${publisherEncryptionKey}`,
     ]
 }
 
@@ -304,7 +304,7 @@ async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void>
             `docker kill must report SIGKILL as exit code 137; observed ${killed.exitCode}`
         )
     }
-    const retainedLock = join(dataDirectory, 'postbot.sqlite.runtime.lock')
+    const retainedLock = join(dataDirectory, 'postdot.sqlite.runtime.lock')
     if (!(await Bun.file(retainedLock).exists())) {
         throw new Error(
             'A SIGKILLed production container must retain its runtime lock; graceful shutdown is the only path that releases it.'
@@ -547,7 +547,7 @@ async function runStartupTerminationAttempt(
     attempt: number
 ): Promise<StartupAttempt> {
     const container = `${containerName}-startup-${attempt}`
-    const marker = join(dataDirectory, 'postbot.sqlite.runtime.lock')
+    const marker = join(dataDirectory, 'postdot.sqlite.runtime.lock')
     await prepareContainerWritableDirectory(dataDirectory)
 
     runDocker([
@@ -621,7 +621,7 @@ async function runStartupTerminationAttempt(
         // The marker release has to come from the application's own drain, so
         // the container logs must carry that drain. Empty logs would mean the
         // marker was removed by another path.
-        if (!logs.includes('[postbot-shutdown] SIGTERM received')) {
+        if (!logs.includes('[postdot-shutdown] SIGTERM received')) {
             throw new Error(
                 `The production container exited 0 without running its own orderly drain, so the runtime marker release did not come from the application. Container logs:\n${logs}`
             )
@@ -769,7 +769,7 @@ try {
             'bun',
             executionImage,
             '-e',
-            `const child = Bun.spawn(['/usr/local/bin/postbot-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
+            `const child = Bun.spawn(['/usr/local/bin/postdot-poster', '-v', 'error', '-nostdin', '-i', '/fixture.mp4', '-frames:v', '1', '-f', 'image2pipe', 'pipe:1'], { stdout: 'pipe', stderr: 'inherit' });
         const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
         try {
             const source = await new Response(child.stdout).blob();
@@ -796,7 +796,7 @@ try {
             'backup',
             '--media',
             '--output',
-            '/backups/postbot.bundle',
+            '/backups/postdot.bundle',
         ])
 
         runDocker([
@@ -810,7 +810,7 @@ try {
             'restore',
             '--media',
             '--input',
-            '/backups/postbot.bundle',
+            '/backups/postdot.bundle',
         ])
 
         await startServer(restoredData, 'restored')
@@ -823,7 +823,7 @@ try {
             'bun',
             executionImage,
             '-e',
-            `const {Database}=await import('bun:sqlite'); const db=new Database('/data/postbot.sqlite',{readonly:true}); const row=db.query('select id from projects where id = ?').get(${JSON.stringify(acceptanceProjectId)}); db.close(); if(!row)process.exit(1); console.log(row.id)`,
+            `const {Database}=await import('bun:sqlite'); const db=new Database('/data/postdot.sqlite',{readonly:true}); const row=db.query('select id from projects where id = ?').get(${JSON.stringify(acceptanceProjectId)}); db.close(); if(!row)process.exit(1); console.log(row.id)`,
         ])
         if (restoredProject !== acceptanceProjectId)
             throw new Error('Restored authenticated project was not preserved')

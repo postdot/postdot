@@ -9,7 +9,7 @@ import {
     type PublisherCredentialState,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostdotDatabase } from './client'
 import {
     type EncryptedPublisherSecret,
     type PublisherCredentialCipher,
@@ -251,7 +251,7 @@ function envelopeFromRow(
 }
 
 export function createPublisherCredentialStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublisherCredentialStoreOptions
 ) {
     const client = database.$client

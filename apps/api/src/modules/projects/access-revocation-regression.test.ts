@@ -17,7 +17,7 @@ import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -39,7 +39,7 @@ function createFixture() {
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -176,18 +176,18 @@ describe('API key project access follows the owner current access (ACCESS-309)',
         const { access, app, database, mediaRoot } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'access-309-owner@postbot.local')
-            const memberCookie = await signUp(app, 'access-309-member@postbot.local')
-            const retainedCookie = await signUp(app, 'access-309-retained@postbot.local')
+            const ownerCookie = await signUp(app, 'access-309-owner@postdot.local')
+            const memberCookie = await signUp(app, 'access-309-member@postdot.local')
+            const retainedCookie = await signUp(app, 'access-309-retained@postdot.local')
             const memberUserId = demoteToWorkspaceMember(
                 database,
                 access,
-                'access-309-member@postbot.local'
+                'access-309-member@postdot.local'
             )
             const retainedUserId = demoteToWorkspaceMember(
                 database,
                 access,
-                'access-309-retained@postbot.local'
+                'access-309-retained@postdot.local'
             )
             const memberWorkspaceId = access.getProjectWorkspaceId(
                 await createProject(app, ownerCookie, 'Placeholder')
@@ -336,12 +336,12 @@ describe('API key project access follows the owner current access (ACCESS-309)',
         const { access, app, database, mediaRoot } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'access-309-team-owner@postbot.local')
-            const memberCookie = await signUp(app, 'access-309-team-member@postbot.local')
+            const ownerCookie = await signUp(app, 'access-309-team-owner@postdot.local')
+            const memberCookie = await signUp(app, 'access-309-team-member@postdot.local')
             const memberUserId = demoteToWorkspaceMember(
                 database,
                 access,
-                'access-309-team-member@postbot.local'
+                'access-309-team-member@postdot.local'
             )
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
@@ -415,9 +415,9 @@ describe('API key project access follows the owner current access (ACCESS-309)',
         const { access, app, database, mediaRoot } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'access-309-outsider-owner@postbot.local')
-            const outsiderCookie = await signUp(app, 'access-309-outsider@postbot.local')
-            demoteToWorkspaceMember(database, access, 'access-309-outsider@postbot.local')
+            const ownerCookie = await signUp(app, 'access-309-outsider-owner@postdot.local')
+            const outsiderCookie = await signUp(app, 'access-309-outsider@postdot.local')
+            demoteToWorkspaceMember(database, access, 'access-309-outsider@postdot.local')
             const projectId = await createProject(app, ownerCookie, 'Outsider project')
             const key = await createApiKey(app, outsiderCookie, null)
 

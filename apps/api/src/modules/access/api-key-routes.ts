@@ -1,7 +1,7 @@
 import {
-    postbotUserApiKeyConfigId,
-    type PostbotApiKeyRecord,
-    type PostbotAuth,
+    postdotUserApiKeyConfigId,
+    type PostdotApiKeyRecord,
+    type PostdotAuth,
 } from '@postdot/auth'
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
@@ -10,7 +10,7 @@ import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
 import {
     capabilitiesForPermissions,
     permissionsForCapabilities,
-    type PostbotApiKeyCapability,
+    type PostdotApiKeyCapability,
 } from '../projects/api-key-permissions'
 
 const errorResponse = Type.Object({
@@ -84,66 +84,66 @@ const createdUserApiKeySchema = Type.Object({
 })
 
 export interface UserApiKeyMetadata {
-    readonly postbotApiKeyVersion: 2
-    readonly postbotProjectAccess: 'all' | 'selected'
-    readonly postbotProjectIds?: readonly string[]
+    readonly postdotApiKeyVersion: 2
+    readonly postdotProjectAccess: 'all' | 'selected'
+    readonly postdotProjectIds?: readonly string[]
 }
 
 export function readUserApiKeyMetadata(value: unknown): UserApiKeyMetadata | null {
     if (typeof value !== 'object' || value === null) return null
     const metadata = value as {
-        readonly postbotApiKeyVersion?: unknown
-        readonly postbotProjectAccess?: unknown
-        readonly postbotProjectIds?: unknown
+        readonly postdotApiKeyVersion?: unknown
+        readonly postdotProjectAccess?: unknown
+        readonly postdotProjectIds?: unknown
     }
-    if (metadata.postbotApiKeyVersion !== 2) return null
-    if (metadata.postbotProjectAccess === 'all') {
+    if (metadata.postdotApiKeyVersion !== 2) return null
+    if (metadata.postdotProjectAccess === 'all') {
         return {
-            postbotApiKeyVersion: 2,
-            postbotProjectAccess: 'all',
+            postdotApiKeyVersion: 2,
+            postdotProjectAccess: 'all',
         }
     }
     if (
-        metadata.postbotProjectAccess !== 'selected' ||
-        !Array.isArray(metadata.postbotProjectIds) ||
-        metadata.postbotProjectIds.length === 0 ||
-        metadata.postbotProjectIds.some(
+        metadata.postdotProjectAccess !== 'selected' ||
+        !Array.isArray(metadata.postdotProjectIds) ||
+        metadata.postdotProjectIds.length === 0 ||
+        metadata.postdotProjectIds.some(
             projectId => typeof projectId !== 'string' || projectId.length === 0
         )
     ) {
         return null
     }
     return {
-        postbotApiKeyVersion: 2,
-        postbotProjectAccess: 'selected',
-        postbotProjectIds: [...new Set(metadata.postbotProjectIds as string[])],
+        postdotApiKeyVersion: 2,
+        postdotProjectAccess: 'selected',
+        postdotProjectIds: [...new Set(metadata.postdotProjectIds as string[])],
     }
 }
 
 function metadataForProjectAccess(projectIds: readonly string[] | null): UserApiKeyMetadata {
     if (projectIds === null) {
         return {
-            postbotApiKeyVersion: 2,
-            postbotProjectAccess: 'all',
+            postdotApiKeyVersion: 2,
+            postdotProjectAccess: 'all',
         }
     }
     return {
-        postbotApiKeyVersion: 2,
-        postbotProjectAccess: 'selected',
-        postbotProjectIds: [...new Set(projectIds)],
+        postdotApiKeyVersion: 2,
+        postdotProjectAccess: 'selected',
+        postdotProjectIds: [...new Set(projectIds)],
     }
 }
 
 function projectAccessFromMetadata(metadata: unknown): 'all' | string[] {
     const parsed = readUserApiKeyMetadata(metadata)
-    return parsed?.postbotProjectAccess === 'all' ? 'all' : [...(parsed?.postbotProjectIds ?? [])]
+    return parsed?.postdotProjectAccess === 'all' ? 'all' : [...(parsed?.postdotProjectIds ?? [])]
 }
 
-function toUserApiKey(key: PostbotApiKeyRecord) {
+function toUserApiKey(key: PostdotApiKeyRecord) {
     return {
         id: key.id,
         name: key.name ?? 'Unnamed API key',
-        tokenPrefix: key.prefix ?? 'postbot_pat_',
+        tokenPrefix: key.prefix ?? 'postdot_pat_',
         projectAccess: projectAccessFromMetadata(key.metadata),
         actionAccess: capabilitiesForPermissions(key.permissions),
         expiresAt: key.expiresAt?.getTime() ?? null,
@@ -218,7 +218,7 @@ function projectIdsForRequest(
 
 export function registerUserApiKeyRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     access: AccessStore,
     now: () => number = Date.now
 ) {
@@ -249,7 +249,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     })
                 }
                 const listed = await auth.api.listApiKeys({
-                    query: { configId: postbotUserApiKeyConfigId },
+                    query: { configId: postdotUserApiKeyConfigId },
                     headers: request.headers,
                 })
                 return {
@@ -299,7 +299,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 const created = await auth.api.createApiKey({
                     body: {
-                        configId: postbotUserApiKeyConfigId,
+                        configId: postdotUserApiKeyConfigId,
                         name: body.name?.trim() || generatedUserApiKeyName(),
                         userId: user.id,
                         metadata: metadataForProjectAccess(projectIds),
@@ -307,7 +307,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                             ? {}
                             : {
                                   permissions: permissionsForCapabilities(
-                                      body.actionAccess as readonly PostbotApiKeyCapability[]
+                                      body.actionAccess as readonly PostdotApiKeyCapability[]
                                   ),
                               }),
                         ...(expiresIn === undefined ? {} : { expiresIn }),
@@ -362,7 +362,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     })
                 }
                 const existing = await auth.api.listApiKeys({
-                    query: { configId: postbotUserApiKeyConfigId },
+                    query: { configId: postdotUserApiKeyConfigId },
                     headers: request.headers,
                 })
                 const current = existing.apiKeys.find(key => key.id === params.keyId)
@@ -373,7 +373,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 const updated = await auth.api.updateApiKey({
                     body: {
-                        configId: postbotUserApiKeyConfigId,
+                        configId: postdotUserApiKeyConfigId,
                         keyId: params.keyId,
                         userId: user.id,
                         ...(body.name === undefined ? {} : { name: body.name }),
@@ -387,7 +387,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                                       body.actionAccess === null
                                           ? null
                                           : permissionsForCapabilities(
-                                                body.actionAccess as readonly PostbotApiKeyCapability[]
+                                                body.actionAccess as readonly PostdotApiKeyCapability[]
                                             ),
                               }),
                         ...(body.expiresAt === undefined ? {} : { expiresIn }),
@@ -425,7 +425,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 }
                 try {
                     await auth.api.deleteApiKey({
-                        body: { configId: postbotUserApiKeyConfigId, keyId: params.keyId },
+                        body: { configId: postdotUserApiKeyConfigId, keyId: params.keyId },
                         headers: request.headers,
                     })
                 } catch {

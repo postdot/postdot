@@ -2,8 +2,8 @@ import { stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 
 import {
-    createPostbotClient,
-    type PostbotClient,
+    createPostdotClient,
+    type PostdotClient,
     type Post,
     type Publication,
     type MediaReservation,
@@ -13,7 +13,11 @@ import {
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-export interface PostbotCliEnvironment {
+export interface PostdotCliEnvironment {
+    readonly POSTDOT_API_KEY?: string
+    readonly POSTDOT_SESSION_COOKIE?: string
+    readonly POSTDOT_URL?: string
+    /** Deprecated names still read for scripts written before the Postdot rename. */
     readonly POSTBOT_API_KEY?: string
     readonly POSTBOT_SESSION_COOKIE?: string
     readonly POSTBOT_URL?: string
@@ -50,7 +54,7 @@ export class CliError extends Error {
 
 export async function runCli(
     args: readonly string[] = Bun.argv.slice(2),
-    environment: PostbotCliEnvironment = Bun.env as PostbotCliEnvironment,
+    environment: PostdotCliEnvironment = Bun.env as PostdotCliEnvironment,
     dependencies: CliDependencies = {}
 ) {
     const output = dependencies.output ?? console.log
@@ -69,12 +73,17 @@ export async function runCli(
     const jsonOutput = args.includes('--json')
     const baseURL = (
         optionValue(args, '--base-url') ??
+        environment.POSTDOT_URL ??
         environment.POSTBOT_URL ??
         'http://localhost:3000'
     ).replace(/\/$/, '')
-    const sessionCookie = optionValue(args, '--cookie') ?? environment.POSTBOT_SESSION_COOKIE
-    const apiKey = optionValue(args, '--token') ?? environment.POSTBOT_API_KEY
-    const client = createPostbotClient(baseURL, {
+    const sessionCookie =
+        optionValue(args, '--cookie') ??
+        environment.POSTDOT_SESSION_COOKIE ??
+        environment.POSTBOT_SESSION_COOKIE
+    const apiKey =
+        optionValue(args, '--token') ?? environment.POSTDOT_API_KEY ?? environment.POSTBOT_API_KEY
+    const client = createPostdotClient(baseURL, {
         cookie: sessionCookie,
         fetcher,
         token: apiKey,
@@ -107,7 +116,7 @@ export async function runCli(
         if (!cookie) throw new CliError('Authentication succeeded without a session cookie')
         write(
             { cookie, user: body.user },
-            `Authenticated as ${body.user.email}. Export POSTBOT_SESSION_COOKIE='${cookie}'.`
+            `Authenticated as ${body.user.email}. Export POSTDOT_SESSION_COOKIE='${cookie}'.`
         )
         return
     }
@@ -645,7 +654,7 @@ function ensureMediaAccepted(result: MediaUrlImport) {
     throw error
 }
 
-type ProjectRoutes = ReturnType<PostbotClient['api']['projects']>
+type ProjectRoutes = ReturnType<PostdotClient['api']['projects']>
 type PublicationRoutes = ReturnType<ProjectRoutes['publications']>
 type CreatePostInput = Parameters<ProjectRoutes['posts']['post']>[0]
 type SaveDraftInput = Parameters<PublicationRoutes['draft']['patch']>[0]
@@ -998,15 +1007,15 @@ Move input: {targetChannelId,deliveryMode,expectedPublicationUpdatedAt,
 Incompatible moved content remains an unscheduled review draft; requested time is retained.
 
 Environment:
-  POSTBOT_URL
-  POSTBOT_SESSION_COOKIE
-  POSTBOT_API_KEY`)
+  POSTDOT_URL
+  POSTDOT_SESSION_COOKIE
+  POSTDOT_API_KEY`)
 }
 
 function requireAuthenticated(sessionCookie: string | undefined, apiKey: string | undefined) {
     if (!sessionCookie && !apiKey) {
         throw new CliError(
-            'Authentication required. Set POSTBOT_SESSION_COOKIE or POSTBOT_API_KEY, or pass --cookie or --token.'
+            'Authentication required. Set POSTDOT_SESSION_COOKIE or POSTDOT_API_KEY, or pass --cookie or --token.'
         )
     }
 }
@@ -1014,7 +1023,7 @@ function requireAuthenticated(sessionCookie: string | undefined, apiKey: string 
 function requireSession(sessionCookie: string | undefined) {
     if (!sessionCookie) {
         throw new CliError(
-            'This command requires a human session. Set POSTBOT_SESSION_COOKIE or pass --cookie <value>.'
+            'This command requires a human session. Set POSTDOT_SESSION_COOKIE or pass --cookie <value>.'
         )
     }
 }

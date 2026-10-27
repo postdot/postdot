@@ -4,19 +4,19 @@
 @source './';
 @source '../../../packages/ui/src';
 
-.postbot-scrollbar-none {
+.postdot-scrollbar-none {
     scrollbar-width: none;
 }
 
-.postbot-scrollbar-none::-webkit-scrollbar {
+.postdot-scrollbar-none::-webkit-scrollbar {
     display: none;
 }
 
-html:has(.postbot-dashboard) {
+html:has(.postdot-dashboard) {
     overflow: hidden;
 }
 
-body:has(.postbot-dashboard) {
+body:has(.postdot-dashboard) {
     overflow: hidden;
 }
 
@@ -28,7 +28,7 @@ body:has(.postbot-dashboard) {
     );
 }
 
-@keyframes postbot-search-scan {
+@keyframes postdot-search-scan {
     0%,
     100% {
         transform: translateX(-4px) rotate(-8deg);

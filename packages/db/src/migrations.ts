@@ -2,15 +2,15 @@ import { fileURLToPath } from 'node:url'
 
 import { readMigrationFiles } from 'drizzle-orm/migrator'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 export const defaultMigrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
 
 export interface MigrationChecks {
     /** Runs under the migration transaction before any schema/history changes. */
-    readonly preflight?: (database: PostbotDatabase) => void
+    readonly preflight?: (database: PostdotDatabase) => void
     /** Checks domain preservation after SQL/FK checks, before committing. */
-    readonly verify?: (database: PostbotDatabase) => void
+    readonly verify?: (database: PostdotDatabase) => void
 }
 
 export interface MigrationRehearsal {
@@ -24,7 +24,7 @@ class RehearsalComplete extends Error {
 }
 
 export function runMigrations(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     migrationsFolder = defaultMigrationsFolder,
     checks: MigrationChecks = {}
 ): void {
@@ -33,7 +33,7 @@ export function runMigrations(
 
 /** Requires the same exclusive runtime boundary as applying an upgrade. Rolls back all SQL and history after checking them. */
 export function rehearseMigrations(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     migrationsFolder = defaultMigrationsFolder,
     checks: MigrationChecks = {}
 ): MigrationRehearsal {
@@ -41,7 +41,7 @@ export function rehearseMigrations(
 }
 
 function applyMigrations(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     migrationsFolder: string,
     checks: MigrationChecks,
     rehearsal: boolean

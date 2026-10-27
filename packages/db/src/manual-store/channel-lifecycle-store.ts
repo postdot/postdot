@@ -8,7 +8,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '../client'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ChannelRow } from './rows'
@@ -73,7 +73,7 @@ export interface ChannelLifecycleStoreOptions {
 }
 
 export function createChannelLifecycleStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: ChannelLifecycleStoreOptions
 ) {
     const client = database.$client

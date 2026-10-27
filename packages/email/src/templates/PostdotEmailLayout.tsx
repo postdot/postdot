@@ -1,4 +1,4 @@
-import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
+import { PostdotLogo } from '@postdot/ui/components/postdot-logo'
 import { Body } from '@react-email/body'
 import { Container } from '@react-email/container'
 import { Font } from '@react-email/font'
@@ -12,13 +12,13 @@ import * as React from 'react'
 
 import { emailStyles } from '../styles'
 
-export interface PostbotEmailLayoutProps {
+export interface PostdotEmailLayoutProps {
     readonly preview: string
     readonly title: string
     readonly children: React.ReactNode
 }
 
-export function PostbotEmailLayout({ preview, title, children }: PostbotEmailLayoutProps) {
+export function PostdotEmailLayout({ preview, title, children }: PostdotEmailLayoutProps) {
     return (
         <Html lang="en">
             <Head>
@@ -41,7 +41,7 @@ export function PostbotEmailLayout({ preview, title, children }: PostbotEmailLay
                                 <tbody>
                                     <tr>
                                         <td style={emailStyles.brandLogoCell}>
-                                            <PostbotLogo
+                                            <PostdotLogo
                                                 aria-label="Postdot"
                                                 height="30"
                                                 style={{ color: '#426bce', display: 'block' }}

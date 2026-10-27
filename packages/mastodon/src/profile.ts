@@ -17,8 +17,8 @@ import {
 export const mastodonImageChannelProfile: ChannelProfileDefinition = {
     id: MASTODON_PROVIDER,
     version: 1,
-    profileHash: 'sha256:postbot-mastodon-status-v1',
-    schemaHash: 'sha256:postbot-mastodon-status-schema-v1',
+    profileHash: 'sha256:postdot-mastodon-status-v1',
+    schemaHash: 'sha256:postdot-mastodon-status-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -96,8 +96,8 @@ export const mastodonImageChannelProfile: ChannelProfileDefinition = {
 export const mastodonVideoChannelProfile: ChannelProfileDefinition = {
     ...mastodonImageChannelProfile,
     version: 2,
-    profileHash: 'sha256:postbot-mastodon-status-v2',
-    schemaHash: 'sha256:postbot-mastodon-status-schema-v2',
+    profileHash: 'sha256:postdot-mastodon-status-v2',
+    schemaHash: 'sha256:postdot-mastodon-status-schema-v2',
     capabilities: {
         ...mastodonImageChannelProfile.capabilities,
         revision: 'mastodon-status-v2',
@@ -126,8 +126,8 @@ export const mastodonVideoChannelProfile: ChannelProfileDefinition = {
 export const mastodonChannelProfile: ChannelProfileDefinition = {
     ...mastodonVideoChannelProfile,
     version: 3,
-    profileHash: 'sha256:postbot-mastodon-status-v3',
-    schemaHash: 'sha256:postbot-mastodon-status-schema-v3',
+    profileHash: 'sha256:postdot-mastodon-status-v3',
+    schemaHash: 'sha256:postdot-mastodon-status-schema-v3',
     contentSchema: {
         ...mastodonVideoChannelProfile.contentSchema,
         properties: {

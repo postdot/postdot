@@ -14,7 +14,7 @@ test('exports all filtered stored results and handles cancellation or incomplete
             await page.request.post('/api/auth/sign-up/email', {
                 data: {
                     name: 'CSV operator',
-                    email: `csv-${randomUUID()}@postbot.local`,
+                    email: `csv-${randomUUID()}@postdot.local`,
                     password: 'csv-fixture-password',
                 },
             })
@@ -102,8 +102,8 @@ test('exports all filtered stored results and handles cancellation or incomplete
                     providerSubjectId: id,
                     providerSubjectLabel: null,
                     providerContentRevisionId: null,
-                    postbotEntityId: id,
-                    postbotEntityType: 'publication',
+                    postdotEntityId: id,
+                    postdotEntityType: 'publication',
                     metricName: 'favourites_count',
                     availability: 'measured',
                     value: 0,
@@ -124,7 +124,7 @@ test('exports all filtered stored results and handles cancellation or incomplete
     const downloaded = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Export CSV', exact: true }).click()
     const download = await downloaded
-    expect(download.suggestedFilename()).toMatch(/^postbot-performance-.*\.csv$/)
+    expect(download.suggestedFilename()).toMatch(/^postdot-performance-.*\.csv$/)
     const path = await download.path()
     expect(path).not.toBeNull()
     const csv = await readFile(path!, 'utf8')

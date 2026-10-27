@@ -577,7 +577,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
         }
 
         const windowWithController = globalThis as typeof globalThis & {
-            __postbotTestEventSource?: Controller
+            __postdotTestEventSource?: Controller
         }
 
         class TestEventSource implements Controller {
@@ -589,7 +589,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
             constructor(url: string, init?: { readonly withCredentials?: boolean }) {
                 this.url = url
                 this.withCredentials = init?.withCredentials === true
-                windowWithController.__postbotTestEventSource = this
+                windowWithController.__postdotTestEventSource = this
             }
 
             addEventListener(type: string, listener: Listener): void {
@@ -600,7 +600,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
 
             close(): void {
                 this.closed = true
-                windowWithController.__postbotTestEventSource = undefined
+                windowWithController.__postdotTestEventSource = undefined
             }
 
             emit(type: string, data = ''): void {
@@ -609,7 +609,7 @@ async function installFakeEventSource(page: Page): Promise<void> {
             }
         }
 
-        Object.defineProperty(windowWithController, '__postbotTestEventSource', {
+        Object.defineProperty(windowWithController, '__postdotTestEventSource', {
             configurable: true,
             writable: true,
             value: undefined,
@@ -625,9 +625,9 @@ async function installFakeEventSource(page: Page): Promise<void> {
 async function readEventSource(page: Page): Promise<TestEventSourceController | null> {
     return page.evaluate(() => {
         const windowWithController = globalThis as typeof globalThis & {
-            __postbotTestEventSource?: TestEventSourceController
+            __postdotTestEventSource?: TestEventSourceController
         }
-        return windowWithController.__postbotTestEventSource ?? null
+        return windowWithController.__postdotTestEventSource ?? null
     })
 }
 
@@ -635,9 +635,9 @@ async function emitEventSourceSignal(page: Page, type: string, data = ''): Promi
     await page.evaluate(
         ({ type: signalType, data: signalData }) => {
             const windowWithController = globalThis as typeof globalThis & {
-                __postbotTestEventSource?: TestEventSourceController
+                __postdotTestEventSource?: TestEventSourceController
             }
-            windowWithController.__postbotTestEventSource?.emit(signalType, signalData)
+            windowWithController.__postdotTestEventSource?.emit(signalType, signalData)
         },
         { type, data }
     )
@@ -825,7 +825,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E realtime ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-realtime-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`e2e-realtime-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-realtime-password')
     await Promise.all([
         page.waitForResponse(

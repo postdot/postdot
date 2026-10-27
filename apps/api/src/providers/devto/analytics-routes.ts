@@ -51,7 +51,7 @@ export function registerDevtoAnalyticsRoutes<const Routes extends Record<string,
                     provider: 'devto',
                     subjectType: query.subjectType,
                     providerSubjectId: query.providerSubjectId,
-                    postbotEntityId: query.postbotEntityId,
+                    postdotEntityId: query.postdotEntityId,
                     limit: query.limit,
                 })
                 return result === null

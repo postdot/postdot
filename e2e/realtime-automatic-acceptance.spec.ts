@@ -57,7 +57,7 @@ const customWebhookProfile = {
     },
     fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
     capabilities: {
-        revision: 'postbot-custom-v1',
+        revision: 'postdot-custom-v1',
         textFields: [
             {
                 bindingId: 'body',
@@ -72,7 +72,7 @@ const customWebhookProfile = {
         kind: 'declarative_http',
         contractId: 'custom-webhook',
         revision: 'v1',
-        mode: 'postbot_webhook',
+        mode: 'postdot_webhook',
     },
 }
 
@@ -100,7 +100,7 @@ for (const dirty of [false, true]) {
 
             const suffix = randomUUID().slice(0, 8)
             const projectId = await createAccountAndProject(page, suffix)
-            if (process.env.POSTBOT_E2E_TLS_PROXY === 'true') {
+            if (process.env.POSTDOT_E2E_TLS_PROXY === 'true') {
                 const sessionCookie = (await page.context().cookies()).find(cookie =>
                     cookie.name.endsWith('better-auth.session_token')
                 )
@@ -190,7 +190,7 @@ for (const dirty of [false, true]) {
                     })
                     .toBeGreaterThan(0)
 
-                if (process.env.POSTBOT_E2E_TLS_PROXY === 'true') {
+                if (process.env.POSTDOT_E2E_TLS_PROXY === 'true') {
                     expect(new URL(page.url()).protocol).toBe('https:')
                     if (streamResponse === undefined)
                         throw new Error('Expected the TLS event stream')
@@ -283,7 +283,7 @@ for (const dirty of [false, true]) {
                 expect(observation.body.publication?.projectId).toBe(projectId)
                 expect(observation.body.channel?.id).toBe(channelId)
                 expect(observation.body.content?.body).toBe(initialDestination)
-                expect(headerValue(observation.headers, 'x-postbot-delivery-id')).toBe(
+                expect(headerValue(observation.headers, 'x-postdot-delivery-id')).toBe(
                     observation.deliveryId
                 )
                 expect(observation.released).toBe(false)
@@ -393,14 +393,14 @@ for (const dirty of [false, true]) {
 }
 
 function requireReceiverOrigin(): string {
-    if (process.env.POSTBOT_E2E_REALTIME_ACCEPTANCE !== 'true') {
+    if (process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE !== 'true') {
         throw new Error(
-            'POSTBOT_E2E_REALTIME_ACCEPTANCE must be "true" to run the realtime automatic acceptance spec'
+            'POSTDOT_E2E_REALTIME_ACCEPTANCE must be "true" to run the realtime automatic acceptance spec'
         )
     }
-    const port = process.env.POSTBOT_E2E_RECEIVER_PORT
+    const port = process.env.POSTDOT_E2E_RECEIVER_PORT
     if (port === undefined || port.trim() === '') {
-        throw new Error('POSTBOT_E2E_RECEIVER_PORT must point at the running E2E webhook receiver')
+        throw new Error('POSTDOT_E2E_RECEIVER_PORT must point at the running E2E webhook receiver')
     }
     return `http://127.0.0.1:${port}`
 }
@@ -410,10 +410,10 @@ async function installNavigationRecorder(page: Page): Promise<void> {
         const scope = globalThis as unknown as {
             sessionStorage: Storage
         } & Record<string, unknown>
-        const loads = Number(scope.sessionStorage.getItem('__postbotAcceptanceLoads') ?? '0')
-        scope.sessionStorage.setItem('__postbotAcceptanceLoads', String(loads + 1))
-        if (typeof scope.__postbotAcceptanceMarker !== 'string') {
-            scope.__postbotAcceptanceMarker = `${Date.now()}-${Math.random()}`
+        const loads = Number(scope.sessionStorage.getItem('__postdotAcceptanceLoads') ?? '0')
+        scope.sessionStorage.setItem('__postdotAcceptanceLoads', String(loads + 1))
+        if (typeof scope.__postdotAcceptanceMarker !== 'string') {
+            scope.__postdotAcceptanceMarker = `${Date.now()}-${Math.random()}`
         }
     })
 }
@@ -425,10 +425,10 @@ async function readNavigationState(page: Page): Promise<NavigationState> {
         } & Record<string, unknown>
         return {
             marker:
-                typeof scope.__postbotAcceptanceMarker === 'string'
-                    ? scope.__postbotAcceptanceMarker
+                typeof scope.__postdotAcceptanceMarker === 'string'
+                    ? scope.__postdotAcceptanceMarker
                     : null,
-            loads: Number(scope.sessionStorage.getItem('__postbotAcceptanceLoads') ?? '0'),
+            loads: Number(scope.sessionStorage.getItem('__postdotAcceptanceLoads') ?? '0'),
         }
     })
 }
@@ -440,7 +440,7 @@ async function installRealtimeRecorder(page: Page): Promise<void> {
             sources: { url: string; withCredentials: boolean }[]
             events: unknown[]
         } = { sources: [], events: [] }
-        Object.defineProperty(globalThis, '__postbotRealtimeRecorder', {
+        Object.defineProperty(globalThis, '__postdotRealtimeRecorder', {
             configurable: true,
             writable: true,
             value: recorder,
@@ -517,9 +517,9 @@ async function readRealtimeSources(page: Page): Promise<{ url?: string }[]> {
     return page.evaluate(() => {
         const recorder = (
             globalThis as typeof globalThis & {
-                __postbotRealtimeRecorder?: { sources?: { url?: string }[] }
+                __postdotRealtimeRecorder?: { sources?: { url?: string }[] }
             }
-        ).__postbotRealtimeRecorder
+        ).__postdotRealtimeRecorder
         return recorder?.sources ?? []
     })
 }
@@ -528,9 +528,9 @@ async function readRealtimeEvents(page: Page): Promise<RealtimeRecorderEvent[]> 
     return page.evaluate(() => {
         const recorder = (
             globalThis as typeof globalThis & {
-                __postbotRealtimeRecorder?: { events?: unknown[] }
+                __postdotRealtimeRecorder?: { events?: unknown[] }
             }
-        ).__postbotRealtimeRecorder
+        ).__postdotRealtimeRecorder
         return (recorder?.events ?? []) as RealtimeRecorderEvent[]
     })
 }
@@ -584,7 +584,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`Realtime acceptance ${suffix}`)
-    await page.getByLabel('Email').fill(`realtime-acceptance-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`realtime-acceptance-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('realtime-acceptance-password')
     await Promise.all([
         page.waitForResponse(
@@ -646,7 +646,7 @@ async function connectCustomHttpPublisher(
             data: {
                 endpointUrl,
                 authentication: { kind: 'none' },
-                secret: 'postbot-e2e-realtime-secret-0123456789abcdef',
+                secret: 'postdot-e2e-realtime-secret-0123456789abcdef',
             },
         }
     )

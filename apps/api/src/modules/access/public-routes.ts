@@ -26,7 +26,7 @@ export function createPublicInstanceRoutes(
     access: AccessStore,
     options: { readonly allowAdditionalSignups?: boolean } = {}
 ) {
-    return new Elysia({ name: 'postbot-public-instance' })
+    return new Elysia({ name: 'postdot-public-instance' })
         .get(
             '/api/instance/status',
             {

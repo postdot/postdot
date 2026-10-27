@@ -13,7 +13,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type {
     ActivateChannelProfileInput,
     ChannelProfileActivationResult,
@@ -103,7 +103,7 @@ export interface ChannelProfileStoreOptions {
 }
 
 export function createChannelProfileStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: ChannelProfileStoreOptions
 ) {
     const client = database.$client

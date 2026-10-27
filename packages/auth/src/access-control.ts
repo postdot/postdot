@@ -7,7 +7,7 @@ import { defaultStatements, memberAc, ownerAc } from 'better-auth/plugins/organi
  * Better Auth. Keeping this in one module makes the server configuration,
  * CLI schema generation, and future client checks share the same vocabulary.
  */
-export const postbotOrganizationStatement = {
+export const postdotOrganizationStatement = {
     ...defaultStatements,
     project: ['read', 'create', 'update', 'delete'],
     publication: ['read', 'create', 'update', 'delete', 'publish'],
@@ -16,10 +16,10 @@ export const postbotOrganizationStatement = {
     apiKey: ['read', 'create', 'delete', 'revoke'],
 } as const
 
-export const postbotOrganizationAccess = createAccessControl(postbotOrganizationStatement)
+export const postdotOrganizationAccess = createAccessControl(postdotOrganizationStatement)
 
-export const postbotOrganizationRoles = {
-    owner: postbotOrganizationAccess.newRole({
+export const postdotOrganizationRoles = {
+    owner: postdotOrganizationAccess.newRole({
         ...ownerAc.statements,
         project: ['read', 'create', 'update', 'delete'],
         publication: ['read', 'create', 'update', 'delete', 'publish'],
@@ -27,14 +27,14 @@ export const postbotOrganizationRoles = {
         media: ['read', 'create', 'delete'],
         apiKey: ['read', 'create', 'delete', 'revoke'],
     }),
-    editor: postbotOrganizationAccess.newRole({
+    editor: postdotOrganizationAccess.newRole({
         ...memberAc.statements,
         project: ['read'],
         publication: ['read', 'create', 'update', 'publish'],
         channel: ['read', 'create', 'update'],
         media: ['read', 'create'],
     }),
-    viewer: postbotOrganizationAccess.newRole({
+    viewer: postdotOrganizationAccess.newRole({
         ...memberAc.statements,
         project: ['read'],
         publication: ['read'],

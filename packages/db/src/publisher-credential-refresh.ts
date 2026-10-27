@@ -1,11 +1,11 @@
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 // The server owns one SQLite connection. Separate store facades share its queue;
 // independent credentials never wait for each other's network operation.
-const queues = new WeakMap<PostbotDatabase['$client'], Map<string, Promise<void>>>()
+const queues = new WeakMap<PostdotDatabase['$client'], Map<string, Promise<void>>>()
 
 export async function coordinatePublisherCredentialRefresh<T>(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     credentialId: string,
     operation: () => Promise<T>,
     signal?: AbortSignal

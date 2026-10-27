@@ -1,5 +1,5 @@
 import { createAccessStore } from './access-store'
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import {
     createEventJournalStore,
     eventJournalCursorSequence,
@@ -13,7 +13,7 @@ import {
 const transportId = 'email'
 const kinds = ['publication_failed', 'publication_ambiguous'] as const
 
-export function createNotificationEmailStore(database: PostbotDatabase) {
+export function createNotificationEmailStore(database: PostdotDatabase) {
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
     const deliveries = createNotificationDeliveryStore(database, {

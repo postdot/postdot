@@ -18,7 +18,7 @@ import { readChannelDestination, publicationDestinationConfirmed } from './chann
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 import {
     automaticExecutionAuditActions,
@@ -102,7 +102,7 @@ const claimedJobColumns = `
 `
 
 export function createWorkflowStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: { publicMediaUrlAvailable?: boolean } = {}
 ) {
     const cadence = createChannelCadenceStore(database)

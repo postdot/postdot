@@ -12,7 +12,7 @@ the matching executable; a restart is not an upgrade test.
 ## Preserve a complete recovery set
 
 Keep the application bundle, deployment configuration and image version/digest.
-Preserve `POSTBOT_PUBLISHER_ENCRYPTION_KEY` and its key identifier separately from
+Preserve `POSTDOT_PUBLISHER_ENCRYPTION_KEY` and its key identifier separately from
 the bundle. Retain the other deployment secrets too. The backup contains encrypted
 credential records, not the key needed to decrypt them. A replacement key cannot
 recover those records; losing the key requires deliberately reconnecting accounts.
@@ -62,8 +62,8 @@ Before starting an externally restored installation, enter hold explicitly with
 the server stopped and the intended data volume selected:
 
 ```sh
-docker compose run --rm --no-deps postbot recovery hold --database /data/postbot.sqlite
-docker compose run --rm --no-deps postbot recovery status --database /data/postbot.sqlite
+docker compose run --rm --no-deps postdot recovery hold --database /data/postdot.sqlite
+docker compose run --rm --no-deps postdot recovery status --database /data/postdot.sqlite
 docker compose up -d --no-build --wait
 ```
 
@@ -76,8 +76,8 @@ If SMTP recovery is unavailable, stop the application and use an interactive
 maintenance terminal against the exact database:
 
 ```sh
-docker compose stop postbot
-docker compose run --rm --no-deps -it postbot account recover-password --database /data/postbot.sqlite
+docker compose stop postdot
+docker compose run --rm --no-deps -it postdot account recover-password --database /data/postdot.sqlite
 ```
 
 The command confirms the database path, reads the password without echo and
@@ -91,8 +91,8 @@ other application data and restart the installation afterward.
 Stop Postdot before this maintenance operation. Review the dry run first:
 
 ```sh
-docker compose run --rm --no-deps postbot media-previews --dry-run
-docker compose run --rm --no-deps postbot media-previews
+docker compose run --rm --no-deps postdot media-previews --dry-run
+docker compose run --rm --no-deps postdot media-previews
 docker compose up -d --no-build --wait
 ```
 

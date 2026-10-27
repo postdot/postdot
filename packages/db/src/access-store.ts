@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { requireNonBlank } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 export const accessInstanceId = 'default'
 export const defaultInvitationTtlMs = 7 * 24 * 60 * 60 * 1_000
@@ -414,7 +414,7 @@ function selectBestProjectMembership(
     }, null)
 }
 
-export function createAccessStore(database: PostbotDatabase, options: AccessStoreOptions = {}) {
+export function createAccessStore(database: PostdotDatabase, options: AccessStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? randomUUID
@@ -1196,7 +1196,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
     }): void => {
         const timestamp = now()
         upsertProjectUserGrantStatement.run(
-            `postbot-project-user-grant:${input.projectId}:${input.userId}`,
+            `postdot-project-user-grant:${input.projectId}:${input.userId}`,
             input.projectId,
             input.userId,
             'viewer',
@@ -1242,7 +1242,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
     }): void => {
         const timestamp = now()
         insertWorkspaceMemberStatement.run(
-            `postbot-workspace-member:${input.workspace.id}:${input.userId}`,
+            `postdot-workspace-member:${input.workspace.id}:${input.userId}`,
             input.workspace.organizationId,
             input.userId,
             input.role,
@@ -1250,7 +1250,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
         )
         const viewerTeamId = defaultWorkspaceTeamId(input.workspace.id, 'Viewers')
         addWorkspaceTeamMemberStatement.run(
-            `postbot-team-member:${viewerTeamId}:${input.userId}`,
+            `postdot-team-member:${viewerTeamId}:${input.userId}`,
             viewerTeamId,
             input.userId,
             timestamp
@@ -1268,13 +1268,13 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
     }
 
     const defaultWorkspaceTeamId = (workspaceId: string, name: string): string =>
-        `postbot-workspace-team:${workspaceId}:${name.toLowerCase()}`
+        `postdot-workspace-team:${workspaceId}:${name.toLowerCase()}`
 
     const ensureDefaultWorkspaceInCurrentTransaction = (userId: string): AccessWorkspace => {
         const existing = loadDefaultWorkspaceStatement.get()
         if (existing !== null) {
             insertWorkspaceMemberStatement.run(
-                `postbot-workspace-member:${existing.id}:${userId}`,
+                `postdot-workspace-member:${existing.id}:${userId}`,
                 existing.organizationId,
                 userId,
                 'owner',
@@ -1287,17 +1287,17 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
         const workspaceId = createId()
         const organizationId = createId()
         const name = 'My workspace'
-        const slug = `postbot-workspace-${workspaceId}`
+        const slug = `postdot-workspace-${workspaceId}`
         insertWorkspaceOrganizationStatement.run(
             organizationId,
             name,
             slug,
-            JSON.stringify({ postbotResource: 'workspace', postbotDefault: true }),
+            JSON.stringify({ postdotResource: 'workspace', postdotDefault: true }),
             timestamp
         )
         insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 1, timestamp)
         insertWorkspaceMemberStatement.run(
-            `postbot-workspace-member:${workspaceId}:${userId}`,
+            `postdot-workspace-member:${workspaceId}:${userId}`,
             organizationId,
             userId,
             'owner',
@@ -1309,7 +1309,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
             insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
             if (teamName === 'Administrators') {
                 addWorkspaceTeamMemberStatement.run(
-                    `postbot-team-member:${teamId}:${userId}`,
+                    `postdot-team-member:${teamId}:${userId}`,
                     teamId,
                     userId,
                     timestamp
@@ -1335,7 +1335,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
             insertWorkspaceStatement.run(workspaceId, organizationId, name, slug, 0, timestamp)
             insertWorkspaceMemberStatement.run(
-                `postbot-workspace-member:${workspaceId}:${ownerUserId}`,
+                `postdot-workspace-member:${workspaceId}:${ownerUserId}`,
                 organizationId,
                 ownerUserId,
                 'owner',
@@ -1347,7 +1347,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
                 insertWorkspaceTeamStatement.run(teamId, teamName, organizationId, timestamp)
                 if (teamName === 'Administrators') {
                     addWorkspaceTeamMemberStatement.run(
-                        `postbot-team-member:${teamId}:${ownerUserId}`,
+                        `postdot-team-member:${teamId}:${ownerUserId}`,
                         teamId,
                         ownerUserId,
                         timestamp
@@ -1744,7 +1744,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
             const timestamp = now()
             upsertProjectUserGrantStatement.run(
-                `postbot-project-user-grant:${projectId}:${userId}`,
+                `postdot-project-user-grant:${projectId}:${userId}`,
                 projectId,
                 userId,
                 input.role,
@@ -1786,7 +1786,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
             const timestamp = now()
             upsertProjectTeamGrantStatement.run(
-                `postbot-project-team-grant:${projectId}:${teamId}`,
+                `postdot-project-team-grant:${projectId}:${teamId}`,
                 projectId,
                 teamId,
                 input.role,
@@ -1871,7 +1871,7 @@ export function createAccessStore(database: PostbotDatabase, options: AccessStor
 
             const timestamp = now()
             upsertProjectUserGrantStatement.run(
-                `postbot-project-user-grant:${projectId}:${userId}`,
+                `postdot-project-user-grant:${projectId}:${userId}`,
                 projectId,
                 userId,
                 'owner',

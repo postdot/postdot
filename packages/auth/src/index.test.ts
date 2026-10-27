@@ -11,20 +11,20 @@ import { verifyPassword } from 'better-auth/crypto'
 
 import {
     createAuth,
-    hashPostbotPassword,
-    postbotUserApiKeyConfigId,
-    postbotPasswordPolicy,
-    type PostbotAuthRuntimeOptions,
-    type PostbotAuthVerificationEmail,
-    type PostbotOrganizationInvitationEmail,
+    hashPostdotPassword,
+    postdotUserApiKeyConfigId,
+    postdotPasswordPolicy,
+    type PostdotAuthRuntimeOptions,
+    type PostdotAuthVerificationEmail,
+    type PostdotOrganizationInvitationEmail,
 } from './index'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 
 function createFixture(
     options: Pick<
-        PostbotAuthRuntimeOptions,
+        PostdotAuthRuntimeOptions,
         | 'allowAdditionalSignups'
         | 'organizationInvitationURL'
         | 'requireEmailVerificationOnInvitation'
@@ -60,7 +60,7 @@ function createFixture(
 describe('Postdot authentication', () => {
     it('uses Better Auth password hashes for offline recovery', async () => {
         const password = 'recovered-password-123'
-        const hash = await hashPostbotPassword(password)
+        const hash = await hashPostdotPassword(password)
 
         expect(hash).not.toBe(password)
         expect(await verifyPassword({ hash, password })).toBe(true)
@@ -92,7 +92,7 @@ describe('Postdot authentication', () => {
                         origin: baseURL,
                     },
                     body: JSON.stringify({
-                        email: 'operator@postbot.local',
+                        email: 'operator@postdot.local',
                         name: 'Postdot Operator',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -105,7 +105,7 @@ describe('Postdot authentication', () => {
                 user: { email: string; name: string }
             }
             expect(signUpBody.user).toMatchObject({
-                email: 'operator@postbot.local',
+                email: 'operator@postdot.local',
                 name: 'Postdot Operator',
             })
 
@@ -124,7 +124,7 @@ describe('Postdot authentication', () => {
             const sessionBody = (await sessionResponse.json()) as {
                 user: { email: string }
             }
-            expect(sessionBody.user.email).toBe('operator@postbot.local')
+            expect(sessionBody.user.email).toBe('operator@postdot.local')
         } finally {
             closeDatabase(database)
         }
@@ -143,7 +143,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'owner@postbot.local',
+                        email: 'owner@postdot.local',
                         name: 'Postdot Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -191,7 +191,7 @@ describe('Postdot authentication', () => {
                     },
                     body: JSON.stringify({
                         name: 'Unbound key must be rejected',
-                        organizationId: 'not-a-postbot-project',
+                        organizationId: 'not-a-postdot-project',
                     }),
                 })
             )
@@ -205,9 +205,9 @@ describe('Postdot authentication', () => {
                         cookie: sessionCookie ?? '',
                     },
                     body: JSON.stringify({
-                        email: 'bypass@postbot.local',
+                        email: 'bypass@postdot.local',
                         role: 'viewer',
-                        organizationId: 'not-a-postbot-project',
+                        organizationId: 'not-a-postdot-project',
                     }),
                 })
             )
@@ -216,26 +216,26 @@ describe('Postdot authentication', () => {
             const createdKey = await auth.api.createApiKey({
                 body: {
                     name: 'CI key',
-                    configId: postbotUserApiKeyConfigId,
+                    configId: postdotUserApiKeyConfigId,
                     userId: signUpBody.user.id,
                     expiresIn: 24 * 60 * 60,
                     metadata: {
-                        postbotApiKeyVersion: 2,
-                        postbotProjectAccess: 'all',
+                        postdotApiKeyVersion: 2,
+                        postdotProjectAccess: 'all',
                     },
                 },
             })
-            expect(createdKey.key).toMatch(/^postbot_pat_/)
+            expect(createdKey.key).toMatch(/^postdot_pat_/)
             expect(createdKey.expiresAt).toBeInstanceOf(Date)
 
             const verified = await auth.api.verifyApiKey({ body: { key: createdKey.key } })
             expect(verified).toMatchObject({
                 valid: true,
-                key: { configId: postbotUserApiKeyConfigId, referenceId: signUpBody.user.id },
+                key: { configId: postdotUserApiKeyConfigId, referenceId: signUpBody.user.id },
             })
 
             const listed = await auth.api.listApiKeys({
-                query: { configId: postbotUserApiKeyConfigId },
+                query: { configId: postdotUserApiKeyConfigId },
                 headers: new Headers({ cookie: sessionCookie ?? '' }),
             })
             expect(listed.total).toBe(1)
@@ -262,7 +262,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'organization-owner@postbot.local',
+                        email: 'organization-owner@postdot.local',
                         name: 'Organization Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -281,7 +281,7 @@ describe('Postdot authentication', () => {
             })
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@postbot.local',
+                    email: 'organization-member@postdot.local',
                     role: 'editor',
                     organizationId: organization.id,
                 },
@@ -289,7 +289,7 @@ describe('Postdot authentication', () => {
             })
 
             expect(invitation).toMatchObject({
-                email: 'organization-member@postbot.local',
+                email: 'organization-member@postdot.local',
                 organizationId: organization.id,
                 role: 'editor',
                 status: 'pending',
@@ -298,7 +298,7 @@ describe('Postdot authentication', () => {
 
             const reissuedInvitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@postbot.local',
+                    email: 'organization-member@postdot.local',
                     role: 'editor',
                     organizationId: organization.id,
                 },
@@ -314,7 +314,7 @@ describe('Postdot authentication', () => {
                     })
                 ).filter(
                     candidate =>
-                        candidate.email === 'organization-member@postbot.local' &&
+                        candidate.email === 'organization-member@postdot.local' &&
                         candidate.status === 'pending'
                 )
             ).toEqual([expect.objectContaining({ id: reissuedInvitation.id })])
@@ -324,7 +324,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'organization-member@postbot.local',
+                        email: 'organization-member@postdot.local',
                         name: 'Organization Member',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -347,7 +347,7 @@ describe('Postdot authentication', () => {
     })
 
     it('forwards optional organization invitation delivery through a deployment hook', async () => {
-        const deliveries: PostbotOrganizationInvitationEmail[] = []
+        const deliveries: PostdotOrganizationInvitationEmail[] = []
         const { auth, database } = createFixture({
             organizationInvitationURL: ({ id, organizationId }) =>
                 `https://app.example.test/invitations/${id}?organizationId=${organizationId}`,
@@ -366,7 +366,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'invitation-sender@postbot.local',
+                        email: 'invitation-sender@postdot.local',
                         name: 'Invitation Sender',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -385,7 +385,7 @@ describe('Postdot authentication', () => {
             })
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'invitation-recipient@postbot.local',
+                    email: 'invitation-recipient@postdot.local',
                     role: 'viewer',
                     organizationId: organization.id,
                 },
@@ -396,11 +396,11 @@ describe('Postdot authentication', () => {
             expect(deliveries).toHaveLength(1)
             expect(deliveries[0]).toMatchObject({
                 id: invitation.id,
-                email: 'invitation-recipient@postbot.local',
+                email: 'invitation-recipient@postdot.local',
                 organizationId: organization.id,
                 organizationName: 'Delivery Hook Project',
                 inviterId: owner.user.id,
-                inviterEmail: 'invitation-sender@postbot.local',
+                inviterEmail: 'invitation-sender@postdot.local',
                 inviterName: 'Invitation Sender',
                 invitationURL: `https://app.example.test/invitations/${invitation.id}?organizationId=${organization.id}`,
             })
@@ -411,8 +411,8 @@ describe('Postdot authentication', () => {
     })
 
     it('forwards account verification and password reset delivery through deployment hooks', async () => {
-        const verificationDeliveries: PostbotAuthVerificationEmail[] = []
-        const resetDeliveries: PostbotAuthVerificationEmail[] = []
+        const verificationDeliveries: PostdotAuthVerificationEmail[] = []
+        const resetDeliveries: PostdotAuthVerificationEmail[] = []
         const { auth, database } = createFixture({
             sendEmailVerificationOnSignUp: true,
             sendEmailVerification: delivery => {
@@ -433,7 +433,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'verification-recipient@postbot.local',
+                        email: 'verification-recipient@postdot.local',
                         name: 'Verification Recipient',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -444,7 +444,7 @@ describe('Postdot authentication', () => {
             expect(verificationDeliveries).toHaveLength(1)
             expect(verificationDeliveries[0]).toMatchObject({
                 user: {
-                    email: 'verification-recipient@postbot.local',
+                    email: 'verification-recipient@postdot.local',
                     name: 'Verification Recipient',
                 },
             })
@@ -455,7 +455,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'verification-recipient@postbot.local',
+                        email: 'verification-recipient@postdot.local',
                         redirectTo: 'https://app.example.test/reset-password',
                     }),
                 })
@@ -463,7 +463,7 @@ describe('Postdot authentication', () => {
             expect(resetResponse.status).toBe(200)
             expect(resetDeliveries).toHaveLength(1)
             expect(resetDeliveries[0]).toMatchObject({
-                user: { email: 'verification-recipient@postbot.local' },
+                user: { email: 'verification-recipient@postdot.local' },
             })
             expect(resetDeliveries[0]?.url).toContain('/api/auth/reset-password/')
             expect(signUp.user.id).toBeTruthy()
@@ -473,7 +473,7 @@ describe('Postdot authentication', () => {
     })
 
     it('returns the same reset response for known and unknown email addresses', async () => {
-        const deliveries: PostbotAuthVerificationEmail[] = []
+        const deliveries: PostdotAuthVerificationEmail[] = []
         const { auth, database } = createFixture({
             sendPasswordResetEmail: delivery => {
                 deliveries.push(delivery)
@@ -490,7 +490,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'reset-owner@postbot.local',
+                        email: 'reset-owner@postdot.local',
                         name: 'Reset Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -509,14 +509,14 @@ describe('Postdot authentication', () => {
                         }),
                     })
                 )
-            const knownResponse = await requestReset('reset-owner@postbot.local')
-            const unknownResponse = await requestReset('unknown-reset@postbot.local')
+            const knownResponse = await requestReset('reset-owner@postdot.local')
+            const unknownResponse = await requestReset('unknown-reset@postdot.local')
 
             expect(knownResponse.status).toBe(200)
             expect(unknownResponse.status).toBe(200)
             expect(await knownResponse.json()).toEqual(await unknownResponse.json())
             expect(deliveries).toHaveLength(1)
-            expect(deliveries[0]?.user.email).toBe('reset-owner@postbot.local')
+            expect(deliveries[0]?.user.email).toBe('reset-owner@postdot.local')
         } finally {
             closeDatabase(database)
         }
@@ -535,7 +535,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'offline-reset-owner@postbot.local',
+                        email: 'offline-reset-owner@postdot.local',
                         name: 'Offline Reset Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -548,7 +548,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'offline-reset-owner@postbot.local',
+                        email: 'offline-reset-owner@postdot.local',
                         redirectTo: `${baseURL}/reset-password`,
                     }),
                 })
@@ -576,7 +576,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'workspace-invitation-owner@postbot.local',
+                        email: 'workspace-invitation-owner@postdot.local',
                         name: 'Workspace Invitation Owner',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -587,7 +587,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'workspace-invitation-member@postbot.local',
+                        email: 'workspace-invitation-member@postdot.local',
                         name: 'Workspace Invitation Member',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -625,7 +625,7 @@ describe('Postdot authentication', () => {
 
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'workspace-invitation-member@postbot.local',
+                    email: 'workspace-invitation-member@postdot.local',
                     role: 'member',
                     organizationId: workspace.organizationId,
                     projectId: project.project.id,
@@ -673,7 +673,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'first@postbot.local',
+                        email: 'first@postdot.local',
                         name: 'First Postdot Operator',
                         password,
                     }),
@@ -686,7 +686,7 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'second@postbot.local',
+                        email: 'second@postdot.local',
                         name: 'Second Postdot Operator',
                         password,
                     }),
@@ -702,14 +702,14 @@ describe('Postdot authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'first@postbot.local',
+                        email: 'first@postdot.local',
                         password,
                     }),
                 })
             )
             expect(signIn.status).toBe(200)
             expect(await signIn.json()).toMatchObject({
-                user: { email: 'first@postbot.local' },
+                user: { email: 'first@postdot.local' },
             })
         } finally {
             closeDatabase(database)
@@ -723,10 +723,10 @@ describe('Postdot authentication', () => {
         try {
             expect(configured.options.emailAndPassword?.enabled).toBe(true)
             expect(configured.options.emailAndPassword?.minPasswordLength).toBe(
-                postbotPasswordPolicy.minimumLength
+                postdotPasswordPolicy.minimumLength
             )
             expect(configured.options.emailAndPassword?.maxPasswordLength).toBe(
-                postbotPasswordPolicy.maximumLength
+                postdotPasswordPolicy.maximumLength
             )
             expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {

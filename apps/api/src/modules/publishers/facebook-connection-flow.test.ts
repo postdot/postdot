@@ -20,7 +20,7 @@ import {
 
 import { createFacebookConnectionFlow } from '../../providers/facebook/connection-flow'
 
-const callbackUri = 'https://postbot.example/api/oauth/facebook/callback'
+const callbackUri = 'https://postdot.example/api/oauth/facebook/callback'
 type PermissionMode = 'granted' | 'declined' | 'missing' | 'revoked'
 function fixture(
     options: {

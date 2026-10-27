@@ -5,9 +5,9 @@ import * as React from 'react'
 
 import { emailStyles } from '../styles'
 import { formatInvitationExpiry, formatInvitationRole } from '../text'
-import { PostbotEmailLayout } from './PostbotEmailLayout'
+import { PostdotEmailLayout } from './PostdotEmailLayout'
 
-export interface PostbotOrganizationInvitationEmailInput {
+export interface PostdotOrganizationInvitationEmailInput {
     readonly email: string
     readonly role: string
     readonly organizationName: string
@@ -25,12 +25,12 @@ export function OrganizationInvitationEmail({
     role,
     expiresAt,
     invitationURL,
-}: PostbotOrganizationInvitationEmailInput) {
+}: PostdotOrganizationInvitationEmailInput) {
     const formattedRole = formatInvitationRole(role)
     const formattedExpiry = formatInvitationExpiry(expiresAt)
 
     return (
-        <PostbotEmailLayout
+        <PostdotEmailLayout
             preview={`${inviterName} invited you to join ${organizationName} on Postdot`}
             title={subject(organizationName)}>
             <Text style={emailStyles.text}>Hello,</Text>
@@ -53,13 +53,13 @@ export function OrganizationInvitationEmail({
             <Text style={emailStyles.mutedText}>
                 If you were not expecting this invitation, you can ignore this email.
             </Text>
-        </PostbotEmailLayout>
+        </PostdotEmailLayout>
     )
 }
 
 export { subject as organizationInvitationSubject }
 
-const previewProps: PostbotOrganizationInvitationEmailInput = {
+const previewProps: PostdotOrganizationInvitationEmailInput = {
     email: 'new.member@example.test',
     role: 'editor',
     organizationName: 'Postdot Studio',

@@ -10,7 +10,7 @@ export async function startE2EMailpit(
         throw new Error('Mailpit requires an isolated Postdot E2E runtime directory')
     }
 
-    const projectName = `postbot-${basename(runtime.dataDirectory).toLowerCase()}`
+    const projectName = `postdot-${basename(runtime.dataDirectory).toLowerCase()}`
     const repositoryRoot = resolve(import.meta.dir, '..')
     const composePrefix = [
         'docker',
@@ -22,8 +22,8 @@ export async function startE2EMailpit(
     ]
     const composeEnvironment = {
         ...environment,
-        POSTBOT_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
-        POSTBOT_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
+        POSTDOT_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
+        POSTDOT_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
     }
 
     const shutdown = async () => {

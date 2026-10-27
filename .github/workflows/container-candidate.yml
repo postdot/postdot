@@ -14,7 +14,7 @@ on:
             previous_image:
                 description: Published image digest to upgrade from and restore with
                 required: true
-                default: ghcr.io/postdot/postdot@sha256:690778f5d1af8f4a363406b989e17da8672fc764c6e62f9cca8e1a09c483638e
+                default: ghcr.io/postdot/postdot@sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974
                 type: string
     workflow_call:
         inputs:
@@ -48,7 +48,7 @@ jobs:
                     - arch: arm64
                       runner: ubuntu-24.04-arm
         env:
-            POSTBOT_CONTAINER_TEST_IMAGE: postbot:candidate
+            POSTDOT_CONTAINER_TEST_IMAGE: postdot:candidate
             EXPECTED_ARCH: ${{ matrix.arch }}
         steps:
             - name: Check out selected source
@@ -69,7 +69,7 @@ jobs:
               env:
                   IMAGE_VERSION: ${{ inputs.image_version }}
               run: |
-                  docker build --platform "linux/$EXPECTED_ARCH" --tag "$POSTBOT_CONTAINER_TEST_IMAGE" \
+                  docker build --platform "linux/$EXPECTED_ARCH" --tag "$POSTDOT_CONTAINER_TEST_IMAGE" \
                     --build-arg "POSTDOT_VERSION=$IMAGE_VERSION" \
                     --build-arg "POSTDOT_REVISION=${{ steps.checkout.outputs.commit }}" \
                     --label "org.opencontainers.image.version=$IMAGE_VERSION" \
@@ -80,7 +80,7 @@ jobs:
             - name: Verify candidate identity
               id: identity
               run: |
-                  image_id="$(docker image inspect --format '{{.Id}}' "$POSTBOT_CONTAINER_TEST_IMAGE")"
+                  image_id="$(docker image inspect --format '{{.Id}}' "$POSTDOT_CONTAINER_TEST_IMAGE")"
                   platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image_id")"
                   revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id")"
                   test "$platform" = "linux/$EXPECTED_ARCH"
@@ -101,7 +101,7 @@ jobs:
 
             - name: Verify the exact candidate image
               env:
-                  POSTBOT_CONTAINER_TEST_IMAGE: ${{ steps.identity.outputs.image }}
+                  POSTDOT_CONTAINER_TEST_IMAGE: ${{ steps.identity.outputs.image }}
               run: bun run test:container:recovery
 
             - name: Verify previous-release upgrade and backup restoration

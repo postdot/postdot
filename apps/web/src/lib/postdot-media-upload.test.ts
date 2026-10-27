@@ -10,12 +10,12 @@ import type {
 
 import { MediaVerificationError } from './media-errors'
 import {
-    completePostbotMediaUpload,
-    createPostbotMediaUploadController,
+    completePostdotMediaUpload,
+    createPostdotMediaUploadController,
     createOrderedUploadResults,
-    uploadPostbotMediaFile,
-    type PostbotMediaUploadClient,
-} from './postbot-media-upload'
+    uploadPostdotMediaFile,
+    type PostdotMediaUploadClient,
+} from './postdot-media-upload'
 
 describe('Postdot media upload orchestration', () => {
     it('keeps the reserve, raw upload, and ready finalization sequence', async () => {
@@ -37,7 +37,7 @@ describe('Postdot media upload orchestration', () => {
             },
         })
 
-        const result = await uploadPostbotMediaFile(
+        const result = await uploadPostdotMediaFile(
             client,
             'project-1',
             {
@@ -67,7 +67,7 @@ describe('Postdot media upload orchestration', () => {
         })
 
         await expect(
-            completePostbotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
+            completePostdotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
         ).resolves.toBe(media)
         expect(reads).toBe(1)
     })
@@ -83,7 +83,7 @@ describe('Postdot media upload orchestration', () => {
         })
 
         await expect(
-            completePostbotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
+            completePostdotMediaUpload(client, 'project-1', 'intent-1', async () => undefined)
         ).rejects.toBeInstanceOf(MediaVerificationError)
     })
 
@@ -93,7 +93,7 @@ describe('Postdot media upload orchestration', () => {
         const client = createClient({
             finalizeMediaUpload: async () => ({ status: 'ready', media }) as MediaFinalize,
         })
-        const controller = createPostbotMediaUploadController(
+        const controller = createPostdotMediaUploadController(
             'project-1',
             client,
             async () => undefined
@@ -118,7 +118,7 @@ describe('Postdot media upload orchestration', () => {
     })
 
     it('enforces the server-provided policy through Uppy restrictions', () => {
-        const controller = createPostbotMediaUploadController('project-1', createClient())
+        const controller = createPostdotMediaUploadController('project-1', createClient())
         const failures: string[] = []
         controller.uppy.on('restriction-failed', file => {
             failures.push(file?.name ?? 'batch')
@@ -154,7 +154,7 @@ describe('Postdot media upload orchestration', () => {
     })
 })
 
-function createClient(overrides: Partial<PostbotMediaUploadClient> = {}): PostbotMediaUploadClient {
+function createClient(overrides: Partial<PostdotMediaUploadClient> = {}): PostdotMediaUploadClient {
     const media = createMedia('asset-default')
     const reservation = createReservation(media)
     return {

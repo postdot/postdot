@@ -18,7 +18,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type {
     AddPostDestinationsInput,
     CreatePostInput,
@@ -88,7 +88,7 @@ export interface PublicationCreationStoreOptions {
 }
 
 export function createPublicationCreationStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationCreationStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)

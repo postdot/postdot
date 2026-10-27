@@ -51,22 +51,22 @@ describe('Bluesky OAuth runtime', () => {
 
     it('maps OAuth digest names to Bun Web Crypto names', async () => {
         const digest = await createBlueskyRuntimeImplementation().digest(
-            new TextEncoder().encode('postbot'),
+            new TextEncoder().encode('postdot'),
             { name: 'sha256' }
         )
 
         expect(Buffer.from(digest).toString('hex')).toBe(
-            'bedf6c3fd6147e849312dfb2358058aa04110dfde006c78e0c2785095ac211a5'
+            'fd75b64bc8567608daa1ce565c43047c86f1479cabb02d3f42a318a445aff474'
         )
     })
 
     it('constructs the official portable client under Bun', () => {
         const client = createBlueskyOAuthClient({
             clientMetadata: {
-                client_id: 'https://postbot.example.com/oauth/client-metadata.json',
+                client_id: 'https://postdot.example.com/oauth/client-metadata.json',
                 client_name: 'Postdot',
-                client_uri: 'https://postbot.example.com',
-                redirect_uris: ['https://postbot.example.com/api/oauth/bluesky/callback'],
+                client_uri: 'https://postdot.example.com',
+                redirect_uris: ['https://postdot.example.com/api/oauth/bluesky/callback'],
                 scope: 'atproto',
                 grant_types: ['authorization_code', 'refresh_token'],
                 response_types: ['code'],
@@ -80,7 +80,7 @@ describe('Bluesky OAuth runtime', () => {
         })
 
         expect(client.clientMetadata.client_id).toBe(
-            'https://postbot.example.com/oauth/client-metadata.json'
+            'https://postdot.example.com/oauth/client-metadata.json'
         )
         expect(client.responseMode).toBe('query')
     })
@@ -147,19 +147,19 @@ it('retains legacy loopback identity for old credentials and captures the new id
     expect(
         blueskySessionClientMetadata(
             metadata,
-            JSON.stringify({ postbotClientId: legacy.client_id })
+            JSON.stringify({ postdotClientId: legacy.client_id })
         )
     ).toEqual(legacy)
     expect(
         blueskySessionClientMetadata(
             metadata,
-            JSON.stringify({ postbotClientId: metadata.client_id })
+            JSON.stringify({ postdotClientId: metadata.client_id })
         )
     ).toEqual(metadata)
     expect(() =>
         blueskySessionClientMetadata(
             metadata,
-            JSON.stringify({ postbotClientId: 'http://localhost?scope=atproto' })
+            JSON.stringify({ postdotClientId: 'http://localhost?scope=atproto' })
         )
     ).toThrow('does not match')
 })

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { Elysia } from 'elysia'
 import pino, { type DestinationStream, type Logger } from 'pino'
 
-import type { PostbotLoggingConfig } from '../config'
+import type { PostdotLoggingConfig } from '../config'
 
 const levelNames: Record<number, string> = {
     10: 'TRACE',
@@ -21,15 +21,15 @@ interface LogRecord {
     readonly [key: string]: unknown
 }
 
-export function createRequestLogger(options: PostbotLoggingConfig | undefined, logger?: Logger) {
+export function createRequestLogger(options: PostdotLoggingConfig | undefined, logger?: Logger) {
     if (options?.enabled !== true) {
-        return new Elysia({ name: 'postbot-request-logger-disabled' })
+        return new Elysia({ name: 'postdot-request-logger-disabled' })
     }
 
-    const requestLogger = logger ?? createPostbotLogger(options)
+    const requestLogger = logger ?? createPostdotLogger(options)
 
     const requestStartTimes = new WeakMap<Request, number>()
-    return new Elysia({ name: 'postbot-request-logger' })
+    return new Elysia({ name: 'postdot-request-logger' })
         .decorate('log', requestLogger)
         .request(({ request }) => {
             requestStartTimes.set(request, performance.now())
@@ -63,11 +63,11 @@ export function createRequestLogger(options: PostbotLoggingConfig | undefined, l
         .as('global')
 }
 
-export function createPostbotLogger(options: PostbotLoggingConfig): Logger {
+export function createPostdotLogger(options: PostdotLoggingConfig): Logger {
     const loggerOptions = {
         base: null,
         level: options.level,
-        name: 'postbot-api',
+        name: 'postdot-api',
         timestamp: pino.stdTimeFunctions.isoTime,
     }
 

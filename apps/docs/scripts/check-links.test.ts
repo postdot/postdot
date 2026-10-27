@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { checkExportLinks } from './check-links'
 
 it('checks encoded fragments, relative pages and downloads without fetching external links', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-doc-links-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-doc-links-'))
     try {
         await mkdir(join(directory, 'guide'))
         await writeFile(

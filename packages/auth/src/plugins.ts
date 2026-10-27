@@ -2,9 +2,9 @@ import { apiKey } from '@better-auth/api-key'
 import { admin } from 'better-auth/plugins/admin'
 import { organization, type OrganizationOptions } from 'better-auth/plugins/organization'
 
-import { postbotOrganizationAccess, postbotOrganizationRoles } from './access-control'
+import { postdotOrganizationAccess, postdotOrganizationRoles } from './access-control'
 
-export interface PostbotAuthPluginHooks {
+export interface PostdotAuthPluginHooks {
     readonly afterOrganizationInvitationAccepted?: (input: {
         readonly invitationId: string
         readonly organizationId: string
@@ -27,13 +27,13 @@ type BetterAuthInvitationEmailData = Parameters<
     NonNullable<OrganizationOptions['sendInvitationEmail']>
 >[0]
 
-type PostbotInvitationFields = {
+type PostdotInvitationFields = {
     readonly teamId?: string | null
     readonly projectId?: string | null
     readonly projectRole?: string | null
 }
 
-export interface PostbotOrganizationInvitationEmail {
+export interface PostdotOrganizationInvitationEmail {
     readonly id: string
     readonly email: string
     readonly role: string
@@ -48,10 +48,10 @@ export interface PostbotOrganizationInvitationEmail {
     readonly invitationURL?: string
 }
 
-export interface PostbotAuthInvitationOptions {
+export interface PostdotAuthInvitationOptions {
     /** Optional deployment-provided mail transport. */
     readonly sendOrganizationInvitationEmail?: (
-        input: PostbotOrganizationInvitationEmail
+        input: PostdotOrganizationInvitationEmail
     ) => Promise<void> | void
     /** Builds the public invitation URL for the deployment's web application. */
     readonly organizationInvitationURL?: (input: {
@@ -64,13 +64,13 @@ export interface PostbotAuthInvitationOptions {
 }
 
 function createInvitationEmailOption(
-    options: PostbotAuthInvitationOptions
+    options: PostdotAuthInvitationOptions
 ): Pick<OrganizationOptions, 'sendInvitationEmail'> {
     if (options.sendOrganizationInvitationEmail === undefined) return {}
 
     return {
         sendInvitationEmail: async (data: BetterAuthInvitationEmailData) => {
-            const invitation = data.invitation as typeof data.invitation & PostbotInvitationFields
+            const invitation = data.invitation as typeof data.invitation & PostdotInvitationFields
             const invitationURL = options.organizationInvitationURL?.({
                 id: data.id,
                 organizationId: data.organization.id,
@@ -100,7 +100,7 @@ function createInvitationEmailOption(
     }
 }
 
-function readPostbotApiKey(request: Request | undefined): string | null {
+function readPostdotApiKey(request: Request | undefined): string | null {
     if (request === undefined) return null
 
     const authorization = request.headers.get('authorization')
@@ -113,25 +113,25 @@ function readPostbotApiKey(request: Request | undefined): string | null {
 }
 
 /** Default configuration used by Postdot's user-owned API keys. */
-export const postbotUserApiKeyConfigId = 'default'
+export const postdotUserApiKeyConfigId = 'default'
 
 /** Shared plugin configuration for the runtime auth instance and CLI schema generation. */
-export type PostbotAuthPlugins = [
+export type PostdotAuthPlugins = [
     ReturnType<typeof admin>,
     ReturnType<typeof organization>,
     ReturnType<typeof apiKey>,
 ]
 
-export function createPostbotAuthPlugins(
-    hooks: PostbotAuthPluginHooks = {},
-    invitationOptions: PostbotAuthInvitationOptions = {}
-): PostbotAuthPlugins {
+export function createPostdotAuthPlugins(
+    hooks: PostdotAuthPluginHooks = {},
+    invitationOptions: PostdotAuthInvitationOptions = {}
+): PostdotAuthPlugins {
     const requireEmailVerification = invitationOptions.requireEmailVerificationOnInvitation
 
     return [
         admin(),
         organization({
-            ac: postbotOrganizationAccess,
+            ac: postdotOrganizationAccess,
             allowUserToCreateOrganization: false,
             cancelPendingInvitationsOnReInvite: true,
             creatorRole: 'owner',
@@ -162,7 +162,7 @@ export function createPostbotAuthPlugins(
             organizationHooks: {
                 afterAcceptInvitation: async ({ invitation, user, organization }) => {
                     const projectInvitation = invitation as typeof invitation &
-                        PostbotInvitationFields
+                        PostdotInvitationFields
                     await hooks.afterOrganizationInvitationAccepted?.({
                         invitationId: invitation.id,
                         organizationId: organization.id,
@@ -190,14 +190,14 @@ export function createPostbotAuthPlugins(
                 },
             },
             ...createInvitationEmailOption(invitationOptions),
-            roles: postbotOrganizationRoles,
+            roles: postdotOrganizationRoles,
         }),
         apiKey([
             {
                 apiKeyHeaders: ['x-api-key', 'authorization'],
-                configId: postbotUserApiKeyConfigId,
-                customAPIKeyGetter: ({ request }) => readPostbotApiKey(request),
-                defaultPrefix: 'postbot_pat_',
+                configId: postdotUserApiKeyConfigId,
+                customAPIKeyGetter: ({ request }) => readPostdotApiKey(request),
+                defaultPrefix: 'postdot_pat_',
                 enableMetadata: true,
                 keyExpiration: {
                     defaultExpiresIn: 180 * 24 * 60 * 60,
@@ -209,5 +209,5 @@ export function createPostbotAuthPlugins(
                 requireName: true,
             },
         ]),
-    ] as unknown as PostbotAuthPlugins
+    ] as unknown as PostdotAuthPlugins
 }

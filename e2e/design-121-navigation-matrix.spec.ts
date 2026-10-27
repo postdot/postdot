@@ -180,7 +180,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E navigation ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-navigation-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`e2e-navigation-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-navigation-password')
     await Promise.all([
         page.waitForResponse(

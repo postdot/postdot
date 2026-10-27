@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 export interface ChannelDestinationIdentity {
     readonly providerId: string
@@ -62,7 +62,7 @@ export function sameDestination(
 }
 
 export function readChannelDestination(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     projectId: string,
     channelId: string
 ) {
@@ -93,7 +93,7 @@ export function readChannelDestination(
 
 /** This predicate is shared by claim, effect admission, retry and public state reads. */
 export function publicationDestinationConfirmed(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     projectId: string,
     publicationId: string
 ) {

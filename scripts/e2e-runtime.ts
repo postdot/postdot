@@ -3,7 +3,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
-export const e2eRuntimeDirectoryPrefix = 'postbot-e2e-run-'
+export const e2eRuntimeDirectoryPrefix = 'postdot-e2e-run-'
 
 export interface E2ERuntimeResources {
     readonly dataDirectory: string
@@ -29,7 +29,7 @@ export interface E2ERuntimeResources {
 export async function createE2ERuntimeResources(
     environment: NodeJS.ProcessEnv = process.env
 ): Promise<E2ERuntimeResources> {
-    const existingDataDirectory = environment.POSTBOT_E2E_DATA_DIRECTORY
+    const existingDataDirectory = environment.POSTDOT_E2E_DATA_DIRECTORY
     if (existingDataDirectory !== undefined) {
         return resourcesFromEnvironment(environment, existingDataDirectory)
     }
@@ -37,14 +37,14 @@ export async function createE2ERuntimeResources(
     const dataDirectory = mkdtempSync(join(tmpdir(), e2eRuntimeDirectoryPrefix))
 
     try {
-        const requestedApiPort = parsePort(environment.POSTBOT_E2E_API_PORT, 'POSTBOT_E2E_API_PORT')
-        const requestedWebPort = parsePort(environment.POSTBOT_E2E_WEB_PORT, 'POSTBOT_E2E_WEB_PORT')
-        const useMailpit = environment.POSTBOT_E2E_MAILPIT === 'true'
+        const requestedApiPort = parsePort(environment.POSTDOT_E2E_API_PORT, 'POSTDOT_E2E_API_PORT')
+        const requestedWebPort = parsePort(environment.POSTDOT_E2E_WEB_PORT, 'POSTDOT_E2E_WEB_PORT')
+        const useMailpit = environment.POSTDOT_E2E_MAILPIT === 'true'
         const requestedMailpitSmtpPort = useMailpit
-            ? parsePort(environment.POSTBOT_E2E_MAILPIT_SMTP_PORT, 'POSTBOT_E2E_MAILPIT_SMTP_PORT')
+            ? parsePort(environment.POSTDOT_E2E_MAILPIT_SMTP_PORT, 'POSTDOT_E2E_MAILPIT_SMTP_PORT')
             : undefined
         const requestedMailpitUiPort = useMailpit
-            ? parsePort(environment.POSTBOT_E2E_MAILPIT_UI_PORT, 'POSTBOT_E2E_MAILPIT_UI_PORT')
+            ? parsePort(environment.POSTDOT_E2E_MAILPIT_UI_PORT, 'POSTDOT_E2E_MAILPIT_UI_PORT')
             : undefined
         const requestedPorts = new Set(
             [
@@ -84,7 +84,7 @@ export async function createE2ERuntimeResources(
 
         return {
             dataDirectory,
-            databaseFile: join(dataDirectory, 'postbot.sqlite'),
+            databaseFile: join(dataDirectory, 'postdot.sqlite'),
             mediaDirectory: join(dataDirectory, 'media'),
             apiPort,
             webPort,
@@ -108,23 +108,23 @@ function resourcesFromEnvironment(
         throw new Error('The E2E data directory is not safely configured')
     }
 
-    const apiPort = parsePort(environment.POSTBOT_E2E_API_PORT, 'POSTBOT_E2E_API_PORT')
-    const webPort = parsePort(environment.POSTBOT_E2E_WEB_PORT, 'POSTBOT_E2E_WEB_PORT')
+    const apiPort = parsePort(environment.POSTDOT_E2E_API_PORT, 'POSTDOT_E2E_API_PORT')
+    const webPort = parsePort(environment.POSTDOT_E2E_WEB_PORT, 'POSTDOT_E2E_WEB_PORT')
     if (apiPort === undefined || webPort === undefined) {
         throw new Error(
-            'POSTBOT_E2E_API_PORT and POSTBOT_E2E_WEB_PORT must be set with POSTBOT_E2E_DATA_DIRECTORY'
+            'POSTDOT_E2E_API_PORT and POSTDOT_E2E_WEB_PORT must be set with POSTDOT_E2E_DATA_DIRECTORY'
         )
     }
     if (apiPort === webPort) {
         throw new Error(`E2E API and web ports must be different, received ${apiPort}`)
     }
 
-    const useMailpit = environment.POSTBOT_E2E_MAILPIT === 'true'
+    const useMailpit = environment.POSTDOT_E2E_MAILPIT === 'true'
     const mailpitSmtpPort = useMailpit
-        ? parsePort(environment.POSTBOT_E2E_MAILPIT_SMTP_PORT, 'POSTBOT_E2E_MAILPIT_SMTP_PORT')
+        ? parsePort(environment.POSTDOT_E2E_MAILPIT_SMTP_PORT, 'POSTDOT_E2E_MAILPIT_SMTP_PORT')
         : undefined
     const mailpitUiPort = useMailpit
-        ? parsePort(environment.POSTBOT_E2E_MAILPIT_UI_PORT, 'POSTBOT_E2E_MAILPIT_UI_PORT')
+        ? parsePort(environment.POSTDOT_E2E_MAILPIT_UI_PORT, 'POSTDOT_E2E_MAILPIT_UI_PORT')
         : undefined
     if (useMailpit && (mailpitSmtpPort === undefined || mailpitUiPort === undefined)) {
         throw new Error('Mailpit E2E ports must be set with the existing E2E runtime directory')
@@ -138,7 +138,7 @@ function resourcesFromEnvironment(
 
     return {
         dataDirectory,
-        databaseFile: join(dataDirectory, 'postbot.sqlite'),
+        databaseFile: join(dataDirectory, 'postdot.sqlite'),
         mediaDirectory: join(dataDirectory, 'media'),
         apiPort,
         webPort,

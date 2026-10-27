@@ -89,11 +89,11 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
                 account: {
                     providerSubjectId: accountId,
                     providerSubjectLabel: accountLabel,
-                    postbotEntityId: channelId,
+                    postdotEntityId: channelId,
                 },
                 contents: knownContent.map(content => ({
                     providerSubjectId: content.providerSubjectId,
-                    postbotEntityId: content.postbotEntityId,
+                    postdotEntityId: content.postdotEntityId,
                 })),
                 fetchedAt,
             })

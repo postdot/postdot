@@ -9,7 +9,7 @@ import {
     type UserNotification,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const projectionName = 'in-app-notifications-v1'
@@ -100,7 +100,7 @@ export interface NotificationStoreOptions {
 }
 
 export function createNotificationStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: NotificationStoreOptions = {}
 ) {
     const client = database.$client

@@ -9,7 +9,7 @@ import { runMaintenanceCommand } from './maintenance'
 import { createRecoveryService, recoveryBlocksRequest } from './recovery'
 
 test('loads a durable hold and starts suspended runtimes once after acknowledgement', () => {
-    const root = mkdtempSync(join(tmpdir(), 'postbot-runtime-recovery-'))
+    const root = mkdtempSync(join(tmpdir(), 'postdot-runtime-recovery-'))
     const filename = join(root, 'database.sqlite')
     try {
         const hold = createRecoveryHold(filename, 'restore')
@@ -33,7 +33,7 @@ test('loads a durable hold and starts suspended runtimes once after acknowledgem
 })
 
 test('offline recovery requires a stopped runtime and explicit resumption consent', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'postbot-offline-recovery-'))
+    const root = mkdtempSync(join(tmpdir(), 'postdot-offline-recovery-'))
     const filename = join(root, 'database.sqlite')
     try {
         const lock = acquireRuntimeQuiescenceLock(filename, 'server')
@@ -60,7 +60,7 @@ test('offline recovery requires a stopped runtime and explicit resumption consen
 
 test('permits inspection and login but blocks mutating and OAuth callback requests', () => {
     const request = (path: string, method = 'GET') =>
-        new Request(`http://postbot.local${path}`, { method })
+        new Request(`http://postdot.local${path}`, { method })
     expect(recoveryBlocksRequest(request('/api/projects'))).toBe(false)
     expect(recoveryBlocksRequest(request('/api/auth/sign-in/email', 'POST'))).toBe(false)
     expect(recoveryBlocksRequest(request('/api/settings/recovery/resume', 'POST'))).toBe(false)

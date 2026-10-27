@@ -1,5 +1,5 @@
 export * from './render'
 export * from './templates/EmailVerificationEmail'
-export * from './templates/PostbotEmailLayout'
+export * from './templates/PostdotEmailLayout'
 export * from './templates/OrganizationInvitationEmail'
 export * from './templates/PasswordResetEmail'

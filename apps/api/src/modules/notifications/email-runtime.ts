@@ -5,16 +5,16 @@ import {
     type ExternalEffectOutcome,
 } from '@postdot/core'
 import type { NotificationEmailStore } from '@postdot/db'
-import { renderPostbotPublicationOutcomeEmail } from '@postdot/email'
+import { renderPostdotPublicationOutcomeEmail } from '@postdot/email'
 import { createTransport, type SendMailOptions } from 'nodemailer'
 
-import type { PostbotSmtpConfig } from '../email/delivery'
+import type { PostdotSmtpConfig } from '../email/delivery'
 import { createNotificationProjectionRuntime } from './runtime'
 
 export function createNotificationEmailRuntime(options: {
     store: NotificationEmailStore
-    smtp?: PostbotSmtpConfig
-    getSmtp?: () => PostbotSmtpConfig | undefined
+    smtp?: PostdotSmtpConfig
+    getSmtp?: () => PostdotSmtpConfig | undefined
     webOrigin: string
     transport?: { sendMail(message: SendMailOptions): Promise<unknown> }
 }) {
@@ -37,7 +37,7 @@ export function createNotificationEmailRuntime(options: {
     const scheduler = new NextEventScheduler({
         getNextEventAt: () =>
             getSmtp() === undefined ? null : store.deliveries.getNextAttemptAt(),
-        onError: () => console.error('[postbot-notification-email] delivery scheduler failed'),
+        onError: () => console.error('[postdot-notification-email] delivery scheduler failed'),
         async processDueEvents() {
             for (let count = 0; count < 100; count++) {
                 if (getSmtp() === undefined) break
@@ -73,7 +73,7 @@ export function createNotificationEmailRuntime(options: {
                             options.webOrigin
                         )
                         try {
-                            const message = await renderPostbotPublicationOutcomeEmail({
+                            const message = await renderPostdotPublicationOutcomeEmail({
                                 email,
                                 title: delivery.title,
                                 body: delivery.body,
@@ -109,7 +109,7 @@ export function createNotificationEmailRuntime(options: {
                 return result
             },
         },
-        { onError: () => console.error('[postbot-notification-email] projection failed') }
+        { onError: () => console.error('[postdot-notification-email] projection failed') }
     )
     return {
         start() {

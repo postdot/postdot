@@ -3,7 +3,7 @@ import type { SVGProps } from 'react'
 import { cn } from '../lib/utils'
 
 /** Theme-aware mark; named parts support future explicitly designed motion. */
-function PostbotLogo({ className, 'aria-label': ariaLabel, ...props }: SVGProps<SVGSVGElement>) {
+function PostdotLogo({ className, 'aria-label': ariaLabel, ...props }: SVGProps<SVGSVGElement>) {
     return (
         <svg
             viewBox="0 0 128 128"
@@ -43,4 +43,4 @@ function PostbotLogo({ className, 'aria-label': ariaLabel, ...props }: SVGProps<
         </svg>
     )
 }
-export { PostbotLogo }
+export { PostdotLogo }

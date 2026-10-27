@@ -75,7 +75,7 @@ export {
     FieldTitle,
 } from './field'
 export { Input } from './input'
-export { PostbotLogo } from './postbot-logo'
+export { PostdotLogo } from './postdot-logo'
 export { Kbd, KbdGroup } from './kbd'
 export { Label } from './label'
 export { ScrollArea, ScrollBar } from './scroll-area'

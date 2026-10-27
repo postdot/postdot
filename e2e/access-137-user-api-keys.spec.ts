@@ -180,7 +180,7 @@ async function createAccountAndProject(
     await page.goto('/setup')
     await expect(page).toHaveURL(/\/setup$/)
     await page.getByLabel('Name', { exact: true }).fill(`E2E-137 owner ${suffix}`)
-    await page.getByLabel('Email', { exact: true }).fill(`e2e-137-${suffix}@postbot.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`e2e-137-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-137-owner-password')
     await Promise.all([
         page.waitForResponse(

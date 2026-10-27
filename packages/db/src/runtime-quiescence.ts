@@ -12,6 +12,8 @@ import {
 import { hostname } from 'node:os'
 import { dirname, resolve } from 'node:path'
 
+import { adoptLegacyDatabaseName } from './legacy-database-name'
+
 const RUNTIME_LOCK_VERSION = 1
 const RUNTIME_LOCK_SUFFIX = '.runtime.lock'
 
@@ -76,6 +78,7 @@ export function acquireRuntimeQuiescenceLock(
     try {
         writeFileSync(descriptor, `${JSON.stringify(record)}\n`, 'utf8')
         fsyncSync(descriptor)
+        adoptLegacyDatabaseName(databasePath)
     } catch (error) {
         closeSync(descriptor)
         removeLockIfOwned(lockFilename, token)
@@ -116,7 +119,7 @@ function removeLockIfOwned(lockFilename: string, token: string): boolean {
         unlinkSync(lockFilename)
     } catch (error) {
         if (errorCode(error) === 'ENOENT') return true
-        console.error(`[postbot-db] failed to release runtime lock ${lockFilename}`, error)
+        console.error(`[postdot-db] failed to release runtime lock ${lockFilename}`, error)
         return false
     }
     return true

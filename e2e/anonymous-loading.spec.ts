@@ -22,7 +22,7 @@ test('anonymous login loads no authenticated feature modules', async ({ page }, 
             )
         )
     ).toEqual([])
-    if (process.env.POSTBOT_E2E_PRODUCTION_WEB === 'true') {
+    if (process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true') {
         const assets = [...scripts].filter(
             path => path.startsWith('/assets/') && path.endsWith('.js')
         )

@@ -9,7 +9,7 @@ async function createProject(page: Page) {
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Tag workflow operator',
-            email: `tags-${suffix}@postbot.local`,
+            email: `tags-${suffix}@postdot.local`,
             password: 'tags-local-fixture-password',
         },
     })
@@ -259,7 +259,7 @@ test('exposes tags read-only to a viewer and rejects foreign project assignments
     )
     expect(rejected.status()).toBe(400)
 
-    const email = `tag-viewer-${randomUUID().slice(0, 8)}@postbot.local`
+    const email = `tag-viewer-${randomUUID().slice(0, 8)}@postdot.local`
     const invited = await page.request.post(`/api/projects/${projectId}/invitations`, {
         data: { email, role: 'viewer' },
     })

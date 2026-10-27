@@ -72,7 +72,7 @@ describe('custom HTTP authentication binding', () => {
             kind: 'declarative_http',
             contractId: 'custom-webhook',
             revision: '1',
-            mode: 'postbot_webhook',
+            mode: 'postdot_webhook',
         }
 
         expect(validateCustomHttpAuthenticationBinding(execution, { kind: 'path' })).toEqual([

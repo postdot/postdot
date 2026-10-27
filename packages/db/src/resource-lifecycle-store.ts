@@ -5,7 +5,7 @@ import type { MediaStore } from '@postdot/media'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 import { createEventJournalStore } from './event-journal-store'
 
@@ -32,7 +32,7 @@ type LifecycleRow = {
 }
 const activity = new WeakMap<object, { requests: Map<string, number>; writes: number }>()
 
-export function createResourceLifecycleStore(database: PostbotDatabase) {
+export function createResourceLifecycleStore(database: PostdotDatabase) {
     const client = database.$client
     const live = activity.get(database) ?? { requests: new Map<string, number>(), writes: 0 }
     activity.set(database, live)

@@ -12,7 +12,7 @@ const publicMediaParams = Type.Object({
 })
 
 export function createPublicMediaRoutes(media: MediaAssetStore, delivery: MediaPublicDelivery) {
-    return new Elysia({ name: 'postbot-public-media' }).get(
+    return new Elysia({ name: 'postdot-public-media' }).get(
         '/api/media/public/:token',
         {
             params: publicMediaParams,

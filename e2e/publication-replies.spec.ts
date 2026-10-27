@@ -12,7 +12,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         await page.request.post('/api/auth/sign-up/email', {
             data: {
                 name: 'Reply operator',
-                email: `reply-${randomUUID()}@postbot.local`,
+                email: `reply-${randomUUID()}@postdot.local`,
                 password: 'reply-fixture-password',
             },
         })

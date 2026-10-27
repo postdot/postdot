@@ -196,12 +196,44 @@ export const env = {
     },
 }
 
+/**
+ * Installations created before the Postdot rename configure `POSTBOT_*` variables. Each one still
+ * applies when its `POSTDOT_*` replacement is unset; the replacement wins when both are present.
+ */
+export function resolveLegacyEnvironmentNames(
+    names: readonly string[],
+    source: EnvironmentSource
+): { readonly source: EnvironmentSource; readonly deprecated: readonly string[] } {
+    const resolved: Record<string, string | undefined> = { ...source }
+    const deprecated: string[] = []
+
+    for (const name of names) {
+        if (!name.startsWith('POSTDOT_') || source[name] !== undefined) continue
+        const legacyName = `POSTBOT_${name.slice('POSTDOT_'.length)}`
+        const legacyValue = source[legacyName]
+        if (legacyValue === undefined) continue
+        resolved[name] = legacyValue
+        deprecated.push(legacyName)
+    }
+
+    return { source: resolved, deprecated }
+}
+
 export function createEnvironment<const Definitions extends EnvironmentDefinitions>(
     definitions: Definitions,
-    source: EnvironmentSource
+    environmentSource: EnvironmentSource
 ): InferEnvironment<Definitions> {
     const values: Record<string, unknown> = {}
     const errors: string[] = []
+    const { source, deprecated } = resolveLegacyEnvironmentNames(
+        Object.keys(definitions),
+        environmentSource
+    )
+    if (deprecated.length > 0) {
+        console.warn(
+            `Deprecated environment names: ${deprecated.join(', ')}. Rename each POSTBOT_ prefix to POSTDOT_; the old names will stop working in a future release.`
+        )
+    }
 
     for (const [variableName, definition] of Object.entries(definitions)) {
         const rawValue = source[variableName]

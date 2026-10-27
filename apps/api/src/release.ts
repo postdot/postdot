@@ -5,7 +5,7 @@ export interface ReleaseInfo {
     readonly revision: string | null
 }
 
-// Packaged beside postbot.js; runtime environment variables cannot change identity.
+// Packaged beside postdot.js; runtime environment variables cannot change identity.
 export function readReleaseInfo(
     filename: URL = new URL('./release.json', import.meta.url)
 ): ReleaseInfo {

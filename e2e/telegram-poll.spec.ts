@@ -10,7 +10,7 @@ test('authors a Telegram poll, retains it through reload and selects an immutabl
     await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Poll editor',
-            email: `poll-${randomUUID()}@postbot.local`,
+            email: `poll-${randomUUID()}@postdot.local`,
             password: 'poll-fixture-password',
         },
     })

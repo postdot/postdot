@@ -8,8 +8,8 @@ export const FACEBOOK_EXECUTION_REVISION = 'page-post-v1'
 export const facebookChannelProfile: ChannelProfileDefinition = {
     id: 'facebook',
     version: 1,
-    profileHash: 'sha256:postbot-facebook-page-post-v1',
-    schemaHash: 'sha256:postbot-facebook-page-post-schema-v1',
+    profileHash: 'sha256:postdot-facebook-page-post-v1',
+    schemaHash: 'sha256:postdot-facebook-page-post-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

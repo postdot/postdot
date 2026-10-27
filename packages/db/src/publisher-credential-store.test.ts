@@ -45,8 +45,8 @@ function createFixture() {
 
 describe('publisher credential store', () => {
     it('never writes plaintext token bytes to the SQLite file', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-credentials-'))
-        const databasePath = join(directory, 'postbot.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-credentials-'))
+        const databasePath = join(directory, 'postdot.sqlite')
         const database = createDatabase(databasePath)
         let databaseClosed = false
 

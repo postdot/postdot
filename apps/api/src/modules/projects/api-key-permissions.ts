@@ -1,4 +1,4 @@
-export const postbotApiKeyCapabilities = [
+export const postdotApiKeyCapabilities = [
     'project:read',
     'project:manage',
     'project:permanently_delete',
@@ -11,12 +11,12 @@ export const postbotApiKeyCapabilities = [
     'media:permanently_delete',
 ] as const
 
-export type PostbotApiKeyCapability = (typeof postbotApiKeyCapabilities)[number]
-export type PostbotApiKeyPermissions = Record<string, readonly string[]> | null
+export type PostdotApiKeyCapability = (typeof postdotApiKeyCapabilities)[number]
+export type PostdotApiKeyPermissions = Record<string, readonly string[]> | null
 
 export function apiKeyHasCapability(
-    permissions: PostbotApiKeyPermissions,
-    capability: PostbotApiKeyCapability
+    permissions: PostdotApiKeyPermissions,
+    capability: PostdotApiKeyCapability
 ): boolean {
     if (permissions === null) return true
 
@@ -24,7 +24,7 @@ export function apiKeyHasCapability(
     return permissions[resource]?.includes(action) ?? false
 }
 
-const capabilityStatements: Record<PostbotApiKeyCapability, readonly [string, string]> = {
+const capabilityStatements: Record<PostdotApiKeyCapability, readonly [string, string]> = {
     'project:read': ['project', 'read'],
     'project:manage': ['project', 'manage'],
     'project:permanently_delete': ['project', 'permanently_delete'],
@@ -38,11 +38,11 @@ const capabilityStatements: Record<PostbotApiKeyCapability, readonly [string, st
 }
 
 export function permissionsForCapabilities(
-    capabilities: readonly PostbotApiKeyCapability[]
+    capabilities: readonly PostdotApiKeyCapability[]
 ): Record<string, string[]>
 export function permissionsForCapabilities(capabilities: null): null
 export function permissionsForCapabilities(
-    capabilities: readonly PostbotApiKeyCapability[] | null
+    capabilities: readonly PostdotApiKeyCapability[] | null
 ): Record<string, string[]> | null {
     if (capabilities === null) return null
 
@@ -57,11 +57,11 @@ export function permissionsForCapabilities(
 }
 
 export function capabilitiesForPermissions(
-    permissions: PostbotApiKeyPermissions
-): 'all' | PostbotApiKeyCapability[] {
+    permissions: PostdotApiKeyPermissions
+): 'all' | PostdotApiKeyCapability[] {
     if (permissions === null) return 'all'
 
-    return postbotApiKeyCapabilities.filter(capability => {
+    return postdotApiKeyCapabilities.filter(capability => {
         const [resource, action] = capabilityStatements[capability]
         return permissions[resource]?.includes(action) ?? false
     })
@@ -376,7 +376,7 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
 export function canApiKeyAccessRequest(
     method: string,
     requestPath: string,
-    permissions: PostbotApiKeyPermissions
+    permissions: PostdotApiKeyPermissions
 ): boolean {
     const required = requiredApiKeyCapability(method, requestPath)
     if (required === null) return false

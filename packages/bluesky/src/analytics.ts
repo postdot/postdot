@@ -36,7 +36,7 @@ export type BlueskyAnalyticsCoverageState = 'complete' | 'partial' | 'unavailabl
 export interface BlueskyAnalyticsCoverageGap {
     readonly subjectType: 'account' | 'content'
     readonly providerSubjectId: string
-    readonly postbotEntityId: string
+    readonly postdotEntityId: string
     readonly metricNames: readonly string[]
     readonly availability: Exclude<ProviderAnalyticsAvailability, 'measured'>
 }
@@ -95,12 +95,12 @@ export interface BlueskyAnalyticsReader {
 export interface BlueskyAnalyticsAccountTarget {
     readonly providerSubjectId: string
     readonly providerSubjectLabel?: string | null
-    readonly postbotEntityId: string
+    readonly postdotEntityId: string
 }
 
 export interface BlueskyAnalyticsContentTarget {
     readonly providerSubjectId: string
-    readonly postbotEntityId: string
+    readonly postdotEntityId: string
 }
 
 export interface CollectBlueskyAnalyticsInput {
@@ -321,8 +321,8 @@ export async function collectBlueskyAnalytics(
     const fetchedAt = requireTimestamp(input.fetchedAt, 'fetchedAt')
     const accountId = requireNonBlank(input.account.providerSubjectId, 'account providerSubjectId')
     const accountEntityId = requireNonBlank(
-        input.account.postbotEntityId,
-        'account postbotEntityId'
+        input.account.postdotEntityId,
+        'account postdotEntityId'
     )
     const contents = normalizeContentTargets(input.contents)
     if (contents.length > BLUESKY_ANALYTICS_MAX_CONTENTS) {
@@ -342,8 +342,8 @@ export async function collectBlueskyAnalytics(
                 providerSubjectId: profile.did,
                 providerSubjectLabel: profile.handle,
                 providerContentRevisionId: null,
-                postbotEntityType: 'channel',
-                postbotEntityId: accountEntityId,
+                postdotEntityType: 'channel',
+                postdotEntityId: accountEntityId,
                 counters: profile.counters,
                 metricNames: blueskyAccountMetricNames,
                 observedAt: profile.observedAt,
@@ -358,8 +358,8 @@ export async function collectBlueskyAnalytics(
                 providerSubjectId: accountId,
                 providerSubjectLabel: input.account.providerSubjectLabel ?? null,
                 providerContentRevisionId: null,
-                postbotEntityType: 'channel',
-                postbotEntityId: accountEntityId,
+                postdotEntityType: 'channel',
+                postdotEntityId: accountEntityId,
                 metricNames: blueskyAccountMetricNames,
                 availability: profile.availability,
                 observedAt: null,
@@ -379,9 +379,9 @@ export async function collectBlueskyAnalytics(
                 content.providerSubjectId,
                 'content providerSubjectId'
             )
-            const postbotEntityId = requireNonBlank(
-                content.postbotEntityId,
-                'content postbotEntityId'
+            const postdotEntityId = requireNonBlank(
+                content.postdotEntityId,
+                'content postdotEntityId'
             )
             const post = postsByUri.get(providerSubjectId)
             if (post?.kind === 'available') {
@@ -393,8 +393,8 @@ export async function collectBlueskyAnalytics(
                         providerSubjectId: post.uri,
                         providerSubjectLabel: post.authorHandle,
                         providerContentRevisionId: post.cid,
-                        postbotEntityType: 'publication',
-                        postbotEntityId,
+                        postdotEntityType: 'publication',
+                        postdotEntityId,
                         counters: post.counters,
                         metricNames: blueskyContentMetricNames,
                         observedAt: post.observedAt,
@@ -409,8 +409,8 @@ export async function collectBlueskyAnalytics(
                         providerSubjectId,
                         providerSubjectLabel: null,
                         providerContentRevisionId: null,
-                        postbotEntityType: 'publication',
-                        postbotEntityId,
+                        postdotEntityType: 'publication',
+                        postdotEntityId,
                         metricNames: blueskyContentMetricNames,
                         availability:
                             post?.kind === 'unavailable' ? post.availability : 'invalid_response',
@@ -442,8 +442,8 @@ function mapAvailableCounters(input: {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly postbotEntityType: 'channel' | 'publication'
-    readonly postbotEntityId: string
+    readonly postdotEntityType: 'channel' | 'publication'
+    readonly postdotEntityId: string
     readonly counters: Readonly<BlueskyCounterSnapshot>
     readonly metricNames: readonly string[]
     readonly observedAt: number | null
@@ -457,8 +457,8 @@ function mapAvailableCounters(input: {
             providerSubjectId: input.providerSubjectId,
             providerSubjectLabel: input.providerSubjectLabel,
             providerContentRevisionId: input.providerContentRevisionId,
-            postbotEntityType: input.postbotEntityType,
-            postbotEntityId: input.postbotEntityId,
+            postdotEntityType: input.postdotEntityType,
+            postdotEntityId: input.postdotEntityId,
             metricName,
             value: value === undefined ? null : value,
             availability: value === undefined ? 'not_reported' : 'measured',
@@ -474,8 +474,8 @@ function mapUnavailableCounters(input: {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly postbotEntityType: 'channel' | 'publication'
-    readonly postbotEntityId: string
+    readonly postdotEntityType: 'channel' | 'publication'
+    readonly postdotEntityId: string
     readonly metricNames: readonly string[]
     readonly availability: BlueskyUnavailableAvailability
     readonly observedAt: number | null
@@ -488,8 +488,8 @@ function mapUnavailableCounters(input: {
             providerSubjectId: input.providerSubjectId,
             providerSubjectLabel: input.providerSubjectLabel,
             providerContentRevisionId: input.providerContentRevisionId,
-            postbotEntityType: input.postbotEntityType,
-            postbotEntityId: input.postbotEntityId,
+            postdotEntityType: input.postdotEntityType,
+            postdotEntityId: input.postdotEntityId,
             metricName,
             value: null,
             availability: input.availability,
@@ -505,8 +505,8 @@ function createObservation(input: {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly postbotEntityType: 'channel' | 'publication'
-    readonly postbotEntityId: string
+    readonly postdotEntityType: 'channel' | 'publication'
+    readonly postdotEntityId: string
     readonly metricName: string
     readonly value: number | null
     readonly availability: ProviderAnalyticsAvailability
@@ -520,8 +520,8 @@ function createObservation(input: {
         providerSubjectId: input.providerSubjectId,
         providerSubjectLabel: input.providerSubjectLabel,
         providerContentRevisionId: input.providerContentRevisionId,
-        postbotEntityType: input.postbotEntityType,
-        postbotEntityId: input.postbotEntityId,
+        postdotEntityType: input.postdotEntityType,
+        postdotEntityId: input.postdotEntityId,
         metricName: input.metricName,
         value: input.value,
         unit: 'count',
@@ -551,11 +551,11 @@ function summarizeCoverage(input: {
     const gaps = new Map<string, BlueskyAnalyticsCoverageGap>()
     for (const observation of input.observations) {
         if (observation.availability === 'measured') continue
-        const postbotEntityId = observation.postbotEntityId ?? ''
+        const postdotEntityId = observation.postdotEntityId ?? ''
         const key = [
             observation.subjectType,
             observation.providerSubjectId,
-            postbotEntityId,
+            postdotEntityId,
             observation.availability,
         ].join('\u0000')
         const existing = gaps.get(key)
@@ -563,7 +563,7 @@ function summarizeCoverage(input: {
             gaps.set(key, {
                 subjectType: observation.subjectType,
                 providerSubjectId: observation.providerSubjectId,
-                postbotEntityId,
+                postdotEntityId,
                 metricNames: [observation.metricName],
                 availability: observation.availability,
             })
@@ -814,10 +814,10 @@ function normalizeContentTargets(
             target.providerSubjectId,
             'content providerSubjectId'
         )
-        const postbotEntityId = requireNonBlank(target.postbotEntityId, 'content postbotEntityId')
+        const postdotEntityId = requireNonBlank(target.postdotEntityId, 'content postdotEntityId')
         if (seen.has(providerSubjectId)) continue
         seen.add(providerSubjectId)
-        normalized.push({ providerSubjectId, postbotEntityId })
+        normalized.push({ providerSubjectId, postdotEntityId })
     }
     return normalized
 }

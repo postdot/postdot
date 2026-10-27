@@ -19,25 +19,25 @@ import { runLocalAccountBootstrap } from './local-account-bootstrap'
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
 const maintenanceUsage = {
-    backup: `Usage: bun /app/postbot.js backup --output <path> [--media] [--database <path>]
+    backup: `Usage: bun /app/postdot.js backup --output <path> [--media] [--database <path>]
 
 Create a database backup, or a database and media bundle with --media.
 The output path must not already exist. Backups may run while the server is running.
 Retain deployment secrets separately; the backup does not include them.`,
-    restore: `Usage: bun /app/postbot.js restore --input <path> [--media] [--database <path>]
+    restore: `Usage: bun /app/postdot.js restore --input <path> [--media] [--database <path>]
 
 Restore a database backup, or a database and media bundle with --media.
 Stop the server first. Restoration enables recovery hold; review before resuming.`,
-    recovery: `Usage: bun /app/postbot.js recovery <hold|status|resume> [--database <path>] [--confirm]
+    recovery: `Usage: bun /app/postdot.js recovery <hold|status|resume> [--database <path>] [--confirm]
 
 Inspect recovery hold with status. Stop the server before hold or resume.
 Offline resume requires --confirm after reviewing outstanding work.`,
-    'media-previews': `Usage: bun /app/postbot.js media-previews [--project <id>] [--dry-run] [--database <path>]
+    'media-previews': `Usage: bun /app/postdot.js media-previews [--project <id>] [--dry-run] [--database <path>]
 
 Generate missing image previews against an existing offline database.
 Stop the server first. --dry-run reports work without generating previews.`,
-    account: `Usage: bun /app/postbot.js account bootstrap --database <path> --input <private-json-file>
-       bun /app/postbot.js account recover-password --database <path>
+    account: `Usage: bun /app/postdot.js account bootstrap --database <path> --input <private-json-file>
+       bun /app/postdot.js account recover-password --database <path>
 
 Bootstrap creates the first administrator offline from a private JSON file with
 name, email and password. Stop the server; existing installations are refused.
@@ -46,7 +46,7 @@ Password recovery changes an existing account and requires an interactive termin
 
 export function printMaintenanceHelp(args: readonly string[]): boolean {
     if (args[0] === '--help' || args[0] === '-h') {
-        console.log(`Usage: bun /app/postbot.js [command] [options]
+        console.log(`Usage: bun /app/postdot.js [command] [options]
 
 Without a command, start the Postdot server using its environment configuration.
 
@@ -117,7 +117,7 @@ export async function runMaintenanceCommand(
         } finally {
             released = lock.release()
             if (!released)
-                console.error('[postbot-maintenance] media preview runtime lock was retained')
+                console.error('[postdot-maintenance] media preview runtime lock was retained')
         }
         if (!released) throw new Error('Media preview runtime lock was retained')
         return true
@@ -152,7 +152,7 @@ export async function runMaintenanceCommand(
             }
         } finally {
             released = lock.release()
-            if (!released) console.error('[postbot-maintenance] recovery runtime lock was retained')
+            if (!released) console.error('[postdot-maintenance] recovery runtime lock was retained')
         }
         if (!released) throw new Error('Recovery runtime lock was retained')
         return true

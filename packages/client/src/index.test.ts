@@ -4,12 +4,12 @@ import { createApp, createPublisherRuntime } from '@postdot/api'
 import { createAuth } from '@postdot/auth'
 import { closeDatabase, createDatabase, runMigrations } from '@postdot/db'
 
-import { createAccessInvitationClient, createPostbotClient } from './index'
+import { createAccessInvitationClient, createPostdotClient } from './index'
 
 describe('Postdot client', () => {
     it('exposes the typed project route tree', () => {
-        const client = createPostbotClient('http://localhost:3000', {
-            cookie: 'postbot_session=test',
+        const client = createPostdotClient('http://localhost:3000', {
+            cookie: 'postdot_session=test',
         })
 
         expect(client.api.projects.get).toBeFunction()
@@ -73,7 +73,7 @@ describe('Postdot client', () => {
             fetch(request) {
                 requests.push({ method: request.method, path: new URL(request.url).pathname })
                 return request.method === 'GET'
-                    ? Response.json({ targetEmail: 'invited@postbot.local', expiresAt: 123 })
+                    ? Response.json({ targetEmail: 'invited@postdot.local', expiresAt: 123 })
                     : Response.json(
                           {
                               error: {
@@ -88,7 +88,7 @@ describe('Postdot client', () => {
         try {
             const client = createAccessInvitationClient(server.url.origin)
             const preview = await client.preview('token/with?reserved#characters')
-            expect(preview.data).toEqual({ targetEmail: 'invited@postbot.local', expiresAt: 123 })
+            expect(preview.data).toEqual({ targetEmail: 'invited@postdot.local', expiresAt: 123 })
             expect(preview.error).toBeNull()
             const revoked = await client.revoke('id/with?reserved#characters')
             expect(revoked.data).toBeNull()
@@ -123,7 +123,7 @@ describe('Postdot client', () => {
         const app = createApp({
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
-                secret: 'postbot-test-secret-with-at-least-32-characters',
+                secret: 'postdot-test-secret-with-at-least-32-characters',
             }),
             database,
             publisher,
@@ -138,7 +138,7 @@ describe('Postdot client', () => {
                         origin: 'http://localhost:3000',
                     },
                     body: JSON.stringify({
-                        email: 'client@postbot.local',
+                        email: 'client@postdot.local',
                         name: 'Postdot Client',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -147,7 +147,7 @@ describe('Postdot client', () => {
             const cookie = signUpResponse.headers.get('set-cookie')?.split(';', 1)[0]
             expect(cookie).toBeDefined()
 
-            const client = createPostbotClient('http://localhost:3000', {
+            const client = createPostdotClient('http://localhost:3000', {
                 cookie,
                 fetcher: (input, init) => {
                     const url =
@@ -174,7 +174,7 @@ describe('Postdot client', () => {
             expect(createdToken.error).toBeNull()
             const token = (createdToken.data as { token: string }).token
 
-            const machineClient = createPostbotClient('http://localhost:3000', {
+            const machineClient = createPostdotClient('http://localhost:3000', {
                 token,
                 fetcher: (input, init) => {
                     const url =
@@ -208,8 +208,8 @@ describe('Postdot client', () => {
 
     it('sends a user API key through the typed client', async () => {
         let authorization: string | null = null
-        const client = createPostbotClient('http://localhost:3000', {
-            token: 'postbot_pat_test-token',
+        const client = createPostdotClient('http://localhost:3000', {
+            token: 'postdot_pat_test-token',
             fetcher: async (input, init) => {
                 const request =
                     typeof input === 'string'
@@ -225,6 +225,6 @@ describe('Postdot client', () => {
         const response = await client.api.projects.get()
 
         expect(response.error).toBeNull()
-        expect(authorization === 'Bearer postbot_pat_test-token').toBe(true)
+        expect(authorization === 'Bearer postdot_pat_test-token').toBe(true)
     })
 })

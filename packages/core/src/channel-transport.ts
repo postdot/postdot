@@ -1,6 +1,11 @@
 import type { ValidationIssue } from './validation'
 
-export const declarativeHttpModes = ['postbot_webhook', 'mapped_http'] as const
+/**
+ * Custom profiles saved before the Postdot rename store `postbot_webhook`. Their stored hashes cover
+ * that value, so it stays valid and behaves exactly like `postdot_webhook`; new profiles use the latter.
+ */
+export const legacyWebhookMode = 'postbot_webhook'
+export const declarativeHttpModes = ['postdot_webhook', legacyWebhookMode, 'mapped_http'] as const
 export const declarativeHttpMethods = ['POST', 'PUT', 'PATCH'] as const
 export const declarativeHttpContextPointers = [
     '/deliveryId',
@@ -14,6 +19,10 @@ export const declarativeHttpContextPointers = [
 ] as const
 
 export type DeclarativeHttpMode = (typeof declarativeHttpModes)[number]
+
+export function isWebhookMode(mode: string): boolean {
+    return mode === 'postdot_webhook' || mode === legacyWebhookMode
+}
 export type DeclarativeHttpMethod = (typeof declarativeHttpMethods)[number]
 export type DeclarativeHttpContextPointer = (typeof declarativeHttpContextPointers)[number]
 export type JsonPrimitive = null | boolean | number | string
@@ -130,7 +139,7 @@ export function isCustomHttpAuthentication(value: unknown): value is CustomHttpA
         value.headerName.length <= maximumHeaderNameLength &&
         httpTokenPattern.test(value.headerName) &&
         !forbiddenHeaderNames.has(value.headerName.toLowerCase()) &&
-        !value.headerName.toLowerCase().startsWith('x-postbot-')
+        !value.headerName.toLowerCase().startsWith('x-postdot-')
     )
 }
 
@@ -200,7 +209,7 @@ export function validateDeclarativeHttpExecution(
         return issues
     }
 
-    if (execution.mode === 'postbot_webhook') {
+    if (isWebhookMode(execution.mode)) {
         if (execution.request !== undefined) {
             addIssue(
                 '/execution/request',
@@ -707,7 +716,7 @@ function validateHeaderName(
         value.length > maximumHeaderNameLength ||
         !httpTokenPattern.test(value) ||
         forbiddenHeaderNames.has(value.toLowerCase()) ||
-        value.toLowerCase().startsWith('x-postbot-')
+        value.toLowerCase().startsWith('x-postdot-')
     ) {
         addIssue(path, 'mapping.header_invalid', 'HTTP header names are not allowed')
     }

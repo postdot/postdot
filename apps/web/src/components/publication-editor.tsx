@@ -1874,7 +1874,7 @@ function publicationEditorHeading(editor: PublicationEditorState, sourceContent:
 }
 
 function createRecoveryKey(projectId: string, publicationId: string) {
-    return `postbot:publication-editor:v${recoveryVersion}:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`
+    return `postdot:publication-editor:v${recoveryVersion}:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`
 }
 
 function readRecovery(key: string, timeZone: string): RecoveryBuffer | null {

@@ -96,7 +96,7 @@ describe('custom HTTP transport', () => {
                     kind: 'declarative_http',
                     contractId: 'custom-webhook',
                     revision: '1',
-                    mode: 'postbot_webhook',
+                    mode: 'postdot_webhook',
                 },
                 {
                     content: { body: 'Hello', media: [] },
@@ -133,8 +133,8 @@ describe('custom HTTP transport', () => {
             .update(`${timestamp}.${body}`)
             .digest('hex')
         expect(request.method).toBe('POST')
-        expect(request.headers['x-postbot-signature']).toBe(`sha256=${expectedSignature}`)
-        expect(request.headers['x-postbot-timestamp']).toBe(timestamp)
+        expect(request.headers['x-postdot-signature']).toBe(`sha256=${expectedSignature}`)
+        expect(request.headers['x-postdot-timestamp']).toBe(timestamp)
         expect(JSON.parse(body)).toEqual(
             expect.objectContaining({
                 event: 'publication.delivery',
@@ -180,7 +180,7 @@ describe('custom HTTP transport', () => {
                             delivery: { kind: 'context', pointer: '/deliveryId' },
                         },
                         headers: {
-                            'x-client': { kind: 'literal', value: 'postbot-test' },
+                            'x-client': { kind: 'literal', value: 'postdot-test' },
                         },
                         body: {
                             kind: 'json',

@@ -88,7 +88,7 @@ export function ConfiguredPublicationEditor({
                             if (
                                 !transaction.docChanged ||
                                 maxLength === undefined ||
-                                transaction.getMeta('postbotExternalContent')
+                                transaction.getMeta('postdotExternalContent')
                             )
                                 return true
                             const length = (doc: typeof transaction.doc) =>
@@ -155,7 +155,7 @@ export function ConfiguredPublicationEditor({
         editor
             .chain()
             .command(({ tr }) => {
-                tr.setMeta('postbotExternalContent', true)
+                tr.setMeta('postdotExternalContent', true)
                 return true
             })
             .setContent(codec && !raw ? codec.parse(value) : plainDocument(value), {

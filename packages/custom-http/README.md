@@ -6,18 +6,20 @@ from a channel profile.
 
 ## Delivery modes
 
-### `postbot_webhook`
+### `postdot_webhook`
 
 The default mode sends one `POST` request to the connection origin. The JSON
 envelope contains the immutable delivery identity, publication timing, channel
 identity, validated target content, and media metadata. Storage locators and
-secrets are excluded.
+secrets are excluded. Profiles saved before the Postdot rename keep the equivalent
+`postbot_webhook` mode; it behaves identically, and new profiles use
+`postdot_webhook`. Receivers verify the `x-postdot-*` headers.
 
 The request is authenticated with the connection secret:
 
 ```text
-x-postbot-timestamp: <unix timestamp in seconds>
-x-postbot-signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + body)>
+x-postdot-timestamp: <unix timestamp in seconds>
+x-postdot-signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + body)>
 ```
 
 Receivers should verify the signature against the exact request bytes and reject
@@ -44,7 +46,7 @@ cannot read secrets from content or redefine the connection origin. A mapped
 profile may also use one dedicated `{ "kind": "secret" }` path segment when the
 connection selects `path` authentication; the segment is encoded as one URL
 component at delivery time. It cannot be used in a query, header, or body, and
-path authentication is not available for `postbot_webhook`. Response status
+path authentication is not available for `postdot_webhook`. Response status
 classes and optional remote identifiers are declared by the profile.
 
 For example, a path-authenticated profile can use:
@@ -79,7 +81,7 @@ Code-owned per-instance providers can use the same boundary through
 `createNetworkControlledFetcher`. The application composition root supplies the
 operator's private-destination rules; provider packages do not read environment
 variables or decide whether a network address is trusted. The shared policy is
-configured by `POSTBOT_OUTBOUND_PRIVATE_DESTINATIONS` in the API process.
+configured by `POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS` in the API process.
 
 All request and response sizes are bounded. Request construction is structural;
 scripts, arbitrary functions, filesystem access, environment access, and

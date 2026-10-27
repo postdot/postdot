@@ -17,7 +17,7 @@ describe('isolated OpenAPI export', () => {
             expect(second).toEqual(first)
             expect(network).not.toHaveBeenCalled()
             expect(first.servers).toBeUndefined()
-            expect(JSON.stringify(first)).not.toContain('postbot.invalid')
+            expect(JSON.stringify(first)).not.toContain('postdot.invalid')
             expect(first.paths['/api/projects/{projectId}/posts']?.post?.operationId).toBe(
                 'createPost'
             )

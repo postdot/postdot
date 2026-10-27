@@ -63,7 +63,7 @@ import {
 
 const now = 1_800_000_000_000
 const credentialSecret = 'conformance-secret-that-must-not-become-domain-data'
-const blueskyDid = 'did:plc:postbot-conformance'
+const blueskyDid = 'did:plc:postdot-conformance'
 const blueskySession = JSON.stringify({
     tokenSet: {
         sub: blueskyDid,
@@ -75,10 +75,10 @@ const blueskySession = JSON.stringify({
 
 const blueskyOAuth: NonNullable<BlueskyProviderAdapterOptions['oauth']> = {
     clientMetadata: createBlueskyClientMetadata({
-        clientId: 'https://postbot.test/oauth/bluesky/client-metadata.json',
+        clientId: 'https://postdot.test/oauth/bluesky/client-metadata.json',
         clientName: 'Postdot conformance test',
-        clientUri: 'https://postbot.test',
-        redirectUri: 'https://postbot.test/api/oauth/bluesky/callback',
+        clientUri: 'https://postdot.test',
+        redirectUri: 'https://postdot.test/api/oauth/bluesky/callback',
     }),
     handleResolver: 'https://bsky.social',
 }
@@ -315,7 +315,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 async getMe() {
                     return {
                         kind: 'success',
-                        value: { id: '42', username: 'postbot', name: 'Postdot' },
+                        value: { id: '42', username: 'postdot', name: 'Postdot' },
                     }
                 },
                 async getArticleAnalytics() {

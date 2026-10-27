@@ -20,7 +20,7 @@ const image = Uint8Array.from(
 
 describe('personal account HTTP boundary', () => {
     it('updates identity, isolates avatar ownership and revokes other password sessions', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-account-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-account-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const storage = createLocalMediaStore({
@@ -63,13 +63,13 @@ describe('personal account HTTP boundary', () => {
         try {
             const signUp = await request('/api/auth/sign-up/email', '', {
                 name: 'Account Operator',
-                email: 'account@postbot.local',
+                email: 'account@postdot.local',
                 password: 'original-account-password',
             })
             expect(signUp.status).toBe(200)
             let cookie = cookieFrom(signUp)
             const second = await request('/api/auth/sign-in/email', '', {
-                email: 'account@postbot.local',
+                email: 'account@postdot.local',
                 password: 'original-account-password',
             })
             const otherCookie = cookieFrom(second)

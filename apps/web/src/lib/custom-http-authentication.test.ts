@@ -11,7 +11,7 @@ const webhook: DeclarativeHttpExecutionContract = {
     kind: 'declarative_http',
     contractId: 'example',
     revision: '1',
-    mode: 'postbot_webhook',
+    mode: 'postdot_webhook',
 }
 function mapped(secretCount: number): DeclarativeHttpExecutionContract {
     return {

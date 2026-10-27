@@ -1,4 +1,4 @@
-import { postbotUserApiKeyConfigId, type PostbotAuth } from '@postdot/auth'
+import { postdotUserApiKeyConfigId, type PostdotAuth } from '@postdot/auth'
 import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { NotificationEmailStore } from '@postdot/db'
@@ -71,7 +71,7 @@ function isProjectAccessPath(projectId: string, requestPath: string): boolean {
 
 export interface ProjectModuleOptions {
     readonly resourceLifecycle: ResourceLifecycleStore
-    readonly auth: PostbotAuth
+    readonly auth: PostdotAuth
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
     readonly media?: MediaAssetStore
@@ -107,6 +107,9 @@ export interface ProjectModuleOptions {
     readonly userChanges?: UserRealtimeHub
 }
 
+/** Keys issued before the Postdot rename keep their original prefix; new keys use the first one. */
+const userApiKeyPrefixes = ['postdot_pat_', 'postbot_pat_'] as const
+
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         resourceLifecycle: options.resourceLifecycle,
@@ -114,20 +117,20 @@ export function createProjectModule(options: ProjectModuleOptions) {
             path === `/api/projects/${projectId}/lifecycle` &&
             options.resourceLifecycle.canReadReceipt('project', projectId, userId),
         authenticateBetterAuthProjectApiKey: async token => {
-            if (!token.startsWith('postbot_pat_')) return null
+            if (!userApiKeyPrefixes.some(prefix => token.startsWith(prefix))) return null
 
             try {
                 const userVerified = await options.auth.api.verifyApiKey({
-                    body: { configId: postbotUserApiKeyConfigId, key: token },
+                    body: { configId: postdotUserApiKeyConfigId, key: token },
                 })
                 if (userVerified.valid && userVerified.key !== null) {
                     const metadata = readUserApiKeyMetadata(userVerified.key.metadata)
                     if (metadata !== null) {
                         return {
                             projectIds:
-                                metadata.postbotProjectAccess === 'all'
+                                metadata.postdotProjectAccess === 'all'
                                     ? null
-                                    : (metadata.postbotProjectIds ?? []),
+                                    : (metadata.postdotProjectIds ?? []),
                             ownerUserId: userVerified.key.referenceId,
                             displayName: `API key: ${userVerified.key.name ?? userVerified.key.id}`,
                             permissions: userVerified.key.permissions,

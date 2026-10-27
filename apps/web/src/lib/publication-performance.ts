@@ -103,12 +103,12 @@ export function groupLatestObservations(observations: readonly ProviderAnalytics
     const grouped = new Map<string, Map<string, ProviderAnalyticsItem>>()
     for (const observation of observations) {
         if (
-            observation.postbotEntityType !== 'publication' ||
-            observation.postbotEntityId === null
+            observation.postdotEntityType !== 'publication' ||
+            observation.postdotEntityId === null
         ) {
             continue
         }
-        const publicationMetrics = grouped.get(observation.postbotEntityId) ?? new Map()
+        const publicationMetrics = grouped.get(observation.postdotEntityId) ?? new Map()
         const current = publicationMetrics.get(observation.metricName)
         if (
             current === undefined ||
@@ -117,7 +117,7 @@ export function groupLatestObservations(observations: readonly ProviderAnalytics
         ) {
             publicationMetrics.set(observation.metricName, observation)
         }
-        grouped.set(observation.postbotEntityId, publicationMetrics)
+        grouped.set(observation.postdotEntityId, publicationMetrics)
     }
     return grouped
 }

@@ -1,11 +1,11 @@
-import type { PostbotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import {
     sessionSecurity,
     type AuthenticatedElysia,
-    type PostbotAuthenticationMethod,
+    type PostdotAuthenticationMethod,
 } from '../../plugins/auth'
 
 const errorResponse = Type.Object({
@@ -108,7 +108,7 @@ const adminSyncFailedResponse = () => ({
 })
 
 function isInstanceAdmin(
-    authMethod: PostbotAuthenticationMethod,
+    authMethod: PostdotAuthenticationMethod,
     userId: string,
     access: AccessStore
 ): boolean {
@@ -118,7 +118,7 @@ function isInstanceAdmin(
 export function registerAccessRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     access: AccessStore,
-    auth: PostbotAuth
+    auth: PostdotAuth
 ) {
     return app
         .get(

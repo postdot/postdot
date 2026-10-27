@@ -12,7 +12,7 @@ const samples: Record<EditorProfile, string> = {
     discord: '**Hello** 👋\n\n__Underline__ and ||spoiler||',
     article: '## Hello 👋\n\n- First\n- Second\n\n> A quotation\n\n```js\nconst answer = 42\n```',
 }
-const storageKey = 'postbot-editor-experiment-v1'
+const storageKey = 'postdot-editor-experiment-v1'
 
 function profileName(profile: EditorProfile) {
     return profile === 'plain' ? m.editor_lab_plain() : profile === 'discord' ? 'Discord' : 'DEV.to'

@@ -87,7 +87,7 @@ async function readMarkerPid(marker: string): Promise<number | undefined> {
 test('the production bundle releases its runtime marker when a termination lands during startup', async () => {
     const resources = await createE2ERuntimeResources({})
     const marker = `${resources.databaseFile}.runtime.lock`
-    const buildDirectory = await mkdtemp(join(tmpdir(), 'postbot-production-bundle-'))
+    const buildDirectory = await mkdtemp(join(tmpdir(), 'postdot-production-bundle-'))
     const webAssetsDirectory = join(resources.dataDirectory, 'web')
     const children: BundleChild[] = []
     const failures: Error[] = []
@@ -119,16 +119,16 @@ test('the production bundle releases its runtime marker when a termination lands
             NODE_ENV: 'production',
             PORT: String(resources.apiPort),
             DB_FILE_NAME: resources.databaseFile,
-            POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
-            POSTBOT_MEDIA_STORE: 'local',
-            POSTBOT_MIGRATIONS_DIR: migrationsDirectory,
-            POSTBOT_WEB_ASSETS_DIR: webAssetsDirectory,
+            POSTDOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+            POSTDOT_MEDIA_STORE: 'local',
+            POSTDOT_MIGRATIONS_DIR: migrationsDirectory,
+            POSTDOT_WEB_ASSETS_DIR: webAssetsDirectory,
             BETTER_AUTH_URL: resources.apiOrigin,
-            POSTBOT_WEB_ORIGIN: resources.webOrigin,
-            BETTER_AUTH_SECRET: 'postbot-isolated-production-test-auth-secret-32-characters',
-            POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-                'postbot-isolated-production-test-media-secret-32-characters',
-            POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+            POSTDOT_WEB_ORIGIN: resources.webOrigin,
+            BETTER_AUTH_SECRET: 'postdot-isolated-production-test-auth-secret-32-characters',
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+                'postdot-isolated-production-test-media-secret-32-characters',
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
         }
 
         const first = spawnBundle(bundlePath, resources.dataDirectory, environment)
@@ -185,7 +185,7 @@ test('the production bundle releases its runtime marker when a termination lands
         await Promise.race([first.drained, Bun.sleep(drainDeadlineMs)])
         // The bundle ran its own orderly drain, so it released the marker
         // itself instead of losing the default disposition of the signal.
-        expect(first.stderr()).toContain('[postbot-shutdown] SIGTERM received')
+        expect(first.stderr()).toContain('[postdot-shutdown] SIGTERM received')
         expect(first.stderr()).toContain('shutdown complete with exit code 0')
 
         // The next start of the same bundle on the same database must not be
@@ -225,7 +225,7 @@ test('the production bundle releases its runtime marker when a termination lands
         expect(second.child.signalCode).toBeNull()
         expect(await Bun.file(marker).exists()).toBe(false)
         await Promise.race([second.drained, Bun.sleep(drainDeadlineMs)])
-        expect(second.stderr()).toContain('[postbot-shutdown] SIGTERM received')
+        expect(second.stderr()).toContain('[postdot-shutdown] SIGTERM received')
         expect(second.stderr()).toContain('shutdown complete with exit code 0')
     } catch (error) {
         failures.push(error instanceof Error ? error : new Error(String(error)))

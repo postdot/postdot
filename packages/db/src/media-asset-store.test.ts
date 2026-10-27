@@ -78,7 +78,7 @@ async function withFixture<T>(
     }) => Promise<T>,
     options: MediaFixtureOptions = {}
 ): Promise<T> {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-media-assets-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-media-assets-'))
     const database = createDatabase(':memory:')
     runMigrations(database)
     const project = seedProject(database, 'media')

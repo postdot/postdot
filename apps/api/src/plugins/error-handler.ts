@@ -13,7 +13,7 @@ export function createErrorHandler(logger?: Logger) {
     const loggedRequests = new WeakSet<Request>()
     const requestIds = new WeakMap<Request, string>()
 
-    const app = new Elysia({ name: 'postbot-error-handler' })
+    const app = new Elysia({ name: 'postdot-error-handler' })
 
     app.request(({ request, set }) => {
         if (logger === undefined) return

@@ -1,4 +1,4 @@
-import type { PostbotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import { projectNotificationTemplate } from '@postdot/core'
 import {
     eventJournalCursorSequence,
@@ -162,7 +162,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
     journal: EventJournalStore,
     notifications: NotificationStore,
     access: AccessStore,
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     projectChanges?: RealtimeHub,
     userChanges?: UserRealtimeHub
 ) {

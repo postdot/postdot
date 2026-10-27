@@ -14,7 +14,7 @@ import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
 function createFixture() {
@@ -74,7 +74,7 @@ const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.strin
 
 async function setup() {
     const fixture = createFixture()
-    const cookie = await signUp(fixture.app, 'sharing@postbot.local')
+    const cookie = await signUp(fixture.app, 'sharing@postdot.local')
     const create = async (name: string) => {
         const response = await call(fixture.app, '/api/projects', { cookie }, post({ name }))
         expect(response.status).toBe(201)
@@ -246,7 +246,7 @@ describe('shared channel HTTP routes', () => {
     it('masks the channel from a caller without project access', async () => {
         const f = await setup()
         try {
-            const outsider = await signUp(f.app, 'outsider-sharing@postbot.local')
+            const outsider = await signUp(f.app, 'outsider-sharing@postdot.local')
             const path = `/api/projects/${f.source}/channels/${f.channel.id}`
             expect((await call(f.app, `${path}/sharing`, { cookie: outsider })).status).toBe(404)
             const attach = await call(
@@ -328,7 +328,7 @@ describe('shared channel occupancy HTTP route', () => {
                 expect(text).not.toContain(hidden)
 
             // The route is read-only for keys and masks a project the caller cannot access.
-            const outsider = await signUp(f.app, 'occupancy-outsider@postbot.local')
+            const outsider = await signUp(f.app, 'occupancy-outsider@postdot.local')
             expect((await call(f.app, path, { cookie: outsider })).status).toBe(404)
             const invalid = await call(
                 f.app,
@@ -634,12 +634,12 @@ it('lists workspace channels without widening key scope, transfers management an
                 )
             ).status
         ).toBe(404)
-        const outsider = await signUp(f.app, 'workspace-channel-outsider@postbot.local')
+        const outsider = await signUp(f.app, 'workspace-channel-outsider@postdot.local')
         f.database.$client
             .query(
                 "update member set role='member' where user_id=(select id from user where email=?)"
             )
-            .run('workspace-channel-outsider@postbot.local')
+            .run('workspace-channel-outsider@postdot.local')
         // Default workspace membership reveals no channel or project without a live grant.
         expect(await (await call(f.app, base, { cookie: outsider })).json()).toEqual({
             channels: [],
@@ -650,7 +650,7 @@ it('lists workspace channels without widening key scope, transfers management an
         ).toBe(404)
         const outsiderId = f.database.$client
             .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('workspace-channel-outsider@postbot.local')!.id
+            .get('workspace-channel-outsider@postdot.local')!.id
         createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
             projectId: f.source,
             userId: outsiderId,
@@ -707,10 +707,10 @@ it('lets workspace administration recover a channel without a project actor and 
         f.database.$client
             .query('delete from channel_managers where channel_id=?')
             .run(f.channel.id)
-        const adminCookie = await signUp(f.app, 'workspace-channel-admin@postbot.local')
+        const adminCookie = await signUp(f.app, 'workspace-channel-admin@postdot.local')
         const adminId = f.database.$client
             .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('workspace-channel-admin@postbot.local')!.id
+            .get('workspace-channel-admin@postdot.local')!.id
         f.database.$client
             .query(
                 "update member set role='admin' where user_id=? and organization_id=(select organization_id from workspaces where id=?)"
@@ -765,10 +765,10 @@ it('lets workspace administration recover a channel without a project actor and 
 it('rejects an OAuth callback after its actor loses channel management, before provider or credential work', async () => {
     const f = await setup()
     try {
-        const editorCookie = await signUp(f.app, 'former-channel-manager@postbot.local')
+        const editorCookie = await signUp(f.app, 'former-channel-manager@postdot.local')
         const editorId = f.database.$client
             .query<{ id: string }, [string]>('select id from user where email=?')
-            .get('former-channel-manager@postbot.local')!.id
+            .get('former-channel-manager@postdot.local')!.id
         f.database.$client.query("update member set role='member' where user_id=?").run(editorId)
         createAccessStore(f.database).grantProjectUserAccess({
             projectId: f.source,

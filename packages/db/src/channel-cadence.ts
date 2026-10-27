@@ -5,7 +5,7 @@ import { DomainInvariantError } from '@postdot/core'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 
 export interface ChannelCadence {
@@ -61,7 +61,7 @@ export const cadenceEligibleAtSql = `max(jobs.run_at, coalesce((
     from channel_cadence r where r.channel_id = publications.channel_id
 ), 0))`
 
-export function createChannelCadenceStore(database: PostbotDatabase) {
+export function createChannelCadenceStore(database: PostdotDatabase) {
     const client = database.$client
     const get = (channelId: string): ChannelCadence | null =>
         client

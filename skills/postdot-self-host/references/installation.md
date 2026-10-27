@@ -32,7 +32,7 @@ copies the bundled Compose file. It starts no services. Review `.env` privately;
 never paste `docker compose config` output or environment values into a report.
 Without Python, copy the two assets into a new private directory, copy the env
 example to `.env`, set mode 600, generate three independent 32-byte secrets using
-a secure tool, and set `POSTBOT_IMAGE` to the pinned manifest above.
+a secure tool, and set `POSTDOT_IMAGE` to the pinned manifest above.
 
 ## Start and claim
 

@@ -1,7 +1,7 @@
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 
-const database = createDatabase(process.env.DB_FILE_NAME ?? '../../postbot.sqlite')
+const database = createDatabase(process.env.DB_FILE_NAME ?? '../../postdot.sqlite')
 
 runMigrations(database)
 closeDatabase(database)

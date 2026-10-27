@@ -7,8 +7,8 @@ import type {
 } from '@postdot/core'
 
 export const CUSTOM_HTTP_PUBLISHER_KIND = 'custom_http' as const
-export const POSTBOT_WEBHOOK_VERSION = '1' as const
-export const POSTBOT_WEBHOOK_EVENT = 'publication.delivery' as const
+export const POSTDOT_WEBHOOK_VERSION = '1' as const
+export const POSTDOT_WEBHOOK_EVENT = 'publication.delivery' as const
 
 export const customHttpLimits = {
     minimumSecretBytes: 32,

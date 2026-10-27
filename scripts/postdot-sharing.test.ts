@@ -8,7 +8,7 @@ import {
     closeDatabase,
     runMigrations,
 } from '../packages/db/src/index'
-import { runCli } from './postbot'
+import { runCli } from './postdot'
 
 it('runs sharing, transfer, cadence, scoped reads and explicit moves through the CLI process and real API', async () => {
     const database = createDatabase(':memory:')
@@ -50,14 +50,14 @@ it('runs sharing, transfer, cadence, scoped reads and explicit moves through the
     let token = ''
     const command = async (args: string[], input?: unknown, json = true) => {
         const child = Bun.spawn(
-            [process.execPath, 'scripts/postbot.ts', ...args, ...(json ? ['--json'] : [])],
+            [process.execPath, 'scripts/postdot.ts', ...args, ...(json ? ['--json'] : [])],
             {
                 cwd: new URL('..', import.meta.url).pathname,
                 env: {
                     ...Bun.env,
-                    POSTBOT_URL: server.url.href,
-                    POSTBOT_API_KEY: token,
-                    POSTBOT_SESSION_COOKIE: '',
+                    POSTDOT_URL: server.url.href,
+                    POSTDOT_API_KEY: token,
+                    POSTDOT_SESSION_COOKIE: '',
                 },
                 stdin: input === undefined ? 'ignore' : new Blob([JSON.stringify(input)]),
                 stdout: 'pipe',
@@ -330,14 +330,14 @@ it('rejects ambiguous context and missing revisions before sending a request', a
     await expect(
         runCli(
             ['channels', 'list', '--project', 'p', '--workspace', 'w'],
-            { POSTBOT_API_KEY: 'fake' },
+            { POSTDOT_API_KEY: 'fake' },
             dependencies
         )
     ).rejects.toMatchObject({ code: 'invalid_input' })
     await expect(
         runCli(
             ['channels', 'attach', '--project', 'p', '--channel', 'c', '--target-project', 'q'],
-            { POSTBOT_API_KEY: 'fake' },
+            { POSTDOT_API_KEY: 'fake' },
             dependencies
         )
     ).rejects.toThrow('--expected-revision')
@@ -372,7 +372,7 @@ for (const context of ['project', 'workspace'] as const) {
                               '--archive-last',
                           ]),
                 ],
-                { POSTBOT_API_KEY: 'fake' },
+                { POSTDOT_API_KEY: 'fake' },
                 {
                     readInput: async () => JSON.stringify(input),
                     output: () => {},
@@ -439,7 +439,7 @@ for (const action of ['promote', 'schedule', 'retry', 'override-cadence'] as con
                     action === 'override-cadence' ? '--confirmation' : '--cadence-confirmation',
                     confirmation,
                 ],
-                { POSTBOT_API_KEY: 'fake' },
+                { POSTDOT_API_KEY: 'fake' },
                 {
                     output: () => {},
                     fetcher: async (url, init) => {
@@ -478,7 +478,7 @@ it('does not expose unknown error metadata as cadence instructions', async () =>
     await expect(
         runCli(
             ['publications', 'retry', '--project', 'p', '--publication', 'pub'],
-            { POSTBOT_API_KEY: 'fake' },
+            { POSTDOT_API_KEY: 'fake' },
             {
                 fetcher: async () =>
                     Response.json(

@@ -10,7 +10,7 @@ test('filters real publication cohorts by current tags and retains selection acr
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Tag performance operator',
-            email: `tag-performance-${randomUUID()}@postbot.local`,
+            email: `tag-performance-${randomUUID()}@postdot.local`,
             password: 'tag-performance-fixture-password',
         },
     })
@@ -103,8 +103,8 @@ test('filters real publication cohorts by current tags and retains selection acr
                 hasMore: false,
                 observations: ids.map(id => ({
                     id: `metric-${id}`,
-                    postbotEntityId: id,
-                    postbotEntityType: 'publication',
+                    postdotEntityId: id,
+                    postdotEntityType: 'publication',
                     metricName: 'favourites_count',
                     availability: 'measured',
                     value: 0,

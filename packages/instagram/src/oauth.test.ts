@@ -4,7 +4,7 @@ import { createInstagramOAuth, InstagramOAuthError } from './oauth'
 
 const clientId = '123456789'
 const clientSecret = 'synthetic-application-secret'
-const callbackUri = 'https://postbot.example/api/oauth/instagram/callback'
+const callbackUri = 'https://postdot.example/api/oauth/instagram/callback'
 const appScopedId = '17841400000000001'
 const professionalId = '17841400000000002'
 
@@ -576,10 +576,10 @@ test('a failed profile read never becomes a connection', async () => {
 test('the Instagram configuration rejects insecure or ambiguous callback addresses', () => {
     for (const address of [
         'http://localhost/callback',
-        'http://postbot.example/callback',
+        'http://postdot.example/callback',
         `${callbackUri}?state=embedded`,
         `${callbackUri}#fragment`,
-        'https://user:password@postbot.example/callback',
+        'https://user:password@postdot.example/callback',
     ])
         expect(() =>
             createInstagramOAuth({ clientId, clientSecret, callbackUri: address })

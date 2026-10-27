@@ -79,7 +79,7 @@ const profile: ChannelProfileDefinition = {
 
 describe('provider media delivery store', () => {
     it('pins revision media before the effect boundary and persists delivery retries', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-provider-media-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-provider-media-'))
         const database = createDatabase(':memory:')
         const mediaStore = createLocalMediaStore({
             storeId: 'local-default',

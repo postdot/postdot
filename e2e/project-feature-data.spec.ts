@@ -10,7 +10,7 @@ test('loads publication and tag resources only on the project features that use 
     const suffix = randomUUID().slice(0, 8)
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: {
-            email: `feature-data-${suffix}@postbot.local`,
+            email: `feature-data-${suffix}@postdot.local`,
             name: `Feature data ${suffix}`,
             password: 'feature-data-fixture-password',
         },

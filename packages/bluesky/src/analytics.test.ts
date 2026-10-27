@@ -8,8 +8,8 @@ import {
     collectBlueskyAnalytics,
 } from './index'
 
-const did = 'did:plc:postbot-test'
-const handle = 'postbot.test'
+const did = 'did:plc:postdot-test'
+const handle = 'postdot.test'
 const postUri = 'at://' + did + '/app.bsky.feed.post/3kpost'
 const postCid = 'bafyreibsky-cid'
 const profileIndexedAt = '2026-09-08T10:00:00.000Z'
@@ -111,11 +111,11 @@ describe('Bluesky provider analytics', () => {
             account: {
                 providerSubjectId: did,
                 providerSubjectLabel: handle,
-                postbotEntityId: 'channel-1',
+                postdotEntityId: 'channel-1',
             },
             contents: [
-                { providerSubjectId: postUri, postbotEntityId: 'publication-1' },
-                { providerSubjectId: postUri, postbotEntityId: 'publication-2' },
+                { providerSubjectId: postUri, postdotEntityId: 'publication-1' },
+                { providerSubjectId: postUri, postdotEntityId: 'publication-2' },
             ],
             fetchedAt: 1_800_000_000_000,
             reader: {
@@ -179,7 +179,7 @@ describe('Bluesky provider analytics', () => {
                     subjectType: 'content',
                     providerSubjectId: postUri,
                     providerContentRevisionId: postCid,
-                    postbotEntityId: 'publication-1',
+                    postdotEntityId: 'publication-1',
                     metricName: 'bookmarkCount',
                     value: null,
                     availability: 'not_reported',
@@ -189,7 +189,7 @@ describe('Bluesky provider analytics', () => {
         expect(
             result.observations.filter(observation => observation.subjectType === 'content')
         ).not.toEqual(
-            expect.arrayContaining([expect.objectContaining({ postbotEntityId: 'publication-2' })])
+            expect.arrayContaining([expect.objectContaining({ postdotEntityId: 'publication-2' })])
         )
     })
 

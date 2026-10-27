@@ -24,13 +24,13 @@ def main():
     parser.add_argument("path")
     parser.add_argument("--input", help="JSON file or - for stdin")
     args = parser.parse_args()
-    base = os.environ.get("POSTBOT_URL", "").rstrip("/")
-    key = os.environ.get("POSTBOT_API_KEY", "")
+    base = (os.environ.get("POSTDOT_URL") or os.environ.get("POSTBOT_URL", "")).rstrip("/")
+    key = (os.environ.get("POSTDOT_API_KEY") or os.environ.get("POSTBOT_API_KEY", ""))
     try:
         origin = urlsplit(base)
         origin.port  # Validate malformed ports without including their value in errors.
     except ValueError:
-        parser.error("POSTBOT_URL must be a valid origin")
+        parser.error("POSTDOT_URL must be a valid origin")
     if (
         origin.scheme not in ("https", "http")
         or not origin.hostname
@@ -42,7 +42,7 @@ def main():
         or any(c.isspace() for c in base)
     ):
         parser.error(
-            "POSTBOT_URL must be an HTTP(S) origin without credentials, path or query"
+            "POSTDOT_URL must be an HTTP(S) origin without credentials, path or query"
         )
     loopback = origin.hostname == "localhost"
     try:
@@ -52,7 +52,7 @@ def main():
     if origin.scheme == "http" and not loopback:
         parser.error("non-loopback API access requires HTTPS")
     if not key or any(c.isspace() for c in key):
-        parser.error("set POSTBOT_API_KEY privately; no key value is printed")
+        parser.error("set POSTDOT_API_KEY privately; no key value is printed")
     route = urlsplit(args.path)
     decoded = unquote(route.path)
     if (

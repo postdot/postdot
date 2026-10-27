@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve, join } from 'node:path'
 
-import { runCli } from './postbot'
+import { runCli } from './postdot'
 
 function requestFromInput(input: string | URL | Request, init?: RequestInit) {
     return input instanceof Request ? new Request(input, init) : new Request(String(input), init)
@@ -25,7 +25,7 @@ describe('Postdot CLI', () => {
         const output: string[] = []
 
         await runCli(
-            ['projects', 'list', '--token', 'postbot_pat_machine-secret'],
+            ['projects', 'list', '--token', 'postdot_pat_machine-secret'],
             {},
             {
                 fetcher: async (input, init) => {
@@ -37,7 +37,7 @@ describe('Postdot CLI', () => {
         )
 
         expect(requests[0]?.headers.get('authorization')).toEqual(
-            'Bearer postbot_pat_machine-secret'
+            'Bearer postdot_pat_machine-secret'
         )
         expect(requests[0]?.headers.get('cookie')).toBeNull()
         expect(output).toEqual(['project-1\tPostdot'])
@@ -49,7 +49,7 @@ describe('Postdot CLI', () => {
 
         await runCli(
             ['api-keys', 'create', '--name', 'MCP server', '--projects', 'project-1,project-2'],
-            { POSTBOT_SESSION_COOKIE: 'better-auth.session_token=session' },
+            { POSTDOT_SESSION_COOKIE: 'better-auth.session_token=session' },
             {
                 fetcher: async (input, init) => {
                     request = requestFromInput(input, init)
@@ -57,13 +57,13 @@ describe('Postdot CLI', () => {
                         key: {
                             id: 'key-1',
                             name: 'MCP server',
-                            tokenPrefix: 'postbot_pat_abc',
+                            tokenPrefix: 'postdot_pat_abc',
                             projectAccess: ['project-1', 'project-2'],
                             expiresAt: null,
                             createdAt: 1_800_000_000_000,
                             updatedAt: 1_800_000_000_000,
                         },
-                        token: 'postbot_pat_secret',
+                        token: 'postdot_pat_secret',
                     })
                 },
                 output: message => output.push(message),
@@ -78,7 +78,7 @@ describe('Postdot CLI', () => {
             name: 'MCP server',
             projectIds: ['project-1', 'project-2'],
         })
-        expect(output[0]).toContain('postbot_pat_secret')
+        expect(output[0]).toContain('postdot_pat_secret')
     })
 })
 
@@ -89,8 +89,8 @@ describe('machine publication workflow', () => {
         const { createAuth } = await import('../packages/auth/src/index')
         const { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } =
             await import('../packages/db/src/index')
-        const { createPostbotClient } = await import('@postdot/client')
-        const root = await mkdtemp(join(tmpdir(), 'postbot-cli-media-'))
+        const { createPostdotClient } = await import('@postdot/client')
+        const root = await mkdtemp(join(tmpdir(), 'postdot-cli-media-'))
         const { createLocalMediaStore } = await import('../packages/media/src/index')
         const { createMediaUrlImporter } = await import('../apps/api/src/modules/media/url-import')
         const png = Buffer.from(
@@ -128,7 +128,7 @@ describe('machine publication workflow', () => {
             publisher,
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
-                secret: 'postbot-cli-test-secret-at-least-32-characters',
+                secret: 'postdot-cli-test-secret-at-least-32-characters',
             }),
         })
         const server = Bun.serve({
@@ -145,7 +145,7 @@ describe('machine publication workflow', () => {
                         origin: 'http://localhost:3000',
                     },
                     body: JSON.stringify({
-                        email: 'cli@postbot.local',
+                        email: 'cli@postdot.local',
                         name: 'CLI test',
                         password: 'correct-horse-battery-staple',
                     }),
@@ -153,7 +153,7 @@ describe('machine publication workflow', () => {
             )
             expect(signup.status).toBe(200)
             const cookie = signup.headers.get('set-cookie')?.split(';', 1)[0]
-            const client = createPostbotClient(server.url.href, { cookie })
+            const client = createPostdotClient(server.url.href, { cookie })
             const created = await client.api.projects.post({ name: 'CLI workflow' })
             expect(created.error).toBeNull()
             const { project } = created.data as { project: { id: string } }
@@ -173,7 +173,7 @@ describe('machine publication workflow', () => {
                 const child = Bun.spawn(
                     [
                         process.execPath,
-                        'scripts/postbot.ts',
+                        'scripts/postdot.ts',
                         ...args,
                         '--project',
                         project.id,
@@ -183,9 +183,9 @@ describe('machine publication workflow', () => {
                         cwd: resolve(import.meta.dir, '..'),
                         env: {
                             ...Bun.env,
-                            POSTBOT_URL: server.url.href,
-                            POSTBOT_API_KEY: token,
-                            POSTBOT_SESSION_COOKIE: '',
+                            POSTDOT_URL: server.url.href,
+                            POSTDOT_API_KEY: token,
+                            POSTDOT_SESSION_COOKIE: '',
                         },
                         stdin: input === undefined ? 'ignore' : new Blob([JSON.stringify(input)]),
                         stdout: 'pipe',
@@ -400,7 +400,7 @@ describe('machine publication workflow', () => {
                 publicationId,
             ])
             expect(JSON.parse(cancelled.stdout).editor.publication.state).toBe('cancelled')
-            const machineClient = createPostbotClient(server.url.href, { token })
+            const machineClient = createPostdotClient(server.url.href, { token })
             const sourceRead = await machineClient.api
                 .projects({ projectId: project.id })
                 .posts({ postId: createdPost.post.id })
@@ -452,7 +452,7 @@ describe('machine publication workflow', () => {
                 actionAccess: ['project:read'],
             })
             expect(readKey.error).toBeNull()
-            const reader = createPostbotClient(server.url.href, {
+            const reader = createPostdotClient(server.url.href, {
                 token: (readKey.data as { token: string }).token,
             })
             expect(
@@ -507,7 +507,7 @@ describe('machine publication workflow', () => {
             await expect(
                 runCli(
                     ['posts', 'create', '--project', 'p', '--input', '-'],
-                    { POSTBOT_API_KEY: 'fake' },
+                    { POSTDOT_API_KEY: 'fake' },
                     {
                         readInput: async () => input,
                         fetcher: async () => {
@@ -528,7 +528,7 @@ describe('CLI lifecycle transport', () => {
         const output: string[] = []
         await runCli(
             ['publications', 'retry', '--project', 'p', '--publication', 'pub', '--json'],
-            { POSTBOT_API_KEY: 'fake' },
+            { POSTDOT_API_KEY: 'fake' },
             {
                 fetcher: async (input, init) => {
                     const request = requestFromInput(input, init)
@@ -549,7 +549,7 @@ describe('CLI lifecycle transport', () => {
         await expect(
             runCli(
                 ['publications', 'retry', '--project', 'p', '--publication', 'pub'],
-                { POSTBOT_API_KEY: 'fake' },
+                { POSTDOT_API_KEY: 'fake' },
                 {
                     fetcher: async () => {
                         requests++
@@ -568,7 +568,7 @@ describe('CLI pending media', () => {
         const output: string[] = []
         await runCli(
             ['media', 'finalize', '--project', 'p', '--intent', 'intent', '--json'],
-            { POSTBOT_API_KEY: 'fake' },
+            { POSTDOT_API_KEY: 'fake' },
             {
                 fetcher: async () => {
                     requests++
@@ -593,7 +593,7 @@ describe('CLI pending media', () => {
 
 describe('CLI interrupted media transfer', () => {
     it('retains the reservation and never repeats the transfer or finalizes it', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'postbot-cli-transfer-'))
+        const root = await mkdtemp(join(tmpdir(), 'postdot-cli-transfer-'))
         const path = join(root, 'image.png')
         await Bun.write(path, new Uint8Array([1, 2, 3]))
         const requests: string[] = []
@@ -601,7 +601,7 @@ describe('CLI interrupted media transfer', () => {
             await expect(
                 runCli(
                     ['media', 'upload', '--project', 'p', '--file', path],
-                    { POSTBOT_API_KEY: 'fake' },
+                    { POSTDOT_API_KEY: 'fake' },
                     {
                         fetcher: async (input, init) => {
                             const request = requestFromInput(input, init)
@@ -648,7 +648,7 @@ it('requires an explicit impact fingerprint and sends project retirement once th
                 '--confirm-name',
                 'Disposable',
                 '--token',
-                'postbot_pat_test',
+                'postdot_pat_test',
             ],
             {},
             { fetcher, output: () => {} }
@@ -668,7 +668,7 @@ it('requires an explicit impact fingerprint and sends project retirement once th
             '--cancel-pending',
             '--acknowledge-uncertain',
             '--token',
-            'postbot_pat_test',
+            'postdot_pat_test',
         ],
         {},
         { fetcher, output: () => {} }
@@ -682,5 +682,5 @@ it('requires an explicit impact fingerprint and sends project retirement once th
         cancelPending: true,
         acknowledgeUncertain: true,
     })
-    expect(requests[0]!.headers.get('authorization')).toBe('Bearer postbot_pat_test')
+    expect(requests[0]!.headers.get('authorization')).toBe('Bearer postdot_pat_test')
 })

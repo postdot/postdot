@@ -10,7 +10,7 @@ import {
 } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import { createResourceLifecycleStore } from './resource-lifecycle-store'
@@ -31,7 +31,7 @@ import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
 
-function executionAuditEvents(database: PostbotDatabase, publicationId: string) {
+function executionAuditEvents(database: PostdotDatabase, publicationId: string) {
     return database
         .select()
         .from(auditEvents)
@@ -40,11 +40,11 @@ function executionAuditEvents(database: PostbotDatabase, publicationId: string) 
         .filter(event => event.action.startsWith('publication.execution.'))
 }
 
-function executionAuditActions(database: PostbotDatabase, publicationId: string) {
+function executionAuditActions(database: PostdotDatabase, publicationId: string) {
     return executionAuditEvents(database, publicationId).map(event => event.action)
 }
 
-function executionAuditMetadata(database: PostbotDatabase, publicationId: string) {
+function executionAuditMetadata(database: PostdotDatabase, publicationId: string) {
     return executionAuditEvents(database, publicationId).map(event =>
         JSON.parse(event.metadataJson!)
     )
@@ -78,7 +78,7 @@ const testProfile = {
     execution: { kind: 'built_in' as const, contractId: 'test', revision: 'v1' },
 }
 
-function seedDueJob(database: PostbotDatabase, suffix = 'one') {
+function seedDueJob(database: PostdotDatabase, suffix = 'one') {
     const projectId = `project-${suffix}`
     const humanActorId = `human-${suffix}`
     const systemActorId = `system-${suffix}`
@@ -1052,10 +1052,10 @@ describe('workflow store', () => {
     })
 
     it('prevents two database connections from claiming the same job', () => {
-        const directory = mkdtempSync(join(tmpdir(), 'postbot-workflow-'))
-        const filename = join(directory, 'postbot.sqlite')
+        const directory = mkdtempSync(join(tmpdir(), 'postdot-workflow-'))
+        const filename = join(directory, 'postdot.sqlite')
         const firstDatabase = createDatabase(filename)
-        let secondDatabase: PostbotDatabase | undefined
+        let secondDatabase: PostdotDatabase | undefined
 
         try {
             runMigrations(firstDatabase)
@@ -1085,11 +1085,11 @@ describe('workflow store', () => {
     })
 
     it('reconstructs the next event after the database is reopened', () => {
-        const directory = mkdtempSync(join(tmpdir(), 'postbot-restart-'))
-        const filename = join(directory, 'postbot.sqlite')
+        const directory = mkdtempSync(join(tmpdir(), 'postdot-restart-'))
+        const filename = join(directory, 'postdot.sqlite')
         const firstDatabase = createDatabase(filename)
         let firstDatabaseOpen = true
-        let reopenedDatabase: PostbotDatabase | undefined
+        let reopenedDatabase: PostdotDatabase | undefined
 
         try {
             runMigrations(firstDatabase)

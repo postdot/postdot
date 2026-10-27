@@ -22,8 +22,8 @@ function legacyXProfile(): ChannelProfileDefinition {
     return {
         ...xChannelProfile,
         version: 1,
-        profileHash: 'sha256:postbot-x-post-v1',
-        schemaHash: 'sha256:postbot-x-post-schema-v1',
+        profileHash: 'sha256:postdot-x-post-v1',
+        schemaHash: 'sha256:postdot-x-post-schema-v1',
         contentSchema: {
             ...currentSchema,
             properties: {

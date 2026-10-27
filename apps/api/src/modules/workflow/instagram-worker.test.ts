@@ -37,7 +37,7 @@ for (const scenario of [
     test(`Instagram worker persists ${scenario} without recreating a container or replaying a publication`, async () => {
         const database = createDatabase(':memory:')
         runMigrations(database)
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-instagram-worker-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-worker-'))
         let clock = 1_800_000_000_000
         const media = createMediaAssetStore(
             database,
@@ -202,7 +202,7 @@ for (const scenario of [
                     media,
                     builtInProviderRegistry: registry,
                     resolveBuiltInMediaUrl: () =>
-                        'https://media.postbot.test/signed-square.jpg?signature=synthetic',
+                        'https://media.postdot.test/signed-square.jpg?signature=synthetic',
                 })
             let worker = makeWorker()
             try {

@@ -60,7 +60,7 @@ test('repeated subprocess restarts retain exclusive lock ownership until delayed
     const { mkdtemp, readFile, rm } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
     const { join } = await import('node:path')
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-restart-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-restart-'))
     const database = join(directory, 'runtime.sqlite')
     const lockModule = join(import.meta.dir, '../packages/db/src/runtime-quiescence.ts')
     const children: ReturnType<typeof Bun.spawn>[] = []
@@ -109,7 +109,7 @@ test('launcher diagnoses unexpected API exit, restarts on edit and drains termin
     const { mkdir, mkdtemp, readFile, rm, writeFile } = await import('node:fs/promises')
     const { tmpdir } = await import('node:os')
     const { join } = await import('node:path')
-    const root = await mkdtemp(join(tmpdir(), 'postbot-launcher-'))
+    const root = await mkdtemp(join(tmpdir(), 'postdot-launcher-'))
     const api = join(root, 'apps/api')
     const database = join(root, 'runtime.sqlite')
     const lockModule = join(import.meta.dir, '../packages/db/src/runtime-quiescence.ts')
@@ -209,14 +209,14 @@ test('real API releases its runtime lock when terminal hangup reaches the child 
                 NODE_ENV: 'test',
                 PORT: String(resources.apiPort),
                 DB_FILE_NAME: resources.databaseFile,
-                POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
-                POSTBOT_MEDIA_STORE: 'local',
+                POSTDOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+                POSTDOT_MEDIA_STORE: 'local',
                 BETTER_AUTH_URL: resources.apiOrigin,
-                POSTBOT_WEB_ORIGIN: resources.webOrigin,
-                BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
-                POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-                    'postbot-isolated-test-media-secret-at-least-32-characters',
-                POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+                POSTDOT_WEB_ORIGIN: resources.webOrigin,
+                BETTER_AUTH_SECRET: 'postdot-isolated-test-auth-secret-at-least-32-characters',
+                POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+                    'postdot-isolated-test-media-secret-at-least-32-characters',
+                POSTDOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
                 LOG_LEVEL: 'silent',
             },
             stdout: 'ignore',
@@ -260,14 +260,14 @@ test('the real API releases its runtime marker when a signal arrives during star
         NODE_ENV: 'test',
         PORT: String(resources.apiPort),
         DB_FILE_NAME: resources.databaseFile,
-        POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
-        POSTBOT_MEDIA_STORE: 'local',
+        POSTDOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+        POSTDOT_MEDIA_STORE: 'local',
         BETTER_AUTH_URL: resources.apiOrigin,
-        POSTBOT_WEB_ORIGIN: resources.webOrigin,
-        BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
-        POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-            'postbot-isolated-test-media-secret-at-least-32-characters',
-        POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+        POSTDOT_WEB_ORIGIN: resources.webOrigin,
+        BETTER_AUTH_SECRET: 'postdot-isolated-test-auth-secret-at-least-32-characters',
+        POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+            'postdot-isolated-test-media-secret-at-least-32-characters',
+        POSTDOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
         LOG_LEVEL: 'silent',
     }
     const spawnApi = () =>
@@ -479,14 +479,14 @@ test('the real API exits and releases its runtime lock while an authenticated ev
                 NODE_ENV: 'test',
                 PORT: String(resources.apiPort),
                 DB_FILE_NAME: resources.databaseFile,
-                POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
-                POSTBOT_MEDIA_STORE: 'local',
+                POSTDOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+                POSTDOT_MEDIA_STORE: 'local',
                 BETTER_AUTH_URL: resources.apiOrigin,
-                POSTBOT_WEB_ORIGIN: resources.webOrigin,
-                BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
-                POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-                    'postbot-isolated-test-media-secret-at-least-32-characters',
-                POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+                POSTDOT_WEB_ORIGIN: resources.webOrigin,
+                BETTER_AUTH_SECRET: 'postdot-isolated-test-auth-secret-at-least-32-characters',
+                POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+                    'postdot-isolated-test-media-secret-at-least-32-characters',
+                POSTDOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
                 LOG_LEVEL: 'silent',
             },
             stdout: 'ignore',
@@ -527,7 +527,7 @@ test('the real API exits and releases its runtime lock while an authenticated ev
             method: 'POST',
             headers: { 'content-type': 'application/json', origin: resources.apiOrigin },
             body: JSON.stringify({
-                email: 'shutdown-stream-operator@postbot.local',
+                email: 'shutdown-stream-operator@postdot.local',
                 name: 'Shutdown Stream Operator',
                 password: 'correct-horse-battery-staple',
             }),
@@ -639,7 +639,7 @@ test('the development launcher releases the API runtime marker when a stop lands
 
     const resources = await createE2ERuntimeResources({})
     const marker = `${resources.databaseFile}.runtime.lock`
-    const fixture = await mkdtemp(join(tmpdir(), 'postbot-launcher-fixture-'))
+    const fixture = await mkdtemp(join(tmpdir(), 'postdot-launcher-fixture-'))
     const apiDirectory = join(fixture, 'apps/api')
     const launcherModule = join(import.meta.dir, 'dev-api.ts')
     const realApiEntry = join(import.meta.dir, '../apps/api/src/index.ts')
@@ -655,27 +655,27 @@ test('the development launcher releases the API runtime marker when a stop lands
         NODE_ENV: 'test',
         PORT: String(resources.apiPort),
         DB_FILE_NAME: resources.databaseFile,
-        POSTBOT_MEDIA_DIRECTORY: resources.mediaDirectory,
-        POSTBOT_MEDIA_STORE: 'local',
+        POSTDOT_MEDIA_DIRECTORY: resources.mediaDirectory,
+        POSTDOT_MEDIA_STORE: 'local',
         BETTER_AUTH_URL: resources.apiOrigin,
-        POSTBOT_WEB_ORIGIN: resources.webOrigin,
-        BETTER_AUTH_SECRET: 'postbot-isolated-test-auth-secret-at-least-32-characters',
-        POSTBOT_MEDIA_PUBLIC_URL_SECRET:
-            'postbot-isolated-test-media-secret-at-least-32-characters',
-        POSTBOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
+        POSTDOT_WEB_ORIGIN: resources.webOrigin,
+        BETTER_AUTH_SECRET: 'postdot-isolated-test-auth-secret-at-least-32-characters',
+        POSTDOT_MEDIA_PUBLIC_URL_SECRET:
+            'postdot-isolated-test-media-secret-at-least-32-characters',
+        POSTDOT_PUBLISHER_ENCRYPTION_KEY: '12'.repeat(32),
         LOG_LEVEL: 'silent',
     }
     const configurationNames = [
         'NODE_ENV',
         'PORT',
         'DB_FILE_NAME',
-        'POSTBOT_MEDIA_DIRECTORY',
-        'POSTBOT_MEDIA_STORE',
+        'POSTDOT_MEDIA_DIRECTORY',
+        'POSTDOT_MEDIA_STORE',
         'BETTER_AUTH_URL',
-        'POSTBOT_WEB_ORIGIN',
+        'POSTDOT_WEB_ORIGIN',
         'BETTER_AUTH_SECRET',
-        'POSTBOT_MEDIA_PUBLIC_URL_SECRET',
-        'POSTBOT_PUBLISHER_ENCRYPTION_KEY',
+        'POSTDOT_MEDIA_PUBLIC_URL_SECRET',
+        'POSTDOT_PUBLISHER_ENCRYPTION_KEY',
         'LOG_LEVEL',
     ] as const
     await mkdir(join(apiDirectory, 'src'), { recursive: true })
@@ -736,7 +736,7 @@ test('the development launcher releases the API runtime marker when a stop lands
     const readReportedPid = async (launcher: ReturnType<typeof spawnLauncher>) => {
         const deadline = Date.now() + 20_000
         for (;;) {
-            const match = /\[postbot-dev\] API started \(pid (\d+)\)/.exec(launcher.output())
+            const match = /\[postdot-dev\] API started \(pid (\d+)\)/.exec(launcher.output())
             if (match !== null) return Number(match[1])
             if (Date.now() >= deadline) return undefined
             await Bun.sleep(5)
@@ -800,16 +800,16 @@ test('the development launcher releases the API runtime marker when a stop lands
         ])
         expect(launcherOneCode).toBe(143)
         await Promise.race([launcherOne.streams, Bun.sleep(2_000)])
-        expect(launcherOne.output()).toContain('[postbot-dev] Launcher stopping (SIGTERM)')
+        expect(launcherOne.output()).toContain('[postdot-dev] Launcher stopping (SIGTERM)')
         // The child ran the orderly drain, so it released the marker itself
         // instead of losing the default disposition of the signal.
-        expect(launcherOne.output()).toContain('[postbot-shutdown] SIGTERM received')
+        expect(launcherOne.output()).toContain('[postdot-shutdown] SIGTERM received')
         expect(launcherOne.output()).toContain('shutdown complete with exit code 0')
-        expect(launcherOne.output()).toContain('[postbot-dev] API stopped')
+        expect(launcherOne.output()).toContain('[postdot-dev] API stopped')
         // The child left through its own orderly path, so the launcher reports
         // the orderly exit code and not the code of a process the platform
         // killed with the default disposition of the signal.
-        expect(launcherOne.output()).toMatch(/\[postbot-dev\] API stopped \(pid \d+, code 0\)/)
+        expect(launcherOne.output()).toMatch(/\[postdot-dev\] API stopped \(pid \d+, code 0\)/)
         expect(await Bun.file(marker).exists()).toBe(false)
         expect(isRunning(firstApiPid)).toBe(false)
         await pollHealth
@@ -856,11 +856,11 @@ test('the development launcher releases the API runtime marker when a stop lands
         ])
         expect(launcherTwoCode).toBe(129)
         await Promise.race([launcherTwo.streams, Bun.sleep(2_000)])
-        expect(launcherTwo.output()).toContain('[postbot-dev] Launcher stopping (SIGHUP)')
+        expect(launcherTwo.output()).toContain('[postdot-dev] Launcher stopping (SIGHUP)')
         expect(launcherTwo.output()).toContain('shutdown complete with exit code 0')
         // The hangup was translated into the graceful path of the child, so
         // the launcher reports the orderly exit code of that child.
-        expect(launcherTwo.output()).toMatch(/\[postbot-dev\] API stopped \(pid \d+, code 0\)/)
+        expect(launcherTwo.output()).toMatch(/\[postdot-dev\] API stopped \(pid \d+, code 0\)/)
         expect(await Bun.file(marker).exists()).toBe(false)
         expect(isRunning(secondApiPid)).toBe(false)
     } catch (error) {

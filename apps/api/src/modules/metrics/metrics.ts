@@ -5,18 +5,18 @@ import type { PublicationWorkerRunObservation } from '../workflow/worker'
 
 const schedulerStates = ['idle', 'started', 'running', 'stopped', 'failed'] as const
 
-export interface PostbotMetrics {
+export interface PostdotMetrics {
     readonly registry: Registry
     bindScheduler(scheduler: Pick<NextEventScheduler, 'state'>): void
     observeWorkerRun(observation: PublicationWorkerRunObservation): void
 }
 
-export function createPostbotMetrics(): PostbotMetrics {
+export function createPostdotMetrics(): PostdotMetrics {
     const registry = new Registry()
     let previousCpuUsage = { user: 0, system: 0 }
 
     new Counter<'mode'>({
-        name: 'postbot_process_cpu_seconds_total',
+        name: 'postdot_process_cpu_seconds_total',
         help: 'The cumulative CPU time used by this Postdot process in seconds.',
         labelNames: ['mode'],
         registers: [registry],
@@ -30,7 +30,7 @@ export function createPostbotMetrics(): PostbotMetrics {
         },
     })
     new Gauge<'type'>({
-        name: 'postbot_process_memory_bytes',
+        name: 'postdot_process_memory_bytes',
         help: 'The current memory usage of this Postdot process in bytes.',
         labelNames: ['type'],
         registers: [registry],
@@ -44,7 +44,7 @@ export function createPostbotMetrics(): PostbotMetrics {
         },
     })
     new Gauge({
-        name: 'postbot_process_uptime_seconds',
+        name: 'postdot_process_uptime_seconds',
         help: 'The time this Postdot process has been running in seconds.',
         registers: [registry],
         collect() {
@@ -54,7 +54,7 @@ export function createPostbotMetrics(): PostbotMetrics {
 
     let scheduler: Pick<NextEventScheduler, 'state'> | undefined
     new Gauge<'state'>({
-        name: 'postbot_publication_scheduler_state',
+        name: 'postdot_publication_scheduler_state',
         help: 'The current publication scheduler state, represented by a one-hot state label.',
         labelNames: ['state'],
         registers: [registry],
@@ -65,13 +65,13 @@ export function createPostbotMetrics(): PostbotMetrics {
         },
     })
     const workerRuns = new Counter<'outcome'>({
-        name: 'postbot_publication_worker_runs_total',
+        name: 'postdot_publication_worker_runs_total',
         help: 'The number of completed publication worker runs by outcome.',
         labelNames: ['outcome'],
         registers: [registry],
     })
     const workerRunDuration = new Histogram<'outcome'>({
-        name: 'postbot_publication_worker_run_duration_seconds',
+        name: 'postdot_publication_worker_run_duration_seconds',
         help: 'The duration of completed publication worker runs in seconds.',
         labelNames: ['outcome'],
         buckets: [0.01, 0.05, 0.1, 0.5, 1, 5, 15, 60],

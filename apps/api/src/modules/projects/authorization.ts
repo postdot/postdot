@@ -1,12 +1,12 @@
 import type { AccessStore } from '@postdot/db'
 
-import type { PostbotAuthenticationMethod } from '../../plugins/auth'
+import type { PostdotAuthenticationMethod } from '../../plugins/auth'
 
 export type ProjectRole = 'owner' | 'editor' | 'viewer'
 
 interface ProjectRoleCheck {
     readonly access: AccessStore
-    readonly authMethod: PostbotAuthenticationMethod
+    readonly authMethod: PostdotAuthenticationMethod
     readonly minimumRole: ProjectRole
     readonly projectId: string
     readonly userId: string

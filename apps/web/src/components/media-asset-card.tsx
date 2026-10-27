@@ -565,7 +565,7 @@ export function MediaPreview({
             item =>
                 item.kind === 'derived' &&
                 item.state === 'ready' &&
-                item.processorId === 'postbot-image-preview' &&
+                item.processorId === 'postdot-image-preview' &&
                 item.recipeJson !== null &&
                 JSON.parse(item.recipeJson).variant ===
                     (variant === 'original' ? 'preview' : variant)
@@ -612,7 +612,7 @@ export function MediaPreview({
             item =>
                 item.kind === 'derived' &&
                 item.state === 'ready' &&
-                item.processorId === 'postbot-image-preview' &&
+                item.processorId === 'postdot-image-preview' &&
                 item.recipeJson !== null &&
                 JSON.parse(item.recipeJson).variant === variant
         )

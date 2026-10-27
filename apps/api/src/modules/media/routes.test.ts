@@ -13,8 +13,8 @@ import { createPublisherRuntime } from '../publishers/runtime'
 import { createMediaPublicDelivery } from './public-delivery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
-const mediaPublicUrlSecret = 'postbot-media-public-url-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
+const mediaPublicUrlSecret = 'postdot-media-public-url-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -27,7 +27,7 @@ async function signUp(app: ReturnType<typeof createApp>): Promise<string> {
                 origin: baseURL,
             },
             body: JSON.stringify({
-                email: 'media-operator@postbot.local',
+                email: 'media-operator@postdot.local',
                 name: 'Media Operator',
                 password: 'correct-horse-battery-staple',
             }),
@@ -59,7 +59,7 @@ async function jsonRequest(
 
 describe('media HTTP routes', () => {
     it('executes the authenticated upload, inspection, listing, and deletion flow', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-api-media-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const publisher = createPublisherRuntime(database, {
@@ -593,7 +593,7 @@ describe('media HTTP routes', () => {
     })
 
     it('publishes media routes in the OpenAPI inventory when the media service is enabled', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-api-media-openapi-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-openapi-'))
         const database = createDatabase(':memory:')
         runMigrations(database)
         const publisher = createPublisherRuntime(database, {

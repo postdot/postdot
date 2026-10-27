@@ -49,7 +49,7 @@ apps/docs/build.log
 # Reproducible OpenAPI documentation artifacts
 apps/docs/.openapi/
 apps/docs/content/docs/reference/(generated)/
-apps/docs/public/reference/postbot-openapi.json
+apps/docs/public/reference/postdot-openapi.json
 
 # Reproducible static OG material
 apps/docs/.og/

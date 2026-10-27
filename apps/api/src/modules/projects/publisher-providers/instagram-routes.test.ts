@@ -7,7 +7,7 @@ import { INSTAGRAM_PUBLISH_PERMISSIONS } from '@postdot/instagram'
 import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
 
-const origin = 'https://postbot.test'
+const origin = 'https://postdot.test'
 async function fixture(configured = true) {
     const database = createDatabase(':memory:')
     runMigrations(database)
@@ -53,7 +53,7 @@ async function fixture(configured = true) {
     const auth = createAuth(database, {
         baseURL: origin,
         allowAdditionalSignups: true,
-        secret: 'postbot-test-secret-with-at-least-32-characters',
+        secret: 'postdot-test-secret-with-at-least-32-characters',
     })
     const app = createApp({
         database,
@@ -86,7 +86,7 @@ async function fixture(configured = true) {
         const body = (await response.json()) as { user: { id: string } }
         return { cookie: response.headers.get('set-cookie')!.split(';', 1)[0]!, id: body.user.id }
     }
-    const owner = await signup('owner@postbot.test')
+    const owner = await signup('owner@postdot.test')
     const projectResponse = await request('/api/projects', owner.cookie, {
         method: 'POST',
         body: JSON.stringify({ name: 'Instagram project' }),
@@ -199,7 +199,7 @@ test('Instagram HTTP callback rejects a foreign actor and a disabled issuing app
     const f = await fixture()
     try {
         const callback = await startCallback(f)
-        const stranger = await f.signup('stranger@postbot.test')
+        const stranger = await f.signup('stranger@postdot.test')
         const foreign = await f.request(callback, stranger.cookie)
         expect(new URL(foreign.headers.get('location')!).pathname).toBe('/dashboard')
         expect(f.calls).toBe(0)

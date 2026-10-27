@@ -4,7 +4,7 @@ import {
     createAccessStore,
     createManualStore,
     createPublicationFirstCommentStore,
-    type PostbotDatabase,
+    type PostdotDatabase,
     type PublicationFirstComment,
 } from '@postdot/db'
 
@@ -24,7 +24,7 @@ const failed = (errorMessage: string): ExternalEffectOutcome => ({
 })
 
 export function createPublicationFirstCommentService(options: {
-    readonly database: PostbotDatabase
+    readonly database: PostdotDatabase
     readonly publisher: PublisherRuntime
     readonly now?: () => number
     readonly restoreSession?: typeof restoreBlueskySession

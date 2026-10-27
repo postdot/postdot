@@ -1,7 +1,7 @@
-import { createPostbotClient, type PostbotClient } from '@postdot/client'
+import { createPostdotClient, type PostdotClient } from '@postdot/client'
 
 import type { CadenceWarning } from './cadence-confirmation'
-export const client: PostbotClient = createPostbotClient(window.location.origin)
+export const client: PostdotClient = createPostdotClient(window.location.origin)
 export interface ProfileDefinitionIssue {
     readonly code: string
     readonly path: string

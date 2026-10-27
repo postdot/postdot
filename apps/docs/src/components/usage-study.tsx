@@ -5,7 +5,7 @@ import { useRef, useState } from 'react'
 import Mcp from '~icons/logos/model-context-protocol-icon'
 import N8n from '~icons/logos/n8n-icon'
 
-import { PostbotLogo } from './brand'
+import { PostdotLogo } from './brand'
 
 import './public-home.css'
 import './usage-study.css'
@@ -50,8 +50,8 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                         whileHover={reduced ? undefined : { clipPath: 'inset(0 0 0 0)', y: -8 }}
                         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
                         <div className="usage-browser-bar">
-                            <PostbotLogo />
-                            <span>postbot / studio</span>
+                            <PostdotLogo />
+                            <span>postdot / studio</span>
                             <i />
                             <i />
                             <i />
@@ -152,7 +152,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                             height="66"
                             rx="3"
                         />
-                        <PostbotLogo x={311} y={206} width={38} height={38} />
+                        <PostdotLogo x={311} y={206} width={38} height={38} />
                         <text x="283" y="251" textAnchor="end">
                             Create a draft
                         </text>
@@ -186,7 +186,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                                 <i />
                                 <i />
                             </span>
-                            <span>postbot — terminal</span>
+                            <span>postdot — terminal</span>
                             <button
                                 aria-label="Replay terminal animation"
                                 title="Replay terminal animation"
@@ -306,7 +306,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                         }}
                         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
                         <span className="usage-phone-camera" />
-                        <PostbotLogo />
+                        <PostdotLogo />
                         <span className="usage-phone-home" />
                     </motion.div>
                 </motion.article>

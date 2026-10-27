@@ -44,7 +44,7 @@ export function createDatabase(filename: string) {
     }
 }
 
-export type PostbotDatabase = ReturnType<typeof createDatabase>
+export type PostdotDatabase = ReturnType<typeof createDatabase>
 
 /**
  * Installs the process-local callback used after a transaction that appended
@@ -53,7 +53,7 @@ export type PostbotDatabase = ReturnType<typeof createDatabase>
  * database write look failed.
  */
 export function setDatabaseCommitObserver(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     observer: DatabaseCommitObserver,
     onError?: DatabaseCommitErrorHandler
 ): () => void {
@@ -70,7 +70,7 @@ export function setDatabaseCommitObserver(
  * transaction. It is intentionally a no-op when no observer is installed so
  * database tests and maintenance commands keep the same behavior.
  */
-export function recordDatabaseCommitProject(database: PostbotDatabase, projectId: string): void {
+export function recordDatabaseCommitProject(database: PostdotDatabase, projectId: string): void {
     const state = transactionStates.get(database)
     state?.frames.at(-1)?.add(projectId)
 }
@@ -82,7 +82,7 @@ export function recordDatabaseCommitProject(database: PostbotDatabase, projectId
  * low-latency in-process wakeup.
  */
 export function createDatabaseTransaction<Args extends unknown[], Result>(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     callback: (...args: Args) => Result
 ): DatabaseTransaction<Args, Result> {
     const transaction = database.$client.transaction(callback)
@@ -138,14 +138,14 @@ function handleCommitObserverError(registration: CommitObserverRegistration, err
         try {
             registration.onError(error)
         } catch (reportingError) {
-            console.error('[postbot-db] post-commit error handler failed', reportingError)
+            console.error('[postdot-db] post-commit error handler failed', reportingError)
         }
         return
     }
-    console.error('[postbot-db] post-commit observer failed', error)
+    console.error('[postdot-db] post-commit observer failed', error)
 }
 
-export function closeDatabase(database: PostbotDatabase) {
+export function closeDatabase(database: PostdotDatabase) {
     // Finalize Drizzle prepared statements before releasing the runtime lock.
     database.$client.close(true)
 }

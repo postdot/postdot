@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { hashPostbotPassword, postbotPasswordPolicy } from '@postdot/auth'
+import { hashPostdotPassword, postdotPasswordPolicy } from '@postdot/auth'
 import { recoverLocalAccountPassword } from '@postdot/db'
 
 export interface AccountRecoveryPromptOptions {
@@ -43,11 +43,11 @@ export async function runLocalAccountPasswordRecovery(
 
     const password = await prompt('New password (input hidden): ', { hidden: true })
     if (
-        password.length < postbotPasswordPolicy.minimumLength ||
-        password.length > postbotPasswordPolicy.maximumLength
+        password.length < postdotPasswordPolicy.minimumLength ||
+        password.length > postdotPasswordPolicy.maximumLength
     ) {
         throw new Error(
-            `Password must contain between ${postbotPasswordPolicy.minimumLength} and ${postbotPasswordPolicy.maximumLength} characters`
+            `Password must contain between ${postdotPasswordPolicy.minimumLength} and ${postdotPasswordPolicy.maximumLength} characters`
         )
     }
     const confirmationPassword = await prompt('Confirm new password (input hidden): ', {
@@ -57,7 +57,7 @@ export async function runLocalAccountPasswordRecovery(
         throw new Error('The passwords do not match; no changes were made')
     }
 
-    const passwordHash = await hashPostbotPassword(password)
+    const passwordHash = await hashPostdotPassword(password)
     const result = recoverLocalAccountPassword({
         databaseFilename,
         email,
@@ -75,7 +75,7 @@ export async function runLocalAccountPasswordRecovery(
 
 function assertRecoveryCommandArguments(args: readonly string[]): void {
     if (args[0] !== 'account' || args[1] !== 'recover-password') {
-        throw new Error('Usage: postbot account recover-password --database <path>')
+        throw new Error('Usage: postdot account recover-password --database <path>')
     }
 
     let databaseOptionCount = 0

@@ -1,5 +1,5 @@
 import type { SchedulerState } from '@postdot/core'
-import type { PostbotDatabase } from '@postdot/db'
+import type { PostdotDatabase } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
@@ -53,12 +53,12 @@ type HealthRuntime = {
 }
 
 export interface HealthRoutesOptions {
-    readonly database: PostbotDatabase
+    readonly database: PostdotDatabase
     readonly runtime?: HealthRuntime
 }
 
 export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
-    return new Elysia({ name: 'postbot-health' })
+    return new Elysia({ name: 'postdot-health' })
         .get(
             '/api/version',
             {
@@ -127,7 +127,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
         )
 }
 
-function readDatabaseStatus(database: PostbotDatabase): 'ok' | 'failed' {
+function readDatabaseStatus(database: PostdotDatabase): 'ok' | 'failed' {
     try {
         database.$client.query('select 1').get()
         return 'ok'

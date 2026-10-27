@@ -1,5 +1,5 @@
 import { edenFetch, treaty, type Treaty } from '@elysia/eden'
-import type { PostbotApp } from '@postdot/api'
+import type { PostdotApp } from '@postdot/api'
 import type {
     AuditEventResponse,
     ChannelResponse,
@@ -50,24 +50,24 @@ import type {
     ProjectTagResponse,
 } from '@postdot/api'
 
-type PostbotFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+type PostdotFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-export interface PostbotClientOptions {
+export interface PostdotClientOptions {
     readonly cookie?: string
     readonly headers?: ConstructorParameters<typeof Headers>[0]
     readonly token?: string
-    readonly fetcher?: PostbotFetcher
+    readonly fetcher?: PostdotFetcher
 }
 
-export function createPostbotClient(
+export function createPostdotClient(
     baseURL: string,
-    options: PostbotClientOptions = {}
-): Treaty.Create<PostbotApp> {
+    options: PostdotClientOptions = {}
+): Treaty.Create<PostdotApp> {
     const headers = new Headers(options.headers)
     if (options.cookie !== undefined) headers.set('cookie', options.cookie)
     if (options.token !== undefined) headers.set('authorization', `Bearer ${options.token}`)
 
-    return treaty<PostbotApp>(baseURL, {
+    return treaty<PostdotApp>(baseURL, {
         fetch: {
             credentials: 'same-origin',
         },
@@ -76,9 +76,9 @@ export function createPostbotClient(
     })
 }
 
-export type PostbotClient = ReturnType<typeof createPostbotClient>
+export type PostdotClient = ReturnType<typeof createPostdotClient>
 
-type ProviderApplicationsRoute = PostbotClient['api']['settings']['provider-applications']
+type ProviderApplicationsRoute = PostdotClient['api']['settings']['provider-applications']
 export type ProviderApplication = NonNullable<
     Awaited<ReturnType<ProviderApplicationsRoute['get']>>['data']
 >['applications'][number]
@@ -93,14 +93,14 @@ export type ProviderApplicationUpdateInput = Readonly<
 >
 
 export type UserApiKey = NonNullable<
-    Awaited<ReturnType<PostbotClient['api']['api-keys']['get']>>['data']
+    Awaited<ReturnType<PostdotClient['api']['api-keys']['get']>>['data']
 >['keys'][number]
 export type UserApiKeyCapability = Extract<UserApiKey['actionAccess'], string[]>[number]
 
-type AccessRoute = PostbotClient['api']['access']
+type AccessRoute = PostdotClient['api']['access']
 
 export type InstanceSetupStatus = NonNullable<
-    Awaited<ReturnType<PostbotClient['api']['instance']['status']['get']>>['data']
+    Awaited<ReturnType<PostdotClient['api']['instance']['status']['get']>>['data']
 >
 export type AccessSummary = NonNullable<Awaited<ReturnType<AccessRoute['get']>>['data']>
 export type AccessInstanceStateRecord = AccessSummary['instance']
@@ -116,7 +116,7 @@ export type CreatedAccessInvitation = NonNullable<
 >
 export type AccessInvitation = CreatedAccessInvitation['invitation']
 export type AccessInvitationState = AccessInvitation['state']
-type InvitationRoutes = PostbotApp['~Routes']['api']['access']['invitations']
+type InvitationRoutes = PostdotApp['~Routes']['api']['access']['invitations']
 type InvitationResult<ResponseSchema extends Record<number, unknown>> = Pick<
     Treaty.TreatyResponse<ResponseSchema>,
     'data' | 'error' | 'status'
@@ -129,7 +129,7 @@ export function createAccessInvitationClient(baseURL: string): {
         invitationId: string
     ): Promise<InvitationResult<InvitationRoutes[':invitationId']['delete']['response']>>
 } {
-    const request = edenFetch<PostbotApp>(baseURL)
+    const request = edenFetch<PostdotApp>(baseURL)
     return {
         preview(token: string) {
             return request('/api/access/invitations/:token', {
@@ -154,11 +154,11 @@ export type AccessInvitationPreview = NonNullable<
     Awaited<ReturnType<ReturnType<typeof createAccessInvitationClient>['preview']>>['data']
 >
 
-type WorkspaceRoute = ReturnType<PostbotClient['api']['workspaces']>
+type WorkspaceRoute = ReturnType<PostdotClient['api']['workspaces']>
 type WorkspaceTeamRoute = ReturnType<WorkspaceRoute['teams']>
 
 export type WorkspaceListResponse = NonNullable<
-    Awaited<ReturnType<PostbotClient['api']['workspaces']['get']>>['data']
+    Awaited<ReturnType<PostdotClient['api']['workspaces']['get']>>['data']
 >
 export type WorkspaceSummary = NonNullable<Awaited<ReturnType<WorkspaceRoute['get']>>['data']>
 export type WorkspaceListItem = WorkspaceListResponse['workspaces'][number]
@@ -172,7 +172,7 @@ export type WorkspaceInvitation = NonNullable<
     Awaited<ReturnType<WorkspaceRoute['invitations']['get']>>['data']
 >['invitations'][number]
 
-type ProjectRoute = ReturnType<PostbotClient['api']['projects']>
+type ProjectRoute = ReturnType<PostdotClient['api']['projects']>
 
 type ChannelRoute = ReturnType<ProjectRoute['channels']>
 type PublicationRoute = ReturnType<ProjectRoute['publications']>
@@ -186,7 +186,7 @@ export type PublicationListSort = NonNullable<
     NonNullable<NonNullable<Parameters<ProjectRoute['publications']['get']>[0]>['query']>['sort']
 >
 export type RecoveryState = NonNullable<
-    Awaited<ReturnType<PostbotClient['api']['settings']['recovery']['get']>>['data']
+    Awaited<ReturnType<PostdotClient['api']['settings']['recovery']['get']>>['data']
 >
 export type LinkedInConnectionDestination = Readonly<
     NonNullable<
@@ -240,7 +240,7 @@ export type WebApiRequests = {
         RequestBody<PublicationRoute['first-comment']['cancel']['post']>
     >
     updateUserApiKey: ReadonlyRequest<
-        RequestBody<ReturnType<PostbotClient['api']['api-keys']>['patch']>
+        RequestBody<ReturnType<PostdotClient['api']['api-keys']>['patch']>
     >
     reserveMediaUpload: RequestBody<ProjectRoute['media']['uploads']['post']>
     selectFacebookPage: RequestBody<ChannelRoute['publisher']['facebook']['select']['post']>
@@ -259,23 +259,23 @@ export type WebApiRequests = {
     >
     savePublicationDraft: RequestBody<PublicationRoute['draft']['patch']>
     reconcileAmbiguousPublication: RequestBody<PublicationRoute['reconcile']['post']>
-    listCategories: Pick<RequestQuery<PostbotClient['api']['categories']['get']>, 'includeArchived'>
+    listCategories: Pick<RequestQuery<PostdotClient['api']['categories']['get']>, 'includeArchived'>
     listProjectTags: Pick<RequestQuery<ProjectRoute['tags']['get']>, 'includeArchived'>
     listPublicationTags: Pick<RequestQuery<PublicationRoute['tags']['get']>, 'includeArchived'>
     listBlueskyProviderAnalytics: Pick<
         RequestQuery<ProjectRoute['analytics']['provider']['bluesky']['get']>,
-        'limit' | 'providerSubjectId' | 'postbotEntityId'
+        'limit' | 'providerSubjectId' | 'postdotEntityId'
     >
     listDevtoProviderAnalytics: Pick<
         RequestQuery<ProjectRoute['analytics']['provider']['devto']['get']>,
-        'limit' | 'providerSubjectId' | 'postbotEntityId'
+        'limit' | 'providerSubjectId' | 'postdotEntityId'
     >
     listNotifications: Pick<
         RequestQuery<ProjectRoute['notifications']['get']>,
         'before' | 'limit' | 'view'
     >
     listUserNotifications: Pick<
-        RequestQuery<PostbotClient['api']['notifications']['get']>,
+        RequestQuery<PostdotClient['api']['notifications']['get']>,
         'before' | 'limit' | 'view'
     >
     listPublications: Omit<

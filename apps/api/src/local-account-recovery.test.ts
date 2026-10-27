@@ -9,13 +9,13 @@ import { closeDatabase, createAccessStore, createDatabase, runMigrations } from 
 import { runLocalAccountPasswordRecovery } from './local-account-recovery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const headers = { 'content-type': 'application/json', origin: baseURL }
 
 describe('local account recovery command', () => {
     it('resets an existing Better Auth password and rejects its previous password', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-local-account-recovery-'))
-        const databaseFilename = join(directory, 'postbot.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-local-account-recovery-'))
+        const databaseFilename = join(directory, 'postdot.sqlite')
         const originalPassword = 'original-password-123'
         const recoveredPassword = 'recovered-password-456'
         const initialDatabase = createDatabase(databaseFilename)
@@ -32,7 +32,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@postbot.local',
+                        email: 'recovery@postdot.local',
                         name: 'Recovery User',
                         password: originalPassword,
                     }),
@@ -45,7 +45,7 @@ describe('local account recovery command', () => {
 
         const promptAnswers = [
             databaseFilename,
-            'recovery@postbot.local',
+            'recovery@postdot.local',
             recoveredPassword,
             recoveredPassword,
         ]
@@ -79,7 +79,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@postbot.local',
+                        email: 'recovery@postdot.local',
                         password: originalPassword,
                     }),
                 })
@@ -89,7 +89,7 @@ describe('local account recovery command', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'recovery@postbot.local',
+                        email: 'recovery@postdot.local',
                         password: recoveredPassword,
                     }),
                 })
@@ -104,8 +104,8 @@ describe('local account recovery command', () => {
     })
 
     it('stops before requesting credentials when the database confirmation is wrong', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-local-account-recovery-'))
-        const databaseFilename = join(directory, 'postbot.sqlite')
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-local-account-recovery-'))
+        const databaseFilename = join(directory, 'postdot.sqlite')
         const database = createDatabase(databaseFilename)
         runMigrations(database)
         closeDatabase(database)
@@ -151,7 +151,7 @@ describe('local account recovery command', () => {
                     'account',
                     'recover-password',
                     '--database',
-                    '/tmp/postbot.sqlite',
+                    '/tmp/postdot.sqlite',
                     '--password',
                     'unsafe',
                 ],

@@ -15,7 +15,7 @@ export const blueskyAnalyticsCollectionBody = Type.Object({
 const blueskyAnalyticsCoverageGapSchema = Type.Object({
     subjectType: providerAnalyticsSubjectTypeSchema,
     providerSubjectId: Type.String({ minLength: 1 }),
-    postbotEntityId: Type.String({ minLength: 1 }),
+    postdotEntityId: Type.String({ minLength: 1 }),
     metricNames: Type.Array(Type.String({ minLength: 1 })),
     availability: Type.Union([
         Type.Literal('not_reported'),

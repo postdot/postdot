@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import { canonicalJson, parseJsonObject } from './content-codec'
 import type { ActorRow } from './rows'
 
@@ -44,7 +44,7 @@ export interface PublicationComposerDraftStoreOptions {
 }
 
 export function createPublicationComposerDraftStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationComposerDraftStoreOptions
 ) {
     const client = database.$client

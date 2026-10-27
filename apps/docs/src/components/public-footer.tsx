@@ -4,7 +4,7 @@ import X from '~icons/logos/x'
 
 import { requestConsentPrompt } from '@/lib/consent'
 
-import { PostbotLogo } from './brand'
+import { PostdotLogo } from './brand'
 import { CookieIcon } from './cookie-icon'
 import { PublicMaterial } from './public-material'
 import { PublicWordmark } from './public-wordmark'
@@ -16,7 +16,7 @@ export function PublicFooter() {
             <PublicMaterial footer />
             <div className="home-footer-content">
                 <Link href="/" className="home-footer-mark" aria-label="Postdot home">
-                    <PostbotLogo className="home-footer-logo" />
+                    <PostdotLogo className="home-footer-logo" />
                 </Link>
                 <nav aria-label="Documentation links" className="home-footer-nav">
                     <div>

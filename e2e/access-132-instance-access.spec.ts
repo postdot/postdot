@@ -73,7 +73,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
         }
     }
     await page.setViewportSize({ width: 1280, height: 844 })
-    const pendingEmail = `pending-${suffix}@postbot.local`
+    const pendingEmail = `pending-${suffix}@postdot.local`
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
@@ -160,7 +160,7 @@ async function readInvitationLink(page: Page) {
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-132-admin-${suffix}@postbot.local`
+    const email = `e2e-132-admin-${suffix}@postdot.local`
     const projectName = `E2E-132 access project ${suffix}`
 
     await page.goto('/setup')

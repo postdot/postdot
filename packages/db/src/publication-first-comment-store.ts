@@ -9,7 +9,7 @@ import {
 import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
-import { createDatabaseTransaction, type PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostdotDatabase } from './client'
 import { actors, publicationFirstComments as firstComments } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 
@@ -169,7 +169,7 @@ const nativeReceiptProof = `
 `
 
 export function createPublicationFirstCommentStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationFirstCommentStoreOptions
 ) {
     const client = database.$client

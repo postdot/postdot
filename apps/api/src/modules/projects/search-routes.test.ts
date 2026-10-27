@@ -18,7 +18,7 @@ import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -40,7 +40,7 @@ function createFixture() {
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -90,16 +90,16 @@ describe('global dashboard search', () => {
     it('searches each post once, respects scope and live access, and treats wildcards literally', async () => {
         const { access, app, database, mediaRoot } = createFixture()
         try {
-            const ownerCookie = await signUp(app, 'search-owner@postbot.local')
-            const readerCookie = await signUp(app, 'search-reader@postbot.local')
+            const ownerCookie = await signUp(app, 'search-owner@postdot.local')
+            const readerCookie = await signUp(app, 'search-reader@postdot.local')
             const ownerId = database.$client
                 .query<{ id: string }, []>(
-                    "select id from user where email = 'search-owner@postbot.local'"
+                    "select id from user where email = 'search-owner@postdot.local'"
                 )
                 .get()!.id
             const readerId = database.$client
                 .query<{ id: string }, []>(
-                    "select id from user where email = 'search-reader@postbot.local'"
+                    "select id from user where email = 'search-reader@postdot.local'"
                 )
                 .get()!.id
             const store = createManualStore(database)

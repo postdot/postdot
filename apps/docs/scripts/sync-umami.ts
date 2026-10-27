@@ -5,7 +5,7 @@
  * becomes `/r.js` (session replay and heatmaps, after consent).
  * They are build artifacts and are not committed.
  *
- * Without `POSTBOT_UMAMI_URL` nothing is copied and the site ships without
+ * Without `POSTDOT_UMAMI_URL` nothing is copied and the site ships without
  * analytics.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -13,9 +13,9 @@ import { join } from 'node:path'
 
 import { appRoot } from './docs-paths'
 
-const umamiUrl = process.env.POSTBOT_UMAMI_URL ?? ''
+const umamiUrl = process.env.POSTDOT_UMAMI_URL ?? ''
 if (!umamiUrl) {
-    console.log('Umami is not configured (POSTBOT_UMAMI_URL); skipping /p.js and /r.js.')
+    console.log('Umami is not configured (POSTDOT_UMAMI_URL); skipping /p.js and /r.js.')
     process.exit(0)
 }
 

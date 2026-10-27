@@ -18,7 +18,7 @@ import {
     createProviderMediaDeliveryStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
-    type PostbotDatabase,
+    type PostdotDatabase,
     type MediaAssetStore,
     type PublisherExecutionTarget,
 } from '@postdot/db'
@@ -48,7 +48,7 @@ export interface PublicationWorkerOptions {
         getNextEventAt(): number | null
         processDueEvent(projectId: string): Promise<boolean>
     }
-    readonly database: PostbotDatabase
+    readonly database: PostdotDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
     readonly media?: MediaAssetStore
@@ -529,7 +529,7 @@ async function performCustomHttpEffect(
 }
 
 function defaultWorkerErrorHandler(error: unknown): void {
-    console.error('[postbot-worker] scheduler failed', error)
+    console.error('[postdot-worker] scheduler failed', error)
 }
 
 export type { PublisherExecutionTarget }

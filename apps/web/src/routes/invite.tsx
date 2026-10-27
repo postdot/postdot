@@ -203,7 +203,7 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
                 onSubmit={handleSubmit}
                 pending={pending}
                 showSetupAction
-                title={m.auth_join_postbot()}
+                title={m.auth_join_postdot()}
             />
         </AuthShell>
     )

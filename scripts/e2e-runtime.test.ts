@@ -30,7 +30,7 @@ test('allocates independent resources for concurrent E2E runs', async () => {
 
 test('allocates isolated Mailpit ports only for mail-enabled E2E runs', async () => {
     const [mailEnabled, mailDisabled] = await Promise.all([
-        createE2ERuntimeResources({ POSTBOT_E2E_MAILPIT: 'true' }),
+        createE2ERuntimeResources({ POSTDOT_E2E_MAILPIT: 'true' }),
         createE2ERuntimeResources({}),
     ])
 
@@ -55,15 +55,15 @@ test('allocates isolated Mailpit ports only for mail-enabled E2E runs', async ()
 })
 
 test('rejects the legacy shared directory as a cleanup target', () => {
-    expect(isSafeE2EDataDirectory(join(tmpdir(), 'postbot-e2e-data'))).toBe(false)
+    expect(isSafeE2EDataDirectory(join(tmpdir(), 'postdot-e2e-data'))).toBe(false)
     expect(isSafeE2EDataDirectory(tmpdir())).toBe(false)
     expect(isSafeE2EDataDirectory(undefined)).toBe(false)
 })
 
 test('honors explicitly reserved debug ports', async () => {
     const resources = await createE2ERuntimeResources({
-        POSTBOT_E2E_API_PORT: '32101',
-        POSTBOT_E2E_WEB_PORT: '32102',
+        POSTDOT_E2E_API_PORT: '32101',
+        POSTDOT_E2E_WEB_PORT: '32102',
     })
 
     try {
@@ -79,9 +79,9 @@ test('reuses the parent runtime when Playwright loads its config in a worker', a
 
     try {
         const workerResources = await createE2ERuntimeResources({
-            POSTBOT_E2E_API_PORT: String(parentResources.apiPort),
-            POSTBOT_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
-            POSTBOT_E2E_WEB_PORT: String(parentResources.webPort),
+            POSTDOT_E2E_API_PORT: String(parentResources.apiPort),
+            POSTDOT_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
+            POSTDOT_E2E_WEB_PORT: String(parentResources.webPort),
         })
 
         expect(workerResources).toEqual(parentResources)
@@ -91,19 +91,19 @@ test('reuses the parent runtime when Playwright loads its config in a worker', a
 })
 
 test('reuses mail-enabled runtime ports when Playwright loads its config in a worker', async () => {
-    const parentResources = await createE2ERuntimeResources({ POSTBOT_E2E_MAILPIT: 'true' })
+    const parentResources = await createE2ERuntimeResources({ POSTDOT_E2E_MAILPIT: 'true' })
     const mailpit = parentResources.mailpit
 
     if (mailpit === undefined) throw new Error('Expected Mailpit ports for this fixture')
 
     try {
         const workerResources = await createE2ERuntimeResources({
-            POSTBOT_E2E_API_PORT: String(parentResources.apiPort),
-            POSTBOT_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
-            POSTBOT_E2E_MAILPIT: 'true',
-            POSTBOT_E2E_MAILPIT_SMTP_PORT: String(mailpit.smtpPort),
-            POSTBOT_E2E_MAILPIT_UI_PORT: String(mailpit.uiPort),
-            POSTBOT_E2E_WEB_PORT: String(parentResources.webPort),
+            POSTDOT_E2E_API_PORT: String(parentResources.apiPort),
+            POSTDOT_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
+            POSTDOT_E2E_MAILPIT: 'true',
+            POSTDOT_E2E_MAILPIT_SMTP_PORT: String(mailpit.smtpPort),
+            POSTDOT_E2E_MAILPIT_UI_PORT: String(mailpit.uiPort),
+            POSTDOT_E2E_WEB_PORT: String(parentResources.webPort),
         })
 
         expect(workerResources).toEqual(parentResources)

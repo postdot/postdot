@@ -216,7 +216,7 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
   repeatedly undoing generic component styles with local overrides.
 - Brand mark: the owner-supplied Postdot bird is the shared product mark. Its
   source belongs in `@postdot/ui` under `src/assets/brand`, while the reusable
-  inline `PostbotLogo` component uses `currentColor` so the mark follows the
+  inline `PostdotLogo` component uses `currentColor` so the mark follows the
   surrounding theme and surface. Brand placements must not fall back to an
   invented lettermark. In the app rail, the mark is standalone and uses the
   semantic brand color; a filled container is not part of the default chrome

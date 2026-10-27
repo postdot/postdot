@@ -1,9 +1,9 @@
 ---
-name: postbot-fumadocs
-description: Implement or review Postbot's Fumadocs navigation, MDX components, layouts, search and generated OpenAPI reference. Use for documentation mechanics, not prose-only edits or the marketing homepage.
+name: postdot-fumadocs
+description: Implement or review Postdot's Fumadocs navigation, MDX components, layouts, search and generated OpenAPI reference. Use for documentation mechanics, not prose-only edits or the marketing homepage.
 ---
 
-# Postbot Fumadocs
+# Postdot Fumadocs
 
 Read [apps/docs/DOCUMENTATION.md](../../../apps/docs/DOCUMENTATION.md) and the
 nearest AGENT.md before editing. That document owns this project's technical
@@ -18,7 +18,7 @@ that an older installed API supports it. Keep the Base UI distribution; do not
 introduce Radix patterns or the default theme provider over the existing provider.
 
 Notebook and its top-level spaces are accepted. Color themes and layout are
-independent; preserve Postbot's typography and palette. Use native root folders,
+independent; preserve Postdot's typography and palette. Use native root folders,
 metadata and grouped folders rather than rebuilding navigation. Check URL effects
 before moving a page; parenthesized groups preserve child slugs.
 
@@ -28,7 +28,7 @@ Inspect the installed component API before adding callouts, steps, tabs, cards o
 API widgets. Prefer native components over custom approximations. Choose a widget
 because it helps the task, not because it is available. Keep the reading order
 usable on mobile and without discovering an optional interaction. Use
-[postbot-writing](../postbot-writing/SKILL.md) for content decisions.
+[postdot-writing](../postdot-writing/SKILL.md) for content decisions.
 
 ### Component selection
 

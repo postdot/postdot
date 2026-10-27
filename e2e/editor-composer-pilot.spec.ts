@@ -681,7 +681,7 @@ test('projects custom destination text and ordered media through active nested b
                 kind: 'declarative_http',
                 contractId: 'custom-webhook',
                 revision: 'v1',
-                mode: 'postbot_webhook',
+                mode: 'postdot_webhook',
             }
         const response = await page.request.post(`/api/projects/${projectId}/channels`, {
             data: { name, profile },
@@ -1068,7 +1068,7 @@ async function createProject(page: Page) {
     await page.goto('/')
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name', { exact: true }).fill('Editor pilot owner')
-    await page.getByLabel('Email', { exact: true }).fill(`pilot-${suffix}@postbot.local`)
+    await page.getByLabel('Email', { exact: true }).fill(`pilot-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('editor-pilot-password')
     await Promise.all([
         page.waitForResponse(

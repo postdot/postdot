@@ -226,7 +226,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     })
     sourceConflict = false
     olderRecovery = true
-    const recoveryKey = `postbot:publication-editor:v3:${projectId}:${publicationId}`
+    const recoveryKey = `postdot:publication-editor:v3:${projectId}:${publicationId}`
     const localCopy = {
         version: 3,
         baseRevision: 1,
@@ -324,8 +324,8 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     if (textField === undefined) throw new Error('The manual profile has no text field')
     textField.maxLength = 10
     profile.capabilities.revision = 'manual-message-v2'
-    profile.profileHash = 'sha256:postbot-manual-message-e2e-v2'
-    profile.schemaHash = 'sha256:postbot-manual-message-schema-e2e-v2'
+    profile.profileHash = 'sha256:postdot-manual-message-e2e-v2'
+    profile.schemaHash = 'sha256:postdot-manual-message-schema-e2e-v2'
     const draftResponse = await page.request.post(
         `/api/projects/${projectId}/channels/${channel.channel.id}/profile-drafts`,
         { data: { profile } }
@@ -639,7 +639,7 @@ test('adapts a draft explicitly without changing its source or selecting a publi
         (await (await page.request.get(`${apiUrl}/draft/adoptions`)).json()).adoptions[0].draft
     ).toEqual(before.draft)
     await page.evaluate(({ key, buffer }) => localStorage.setItem(key, JSON.stringify(buffer)), {
-        key: `postbot:publication-editor:v3:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`,
+        key: `postdot:publication-editor:v3:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`,
         buffer: {
             version: 3,
             baseRevision: after.draft.revision + 1,
@@ -664,7 +664,7 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E detail ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-detail-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`e2e-detail-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-detail-password')
     await Promise.all([
         page.waitForResponse(
@@ -707,7 +707,7 @@ test('requires destination confirmation after reconnecting while retaining the s
     const { spawnSync } = await import('node:child_process')
     const { join } = await import('node:path')
     const { isSafeE2EDataDirectory } = await import('../scripts/e2e-runtime')
-    const directory = process.env.POSTBOT_E2E_DATA_DIRECTORY
+    const directory = process.env.POSTDOT_E2E_DATA_DIRECTORY
     if (!isSafeE2EDataDirectory(directory)) throw new Error('Unsafe destination fixture directory')
     function connect(replace: boolean) {
         const result = spawnSync(
@@ -731,7 +731,7 @@ test('requires destination confirmation after reconnecting while retaining the s
                 if (connected.kind !== 'created') throw new Error(connected.kind);
             } finally {closeDatabase(db)}
         `,
-                join(directory!, 'postbot.sqlite'),
+                join(directory!, 'postdot.sqlite'),
                 projectId,
                 channel.id,
                 String(replace),

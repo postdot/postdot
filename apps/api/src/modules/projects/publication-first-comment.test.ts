@@ -81,7 +81,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
             },
         },
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example/client-metadata.json',
             handleResolver: 'https://resolver.example',
         },
     })
@@ -135,7 +135,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
     async function signup(name: string) {
         const response = await request('/api/auth/sign-up/email', '', 'POST', {
             name,
-            email: `${name}@postbot.local`,
+            email: `${name}@postdot.local`,
             password: 'first-comment-fixture-password',
         })
         expect(response.status).toBe(200)

@@ -10,7 +10,7 @@ import {
     type ChannelProfileDefinition,
 } from '@postdot/core'
 
-import { closeDatabase, createDatabase, type PostbotDatabase } from './client'
+import { closeDatabase, createDatabase, type PostdotDatabase } from './client'
 import { migrationsThrough, seedLegacyScheduledChannel } from './legacy-migration-fixture'
 import { createManualStore } from './manual-store'
 import { rehearseMigrations, runMigrations } from './migrations'
@@ -19,7 +19,7 @@ import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
 import { createResourceLifecycleStore } from './resource-lifecycle-store'
 
-function workspace(db: PostbotDatabase, id: string) {
+function workspace(db: PostdotDatabase, id: string) {
     db.$client
         .query('insert into organization (id,name,slug,created_at) values (?,?,?,100)')
         .run(id, id, id)
@@ -112,7 +112,7 @@ async function fixture(filename = ':memory:') {
     return { database, manual, cipher, records, credentials, publishers }
 }
 
-function unchanged(db: PostbotDatabase) {
+function unchanged(db: PostdotDatabase) {
     return [
         'posts',
         'publications',
@@ -152,7 +152,7 @@ it('converts preserved IDs, duplicate accounts, profiles, queued work and attrib
         const envelopes = database.$client.query(envelopeSql).all()
         const ids = (key: 'channel' | 'credential') =>
             legacy.map(row => ({ id: row[key] })).sort((a, b) => a.id.localeCompare(b.id))
-        const verify = (db: PostbotDatabase) => {
+        const verify = (db: PostdotDatabase) => {
             expect(unchanged(db)).toEqual(before)
             expect(
                 db.$client
@@ -173,7 +173,7 @@ it('converts preserved IDs, duplicate accounts, profiles, queued work and attrib
                 db.$client.query("select count(*) as count from jobs where state='pending'").get()
             ).toEqual({ count: 2 })
         }
-        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(3)
+        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(4)
         expect(unchanged(database)).toEqual(before)
         expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
         expect(() =>

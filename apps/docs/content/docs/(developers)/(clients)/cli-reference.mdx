@@ -11,7 +11,7 @@ See [Eden Treaty](https://elysiajs.com/eden/treaty/overview),
 [Eden Fetch](https://elysiajs.com/eden/fetch), and
 [OpenAPI](https://elysiajs.com/patterns/openapi).
 
-Use `POSTBOT_URL` and `POSTBOT_API_KEY` for machine authentication. Connections and
+Use `POSTDOT_URL` and `POSTDOT_API_KEY` for machine authentication. Connections and
 provider credentials stay in Postdot. Existing project roles and API-key action
 ceilings apply; scheduling requires the corresponding dispatch permission.
 
@@ -126,8 +126,8 @@ lost may not expose an asset ID; inspect the library before importing it again.
 Before constructing a destination payload, inspect its channel profile:
 
 ```sh
-bun scripts/postbot.ts channels list --project <project-id> --json
-bun scripts/postbot.ts channels profile --project <project-id> --channel <channel-id> --json
+bun scripts/postdot.ts channels list --project <project-id> --json
+bun scripts/postdot.ts channels profile --project <project-id> --channel <channel-id> --json
 ```
 
 The response is the existing API contract: `channel`, `active`, and nullable
@@ -144,7 +144,7 @@ connection readiness or guarantee publication success.
 ## Inspect publisher connections
 
 ```sh
-bun scripts/postbot.ts publishers list --project <project-id> --json
+bun scripts/postdot.ts publishers list --project <project-id> --json
 ```
 
 The response preserves the existing `connections` and `oauthReadiness` fields.
@@ -342,7 +342,7 @@ returned state; it does not silently retry a write or poll cleanup completion.
 
 Workspace commands use `workspaces impact|archive|restore|delete --workspace ID`
 with the same confirmation options and require a human session through
-`POSTBOT_SESSION_COOKIE`. To retire the default workspace, also pass
+`POSTDOT_SESSION_COOKIE`. To retire the default workspace, also pass
 `--replacement-workspace OTHER_WORKSPACE_ID`. The replacement must be active and
 manageable by the current user.
 

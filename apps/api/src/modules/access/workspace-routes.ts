@@ -1,4 +1,4 @@
-import type { PostbotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
@@ -242,12 +242,12 @@ function toWorkspaceTeamMember(member: {
 
 function isDefaultWorkspaceTeam(workspaceId: string, teamId: string): boolean {
     return ['administrators', 'editors', 'reviewers', 'viewers'].some(
-        name => teamId === `postbot-workspace-team:${workspaceId}:${name}`
+        name => teamId === `postdot-workspace-team:${workspaceId}:${name}`
     )
 }
 
 async function findWorkspaceTeam(
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     workspace: NonNullable<ReturnType<AccessStore['getWorkspace']>>,
     teamId: string,
     headers: Headers
@@ -299,7 +299,7 @@ function hasOrganizationRole(role: string, expected: 'owner' | 'admin'): boolean
 
 export function registerWorkspaceRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     access: AccessStore,
     lifecycle?: ResourceLifecycleStore
 ) {
@@ -354,14 +354,14 @@ export function registerWorkspaceRoutes<const Routes extends Record<string, unkn
                     .slice(0, 48)
                 const slug = `${slugBase || 'workspace'}-${crypto.randomUUID().slice(0, 8)}`
 
-                let organization: Awaited<ReturnType<PostbotAuth['api']['createOrganization']>>
+                let organization: Awaited<ReturnType<PostdotAuth['api']['createOrganization']>>
                 try {
                     organization = await auth.api.createOrganization({
                         body: {
                             name,
                             slug,
                             userId: user.id,
-                            metadata: { postbotResource: 'workspace' },
+                            metadata: { postdotResource: 'workspace' },
                         },
                     })
                 } catch {

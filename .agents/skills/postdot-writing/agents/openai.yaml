@@ -1,0 +1,4 @@
+interface:
+  display_name: "Postdot Writing"
+  short_description: "Write and refine Postdot documentation"
+  default_prompt: "Use $postdot-writing to draft or improve a Postdot documentation page."

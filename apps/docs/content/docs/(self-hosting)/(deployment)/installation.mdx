@@ -43,19 +43,19 @@ openssl rand -hex 32
 ```
 
 Paste the three generated values into the empty `BETTER_AUTH_SECRET`,
-`POSTBOT_MEDIA_PUBLIC_URL_SECRET` and `POSTBOT_PUBLISHER_ENCRYPTION_KEY` entries,
+`POSTDOT_MEDIA_PUBLIC_URL_SECRET` and `POSTDOT_PUBLISHER_ENCRYPTION_KEY` entries,
 respectively. Use independent values and retain this file securely. Losing the
 publisher key makes stored connection credentials unusable; replacing it is not
 an ordinary configuration update.
 
 The defaults serve [http://127.0.0.1:3000](http://127.0.0.1:3000). If this port is occupied, change
-`POSTBOT_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
+`POSTDOT_HTTP_PORT` and the ports in **both** origin variables. Keep `.env` out of
 Git and never publish the output of `docker compose config`, which includes secrets.
 
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTBOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.3\n' >> .env
+printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.3\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
@@ -63,9 +63,9 @@ curl --fail http://127.0.0.1:3000/ready
 ```
 
 The readiness request must succeed before you continue. If startup fails, inspect
-`docker compose logs --tail 100 postbot` before changing the configuration.
+`docker compose logs --tail 100 postdot` before changing the configuration.
 
-For reproducible content, replace the tag in `POSTBOT_IMAGE` with
+For reproducible content, replace the tag in `POSTDOT_IMAGE` with
 `ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e`.
 See the [release record](/docs/releases/) for its matching source and limits.
 
@@ -77,9 +77,9 @@ cd postdot-source
 git checkout e7af5550ffa446f9264ec13159e0ed9e263e1495
 ```
 
-Repeat the configuration step there, leave `POSTBOT_IMAGE` unset, run
+Repeat the configuration step there, leave `POSTDOT_IMAGE` unset, run
 `docker compose build`, then `docker compose up -d --wait`. The default remains
-`postbot:local`. This alternative requires Git and the full checkout; the two
+`postdot:local`. This alternative requires Git and the full checkout; the two
 files downloaded above are sufficient only for the published image.
 
 ### 3. Create the administrator account
@@ -110,10 +110,10 @@ it readable by the container's unprivileged user through a read-only mount. Do n
 pass the password as a command argument or environment variable.
 
 ```sh
-docker compose stop postbot
+docker compose stop postdot
 docker compose run --rm --no-deps \
   --volume "$PWD/bootstrap.json:/run/secrets/bootstrap.json:ro" \
-  postbot account bootstrap --database /data/postbot.sqlite \
+  postdot account bootstrap --database /data/postdot.sqlite \
   --input /run/secrets/bootstrap.json
 docker compose up -d --wait
 ```
@@ -130,7 +130,7 @@ no longer need it. For an existing account, use the interactive
 
 For a public deployment, keep the container bound to loopback and place an HTTPS
 reverse proxy on the host in front of it. Set `BETTER_AUTH_URL` and
-`POSTBOT_WEB_ORIGIN` to the same public HTTPS origin before starting. A proxy running
+`POSTDOT_WEB_ORIGIN` to the same public HTTPS origin before starting. A proxy running
 in another container needs an appropriate private network configuration instead
 of this host-loopback example. Complete initial account setup before exposing the
 installation. Provider OAuth and media delivery have additional reachability
@@ -138,7 +138,7 @@ requirements: see [provider requirements](/docs/provider-configuration/).
 
 ## Persistent data and ordinary operation
 
-Compose owns a `postbot-data` volume under its project name. `/data/postbot.sqlite`
+Compose owns a `postdot-data` volume under its project name. `/data/postdot.sqlite`
 contains application state; `/data/media` contains originals, previews and avatars.
 Keep the Compose project name stable so a later invocation uses the same volume.
 The image contains committed migrations, which apply automatically at startup.
@@ -147,9 +147,9 @@ The image contains committed migrations, which apply automatically at startup.
 
 ```sh
 docker compose ps
-docker compose logs --tail 100 postbot
-docker compose restart postbot
-docker compose stop postbot
+docker compose logs --tail 100 postdot
+docker compose restart postdot
+docker compose stop postdot
 docker compose up -d --wait
 ```
 
@@ -162,7 +162,7 @@ Read the administration recovery state before assuming work has resumed.
 With a current source build, run:
 
 ```sh
-docker compose run --rm --no-deps postbot --version --json
+docker compose run --rm --no-deps postdot --version --json
 ```
 
 Studio also displays the version and source commit under installation settings;
@@ -195,37 +195,37 @@ email publication alerts are unavailable. Configure the commented SMTP group in
 docker compose up -d --force-recreate --wait
 ```
 
-Port 587 normally uses `POSTBOT_EMAIL_SMTP_SECURE=false` with STARTTLS; implicit
+Port 587 normally uses `POSTDOT_EMAIL_SMTP_SECURE=false` with STARTTLS; implicit
 TLS on port 465 uses `true`. Username/password must be supplied together. Use the
 relay's actual settings and test delivery. There is no bundled production mail server.
 
 ### S3-compatible media storage
 
 Local media is the default. To use an existing S3-compatible bucket for a **new
-installation**, replace `POSTBOT_MEDIA_STORE` and `POSTBOT_MEDIA_STORE_ID` in `.env` and add
+installation**, replace `POSTDOT_MEDIA_STORE` and `POSTDOT_MEDIA_STORE_ID` in `.env` and add
 the following settings before starting:
 
 ```dotenv
-POSTBOT_MEDIA_STORE=s3
-POSTBOT_MEDIA_STORE_ID=primary-media
-POSTBOT_MEDIA_S3_BUCKET=your-bucket
-POSTBOT_MEDIA_S3_REGION=us-east-1
-POSTBOT_MEDIA_S3_ENDPOINT=https://s3.example.com
-POSTBOT_MEDIA_S3_ACCESS_KEY_ID=replace-with-access-key
-POSTBOT_MEDIA_S3_SECRET_ACCESS_KEY=replace-with-secret-key
-POSTBOT_MEDIA_S3_PREFIX=postdot
+POSTDOT_MEDIA_STORE=s3
+POSTDOT_MEDIA_STORE_ID=primary-media
+POSTDOT_MEDIA_S3_BUCKET=your-bucket
+POSTDOT_MEDIA_S3_REGION=us-east-1
+POSTDOT_MEDIA_S3_ENDPOINT=https://s3.example.com
+POSTDOT_MEDIA_S3_ACCESS_KEY_ID=replace-with-access-key
+POSTDOT_MEDIA_S3_SECRET_ACCESS_KEY=replace-with-secret-key
+POSTDOT_MEDIA_S3_PREFIX=postdot
 # Optional, only for temporary credentials:
-# POSTBOT_MEDIA_S3_SESSION_TOKEN=replace-with-session-token
+# POSTDOT_MEDIA_S3_SESSION_TOKEN=replace-with-session-token
 ```
 
 Replace the endpoint, region and credentials with your storage service's values.
-For AWS S3, omit `POSTBOT_MEDIA_S3_ENDPOINT` and set the bucket's region. A custom
+For AWS S3, omit `POSTDOT_MEDIA_S3_ENDPOINT` and set the bucket's region. A custom
 service requires a region or endpoint; follow its signing-region requirements.
 The optional prefix isolates Postdot's object keys within the bucket. Use
 credentials that can read, write and delete those objects. The container must be
 able to reach the endpoint; `localhost` inside it refers to the container itself.
 
-`POSTBOT_MEDIA_STORE_ID` identifies the storage location in saved media records.
+`POSTDOT_MEDIA_STORE_ID` identifies the storage location in saved media records.
 Choose it once and keep it stable across restarts, updates and maintenance commands.
 Changing it can make existing media inaccessible. Changing bucket, prefix or
 storage backend does **not** migrate stored objects or update saved media records.
@@ -248,11 +248,11 @@ Create a uniquely named backup while Postdot is running, then copy it outside th
 application volume:
 
 ```sh
-docker compose exec postbot mkdir -p /data/backups
-docker compose exec postbot bun /app/postbot.js backup --media --output /data/backups/pre-update.bundle
+docker compose exec postdot mkdir -p /data/backups
+docker compose exec postdot bun /app/postdot.js backup --media --output /data/backups/pre-update.bundle
 umask 077
 mkdir -p backups
-docker compose cp postbot:/data/backups/pre-update.bundle ./backups/
+docker compose cp postdot:/data/backups/pre-update.bundle ./backups/
 ```
 
 `compose exec` runs the explicit Bun command; `compose run` below uses the
@@ -269,8 +269,8 @@ Stop the application before restoring. The commands below use the bundle still
 available under `/data/backups`:
 
 ```sh
-docker compose stop postbot
-docker compose run --rm --no-deps postbot restore --media --input /data/backups/pre-update.bundle
+docker compose stop postdot
+docker compose run --rm --no-deps postdot restore --media --input /data/backups/pre-update.bundle
 docker compose up -d --wait
 ```
 
@@ -292,7 +292,7 @@ For a source-built installation, record the source commit before building an upd
 
 ```sh
 git rev-parse HEAD
-docker image tag postbot:local postbot:before-update
+docker image tag postdot:local postdot:before-update
 # Update the source checkout to the intended commit, then:
 docker compose build
 docker compose up -d --wait
@@ -307,11 +307,30 @@ Rollback requires a compatible image **and** its pre-update data/configuration,
 with restoration and recovery hold as above. Consult the target release record
 for validated upgrade paths and platform acceptance.
 
-## Existing installation names
+## Move from the Postbot names
 
-The product is Postdot, but deployment variables still use `POSTBOT_*`, and the
-Compose service/volume retain their existing names. `POSTDOT_*` aliases are not
-implemented. A display-name change does not require a new encryption key, database,
-volume or provider connection. Preserve stored paths, keys and identities when
-updating an existing installation; changing a Compose project name can select an
-empty volume instead of the existing data.
+Releases up to `0.1.0-alpha.3` were called Postbot. Updating keeps your data,
+encryption key, API keys and provider connections. Only names change:
+
+- **Variables.** Rename each `POSTBOT_` prefix to `POSTDOT_` in `.env`. The old
+  names still work and log a deprecation warning when the matching new name is
+  unset; they will stop working in a future release. Keep the same encryption key
+  and key ID values.
+- **Database file.** The default is now `/data/postdot.sqlite`. At startup, an
+  existing `postbot.sqlite` in the same directory is renamed once, with its journal
+  files, while the runtime lock is held. A custom `DB_FILE_NAME` is never renamed.
+- **Compose.** Download the new `compose.yaml`. The service is now `postdot`, and
+  the data volume is named `postdot-data`. To keep the volume you already have, set
+  `POSTDOT_DATA_VOLUME` in `.env` to its existing name, for example
+  `POSTDOT_DATA_VOLUME=postdot_postbot-data` when your Compose project is
+  `postdot`. Run `docker volume ls` to find it. Never start the new file against an
+  empty volume while the old one holds your data.
+- **Observability and integrations.** Metric names start with `postdot_` instead
+  of `postbot_`. Custom HTTP webhooks send `x-postdot-*` headers and the
+  `postdot_webhook` contract mode; update receivers that verify the old headers.
+- **API keys.** Keys issued earlier keep their `postbot_pat_` prefix and continue
+  to work. New keys start with `postdot_pat_`.
+- **Shell scripts.** The CLI and the agent skill still read `POSTBOT_URL` and
+  `POSTBOT_API_KEY` when the `POSTDOT_` names are unset.
+
+Back up the database and media before updating, as for any release.

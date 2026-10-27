@@ -99,7 +99,7 @@ describe('channel profile evolution', () => {
                     kind: 'declarative_http',
                     contractId: 'custom-endpoint',
                     revision: 'v2',
-                    mode: 'postbot_webhook',
+                    mode: 'postdot_webhook',
                 },
             }),
             pendingTargets: [

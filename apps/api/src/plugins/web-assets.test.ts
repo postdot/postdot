@@ -85,7 +85,7 @@ describe('Postdot web assets', () => {
     })
 
     it('fails fast when the web build is missing', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-web-assets-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-web-assets-'))
 
         try {
             await expect(createWebAssets(directory)).rejects.toThrow('index.html')
@@ -96,7 +96,7 @@ describe('Postdot web assets', () => {
 })
 
 async function withAssetFixture(run: (directory: string) => Promise<void>) {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-web-assets-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-web-assets-'))
 
     try {
         await mkdir(join(directory, 'assets'))

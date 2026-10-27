@@ -183,6 +183,13 @@
             "when": 1793115125684,
             "tag": "0025_publication_moves",
             "breakpoints": true
+        },
+        {
+            "idx": 26,
+            "version": "6",
+            "when": 1793200000000,
+            "tag": "0026_postdot_identity",
+            "breakpoints": true
         }
     ]
 }

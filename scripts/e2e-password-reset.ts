@@ -3,18 +3,18 @@ import { rm } from 'node:fs/promises'
 import { startE2EMailpit, waitForE2EMailpit } from './e2e-mailpit'
 import { createE2ERuntimeResources, isSafeE2EDataDirectory } from './e2e-runtime'
 
-const ownsDataDirectory = Bun.env.POSTBOT_E2E_DATA_DIRECTORY === undefined
-const runtimeEnvironment = { ...Bun.env, POSTBOT_E2E_MAILPIT: 'true' }
+const ownsDataDirectory = Bun.env.POSTDOT_E2E_DATA_DIRECTORY === undefined
+const runtimeEnvironment = { ...Bun.env, POSTDOT_E2E_MAILPIT: 'true' }
 const runtime = await createE2ERuntimeResources(runtimeEnvironment)
 if (runtime.mailpit === undefined) throw new Error('Mailpit E2E ports were not allocated')
 
 const playwrightEnvironment = {
     ...runtimeEnvironment,
-    POSTBOT_E2E_API_PORT: String(runtime.apiPort),
-    POSTBOT_E2E_DATA_DIRECTORY: runtime.dataDirectory,
-    POSTBOT_E2E_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
-    POSTBOT_E2E_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
-    POSTBOT_E2E_WEB_PORT: String(runtime.webPort),
+    POSTDOT_E2E_API_PORT: String(runtime.apiPort),
+    POSTDOT_E2E_DATA_DIRECTORY: runtime.dataDirectory,
+    POSTDOT_E2E_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
+    POSTDOT_E2E_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
+    POSTDOT_E2E_WEB_PORT: String(runtime.webPort),
 }
 const mailpitOrigin = `http://127.0.0.1:${runtime.mailpit.uiPort}`
 let activePlaywright: ReturnType<typeof Bun.spawn> | undefined

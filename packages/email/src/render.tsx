@@ -4,33 +4,33 @@ import * as React from 'react'
 import {
     EmailVerificationEmail,
     emailVerificationSubject,
-    type PostbotAccountEmailInput,
+    type PostdotAccountEmailInput,
 } from './templates/EmailVerificationEmail'
 import {
     OrganizationInvitationEmail,
     organizationInvitationSubject,
-    type PostbotOrganizationInvitationEmailInput,
+    type PostdotOrganizationInvitationEmailInput,
 } from './templates/OrganizationInvitationEmail'
 import {
     PasswordResetEmail,
     passwordResetSubject,
-    type PostbotPasswordResetEmailInput,
+    type PostdotPasswordResetEmailInput,
 } from './templates/PasswordResetEmail'
 import {
     PublicationOutcomeEmail,
-    type PostbotPublicationOutcomeEmailInput,
+    type PostdotPublicationOutcomeEmailInput,
 } from './templates/PublicationOutcomeEmail'
 
-export interface PostbotRenderedEmail {
+export interface PostdotRenderedEmail {
     readonly to: string
     readonly subject: string
     readonly text: string
     readonly html: string
 }
 
-export async function renderPostbotOrganizationInvitationEmail(
-    input: PostbotOrganizationInvitationEmailInput
-): Promise<PostbotRenderedEmail> {
+export async function renderPostdotOrganizationInvitationEmail(
+    input: PostdotOrganizationInvitationEmailInput
+): Promise<PostdotRenderedEmail> {
     const html = await render(<OrganizationInvitationEmail {...input} />)
     const text = await render(<OrganizationInvitationEmail {...input} />, { plainText: true })
 
@@ -42,9 +42,9 @@ export async function renderPostbotOrganizationInvitationEmail(
     }
 }
 
-export async function renderPostbotEmailVerificationEmail(
-    input: PostbotAccountEmailInput
-): Promise<PostbotRenderedEmail> {
+export async function renderPostdotEmailVerificationEmail(
+    input: PostdotAccountEmailInput
+): Promise<PostdotRenderedEmail> {
     const html = await render(<EmailVerificationEmail {...input} />)
     const text = await render(<EmailVerificationEmail {...input} />, { plainText: true })
 
@@ -56,9 +56,9 @@ export async function renderPostbotEmailVerificationEmail(
     }
 }
 
-export async function renderPostbotPasswordResetEmail(
-    input: PostbotPasswordResetEmailInput
-): Promise<PostbotRenderedEmail> {
+export async function renderPostdotPasswordResetEmail(
+    input: PostdotPasswordResetEmailInput
+): Promise<PostdotRenderedEmail> {
     const html = await render(<PasswordResetEmail {...input} />)
     const text = await render(<PasswordResetEmail {...input} />, { plainText: true })
 
@@ -70,9 +70,9 @@ export async function renderPostbotPasswordResetEmail(
     }
 }
 
-export async function renderPostbotPublicationOutcomeEmail(
-    input: PostbotPublicationOutcomeEmailInput
-): Promise<PostbotRenderedEmail> {
+export async function renderPostdotPublicationOutcomeEmail(
+    input: PostdotPublicationOutcomeEmailInput
+): Promise<PostdotRenderedEmail> {
     return {
         to: input.email,
         subject: `Postdot — ${input.title}`,

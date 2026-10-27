@@ -1,10 +1,10 @@
 import type { ChannelProfileDefinition } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
 /** Test fixture: an idempotent workspace row so projects can be created under the required ownership boundary. */
-export function seedTestWorkspace(database: PostbotDatabase, id = 'test-workspace'): string {
+export function seedTestWorkspace(database: PostdotDatabase, id = 'test-workspace'): string {
     database.$client
         .query('insert or ignore into organization(id,name,slug,created_at) values (?1,?1,?1,1)')
         .run(id)
@@ -17,7 +17,7 @@ export function seedTestWorkspace(database: PostbotDatabase, id = 'test-workspac
 }
 
 /** Test fixture: the workspace that owns a project, for rows that are workspace-scoped. */
-export function workspaceOf(database: PostbotDatabase, projectId: string): string {
+export function workspaceOf(database: PostdotDatabase, projectId: string): string {
     const row = database.$client
         .query<{ workspaceId: string | null }, [string]>(
             'select workspace_id as workspaceId from projects where id = ?'
@@ -29,7 +29,7 @@ export function workspaceOf(database: PostbotDatabase, projectId: string): strin
 
 /** Test fixture: a workspace-owned channel with its first attachment and managing project. */
 export function seedWorkspaceChannel(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     input: {
         readonly projectId: string
         readonly channelId: string
@@ -105,7 +105,7 @@ export function seedWorkspaceChannel(
 
 /** Test fixture: workspace membership, required before project grants take effect for a workspace project. */
 export function seedWorkspaceMember(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     workspaceId: string,
     userId: string
 ): void {

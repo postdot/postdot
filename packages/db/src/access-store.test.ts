@@ -12,7 +12,7 @@ describe('instance access store', () => {
             database.$client
                 .query(
                     `insert into user (id, name, email, email_verified, created_at, updated_at)
-                     values ('user-1', 'Postdot Operator', 'operator@postbot.local', 0, 1, 1)`
+                     values ('user-1', 'Postdot Operator', 'operator@postdot.local', 0, 1, 1)`
                 )
                 .run()
 
@@ -78,9 +78,9 @@ describe('instance access store', () => {
             database.$client.exec(`
                 insert into user (id, name, email, email_verified, created_at, updated_at)
                 values
-                    ('owner', 'Project Owner', 'owner@postbot.local', 0, 1, 1),
-                    ('member', 'Project Member', 'member@postbot.local', 0, 2, 2),
-                    ('outsider', 'Project Outsider', 'outsider@postbot.local', 0, 3, 3)
+                    ('owner', 'Project Owner', 'owner@postdot.local', 0, 1, 1),
+                    ('member', 'Project Member', 'member@postdot.local', 0, 2, 2),
+                    ('outsider', 'Project Outsider', 'outsider@postdot.local', 0, 3, 3)
                 ;
             `)
 
@@ -175,8 +175,8 @@ describe('instance access store', () => {
             database.$client.exec(`
                 insert into user (id, name, email, email_verified, created_at, updated_at)
                 values
-                    ('organization-owner', 'Organization Owner', 'owner@postbot.local', 0, 1, 1),
-                    ('organization-member', 'Organization Member', 'member@postbot.local', 0, 2, 2)
+                    ('organization-owner', 'Organization Owner', 'owner@postdot.local', 0, 1, 1),
+                    ('organization-member', 'Organization Member', 'member@postdot.local', 0, 2, 2)
                 ;
             `)
 
@@ -242,8 +242,8 @@ describe('instance access store', () => {
             database.$client.exec(`
                 insert into user (id, name, email, email_verified, created_at, updated_at)
                 values
-                    ('grant-owner', 'Grant Owner', 'grant-owner@postbot.local', 0, 1, 1),
-                    ('grant-member', 'Grant Member', 'grant-member@postbot.local', 0, 2, 2)
+                    ('grant-owner', 'Grant Owner', 'grant-owner@postdot.local', 0, 1, 1),
+                    ('grant-member', 'Grant Member', 'grant-member@postdot.local', 0, 2, 2)
                 ;
                 insert into organization (id, name, slug, created_at)
                 values ('grant-project-org', 'Grant Project', 'grant-project', 1)
@@ -264,7 +264,7 @@ describe('instance access store', () => {
                 insert into team_member (id, team_id, user_id, membership_key, created_at)
                 values (
                     'editors-member:grant-member',
-                    'postbot-workspace-team:${workspace.id}:editors',
+                    'postdot-workspace-team:${workspace.id}:editors',
                     'grant-member',
                     'editors-member:grant-member',
                     2
@@ -286,7 +286,7 @@ describe('instance access store', () => {
             expect(access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
             const teamGrant = access.grantProjectTeamAccess({
                 projectId: created.project.id,
-                teamId: `postbot-workspace-team:${workspace.id}:editors`,
+                teamId: `postdot-workspace-team:${workspace.id}:editors`,
                 role: 'editor',
             })
             expect(teamGrant).toMatchObject({ role: 'editor', teamName: 'Editors' })
@@ -310,7 +310,7 @@ describe('instance access store', () => {
             expect(
                 access.removeProjectTeamAccess(
                     created.project.id,
-                    `postbot-workspace-team:${workspace.id}:editors`
+                    `postdot-workspace-team:${workspace.id}:editors`
                 )
             ).toBe(true)
             expect(access.getProjectMembership(created.project.id, 'grant-member')).toMatchObject({
@@ -331,9 +331,9 @@ describe('instance access store', () => {
             database.$client.exec(`
                 insert into user (id, name, email, email_verified, created_at, updated_at)
                 values
-                    ('admin', 'Instance Admin', 'admin@postbot.local', 0, 1, 1),
-                    ('member', 'Instance Member', 'member@postbot.local', 0, 2, 2),
-                    ('admin-2', 'Second Admin', 'admin-2@postbot.local', 0, 3, 3)
+                    ('admin', 'Instance Admin', 'admin@postdot.local', 0, 1, 1),
+                    ('member', 'Instance Member', 'member@postdot.local', 0, 2, 2),
+                    ('admin-2', 'Second Admin', 'admin-2@postdot.local', 0, 3, 3)
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
@@ -349,21 +349,21 @@ describe('instance access store', () => {
             expect(access.listInstanceMemberships()).toEqual([
                 expect.objectContaining({
                     userId: 'member',
-                    email: 'member@postbot.local',
+                    email: 'member@postdot.local',
                     name: 'Instance Member',
                     role: 'member',
                     state: 'enabled',
                 }),
                 expect.objectContaining({
                     userId: 'admin-2',
-                    email: 'admin-2@postbot.local',
+                    email: 'admin-2@postdot.local',
                     name: 'Second Admin',
                     role: 'admin',
                     state: 'enabled',
                 }),
                 expect.objectContaining({
                     userId: 'admin',
-                    email: 'admin@postbot.local',
+                    email: 'admin@postdot.local',
                     name: 'Instance Admin',
                     role: 'admin',
                     state: 'enabled',

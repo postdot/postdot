@@ -85,7 +85,7 @@ async function fixture() {
             id: ((await response.json()) as { user: { id: string } }).user.id,
         }
     }
-    const owner = await signup('analytics-owner@postbot.local')
+    const owner = await signup('analytics-owner@postdot.local')
     const made = await request('/api/projects', owner.cookie, 'POST', { name: 'Metrics' })
     expect(made.status).toBe(201)
     const { project } = (await made.json()) as { project: { id: string } }
@@ -207,7 +207,7 @@ test('Mastodon metrics are collected manually and persisted with real zero, unkn
 test('Mastodon metrics enforce project roles and recheck access after an asynchronous provider read', async () => {
     const f = await fixture()
     try {
-        const viewer = await f.signup('analytics-viewer@postbot.local')
+        const viewer = await f.signup('analytics-viewer@postdot.local')
         f.access.updateInstanceMembership({
             actorUserId: f.owner.id,
             userId: viewer.id,

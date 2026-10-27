@@ -23,7 +23,7 @@ describe('OAuth authorization code mechanics', () => {
         const request = await createAuthorizationRequest({
             authorizationServer,
             clientId: 'client-1',
-            callbackUri: 'https://postbot.example.com/api/oauth/linkedin/callback',
+            callbackUri: 'https://postdot.example.com/api/oauth/linkedin/callback',
             scopes: ['w_member_social', 'openid', 'w_member_social'],
             additionalParameters: { prompt: 'consent' },
         })
@@ -48,7 +48,7 @@ describe('OAuth authorization code mechanics', () => {
         const request = await createAuthorizationRequest({
             authorizationServer: { ...authorizationServer, pkce: 'disabled' },
             clientId: 'client-1',
-            callbackUri: 'https://postbot.example.com/api/oauth/linkedin/callback',
+            callbackUri: 'https://postdot.example.com/api/oauth/linkedin/callback',
             scopes: ['openid'],
         })
 
@@ -65,7 +65,7 @@ describe('OAuth authorization code mechanics', () => {
                     authorizationEndpoint: 'http://provider.example.com/oauth/authorize',
                 },
                 clientId: 'client-1',
-                callbackUri: 'https://postbot.example.com/callback',
+                callbackUri: 'https://postdot.example.com/callback',
                 scopes: [],
             })
         ).rejects.toThrow('authorizationEndpoint must use HTTPS')
@@ -73,7 +73,7 @@ describe('OAuth authorization code mechanics', () => {
             createAuthorizationRequest({
                 authorizationServer,
                 clientId: 'client-1',
-                callbackUri: 'https://postbot.example.com/callback',
+                callbackUri: 'https://postdot.example.com/callback',
                 scopes: [],
                 additionalParameters: { state: 'attacker-controlled' },
             })
@@ -84,7 +84,7 @@ describe('OAuth authorization code mechanics', () => {
         const request = await createAuthorizationRequest({
             authorizationServer,
             clientId: 'client-1',
-            callbackUri: 'https://postbot.example.com/callback',
+            callbackUri: 'https://postdot.example.com/callback',
             scopes: ['openid'],
         })
         const valid = new URLSearchParams({
@@ -127,7 +127,7 @@ describe('OAuth authorization code mechanics', () => {
         const request = await createAuthorizationRequest({
             authorizationServer,
             clientId: 'client-1',
-            callbackUri: 'https://postbot.example.com/callback',
+            callbackUri: 'https://postdot.example.com/callback',
             scopes: ['openid'],
         })
 

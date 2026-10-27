@@ -1,11 +1,11 @@
 import type { MediaAssetStore } from '@postdot/db'
 import { createLocalMediaStore, createS3MediaStore, type MediaStore } from '@postdot/media'
 
-import type { PostbotConfig } from '../../config'
+import type { PostdotConfig } from '../../config'
 
 const defaultMediaReconciliationIntervalMs = 60_000
 
-export function createConfiguredMediaStore(config: PostbotConfig['media']): MediaStore {
+export function createConfiguredMediaStore(config: PostdotConfig['media']): MediaStore {
     if (config.driver === 'local') {
         return createLocalMediaStore({
             storeId: config.storeId,
@@ -111,5 +111,5 @@ export function createMediaReconciliationRuntime(
 }
 
 function defaultMediaReconciliationErrorHandler(error: unknown): void {
-    console.error('[postbot-media] reconciliation failed', error)
+    console.error('[postdot-media] reconciliation failed', error)
 }

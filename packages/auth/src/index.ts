@@ -1,30 +1,30 @@
-import { createAccessStore, type AccessStore, type PostbotDatabase } from '@postdot/db'
+import { createAccessStore, type AccessStore, type PostdotDatabase } from '@postdot/db'
 import * as schema from '@postdot/db/schema'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { hashPassword } from 'better-auth/crypto'
 
 import {
-    createPostbotAuthPlugins,
-    type PostbotAuthInvitationOptions,
-    type PostbotAuthPluginHooks,
-    type PostbotAuthPlugins,
+    createPostdotAuthPlugins,
+    type PostdotAuthInvitationOptions,
+    type PostdotAuthPluginHooks,
+    type PostdotAuthPlugins,
 } from './plugins'
 
-export type { PostbotAuthInvitationOptions, PostbotOrganizationInvitationEmail } from './plugins'
-export { postbotUserApiKeyConfigId } from './plugins'
+export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
+export { postdotUserApiKeyConfigId } from './plugins'
 
-export const postbotPasswordPolicy = {
+export const postdotPasswordPolicy = {
     minimumLength: 8,
     maximumLength: 128,
 } as const
 
 /** Hashes an offline-recovered password with the same format used by Better Auth. */
-export function hashPostbotPassword(password: string): Promise<string> {
+export function hashPostdotPassword(password: string): Promise<string> {
     return hashPassword(password)
 }
 
-export interface PostbotAuthVerificationEmail {
+export interface PostdotAuthVerificationEmail {
     readonly user: {
         readonly email: string
         readonly name: string
@@ -33,22 +33,22 @@ export interface PostbotAuthVerificationEmail {
     readonly token: string
 }
 
-export interface PostbotAuthEmailOptions {
+export interface PostdotAuthEmailOptions {
     /** Live transport availability for explicit email requests. */
     readonly emailDeliveryAvailable?: () => boolean
     /** Optional deployment-provided account verification mail delivery. */
-    readonly sendEmailVerification?: (input: PostbotAuthVerificationEmail) => Promise<void> | void
+    readonly sendEmailVerification?: (input: PostdotAuthVerificationEmail) => Promise<void> | void
     /** Optional deployment-provided password reset mail delivery. */
-    readonly sendPasswordResetEmail?: (input: PostbotAuthVerificationEmail) => Promise<void> | void
+    readonly sendPasswordResetEmail?: (input: PostdotAuthVerificationEmail) => Promise<void> | void
     /** Send account verification mail after a successful email/password signup. */
     readonly sendEmailVerificationOnSignUp?: boolean
 }
 
-export interface PostbotAuthRuntimeOptions
+export interface PostdotAuthRuntimeOptions
     extends
         Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins' | 'logger'>,
-        PostbotAuthInvitationOptions,
-        PostbotAuthEmailOptions {
+        PostdotAuthInvitationOptions,
+        PostdotAuthEmailOptions {
     /** Shared Postdot access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
     /**
@@ -59,11 +59,11 @@ export interface PostbotAuthRuntimeOptions
     readonly allowAdditionalSignups?: boolean
 }
 
-type PostbotAuthOptions = BetterAuthOptions & {
+type PostdotAuthOptions = BetterAuthOptions & {
     database: NonNullable<BetterAuthOptions['database']>
     databaseHooks: NonNullable<BetterAuthOptions['databaseHooks']>
     emailAndPassword: { enabled: true } & NonNullable<BetterAuthOptions['emailAndPassword']>
-    plugins: PostbotAuthPlugins
+    plugins: PostdotAuthPlugins
 }
 
 /**
@@ -73,7 +73,7 @@ type PostbotAuthOptions = BetterAuthOptions & {
  * a caller bypass the guarded Postdot routes. The plugin remains the owner of
  * the underlying records and server-side `auth.api` calls continue to use it.
  */
-const postbotManagedAuthMutationPaths = new Set([
+const postdotManagedAuthMutationPaths = new Set([
     '/admin/create-user',
     '/admin/remove-user',
     '/admin/set-role',
@@ -96,9 +96,9 @@ const postbotManagedAuthMutationPaths = new Set([
     '/organization/leave',
 ])
 
-function isPostbotManagedAuthMutation(path: string): boolean {
+function isPostdotManagedAuthMutation(path: string): boolean {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`
-    return [...postbotManagedAuthMutationPaths].some(
+    return [...postdotManagedAuthMutationPaths].some(
         candidate => normalizedPath === candidate || normalizedPath.endsWith(candidate)
     )
 }
@@ -108,7 +108,7 @@ function isPostbotManagedAuthMutation(path: string): boolean {
  * a factory. Keep the small server-only surface Postdot calls explicitly typed
  * instead of spreading an `any` cast into the API layer.
  */
-export interface PostbotOrganizationAuthApi {
+export interface PostdotOrganizationAuthApi {
     createOrganization(input: {
         body: {
             name: string
@@ -155,7 +155,7 @@ export interface PostbotOrganizationAuthApi {
     }): Promise<unknown>
 }
 
-export interface PostbotOrganizationMember {
+export interface PostdotOrganizationMember {
     readonly id: string
     readonly organizationId: string
     readonly role: string
@@ -169,7 +169,7 @@ export interface PostbotOrganizationMember {
     }
 }
 
-export interface PostbotApiKeyRecord {
+export interface PostdotApiKeyRecord {
     readonly id: string
     readonly configId: string
     readonly name: string | null
@@ -185,7 +185,7 @@ export interface PostbotApiKeyRecord {
     readonly permissions: Record<string, readonly string[]> | null
 }
 
-export interface PostbotApiKeyAuthApi {
+export interface PostdotApiKeyAuthApi {
     createApiKey(input: {
         body: {
             configId?: string
@@ -197,11 +197,11 @@ export interface PostbotApiKeyAuthApi {
             permissions?: Record<string, string[]>
         }
         headers?: Headers
-    }): Promise<PostbotApiKeyRecord & { readonly key: string }>
+    }): Promise<PostdotApiKeyRecord & { readonly key: string }>
     listApiKeys(input: {
         query: { configId?: string; organizationId?: string; limit?: number; offset?: number }
         headers: Headers
-    }): Promise<{ readonly apiKeys: readonly PostbotApiKeyRecord[]; readonly total: number }>
+    }): Promise<{ readonly apiKeys: readonly PostdotApiKeyRecord[]; readonly total: number }>
     deleteApiKey(input: {
         body: { configId?: string; keyId: string }
         headers: Headers
@@ -217,16 +217,16 @@ export interface PostbotApiKeyAuthApi {
             permissions?: Record<string, string[]> | null
         }
         headers?: Headers
-    }): Promise<PostbotApiKeyRecord>
+    }): Promise<PostdotApiKeyRecord>
     verifyApiKey(input: {
         body: { configId?: string; key: string }
     }): Promise<
-        | { readonly valid: true; readonly error: null; readonly key: PostbotApiKeyRecord }
+        | { readonly valid: true; readonly error: null; readonly key: PostdotApiKeyRecord }
         | { readonly valid: false; readonly error: unknown; readonly key: null }
     >
 }
 
-export interface PostbotOrganizationInvitation {
+export interface PostdotOrganizationInvitation {
     readonly id: string
     readonly email: string
     readonly role: string
@@ -240,13 +240,13 @@ export interface PostbotOrganizationInvitation {
     readonly teamId?: string
 }
 
-export interface PostbotOrganizationInvitationDetails extends PostbotOrganizationInvitation {
+export interface PostdotOrganizationInvitationDetails extends PostdotOrganizationInvitation {
     readonly organizationName: string
     readonly organizationSlug: string
     readonly inviterEmail: string
 }
 
-export interface PostbotOrganizationTeam {
+export interface PostdotOrganizationTeam {
     readonly id: string
     readonly name: string
     readonly organizationId: string
@@ -255,25 +255,25 @@ export interface PostbotOrganizationTeam {
     readonly updatedAt?: Date
 }
 
-export interface PostbotOrganizationTeamMember {
+export interface PostdotOrganizationTeamMember {
     readonly id: string
     readonly teamId: string
     readonly userId: string
     readonly createdAt: Date
 }
 
-export interface PostbotOrganizationInvitationAuthApi {
+export interface PostdotOrganizationInvitationAuthApi {
     listMembers(input: {
         query: { organizationId: string; limit?: number; offset?: number }
         headers: Headers
     }): Promise<{
-        readonly members: readonly PostbotOrganizationMember[]
+        readonly members: readonly PostdotOrganizationMember[]
         readonly total: number
     }>
     listInvitations(input: {
         query: { organizationId: string }
         headers: Headers
-    }): Promise<readonly PostbotOrganizationInvitation[]>
+    }): Promise<readonly PostdotOrganizationInvitation[]>
     createInvitation(input: {
         body: {
             email: string
@@ -285,13 +285,13 @@ export interface PostbotOrganizationInvitationAuthApi {
             projectRole?: string
         }
         headers: Headers
-    }): Promise<PostbotOrganizationInvitation>
+    }): Promise<PostdotOrganizationInvitation>
     getInvitation(input: {
         query: { id: string }
         headers: Headers
-    }): Promise<PostbotOrganizationInvitationDetails>
+    }): Promise<PostdotOrganizationInvitationDetails>
     acceptInvitation(input: { body: { invitationId: string }; headers: Headers }): Promise<{
-        readonly invitation: PostbotOrganizationInvitation
+        readonly invitation: PostdotOrganizationInvitation
         readonly member: {
             readonly id: string
             readonly organizationId: string
@@ -303,37 +303,37 @@ export interface PostbotOrganizationInvitationAuthApi {
     cancelInvitation(input: {
         body: { invitationId: string }
         headers: Headers
-    }): Promise<PostbotOrganizationInvitation>
+    }): Promise<PostdotOrganizationInvitation>
     listOrganizationTeams(input: {
         query: { organizationId: string }
         headers: Headers
-    }): Promise<readonly PostbotOrganizationTeam[]>
+    }): Promise<readonly PostdotOrganizationTeam[]>
     createTeam(input: {
         body: { name: string; organizationId: string }
         headers: Headers
-    }): Promise<PostbotOrganizationTeam>
+    }): Promise<PostdotOrganizationTeam>
     updateTeam(input: {
         body: {
             teamId: string
             data: { name?: string; organizationId?: string }
         }
         headers: Headers
-    }): Promise<PostbotOrganizationTeam>
+    }): Promise<PostdotOrganizationTeam>
     listTeamMembers(input: {
         query: { teamId: string }
         headers: Headers
-    }): Promise<readonly PostbotOrganizationTeamMember[]>
+    }): Promise<readonly PostdotOrganizationTeamMember[]>
     addTeamMember(input: {
         body: { teamId: string; userId: string; organizationId: string }
         headers: Headers
-    }): Promise<PostbotOrganizationTeamMember>
+    }): Promise<PostdotOrganizationTeamMember>
     removeTeamMember(input: {
         body: { teamId: string; userId: string; organizationId: string }
         headers: Headers
     }): Promise<{ readonly message: string }>
 }
 
-export interface PostbotAdminAuthApi {
+export interface PostdotAdminAuthApi {
     setRole(input: {
         body: { userId: string; role: string | string[] }
         headers: Headers
@@ -345,18 +345,18 @@ export interface PostbotAdminAuthApi {
     unbanUser(input: { body: { userId: string }; headers: Headers }): Promise<unknown>
 }
 
-export type PostbotAuth = Auth<PostbotAuthOptions> & {
-    readonly api: Auth<PostbotAuthOptions>['api'] &
-        PostbotOrganizationAuthApi &
-        PostbotApiKeyAuthApi &
-        PostbotOrganizationInvitationAuthApi &
-        PostbotAdminAuthApi
+export type PostdotAuth = Auth<PostdotAuthOptions> & {
+    readonly api: Auth<PostdotAuthOptions>['api'] &
+        PostdotOrganizationAuthApi &
+        PostdotApiKeyAuthApi &
+        PostdotOrganizationInvitationAuthApi &
+        PostdotAdminAuthApi
 }
 
 export function createAuth(
-    database: PostbotDatabase,
-    runtimeOptions: PostbotAuthRuntimeOptions = {}
-): PostbotAuth {
+    database: PostdotDatabase,
+    runtimeOptions: PostdotAuthRuntimeOptions = {}
+): PostdotAuth {
     const {
         access: accessOption,
         allowAdditionalSignups = false,
@@ -436,7 +436,7 @@ export function createAuth(
                 if (
                     authContext.request !== undefined &&
                     authContext.path !== undefined &&
-                    isPostbotManagedAuthMutation(authContext.path)
+                    isPostdotManagedAuthMutation(authContext.path)
                 ) {
                     throw new APIError('FORBIDDEN', {
                         message: 'Use the corresponding Postdot access route for this operation',
@@ -446,8 +446,8 @@ export function createAuth(
         },
         emailAndPassword: {
             enabled: true,
-            minPasswordLength: postbotPasswordPolicy.minimumLength,
-            maxPasswordLength: postbotPasswordPolicy.maximumLength,
+            minPasswordLength: postdotPasswordPolicy.minimumLength,
+            maxPasswordLength: postdotPasswordPolicy.maximumLength,
             ...(sendPasswordResetEmail === undefined
                 ? {}
                 : {
@@ -480,7 +480,7 @@ export function createAuth(
                           : { sendOnSignUp: sendEmailVerificationOnSignUp }),
                   },
               }),
-        plugins: createPostbotAuthPlugins(
+        plugins: createPostdotAuthPlugins(
             {
                 afterOrganizationInvitationAccepted: ({
                     organizationId,
@@ -535,7 +535,7 @@ export function createAuth(
                     if (access.getWorkspaceByOrganizationId(organizationId) === null) return
                     access.syncTeamMemberToProjectGrants({ teamId, userId, displayName })
                 },
-            } satisfies PostbotAuthPluginHooks,
+            } satisfies PostdotAuthPluginHooks,
             {
                 organizationInvitationURL,
                 requireEmailVerificationOnInvitation,
@@ -597,5 +597,5 @@ export function createAuth(
                 },
             },
         },
-    }) as unknown as PostbotAuth
+    }) as unknown as PostdotAuth
 }

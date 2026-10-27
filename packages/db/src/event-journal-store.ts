@@ -12,7 +12,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 
 const cursorPrefix = 'event-sequence:'
@@ -83,7 +83,7 @@ interface EventJournalRow {
 }
 
 export function createEventJournalStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: EventJournalStoreOptions = {}
 ) {
     const client = database.$client

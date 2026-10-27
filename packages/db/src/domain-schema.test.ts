@@ -3,7 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { createManualChannelProfile } from '@postdot/core'
 import { eq } from 'drizzle-orm'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
@@ -21,7 +21,7 @@ import {
 } from './schema'
 import { seedTestWorkspace, seedWorkspaceChannel, workspaceOf } from './testing'
 
-function seedProject(database: PostbotDatabase, suffix: string) {
+function seedProject(database: PostdotDatabase, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
     const channelId = `channel-${suffix}`
@@ -325,7 +325,7 @@ describe('domain schema', () => {
                 channelId: fixture.channelId,
                 providerId: 'linkedin',
                 connectedByActorId: fixture.actorId,
-                callbackUri: 'https://postbot.example.com/api/oauth/linkedin/callback',
+                callbackUri: 'https://postdot.example.com/api/oauth/linkedin/callback',
                 scopes: [],
                 returnPath: '/projects/one',
                 stateDigest: Buffer.alloc(32, 1),

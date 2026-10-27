@@ -11,8 +11,8 @@ import {
 export const devtoChannelProfile: ChannelProfileDefinition = {
     id: DEVTO_PROVIDER,
     version: 1,
-    profileHash: 'sha256:postbot-devto-article-v1',
-    schemaHash: 'sha256:postbot-devto-article-schema-v1',
+    profileHash: 'sha256:postdot-devto-article-v1',
+    schemaHash: 'sha256:postdot-devto-article-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',

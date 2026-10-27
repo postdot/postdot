@@ -16,9 +16,9 @@ import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 describe('SQLite backup and restore', () => {
     it('creates a consistent backup and restores it atomically', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
-        const backupPath = join(directory, 'backups', 'postbot.sqlite')
+        const backupPath = join(directory, 'backups', 'postdot.sqlite')
         const restoredPath = join(directory, 'restored.sqlite')
 
         try {
@@ -50,7 +50,7 @@ describe('SQLite backup and restore', () => {
     })
 
     it('rejects overwriting an existing backup and using the same path', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
         const backupPath = join(directory, 'backup.sqlite')
 
@@ -74,7 +74,7 @@ describe('SQLite backup and restore', () => {
     })
 
     it('refuses restore while the Postdot runtime owns the database boundary', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-db-recovery-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-db-recovery-'))
         const sourcePath = join(directory, 'source.sqlite')
         const restoredPath = join(directory, 'restored.sqlite')
 
@@ -96,9 +96,9 @@ describe('SQLite backup and restore', () => {
     })
 
     it('backs up and restores database rows together with verified media bytes', async () => {
-        const directory = await mkdtemp(join(tmpdir(), 'postbot-media-backup-'))
+        const directory = await mkdtemp(join(tmpdir(), 'postdot-media-backup-'))
         const sourcePath = join(directory, 'source.sqlite')
-        const bundlePath = join(directory, 'backups', 'postbot.bundle')
+        const bundlePath = join(directory, 'backups', 'postdot.bundle')
         const restoredPath = join(directory, 'restored.sqlite')
         const sourceMediaPath = join(directory, 'source-media')
         const restoredMediaPath = join(directory, 'restored-media')

@@ -9,7 +9,7 @@ import type { Publication } from '@postdot/core'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import type { ActorRow } from './rows'
@@ -96,7 +96,7 @@ function toApprovalRequest(row: ApprovalRequestDbRow): PublicationApprovalReques
 }
 
 export function createPublicationApprovalStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationApprovalStoreOptions
 ) {
     const client = database.$client

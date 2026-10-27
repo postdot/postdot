@@ -11,7 +11,7 @@ test('project roles keep viewer read-only and editor actions available', async (
     expect(browser).not.toBeNull()
     if (browser === null) throw new Error('The role test browser was not created')
 
-    const viewerEmail = `e2e-136-viewer-${suffix}@postbot.local`
+    const viewerEmail = `e2e-136-viewer-${suffix}@postdot.local`
     const viewerInvitation = await createProjectInvitation(
         page,
         owner.projectId,
@@ -62,7 +62,7 @@ test('project roles keep viewer read-only and editor actions available', async (
         await viewerContext.close()
     }
 
-    const editorEmail = `e2e-136-editor-${suffix}@postbot.local`
+    const editorEmail = `e2e-136-editor-${suffix}@postdot.local`
     const editorInvitation = await createProjectInvitation(
         page,
         owner.projectId,
@@ -162,7 +162,7 @@ async function acceptProjectInvitation(
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-136-owner-${suffix}@postbot.local`
+    const email = `e2e-136-owner-${suffix}@postdot.local`
     const projectName = `E2E-136 project ${suffix}`
 
     await page.goto('/setup')

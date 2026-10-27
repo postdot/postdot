@@ -12,7 +12,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { publicationHasAttempt, readPublicationMovement } from '../publication-move-state'
@@ -34,7 +34,7 @@ export interface MovePublicationInput {
     cadenceConfirmation?: string
 }
 export function createPublicationMoveStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: {
         now: () => number
         createId: () => string

@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import type { NotificationDestinationSecretCipher } from './notification-destination-secret-crypto'
 
 type NotificationDestinationSecretState = 'active' | 'retired'
@@ -80,7 +80,7 @@ export interface NotificationDestinationSecretStoreOptions {
 }
 
 export function createNotificationDestinationSecretStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: NotificationDestinationSecretStoreOptions
 ) {
     const client = database.$client

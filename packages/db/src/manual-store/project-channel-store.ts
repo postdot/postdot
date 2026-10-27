@@ -13,7 +13,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '../client'
 import { createWorkspaceActorStore } from '../workspace-actor-store'
 import { createWorkspaceChannelStore } from '../workspace-channel-store'
@@ -64,7 +64,7 @@ export interface ProjectChannelStoreOptions {
 }
 
 export function createProjectChannelStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: ProjectChannelStoreOptions
 ) {
     const client = database.$client

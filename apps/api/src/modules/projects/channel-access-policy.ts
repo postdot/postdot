@@ -1,19 +1,19 @@
 import type { AccessStore, ChannelAccessPolicy } from '@postdot/db'
 
-import type { PostbotAuthenticationMethod } from '../../plugins/auth'
+import type { PostdotAuthenticationMethod } from '../../plugins/auth'
 import {
     apiKeyHasCapability,
-    type PostbotApiKeyCapability,
-    type PostbotApiKeyPermissions,
+    type PostdotApiKeyCapability,
+    type PostdotApiKeyPermissions,
 } from './api-key-permissions'
 
 export interface ChannelAccessPolicyInput {
     readonly access: AccessStore
     readonly userId: string
-    readonly authMethod: PostbotAuthenticationMethod
+    readonly authMethod: PostdotAuthenticationMethod
     /** `null` means every project the owner can reach; `undefined` for sessions. */
     readonly apiKeyProjectIds: readonly string[] | null | undefined
-    readonly apiKeyPermissions: PostbotApiKeyPermissions | undefined
+    readonly apiKeyPermissions: PostdotApiKeyPermissions | undefined
 }
 
 /**
@@ -25,7 +25,7 @@ export function createChannelAccessPolicy(input: ChannelAccessPolicyInput): Chan
     const { access, userId } = input
     const isKey = input.authMethod === 'user_api_key'
     const scoped = isKey && input.apiKeyProjectIds != null
-    const capable = (capability: PostbotApiKeyCapability) =>
+    const capable = (capability: PostdotApiKeyCapability) =>
         !isKey || apiKeyHasCapability(input.apiKeyPermissions ?? null, capability)
     const inScope = (projectId: string) =>
         !scoped || (input.apiKeyProjectIds?.includes(projectId) ?? false)

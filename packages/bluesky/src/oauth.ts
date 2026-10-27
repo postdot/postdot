@@ -78,7 +78,7 @@ export type SerializedBlueskyState = Omit<InternalStateData, 'dpopKey'> & {
 }
 
 export type SerializedBlueskySession = Omit<Session, 'dpopKey'> & {
-    readonly postbotClientId?: string
+    readonly postdotClientId?: string
     readonly dpopJwk: Jwk
 }
 
@@ -147,7 +147,7 @@ export function serializeBlueskySession(session: Session, clientId?: string): st
     const { dpopKey, ...rest } = session
     return serialize({
         ...rest,
-        ...(clientId ? { postbotClientId: clientId } : {}),
+        ...(clientId ? { postdotClientId: clientId } : {}),
         dpopJwk: requirePrivateDpopJwk(dpopKey),
     })
 }
@@ -320,9 +320,9 @@ export function blueskySessionClientMetadata(
         redirect_uris: [redirectUri],
         scope: BLUESKY_IMAGE_SCOPES.join(' '),
     })
-    const stored = JSON.parse(serializedSession) as { postbotClientId?: string }
-    if (stored.postbotClientId === metadata.client_id) return metadata
-    if (stored.postbotClientId !== undefined && stored.postbotClientId !== legacy.client_id) {
+    const stored = JSON.parse(serializedSession) as { postdotClientId?: string }
+    if (stored.postdotClientId === metadata.client_id) return metadata
+    if (stored.postdotClientId !== undefined && stored.postdotClientId !== legacy.client_id) {
         throw new Error(
             'The stored Bluesky client identity does not match the configured application'
         )

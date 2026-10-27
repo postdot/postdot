@@ -31,8 +31,8 @@ const telegramMediaItemSchema = {
 export const telegramMessageChannelProfile: ChannelProfileDefinition = {
     id: 'telegram',
     version: 1,
-    profileHash: 'sha256:postbot-telegram-message-v1',
-    schemaHash: 'sha256:postbot-telegram-message-schema-v1',
+    profileHash: 'sha256:postdot-telegram-message-v1',
+    schemaHash: 'sha256:postdot-telegram-message-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -115,8 +115,8 @@ const telegramPollContentSchema = {
 export const telegramPollChannelProfile: ChannelProfileDefinition = {
     ...telegramMessageChannelProfile,
     version: 2,
-    profileHash: 'sha256:postbot-telegram-message-v2',
-    schemaHash: 'sha256:postbot-telegram-message-schema-v2',
+    profileHash: 'sha256:postdot-telegram-message-v2',
+    schemaHash: 'sha256:postdot-telegram-message-schema-v2',
     contentSchema: {
         ...telegramMessageChannelProfile.contentSchema,
         properties: {
@@ -146,8 +146,8 @@ export const telegramPollChannelProfile: ChannelProfileDefinition = {
 export const telegramChannelProfile: ChannelProfileDefinition = {
     ...telegramPollChannelProfile,
     version: 3,
-    profileHash: 'sha256:postbot-telegram-message-v3',
-    schemaHash: 'sha256:postbot-telegram-message-schema-v3',
+    profileHash: 'sha256:postdot-telegram-message-v3',
+    schemaHash: 'sha256:postdot-telegram-message-schema-v3',
     contentSchema: {
         ...telegramPollChannelProfile.contentSchema,
         properties: {

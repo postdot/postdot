@@ -36,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-bootstrap-container-") as direc
     # Parent directory is private; the container's unprivileged user can read the mount.
     secret.chmod(0o444)
     mounts = ["--volume", f"{data}:/data", "--volume", f"{secret}:/run/secrets/bootstrap.json:ro"]
-    command = ["account", "bootstrap", "--database", "/data/postbot.sqlite", "--input", "/run/secrets/bootstrap.json"]
+    command = ["account", "bootstrap", "--database", "/data/postdot.sqlite", "--input", "/run/secrets/bootstrap.json"]
     first = docker("run", "--rm", *mounts, image["Id"], *command)
     assert "administrator created" in first.stdout
     assert credentials["password"] not in first.stdout + first.stderr
@@ -45,9 +45,9 @@ with tempfile.TemporaryDirectory(prefix="postdot-bootstrap-container-") as direc
     assert credentials["password"] not in second.stdout + second.stderr
     environment = root / "environment"
     environment.write_text("\n".join(f"{key}={value}" for key, value in {
-        "BETTER_AUTH_URL": "http://localhost:3000", "POSTBOT_WEB_ORIGIN": "http://localhost:3000",
-        "BETTER_AUTH_SECRET": secrets.token_hex(32), "POSTBOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
-        "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32), "POSTBOT_MEDIA_DIRECTORY": "/data/media", "LOG_LEVEL": "error",
+        "BETTER_AUTH_URL": "http://localhost:3000", "POSTDOT_WEB_ORIGIN": "http://localhost:3000",
+        "BETTER_AUTH_SECRET": secrets.token_hex(32), "POSTDOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
+        "POSTDOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32), "POSTDOT_MEDIA_DIRECTORY": "/data/media", "LOG_LEVEL": "error",
     }.items()))
     environment.chmod(0o600)
     name = "postdot-bootstrap-" + secrets.token_hex(6)

@@ -9,7 +9,7 @@ import {
 
 import { createChannelCadenceStore } from '../channel-cadence'
 import { publicationDestinationConfirmed } from '../channel-destination'
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
 import { createRetainedTargetAssessor } from '../retained-target-assessment'
 import { toActor, toPublication } from './mappers'
@@ -54,7 +54,7 @@ export interface PublicationRetryStoreOptions {
 }
 
 export function createPublicationRetryStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationRetryStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)

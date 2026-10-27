@@ -59,7 +59,7 @@ export function AuthForm({
     const emailId = `auth-email-${formId}`
     const passwordId = `auth-password-${formId}`
     const resolvedModeToggleLabels = modeToggleLabels ?? {
-        signIn: m.auth_setup_postbot(),
+        signIn: m.auth_setup_postdot(),
         signUp: m.auth_back_to_sign_in(),
     }
 

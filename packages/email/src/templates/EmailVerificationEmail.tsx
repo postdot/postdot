@@ -4,9 +4,9 @@ import { Text } from '@react-email/text'
 import * as React from 'react'
 
 import { emailStyles } from '../styles'
-import { PostbotEmailLayout } from './PostbotEmailLayout'
+import { PostdotEmailLayout } from './PostdotEmailLayout'
 
-export interface PostbotAccountEmailInput {
+export interface PostdotAccountEmailInput {
     readonly user: {
         readonly email: string
         readonly name: string
@@ -16,9 +16,9 @@ export interface PostbotAccountEmailInput {
 
 export const emailVerificationSubject = 'Verify your Postdot email address'
 
-export function EmailVerificationEmail({ user, url }: PostbotAccountEmailInput) {
+export function EmailVerificationEmail({ user, url }: PostdotAccountEmailInput) {
     return (
-        <PostbotEmailLayout
+        <PostdotEmailLayout
             preview="Confirm your email address to finish setting up your Postdot account."
             title={emailVerificationSubject}>
             <Text style={emailStyles.text}>Hello {user.name},</Text>
@@ -37,11 +37,11 @@ export function EmailVerificationEmail({ user, url }: PostbotAccountEmailInput) 
                 </Link>
             </Text>
             <Text style={emailStyles.notice}>This link expires after one hour.</Text>
-        </PostbotEmailLayout>
+        </PostdotEmailLayout>
     )
 }
 
-const previewProps: PostbotAccountEmailInput = {
+const previewProps: PostdotAccountEmailInput = {
     user: {
         email: 'preview@example.test',
         name: 'Alex Martin',

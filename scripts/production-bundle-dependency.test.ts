@@ -37,8 +37,8 @@ const shutdownDeadlineMilliseconds = 15_000
 const healthPollIntervalMilliseconds = 50
 const servingTimeoutMilliseconds = 60_000
 
-const syntheticBetterAuthSecret = 'postbot-bundle-guard-better-auth-secret-value'
-const syntheticMediaPublicUrlSecret = 'postbot-bundle-guard-media-public-url-secret'
+const syntheticBetterAuthSecret = 'postdot-bundle-guard-better-auth-secret-value'
+const syntheticMediaPublicUrlSecret = 'postdot-bundle-guard-media-public-url-secret'
 const syntheticPublisherEncryptionKey = 'a1b2c3d4'.repeat(8)
 
 interface BundleWorkspace {
@@ -128,7 +128,7 @@ function requireWorkspace(): BundleWorkspace {
  * `node_modules` anywhere on the path from the working directory upwards.
  */
 async function createBundleWorkspace(): Promise<BundleWorkspace> {
-    const root = mkdtempSync(join(tmpdir(), 'postbot-production-bundle-'))
+    const root = mkdtempSync(join(tmpdir(), 'postdot-production-bundle-'))
     try {
         return await populateBundleWorkspace(root)
     } catch (error) {
@@ -209,7 +209,7 @@ async function populateBundleWorkspace(root: string): Promise<BundleWorkspace> {
         bundlePath,
         assetsDirectory,
         mediaDirectory,
-        databaseFile: join(dataDirectory, 'postbot.sqlite'),
+        databaseFile: join(dataDirectory, 'postdot.sqlite'),
         bunInstallDirectory,
         bundleText,
         carriedSpecifiers,
@@ -312,14 +312,14 @@ async function startBundle(current: BundleWorkspace): Promise<{
             NODE_ENV: 'production',
             PORT: String(port),
             DB_FILE_NAME: current.databaseFile,
-            POSTBOT_MEDIA_DIRECTORY: current.mediaDirectory,
-            POSTBOT_MIGRATIONS_DIR: migrationsDirectory,
-            POSTBOT_WEB_ASSETS_DIR: current.assetsDirectory,
+            POSTDOT_MEDIA_DIRECTORY: current.mediaDirectory,
+            POSTDOT_MIGRATIONS_DIR: migrationsDirectory,
+            POSTDOT_WEB_ASSETS_DIR: current.assetsDirectory,
             BETTER_AUTH_URL: baseURL,
-            POSTBOT_WEB_ORIGIN: baseURL,
+            POSTDOT_WEB_ORIGIN: baseURL,
             BETTER_AUTH_SECRET: syntheticBetterAuthSecret,
-            POSTBOT_MEDIA_PUBLIC_URL_SECRET: syntheticMediaPublicUrlSecret,
-            POSTBOT_PUBLISHER_ENCRYPTION_KEY: syntheticPublisherEncryptionKey,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: syntheticMediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: syntheticPublisherEncryptionKey,
         },
         stdout: 'pipe',
         stderr: 'pipe',

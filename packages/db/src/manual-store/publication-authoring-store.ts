@@ -10,7 +10,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type {
     PublicationWorkingDraft,
     RebasePublicationDraftInput,
@@ -42,7 +42,7 @@ export interface PublicationAuthoringStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationAuthoringStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationAuthoringStoreOptions
 ) {
     const client = database.$client

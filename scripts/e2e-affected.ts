@@ -182,7 +182,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
             'apps/web/src/stories/media-library.stories.tsx',
             'apps/web/src/components/publication-article-body.tsx',
             'apps/web/src/lib/media-*.ts',
-            'apps/web/src/lib/postbot-media-upload.ts',
+            'apps/web/src/lib/postdot-media-upload.ts',
         ],
         specs: [
             'e2e/design-121-narrow-new-publication.spec.ts',

@@ -42,7 +42,7 @@ export function registerSearchRoutes<const Routes extends Record<string, unknown
                 422: errorResponse,
             },
             detail: {
-                operationId: 'searchPostbot',
+                operationId: 'searchPostdot',
                 summary: 'Search current source posts, channels, media and accessible projects',
                 tags: ['Search'],
             },

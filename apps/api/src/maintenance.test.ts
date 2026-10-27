@@ -14,8 +14,8 @@ import { createLocalMediaStore } from '@postdot/media'
 import { runMaintenanceCommand } from './maintenance'
 
 it('runs preview maintenance only against an existing offline database and releases its lock', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-preview-maintenance-'))
-    const databaseFileName = join(directory, 'postbot.sqlite')
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-preview-maintenance-'))
+    const databaseFileName = join(directory, 'postdot.sqlite')
     const mediaStore = createLocalMediaStore({
         storeId: 'local-default',
         rootDirectory: join(directory, 'media'),
@@ -64,7 +64,7 @@ for (const command of ['', 'backup', 'restore', 'recovery', 'media-previews', 'a
                         cwd: directory,
                         env: {
                             PATH: process.env.PATH,
-                            POSTBOT_MEDIA_STORE: 'invalid-help-must-ignore-config',
+                            POSTDOT_MEDIA_STORE: 'invalid-help-must-ignore-config',
                             DB_FILE_NAME: join(directory, 'must-not-exist.sqlite'),
                         },
                         stdin: 'ignore',
@@ -79,7 +79,7 @@ for (const command of ['', 'backup', 'restore', 'recovery', 'media-previews', 'a
                         child.exited,
                     ])
                     expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: '' })
-                    expect(stdout).toContain(`Usage: bun /app/postbot.js ${command}`)
+                    expect(stdout).toContain(`Usage: bun /app/postdot.js ${command}`)
                     if (command === '') {
                         for (const name of [
                             'backup',

@@ -24,9 +24,9 @@ import {
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 
 import { createApp } from './app'
-import { createPostbotConfig, createPostbotMaintenanceConfig, decodeHexKey } from './config'
+import { createPostdotConfig, createPostdotMaintenanceConfig, decodeHexKey } from './config'
 import { printMaintenanceHelp, runMaintenanceCommand } from './maintenance'
-import { createPostbotAuthEmailDelivery } from './modules/email/delivery'
+import { createPostdotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
@@ -34,7 +34,7 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createMediaUrlImporter } from './modules/media/url-import'
-import { createPostbotMetrics } from './modules/metrics/metrics'
+import { createPostdotMetrics } from './modules/metrics/metrics'
 import { createNotificationEmailRuntime } from './modules/notifications/email-runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublicationFirstCommentService } from './modules/projects/publication-first-comment-service'
@@ -57,7 +57,7 @@ import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-po
 
 export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
 export { createApp } from './app'
-export type { PostbotApp } from './app'
+export type { PostdotApp } from './app'
 export { createPublisherRuntime } from './modules/publishers/runtime'
 export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
@@ -112,7 +112,7 @@ export type {
     NotificationResponse,
 } from './modules/projects/notification-models'
 
-async function startServer(config = createPostbotConfig()) {
+async function startServer(config = createPostdotConfig()) {
     // The process signals are handled before the runtime marker exists, so a
     // termination during startup runs the same drain as a running server
     // instead of the platform default disposition. The default disposition
@@ -144,7 +144,7 @@ async function startServer(config = createPostbotConfig()) {
 }
 
 async function startServerWithRuntimeLock(
-    config: ReturnType<typeof createPostbotConfig>,
+    config: ReturnType<typeof createPostdotConfig>,
     dependencies: MutableShutdownDependencies,
     shutdownRequested: () => boolean
 ) {
@@ -163,7 +163,7 @@ async function startServerWithRuntimeLock(
         store: createInstallationEmailSettingsStore(
             database,
             createSecretCipher({
-                domain: 'postbot.installation-email',
+                domain: 'postdot.installation-email',
                 keyId: config.security.publisherEncryptionKeyId,
                 key: decodeHexKey(config.security.publisherEncryptionKey),
             })
@@ -184,13 +184,13 @@ async function startServerWithRuntimeLock(
             emailRuntime?.runProjects(projectIds)
         },
         resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
-        onError: error => console.error('[postbot-realtime] post-commit wakeup failed', error),
+        onError: error => console.error('[postdot-realtime] post-commit wakeup failed', error),
     })
     dependencies.stopRealtime = () => realtime.stop()
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
         database,
         projectIds => realtime.publish(projectIds),
-        error => console.error('[postbot-realtime] post-commit observer failed', error)
+        error => console.error('[postdot-realtime] post-commit observer failed', error)
     )
     dependencies.clearCommitObserver = () => clearDatabaseCommitObserver()
     const resourceLifecycle = createResourceLifecycleStore(database)
@@ -232,16 +232,16 @@ async function startServerWithRuntimeLock(
         await posterRuntime?.stop()
         await mediaMaintenance.stop()
     }
-    const email = createPostbotAuthEmailDelivery({
+    const email = createPostdotAuthEmailDelivery({
         getSmtp: () => (recovery.held() ? undefined : emailSettings.current()),
         transport: emailSettings,
         webOrigin: config.web.origin,
         onDeliveryError: kind => {
-            console.error(`[postbot-email] ${kind} delivery failed`)
+            console.error(`[postdot-email] ${kind} delivery failed`)
         },
     })
     const allowAdditionalSignups =
-        config.environment === 'test' && Bun.env.POSTBOT_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
+        config.environment === 'test' && Bun.env.POSTDOT_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
@@ -282,7 +282,7 @@ async function startServerWithRuntimeLock(
         )
     )
     const metricsConfiguration = config.metrics
-    const metrics = metricsConfiguration === undefined ? undefined : createPostbotMetrics()
+    const metrics = metricsConfiguration === undefined ? undefined : createPostdotMetrics()
     const publicationReplies = createPublicationRepliesService({ database, publisher })
     const publicationFirstComments = createPublicationFirstCommentService({ database, publisher })
     const worker = createPublicationWorker({
@@ -370,7 +370,7 @@ async function startServerWithRuntimeLock(
     if (!recovery.held()) resumeRuntimes()
     notificationProjection.start()
     if (recovery.held())
-        console.warn('[postbot-recovery] inspection only; resume from installation settings')
+        console.warn('[postdot-recovery] inspection only; resume from installation settings')
     app.listen(config.server.port)
     registerServingHandle(app.server)
 }
@@ -384,7 +384,7 @@ if (import.meta.main) {
             await runMaintenanceCommand(args)
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Account recovery failed'
-            console.error(`[postbot-maintenance] ${message}`)
+            console.error(`[postdot-maintenance] ${message}`)
             process.exitCode = 1
         }
     } else if (
@@ -393,7 +393,7 @@ if (import.meta.main) {
         args[0] === 'recovery' ||
         args[0] === 'media-previews'
     ) {
-        const config = createPostbotMaintenanceConfig()
+        const config = createPostdotMaintenanceConfig()
         await runMaintenanceCommand(args, {
             databaseFileName: config.databaseFileName,
             ...(args.includes('--media') || args[0] === 'media-previews'

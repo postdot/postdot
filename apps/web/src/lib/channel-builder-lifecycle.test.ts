@@ -48,7 +48,7 @@ test('persists mapped builder edits through draft review and guarded activation'
                 headers: { 'content-type': 'application/json', origin },
                 body: JSON.stringify({
                     name: 'Builder Operator',
-                    email: 'builder@postbot.local',
+                    email: 'builder@postdot.local',
                     password: 'correct-horse-battery-staple',
                 }),
             })

@@ -14,7 +14,7 @@ import {
     setDatabaseCommitObserver,
     type EventJournalCursor,
     type EventJournalEntry,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '@postdot/db'
 import { seedTestWorkspace } from '@postdot/db/testing'
 
@@ -27,13 +27,13 @@ const eventTime = 1_800_000_000_000
 const projectionTime = eventTime + 1_000
 const idleHeartbeatIntervalMs = 60_000
 
-function createFixture(database: PostbotDatabase) {
+function createFixture(database: PostdotDatabase) {
     let nextId = 0
     const createId = () => `realtime-106-${++nextId}`
     database.$client
         .query(
             `insert into user (id, name, email, email_verified, created_at, updated_at)
-             values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@postbot.local', 0, ?1, ?1)`
+             values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@postdot.local', 0, ?1, ?1)`
         )
         .run(eventTime)
     database.$client
@@ -185,9 +185,9 @@ function createWaiterTracker() {
 }
 
 async function createTemporaryDatabase() {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-realtime-106-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-realtime-106-'))
     return {
-        filename: join(directory, 'postbot.sqlite'),
+        filename: join(directory, 'postdot.sqlite'),
         async remove() {
             await rm(directory, { recursive: true, force: true })
         },
@@ -355,7 +355,7 @@ describe('REALTIME-106 realtime validation', () => {
 
     it('recovers journal replay and notification projection after reopening a temporary database', async () => {
         const temporary = await createTemporaryDatabase()
-        let database: PostbotDatabase | undefined
+        let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
             runMigrations(database)
@@ -412,7 +412,7 @@ describe('REALTIME-106 realtime validation', () => {
 
     it('keeps a temporary-database burst ordered, deduplicated, and bounded after subscriber cleanup', async () => {
         const temporary = await createTemporaryDatabase()
-        let database: PostbotDatabase | undefined
+        let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
             runMigrations(database)

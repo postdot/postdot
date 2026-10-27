@@ -8,7 +8,7 @@ test('loads a shipped template locally and preserves explicit impact and activat
     await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Profile operator',
-            email: `profile-${randomUUID()}@postbot.local`,
+            email: `profile-${randomUUID()}@postdot.local`,
             password: 'profile-fixture-password',
         },
     })

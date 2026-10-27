@@ -1,21 +1,21 @@
-import type { PostbotApiKeyRecord, PostbotAuth } from '@postdot/auth'
+import type { PostdotApiKeyRecord, PostdotAuth } from '@postdot/auth'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import { Elysia } from 'elysia'
 
-type PostbotApiKeyPermissions = PostbotApiKeyRecord['permissions']
-export type PostbotAuthenticatedApiKeyPermissions = PostbotApiKeyPermissions
+type PostdotApiKeyPermissions = PostdotApiKeyRecord['permissions']
+export type PostdotAuthenticatedApiKeyPermissions = PostdotApiKeyPermissions
 
 interface UserApiKeyAuthentication {
     /** null means all projects currently available to the key owner. */
     readonly projectIds: readonly string[] | null
     readonly ownerUserId: string
     readonly displayName: string
-    readonly permissions: PostbotApiKeyPermissions
+    readonly permissions: PostdotApiKeyPermissions
 }
 
-export function createAuthRoutes(auth: Pick<PostbotAuth, 'handler'>) {
+export function createAuthRoutes(auth: Pick<PostdotAuth, 'handler'>) {
     return (
-        new Elysia({ name: 'postbot-auth-routes' })
+        new Elysia({ name: 'postdot-auth-routes' })
             // A method-specific SPA fallback otherwise wins over the root ALL mount.
             .get('/api/auth/*', { parse: 'none', detail: { hide: true } }, ({ request }) =>
                 auth.handler(request)
@@ -37,7 +37,7 @@ export interface AuthenticatedElysiaOptions {
     readonly authorizeUserApiKeyRequest?: (
         method: string,
         requestPath: string,
-        permissions: PostbotApiKeyPermissions
+        permissions: PostdotApiKeyPermissions
     ) => boolean
     /**
      * Current project access for an authenticated caller. Session requests and
@@ -50,18 +50,18 @@ export interface AuthenticatedElysiaOptions {
         requestPath: string,
         requestContext?: {
             readonly method: string
-            readonly authMethod: PostbotAuthenticationMethod
+            readonly authMethod: PostdotAuthenticationMethod
             readonly apiKeyProjectIds?: readonly string[] | null
-            readonly apiKeyPermissions?: PostbotApiKeyPermissions
+            readonly apiKeyPermissions?: PostdotApiKeyPermissions
         }
     ) => boolean
 }
 
-type PostbotAuthSession = NonNullable<Awaited<ReturnType<PostbotAuth['api']['getSession']>>>
-export type PostbotAuthenticatedUser = Pick<PostbotAuthSession['user'], 'id' | 'name'> & {
+type PostdotAuthSession = NonNullable<Awaited<ReturnType<PostdotAuth['api']['getSession']>>>
+export type PostdotAuthenticatedUser = Pick<PostdotAuthSession['user'], 'id' | 'name'> & {
     readonly email: string | null
 }
-export type PostbotAuthenticationMethod = 'session' | 'user_api_key'
+export type PostdotAuthenticationMethod = 'session' | 'user_api_key'
 
 function parseBearerToken(authorization: string): string | null {
     const match = /^Bearer\s+(\S+)$/i.exec(authorization)
@@ -75,7 +75,7 @@ export const sessionSecurity = [{ sessionCookie: [] }]
  * cannot model the runtime union between a Better Auth session and an API key
  * without collapsing downstream route schemas to `never`.
  */
-function createAuthenticatedElysiaContract(auth: PostbotAuth) {
+function createAuthenticatedElysiaContract(auth: PostdotAuth) {
     return new Elysia().macro({
         auth: {
             async derive({ request: { headers }, status }) {
@@ -95,10 +95,10 @@ function createAuthenticatedElysiaContract(auth: PostbotAuth) {
                         name: session.user.name,
                         email: session.user.email,
                     },
-                    session: session.session as PostbotAuthSession['session'] | null,
-                    authMethod: 'session' as PostbotAuthenticationMethod,
+                    session: session.session as PostdotAuthSession['session'] | null,
+                    authMethod: 'session' as PostdotAuthenticationMethod,
                     apiKeyProjectIds: undefined as readonly string[] | null | undefined,
-                    apiKeyPermissions: undefined as PostbotApiKeyPermissions | undefined,
+                    apiKeyPermissions: undefined as PostdotApiKeyPermissions | undefined,
                 }
             },
         },
@@ -115,7 +115,7 @@ function readProjectIdFromRequest(requestUrl: string): string | null {
 type AuthenticatedElysiaBase = ReturnType<typeof createAuthenticatedElysiaContract>
 
 export function createAuthenticatedElysia(
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     options: AuthenticatedElysiaOptions = {}
 ): AuthenticatedElysiaBase {
     const releases = new WeakMap<Request, () => void>()

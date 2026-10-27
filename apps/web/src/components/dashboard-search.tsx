@@ -339,7 +339,7 @@ export function DashboardSearch({
                                 }>
                                 <MagnifierIcon
                                     aria-hidden="true"
-                                    className="size-9 text-muted-foreground motion-safe:animate-[postbot-search-scan_1.4s_ease-in-out_infinite]"
+                                    className="size-9 text-muted-foreground motion-safe:animate-[postdot-search-scan_1.4s_ease-in-out_infinite]"
                                 />
                             </div>
                         )}

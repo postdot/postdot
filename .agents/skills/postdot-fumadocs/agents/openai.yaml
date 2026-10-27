@@ -1,0 +1,4 @@
+interface:
+  display_name: "Postdot Fumadocs"
+  short_description: "Maintain the Postdot Fumadocs implementation"
+  default_prompt: "Use $postdot-fumadocs to implement a documentation change with the pinned Fumadocs APIs."

@@ -12,7 +12,7 @@ test('configures an Instagram application with distinct credentials and retains 
     await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Instagram operator',
-            email: `instagram-${randomUUID()}@postbot.local`,
+            email: `instagram-${randomUUID()}@postdot.local`,
             password: 'instagram-fixture-password',
         },
     })
@@ -75,9 +75,9 @@ test('keeps publisher application configuration in a focused and recoverable for
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')
-    await page.getByRole('button', { name: en.auth_setup_postbot, exact: true }).click()
+    await page.getByRole('button', { name: en.auth_setup_postdot, exact: true }).click()
     await page.getByLabel('Name').fill(`OAuth settings ${suffix}`)
-    await page.getByLabel('Email').fill(`oauth-settings-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`oauth-settings-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('oauth-settings-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard/)

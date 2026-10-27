@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 
 STAGE=${1:-chunks}
 HOLD_SECONDS=${2:-40}
-DATA_DIR=$(mktemp -d /tmp/postbot-sse-repro-XXXXXX)
+DATA_DIR=$(mktemp -d /tmp/postdot-sse-repro-XXXXXX)
 
 free_port() {
   python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()'
@@ -40,19 +40,19 @@ cleanup() {
 trap cleanup EXIT
 
 # Secrets match the lengths the API environment schema requires.
-POSTBOT_E2E_DATA_DIRECTORY="$DATA_DIR" \
-DB_FILE_NAME="$DATA_DIR/postbot.sqlite" \
-POSTBOT_MIGRATIONS_DIR="$PWD/packages/db/drizzle" \
+POSTDOT_E2E_DATA_DIRECTORY="$DATA_DIR" \
+DB_FILE_NAME="$DATA_DIR/postdot.sqlite" \
+POSTDOT_MIGRATIONS_DIR="$PWD/packages/db/drizzle" \
 NODE_ENV=test PORT="$API_PORT" \
-POSTBOT_MEDIA_STORE=local POSTBOT_MEDIA_DIRECTORY="$DATA_DIR/media" \
-POSTBOT_MEDIA_STORE_ID=sse-repro \
-POSTBOT_MEDIA_PUBLIC_URL_SECRET=postbot-sse-repro-media-secret-value-long \
-POSTBOT_PUBLISHER_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID=sse-repro-v1 \
+POSTDOT_MEDIA_STORE=local POSTDOT_MEDIA_DIRECTORY="$DATA_DIR/media" \
+POSTDOT_MEDIA_STORE_ID=sse-repro \
+POSTDOT_MEDIA_PUBLIC_URL_SECRET=postdot-sse-repro-media-secret-value-long \
+POSTDOT_PUBLISHER_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
+POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID=sse-repro-v1 \
 BETTER_AUTH_URL="$API_ORIGIN" \
-BETTER_AUTH_SECRET=postbot-sse-repro-auth-secret-value-long-enough \
-POSTBOT_WEB_ORIGIN="$WEB_ORIGIN" \
-POSTBOT_E2E_ALLOW_ADDITIONAL_SIGNUPS=true LOG_LEVEL=warn \
+BETTER_AUTH_SECRET=postdot-sse-repro-auth-secret-value-long-enough \
+POSTDOT_WEB_ORIGIN="$WEB_ORIGIN" \
+POSTDOT_E2E_ALLOW_ADDITIONAL_SIGNUPS=true LOG_LEVEL=warn \
   bun ./apps/api/src/index.ts >"$DATA_DIR/api.log" 2>&1 &
 API_PID=$!
 for _ in $(seq 1 120); do curl -fsS "$API_ORIGIN/ready" >/dev/null 2>&1 && break; sleep 0.5; done
@@ -63,7 +63,7 @@ curl -fsS "$API_ORIGIN/ready" >/dev/null || {
 }
 echo "api ready on $API_ORIGIN"
 
-POSTBOT_API_ORIGIN="$API_ORIGIN" NODE_ENV=test \
+POSTDOT_API_ORIGIN="$API_ORIGIN" NODE_ENV=test \
   bun run --cwd apps/web dev -- --host 127.0.0.1 --port "$WEB_PORT" >"$DATA_DIR/web.log" 2>&1 &
 WEB_PID=$!
 for _ in $(seq 1 240); do curl -fsS "$WEB_ORIGIN/" >/dev/null 2>&1 && break; sleep 0.5; done

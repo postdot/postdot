@@ -269,9 +269,9 @@ function belongsToBatch(
     return (
         observation.projectId === projectId &&
         observation.provider === batch.provider &&
-        observation.postbotEntityType === 'publication' &&
-        observation.postbotEntityId !== null &&
-        batch.publicationIds.includes(observation.postbotEntityId)
+        observation.postdotEntityType === 'publication' &&
+        observation.postdotEntityId !== null &&
+        batch.publicationIds.includes(observation.postdotEntityId)
     )
 }
 

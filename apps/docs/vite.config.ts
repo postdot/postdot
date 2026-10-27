@@ -15,10 +15,10 @@ export default defineConfig({
     server: { port: 5174 },
     define: {
         'import.meta.env.VITE_SITE_URL': JSON.stringify(
-            process.env.POSTBOT_SITE_URL ?? 'http://127.0.0.1:5174'
+            process.env.POSTDOT_SITE_URL ?? 'http://127.0.0.1:5174'
         ),
-        'import.meta.env.VITE_UMAMI_ID': JSON.stringify(process.env.POSTBOT_UMAMI_ID ?? ''),
-        'import.meta.env.VITE_UMAMI_URL': JSON.stringify(process.env.POSTBOT_UMAMI_URL ?? ''),
+        'import.meta.env.VITE_UMAMI_ID': JSON.stringify(process.env.POSTDOT_UMAMI_ID ?? ''),
+        'import.meta.env.VITE_UMAMI_URL': JSON.stringify(process.env.POSTDOT_UMAMI_URL ?? ''),
     },
     resolve: {
         // Two copies of Fumadocs or React mean two router providers, and links

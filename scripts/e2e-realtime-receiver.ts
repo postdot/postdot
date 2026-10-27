@@ -45,7 +45,7 @@ export function createRealtimeReceiver(port: number) {
             }
             if (request.method !== 'POST' || path !== '/')
                 return new Response('Not found', { status: 404 })
-            const deliveryId = request.headers.get('x-postbot-delivery-id')
+            const deliveryId = request.headers.get('x-postdot-delivery-id')
             if (!deliveryId) return new Response('Expected delivery header', { status: 400 })
             const observation: Observation = {
                 deliveryId,
@@ -63,10 +63,10 @@ export function createRealtimeReceiver(port: number) {
 }
 
 if (import.meta.main) {
-    const port = Number(Bun.env.POSTBOT_E2E_RECEIVER_PORT)
+    const port = Number(Bun.env.POSTDOT_E2E_RECEIVER_PORT)
     if (
         Bun.env.NODE_ENV !== 'test' ||
-        !isSafeE2EDataDirectory(Bun.env.POSTBOT_E2E_DATA_DIRECTORY) ||
+        !isSafeE2EDataDirectory(Bun.env.POSTDOT_E2E_DATA_DIRECTORY) ||
         !Number.isInteger(port) ||
         port < 1 ||
         port > 65_535

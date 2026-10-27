@@ -130,7 +130,7 @@ async function main() {
         return
     }
 
-    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'postbot-analytics-benchmark-'))
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), 'postdot-analytics-benchmark-'))
 
     try {
         const measurements: BenchmarkMeasurement[] = []

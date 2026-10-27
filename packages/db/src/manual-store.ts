@@ -18,7 +18,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from './channel-cadence'
-import { recordDatabaseCommitProject, type PostbotDatabase } from './client'
+import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
 import { parseProfile } from './manual-store/content-codec'
@@ -353,7 +353,7 @@ export interface AuditEvent {
     readonly createdAt: Timestamp
 }
 
-export function createManualStore(database: PostbotDatabase, options: ManualStoreOptions = {}) {
+export function createManualStore(database: PostdotDatabase, options: ManualStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

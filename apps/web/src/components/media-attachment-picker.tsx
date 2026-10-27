@@ -47,13 +47,13 @@ import {
     writeMediaLibraryViewMode,
 } from '@/lib/media-library-view'
 import {
-    completePostbotMediaUpload,
-    createPostbotMediaUploadController,
-    uploadPostbotMediaFile,
-    type PostbotMediaUploadController,
-    type PostbotMediaUppyFile,
-} from '@/lib/postbot-media-upload'
-import { createOrderedUploadResults } from '@/lib/postbot-media-upload'
+    completePostdotMediaUpload,
+    createPostdotMediaUploadController,
+    uploadPostdotMediaFile,
+    type PostdotMediaUploadController,
+    type PostdotMediaUppyFile,
+} from '@/lib/postdot-media-upload'
+import { createOrderedUploadResults } from '@/lib/postdot-media-upload'
 import { subscribeMediaPreviewUpdates } from '@/lib/project-realtime'
 import {
     mediaSelectionsEqual,
@@ -124,9 +124,9 @@ export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
 }
 
 function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
-    const recoveryId = `postbot-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
+    const recoveryId = `postdot-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
     const [controller] = useState(() =>
-        createPostbotMediaUploadController(props.projectId, api, undefined, undefined, {
+        createPostdotMediaUploadController(props.projectId, api, undefined, undefined, {
             id: recoveryId,
         })
     )
@@ -161,7 +161,7 @@ function MediaAttachmentPickerView({
     variant = 'library',
     selectionMode = 'attach',
     controller,
-}: MediaAttachmentPickerProps & { readonly controller: PostbotMediaUploadController }) {
+}: MediaAttachmentPickerProps & { readonly controller: PostdotMediaUploadController }) {
     const { locale } = useLanguage()
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [restorableAssetIds, setRestorableAssetIds] = useState<Set<string>>(() => new Set())
@@ -244,7 +244,7 @@ function MediaAttachmentPickerView({
     const [recoveryActionPending, setRecoveryActionPending] = useState(false)
     const uppyFiles = useUppyState(
         controller.uppy,
-        state => Object.values(state.files) as PostbotMediaUppyFile[]
+        state => Object.values(state.files) as PostdotMediaUppyFile[]
     )
     const recoveredState = useUppyState(controller.uppy, state => state.recoveredState)
     const fileInputOptions = useMemo(() => ({ multiple: true }), [])
@@ -401,7 +401,7 @@ function MediaAttachmentPickerView({
     }, [projectId, sourcePickerOpen])
 
     useEffect(() => {
-        const handleRestrictionFailed = (file: PostbotMediaUppyFile | undefined) => {
+        const handleRestrictionFailed = (file: PostdotMediaUppyFile | undefined) => {
             const message = mediaRestrictionMessage(file, controller.policy, locale)
             const nextMessages = [...(pendingRestrictionErrorRef.current ?? []), message]
             pendingRestrictionErrorRef.current = nextMessages
@@ -580,7 +580,7 @@ function MediaAttachmentPickerView({
     }
 
     useEffect(() => {
-        const handleFilesAdded = (files: PostbotMediaUppyFile[]) => {
+        const handleFilesAdded = (files: PostdotMediaUppyFile[]) => {
             if (disabled || readOnly || savingEdited) {
                 controller.uppy.removeFiles(files.map(file => file.id))
                 return
@@ -1084,7 +1084,7 @@ function MediaAttachmentPickerView({
         setError(null)
         setSavingEdited(true)
         try {
-            const editedAsset = await uploadPostbotMediaFile(api, projectId, {
+            const editedAsset = await uploadPostdotMediaFile(api, projectId, {
                 data: file,
                 filename: file.name,
                 expectedSize: file.size,
@@ -1153,7 +1153,7 @@ function MediaAttachmentPickerView({
                 imported.status === 'ready'
                     ? imported.media
                     : imported.status === 'pending'
-                      ? await completePostbotMediaUpload(api, projectId, imported.media.intent.id)
+                      ? await completePostdotMediaUpload(api, projectId, imported.media.intent.id)
                       : (() => {
                             throw new MediaVerificationError(imported.media)
                         })()
@@ -1997,8 +1997,8 @@ function mediaSelectionFor(asset: MediaReference): MediaSelection {
 }
 
 function mediaRestrictionMessage(
-    file: PostbotMediaUppyFile | undefined,
-    policy: PostbotMediaUploadController['policy'],
+    file: PostdotMediaUppyFile | undefined,
+    policy: PostdotMediaUploadController['policy'],
     locale: string
 ) {
     if (

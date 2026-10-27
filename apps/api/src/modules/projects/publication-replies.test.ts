@@ -84,7 +84,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
             },
         },
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example/client-metadata.json',
             handleResolver: 'https://resolver.example',
         },
     })
@@ -216,7 +216,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
             cookie: response.headers.get('set-cookie')!.split(';')[0]!,
         }
     }
-    const owner = await signup('reply-owner@postbot.local')
+    const owner = await signup('reply-owner@postdot.local')
     const made = await request('/api/projects', owner.cookie, {
         name: 'Reply project',
         timeZone: 'UTC',
@@ -386,7 +386,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
                     })
                 ).status
             ).toBe(409)
-            const viewer = await f.signup('reply-viewer@postbot.local')
+            const viewer = await f.signup('reply-viewer@postdot.local')
             await f.request('/api/projects', viewer.cookie)
             const access = createAccessStore(f.database)
             access.updateInstanceMembership({

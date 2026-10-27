@@ -1,9 +1,9 @@
 import type { Publication } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 export function publicationHasAttempt(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     projectId: string,
     publicationId: string
 ): boolean {
@@ -25,7 +25,7 @@ export interface PublicationMovement {
     requestedScheduledAt: number | null
 }
 export function readPublicationMovement(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     publication: Pick<Publication, 'id' | 'projectId' | 'state' | 'scheduledAt'>,
     now: number
 ): PublicationMovement {

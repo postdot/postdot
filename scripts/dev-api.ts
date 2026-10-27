@@ -57,15 +57,15 @@ export async function runDevelopmentApi(root = join(import.meta.dir, '..')) {
         })
         let expectedExit = false
         let exited = false
-        console.info(`[postbot-dev] API started (pid ${child.pid})`)
+        console.info(`[postdot-dev] API started (pid ${child.pid})`)
         return {
             exited: child.exited.then(code => {
                 exited = true
                 if (expectedExit) {
-                    console.info(`[postbot-dev] API stopped (pid ${child.pid}, code ${code})`)
+                    console.info(`[postdot-dev] API stopped (pid ${child.pid}, code ${code})`)
                 } else {
                     console.error(
-                        `[postbot-dev] API exited unexpectedly (pid ${child.pid}, code ${code}); waiting for a watched edit. No runtime lock was removed.`
+                        `[postdot-dev] API exited unexpectedly (pid ${child.pid}, code ${code}); waiting for a watched edit. No runtime lock was removed.`
                     )
                 }
                 return code
@@ -84,7 +84,7 @@ export async function runDevelopmentApi(root = join(import.meta.dir, '..')) {
         if (closing) return
         clearTimeout(timer)
         timer = setTimeout(() => {
-            console.info('[postbot-dev] Watched change: restarting API after graceful exit')
+            console.info('[postdot-dev] Watched change: restarting API after graceful exit')
             void coordinator.restart()
         }, 150)
     }
@@ -111,7 +111,7 @@ export async function runDevelopmentApi(root = join(import.meta.dir, '..')) {
     const stop = async (signal: NodeJS.Signals) => {
         if (closing) return
         closing = true
-        console.info(`[postbot-dev] Launcher stopping (${signal})`)
+        console.info(`[postdot-dev] Launcher stopping (${signal})`)
         process.exitCode = signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143
         clearTimeout(timer)
         for (const watcher of watchers) watcher.close()

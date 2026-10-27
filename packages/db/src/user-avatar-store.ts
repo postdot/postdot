@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { MediaInspectionRegistry } from '@postdot/core'
 import type { MediaStore } from '@postdot/media'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 
 export const avatarMaxBytes = 5 * 1024 * 1024
 const abandonedUploadMs = 60 * 60 * 1000
@@ -20,7 +20,7 @@ interface AvatarRow {
     readonly state: 'pending' | 'ready' | 'retired'
 }
 
-export function createUserAvatarStore(database: PostbotDatabase, storage: MediaStore) {
+export function createUserAvatarStore(database: PostdotDatabase, storage: MediaStore) {
     const client = database.$client
     const url = (id: string) => `/api/account/avatars/${id}`
     const get = client.query<AvatarRow, [string]>(`SELECT id, user_id as userId,

@@ -6,7 +6,7 @@ import {
     type PublicationTagFilter,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from '../client'
+import type { PostdotDatabase } from '../client'
 import type {
     PublicationEditorState,
     PublicationSummary,
@@ -107,7 +107,7 @@ export interface PublicationReadStoreHandle {
 }
 
 export function createPublicationReadStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationReadStoreOptions
 ): PublicationReadStoreHandle {
     const client = database.$client

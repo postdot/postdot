@@ -45,7 +45,7 @@ async function fixture(scheduled = true) {
         )
     const signup = await call('/api/auth/sign-up/email', 'POST', {
         name: 'Move operator',
-        email: 'moves@postbot.local',
+        email: 'moves@postdot.local',
         password: 'move-publication-password-123',
     })
     expect(signup.status).toBe(200)

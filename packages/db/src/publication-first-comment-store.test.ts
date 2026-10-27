@@ -48,8 +48,8 @@ const mastodonRootUri = `${mastodonOrigin}/api/v1/statuses/${mastodonStatusId}`
 const blueskyProfile = {
     id: 'bluesky',
     version: 2,
-    profileHash: 'sha256:postbot-bluesky-post-v2',
-    schemaHash: 'sha256:postbot-bluesky-post-schema-v2',
+    profileHash: 'sha256:postdot-bluesky-post-v2',
+    schemaHash: 'sha256:postdot-bluesky-post-schema-v2',
     origin: 'built_in' as const,
     contentSchema: {
         type: 'object' as const,
@@ -77,8 +77,8 @@ const blueskyProfile = {
 const mastodonProfile = {
     id: 'mastodon',
     version: 1,
-    profileHash: 'sha256:postbot-mastodon-status-v1',
-    schemaHash: 'sha256:postbot-mastodon-status-schema-v1',
+    profileHash: 'sha256:postdot-mastodon-status-v1',
+    schemaHash: 'sha256:postdot-mastodon-status-schema-v1',
     origin: 'built_in' as const,
     contentSchema: {
         type: 'object' as const,
@@ -2085,7 +2085,7 @@ describe('publication first comment store (mastodon)', () => {
     })
 
     it('keeps historical Bluesky comments when the provider column is added', () => {
-        const folder = mkdtempSync(join(tmpdir(), 'postbot-first-comment-migration-'))
+        const folder = mkdtempSync(join(tmpdir(), 'postdot-first-comment-migration-'))
 
         try {
             // The committed history without the provider column.

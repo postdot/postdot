@@ -1,4 +1,4 @@
-import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
+import { PostdotLogo } from '@postdot/ui/components/postdot-logo'
 import type { ReactNode } from 'react'
 
 interface AuthShellProps {
@@ -43,7 +43,7 @@ function BrandLockup({ inverse = false }: { readonly inverse?: boolean }) {
         <div className="flex items-center gap-3">
             <span
                 className={`flex size-9 items-center justify-center rounded-xl shadow-control ${inverse ? 'text-primary-foreground' : 'text-foreground'}`}>
-                <PostbotLogo className="size-7" />
+                <PostdotLogo className="size-7" />
             </span>
             <span
                 className={`font-heading text-lg font-semibold ${inverse ? 'text-primary-foreground' : ''}`}>
@@ -60,7 +60,7 @@ function BrandArtwork() {
             <div className="absolute top-0 right-2 size-32 rounded-[2rem] bg-primary-foreground/12 shadow-surface" />
             <div className="absolute bottom-3 left-1 size-28 rounded-[2rem] bg-state-queued/25 shadow-surface" />
             <div className="absolute inset-16 flex rotate-[6deg] items-center justify-center rounded-[2.5rem] bg-surface-raised text-foreground shadow-overlay">
-                <PostbotLogo className="size-36" />
+                <PostdotLogo className="size-36" />
             </div>
         </div>
     )

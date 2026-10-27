@@ -17,7 +17,7 @@ const blueskyClientMetadataSchema = Type.Object({
 })
 
 export function createBlueskyMetadataRoutes(publisher: PublisherRuntime) {
-    const app = new Elysia({ name: 'postbot-bluesky-client-metadata' })
+    const app = new Elysia({ name: 'postdot-bluesky-client-metadata' })
 
     return app.get(
         '/oauth/bluesky/client-metadata.json',

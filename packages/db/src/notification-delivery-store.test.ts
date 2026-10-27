@@ -73,7 +73,7 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
         subjectId: 'human-1',
         transportId: 'test',
         label: 'Test destination',
-        configuration: { topic: 'postbot-test' },
+        configuration: { topic: 'postdot-test' },
     })
     if (destination === null) throw new Error('The notification destination is missing')
     for (const kind of [
@@ -128,7 +128,7 @@ describe('notification delivery store', () => {
             expect(recorded).toHaveLength(1)
             expect(recorded[0]).toMatchObject({
                 transportId: 'test',
-                configuration: { topic: 'postbot-test' },
+                configuration: { topic: 'postdot-test' },
                 kind: 'publication_failed',
                 title: 'Publication failed',
             })
@@ -220,7 +220,7 @@ describe('notification delivery store', () => {
             )?.[0]
             if (firstDelivery === undefined) throw new Error('The first delivery is missing')
             expect(firstDelivery.secretVersion).toBe(1)
-            expect(firstDelivery.configuration).toEqual({ topic: 'postbot-test' })
+            expect(firstDelivery.configuration).toEqual({ topic: 'postdot-test' })
 
             const firstClaim = fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
@@ -392,7 +392,7 @@ describe('notification delivery store', () => {
                 {
                     destinationId: destination.id,
                     transportId: 'test',
-                    configuration: { topic: 'postbot-test' },
+                    configuration: { topic: 'postdot-test' },
                     kind: 'publication_failed',
                     state: 'pending',
                     attempts: 0,

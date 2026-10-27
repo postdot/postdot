@@ -68,7 +68,7 @@ export async function checkExportLinks(directory: string): Promise<{
             .replaceAll('\\', '/')
             .replace(/(^|\/)index\.html$/, '$1')
             .replace(/\.html$/, '')
-        const base = new URL(path, 'https://postbot.invalid/')
+        const base = new URL(path, 'https://postdot.invalid/')
         for (const href of page.links) {
             let url: URL
             try {

@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { DocsLayout } from 'fumadocs-ui/layouts/notebook'
 
-import { PostbotLogo } from '@/components/brand'
+import { PostdotLogo } from '@/components/brand'
 import { PublicThemeToggle } from '@/components/public-theme-toggle'
 import { source } from '@/lib/source'
 
@@ -17,7 +17,7 @@ function DocsRoot() {
                 mode: 'top',
                 title: (
                     <span className="brand">
-                        <PostbotLogo className="brand-mark" />
+                        <PostdotLogo className="brand-mark" />
                         Postdot
                     </span>
                 ),

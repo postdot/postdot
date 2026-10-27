@@ -1,5 +1,5 @@
 import { openapi } from '@elysiajs/openapi'
-import type { PostbotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
 import { ChannelProfileCompiler } from '@postdot/core'
 import { createResourceLifecycleStore } from '@postdot/db'
@@ -13,7 +13,7 @@ import {
     createPublicationCommentStore,
     createAccessStore,
     createTaxonomyStore,
-    type PostbotDatabase,
+    type PostdotDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
     type NotificationStore,
@@ -44,7 +44,7 @@ import * as typeboxSystem from 'typebox/system'
 import * as typeboxType from 'typebox/type'
 import * as typeboxValue from 'typebox/value'
 
-import type { PostbotLoggingConfig } from './config'
+import type { PostdotLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
 import { createAccountRoutes } from './modules/account/routes'
 import type { EmailSettingsService } from './modules/email/settings'
@@ -67,12 +67,12 @@ import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-route
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
-import { createPostbotLogger, createRequestLogger } from './plugins/logger'
+import { createPostdotLogger, createRequestLogger } from './plugins/logger'
 import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
-export interface PostbotAppOptions {
-    readonly auth: PostbotAuth
-    readonly database: PostbotDatabase
+export interface PostdotAppOptions {
+    readonly auth: PostdotAuth
+    readonly database: PostdotDatabase
     readonly publisher: PublisherRuntime
     readonly avatars?: UserAvatarStore
     readonly accountOrigins?: readonly string[]
@@ -80,7 +80,7 @@ export interface PostbotAppOptions {
     readonly mediaUrlImporter?: MediaUrlImporter
     readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
-    readonly logging?: PostbotLoggingConfig
+    readonly logging?: PostdotLoggingConfig
     readonly metrics?: {
         readonly registry: Registry
         readonly bearerToken: string
@@ -152,7 +152,7 @@ function createDomainApp({
     discordFetcher,
     telegramFetcher,
     devtoFetcher,
-}: PostbotAppOptions) {
+}: PostdotAppOptions) {
     // Elysia compiles its routes at runtime and loads the TypeBox namespaces
     // through a dynamic require it cannot bundle. The production image carries
     // the bundle only, so those namespaces are wired statically here: the
@@ -187,9 +187,9 @@ function createDomainApp({
     })
     const publicMediaRoutes =
         media === undefined || mediaPublicDelivery === undefined
-            ? new Elysia({ name: 'postbot-public-media-disabled' })
+            ? new Elysia({ name: 'postdot-public-media-disabled' })
             : createPublicMediaRoutes(media, mediaPublicDelivery)
-    const logger = logging?.enabled === true ? createPostbotLogger(logging) : undefined
+    const logger = logging?.enabled === true ? createPostdotLogger(logging) : undefined
     const notificationStore = notifications ?? createNotificationStore(database)
     const analyticsStore = analytics ?? createAnalyticsStore(database)
     const providerAnalyticsStore = providerAnalytics ?? createProviderAnalyticsStore(database)
@@ -201,7 +201,7 @@ function createDomainApp({
         })
     const eventJournal = createEventJournalStore(database)
 
-    return new Elysia({ name: 'postbot-api' })
+    return new Elysia({ name: 'postdot-api' })
         .request(({ request }) => {
             if (recovery?.held() && recoveryBlocksRequest(request))
                 return Response.json(
@@ -257,7 +257,7 @@ function createDomainApp({
                                           scheme: 'bearer',
                                           bearerFormat: 'monitoring token',
                                           description:
-                                              'A dedicated monitoring token configured with POSTBOT_METRICS_TOKEN. It is separate from Postdot user API keys.',
+                                              'A dedicated monitoring token configured with POSTDOT_METRICS_TOKEN. It is separate from Postdot user API keys.',
                                       },
                                   }),
                         },
@@ -352,7 +352,7 @@ function createDomainApp({
  * Better Auth's mounted handler is dynamically routed and would otherwise
  * make `/api` ambiguous in Eden's generated path tree.
  */
-export type PostbotApp = ReturnType<typeof createDomainApp>
+export type PostdotApp = ReturnType<typeof createDomainApp>
 
 export function createApp({
     auth,
@@ -390,7 +390,7 @@ export function createApp({
     discordFetcher,
     telegramFetcher,
     devtoFetcher,
-}: PostbotAppOptions) {
+}: PostdotAppOptions) {
     return createDomainApp({
         auth,
         database,

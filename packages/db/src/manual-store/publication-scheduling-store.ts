@@ -7,7 +7,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type { ReschedulePublicationsInput } from '../manual-store'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -44,7 +44,7 @@ export interface PublicationSchedulingStoreOptions {
 }
 
 export function createPublicationSchedulingStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationSchedulingStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)

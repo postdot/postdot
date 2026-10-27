@@ -2,7 +2,7 @@ import { constants, existsSync } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-import { createAuth, postbotPasswordPolicy } from '@postdot/auth'
+import { createAuth, postdotPasswordPolicy } from '@postdot/auth'
 import {
     acquireRuntimeQuiescenceLock,
     closeDatabase,
@@ -11,7 +11,7 @@ import {
     runMigrations,
 } from '@postdot/db'
 
-import { createPostbotBootstrapConfig } from './config'
+import { createPostdotBootstrapConfig } from './config'
 
 export async function runLocalAccountBootstrap(args: readonly string[]) {
     const options = new Map<string, string>()
@@ -46,7 +46,7 @@ export async function runLocalAccountBootstrap(args: readonly string[]) {
             // Only initialize a new database. A refused bootstrap must not
             // silently migrate an existing installation.
             if (!existed)
-                runMigrations(database, createPostbotBootstrapConfig().POSTBOT_MIGRATIONS_DIR)
+                runMigrations(database, createPostdotBootstrapConfig().POSTDOT_MIGRATIONS_DIR)
             const access = createAccessStore(database)
             if (access.getInstanceState().state !== 'claimable' || !access.isSignupAllowed()) {
                 throw new Error(
@@ -139,8 +139,8 @@ async function readCredentials(
         !fields.email.trim() ||
         fields.email.length > 320 ||
         typeof fields.password !== 'string' ||
-        fields.password.length < postbotPasswordPolicy.minimumLength ||
-        fields.password.length > postbotPasswordPolicy.maximumLength
+        fields.password.length < postdotPasswordPolicy.minimumLength ||
+        fields.password.length > postdotPasswordPolicy.maximumLength
     ) {
         throw new Error(
             'Bootstrap input requires a name, email and a password meeting the password policy'

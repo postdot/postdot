@@ -14,7 +14,7 @@ import { requiredApiKeyCapability } from '../projects/api-key-permissions'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -34,7 +34,7 @@ function createFixture(options: { readonly allowAdditionalSignups?: boolean } = 
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -178,7 +178,7 @@ describe('access HTTP routes', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'api-key-owner@postbot.local')
+            const cookie = await signUp(app, 'api-key-owner@postdot.local')
             const firstProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'First API project' }),
@@ -209,7 +209,7 @@ describe('access HTTP routes', () => {
             expect(createdAll.key.name).toMatch(
                 /^Postdot (Amber|Bright|Calm|Clever|Golden|Gentle|Noble|Quiet|Silver|Sunny|Swift|Warm) (Cedar|Comet|Fox|Horizon|Maple|Meadow|Orbit|Pine|River|Sparrow|Stone|Willow) [0-9A-F]{6}$/
             )
-            expect(createdAll.token).toMatch(/^postbot_pat_/)
+            expect(createdAll.token).toMatch(/^postdot_pat_/)
 
             const allProjectsResponse = await bearerRequest(app, '/api/projects', createdAll.token)
             expect(allProjectsResponse.status).toBe(200)
@@ -279,7 +279,7 @@ describe('access HTTP routes', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'api-key-actions@postbot.local')
+            const cookie = await signUp(app, 'api-key-actions@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'API key actions project' }),
@@ -401,7 +401,7 @@ describe('access HTTP routes', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'publication-approval@postbot.local')
+            const cookie = await signUp(app, 'publication-approval@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Publication approval project' }),
@@ -553,7 +553,7 @@ describe('access HTTP routes', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'api-key-media-actions@postbot.local')
+            const cookie = await signUp(app, 'api-key-media-actions@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'API key media project' }),
@@ -609,7 +609,7 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'api-key-role-owner@postbot.local')
+            const ownerCookie = await signUp(app, 'api-key-role-owner@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'API key role project' }),
@@ -619,7 +619,7 @@ describe('access HTTP routes', () => {
 
             const editorUserId = await seedExistingUser(
                 database,
-                'api-key-role-editor@postbot.local',
+                'api-key-role-editor@postdot.local',
                 'API Key Editor'
             )
             const defaultWorkspace = access.getDefaultWorkspace()
@@ -643,7 +643,7 @@ describe('access HTTP routes', () => {
                     editorUserId,
                     now
                 )
-            const editorCookie = await signIn(app, 'api-key-role-editor@postbot.local')
+            const editorCookie = await signIn(app, 'api-key-role-editor@postdot.local')
             expect(
                 access.grantProjectUserAccess({
                     projectId: projectBody.project.id,
@@ -695,7 +695,7 @@ describe('access HTTP routes', () => {
             expect(setupStatus.status).toBe(200)
             expect(await setupStatus.json()).toEqual({ setupAvailable: true })
 
-            await signUp(app, 'bootstrap@postbot.local')
+            await signUp(app, 'bootstrap@postdot.local')
             const claimedStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
             expect(claimedStatus.status).toBe(200)
             expect(await claimedStatus.json()).toEqual({ setupAvailable: false })
@@ -776,7 +776,7 @@ describe('access HTTP routes', () => {
         const { app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            await signUp(app, 'e2e-bootstrap@postbot.local')
+            await signUp(app, 'e2e-bootstrap@postdot.local')
             const status = await app.handle(new Request(`${baseURL}/api/instance/status`))
 
             expect(status.status).toBe(200)
@@ -790,13 +790,13 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'admin@postbot.local')
+            const adminCookie = await signUp(app, 'admin@postdot.local')
             const adminId = access.listInstanceMemberships()[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
-            await seedExistingUser(database, 'member@postbot.local', 'Member')
-            const memberCookie = await signIn(app, 'member@postbot.local')
+            await seedExistingUser(database, 'member@postdot.local', 'Member')
+            const memberCookie = await signIn(app, 'member@postdot.local')
 
             const memberProviderResponse = await jsonRequest(
                 app,
@@ -848,20 +848,20 @@ describe('access HTTP routes', () => {
         const { access, app, auth, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'admin@postbot.local')
+            const adminCookie = await signUp(app, 'admin@postdot.local')
             const adminId = access.listInstanceMemberships()[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
-            const memberId = await seedExistingUser(database, 'member@postbot.local', 'Member')
-            const memberCookie = await signIn(app, 'member@postbot.local')
+            const memberId = await seedExistingUser(database, 'member@postdot.local', 'Member')
+            const memberCookie = await signIn(app, 'member@postdot.local')
             const invitationResponse = await jsonRequest(
                 app,
                 '/api/access/invitations',
                 adminCookie,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ targetEmail: 'member@postbot.local' }),
+                    body: JSON.stringify({ targetEmail: 'member@postdot.local' }),
                 }
             )
             expect(invitationResponse.status).toBe(201)
@@ -883,14 +883,14 @@ describe('access HTTP routes', () => {
                 members: expect.arrayContaining([
                     expect.objectContaining({
                         userId: adminId,
-                        email: 'admin@postbot.local',
+                        email: 'admin@postdot.local',
                         name: 'admin',
                         role: 'admin',
                         state: 'enabled',
                     }),
                     expect.objectContaining({
                         userId: memberId,
-                        email: 'member@postbot.local',
+                        email: 'member@postdot.local',
                         name: 'Member',
                         role: 'member',
                         state: 'enabled',
@@ -1057,20 +1057,20 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'admin@postbot.local')
-            const memberId = await seedExistingUser(database, 'member@postbot.local', 'Member')
-            const memberCookie = await signIn(app, 'member@postbot.local')
+            const adminCookie = await signUp(app, 'admin@postdot.local')
+            const memberId = await seedExistingUser(database, 'member@postdot.local', 'Member')
+            const memberCookie = await signIn(app, 'member@postdot.local')
 
             const createResponse = await jsonRequest(app, '/api/access/invitations', adminCookie, {
                 method: 'POST',
-                body: JSON.stringify({ targetEmail: 'member@postbot.local' }),
+                body: JSON.stringify({ targetEmail: 'member@postdot.local' }),
             })
             expect(createResponse.status).toBe(201)
             const created = (await createResponse.json()) as {
                 invitation: { id: string; targetEmail: string }
                 token: string
             }
-            expect(created.invitation.targetEmail).toBe('member@postbot.local')
+            expect(created.invitation.targetEmail).toBe('member@postdot.local')
             expect(created.token).toBeString()
 
             const previewResponse = await app.handle(
@@ -1078,7 +1078,7 @@ describe('access HTTP routes', () => {
             )
             expect(previewResponse.status).toBe(200)
             expect(await previewResponse.json()).toEqual({
-                targetEmail: 'member@postbot.local',
+                targetEmail: 'member@postdot.local',
                 expiresAt: now + 7 * 24 * 60 * 60 * 1_000,
             })
 
@@ -1135,14 +1135,14 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'admin@postbot.local')
+            const adminCookie = await signUp(app, 'admin@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', adminCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Shared workspace project' }),
             })
             expect(projectResponse.status).toBe(201)
             const project = (await projectResponse.json()) as { project: { id: string } }
-            const targetEmail = 'new-invitee@postbot.local'
+            const targetEmail = 'new-invitee@postdot.local'
             const createResponse = await jsonRequest(app, '/api/access/invitations', adminCookie, {
                 method: 'POST',
                 body: JSON.stringify({ targetEmail }),
@@ -1189,7 +1189,7 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'admin@postbot.local')
+            const adminCookie = await signUp(app, 'admin@postdot.local')
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
@@ -1246,7 +1246,7 @@ describe('access HTTP routes', () => {
                 },
             })
 
-            const targetEmail = 'workspace-invitee@postbot.local'
+            const targetEmail = 'workspace-invitee@postdot.local'
             const createResponse = await jsonRequest(
                 app,
                 `/api/workspaces/${workspace.id}/invitations`,
@@ -1427,7 +1427,7 @@ describe('access HTTP routes', () => {
                 inviteeCookie,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ email: 'another@postbot.local' }),
+                    body: JSON.stringify({ email: 'another@postdot.local' }),
                 }
             )
             expect(forbiddenInvite.status).toBe(403)
@@ -1440,7 +1440,7 @@ describe('access HTTP routes', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const adminCookie = await signUp(app, 'workspace-owner@postbot.local')
+            const adminCookie = await signUp(app, 'workspace-owner@postdot.local')
             const listBefore = await jsonRequest(app, '/api/workspaces', adminCookie)
             expect(listBefore.status).toBe(200)
             expect(await listBefore.json()).toMatchObject({

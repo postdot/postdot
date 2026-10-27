@@ -43,7 +43,7 @@ describe('channel profile templates', () => {
         expect(channelProfileTemplates[0]?.profile.execution).toEqual({ kind: 'manual' })
         expect(channelProfileTemplates[1]?.profile.execution).toMatchObject({
             kind: 'declarative_http',
-            mode: 'postbot_webhook',
+            mode: 'postdot_webhook',
         })
     })
 
@@ -98,7 +98,7 @@ describe('channel profile templates', () => {
             id: 'custom-bluesky',
             version: 1,
             origin: 'custom',
-            schemaHash: 'sha256:postbot-custom-bluesky-schema-v1',
+            schemaHash: 'sha256:postdot-custom-bluesky-schema-v1',
             execution: source.profile.execution,
         })
         expect(template?.profile).not.toBe(source.profile)

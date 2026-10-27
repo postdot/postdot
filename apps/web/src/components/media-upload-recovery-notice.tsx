@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@postdot/ui/components/alert'
 import { Button } from '@postdot/ui/components/button'
 
-import type { PostbotMediaUppyFile } from '@/lib/postbot-media-upload'
+import type { PostdotMediaUppyFile } from '@/lib/postdot-media-upload'
 import * as m from '@/paraglide/messages.js'
 
 export function MediaUploadRecoveryNotice({
@@ -12,7 +12,7 @@ export function MediaUploadRecoveryNotice({
     onResume,
     pending,
 }: {
-    readonly files: readonly PostbotMediaUppyFile[]
+    readonly files: readonly PostdotMediaUppyFile[]
     readonly missingFileCount: number
     readonly onDismiss: () => void
     readonly onReselectMissing: () => void

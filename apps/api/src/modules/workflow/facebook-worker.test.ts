@@ -32,7 +32,7 @@ for (const photo of [false, true])
         test(`Facebook worker persists ${photo ? 'photo' : 'text'} ${scenario} without replay`, async () => {
             const database = createDatabase(':memory:')
             runMigrations(database)
-            const directory = await mkdtemp(join(tmpdir(), 'postbot-facebook-worker-'))
+            const directory = await mkdtemp(join(tmpdir(), 'postdot-facebook-worker-'))
             const now = 1_800_000_000_000
             let clock = now
             const media = createMediaAssetStore(

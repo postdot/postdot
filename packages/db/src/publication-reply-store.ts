@@ -8,7 +8,7 @@ import {
 import { and, asc, desc, eq, gt, lt, lte, or, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
-import { createDatabaseTransaction, type PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostdotDatabase } from './client'
 import { actors, publicationCommentReplies as replies } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 
@@ -31,7 +31,7 @@ export type CreatePublicationReply = Pick<
 > & { subjectId: string; now: number }
 
 export function createPublicationReplyStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: { readonly policies: readonly ProviderCommentPolicy[] }
 ) {
     const access = createAccessStore(database)

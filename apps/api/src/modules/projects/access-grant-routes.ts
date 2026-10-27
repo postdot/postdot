@@ -3,7 +3,7 @@ import type { AccessProjectRole, AccessStore } from '@postdot/db'
 import {
     sessionSecurity,
     type AuthenticatedElysia,
-    type PostbotAuthenticationMethod,
+    type PostdotAuthenticationMethod,
 } from '../../plugins/auth'
 import {
     errorResponse,
@@ -57,7 +57,7 @@ function projectExists(projectId: string, access: AccessStore): boolean {
 function canManageProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: PostbotAuthenticationMethod,
+    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): boolean {
     if (authMethod !== 'session') return false
@@ -70,7 +70,7 @@ function canManageProjectGrants(
 function canViewProjectGrants(
     projectId: string,
     access: AccessStore,
-    authMethod: PostbotAuthenticationMethod,
+    authMethod: PostdotAuthenticationMethod,
     userId: string
 ): boolean {
     if (authMethod !== 'session') return false

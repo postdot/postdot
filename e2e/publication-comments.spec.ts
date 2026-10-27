@@ -11,7 +11,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
         await page.request.post('/api/auth/sign-up/email', {
             data: {
                 name: 'Comments operator',
-                email: `comments-${randomUUID()}@postbot.local`,
+                email: `comments-${randomUUID()}@postdot.local`,
                 password: 'comments-fixture-password',
             },
         })

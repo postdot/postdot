@@ -5,7 +5,7 @@ ranking of entire documentation sites. Observations below come from the linked
 pages' content and structure, not a full visual or usability audit. Revisit a source
 before relying on its current product instructions.
 
-| Page | Observation | Useful direction for Postbot | What not to import |
+| Page | Observation | Useful direction for Postdot | What not to import |
 | --- | --- | --- | --- |
 | [Linear: Issues](https://linear.app/docs/creating-issues) | A product-object overview leads to task headings, literal controls and targeted screenshots. Language explains actions rather than selling the feature. The page grows long as advanced cases accumulate. | Studio guides can put a real screenshot near an action that is hard to locate. Name the control and result; place advanced cases lower or link to them. | Its whole information density, every shortcut, or a screenshot for every sentence. |
 | [Bun: Installation](https://bun.com/docs/installation) | Installation alternatives are grouped by environment. Verification commands and recovery from an unrecognized command follow the main action. Most of the useful content is concrete commands and short explanations. | For CLI/operator pages, put a working command and expected result near each other. Use tabs when OS or client choices are actual alternatives. | Sales asides, unverified time estimates or a command-first structure for nontechnical Studio readers. |
@@ -32,7 +32,7 @@ animation or page rewrite is authorized simply by appearing in this reference.
 
 Illustrative wording, not a claim that these sentences were accepted by the owner:
 
-Before: “Postbot empowers you to seamlessly manage your publishing journey across
+Before: “Postdot empowers you to seamlessly manage your publishing journey across
 multiple destinations. In this guide, we will explore how to get started.”
 
 After: “Write a post, choose its destinations and save a draft.”

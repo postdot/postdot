@@ -140,7 +140,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             return { cookie, id: body.user.id }
         }
         try {
-            const owner = await signup('comments-owner@postbot.local')
+            const owner = await signup('comments-owner@postdot.local')
             const made = await request('/api/projects', owner.cookie, 'POST', {
                 name: 'Comments project',
                 timeZone: 'UTC',
@@ -213,7 +213,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                     )
                     .get()?.count
             ).toBe(1)
-            const viewer = await signup('comments-viewer@postbot.local')
+            const viewer = await signup('comments-viewer@postdot.local')
             await request('/api/projects', viewer.cookie)
             const access = createAccessStore(database)
             access.updateInstanceMembership({

@@ -784,7 +784,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                         item =>
                             query.variant !== undefined &&
                             item.kind === 'derived' &&
-                            item.processorId === 'postbot-image-preview' &&
+                            item.processorId === 'postdot-image-preview' &&
                             item.processorVersion === '1' &&
                             ['ready', 'deletion_requested'].includes(item.state) &&
                             item.recipeJson !== null &&

@@ -13,8 +13,8 @@ Generate a random token with at least 32 characters and provide both settings to
 the API process through its environment or deployment secret manager:
 
 ```sh
-POSTBOT_METRICS_ENABLED=true
-POSTBOT_METRICS_TOKEN=<random-secret-token>
+POSTDOT_METRICS_ENABLED=true
+POSTDOT_METRICS_TOKEN=<random-secret-token>
 ```
 
 For example, `openssl rand -hex 32` generates a 64-character token. Do not put
@@ -22,7 +22,7 @@ the token in source control, a public URL, or a query parameter. Restart Postdot
 after changing these settings. If metrics are enabled without a valid token,
 Postdot refuses to start.
 
-To disable metrics, set `POSTBOT_METRICS_ENABLED=false` and restart Postdot. The
+To disable metrics, set `POSTDOT_METRICS_ENABLED=false` and restart Postdot. The
 route is then absent and responds with `404`.
 
 ## Network boundary and scraping
@@ -33,22 +33,22 @@ remote monitoring, use a VPN or a firewall/reverse-proxy allowlist and TLS; do
 not route `/metrics` to arbitrary public clients. The scrape token should be
 stored as a secret file readable by the Prometheus process.
 
-Prometheus configuration for an API reachable as `postbot-api:3000` on the
+Prometheus configuration for an API reachable as `postdot-api:3000` on the
 monitoring network:
 
 ```yaml
 scrape_configs:
-    - job_name: postbot
+    - job_name: postdot
       metrics_path: /metrics
       static_configs:
-          - targets: ['postbot-api:3000']
+          - targets: ['postdot-api:3000']
       authorization:
           type: Bearer
-          credentials_file: /run/secrets/postbot-metrics-token
+          credentials_file: /run/secrets/postdot-metrics-token
 ```
 
 The file named by `credentials_file` contains the same token configured as
-`POSTBOT_METRICS_TOKEN`. An unauthorized scrape receives `401`; a successful
+`POSTDOT_METRICS_TOKEN`. An unauthorized scrape receives `401`; a successful
 scrape returns Prometheus text exposition.
 
 ## What Postdot records

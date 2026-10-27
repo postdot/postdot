@@ -88,13 +88,13 @@ export function backupDatabase(sourceFilename: string, destinationFilename: stri
     const database = openReadOnlyDatabase(sourcePath)
     try {
         assertHealthy(database, sourcePath)
-        assertPostbotDatabase(database, sourcePath)
+        assertPostdotDatabase(database, sourcePath)
         database.query('VACUUM INTO ?').run(destinationPath)
 
         const backup = openReadOnlyDatabase(destinationPath)
         try {
             assertHealthy(backup, destinationPath)
-            assertPostbotDatabase(backup, destinationPath)
+            assertPostdotDatabase(backup, destinationPath)
         } finally {
             backup.close()
         }
@@ -127,7 +127,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
     const backup = openReadOnlyDatabase(sourcePath)
     try {
         assertHealthy(backup, sourcePath)
-        assertPostbotDatabase(backup, sourcePath)
+        assertPostdotDatabase(backup, sourcePath)
     } finally {
         backup.close()
     }
@@ -139,7 +139,7 @@ function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: 
         const restored = openReadOnlyDatabase(temporaryPath)
         try {
             assertHealthy(restored, temporaryPath)
-            assertPostbotDatabase(restored, temporaryPath)
+            assertPostdotDatabase(restored, temporaryPath)
         } finally {
             restored.close()
         }
@@ -187,7 +187,7 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
         let avatars: readonly MediaBackupAvatar[]
         try {
             assertHealthy(snapshot, databasePath)
-            assertPostbotDatabase(snapshot, databasePath)
+            assertPostdotDatabase(snapshot, databasePath)
             representations = snapshotMediaRepresentations(snapshot, options.mediaStore)
             avatars = snapshotAvatars(snapshot, options.mediaStore)
         } finally {
@@ -307,7 +307,7 @@ async function restoreWithMediaWithoutRuntimeLock(
     const bundleDatabase = openReadOnlyDatabase(bundleDatabasePath)
     try {
         assertHealthy(bundleDatabase, bundleDatabasePath)
-        assertPostbotDatabase(bundleDatabase, bundleDatabasePath)
+        assertPostdotDatabase(bundleDatabase, bundleDatabasePath)
         assertBackupDatabaseMediaMatches(bundleDatabase, manifest, options.mediaStore)
         const expectedAvatars = snapshotAvatars(bundleDatabase, options.mediaStore)
         const actualAvatars = manifest.avatars ?? []
@@ -360,7 +360,7 @@ async function restoreWithMediaWithoutRuntimeLock(
         const restored = openReadOnlyDatabase(temporaryPath)
         try {
             assertHealthy(restored, temporaryPath)
-            assertPostbotDatabase(restored, temporaryPath)
+            assertPostdotDatabase(restored, temporaryPath)
         } finally {
             restored.close()
         }
@@ -874,7 +874,7 @@ function assertHealthy(database: Database, filename: string) {
     }
 }
 
-function assertPostbotDatabase(database: Database, filename: string) {
+function assertPostdotDatabase(database: Database, filename: string) {
     const migrationsTable = database
         .query<{ name: string }, []>(
             `SELECT name

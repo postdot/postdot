@@ -51,7 +51,7 @@ export function registerBlueskyAnalyticsRoutes<const Routes extends Record<strin
                     provider: 'bluesky',
                     subjectType: query.subjectType,
                     providerSubjectId: query.providerSubjectId,
-                    postbotEntityId: query.postbotEntityId,
+                    postdotEntityId: query.postdotEntityId,
                     limit: query.limit,
                 })
                 return result === null

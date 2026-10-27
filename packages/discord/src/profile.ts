@@ -13,8 +13,8 @@ import {
 export const discordImageChannelProfile: ChannelProfileDefinition = {
     id: DISCORD_PROVIDER,
     version: 1,
-    profileHash: 'sha256:postbot-discord-message-v1',
-    schemaHash: 'sha256:postbot-discord-message-schema-v1',
+    profileHash: 'sha256:postdot-discord-message-v1',
+    schemaHash: 'sha256:postdot-discord-message-schema-v1',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -84,8 +84,8 @@ export const discordImageChannelProfile: ChannelProfileDefinition = {
 export const discordChannelProfile: ChannelProfileDefinition = {
     ...discordImageChannelProfile,
     version: 2,
-    profileHash: 'sha256:postbot-discord-message-v2',
-    schemaHash: 'sha256:postbot-discord-message-schema-v2',
+    profileHash: 'sha256:postdot-discord-message-v2',
+    schemaHash: 'sha256:postdot-discord-message-schema-v2',
     capabilities: {
         ...discordImageChannelProfile.capabilities,
         revision: 'discord-message-v2',

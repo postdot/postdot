@@ -1,7 +1,7 @@
 import { assessChannelProfileChange, type ValidationIssue } from '@postdot/core'
 import { and, eq } from 'drizzle-orm'
 
-import { recordDatabaseCommitProject, type PostbotDatabase } from './client'
+import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { parseJsonObject, parseProfile } from './manual-store/content-codec'
 import { assessPinnedTargetMedia } from './manual-store/publication-media'
@@ -10,7 +10,7 @@ import { mediaAssets, mediaRepresentations } from './schema'
 
 /** Reassess the immutable selected target, never the mutable working draft. */
 export function createRetainedTargetAssessor(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     publicMediaUrlAvailable = false
 ) {
     const client = database.$client

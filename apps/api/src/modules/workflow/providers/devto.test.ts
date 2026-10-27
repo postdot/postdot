@@ -139,7 +139,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postdot' },
+                    value: { id: '42', username: 'postdot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -165,7 +165,7 @@ describe('DEV.to provider adapter', () => {
                 media: [media],
                 mediaReferenceCount: 1,
             }),
-            async () => 'https://media.example/postbot/signed-image'
+            async () => 'https://media.example/postdot/signed-image'
         )
 
         await expect(adapter.execute(input)).resolves.toEqual({
@@ -176,7 +176,7 @@ describe('DEV.to provider adapter', () => {
             apiKey: API_KEY,
             title: 'Postdot release notes',
             bodyMarkdown: '# A calmer publishing workflow',
-            mainImageUrl: 'https://media.example/postbot/signed-image',
+            mainImageUrl: 'https://media.example/postdot/signed-image',
         })
     })
 
@@ -185,7 +185,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postdot' },
+                    value: { id: '42', username: 'postdot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -218,7 +218,7 @@ describe('DEV.to provider adapter', () => {
             async getMe() {
                 return {
                     kind: 'success',
-                    value: { id: '42', username: 'postbot', name: 'Postdot' },
+                    value: { id: '42', username: 'postdot', name: 'Postdot' },
                 }
             },
             async getArticleAnalytics() {
@@ -244,7 +244,7 @@ describe('DEV.to provider adapter', () => {
                 media: [{ ...media, contentType: 'image/gif' }],
                 mediaReferenceCount: 1,
             }),
-            async () => 'https://media.example/postbot/signed-image'
+            async () => 'https://media.example/postdot/signed-image'
         )
 
         await expect(unsupported.adapter.execute(unsupported.input)).resolves.toMatchObject({

@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PREVIOUS = "ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e"
+PREVIOUS = "ghcr.io/postdot/postdot@sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--image", required=True)
 parser.add_argument("--previous-image", default=PREVIOUS)
@@ -49,7 +49,8 @@ def differences(before, after, path="$"):
 
 def comparable(editor, shared=False):
     # Profile attribution becomes a workspace actor snapshot in the upgrade; every other field must match.
-    copy = json.loads(json.dumps(editor))
+    # The rename migration rewrites built-in profile hash labels; compare them under the new name.
+    copy = json.loads(json.dumps(editor).replace("sha256:postbot-", "sha256:postdot-"))
     # Added editor metadata is checked explicitly on the candidate below.
     copy.get("editor", {}).pop("movement", None)
     for name in ("profile", "selectedTargetProfile"):
@@ -103,6 +104,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
                 "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
                 "POSTBOT_MEDIA_DIRECTORY": "/data/media",
                 "LOG_LEVEL": "error",
+                # The previous release only knows the original names; the candidate must accept them.
             }.items()
         )
     )
@@ -144,7 +146,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
             data = error.read()
             if expected_status == error.code:
                 return json.loads(data)
-            print(f"{method} {path} -> HTTP {error.code}", flush=True)
+            print(f"{method} {path} -> HTTP {error.code}: {data[:400]!r}", flush=True)
             if error.code >= 500:
                 print(docker("logs", "--tail", "20", container), flush=True)
 
@@ -411,6 +413,14 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
             "/backups/pre-upgrade.bundle",
         )
         start(candidate["Id"], "data")
+        logs = subprocess.run(
+            ["docker", "logs", container], capture_output=True, text=True, timeout=60, check=True
+        )
+        candidate_logs = logs.stdout + logs.stderr
+        if "Deprecated environment names" not in candidate_logs:
+            raise RuntimeError("The candidate did not report the deprecated variable names")
+        if (root / "data/postbot.sqlite").exists() or not (root / "data/postdot.sqlite").exists():
+            raise RuntimeError("The candidate did not adopt the previous database file")
         login()
         verify_preservation()
         if request("GET", "/api/recovery/status")["held"]:

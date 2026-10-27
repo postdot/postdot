@@ -27,12 +27,12 @@
     ],
     "dictionaryDefinitions": [
         {
-            "name": "postbot",
+            "name": "postdot",
             "path": "./cspell-words.txt"
         }
     ],
     "dictionaries": [
-        "postbot",
+        "postdot",
         "bash",
         "companies",
         "computing-acronyms",

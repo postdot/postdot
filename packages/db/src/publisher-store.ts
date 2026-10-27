@@ -23,7 +23,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
@@ -261,7 +261,7 @@ function credentialFields(row: CredentialRow) {
     } as const
 }
 
-export function createPublisherStore(database: PostbotDatabase, options: PublisherStoreOptions) {
+export function createPublisherStore(database: PostdotDatabase, options: PublisherStoreOptions) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

@@ -13,7 +13,7 @@ test('creates a native Instagram channel and connects a professional account dir
             await page.request.post('/api/auth/sign-up/email', {
                 data: {
                     name: 'Instagram operator',
-                    email: `instagram-connect-${suffix}@postbot.local`,
+                    email: `instagram-connect-${suffix}@postdot.local`,
                     password: 'instagram-fixture-password',
                 },
             })

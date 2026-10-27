@@ -37,7 +37,7 @@ describe('installed self-host skill', () => {
         const config = await readFile(join(target, '.env'), 'utf8')
         const keys = [
             ...config.matchAll(
-                /^(?:BETTER_AUTH_SECRET|POSTBOT_MEDIA_PUBLIC_URL_SECRET|POSTBOT_PUBLISHER_ENCRYPTION_KEY)=([a-f0-9]{64})$/gm
+                /^(?:BETTER_AUTH_SECRET|POSTDOT_MEDIA_PUBLIC_URL_SECRET|POSTDOT_PUBLISHER_ENCRYPTION_KEY)=([a-f0-9]{64})$/gm
             ),
         ]
         expect(keys).toHaveLength(3)
@@ -45,7 +45,7 @@ describe('installed self-host skill', () => {
         for (const key of keys) expect(result.stdout + result.stderr).not.toContain(key[1]!)
         expect((await stat(join(target, '.env'))).mode & 0o777).toBe(0o600)
         expect(config).toContain(
-            'POSTBOT_IMAGE=ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e'
+            'POSTDOT_IMAGE=ghcr.io/postdot/postdot@sha256:eceecc8898aa1d1b27c4e5b91fe53b8d78afebf74be410bd4b8f7d4751d5ee9e'
         )
         expect(
             (await run(prepare, [target, '--origin', 'https://other.example.com'])).code
@@ -98,8 +98,8 @@ describe('installed API helper', () => {
                 request,
                 ['POST', '/api/projects/example/posts', '--input', input],
                 {
-                    POSTBOT_URL: server.url.origin,
-                    POSTBOT_API_KEY: token,
+                    POSTDOT_URL: server.url.origin,
+                    POSTDOT_API_KEY: token,
                 }
             )
             expect(result.code).toBe(0)
@@ -129,7 +129,7 @@ describe('installed API helper', () => {
             },
         })
         try {
-            const environment = { POSTBOT_URL: server.url.origin, POSTBOT_API_KEY: token }
+            const environment = { POSTDOT_URL: server.url.origin, POSTDOT_API_KEY: token }
             const redirect = await run(request, ['GET', '/api/projects/redirect'], environment)
             expect(redirect.code).toBe(1)
             expect(JSON.parse(redirect.stderr).error.status).toBe(307)
@@ -151,8 +151,8 @@ describe('installed API helper', () => {
             'https://example.com/path',
         ]) {
             const result = await run(request, ['GET', '/api/projects'], {
-                POSTBOT_URL: origin,
-                POSTBOT_API_KEY: token,
+                POSTDOT_URL: origin,
+                POSTDOT_API_KEY: token,
             })
             expect(result.code).toBe(2)
             expect(result.stderr).not.toContain(token)
@@ -166,8 +166,8 @@ describe('installed API helper', () => {
             expect(
                 (
                     await run(request, ['GET', path], {
-                        POSTBOT_URL: 'https://example.com',
-                        POSTBOT_API_KEY: token,
+                        POSTDOT_URL: 'https://example.com',
+                        POSTDOT_API_KEY: token,
                     })
                 ).code
             ).toBe(2)

@@ -63,7 +63,7 @@ describe('video poster background runtime', () => {
 })
 
 it('optional decoder absence and cancellation never require the original to change', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'postbot-poster-test-'))
+    const directory = await mkdtemp(join(tmpdir(), 'postdot-poster-test-'))
     try {
         const store = createLocalMediaStore({
             storeId: 'poster-test',

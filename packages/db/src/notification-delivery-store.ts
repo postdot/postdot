@@ -13,7 +13,7 @@ import {
     type PersistedEffectOutcome,
 } from '@postdot/core'
 
-import type { PostbotDatabase } from './client'
+import type { PostdotDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const defaultProjectionName = 'external-notification-delivery-v1'
@@ -165,7 +165,7 @@ export interface NotificationDeliveryStoreOptions {
 }
 
 export function createNotificationDeliveryStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: NotificationDeliveryStoreOptions = {}
 ) {
     const client = database.$client

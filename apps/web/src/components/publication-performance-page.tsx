@@ -225,7 +225,7 @@ export function PublicationPerformancePage({
             try {
                 const link = document.createElement('a')
                 link.href = url
-                link.download = `postbot-performance-${project.id}-${new Date(exportedAt).toISOString().slice(0, 10)}.csv`
+                link.download = `postdot-performance-${project.id}-${new Date(exportedAt).toISOString().slice(0, 10)}.csv`
                 document.body.append(link)
                 link.click()
                 link.remove()

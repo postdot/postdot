@@ -15,7 +15,7 @@ import { createChannelCadenceStore } from '../channel-cadence'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
@@ -151,7 +151,7 @@ export interface PublicationPromotionStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationPromotionStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationPromotionStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)

@@ -5,7 +5,7 @@ import { FACEBOOK_PUBLISH_PERMISSIONS } from './publisher'
 
 const clientId = '123456789'
 const clientSecret = 'synthetic-application-secret'
-const callbackUri = 'https://postbot.example/api/oauth/facebook/callback'
+const callbackUri = 'https://postdot.example/api/oauth/facebook/callback'
 function setup(
     reply: (call: number) => Response = call =>
         Response.json({
@@ -150,7 +150,7 @@ test('Facebook configuration rejects insecure or ambiguous callback addresses', 
         'http://localhost/callback',
         `${callbackUri}?state=embedded`,
         `${callbackUri}#fragment`,
-        'https://user:password@postbot.example/callback',
+        'https://user:password@postdot.example/callback',
     ])
         expect(() =>
             createFacebookOAuth({ clientId, clientSecret, callbackUri: address })

@@ -299,7 +299,7 @@ test('uses active execution for custom channel readiness and connection actions'
             kind: 'declarative_http',
             contractId: 'custom-webhook',
             revision: 'v1',
-            mode: 'postbot_webhook',
+            mode: 'postdot_webhook',
         },
     }
     const webhookResponse = await page.request.post(path, {
@@ -465,7 +465,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E recovery ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-recovery-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`e2e-recovery-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-recovery-password')
     await Promise.all([
         page.waitForResponse(

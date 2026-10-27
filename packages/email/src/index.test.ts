@@ -3,9 +3,9 @@ import { describe, expect, it } from 'bun:test'
 import { render } from '@react-email/render'
 
 import {
-    renderPostbotEmailVerificationEmail,
-    renderPostbotOrganizationInvitationEmail,
-    renderPostbotPasswordResetEmail,
+    renderPostdotEmailVerificationEmail,
+    renderPostdotOrganizationInvitationEmail,
+    renderPostdotPasswordResetEmail,
 } from './index'
 import EmailVerificationEmailPreview from './templates/EmailVerificationEmail'
 import OrganizationInvitationEmailPreview from './templates/OrganizationInvitationEmail'
@@ -13,7 +13,7 @@ import PasswordResetEmailPreview from './templates/PasswordResetEmail'
 
 describe('Postdot email templates', () => {
     it('renders a safe invitation with HTML and plain-text alternatives', async () => {
-        const result = await renderPostbotOrganizationInvitationEmail({
+        const result = await renderPostdotOrganizationInvitationEmail({
             email: 'member@example.test',
             role: 'viewer',
             organizationName: 'Project <one>',
@@ -40,11 +40,11 @@ describe('Postdot email templates', () => {
 
     it('renders account verification and reset subjects and actions', async () => {
         const [verification, reset] = await Promise.all([
-            renderPostbotEmailVerificationEmail({
+            renderPostdotEmailVerificationEmail({
                 user: { email: 'member@example.test', name: 'Member' },
                 url: 'https://api.example.test/verify?token=verification-1',
             }),
-            renderPostbotPasswordResetEmail({
+            renderPostdotPasswordResetEmail({
                 user: { email: 'member@example.test', name: 'Member' },
                 url: 'https://api.example.test/reset?token=reset-1',
             }),

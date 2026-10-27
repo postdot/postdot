@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from '../client'
+import { createDatabaseTransaction, type PostdotDatabase } from '../client'
 import type { AdoptPublicationDraftProfileInput } from '../manual-store'
 import {
     canonicalJson,
@@ -16,7 +16,7 @@ import type { PublicationAuthoringStoreOptions } from './publication-authoring-s
 import type { WorkingDraftRow } from './rows'
 
 export function createPublicationProfileAdoptionStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: PublicationAuthoringStoreOptions & {
         loadWorkingDraft: (projectId: string, publicationId: string) => WorkingDraftRow | null
         supersedePendingApprovalRequest: (

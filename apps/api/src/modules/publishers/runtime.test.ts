@@ -13,7 +13,7 @@ function createUser(database: ReturnType<typeof createDatabase>) {
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
-        .run('user-1', 'Postdot Operator', 'operator@postbot.test', now)
+        .run('user-1', 'Postdot Operator', 'operator@postdot.test', now)
 }
 
 function createRuntime(

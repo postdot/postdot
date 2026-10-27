@@ -16,12 +16,12 @@ with tempfile.TemporaryDirectory(prefix="postdot-agent580-live-") as d:
     origin = "http://127.0.0.1:" + str(port)
     env = {
         "BETTER_AUTH_URL": origin,
-        "POSTBOT_WEB_ORIGIN": origin,
+        "POSTDOT_WEB_ORIGIN": origin,
         "BETTER_AUTH_SECRET": secrets.token_hex(32),
-        "POSTBOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
-        "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
-        "POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID": "v1",
-        "POSTBOT_MEDIA_DIRECTORY": "/data/media",
+        "POSTDOT_MEDIA_PUBLIC_URL_SECRET": secrets.token_hex(32),
+        "POSTDOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
+        "POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID": "v1",
+        "POSTDOT_MEDIA_DIRECTORY": "/data/media",
         "LOG_LEVEL": "error",
     }
     config = p / "environment"
@@ -118,8 +118,8 @@ with tempfile.TemporaryDirectory(prefix="postdot-agent580-live-") as d:
                 args,
                 env={
                     "PATH": os.environ["PATH"],
-                    "POSTBOT_URL": origin,
-                    "POSTBOT_API_KEY": key,
+                    "POSTDOT_URL": origin,
+                    "POSTDOT_API_KEY": key,
                 },
                 capture_output=True,
                 text=True,

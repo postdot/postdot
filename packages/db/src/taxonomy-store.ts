@@ -13,7 +13,7 @@ import {
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
@@ -151,7 +151,7 @@ function sortTagIds(tags: ReadonlyMap<string, TaxonomyTagRow>, tagIds: readonly 
     })
 }
 
-export function createTaxonomyStore(database: PostbotDatabase, options: TaxonomyStoreOptions = {}) {
+export function createTaxonomyStore(database: PostdotDatabase, options: TaxonomyStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

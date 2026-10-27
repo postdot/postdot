@@ -25,14 +25,14 @@ import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
 import { createEmailSettingsService, type EmailSettingsService } from './modules/email/settings'
-import { createPostbotMetrics } from './modules/metrics/metrics'
+import { createPostdotMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import type { ChannelListItemResponse } from './modules/projects/models'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 import type { RecoveryService } from './recovery'
 
 const baseURL = 'http://localhost:3000'
-const secret = 'postbot-test-secret-with-at-least-32-characters'
+const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -66,7 +66,7 @@ const customWebhookProfile: ChannelProfileDefinition = {
         kind: 'declarative_http',
         contractId: 'custom-webhook',
         revision: '1',
-        mode: 'postbot_webhook',
+        mode: 'postdot_webhook',
     },
 }
 
@@ -149,7 +149,7 @@ function createFixture(
         linkedin: options.linkedin,
         x: options.x,
         bluesky: {
-            clientMetadataUrl: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+            clientMetadataUrl: 'https://postdot.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
         },
     })
@@ -181,7 +181,7 @@ function createFixture(
     return { access, app, auth, database, notifications, publisher }
 }
 
-async function signUp(app: ReturnType<typeof createApp>, email = 'operator@postbot.local') {
+async function signUp(app: ReturnType<typeof createApp>, email = 'operator@postdot.local') {
     const response = await app.handle(
         new Request(`${baseURL}/api/auth/sign-up/email`, {
             method: 'POST',
@@ -453,7 +453,7 @@ describe('Postdot API', () => {
                 },
                 fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
                 capabilities: {
-                    revision: 'postbot-custom-v1',
+                    revision: 'postdot-custom-v1',
                     textFields: [
                         {
                             bindingId: 'body',
@@ -583,10 +583,10 @@ describe('Postdot API', () => {
     })
 
     it('serves authenticated Prometheus scrapes over HTTP and reflects worker updates', async () => {
-        const metrics = createPostbotMetrics()
+        const metrics = createPostdotMetrics()
         metrics.bindScheduler({ state: 'running' })
         metrics.observeWorkerRun({ outcome: 'success', durationSeconds: 0.25 })
-        const bearerToken = 'postbot-test-monitoring-token-with-more-than-32-characters'
+        const bearerToken = 'postdot-test-monitoring-token-with-more-than-32-characters'
         const { app, database } = createFixture({
             metrics: { registry: metrics.registry, bearerToken },
         })
@@ -613,15 +613,15 @@ describe('Postdot API', () => {
             expect(response.status).toBe(200)
             expect(response.headers.get('content-type')).toBe(metrics.registry.contentType)
             const firstExposition = await response.text()
-            expect(firstExposition).toContain('postbot_process_memory_bytes{type="rss"}')
+            expect(firstExposition).toContain('postdot_process_memory_bytes{type="rss"}')
             expect(firstExposition).toContain(
-                'postbot_publication_scheduler_state{state="running"} 1'
+                'postdot_publication_scheduler_state{state="running"} 1'
             )
             expect(firstExposition).toContain(
-                'postbot_publication_worker_runs_total{outcome="success"} 1'
+                'postdot_publication_worker_runs_total{outcome="success"} 1'
             )
             expect(firstExposition).toContain(
-                'postbot_publication_worker_run_duration_seconds_bucket{le="0.5",outcome="success"} 1'
+                'postdot_publication_worker_run_duration_seconds_bucket{le="0.5",outcome="success"} 1'
             )
 
             metrics.observeWorkerRun({ outcome: 'failure', durationSeconds: 2 })
@@ -631,10 +631,10 @@ describe('Postdot API', () => {
             expect(updatedResponse.status).toBe(200)
             const updatedExposition = await updatedResponse.text()
             expect(updatedExposition).toContain(
-                'postbot_publication_worker_runs_total{outcome="failure"} 1'
+                'postdot_publication_worker_runs_total{outcome="failure"} 1'
             )
             expect(updatedExposition).toContain(
-                'postbot_publication_worker_run_duration_seconds_bucket{le="5",outcome="failure"} 1'
+                'postdot_publication_worker_run_duration_seconds_bucket{le="5",outcome="failure"} 1'
             )
 
             const openApiResponse = await app.handle(new Request(`${baseURL}/openapi/json`))
@@ -679,7 +679,7 @@ describe('Postdot API', () => {
             )
             expect(metadataResponse.status).toBe(200)
             expect(await metadataResponse.json()).toMatchObject({
-                client_id: 'https://postbot.example.test/oauth/bluesky/client-metadata.json',
+                client_id: 'https://postdot.example.test/oauth/bluesky/client-metadata.json',
                 redirect_uris: [`${baseURL}/api/oauth/bluesky/callback`],
                 token_endpoint_auth_method: 'none',
                 dpop_bound_access_tokens: true,
@@ -695,7 +695,7 @@ describe('Postdot API', () => {
 
     it('preserves Better Auth session cookies through the Elysia mount', async () => {
         const { app, database } = createFixture()
-        const email = 'elysia-auth-mount@postbot.local'
+        const email = 'elysia-auth-mount@postdot.local'
 
         try {
             const cookie = await signUp(app, email)
@@ -718,7 +718,7 @@ describe('Postdot API', () => {
             const clientSecret = `${providerId}-client-secret`
 
             try {
-                const cookie = await signUp(app, 'provider-applications@postbot.local')
+                const cookie = await signUp(app, 'provider-applications@postdot.local')
                 const createResponse = await jsonRequest(
                     app,
                     '/api/settings/provider-applications',
@@ -796,7 +796,7 @@ describe('Postdot API', () => {
             )
             expect(unauthenticatedResponse.status).toBe(401)
 
-            const cookie = await signUp(app, 'channel-profile-presets@postbot.local')
+            const cookie = await signUp(app, 'channel-profile-presets@postdot.local')
             const response = await jsonRequest(app, '/api/channel-profile-presets', cookie)
             expect(response.status).toBe(200)
 
@@ -842,7 +842,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'provider-applications-loopback@postbot.local')
+            const cookie = await signUp(app, 'provider-applications-loopback@postdot.local')
             const createResponse = await jsonRequest(
                 app,
                 '/api/settings/provider-applications',
@@ -878,7 +878,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'runtime-oauth@postbot.local')
+            const cookie = await signUp(app, 'runtime-oauth@postdot.local')
             const applicationResponse = await jsonRequest(
                 app,
                 '/api/settings/provider-applications',
@@ -1391,7 +1391,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'taxonomy-operator@postbot.local')
+            const cookie = await signUp(app, 'taxonomy-operator@postdot.local')
             const categoryResponse = await jsonRequest(app, '/api/categories', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: '  Product   Updates ' }),
@@ -1760,7 +1760,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'analytics@postbot.local')
+            const cookie = await signUp(app, 'analytics@postdot.local')
             const createProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Analytics project', timeZone: 'Europe/Paris' }),
@@ -2053,7 +2053,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const cookie = await signUp(app, 'realtime-operator@postbot.local')
+            const cookie = await signUp(app, 'realtime-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Realtime project' }),
@@ -2167,7 +2167,7 @@ describe('Postdot API', () => {
 
             const otherCookie = await signUpFixtureAdditionalUser(
                 app,
-                'other-realtime-operator@postbot.local'
+                'other-realtime-operator@postdot.local'
             )
             const otherProjectResponse = await jsonRequest(app, '/api/projects', otherCookie, {
                 method: 'POST',
@@ -2207,7 +2207,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'timezone-operator@postbot.local')
+            const cookie = await signUp(app, 'timezone-operator@postdot.local')
             const createResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -2263,7 +2263,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const ownerCookie = await signUp(app, 'lifecycle-owner@postbot.local')
+            const ownerCookie = await signUp(app, 'lifecycle-owner@postdot.local')
             const owner = database.$client
                 .query<{ readonly userId: string }, []>(
                     `select claimed_by_user_id as userId from instance_state where id = 'default'`
@@ -2303,7 +2303,7 @@ describe('Postdot API', () => {
                 channel: { id: string }
             }
 
-            const memberEmail = 'lifecycle-member@postbot.local'
+            const memberEmail = 'lifecycle-member@postdot.local'
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
             const member = database.$client
                 .query<{ readonly userId: string }, [string]>(
@@ -2480,7 +2480,7 @@ describe('Postdot API', () => {
             )
             expect(removedMemberResponse.status).toBe(404)
 
-            const outsiderEmail = 'lifecycle-outsider@postbot.local'
+            const outsiderEmail = 'lifecycle-outsider@postdot.local'
             const outsiderCookie = await signUpFixtureAdditionalUser(app, outsiderEmail)
             const outsiderUpdateResponse = await jsonRequest(
                 app,
@@ -2538,7 +2538,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'media-unavailable-operator@postbot.local')
+            const cookie = await signUp(app, 'media-unavailable-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Media unavailable project' }),
@@ -2567,7 +2567,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'profile-operator@postbot.local')
+            const cookie = await signUp(app, 'profile-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Profile API Project' }),
@@ -2609,8 +2609,8 @@ describe('Postdot API', () => {
             }
             capabilities.revision = 'manual-message-v2'
             capabilities.textFields[0]!.maxLength = 100
-            profile.profileHash = 'sha256:postbot-manual-message-v2'
-            profile.schemaHash = 'sha256:postbot-manual-message-schema-v2'
+            profile.profileHash = 'sha256:postdot-manual-message-v2'
+            profile.schemaHash = 'sha256:postdot-manual-message-schema-v2'
 
             const draftResponse = await jsonRequest(
                 app,
@@ -2676,7 +2676,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'channel-lifecycle-operator@postbot.local')
+            const cookie = await signUp(app, 'channel-lifecycle-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Channel lifecycle API project' }),
@@ -2809,7 +2809,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'custom-http-operator@postbot.local')
+            const cookie = await signUp(app, 'custom-http-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Custom HTTP Project' }),
@@ -2865,7 +2865,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'custom-path-operator@postbot.local')
+            const cookie = await signUp(app, 'custom-path-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Custom path project' }),
@@ -2932,7 +2932,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'api-key-operator@postbot.local')
+            const cookie = await signUp(app, 'api-key-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Machine access project' }),
@@ -2959,7 +2959,7 @@ describe('Postdot API', () => {
             }
             expect(createdBody.key).toMatchObject({
                 name: 'Release agent',
-                tokenPrefix: 'postbot_pat_',
+                tokenPrefix: 'postdot_pat_',
                 projectAccess: [projectId],
             })
             expect(createdBody.token.length).toBeGreaterThan(40)
@@ -3075,7 +3075,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const ownerCookie = await signUp(app, 'project-access-owner@postbot.local')
+            const ownerCookie = await signUp(app, 'project-access-owner@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Project access surface' }),
@@ -3105,14 +3105,14 @@ describe('Postdot API', () => {
             expect(initialInvitationsResponse.status).toBe(200)
             expect(await initialInvitationsResponse.json()).toEqual({ invitations: [] })
 
-            const memberEmail = 'project-access-member@postbot.local'
+            const memberEmail = 'project-access-member@postdot.local'
             const outsiderCookie = await signUpFixtureAdditionalUser(
                 app,
-                'project-access-outsider@postbot.local'
+                'project-access-outsider@postdot.local'
             )
             const outsider = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('project-access-outsider@postbot.local')
+                .get('project-access-outsider@postdot.local')
             const outsiderWorkspace = access.getDefaultWorkspace()
             expect(outsider).not.toBeNull()
             expect(outsiderWorkspace).not.toBeNull()
@@ -3194,7 +3194,7 @@ describe('Postdot API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        email: 'another-project-member@postbot.local',
+                        email: 'another-project-member@postdot.local',
                         role: 'viewer',
                     }),
                 }
@@ -3297,7 +3297,7 @@ describe('Postdot API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        email: 'project-access-pending@postbot.local',
+                        email: 'project-access-pending@postdot.local',
                         role: 'viewer',
                     }),
                 }
@@ -3372,22 +3372,22 @@ describe('Postdot API', () => {
         const { access, app, auth, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const ownerCookie = await signUp(app, 'group-grant-owner@postbot.local')
-            const memberCookie = await signUp(app, 'group-grant-member@postbot.local')
+            const ownerCookie = await signUp(app, 'group-grant-owner@postdot.local')
+            const memberCookie = await signUp(app, 'group-grant-member@postdot.local')
             const workspaceAdminCookie = await signUp(
                 app,
-                'group-grant-workspace-admin@postbot.local'
+                'group-grant-workspace-admin@postdot.local'
             )
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('group-grant-member@postbot.local')
+                .get('group-grant-member@postdot.local')
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The group grant member was not created')
 
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
-            const editorsTeamId = `postbot-workspace-team:${workspace.id}:editors`
+            const editorsTeamId = `postdot-workspace-team:${workspace.id}:editors`
             await auth.api.addTeamMember({
                 body: {
                     organizationId: workspace.organizationId,
@@ -3527,7 +3527,7 @@ describe('Postdot API', () => {
         const { access, app, database } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'workspace-flow-owner@postbot.local')
+            const ownerCookie = await signUp(app, 'workspace-flow-owner@postdot.local')
             const workspace = access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
@@ -3553,7 +3553,7 @@ describe('Postdot API', () => {
             const teamBody = (await teamResponse.json()) as { team: { id: string; name: string } }
             expect(teamBody.team.name).toBe('Content team')
 
-            const targetEmail = 'workspace-flow-member@postbot.local'
+            const targetEmail = 'workspace-flow-member@postdot.local'
             const invitationResponse = await jsonRequest(
                 app,
                 `/api/workspaces/${workspace.id}/invitations`,
@@ -3650,11 +3650,11 @@ describe('Postdot API', () => {
         const { access, app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
-            const ownerCookie = await signUp(app, 'group-visibility-owner@postbot.local')
-            const memberCookie = await signUp(app, 'group-visibility-member@postbot.local')
+            const ownerCookie = await signUp(app, 'group-visibility-owner@postdot.local')
+            const memberCookie = await signUp(app, 'group-visibility-member@postdot.local')
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('group-visibility-member@postbot.local')
+                .get('group-visibility-member@postdot.local')
             const workspace = access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
@@ -3688,8 +3688,8 @@ describe('Postdot API', () => {
                 project: { id: string }
             }
 
-            const editorsTeamId = `postbot-workspace-team:${workspace.id}:editors`
-            const reviewersTeamId = `postbot-workspace-team:${workspace.id}:reviewers`
+            const editorsTeamId = `postdot-workspace-team:${workspace.id}:editors`
+            const reviewersTeamId = `postdot-workspace-team:${workspace.id}:reviewers`
             const addMemberResponse = await jsonRequest(
                 app,
                 `/api/workspaces/${workspace.id}/teams/${editorsTeamId}/members`,
@@ -3819,7 +3819,7 @@ describe('Postdot API', () => {
         const { access, app, auth, database } = createFixture()
 
         try {
-            const ownerCookie = await signUp(app, 'organization-owner@postbot.local')
+            const ownerCookie = await signUp(app, 'organization-owner@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Invitation bridge project' }),
@@ -3837,20 +3837,20 @@ describe('Postdot API', () => {
                             .query<{ readonly id: string }, [string]>(
                                 'select id from user where email = ?1'
                             )
-                            .get('organization-owner@postbot.local') ?? { id: '' }
+                            .get('organization-owner@postdot.local') ?? { id: '' }
                     ).id,
                 },
             })
 
             const invitation = await auth.api.createInvitation({
                 body: {
-                    email: 'organization-member@postbot.local',
+                    email: 'organization-member@postdot.local',
                     role: 'editor',
                     organizationId: legacyOrganization.id,
                 },
                 headers: new Headers({ cookie: ownerCookie }),
             })
-            const memberCookie = await signUp(app, 'organization-member@postbot.local')
+            const memberCookie = await signUp(app, 'organization-member@postdot.local')
             const accepted = await auth.api.acceptInvitation({
                 body: { invitationId: invitation.id },
                 headers: new Headers({ cookie: memberCookie }),
@@ -3859,7 +3859,7 @@ describe('Postdot API', () => {
             expect(accepted.member.role).toBe('editor')
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('organization-member@postbot.local')
+                .get('organization-member@postdot.local')
             expect(member).not.toBeNull()
             expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
 
@@ -4337,7 +4337,7 @@ describe('Postdot API', () => {
             )
             expect(unauthenticatedResponse.status).toBe(401)
 
-            const cookie = await signUp(app, 'composer-recovery@postbot.local')
+            const cookie = await signUp(app, 'composer-recovery@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Composer recovery project' }),
@@ -4437,7 +4437,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'bulk-scheduling-operator@postbot.local')
+            const cookie = await signUp(app, 'bulk-scheduling-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Bulk scheduling project' }),
@@ -4603,7 +4603,7 @@ describe('Postdot API', () => {
     it('creates an X channel through the API', async () => {
         const { app, database } = createFixture()
         try {
-            const cookie = await signUp(app, 'x-channel-operator@postbot.local')
+            const cookie = await signUp(app, 'x-channel-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X channel project' }),
@@ -4938,7 +4938,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'organization-operator@postbot.local')
+            const cookie = await signUp(app, 'organization-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Organization Project' }),
@@ -5083,7 +5083,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'x-operator@postbot.local')
+            const cookie = await signUp(app, 'x-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X Project' }),
@@ -5453,7 +5453,7 @@ describe('Postdot API', () => {
         })
 
         try {
-            const cookie = await signUp(app, 'x-first-operator@postbot.local')
+            const cookie = await signUp(app, 'x-first-operator@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'X state project' }),
@@ -5507,7 +5507,7 @@ describe('Postdot API', () => {
 
             const secondCookie = await signUpFixtureAdditionalUser(
                 app,
-                'x-second-operator@postbot.local'
+                'x-second-operator@postdot.local'
             )
             const mismatchedResponse = await callback(
                 'authorization-code',
@@ -5579,7 +5579,7 @@ describe('Postdot API', () => {
         const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'reconciler@postbot.local')
+            const cookie = await signUp(app, 'reconciler@postdot.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Reconciliation Project' }),
@@ -5787,7 +5787,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         store: createInstallationEmailSettingsStore(
             settingsDatabase,
             createSecretCipher({
-                domain: 'postbot.installation-email',
+                domain: 'postdot.installation-email',
                 keyId: 'test',
                 key: publisherEncryptionKey,
             })
@@ -5803,7 +5803,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         allowAdditionalSignups: true,
     })
     try {
-        const cookie = await signUp(app, 'smtp-admin@postbot.local')
+        const cookie = await signUp(app, 'smtp-admin@postdot.local')
         const read = await jsonRequest(app, '/api/settings/email', cookie)
         expect(read.status).toBe(200)
         expect(await read.json()).toMatchObject({
@@ -5816,7 +5816,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
             host: 'smtp.example.test',
             port: 587,
             secure: false,
-            from: 'postbot@example.test',
+            from: 'postdot@example.test',
             username: 'mailer',
             password: 'FAKE_SECRET_355',
         }
@@ -5829,7 +5829,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(
             (await jsonRequest(app, '/api/settings/email/test', cookie, { method: 'POST' })).status
         ).toBe(200)
-        expect(sent).toEqual(['smtp-admin@postbot.local'])
+        expect(sent).toEqual(['smtp-admin@postdot.local'])
         const invalid = await jsonRequest(app, '/api/settings/email', cookie, {
             method: 'PUT',
             body: JSON.stringify({ ...input, host: 'smtp server' }),
@@ -5860,10 +5860,10 @@ it('restricts SMTP settings to human instance administrators and never returns c
             )
             expect(response.status).toBe(403)
         }
-        const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@postbot.local')
+        const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@postdot.local')
         const members = access.listInstanceMemberships()
         const memberId = members.find(
-            member => member.email === 'smtp-member@postbot.local'
+            member => member.email === 'smtp-member@postdot.local'
         )!.userId
         const demotion = await jsonRequest(app, `/api/access/members/${memberId}`, cookie, {
             method: 'PATCH',
@@ -5873,7 +5873,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(await demotion.json()).toMatchObject({ membership: { role: 'member' } })
         expect(
             access.isInstanceAdmin(
-                members.find(member => member.email === 'smtp-member@postbot.local')!.userId
+                members.find(member => member.email === 'smtp-member@postdot.local')!.userId
             )
         ).toBe(false)
         expect((await jsonRequest(app, '/api/settings/email', memberCookie)).status).toBe(403)
@@ -5911,16 +5911,16 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
         allowAdditionalSignups: true,
     })
     try {
-        const admin = await signUp(app, 'recovery-admin@postbot.local')
-        const member = await signUp(app, 'recovery-member@postbot.local')
+        const admin = await signUp(app, 'recovery-admin@postdot.local')
+        const member = await signUp(app, 'recovery-member@postdot.local')
         const memberUser = database.$client
             .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-member@postbot.local'"
+                "select id from user where email = 'recovery-member@postdot.local'"
             )
             .get()!
         const adminUser = database.$client
             .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-admin@postbot.local'"
+                "select id from user where email = 'recovery-admin@postdot.local'"
             )
             .get()!
         await auth.api.setRole({
@@ -6019,10 +6019,10 @@ it('saves the standalone post source with revision guards and no destination cha
         const before = database.$client.query('select * from publication_working_drafts').all()
         const updated = await jsonRequest(app, url, cookie, { method: 'PATCH', body })
         expect(updated.status).toBe(200)
-        const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@postbot.local')
+        const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@postdot.local')
         const viewer = database.$client
             .query<{ id: string }, [string]>('select id from user where email = ?1')
-            .get('source-viewer@postbot.local')!
+            .get('source-viewer@postdot.local')!
         expect(
             access.grantProjectUserAccess({
                 projectId: project.id,
@@ -6036,7 +6036,7 @@ it('saves the standalone post source with revision guards and no destination cha
         )
         const outsiderCookie = await signUpFixtureAdditionalUser(
             app,
-            'source-outsider@postbot.local'
+            'source-outsider@postdot.local'
         )
         expect(
             (await jsonRequest(app, url, outsiderCookie, { method: 'PATCH', body })).status

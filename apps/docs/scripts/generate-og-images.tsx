@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 
 import logos from '@iconify-json/logos/icons.json'
 import { getIconData } from '@iconify/utils'
-import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
+import { PostdotLogo } from '@postdot/ui/components/postdot-logo'
 import { Resvg } from '@resvg/resvg-js'
 import satori from 'satori'
 
@@ -70,7 +70,7 @@ async function render(card: Card) {
                 style={{ position: 'absolute', top: 0, left: 0 }}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {PostbotLogo({ width: 44, height: 44, style: { color: '#1c1c1c' } })}
+                {PostdotLogo({ width: 44, height: 44, style: { color: '#1c1c1c' } })}
                 <span style={{ display: 'flex', fontSize: 34, letterSpacing: '-1.5px' }}>
                     <span style={{ fontWeight: 600 }}>post</span>
                     <span style={{ opacity: 0.6 }}>dot</span>

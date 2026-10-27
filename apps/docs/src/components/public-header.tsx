@@ -3,7 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@postdot/ui/components/
 import { useMotionValueEvent, useScroll } from 'motion/react'
 import { useEffect, useState } from 'react'
 
-import { PostbotLogo } from './brand'
+import { PostdotLogo } from './brand'
 import { PublicThemeToggle } from './public-theme-toggle'
 import { PublicWordmark } from './public-wordmark'
 import { Link } from './site-link'
@@ -27,7 +27,7 @@ export function PublicHeader() {
             </a>
             <div className="home-header">
                 <Link href="/" className="home-brand" aria-label="Postdot home">
-                    <PostbotLogo className="home-logo" />
+                    <PostdotLogo className="home-logo" />
                     <PublicWordmark />
                 </Link>
                 <nav aria-label="Main navigation">

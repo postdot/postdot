@@ -51,7 +51,7 @@ for (const entry of scenarios) {
         runMigrations(database)
         const now = 1_800_000_000_000
         let clock = now
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-telegram-worker-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-telegram-worker-'))
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({

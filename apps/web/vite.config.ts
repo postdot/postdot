@@ -9,8 +9,8 @@ import { defineConfig, loadEnv, type Plugin } from 'vite'
 
 export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, process.cwd(), '')
-    const apiOrigin = parseApiOrigin(environment.POSTBOT_API_ORIGIN)
-    const allowedHost = parseAllowedHost(environment.POSTBOT_VITE_ALLOWED_HOST)
+    const apiOrigin = parseApiOrigin(environment.POSTDOT_API_ORIGIN)
+    const allowedHost = parseAllowedHost(environment.POSTDOT_VITE_ALLOWED_HOST)
 
     return {
         build: {
@@ -53,7 +53,7 @@ function parseApiOrigin(value: string | undefined): string {
     try {
         url = new URL(rawValue)
     } catch {
-        throw new Error('POSTBOT_API_ORIGIN must be an absolute HTTP or HTTPS origin')
+        throw new Error('POSTDOT_API_ORIGIN must be an absolute HTTP or HTTPS origin')
     }
 
     if (
@@ -62,7 +62,7 @@ function parseApiOrigin(value: string | undefined): string {
         url.search !== '' ||
         url.hash !== ''
     ) {
-        throw new Error('POSTBOT_API_ORIGIN must be an absolute HTTP or HTTPS origin')
+        throw new Error('POSTDOT_API_ORIGIN must be an absolute HTTP or HTTPS origin')
     }
 
     return url.origin
@@ -72,7 +72,7 @@ function parseAllowedHost(value: string | undefined): string | undefined {
     const host = value?.trim()
     if (host === undefined || host === '') return undefined
     if (host.includes('/') || host.includes(':') || host.includes(' ')) {
-        throw new Error('POSTBOT_VITE_ALLOWED_HOST must be a hostname without a scheme or port')
+        throw new Error('POSTDOT_VITE_ALLOWED_HOST must be a hostname without a scheme or port')
     }
     return host
 }
@@ -95,7 +95,7 @@ function emojiDataAssets(): Plugin {
         readFileSync(fileURLToPath(import.meta.resolve('emojibase-data/LICENSE')))
     )
     return {
-        name: 'postbot-emoji-data',
+        name: 'postdot-emoji-data',
         configureServer(server) {
             server.middlewares.use((request, response, next) => {
                 const source = assets.get((request.url ?? '').split('?')[0]!.slice(1))

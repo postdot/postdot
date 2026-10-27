@@ -1,14 +1,14 @@
-import type { PostbotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import { AvatarValidationError, avatarMaxBytes, type UserAvatarStore } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
 export function createAccountRoutes(
-    auth: PostbotAuth,
+    auth: PostdotAuth,
     avatars: UserAvatarStore | undefined,
     allowedOrigins: readonly string[] = []
 ) {
-    return new Elysia({ name: 'postbot-personal-account', prefix: '/api/account' })
+    return new Elysia({ name: 'postdot-personal-account', prefix: '/api/account' })
         .derive(async ({ request }) => {
             const headers = new Headers()
             headers.set('cookie', request.headers.get('cookie') ?? '')

@@ -3,19 +3,19 @@ import {
     providerAnalyticsAvailabilityStates,
     providerAnalyticsContractVersion,
     providerAnalyticsFreshnessStates,
-    providerAnalyticsPostbotEntityTypes,
+    providerAnalyticsPostdotEntityTypes,
     providerAnalyticsSubjectTypes,
     requireNonBlank,
     requireTimestamp,
     type ProviderAnalyticsAvailability,
     type ProviderAnalyticsFreshness,
-    type ProviderAnalyticsPostbotEntityType,
+    type ProviderAnalyticsPostdotEntityType,
     type ProviderAnalyticsObservation,
     type ProviderAnalyticsObservationInput,
     type ProviderAnalyticsSubjectType,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostdotDatabase } from './client'
 
 const defaultObservationLimit = 100
 const maximumObservationLimit = 500
@@ -44,7 +44,7 @@ export interface ListProviderAnalyticsObservationsInput {
     readonly provider: string
     readonly subjectType?: ProviderAnalyticsSubjectType | null
     readonly providerSubjectId?: string | null
-    readonly postbotEntityId?: string | null
+    readonly postdotEntityId?: string | null
     readonly limit?: number
 }
 
@@ -75,8 +75,8 @@ export interface ListLatestProviderContentObservationsInput {
 
 export interface KnownProviderContent {
     readonly channelId: string
-    readonly postbotEntityType: 'publication'
-    readonly postbotEntityId: string
+    readonly postdotEntityType: 'publication'
+    readonly postdotEntityId: string
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
 }
@@ -93,8 +93,8 @@ interface ObservationRow {
     readonly providerSubjectId: string
     readonly providerSubjectLabel: string | null
     readonly providerContentRevisionId: string | null
-    readonly postbotEntityType: ProviderAnalyticsPostbotEntityType | null
-    readonly postbotEntityId: string | null
+    readonly postdotEntityType: ProviderAnalyticsPostdotEntityType | null
+    readonly postdotEntityId: string | null
     readonly metricName: string
     readonly value: number | null
     readonly unit: string
@@ -110,12 +110,12 @@ interface ObservationRow {
 
 interface KnownProviderContentRow {
     readonly channelId: string
-    readonly postbotEntityId: string
+    readonly postdotEntityId: string
     readonly providerSubjectId: string
 }
 
 export function createProviderAnalyticsStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: ProviderAnalyticsStoreOptions = {}
 ) {
     const client = database.$client
@@ -146,8 +146,8 @@ export function createProviderAnalyticsStore(
             providerSubjectId: string,
             providerSubjectLabel: string | null,
             providerContentRevisionId: string | null,
-            postbotEntityType: string | null,
-            postbotEntityId: string | null,
+            postdotEntityType: string | null,
+            postdotEntityId: string | null,
             metricName: string,
             value: number | null,
             unit: string,
@@ -170,8 +170,8 @@ export function createProviderAnalyticsStore(
             provider_subject_id,
             provider_subject_label,
             provider_content_revision_id,
-            postbot_entity_type,
-            postbot_entity_id,
+            postdot_entity_type,
+            postdot_entity_id,
             metric_name,
             value,
             unit,
@@ -208,8 +208,8 @@ export function createProviderAnalyticsStore(
                provider_subject_id as providerSubjectId,
                provider_subject_label as providerSubjectLabel,
                provider_content_revision_id as providerContentRevisionId,
-               postbot_entity_type as postbotEntityType,
-               postbot_entity_id as postbotEntityId,
+               postdot_entity_type as postdotEntityType,
+               postdot_entity_id as postdotEntityId,
                metric_name as metricName,
                value,
                unit,
@@ -238,7 +238,7 @@ export function createProviderAnalyticsStore(
             provider: string,
             subjectType: string | null,
             providerSubjectId: string | null,
-            postbotEntityId: string | null,
+            postdotEntityId: string | null,
             limit: number,
         ]
     >(
@@ -250,8 +250,8 @@ export function createProviderAnalyticsStore(
                provider_subject_id as providerSubjectId,
                provider_subject_label as providerSubjectLabel,
                provider_content_revision_id as providerContentRevisionId,
-               postbot_entity_type as postbotEntityType,
-               postbot_entity_id as postbotEntityId,
+               postdot_entity_type as postdotEntityType,
+               postdot_entity_id as postdotEntityId,
                metric_name as metricName,
                value,
                unit,
@@ -268,7 +268,7 @@ export function createProviderAnalyticsStore(
           and provider = ?2
           and (?3 is null or subject_type = ?3)
           and (?4 is null or provider_subject_id = ?4)
-          and (?5 is null or postbot_entity_id = ?5)
+          and (?5 is null or postdot_entity_id = ?5)
         order by fetched_at desc, id desc
         limit ?6
     `
@@ -284,8 +284,8 @@ export function createProviderAnalyticsStore(
                        provider_subject_id as providerSubjectId,
                        provider_subject_label as providerSubjectLabel,
                        provider_content_revision_id as providerContentRevisionId,
-                       postbot_entity_type as postbotEntityType,
-                       postbot_entity_id as postbotEntityId,
+                       postdot_entity_type as postdotEntityType,
+                       postdot_entity_id as postdotEntityId,
                        metric_name as metricName,
                        value,
                        unit,
@@ -298,15 +298,15 @@ export function createProviderAnalyticsStore(
                        freshness,
                        provenance,
                        row_number() over (
-                           partition by postbot_entity_id, metric_name
+                           partition by postdot_entity_id, metric_name
                            order by fetched_at desc, id desc
                        ) as rowRank
                 from provider_analytics_observations
                 where project_id = ?1
                   and provider = ?2
                   and subject_type = 'content'
-                  and postbot_entity_type = 'publication'
-                  and postbot_entity_id in (${publicationIds.map((_, index) => `?${index + 3}`).join(', ')})
+                  and postdot_entity_type = 'publication'
+                  and postdot_entity_id in (${publicationIds.map((_, index) => `?${index + 3}`).join(', ')})
             )
             select id,
                    projectId,
@@ -315,8 +315,8 @@ export function createProviderAnalyticsStore(
                    providerSubjectId,
                    providerSubjectLabel,
                    providerContentRevisionId,
-                   postbotEntityType,
-                   postbotEntityId,
+                   postdotEntityType,
+                   postdotEntityId,
                    metricName,
                    value,
                    unit,
@@ -340,7 +340,7 @@ export function createProviderAnalyticsStore(
     >(
         String.raw`
         select publications.channel_id as channelId,
-               publications.id as postbotEntityId,
+               publications.id as postdotEntityId,
                publications.external_id as providerSubjectId
         from publications
         inner join project_publisher_contexts as publishers
@@ -360,7 +360,7 @@ export function createProviderAnalyticsStore(
         client.query<KnownProviderContentRow, [string, string, string, ...string[]]>(
             String.raw`
             select publications.channel_id as channelId,
-                   publications.id as postbotEntityId,
+                   publications.id as postdotEntityId,
                    publications.external_id as providerSubjectId
             from publications
             inner join project_publisher_contexts as publishers
@@ -397,8 +397,8 @@ export function createProviderAnalyticsStore(
                     normalized.providerSubjectId,
                     normalized.providerSubjectLabel,
                     normalized.providerContentRevisionId,
-                    normalized.postbotEntityType,
-                    normalized.postbotEntityId,
+                    normalized.postdotEntityType,
+                    normalized.postdotEntityId,
                     normalized.metricName,
                     normalized.value,
                     normalized.unit,
@@ -458,14 +458,14 @@ export function createProviderAnalyticsStore(
                 input.providerSubjectId,
                 'providerSubjectId'
             )
-            const postbotEntityId = normalizeOptionalText(input.postbotEntityId, 'postbotEntityId')
+            const postdotEntityId = normalizeOptionalText(input.postdotEntityId, 'postdotEntityId')
             const limit = normalizeLimit(input.limit)
             const rows = listObservationsStatement.all(
                 projectId,
                 provider,
                 subjectType,
                 providerSubjectId,
-                postbotEntityId,
+                postdotEntityId,
                 limit + 1
             )
 
@@ -527,8 +527,8 @@ export function createProviderAnalyticsStore(
 
             return rows.slice(0, limit).map(row => ({
                 channelId: row.channelId,
-                postbotEntityType: 'publication',
-                postbotEntityId: row.postbotEntityId,
+                postdotEntityType: 'publication',
+                postdotEntityId: row.postdotEntityId,
                 providerSubjectId: row.providerSubjectId,
                 providerSubjectLabel: null,
             }))
@@ -573,12 +573,12 @@ function normalizeObservation(
         input.providerContentRevisionId,
         'providerContentRevisionId'
     )
-    const postbotEntityType = normalizeOptionalEntityType(input.postbotEntityType)
-    const postbotEntityId = normalizeOptionalText(input.postbotEntityId, 'postbotEntityId')
-    if ((postbotEntityType === null) !== (postbotEntityId === null)) {
+    const postdotEntityType = normalizeOptionalEntityType(input.postdotEntityType)
+    const postdotEntityId = normalizeOptionalText(input.postdotEntityId, 'postdotEntityId')
+    if ((postdotEntityType === null) !== (postdotEntityId === null)) {
         throw new DomainInvariantError(
             'invalid_input',
-            'postbotEntityType and postbotEntityId must be provided together'
+            'postdotEntityType and postdotEntityId must be provided together'
         )
     }
 
@@ -620,8 +620,8 @@ function normalizeObservation(
         providerSubjectId,
         providerSubjectLabel,
         providerContentRevisionId,
-        postbotEntityType,
-        postbotEntityId,
+        postdotEntityType,
+        postdotEntityId,
         metricName,
         value,
         unit,
@@ -660,11 +660,11 @@ function normalizeOptionalSubjectType(
 }
 
 function normalizeOptionalEntityType(
-    value: ProviderAnalyticsPostbotEntityType | null | undefined
-): ProviderAnalyticsPostbotEntityType | null {
+    value: ProviderAnalyticsPostdotEntityType | null | undefined
+): ProviderAnalyticsPostdotEntityType | null {
     if (value === undefined || value === null) return null
-    if (!providerAnalyticsPostbotEntityTypes.includes(value)) {
-        throw new DomainInvariantError('invalid_input', 'postbotEntityType is invalid')
+    if (!providerAnalyticsPostdotEntityTypes.includes(value)) {
+        throw new DomainInvariantError('invalid_input', 'postdotEntityType is invalid')
     }
     return value
 }
@@ -739,8 +739,8 @@ function toObservation(row: ObservationRow): ProviderAnalyticsObservation {
         providerSubjectId: row.providerSubjectId,
         providerSubjectLabel: row.providerSubjectLabel,
         providerContentRevisionId: row.providerContentRevisionId,
-        postbotEntityType: row.postbotEntityType,
-        postbotEntityId: row.postbotEntityId,
+        postdotEntityType: row.postdotEntityType,
+        postdotEntityId: row.postdotEntityId,
         metricName: row.metricName,
         value: row.value,
         unit: row.unit,

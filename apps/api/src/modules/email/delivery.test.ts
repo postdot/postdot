@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import type { SendMailOptions } from 'nodemailer'
 
-import { createPostbotAuthEmailDelivery, type PostbotEmailTransport } from './delivery'
+import { createPostdotAuthEmailDelivery, type PostdotEmailTransport } from './delivery'
 
 async function waitForDelivery(condition: () => boolean): Promise<void> {
     for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -15,12 +15,12 @@ async function waitForDelivery(condition: () => boolean): Promise<void> {
 describe('Postdot auth email delivery', () => {
     it('renders invitation, verification, and reset emails through an injected transport', async () => {
         const sent: SendMailOptions[] = []
-        const transport: PostbotEmailTransport = {
+        const transport: PostdotEmailTransport = {
             sendMail: async message => {
                 sent.push(message)
             },
         }
-        const delivery = createPostbotAuthEmailDelivery({
+        const delivery = createPostdotAuthEmailDelivery({
             transport,
             webOrigin: 'https://app.example.test',
             smtp: {
@@ -90,12 +90,12 @@ describe('Postdot auth email delivery', () => {
     })
 
     it('stays disabled without a configured transport', () => {
-        expect(createPostbotAuthEmailDelivery({ webOrigin: 'http://localhost:5173' })).toEqual({})
+        expect(createPostdotAuthEmailDelivery({ webOrigin: 'http://localhost:5173' })).toEqual({})
     })
 
     it('reports transport failures without failing the auth request', async () => {
         const failures: string[] = []
-        const delivery = createPostbotAuthEmailDelivery({
+        const delivery = createPostdotAuthEmailDelivery({
             transport: {
                 sendMail: async () => {
                     throw new Error('SMTP unavailable')

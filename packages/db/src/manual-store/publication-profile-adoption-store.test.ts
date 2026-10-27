@@ -197,7 +197,7 @@ describe('explicit draft profile adoption', () => {
         }
     })
     test('retains snapshot-only media and restores adoption history with a complete backup', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'postbot-adoption-'))
+        const root = await mkdtemp(join(tmpdir(), 'postdot-adoption-'))
         const filename = join(root, 'source.sqlite')
         const { database, store, input } = fixture(filename)
         let closed = false

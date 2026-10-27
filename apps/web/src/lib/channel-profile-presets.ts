@@ -49,7 +49,7 @@ const sharedFieldBindings = [
 ]
 
 const sharedCapabilities = {
-    revision: 'postbot-custom-v1',
+    revision: 'postdot-custom-v1',
     textFields: [
         {
             bindingId: 'body',
@@ -85,8 +85,8 @@ function createCustomProfile(
     return {
         id,
         version: 1,
-        profileHash: `sha256:postbot-${id}-v1`,
-        schemaHash: 'sha256:postbot-custom-content-v1',
+        profileHash: `sha256:postdot-${id}-v1`,
+        schemaHash: 'sha256:postdot-custom-content-v1',
         origin: 'custom',
         contentSchema: sharedContentSchema,
         fieldBindings: sharedFieldBindings,
@@ -106,7 +106,7 @@ export const channelProfileTemplates: readonly ChannelProfileTemplate[] = [
             kind: 'declarative_http',
             contractId: 'custom-webhook',
             revision: 'v1',
-            mode: 'postbot_webhook',
+            mode: 'postdot_webhook',
         }),
     },
 ]
@@ -128,8 +128,8 @@ export function templatesFromPresets(
                 profile: {
                     ...profile,
                     id: `custom-${preset.id}`,
-                    profileHash: `sha256:postbot-custom-${preset.id}-v${preset.version}`,
-                    schemaHash: `sha256:postbot-custom-${preset.id}-schema-v${preset.version}`,
+                    profileHash: `sha256:postdot-custom-${preset.id}-v${preset.version}`,
+                    schemaHash: `sha256:postdot-custom-${preset.id}-schema-v${preset.version}`,
                     origin: 'custom',
                     contentSchema: prepareCustomContentSchema(profile.contentSchema),
                 },

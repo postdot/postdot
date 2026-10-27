@@ -36,8 +36,8 @@ function observation(
         fetchedAt,
         id,
         metricName,
-        postbotEntityId: publicationId,
-        postbotEntityType: 'publication',
+        postdotEntityId: publicationId,
+        postdotEntityType: 'publication',
         value: 1,
         ...overrides,
     } as ProviderAnalyticsItem

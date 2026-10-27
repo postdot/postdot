@@ -18,7 +18,7 @@ cp apps/web/.env.example apps/web/.env
 ```
 
 Generate independent random values for `BETTER_AUTH_SECRET`,
-`POSTBOT_MEDIA_PUBLIC_URL_SECRET` and `POSTBOT_PUBLISHER_ENCRYPTION_KEY` in the
+`POSTDOT_MEDIA_PUBLIC_URL_SECRET` and `POSTDOT_PUBLISHER_ENCRYPTION_KEY` in the
 private API configuration. Preserve the publisher key when keeping existing data.
 Do not commit `.env` files or print their values in a report.
 
@@ -32,8 +32,8 @@ leave a runtime lock; inspect the running process/data before removing a marker.
 Production serves compiled Studio assets from the API and has no Vite process.
 
 If the API port is occupied, set `PORT` and `BETTER_AUTH_URL` in `apps/api/.env`
-and the same API origin in `POSTBOT_API_ORIGIN` in `apps/web/.env`. Keep
-`POSTBOT_WEB_ORIGIN` equal to the actual Studio development origin. For Bluesky
+and the same API origin in `POSTDOT_API_ORIGIN` in `apps/web/.env`. Keep
+`POSTDOT_WEB_ORIGIN` equal to the actual Studio development origin. For Bluesky
 loopback OAuth, use one consistent loopback literal as described in
 [provider configuration](/docs/provider-configuration/).
 
@@ -49,7 +49,7 @@ docker compose -f docker-compose.dev.yml up -d mailpit
 
 Configure the API SMTP host as `127.0.0.1`, port `1025` and secure mode `false`.
 Inspect captured messages at `http://127.0.0.1:8025`. These ports belong to the
-local relay; `POSTBOT_MAILPIT_SMTP_PORT` and `POSTBOT_MAILPIT_UI_PORT` can override
+local relay; `POSTDOT_MAILPIT_SMTP_PORT` and `POSTDOT_MAILPIT_UI_PORT` can override
 its host bindings. Match the API SMTP port to the chosen binding.
 
 Stop the relay with `docker compose -f docker-compose.dev.yml down` when finished.
@@ -84,7 +84,7 @@ bun run test:e2e
 
 The test harness owns temporary SQLite/media paths and loopback ports for each
 run. Do not point it at a personal or deployed instance. Explicit
-`POSTBOT_E2E_API_PORT` and `POSTBOT_E2E_WEB_PORT` values are caller-reserved and
+`POSTDOT_E2E_API_PORT` and `POSTDOT_E2E_WEB_PORT` values are caller-reserved and
 must not overlap another run. Synthetic tests do not prove live provider delivery.
 A real provider acceptance test requires a controlled destination and authorization
 for its actual external effects.
@@ -101,7 +101,7 @@ individual gzip sizes for unique static dependencies; it does not measure browse
 wire transfer or authenticated routes. This check also runs in build CI.
 
 To exercise built web assets with the isolated browser harness, build first and
-prefix a focused Playwright command with `POSTBOT_E2E_PRODUCTION_WEB=true`. The
+prefix a focused Playwright command with `POSTDOT_E2E_PRODUCTION_WEB=true`. The
 harness serves `apps/web/dist` instead of development modules and retains its
 isolated API, database and media paths.
 

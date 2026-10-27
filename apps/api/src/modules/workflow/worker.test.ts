@@ -97,7 +97,7 @@ const customWebhookProfile: ChannelProfileDefinition = {
         kind: 'declarative_http',
         contractId: 'custom-webhook',
         revision: '1',
-        mode: 'postbot_webhook',
+        mode: 'postdot_webhook',
     },
 }
 
@@ -908,7 +908,7 @@ describe('publication worker', () => {
     ] as const)(
         'uploads %i LinkedIn images with durable %s handling',
         async (imageCount, failureMode) => {
-            const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-linkedin-image-'))
+            const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-image-'))
             const database = createDatabase(':memory:')
 
             try {
@@ -944,8 +944,8 @@ describe('publication worker', () => {
                 const profile = JSON.parse(JSON.stringify(linkedinChannelProfile))
                 if (imageCount === 1) {
                     profile.version = 2
-                    profile.profileHash = 'sha256:postbot-linkedin-member-post-v2'
-                    profile.schemaHash = 'sha256:postbot-linkedin-member-post-schema-v2'
+                    profile.profileHash = 'sha256:postdot-linkedin-member-post-v2'
+                    profile.schemaHash = 'sha256:postdot-linkedin-member-post-schema-v2'
                     profile.execution.revision = 'member-post-v2'
                     profile.capabilities.revision = 'linkedin-member-post-v2'
                     profile.contentSchema.properties.media.maxItems = 1
@@ -1182,7 +1182,7 @@ describe('publication worker', () => {
             port: 0,
             async fetch(request) {
                 receivedBody = await request.text()
-                receivedSignature = request.headers.get('x-postbot-signature')
+                receivedSignature = request.headers.get('x-postdot-signature')
                 return Response.json({ accepted: true }, { status: 201 })
             },
         })
@@ -1581,7 +1581,7 @@ describe('publication worker', () => {
     })
 
     it('delivers signed public media URLs through a mapped custom HTTP channel', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-public-media-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-public-media-'))
         let receivedBody: string | null = null
         const receiver = Bun.serve({
             port: 0,
@@ -1699,7 +1699,7 @@ describe('publication worker', () => {
             expect(post).not.toBeNull()
 
             const publicDelivery = createMediaPublicDelivery({
-                baseURL: 'https://postbot.example.test',
+                baseURL: 'https://postdot.example.test',
                 signingSecret: 'media-public-delivery-secret-with-at-least-32-bytes',
                 lifetimeMs: 60_000,
                 now: () => now,
@@ -1737,7 +1737,7 @@ describe('publication worker', () => {
             expect(receivedBody).not.toBeNull()
             const deliveredUrl = publicUrl
             if (deliveredUrl === null) throw new Error('The custom HTTP media URL was not created')
-            expect(deliveredUrl).toStartWith('https://postbot.example.test/api/media/public/')
+            expect(deliveredUrl).toStartWith('https://postdot.example.test/api/media/public/')
             const body = JSON.parse(receivedBody ?? '{}') as {
                 commentary: string
                 media: string[]
@@ -1767,7 +1767,7 @@ describe('publication worker', () => {
     })
 
     it('rejects changed custom HTTP media bytes before making a request', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-custom-media-checksum-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-custom-media-checksum-'))
         const database = createDatabase(':memory:')
 
         try {
@@ -2118,7 +2118,7 @@ function readPublicationState(
 }
 
 it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-linkedin-video-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-video-'))
     const database = createDatabase(':memory:')
     let clock = now
     try {
@@ -2359,7 +2359,7 @@ for (const scenario of [
     'timeout',
 ] as const) {
     it(`executes native Mastodon video with durable ${scenario} handling`, async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-mastodon-video-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-mastodon-video-'))
         const database = createDatabase(':memory:')
         let clock = now
         try {
@@ -2596,7 +2596,7 @@ for (const scenario of [
 
 for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
     it(`executes native Discord video with durable ${scenario} handling`, async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-discord-video-'))
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-discord-video-'))
         const database = createDatabase(':memory:')
         let clock = now
         try {
@@ -2792,7 +2792,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
 }
 
 it('resumes a durable Bluesky video job without uploading again', async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), 'postbot-worker-bluesky-video-'))
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-bluesky-video-'))
     const database = createDatabase(':memory:')
     let clock = now
     try {
@@ -2955,9 +2955,9 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         const adapter = createBlueskyProviderAdapter({
             oauth: {
                 clientMetadata: {
-                    client_id: 'https://postbot.example.com/oauth/client-metadata.json',
+                    client_id: 'https://postdot.example.com/oauth/client-metadata.json',
                     client_name: 'Postdot',
-                    redirect_uris: ['https://postbot.example.com/callback'],
+                    redirect_uris: ['https://postdot.example.com/callback'],
                     grant_types: ['authorization_code', 'refresh_token'],
                     response_types: ['code'],
                     token_endpoint_auth_method: 'none',

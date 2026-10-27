@@ -887,8 +887,8 @@ test('keeps performance refresh failures local and cached metrics truthful', asy
                                   providerSubjectId: 'provider-content',
                                   providerSubjectLabel: null,
                                   providerContentRevisionId: null,
-                                  postbotEntityType: 'publication',
-                                  postbotEntityId: publications[devto ? 0 : 1]!.id,
+                                  postdotEntityType: 'publication',
+                                  postdotEntityId: publications[devto ? 0 : 1]!.id,
                                   metricName: devto ? 'page_views' : 'likeCount',
                                   value: availability === 'measured' ? (devto ? 123 : 0) : null,
                                   unit: 'count',
@@ -1000,7 +1000,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await expect(page).toHaveURL(/\/login$/)
     await page.getByRole('button', { name: 'Set up Postdot', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-124 ${suffix}`)
-    await page.getByLabel('Email').fill(`e2e-124-${suffix}@postbot.local`)
+    await page.getByLabel('Email').fill(`e2e-124-${suffix}@postdot.local`)
     await page.getByLabel('Password', { exact: true }).fill('e2e-124-password')
     await Promise.all([
         page.waitForResponse(

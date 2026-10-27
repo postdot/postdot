@@ -22,7 +22,7 @@ labels: bug
 ## Environment
 
 - Bun version:
-- Postbot revision:
+- Postdot revision:
 - Operating system:
 
 ## Additional Context

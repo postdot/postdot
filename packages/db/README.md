@@ -24,7 +24,7 @@ The production API bundle also exposes SQLite recovery commands. A database-only
 backup remains available for low-level recovery:
 
 ```sh
-bun apps/api/src/index.ts backup --database ./postbot.sqlite --output ./backups/postbot.sqlite
+bun apps/api/src/index.ts backup --database ./postdot.sqlite --output ./backups/postdot.sqlite
 ```
 
 Stop the application before restoring a database-only backup. The API owns a
@@ -34,7 +34,7 @@ fails closed while Postdot is active, then validates the backup, writes a tempor
 replacement, and renames it into place:
 
 ```sh
-bun apps/api/src/index.ts restore --database ./postbot.sqlite --input ./backups/postbot.sqlite
+bun apps/api/src/index.ts restore --database ./postdot.sqlite --input ./backups/postdot.sqlite
 ```
 
 When SMTP password recovery is unavailable, the API bundle can reset an existing
@@ -45,7 +45,7 @@ and outstanding reset links, and preserves projects, API keys, publisher credent
 and historical actors:
 
 ```sh
-bun apps/api/src/index.ts account recover-password --database ./postbot.sqlite
+bun apps/api/src/index.ts account recover-password --database ./postdot.sqlite
 ```
 
 Run the command with Postdot stopped. It does not create users or change instance
@@ -59,13 +59,13 @@ stored bytes for every retained media representation. The configured media store
 identity must be the same during restore:
 
 ```sh
-bun apps/api/src/index.ts backup --media --database ./postbot.sqlite --output ./backups/postbot.bundle
+bun apps/api/src/index.ts backup --media --database ./postdot.sqlite --output ./backups/postdot.bundle
 ```
 
 Stop the application before restoring the complete bundle:
 
 ```sh
-bun apps/api/src/index.ts restore --media --database ./postbot.sqlite --input ./backups/postbot.bundle
+bun apps/api/src/index.ts restore --media --database ./postdot.sqlite --input ./backups/postdot.bundle
 ```
 
 The lock is intentionally not reclaimed automatically after a forced process
@@ -74,9 +74,9 @@ lock, verify that no Postdot process is using the database, then remove only the
 `<database>.runtime.lock` sidecar before retrying. Never remove the marker to
 override a live process.
 
-The complete bundle does not contain `POSTBOT_PUBLISHER_ENCRYPTION_KEY`. A complete
+The complete bundle does not contain `POSTDOT_PUBLISHER_ENCRYPTION_KEY`. A complete
 application recovery therefore also requires the exact deployment key and its
-matching `POSTBOT_PUBLISHER_ENCRYPTION_KEY_ID`, preserved separately in a secret
+matching `POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID`, preserved separately in a secret
 manager or offline escrow. Never put the key in the bundle, source control, logs,
 or command arguments. Restore the database and media with Postdot stopped, inject
 the original key before starting the application, and verify publisher credentials

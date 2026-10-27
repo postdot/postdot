@@ -233,7 +233,7 @@ function EventCalendarTimeGrid<TData = unknown>({
     const columnStorageKey =
         storageKey === undefined
             ? undefined
-            : `postbot:event-calendar:day-widths:v1:${storageKey}:${view}`
+            : `postdot:event-calendar:day-widths:v1:${storageKey}:${view}`
     const [columnWidths, setColumnWidths] = useState<number[] | null>(null)
     const resizeState = useRef<ColumnResizeState | null>(null)
     const resizeCleanup = useRef<(() => void) | null>(null)

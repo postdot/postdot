@@ -1,9 +1,9 @@
 ---
-name: postbot-writing
-description: Draft, edit or review Postbot documentation and authored API explanations. Use for reader goals, wording, page hierarchy and documentation media choices; not routine chat replies, worklogs or generated endpoint files.
+name: postdot-writing
+description: Draft, edit or review Postdot documentation and authored API explanations. Use for reader goals, wording, page hierarchy and documentation media choices; not routine chat replies, worklogs or generated endpoint files.
 ---
 
-# Postbot writing
+# Postdot writing
 
 This is a small, evolving project layer. It does not establish a finished brand
 voice. Extend it from owner feedback and observed writing problems, not imagined
@@ -44,7 +44,7 @@ valid; verify claims against code and authoritative sources.
 For a new presentation pattern, read the small
 [reference comparison](references/documentation-patterns.md). Its observations are
 candidates, not owner-approved requirements. For MDX, components or layout work,
-use [postbot-fumadocs](../postbot-fumadocs/SKILL.md).
+use [postdot-fumadocs](../postdot-fumadocs/SKILL.md).
 
 Before delivering, read the passage as the intended reader: can they find the
 answer, act without guessing and tell what happened? Cut repeated information;

@@ -10,7 +10,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
     const signup = await page.request.post('/api/auth/sign-up/email', {
         data: {
             name: 'Performance operator',
-            email: `performance-${randomUUID()}@postbot.local`,
+            email: `performance-${randomUUID()}@postdot.local`,
             password: 'performance-fixture-password',
         },
     })
@@ -93,8 +93,8 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
                 observations: [
                     {
                         id: 'observation-' + id,
-                        postbotEntityId: id,
-                        postbotEntityType: 'publication',
+                        postdotEntityId: id,
+                        postdotEntityType: 'publication',
                         metricName:
                             provider === 'bluesky'
                                 ? 'likeCount'

@@ -18,7 +18,7 @@ function createAgent() {
     const uploads: Uint8Array[] = []
     const posts: unknown[] = []
     const agent = {
-        did: 'did:plc:postbot-test',
+        did: 'did:plc:postdot-test',
         async uploadBlob(value: Uint8Array) {
             uploads.push(value)
             return {
@@ -34,7 +34,7 @@ function createAgent() {
         async post(record: unknown) {
             posts.push(record)
             return {
-                uri: 'at://did:plc:postbot-test/app.bsky.feed.post/3jzfcwijors2a',
+                uri: 'at://did:plc:postdot-test/app.bsky.feed.post/3jzfcwijors2a',
                 cid: 'bafy-test',
             }
         },
@@ -52,8 +52,8 @@ describe('Bluesky publisher', () => {
 
         expect(result).toEqual({
             type: 'published',
-            externalId: 'at://did:plc:postbot-test/app.bsky.feed.post/3jzfcwijors2a',
-            externalUrl: 'https://bsky.app/profile/did:plc:postbot-test/post/3jzfcwijors2a',
+            externalId: 'at://did:plc:postdot-test/app.bsky.feed.post/3jzfcwijors2a',
+            externalUrl: 'https://bsky.app/profile/did:plc:postdot-test/post/3jzfcwijors2a',
         })
         expect(fixture.posts).toEqual([
             expect.objectContaining({ text: 'Hello Bluesky', createdAt: expect.any(String) }),

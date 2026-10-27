@@ -5,19 +5,19 @@ import GoldenRetriever from '@uppy/golden-retriever'
 
 import { MediaVerificationError } from '@/lib/media-errors'
 
-export type PostbotMediaUppyFile = UppyFile<Meta, Record<string, never>>
+export type PostdotMediaUppyFile = UppyFile<Meta, Record<string, never>>
 
-export interface PostbotMediaUploadPolicy {
+export interface PostdotMediaUploadPolicy {
     readonly allowedContentTypes: readonly string[]
     readonly maxFileSize: number | null
 }
 
-export const defaultPostbotMediaUploadPolicy: PostbotMediaUploadPolicy = {
+export const defaultPostdotMediaUploadPolicy: PostdotMediaUploadPolicy = {
     allowedContentTypes: defaultMediaUploadContentTypes,
     maxFileSize: null,
 }
 
-export interface PostbotMediaUploadClient {
+export interface PostdotMediaUploadClient {
     reserveMediaUpload: (
         projectId: string,
         input: {
@@ -34,31 +34,31 @@ export interface PostbotMediaUploadClient {
     getMedia: (projectId: string, assetId: string) => Promise<MediaReference>
 }
 
-export interface PostbotMediaUploadController {
+export interface PostdotMediaUploadController {
     readonly uppy: Uppy<Meta, Record<string, never>>
     readonly mediaByFileId: ReadonlyMap<string, MediaReference>
     readonly errorsByFileId: ReadonlyMap<string, unknown>
-    readonly policy: PostbotMediaUploadPolicy
-    readonly setUploadPolicy: (policy: PostbotMediaUploadPolicy) => void
+    readonly policy: PostdotMediaUploadPolicy
+    readonly setUploadPolicy: (policy: PostdotMediaUploadPolicy) => void
 }
 
-export interface PostbotMediaUploadOptions {
+export interface PostdotMediaUploadOptions {
     readonly id?: string
     readonly recoveryExpires?: number
 }
 
-export function createPostbotMediaUploadController(
+export function createPostdotMediaUploadController(
     projectId: string,
-    client: PostbotMediaUploadClient,
+    client: PostdotMediaUploadClient,
     waitForVerification: (milliseconds: number) => Promise<void> = delay,
-    initialPolicy: PostbotMediaUploadPolicy = defaultPostbotMediaUploadPolicy,
-    options: PostbotMediaUploadOptions = {}
-): PostbotMediaUploadController {
+    initialPolicy: PostdotMediaUploadPolicy = defaultPostdotMediaUploadPolicy,
+    options: PostdotMediaUploadOptions = {}
+): PostdotMediaUploadController {
     const mediaByFileId = new Map<string, MediaReference>()
     const errorsByFileId = new Map<string, unknown>()
     let uploadPolicy = normalizeUploadPolicy(initialPolicy)
     const uppy = new Uppy<Meta, Record<string, never>>({
-        id: options.id ?? `postbot-media-${projectId}`,
+        id: options.id ?? `postdot-media-${projectId}`,
         autoProceed: false,
         allowMultipleUploadBatches: true,
         restrictions: toUppyRestrictions(uploadPolicy),
@@ -72,7 +72,7 @@ export function createPostbotMediaUploadController(
                 errorsByFileId.set(fileId, error)
                 if (file !== undefined) {
                     uppy.emit('upload-error', file, {
-                        name: 'PostbotMediaUploadError',
+                        name: 'PostdotMediaUploadError',
                         message: error.message,
                     })
                 }
@@ -80,7 +80,7 @@ export function createPostbotMediaUploadController(
             }
 
             try {
-                const media = await uploadPostbotMediaFile(
+                const media = await uploadPostdotMediaFile(
                     client,
                     projectId,
                     {
@@ -105,7 +105,7 @@ export function createPostbotMediaUploadController(
             } catch (error) {
                 errorsByFileId.set(fileId, error)
                 uppy.emit('upload-error', file, {
-                    name: 'PostbotMediaUploadError',
+                    name: 'PostdotMediaUploadError',
                     message: error instanceof Error ? error.message : String(error),
                 })
             }
@@ -132,7 +132,7 @@ export function createPostbotMediaUploadController(
     }
 }
 
-function normalizeUploadPolicy(policy: PostbotMediaUploadPolicy): PostbotMediaUploadPolicy {
+function normalizeUploadPolicy(policy: PostdotMediaUploadPolicy): PostdotMediaUploadPolicy {
     const allowedContentTypes = [
         ...new Set(
             policy.allowedContentTypes
@@ -154,15 +154,15 @@ function normalizeUploadPolicy(policy: PostbotMediaUploadPolicy): PostbotMediaUp
     return { allowedContentTypes, maxFileSize: policy.maxFileSize }
 }
 
-function toUppyRestrictions(policy: PostbotMediaUploadPolicy) {
+function toUppyRestrictions(policy: PostdotMediaUploadPolicy) {
     return {
         allowedFileTypes: [...policy.allowedContentTypes],
         maxFileSize: policy.maxFileSize,
     }
 }
 
-export async function uploadPostbotMediaFile(
-    client: PostbotMediaUploadClient,
+export async function uploadPostdotMediaFile(
+    client: PostdotMediaUploadClient,
     projectId: string,
     input: {
         readonly data: Blob
@@ -178,11 +178,11 @@ export async function uploadPostbotMediaFile(
         contentType: input.contentType,
     })
     await client.uploadMedia(projectId, reservation.intent.id, input.data)
-    return completePostbotMediaUpload(client, projectId, reservation.intent.id, waitForVerification)
+    return completePostdotMediaUpload(client, projectId, reservation.intent.id, waitForVerification)
 }
 
-export async function completePostbotMediaUpload(
-    client: PostbotMediaUploadClient,
+export async function completePostdotMediaUpload(
+    client: PostdotMediaUploadClient,
     projectId: string,
     intentId: string,
     waitForVerification: (milliseconds: number) => Promise<void> = delay

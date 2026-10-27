@@ -57,7 +57,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     await expect(groupDialog).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Communications', exact: true })).toBeVisible()
 
-    const memberEmail = `e2e-135-member-${suffix}@postbot.local`
+    const memberEmail = `e2e-135-member-${suffix}@postdot.local`
     const invitationResponsePromise = page.waitForResponse(response => {
         const url = new URL(response.url())
         return (
@@ -252,7 +252,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
 })
 
 async function createAccountAndProject(page: Page, suffix: string) {
-    const email = `e2e-135-owner-${suffix}@postbot.local`
+    const email = `e2e-135-owner-${suffix}@postdot.local`
     const projectName = `E2E-135 project ${suffix}`
 
     await page.goto('/setup')

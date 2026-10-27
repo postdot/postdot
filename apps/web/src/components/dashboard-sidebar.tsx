@@ -1,4 +1,4 @@
-import { PostbotLogo } from '@postdot/ui/components/postbot-logo'
+import { PostdotLogo } from '@postdot/ui/components/postdot-logo'
 import {
     Sidebar,
     SidebarContent,
@@ -123,14 +123,14 @@ export function DashboardSidebar({
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostbotLogo className="size-7" />
+                            <PostdotLogo className="size-7" />
                         </Link>
                     ) : isSettingsShell || selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostbotLogo className="size-7" />
+                            <PostdotLogo className="size-7" />
                         </Link>
                     ) : (
                         <Link
@@ -138,7 +138,7 @@ export function DashboardSidebar({
                             params={{ projectId: selectedProjectId }}
                             aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-foreground hover:text-foreground/75 group-data-[collapsible=icon]:size-full! group-data-[collapsible=icon]:rounded-none">
-                            <PostbotLogo className="size-7" />
+                            <PostdotLogo className="size-7" />
                         </Link>
                     )}
                     <div className="min-w-0 group-data-[collapsible=icon]:hidden">

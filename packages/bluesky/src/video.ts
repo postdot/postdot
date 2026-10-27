@@ -93,7 +93,7 @@ export function createBlueskyVideoService(options: {
             try {
                 const url = new URL(`${VIDEO_ORIGIN}/xrpc/app.bsky.video.uploadVideo`)
                 url.searchParams.set('did', options.agent.did)
-                url.searchParams.set('name', 'postbot-video.mp4')
+                url.searchParams.set('name', 'postdot-video.mp4')
                 const response = await fetcher(url, {
                     method: 'POST',
                     headers: {

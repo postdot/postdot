@@ -2,11 +2,11 @@
 
 ## Startup or readiness
 
-Use the deployment's actual Compose project/directory and service `postbot`:
+Use the deployment's actual Compose project/directory and service `postdot`:
 
 ```sh
 docker compose ps
-docker compose logs --since 10m --tail 100 postbot
+docker compose logs --since 10m --tail 100 postdot
 curl --fail --silent --show-error http://127.0.0.1:3000/health
 curl --fail --silent --show-error http://127.0.0.1:3000/ready
 ```

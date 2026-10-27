@@ -21,7 +21,7 @@ import {
 } from '@postdot/core'
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postdot/media'
 
-import { createDatabaseTransaction, type PostbotDatabase } from './client'
+import { createDatabaseTransaction, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import {
     generateImagePreviews,
@@ -473,7 +473,7 @@ const intentColumns = `
 `
 
 export function createMediaAssetStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     mediaStore: MediaStore,
     options: MediaAssetStoreOptions = {}
 ) {
@@ -1657,7 +1657,7 @@ export function createMediaAssetStore(
                     .query(`insert into media_representations
                     (id, project_id, asset_id, kind, source_representation_id, state, store_id,
                      object_key, processor_id, processor_version, recipe_json, failure_code, failure_message, created_at, updated_at)
-                    values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'postbot-video-poster', '1', '{}',
+                    values (?, ?, ?, 'derived', ?, 'failed', ?, ?, 'postdot-video-poster', '1', '{}',
                     'poster_generation_failed', 'Video preview unavailable', ?, ?)`)
                     .run(
                         crypto.randomUUID(),
@@ -1670,7 +1670,7 @@ export function createMediaAssetStore(
                         timestamp
                     )
             }
-            console.error('[postbot-media] Preview generation failed')
+            console.error('[postdot-media] Preview generation failed')
             return false
         } finally {
             previewGeneration.delete(assetId)
@@ -1821,7 +1821,7 @@ export function createMediaAssetStore(
                 try {
                     options.onVideoReady?.(projectId, ready.asset.id)
                 } catch {
-                    console.error('[postbot-media] Poster wakeup failed')
+                    console.error('[postdot-media] Poster wakeup failed')
                 }
             }
             if (ready === null) return { kind: 'not_found' }
@@ -1897,9 +1897,9 @@ export function createMediaAssetStore(
                 and exists (select 1 from media_representations r where r.asset_id = a.id
                     and r.kind = 'original' and r.state = 'ready' and r.family = 'video')
                 and not exists (select 1 from media_representations r where r.asset_id = a.id
-                    and r.processor_id = 'postbot-video-poster' and r.processor_version = '1' and r.state = 'failed')
+                    and r.processor_id = 'postdot-video-poster' and r.processor_version = '1' and r.state = 'failed')
                 and (select count(distinct json_extract(r.recipe_json, '$.variant')) from media_representations r
-                    where r.asset_id = a.id and r.processor_id = 'postbot-image-preview'
+                    where r.asset_id = a.id and r.processor_id = 'postdot-image-preview'
                     and r.processor_version = '1' and r.state = 'ready') < 2
             `)
                 .all()
@@ -2875,7 +2875,7 @@ function isActivePublicationState(state: PublicationState | null): boolean {
 }
 
 function hasMediaReference(
-    database: PostbotDatabase['$client'],
+    database: PostdotDatabase['$client'],
     projectId: string,
     assetId: string
 ): boolean {

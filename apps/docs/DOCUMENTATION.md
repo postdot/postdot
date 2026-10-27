@@ -39,12 +39,12 @@ public package distribution.
 
 ## Writing and presentation guidance
 
-Use the project [Postdot writing skill](../../.agents/skills/postbot-writing/SKILL.md)
+Use the project [Postdot writing skill](../../.agents/skills/postdot-writing/SKILL.md)
 for authored documentation. It coordinates `documentation-writer` and `stop-slop`
 and owns the evolving editorial preferences. Its small reference comparison records
 observations and open questions; it does not turn AI drafts into accepted style.
 
-Use [Postdot Fumadocs](../../.agents/skills/postbot-fumadocs/SKILL.md) for documentation
+Use [Postdot Fumadocs](../../.agents/skills/postdot-fumadocs/SKILL.md) for documentation
 mechanics. This document remains the technical source of truth; skills point here
 rather than copying the generation/navigation manual. Owner feedback should update
 the narrowest relevant guidance, replacing outdated rules instead of accumulating
@@ -84,12 +84,12 @@ versions from package.json and the installed packages before changing its API.
    an in-memory migrated database and a temporary local media adapter. It never
    imports `src/index.ts`, starts a listener, starts workers or reads instance
    credentials. Temporary files and the database are closed after extraction.
-3. Validate unique operation IDs and tags, and export `.openapi/postbot.json`.
+3. Validate unique operation IDs and tags, and export `.openapi/postdot.json`.
    No deployment URL is embedded. A route without a declared response receives
    an explicit unspecified-response description rather than an invented schema.
 4. Split the schema into one-operation local fragments. Each retains its inherited
    security and only the relevant path; this prevents preloading the entire API
-   into every page. Reference-only fragments use `https://postbot.example` as a
+   into every page. Reference-only fragments use `https://postdot.example` as a
    replaceable sample origin. The downloadable schema has no deployment origin.
 5. Generate MDX operation pages grouped by tag below `reference/(generated)`.
    The source loader adds the official method badges. Metadata is written once
@@ -182,7 +182,7 @@ package. The application's variable font remains unchanged; the OG renderer
 requires these static font files. Generated material and exported images are
 reproducible build output, not authored assets to edit manually.
 
-Set `POSTBOT_SITE_URL` to the site's public origin when building for a real host.
+Set `POSTDOT_SITE_URL` to the site's public origin when building for a real host.
 Local builds default to `http://127.0.0.1:5174` when no public origin is set.
 Generating images does not deploy the site or change its access/indexing settings.
 The images are fetched by sharing clients when needed; they are not loaded into

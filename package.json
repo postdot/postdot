@@ -35,8 +35,7 @@
         "prepare": "husky",
         "storybook": "bun run --cwd packages/ui storybook",
         "autonomos": "autonomos",
-        "postdot": "bun run scripts/postbot.ts",
-        "postbot": "bun run scripts/postbot.ts"
+        "postdot": "bun run scripts/postdot.ts"
     },
     "dependencies": {
         "@postdot/client": "workspace:*"

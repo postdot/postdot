@@ -24,8 +24,8 @@ function observation(
         providerSubjectId: did,
         providerSubjectLabel: 'analytics.test',
         providerContentRevisionId: null,
-        postbotEntityType: 'channel' as const,
-        postbotEntityId: 'channel-1',
+        postdotEntityType: 'channel' as const,
+        postdotEntityId: 'channel-1',
         metricName: 'followersCount',
         value,
         unit: 'count',
@@ -161,8 +161,8 @@ describe('provider analytics store', () => {
             ) => ({
                 ...observation(project.id, fetchedAt, value),
                 subjectType: 'content' as const,
-                postbotEntityType: 'publication' as const,
-                postbotEntityId: publicationId,
+                postdotEntityType: 'publication' as const,
+                postdotEntityId: publicationId,
                 providerSubjectId: 'at://did:plc:report/app.bsky.feed.post/' + publicationId,
                 metricName: 'likeCount',
             })
@@ -197,10 +197,10 @@ describe('provider analytics store', () => {
             expect(result?.hasMore).toBe(false)
             expect(result?.observations).toHaveLength(2)
             expect(
-                result?.observations.find(row => row.postbotEntityId === 'older-publication')?.value
+                result?.observations.find(row => row.postdotEntityId === 'older-publication')?.value
             ).toBe(0)
             expect(
-                result?.observations.find(row => row.postbotEntityId === 'busy-publication')?.value
+                result?.observations.find(row => row.postdotEntityId === 'busy-publication')?.value
             ).toBe(5)
             store.recordObservations({
                 projectId: project.id,
@@ -289,8 +289,8 @@ describe('provider analytics store', () => {
             ).toEqual([
                 {
                     channelId: channel.id,
-                    postbotEntityType: 'publication',
-                    postbotEntityId: publicationId,
+                    postdotEntityType: 'publication',
+                    postdotEntityId: publicationId,
                     providerSubjectId: 'at://did:plc:provider-analytics/app.bsky.feed.post/3known',
                     providerSubjectLabel: null,
                 },

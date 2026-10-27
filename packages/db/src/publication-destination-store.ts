@@ -4,7 +4,7 @@ import { readChannelDestination } from './channel-destination'
 import {
     createDatabaseTransaction,
     recordDatabaseCommitProject,
-    type PostbotDatabase,
+    type PostdotDatabase,
 } from './client'
 import { createEventJournalStore } from './event-journal-store'
 
@@ -22,7 +22,7 @@ export interface PublicationDestinationState {
 }
 
 export function createPublicationDestinationStore(
-    database: PostbotDatabase,
+    database: PostdotDatabase,
     options: {
         createId?: () => string
         now: () => number
