@@ -15,7 +15,9 @@ export function AuthShell({ children }: AuthShellProps) {
                 <div className="absolute bottom-[-12rem] left-[-10rem] size-[32rem] rounded-full bg-state-queued/6 blur-3xl dark:bg-state-queued/8" />
             </div>
 
-            <section className="relative hidden overflow-hidden bg-primary p-8 text-primary-foreground lg:flex lg:flex-col xl:p-12">
+            <aside
+                aria-label="Postdot"
+                className="relative hidden overflow-hidden bg-primary p-8 text-primary-foreground lg:flex lg:flex-col xl:p-12">
                 <BrandLockup inverse />
                 <div
                     aria-hidden="true"
@@ -24,7 +26,7 @@ export function AuthShell({ children }: AuthShellProps) {
                 <div className="relative flex flex-1 items-center justify-center">
                     <BrandArtwork />
                 </div>
-            </section>
+            </aside>
 
             <main className="relative flex min-h-svh items-center justify-center bg-surface-canvas p-6 sm:p-10 lg:min-h-0 lg:p-16">
                 <div className="w-full max-w-sm">

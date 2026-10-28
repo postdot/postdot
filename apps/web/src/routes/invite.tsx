@@ -1,4 +1,5 @@
 import { Button } from '@postdot/ui/components/button'
+import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
@@ -54,6 +55,8 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
     const [authenticated, setAuthenticated] = useState(false)
     const [loading, setLoading] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
+    const [retryable, setRetryable] = useState(false)
+    const [loadAttempt, setLoadAttempt] = useState(0)
     const [mode, setMode] = useState<AuthMode>('sign-up')
     const [error, setError] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
@@ -63,6 +66,7 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
         setPreview(null)
         setAuthenticated(false)
         setLoadError(null)
+        setRetryable(false)
         setLoading(true)
 
         if (token === undefined) {
@@ -73,10 +77,7 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
             }
         }
 
-        void Promise.all([
-            api.getAccessInvitationPreview(token),
-            api.getSession().catch(() => null),
-        ])
+        void Promise.all([api.getAccessInvitationPreview(token), api.getSession()])
             .then(([invitation, session]) => {
                 if (cancelled) return
                 setPreview(invitation)
@@ -86,13 +87,16 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
             .catch(caughtError => {
                 if (cancelled) return
                 setLoadError(invitationErrorMessage(caughtError))
+                setRetryable(
+                    !(caughtError instanceof ApiError && caughtError.code === 'invalid_invitation')
+                )
                 setLoading(false)
             })
 
         return () => {
             cancelled = true
         }
-    }, [token])
+    }, [token, loadAttempt])
 
     async function handleSubmit({ name, email, password }: AuthFormValues) {
         if (token === undefined || pending) return
@@ -134,6 +138,14 @@ function InstanceInvitationPage({ token }: { readonly token?: string }) {
                 <p className="text-sm text-muted-foreground" role="status">
                     {m.auth_invitation_loading()}
                 </p>
+            </AuthShell>
+        )
+    }
+
+    if (retryable) {
+        return (
+            <AuthShell>
+                <InvitationLoadError onRetry={() => setLoadAttempt(attempt => attempt + 1)} />
             </AuthShell>
         )
     }
@@ -222,6 +234,7 @@ function OrganizationInvitationPage({
     useLanguage()
     const [loading, setLoading] = useState(true)
     const [ready, setReady] = useState(false)
+    const [loadAttempt, setLoadAttempt] = useState(0)
     const [error, setError] = useState<string | null>(null)
     const [pending, setPending] = useState(false)
 
@@ -261,7 +274,7 @@ function OrganizationInvitationPage({
         return () => {
             cancelled = true
         }
-    }, [invitationId, navigate, organizationId, projectId])
+    }, [invitationId, navigate, organizationId, projectId, loadAttempt])
 
     async function handleAccept() {
         if (pending) return
@@ -299,20 +312,7 @@ function OrganizationInvitationPage({
     if (!ready) {
         return (
             <AuthShell>
-                <div>
-                    <h1 className="font-heading text-3xl font-semibold">
-                        {m.auth_invitation_invalid_title()}
-                    </h1>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                        {error ?? m.auth_invitation_invalid_description()}
-                    </p>
-                    <Link
-                        className="mt-6 inline-flex text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                        search={{ continue: undefined }}
-                        to="/login">
-                        {m.auth_back_to_sign_in()}
-                    </Link>
-                </div>
+                <InvitationLoadError onRetry={() => setLoadAttempt(attempt => attempt + 1)} />
             </AuthShell>
         )
     }
@@ -348,6 +348,27 @@ function OrganizationInvitationPage({
                 </Button>
             </div>
         </AuthShell>
+    )
+}
+
+function InvitationLoadError({ onRetry }: { readonly onRetry: () => void }) {
+    return (
+        <div>
+            <h1 className="font-heading text-3xl font-semibold">{m.common_error_title()}</h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {m.common_error_description()}
+            </p>
+            <Button className="mt-6" onClick={onRetry}>
+                <RefreshIcon aria-hidden="true" />
+                {m.common_retry()}
+            </Button>
+            <Link
+                className="mt-6 block text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                search={{ continue: undefined }}
+                to="/login">
+                {m.auth_back_to_sign_in()}
+            </Link>
+        </div>
     )
 }
 

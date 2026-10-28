@@ -136,6 +136,14 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         job: 'Manage project membership',
     },
     {
+        id: 'project-invitations',
+        path: ({ projectId }) => `/dashboard/projects/${projectId}/invitations`,
+        scope: 'project',
+        shell: 'settings',
+        widthClass: 'management-column',
+        job: 'Invite people to the project and manage pending invitations',
+    },
+    {
         id: 'workspace-channels',
         path: ({ workspaceId }) => `/dashboard/workspace/channels?workspaceId=${workspaceId}`,
         scope: 'workspace',
