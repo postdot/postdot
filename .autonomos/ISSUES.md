@@ -77,7 +77,7 @@
 ## [ISSUE-036] Provide an intentional MCP operator surface
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The domain and API contracts already provide reusable validation,
   publication, project, channel, and audit operations, while the repository does
   not yet provide a first-class MCP server for those operations.
@@ -103,6 +103,8 @@
   ISSUE-163 (client workflow coverage).
 
 - Remaining scope (ALPHA-578, 2026-10-24): Owner-deferred MCP surface. A new scoped decision is needed to lift the stability prerequisite; no MCP server is claimed delivered.
+
+- Resolution (2026-10-28): MCP-593 delivered a hosted `/mcp` endpoint in `0.1.0-alpha.5` (ADR-096). OAuth for hosted connectors, resources and prompts are not part of it; open a new issue if the owner wants them.
 
 ## [ISSUE-063] Recompose Postbot's route information architecture and progressive disclosure
 
