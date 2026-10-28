@@ -94,6 +94,7 @@ const environmentDefinitions = {
     POSTDOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
     POSTDOT_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
     POSTDOT_METRICS_ENABLED: env.boolean({ defaultValue: false }),
+    POSTDOT_MCP_ENABLED: env.boolean({ defaultValue: true }),
     POSTDOT_METRICS_TOKEN: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'error' : 'info'),
@@ -177,6 +178,9 @@ export interface PostdotConfig {
     }
     readonly metrics?: {
         readonly bearerToken: string
+    }
+    readonly mcp: {
+        readonly enabled: boolean
     }
     readonly web: {
         readonly origin: string
@@ -324,6 +328,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
         ...(environment.POSTDOT_METRICS_ENABLED
             ? { metrics: { bearerToken: environment.POSTDOT_METRICS_TOKEN! } }
             : {}),
+        mcp: { enabled: environment.POSTDOT_MCP_ENABLED },
     }
 }
 

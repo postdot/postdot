@@ -325,6 +325,7 @@ async function startServerWithRuntimeLock(
         media,
         avatars,
         accountOrigins: [config.web.origin, config.auth.baseURL],
+        mcp: { enabled: config.mcp.enabled },
         mediaUrlImporter,
         mediaPublicDelivery,
         logging: config.logging,

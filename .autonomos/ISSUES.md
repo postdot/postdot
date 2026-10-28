@@ -87,7 +87,7 @@
 - Desired outcome: A future MCP surface reuses the API/domain contracts, preserves
   project-scoped authorization and actor attribution, and exposes only operations
   whose external side effects and confirmation semantics are explicit.
-- Tasks: none until the owner reopens the deferred scope
+- Tasks: MCP-593 (owner reopened the scope on 2026-10-28; ADR-096)
 - Owner direction (2026-09-25): Defer creating the MCP client until the web
   application and its workflows are sufficiently organized and stable. This is
   a deferral, not a permanent rejection. Do not create an implementation task

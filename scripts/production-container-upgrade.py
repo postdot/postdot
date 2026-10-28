@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PREVIOUS = "ghcr.io/postdot/postdot@sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974"
+PREVIOUS = "ghcr.io/postdot/postdot@sha256:c345e86ab7995417b2a789e083fe262044c6132d5bb87edadd80337994e49ba3"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--image", required=True)
 parser.add_argument("--previous-image", default=PREVIOUS)
@@ -412,6 +412,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
             "--output",
             "/backups/pre-upgrade.bundle",
         )
+        legacy_database = (root / "data/postbot.sqlite").exists()
         start(candidate["Id"], "data")
         logs = subprocess.run(
             ["docker", "logs", container], capture_output=True, text=True, timeout=60, check=True
@@ -419,12 +420,44 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
         candidate_logs = logs.stdout + logs.stderr
         if "Deprecated environment names" not in candidate_logs:
             raise RuntimeError("The candidate did not report the deprecated variable names")
-        if (root / "data/postbot.sqlite").exists() or not (root / "data/postdot.sqlite").exists():
+        # Only a pre-rename previous image stores postbot.sqlite; the candidate must adopt it.
+        if legacy_database and (
+            (root / "data/postbot.sqlite").exists() or not (root / "data/postdot.sqlite").exists()
+        ):
             raise RuntimeError("The candidate did not adopt the previous database file")
         login()
         verify_preservation()
         if request("GET", "/api/recovery/status")["held"]:
             raise RuntimeError("Ordinary upgrade unexpectedly entered recovery hold")
+        # The agent endpoint serves the migrated data to a scoped key and refuses everything else.
+        key = request(
+            "POST",
+            "/api/api-keys",
+            {"name": "MCP acceptance", "projectIds": [project], "actionAccess": ["project:read"]},
+        )["token"]
+
+        def mcp(method, params=None, token=key):
+            req = urllib.request.Request(
+                origin + "/mcp",
+                data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}).encode(),
+                method="POST",
+                headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as response:
+                return json.loads(response.read())["result"]
+
+        tools = mcp("tools/list")["tools"]
+        if not tools or any(not tool["annotations"]["readOnlyHint"] for tool in tools):
+            raise RuntimeError("A read-only key must see only read-only MCP tools")
+        projects = mcp("tools/call", {"name": "list_projects", "arguments": {}})
+        if projects["isError"] or project not in projects["content"][0]["text"]:
+            raise RuntimeError("MCP did not return the migrated project")
+        try:
+            mcp("tools/list", token="postdot_pat_invalid")
+            raise RuntimeError("MCP accepted an invalid key")
+        except urllib.error.HTTPError as error:
+            if error.code != 401:
+                raise
         # Sharing works on the converted data: the migrated channel keeps its recorded connection.
         target = request(
             "POST", "/api/projects", {"name": "Candidate-only sharing target"}

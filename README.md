@@ -40,7 +40,7 @@ npx skills add postdot/postdot --skill postdot-self-host --skill postdot --skill
 The [skills](skills/) cover self-hosting, API-backed publication workflows and
 troubleshooting for `0.1.0-alpha.4`. Manual installation requires copying each
 complete skill directory, including its references, assets and scripts.
-The optional helpers use Python 3's standard library; no MCP server is required.
+The optional helpers use Python 3's standard library. Assistants can also connect to a running instance through its [MCP endpoint](https://postdot.app/docs/mcp/).
 
 ## Develop locally
 

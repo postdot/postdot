@@ -20,8 +20,8 @@ sentences per scene. Prefer review, draft, destination, schedule and result over
 vague productivity language. Avoid internal launch status, superlatives, fake
 customer proof and claims that imply an embedded content-generating AI.
 
-An agent acts through the existing CLI/API. Postdot does not currently ship a MCP
-server; do not illustrate a working MCP connection. Draft creation is distinct
+An agent acts through the existing CLI/API or the hosted MCP endpoint. Show only
+connections the endpoint supports: API-key Bearer access, no OAuth, no file upload. Draft creation is distinct
 from promotion and delivery. Demo data must be visibly labeled as an example.
 Open source is a product characteristic, not a license sales pitch.
 

@@ -1,4 +1,4 @@
-import { postdotUserApiKeyConfigId, type PostdotAuth } from '@postdot/auth'
+import type { PostdotAuth } from '@postdot/auth'
 import type { BlueskyFetcher, BlueskyThreadReader } from '@postdot/bluesky'
 import type { ResourceLifecycleStore } from '@postdot/db'
 import type { NotificationEmailStore } from '@postdot/db'
@@ -23,8 +23,9 @@ import { createBlueskyAnalyticsService } from '../../providers/bluesky/analytics
 import { createDevtoAnalyticsService } from '../../providers/devto/analytics'
 import { createMastodonAnalyticsService } from '../../providers/mastodon/analytics'
 import type { RecoveryService } from '../../recovery'
-import { readUserApiKeyMetadata, registerUserApiKeyRoutes } from '../access/api-key-routes'
+import { registerUserApiKeyRoutes } from '../access/api-key-routes'
 import { registerAccessRoutes } from '../access/routes'
+import { createUserApiKeyAuthenticator } from '../access/user-api-key-authentication'
 import { registerWorkspaceRoutes } from '../access/workspace-routes'
 import type { EmailSettingsService } from '../email/settings'
 import { registerEmailSettingsRoutes } from '../email/settings-routes'
@@ -107,41 +108,13 @@ export interface ProjectModuleOptions {
     readonly userChanges?: UserRealtimeHub
 }
 
-/** Keys issued before the Postdot rename keep their original prefix; new keys use the first one. */
-const userApiKeyPrefixes = ['postdot_pat_', 'postbot_pat_'] as const
-
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         resourceLifecycle: options.resourceLifecycle,
         authorizeRetirementReceipt: (projectId, userId, path) =>
             path === `/api/projects/${projectId}/lifecycle` &&
             options.resourceLifecycle.canReadReceipt('project', projectId, userId),
-        authenticateBetterAuthProjectApiKey: async token => {
-            if (!userApiKeyPrefixes.some(prefix => token.startsWith(prefix))) return null
-
-            try {
-                const userVerified = await options.auth.api.verifyApiKey({
-                    body: { configId: postdotUserApiKeyConfigId, key: token },
-                })
-                if (userVerified.valid && userVerified.key !== null) {
-                    const metadata = readUserApiKeyMetadata(userVerified.key.metadata)
-                    if (metadata !== null) {
-                        return {
-                            projectIds:
-                                metadata.postdotProjectAccess === 'all'
-                                    ? null
-                                    : (metadata.postdotProjectIds ?? []),
-                            ownerUserId: userVerified.key.referenceId,
-                            displayName: `API key: ${userVerified.key.name ?? userVerified.key.id}`,
-                            permissions: userVerified.key.permissions,
-                        }
-                    }
-                }
-                return null
-            } catch {
-                return null
-            }
-        },
+        authenticateBetterAuthProjectApiKey: createUserApiKeyAuthenticator(options.auth),
         authorizeUserApiKeyRequest: canApiKeyAccessRequest,
         // One shared decision for sessions and API keys: live project access
         // first, then the documented workspace-manager reach limited to the

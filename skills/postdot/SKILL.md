@@ -1,6 +1,6 @@
 ---
 name: postdot
-description: Use Postdot to inspect projects and channels, prepare publication drafts and media, request review, schedule authorized publications and inspect their outcomes. For installing an instance use postdot-self-host; for investigating failures use postdot-troubleshoot. Does not provide MCP or a standalone published CLI.
+description: Use Postdot to inspect projects and channels, prepare publication drafts and media, request review, schedule authorized publications and inspect their outcomes. For installing an instance use postdot-self-host; for investigating failures use postdot-troubleshoot. An instance also serves MCP at /mcp; this skill covers the HTTP API. Does not provide a standalone published CLI.
 metadata:
   version: "0.1.1"
   application-version: "0.1.0-alpha.4"
@@ -17,7 +17,7 @@ publisher. Discover the actual destination contract before preparing content.
 Use the user-selected instance, project and API key. Never send a key to an
 assumed cloud service. Read [API access](references/api.md) for the bundled
 standard-library HTTP helper and endpoint examples. Python 3 is sufficient; a
-Postdot development checkout, Bun and MCP are not required.
+Postdot development checkout and Bun are not required.
 
 Keys authenticate as their owner, within current project roles, project scope
 and action ceilings. `project:read` permits inspection; `publication:manage`

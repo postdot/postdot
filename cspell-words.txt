@@ -1,4 +1,3 @@
-
 anonymization
 anthropics
 automations
@@ -49,6 +48,7 @@ Mailpit
 Mastodon
 Megh
 Mixpost
+modelcontextprotocol
 nama
 namor
 Northline
@@ -61,8 +61,8 @@ permissioned
 Permix
 Playwright
 pnpm
-POSTBOT
 postbot
+POSTBOT
 Postdot
 Postiz
 prerender

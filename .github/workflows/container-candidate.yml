@@ -14,7 +14,7 @@ on:
             previous_image:
                 description: Published image digest to upgrade from and restore with
                 required: true
-                default: ghcr.io/postdot/postdot@sha256:9b309cf147d6490e20758914c5e3dc6d824589a2ac9e4c5903c1cc549bb35974
+                default: ghcr.io/postdot/postdot@sha256:c345e86ab7995417b2a789e083fe262044c6132d5bb87edadd80337994e49ba3
                 type: string
     workflow_call:
         inputs:

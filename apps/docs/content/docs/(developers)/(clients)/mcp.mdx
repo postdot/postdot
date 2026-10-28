@@ -1,0 +1,82 @@
+---
+title: Connect an agent with MCP
+description: Let an MCP-compatible assistant read and prepare your Postdot work with a scoped API key.
+---
+
+Postdot serves the Model Context Protocol itself, at `/mcp` on your instance. An
+agent connects to that URL with an API key. There is nothing to install beside the
+agent, so it works against a remote instance. MCP is available from `0.1.0-alpha.5`.
+
+The agent acts as the key's owner, inside the projects and actions you gave the key.
+It cannot do anything the same key could not do through the [API](/docs/automation/).
+
+## Connect
+
+Create a key in Studio under **Settings**, then **API keys**. Limit it to the
+projects the agent needs, and grant only the actions it should have. A key limited
+to `project:read` and `publication:manage` can read and prepare drafts but cannot
+schedule or publish. See [authentication](/docs/reference/authentication/) for every
+action.
+
+Add the server to your assistant. The endpoint uses HTTP, and the key travels as a
+Bearer header:
+
+```bash
+claude mcp add --transport http postdot https://postdot.example.com/mcp \
+  --header "Authorization: Bearer $POSTDOT_API_KEY"
+```
+
+Assistants configured with a JSON file use the same two values:
+
+```json
+{
+    "mcpServers": {
+        "postdot": {
+            "url": "https://postdot.example.com/mcp",
+            "headers": { "Authorization": "Bearer postdot_pat_…" }
+        }
+    }
+}
+```
+
+Keep the key out of shared configuration files. Revoke it in Studio when the agent
+no longer needs it; the next call fails immediately.
+
+## What the agent can do
+
+The tool list follows the key. An agent only sees the tools its key may use.
+
+| Area                   | Examples                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Projects               | List projects, inspect lifecycle impact, archive or restore                                                                 |
+| Channels               | List channels and connections, create or rename a channel, share it with another project, inspect cadence and occupied time |
+| Posts and publications | Create posts and drafts, edit drafts, review and adopt profile changes, move pending work, cancel, reschedule               |
+| Delivery               | Promote drafts, publish or retry, reconcile an ambiguous outcome                                                            |
+| Tags and media         | Tags, media library, import from a URL, request deletion, restore                                                           |
+| Analytics              | Read stored analytics, refresh provider analytics                                                                           |
+
+Every tool declares whether it only reads, whether it can destroy data, and whether
+it reaches an external service.
+
+### Confirmation
+
+Calls that can change what is published, when or where need `confirm: true`.
+Without it Postdot sends nothing and tells the agent to ask you first. Creating a
+post with automatic delivery or a time counts; creating drafts does not. A good
+assistant asks you, then repeats the call.
+
+## What is not offered
+
+- Account, API-key, workspace and installation administration, provider connection
+  and the audit log stay in Studio.
+- Files cannot be sent through MCP. Import media from a public URL, or upload it
+  in Studio or with the [CLI](/docs/cli-reference/).
+- Hosted assistants that only connect through OAuth cannot use this endpoint yet.
+  The server accepts API keys only, never a browser session.
+
+## Operate it
+
+The endpoint is on by default. Set `POSTDOT_MCP_ENABLED=false` to turn it off. It
+holds no session or state, so any number of instances can serve it behind a proxy.
+Browser origins other than your Postdot address are refused. Requests, and
+responses beyond 100,000 characters, are bounded.

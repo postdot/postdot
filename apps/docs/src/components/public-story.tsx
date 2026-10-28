@@ -25,7 +25,7 @@ const questions = [
     },
     {
         title: 'Can I use my existing AI tools?',
-        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postdot does not require a particular model or AI subscription. A dedicated MCP server is not available yet.',
+        answer: 'Yes, if they can run CLI commands or call a REST API. Give the integration a scoped API key. Postdot does not require a particular model or AI subscription. MCP-compatible assistants can connect to your instance with that key.',
     },
     {
         title: 'Will creating a draft publish it?',

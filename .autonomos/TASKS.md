@@ -86,6 +86,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [/] **[MCP-593]** Provide a hosted MCP endpoint for agents with CLI-level parity `Priority: 🟠` `Complexity: XL` — ISSUE-036 reopened by the owner (2026-10-28); accepted [ADR-096](decisions/ADR-096-mcp-operator-surface.md). Stateless Streamable HTTP at `/mcp`, Bearer API keys, in-process dispatch through the existing API, explicit tool allow-list with effect annotations and confirmation, documentation and release. [Evidence](worklogs/2026-10-28-MCP-593.md).
+
 - [x] **[SHARE-592]** Deliver workspace-owned channels with explicit project sharing `Priority: 🟠` `Complexity: XL` `Completed: 2026-10-27` — GitHub #12; released in `0.1.0-alpha.3` (run 40586044797); operator-copied backup and real-provider acceptance remain unclaimed; [evidence](worklogs/2026-10-27-SHARE-592.md); accepted [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](specs/SPEC-009-shared-channel-workflows.md). One coherent milestone: destination/credential prerequisites, preserved migration, scoped sharing, contextual Studio/API/CLI, calendar, optional cadence and lifecycle. HTTP builder expansion remains paused under ISSUE-167.
 
 - [x] **[CHANNEL-591]** Clarify explicit draft profile adaptation with readable previous values and field-level change guidance `Priority: 🟠` `Complexity: M` — ISSUE-167; preserve ADR-079 explicit reuse, local work, validation and immutable history. Completed 2026-10-26; [evidence](worklogs/2026-10-26-CHANNEL-591.md).

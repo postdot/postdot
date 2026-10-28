@@ -79,8 +79,8 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 </article>
                 <article className="usage-mcp">
                     <div className="usage-caption">
-                        <span className="usage-status" data-status="planned">
-                            Planned
+                        <span className="usage-status" data-status="available">
+                            Available
                         </span>
                         <h3>MCP</h3>
                         <p>Your agent’s way in.</p>
@@ -312,7 +312,7 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 </motion.article>
             </div>
             <p className="usage-study-note">
-                Studio and CLI/API exist today. MCP, skills, n8n and mobile show the direction
+                Studio, CLI/API and MCP exist today. Skills, n8n and mobile show the direction
                 ahead.
             </p>
         </section>

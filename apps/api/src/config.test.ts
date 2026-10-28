@@ -76,6 +76,7 @@ describe('Postdot configuration', () => {
             network: {
                 privateDestinations: [],
             },
+            mcp: { enabled: true },
             web: {
                 origin: 'http://localhost:5173',
                 assetsDirectory: '/tmp/postdot-web',

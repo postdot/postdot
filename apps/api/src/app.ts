@@ -49,6 +49,7 @@ import { createPublicInstanceRoutes } from './modules/access/public-routes'
 import { createAccountRoutes } from './modules/account/routes'
 import type { EmailSettingsService } from './modules/email/settings'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
+import { createMcpRoutes } from './modules/mcp/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import type { MediaUrlImporter } from './modules/media/url-import'
@@ -76,6 +77,8 @@ export interface PostdotAppOptions {
     readonly publisher: PublisherRuntime
     readonly avatars?: UserAvatarStore
     readonly accountOrigins?: readonly string[]
+    /** The agent endpoint (ADR-096); enabled unless a deployment turns it off. */
+    readonly mcp?: { readonly enabled: boolean }
     readonly media?: MediaAssetStore
     readonly mediaUrlImporter?: MediaUrlImporter
     readonly mediaPublicDelivery?: MediaPublicDelivery
@@ -361,6 +364,7 @@ export function createApp({
     media,
     avatars,
     accountOrigins,
+    mcp,
     mediaUrlImporter,
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
@@ -391,7 +395,7 @@ export function createApp({
     telegramFetcher,
     devtoFetcher,
 }: PostdotAppOptions) {
-    return createDomainApp({
+    const app = createDomainApp({
         auth,
         database,
         publisher,
@@ -428,4 +432,12 @@ export function createApp({
         telegramFetcher,
         devtoFetcher,
     }).use(createAuthRoutes(auth))
+    return app.use(
+        createMcpRoutes({
+            auth,
+            enabled: mcp?.enabled ?? true,
+            dispatch: request => app.handle(request),
+            allowedOrigins: accountOrigins ?? [],
+        })
+    )
 }
