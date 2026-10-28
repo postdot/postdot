@@ -10,6 +10,7 @@ const productionWeb = process.env.POSTDOT_E2E_PRODUCTION_WEB === 'true'
 const useMailpit = process.env.POSTDOT_E2E_MAILPIT === 'true'
 const tlsProxy = process.env.POSTDOT_E2E_TLS_PROXY === 'true'
 const realtimeAcceptance = process.env.POSTDOT_E2E_REALTIME_ACCEPTANCE === 'true'
+const experienceAudit = process.env.POSTDOT_EXPERIENCE_AUDIT === 'true'
 if (tlsProxy && !realtimeAcceptance)
     throw new Error('The TLS proxy requires isolated realtime acceptance')
 const runtime = await createE2ERuntimeResources()
@@ -104,6 +105,7 @@ export default defineConfig({
     testIgnore: [
         ...(useMailpit ? [] : ['**/access-219-password-reset.spec.ts']),
         ...(realtimeAcceptance ? [] : ['**/realtime-automatic-acceptance.spec.ts']),
+        ...(experienceAudit ? [] : ['**/experience/**']),
     ],
     outputDir: join(rootDirectory, 'test-results', basename(dataDirectory)),
     metadata: {

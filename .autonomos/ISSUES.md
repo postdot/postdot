@@ -1950,3 +1950,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: WEB-587
 
 - Resolution (WEB-587, 2026-10-25): Production login static JavaScript falls from 279,730 to 154,814 aggregate gzip bytes (44.66% reduction), below the unchanged 184,320-byte target. Separated Performance search parsing and project-shell loading from authenticated UI dependencies; scoped notification UI to dashboard/editor-lab. Production browser loading and affected navigation/Performance/toast checks pass. The budget now runs in build CI. This is source-build evidence, not a published-image or server-memory claim. [Evidence](worklogs/2026-10-25-WEB-587.md).
+
+## [ISSUE-192] Journey, navigation and coherence defects need an enforceable standard
+
+- Type: problem
+- Status: open
+- Evidence: Owner review after alpha.3 (2026-10-28) and the communications agent's COMM-016 review report defects that no current rule names: a new project's Overview offers "New publication" although no channel exists and gives no reason the calendar is absent; the sidebar "Workspace" group leads into the settings layout, replaces the sidebar and drops the selected project; a project-list page uses a full-width two-column grid without the generated project identity; configuration pages mix centred columns with full-width blocks; no colour or icon role distinguishes workspace, project, personal and installation scopes. COMM-016 adds unexplained managing-project choice at channel creation, a shared channel's connection state missing in the workspace view, unexplained consequences of Withdraw, a timezone not shown at the point of scheduling, and no consolidated shared-channel calendar. SPEC-007 already requires an add-channel first action and an available calendar when no channel exists, so at least one defect contradicts an accepted contract. DESIGN.md governs visual foundations and `postdot-operational-ux` governs calendar interaction; neither covers cross-route journeys, scope transitions, width classes or wayfinding.
+- Impact: The owner must re-describe each defect from memory, and agents cannot detect hierarchy, intuitiveness or consistency defects that pass static checks and existing scenarios.
+- Desired outcome: Numbered, observable and owner-accepted rules with a stated verification method, a route registry, a review procedure agents can run, and automated checks only where a rule is unambiguous. Defect repair stays in separate tasks.
+- Related: SPEC-006, SPEC-007, ADR-057, DESIGN.md, UX-244, UX-269
+- Tasks: UX-389

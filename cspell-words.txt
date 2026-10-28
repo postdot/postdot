@@ -51,6 +51,7 @@ Mixpost
 modelcontextprotocol
 nama
 namor
+networkidle
 Northline
 Ntfy
 oxfmt
@@ -125,6 +126,8 @@ useRef
 useTransition
 Vanta
 Vite
+wayfinding
+Wayfinding
 webfonts
 webglcontextlost
 wireframes
