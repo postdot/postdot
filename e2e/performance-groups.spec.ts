@@ -47,14 +47,19 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
     const { publications } = await postResponse.json()
     // Only the read fixture is published; no worker or provider publication occurs.
     await page.route(`**/api/projects/${project.id}/publications?*`, async route => {
-        const response = await route.fetch()
-        const body = await response.json()
-        body.publications = body.publications.map((publication: Record<string, unknown>) => ({
-            ...publication,
-            state: 'published',
-            publishedAt: 1_800_000_000_000,
-        }))
-        await route.fulfill({ response, json: body })
+        try {
+            const response = await route.fetch()
+            const body = await response.json()
+            body.publications = body.publications.map((publication: Record<string, unknown>) => ({
+                ...publication,
+                state: 'published',
+                publishedAt: 1_800_000_000_000,
+            }))
+            await route.fulfill({ response, json: body })
+        } catch (error) {
+            // A navigation or the end of the test can dispose the response mid-request.
+            if (!/disposed|closed|ended/i.test(String(error))) throw error
+        }
     })
     let releaseReads = () => {}
     const held = new Promise<void>(resolve => {
