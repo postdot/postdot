@@ -12,6 +12,7 @@ import {
     SidebarMenuItem,
 } from '@postdot/ui/components/sidebar'
 import { AddIcon } from '@solar-icons/react/linear/add'
+import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
@@ -50,6 +51,7 @@ export type DashboardSection =
     | 'access'
     | 'invitations'
     | 'tags'
+    | 'settings-archives'
     | 'settings-access'
     | 'settings-provider-applications'
     | 'workspace-channels'
@@ -264,6 +266,25 @@ export function DashboardSidebar({
                                 </nav>
                             </SidebarGroupContent>
                         </SidebarGroup>
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupLabel className="px-2">
+                                {m.nav_resources()}
+                            </SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <nav aria-label={m.nav_resources()}>
+                                    <SidebarMenu>
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'settings-archives'}
+                                            destination="settings-archives"
+                                            icon={<ArchiveIcon aria-hidden="true" />}
+                                            label={m.lifecycle_archives()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
+                                    </SidebarMenu>
+                                </nav>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
                         {isInstanceAdmin ? (
                             <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                                 <SidebarGroupLabel className="px-2">
@@ -451,6 +472,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     if (pathname === '/dashboard/preferences/account') return 'preferences-account'
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
+    if (pathname === '/dashboard/settings/archives') return 'settings-archives'
     if (pathname.includes('/settings/access')) return 'settings-access'
     if (pathname.includes('/settings/workspace')) return 'settings-workspace'
     if (pathname.includes('/settings/provider-applications')) {
@@ -479,6 +501,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'access') return m.nav_access()
     if (section === 'invitations') return m.nav_project_invitations()
     if (section === 'tags') return m.taxonomy_tags()
+    if (section === 'settings-archives') return m.lifecycle_archives()
     if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings-provider-applications') return m.nav_instance_provider_apps()
     if (section === 'settings-workspace') return m.nav_workspace_administration()
@@ -572,6 +595,19 @@ function workspaceLink(
             <Link
                 to="/dashboard/settings"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'settings-archives') {
+        return (
+            <Link
+                to="/dashboard/settings/archives"
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -588,6 +624,7 @@ function workspaceLink(
                     invitation: undefined,
                     organizationInvitation: undefined,
                 }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -599,6 +636,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/settings/provider-applications"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -610,6 +648,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/workspace/channels"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -619,6 +658,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/settings/workspace"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -630,6 +670,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/preferences"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -641,6 +682,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/preferences/account"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -652,6 +694,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/preferences/api-keys"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -663,6 +706,7 @@ function workspaceLink(
             <Link
                 to="/dashboard"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -674,6 +718,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/projects/$projectId/overview"
                 params={{ projectId }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -685,6 +730,7 @@ function workspaceLink(
             <Link
                 to="/dashboard/projects/$projectId/publications/new"
                 params={{ projectId }}
+                activeOptions={{ exact: true }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />

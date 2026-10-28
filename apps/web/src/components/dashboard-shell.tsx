@@ -60,6 +60,7 @@ export function DashboardShell({
         activeSection === 'access' || activeSection === 'invitations' || activeSection === 'tags'
     const isWorkspaceSettings = activeSection === 'settings-workspace'
     const isInstanceSettings =
+        activeSection === 'settings-archives' ||
         activeSection === 'settings' ||
         activeSection === 'settings-access' ||
         activeSection === 'settings-provider-applications'
@@ -108,6 +109,7 @@ export function DashboardShell({
                             isProjectSettings ||
                             isWorkspaceSettings ||
                             activeSection === 'workspace-channels' ||
+                            activeSection === 'settings-archives' ||
                             activeSection === 'settings-access' ||
                             activeSection === 'settings-provider-applications'
                         }

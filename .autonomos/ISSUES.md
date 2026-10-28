@@ -1954,9 +1954,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-192] Journey, navigation and coherence defects need an enforceable standard
 
 - Type: problem
-- Status: open
+- Status: resolved (2026-10-28)
 - Evidence: Owner review after alpha.3 (2026-10-28) and the communications agent's COMM-016 review report defects that no current rule names: a new project's Overview offers "New publication" although no channel exists and gives no reason the calendar is absent; the sidebar "Workspace" group leads into the settings layout, replaces the sidebar and drops the selected project; a project-list page uses a full-width two-column grid without the generated project identity; configuration pages mix centred columns with full-width blocks; no colour or icon role distinguishes workspace, project, personal and installation scopes. COMM-016 adds unexplained managing-project choice at channel creation, a shared channel's connection state missing in the workspace view, unexplained consequences of Withdraw, a timezone not shown at the point of scheduling, and no consolidated shared-channel calendar. SPEC-007 already requires an add-channel first action and an available calendar when no channel exists, so at least one defect contradicts an accepted contract. DESIGN.md governs visual foundations and `postdot-operational-ux` governs calendar interaction; neither covers cross-route journeys, scope transitions, width classes or wayfinding.
 - Impact: The owner must re-describe each defect from memory, and agents cannot detect hierarchy, intuitiveness or consistency defects that pass static checks and existing scenarios.
 - Desired outcome: Numbered, observable and owner-accepted rules with a stated verification method, a route registry, a review procedure agents can run, and automated checks only where a rule is unambiguous. Defect repair stays in separate tasks.
 - Related: SPEC-006, SPEC-007, ADR-057, DESIGN.md, UX-244, UX-269
 - Tasks: UX-389
+
+- Resolution: UX-389 delivered the owner-accepted SPEC-010 rules, a 21-destination registry, the review skill and baseline evidence. Authorized follow-ups UX-390 through UX-403 repaired the recorded journey, width, scope, explanation and recovery defects. Scope and remaining product work are retained in the [UX-403 handoff](worklogs/2026-10-28-UX-403.md); this resolution does not claim physical-device, live-provider or complete browser-matrix acceptance.

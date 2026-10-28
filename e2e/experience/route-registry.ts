@@ -184,6 +184,14 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         job: 'Manage personal API keys',
     },
     {
+        id: 'resource-archives',
+        path: () => '/dashboard/settings/archives',
+        scope: 'installation',
+        shell: 'settings',
+        widthClass: 'management-column',
+        job: 'Restore manageable archived resources or inspect their removal progress',
+    },
+    {
         id: 'installation-email',
         path: () => '/dashboard/settings',
         scope: 'installation',

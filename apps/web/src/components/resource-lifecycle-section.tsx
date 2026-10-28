@@ -2,6 +2,7 @@ import { Button } from '@postdot/ui/components/button'
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -9,10 +10,15 @@ import {
 import { Input } from '@postdot/ui/components/input'
 import { toast } from '@postdot/ui/components/toast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useRouter, useNavigate } from '@tanstack/react-router'
+import { Link, useRouter, useNavigate, useSearch, useParams } from '@tanstack/react-router'
 import { useState, type ReactNode } from 'react'
 
+import { AccessPageHeader } from '@/components/access-page-header'
+import { ResourceAvatar } from '@/components/identity-visuals'
+import { PageColumn } from '@/components/page-column'
+import { QueryErrorState } from '@/components/query-error-state'
 import { ApiError, api, formatApiError } from '@/lib/api'
+import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-query-keys'
 import * as m from '@/paraglide/messages.js'
@@ -35,11 +41,20 @@ function stateLabel(state: string) {
 export function ResourceLifecycleSection({
     kind,
     id,
+    inArchives = false,
 }: {
     readonly kind: Kind
     readonly id: string
+    readonly inArchives?: boolean
 }) {
     useLanguage()
+    const global = useDashboardGlobal()
+    const search = useSearch({ from: '/dashboard' })
+    const params = useParams({ strict: false })
+    const archiveContext = {
+        workspaceId: global.selectedWorkspaceId ?? undefined,
+        projectId: params.projectId ?? search.projectId ?? 'none',
+    }
     const queryClient = useQueryClient()
     const router = useRouter()
     const navigate = useNavigate()
@@ -63,7 +78,7 @@ export function ResourceLifecycleSection({
         queryFn: () => api.listWorkspaces(),
         enabled: kind === 'workspace',
     })
-    if (impact.isError)
+    if (impact.isError && !impact.data)
         return impact.error instanceof ApiError &&
             [403, 404].includes(impact.error.status) ? null : (
             <div role="alert">
@@ -124,7 +139,8 @@ export function ResourceLifecycleSection({
                     queryKey: [...projectQueryKeys.data(id), 'lifecycle'],
                 })
             await queryClient.invalidateQueries({ queryKey: ['resource-archives'] })
-            if (action === 'delete') await navigate({ to: '/dashboard/settings/archives' })
+            if (action === 'delete')
+                await navigate({ to: '/dashboard/settings/archives', search: archiveContext })
             await router.invalidate()
         } catch (caught) {
             setError(formatApiError(caught))
@@ -145,14 +161,32 @@ export function ResourceLifecycleSection({
     return (
         <section className="mt-8 border-t border-border pt-6" aria-label={m.lifecycle_title()}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-heading text-lg font-medium">{m.lifecycle_title()}</h2>
-                <Link className="text-sm underline" to="/dashboard/settings/archives">
-                    {m.lifecycle_archives()}
-                </Link>
+                <h2 className="flex min-w-0 items-center gap-3 font-heading text-lg font-medium">
+                    {inArchives ? <ResourceAvatar kind={kind} name={data.name} seed={id} /> : null}
+                    <span className="break-words">
+                        {inArchives ? data.name : m.lifecycle_title()}
+                    </span>
+                </h2>
+                {!inArchives ? (
+                    <Link
+                        className="text-sm underline"
+                        search={archiveContext}
+                        to="/dashboard/settings/archives">
+                        {m.lifecycle_archives()}
+                    </Link>
+                ) : null}
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-                {data.name} · {stateLabel(data.state)}
+                {inArchives
+                    ? kind === 'project'
+                        ? m.nav_project()
+                        : m.nav_workspace()
+                    : data.name}{' '}
+                · {stateLabel(data.state)}
             </p>
+            {impact.isError && action === null ? (
+                <QueryErrorState className="mt-4" onRetry={() => void impact.refetch()} />
+            ) : null}
             {removed || data.state === 'deleted' ? (
                 <p role="status" className="mt-3">
                     {m.lifecycle_done()}
@@ -195,11 +229,15 @@ export function ResourceLifecycleSection({
                             — {data.name}
                         </DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm leading-6">
+                    <DialogDescription className="text-sm leading-6">
                         {action === 'delete'
                             ? m.lifecycle_delete_explanation()
-                            : m.lifecycle_archive_explanation()}
-                    </p>
+                            : action === 'restore'
+                              ? kind === 'workspace'
+                                  ? m.lifecycle_restore_workspace_explanation()
+                                  : m.lifecycle_restore_explanation()
+                              : m.lifecycle_archive_explanation()}
+                    </DialogDescription>
                     <dl className="grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm">
                         {Object.entries(data.counts).map(([key, value]) => (
                             <div key={key} className="contents">
@@ -288,6 +326,9 @@ export function ResourceLifecycleSection({
                             )}
                         </>
                     )}
+                    {impact.isError ? (
+                        <QueryErrorState onRetry={() => void impact.refetch()} />
+                    ) : null}
                     {error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}
@@ -305,6 +346,7 @@ export function ResourceLifecycleSection({
                             disabled={
                                 pending ||
                                 impact.isFetching ||
+                                impact.isError ||
                                 (action !== 'restore' &&
                                     ((data.pending > 0 && !cancelPending) ||
                                         (data.isDefault && !replacementWorkspaceId))) ||
@@ -333,25 +375,29 @@ export function ResourceArchives() {
     const resources = useQuery({
         queryKey: ['resource-archives'],
         queryFn: async () => (await api.listResourceRetirements()).resources,
+        retry: false,
     })
     return (
-        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8">
-            <h1 className="font-heading text-2xl font-semibold">{m.lifecycle_archives()}</h1>
-            {resources.isPending ? (
-                <p role="status">{m.common_loading()}</p>
-            ) : resources.isError ? (
-                <p role="alert">{m.lifecycle_refresh_required()}</p>
-            ) : resources.data.length === 0 ? (
-                <p className="mt-4 text-muted-foreground">{m.lifecycle_empty()}</p>
-            ) : (
-                resources.data.map(resource => (
-                    <ResourceLifecycleSection
-                        key={`${resource.kind}:${resource.id}`}
-                        kind={resource.kind}
-                        id={resource.id}
-                    />
-                ))
-            )}
+        <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+            <AccessPageHeader title={m.lifecycle_archives()} />
+            <PageColumn variant="management">
+                {resources.isPending ? (
+                    <p role="status">{m.common_loading()}</p>
+                ) : resources.isError ? (
+                    <QueryErrorState onRetry={() => void resources.refetch()} />
+                ) : resources.data.length === 0 ? (
+                    <p className="mt-4 text-muted-foreground">{m.lifecycle_empty()}</p>
+                ) : (
+                    resources.data.map(resource => (
+                        <ResourceLifecycleSection
+                            key={`${resource.kind}:${resource.id}`}
+                            kind={resource.kind}
+                            id={resource.id}
+                            inArchives
+                        />
+                    ))
+                )}
+            </PageColumn>
         </main>
     )
 }
@@ -375,7 +421,10 @@ export function ProjectLifecycleBoundary({
                         : query.data?.state === 'archived'
                           ? m.lifecycle_archived_notice()
                           : m.lifecycle_waiting()}{' '}
-                    <Link className="underline" to="/dashboard/settings/archives">
+                    <Link
+                        className="underline"
+                        search={{ projectId }}
+                        to="/dashboard/settings/archives">
                         {m.lifecycle_manage()}
                     </Link>
                 </div>

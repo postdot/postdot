@@ -12,6 +12,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@postdot/ui/componen
 import { Kbd } from '@postdot/ui/components/kbd'
 import { Switch } from '@postdot/ui/components/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@postdot/ui/components/tooltip'
+import { ArchiveIcon } from '@solar-icons/react/linear/archive'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { DocumentTextIcon } from '@solar-icons/react/linear/document-text'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -115,6 +116,11 @@ export function DashboardSearch({
             title: m.nav_preferences_api_keys(),
             href: `/dashboard/preferences/api-keys?${context}`,
             keywords: m.search_aliases_api_keys(),
+        },
+        {
+            title: m.lifecycle_archives(),
+            href: `/dashboard/settings/archives?${context}`,
+            keywords: m.nav_resources(),
         },
         ...(isInstanceAdmin
             ? [
@@ -244,17 +250,21 @@ export function DashboardSearch({
                         {pages.length > 0 && (
                             <CommandGroup heading={m.search_pages()}>
                                 {pages.map(page => {
-                                    const PageIcon = page.href.endsWith('/overview')
-                                        ? Widget2Icon
-                                        : page.href.endsWith('/queue')
-                                          ? ListIcon
-                                          : page.href.endsWith('/channels')
-                                            ? LinkIcon
-                                            : page.href.endsWith('/media')
-                                              ? GalleryIcon
-                                              : page.href.endsWith('/performance')
-                                                ? ChartSquareIcon
-                                                : SettingsIcon
+                                    const PageIcon = page.href.startsWith(
+                                        '/dashboard/settings/archives'
+                                    )
+                                        ? ArchiveIcon
+                                        : page.href.endsWith('/overview')
+                                          ? Widget2Icon
+                                          : page.href.endsWith('/queue')
+                                            ? ListIcon
+                                            : page.href.endsWith('/channels')
+                                              ? LinkIcon
+                                              : page.href.endsWith('/media')
+                                                ? GalleryIcon
+                                                : page.href.endsWith('/performance')
+                                                  ? ChartSquareIcon
+                                                  : SettingsIcon
                                     return (
                                         <CommandItem
                                             key={page.href}

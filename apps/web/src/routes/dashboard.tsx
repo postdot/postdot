@@ -6,7 +6,7 @@ import {
     Link,
     Outlet,
     redirect,
-    useLocation,
+    useMatches,
     useNavigate,
 } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -156,7 +156,8 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
     const navigate = useNavigate()
-    const { pathname, search } = useLocation()
+    // Keep the shell around the presented child until navigation commits.
+    const pathname = useMatches({ select: matches => matches.at(-1)?.pathname ?? '/dashboard' })
     useLanguage()
     const initialData = Route.useLoaderData()
     const routeSearch = Route.useSearch()
@@ -326,7 +327,7 @@ function DashboardPage() {
     const isPreferences = isPreferencesPath(pathname)
     const isGlobalContextPath =
         isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/workspace/channels'
-    const settingsProjectId = isGlobalContextPath ? readProjectContextId(search) : undefined
+    const settingsProjectId = isGlobalContextPath ? readProjectContextId(routeSearch) : undefined
     const selectedSettingsProject = isGlobalContextPath
         ? (projects.find(
               project =>
