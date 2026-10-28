@@ -3,6 +3,29 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## 0.1.0-alpha.5
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.5`
+- Manifest digest: `sha256:4aed12e94996cc75a258ea50d6eeb3da41b0cff08151f987251626ebe42c7931`
+- Platforms: Linux AMD64 and ARM64.
+- [Matching source](https://github.com/postdot/postdot/tree/267b68172dbfc3b29a48b3723989de4896da3f1a).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/40673101045).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/40669746996).
+
+### Changes
+
+- Connect an MCP-compatible assistant to your instance at `/mcp`. The endpoint uses
+  your API keys, shows only the 72 tools a key may use, and asks for explicit
+  confirmation before anything that can change what is published, when or where.
+  See [Connect an agent with MCP](/docs/mcp/). Set `POSTDOT_MCP_ENABLED=false` to
+  turn it off.
+
+### Upgrade from 0.1.0-alpha.4
+
+No data migration. Native checks on both platforms upgraded an alpha.4 data set,
+served the agent endpoint on it and restored the pre-update backup with the previous
+executable. Back up the database and media first.
+
 ## 0.1.0-alpha.4
 
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.4`

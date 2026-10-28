@@ -3,7 +3,7 @@ name: postdot
 description: Use Postdot to inspect projects and channels, prepare publication drafts and media, request review, schedule authorized publications and inspect their outcomes. For installing an instance use postdot-self-host; for investigating failures use postdot-troubleshoot. An instance also serves MCP at /mcp; this skill covers the HTTP API. Does not provide a standalone published CLI.
 metadata:
   version: "0.1.1"
-  application-version: "0.1.0-alpha.4"
+  application-version: "0.1.0-alpha.5"
 ---
 
 # Use Postdot

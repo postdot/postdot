@@ -19,8 +19,8 @@ workspace. Use Studio in your browser, or work through the CLI and HTTP API.
 Postdot runs its API, dashboard, scheduler and publication worker in one service,
 with SQLite and local media storage. S3-compatible media storage is optional.
 
-**Alpha software, under active development.** The current container release, `0.1.0-alpha.4`, is available for Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.3` and restoration of its pre-update backup are validated on both platforms. Releases up to `0.1.0-alpha.3` were called Postbot; see [moving from the Postbot names](https://postdot.app/docs/installation/#move-from-the-postbot-names).
+**Alpha software, under active development.** The current container release, `0.1.0-alpha.5`, is available for Linux AMD64 and ARM64.
+Upgrade from `0.1.0-alpha.4` and restoration of its pre-update backup are validated on both platforms. Releases up to `0.1.0-alpha.3` were called Postbot; see [moving from the Postbot names](https://postdot.app/docs/installation/#move-from-the-postbot-names).
 
 ## Run it yourself
 
@@ -38,7 +38,7 @@ npx skills add postdot/postdot --skill postdot-self-host --skill postdot --skill
 ```
 
 The [skills](skills/) cover self-hosting, API-backed publication workflows and
-troubleshooting for `0.1.0-alpha.4`. Manual installation requires copying each
+troubleshooting for `0.1.0-alpha.5`. Manual installation requires copying each
 complete skill directory, including its references, assets and scripts.
 The optional helpers use Python 3's standard library. Assistants can also connect to a running instance through its [MCP endpoint](https://postdot.app/docs/mcp/).
 

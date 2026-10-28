@@ -3,7 +3,7 @@ name: postdot-self-host
 description: Deploy and operate a self-hosted Postdot instance using its published container. Use for first installation, HTTPS, persistence, backup and deployment verification. For publication workflows use postdot; for investigating failures use postdot-troubleshoot.
 metadata:
   version: "0.1.1"
-  application-version: "0.1.0-alpha.4"
+  application-version: "0.1.0-alpha.5"
 ---
 
 # Self-host Postdot

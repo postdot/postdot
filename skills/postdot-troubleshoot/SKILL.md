@@ -3,7 +3,7 @@ name: postdot-troubleshoot
 description: Investigate Postdot deployment, access, media and publication failures and produce a sanitized actionable report. Use for unhealthy startup, refused requests, failed or ambiguous publications, and alpha feedback. Does not authorize restore, repeated publication or production code changes.
 metadata:
   version: "0.1.1"
-  application-version: "0.1.0-alpha.4"
+  application-version: "0.1.0-alpha.5"
 ---
 
 # Troubleshoot Postdot

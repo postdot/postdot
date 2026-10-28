@@ -5,9 +5,9 @@ description: Install Postdot with Docker Compose and configure persistent storag
 
 Postdot runs its API, dashboard, publication worker and scheduler in one Bun
 container. SQLite and local media share one persistent volume. The current release is
-`0.1.0-alpha.4`. This guide uses release-matched Compose/configuration files and the public
-`ghcr.io/postdot/postdot:0.1.0-alpha.4` image, accepted on Linux AMD64 and ARM64.
-Upgrade from `0.1.0-alpha.3` and restoration of its pre-update backup have been
+`0.1.0-alpha.5`. This guide uses release-matched Compose/configuration files and the public
+`ghcr.io/postdot/postdot:0.1.0-alpha.5` image, accepted on Linux AMD64 and ARM64.
+Upgrade from `0.1.0-alpha.4` and restoration of its pre-update backup have been
 validated on both platforms; see the [release record](/docs/releases/).
 
 ## First installation
@@ -55,7 +55,7 @@ Git and never publish the output of `docker compose config`, which includes secr
 ### 2. Pull, start and check readiness
 
 ```sh
-printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.4\n' >> .env
+printf '\nPOSTDOT_IMAGE=ghcr.io/postdot/postdot:0.1.0-alpha.5\n' >> .env
 docker compose config --quiet
 docker compose pull
 docker compose up -d --no-build --wait
