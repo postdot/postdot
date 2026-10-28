@@ -36,8 +36,8 @@ the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-cl
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
 The comparison experiment is retired; future DB adoption requires a concrete need.
 Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
-The current published image is `0.1.0-alpha.3`, with native AMD64/ARM64 upgrade
-and restoration acceptance from `0.1.0-alpha.2` under SHARE-592. Distribution
+The current published image is `0.1.0-alpha.4`, with native AMD64/ARM64 upgrade
+and restoration acceptance from `0.1.0-alpha.3` under BRAND-551. Distribution
 notices remain packaged; release policy follows ADR-093.
 The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
 ISSUE-182/183 retain broader cleanup scope.
@@ -855,7 +855,7 @@ UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-
 
 - [x] **[ANALYTICS-550]** Export filtered stored publication performance as CSV `Priority: 🟠` `Complexity: M` — owner accepted the recommended export. Include all matching pages, separate destination metrics, availability and collection time without new provider collection or aggregate totals. [Mission](worklogs/2026-10-21-ANALYTICS-550.md).
 
-- [x] **[BRAND-551]** Coordinate the Postdot identity transition `Priority: 🟠` `Complexity: L` `Completed: 2026-10-27` — ISSUE-179. Repository, checkout, namespace, display identity, deployment variables, database file, Compose names, metrics, webhook headers, stored identities (migration 0026), code identifiers and the six full-window site screenshots now use Postdot. Bounded compatibility remains for existing installations (deprecated `POSTBOT_*` variables, `postbot.sqlite` adoption, `postbot_pat_` keys, saved `postbot_webhook` profiles, opaque encryption authenticated-data bytes); published in the next image after `0.1.0-alpha.3`. [Evidence](worklogs/2026-10-27-BRAND-551.md). [Upgrade guide](<../apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx>).
+- [x] **[BRAND-551]** Coordinate the Postdot identity transition `Priority: 🟠` `Complexity: L` `Completed: 2026-10-27` — ISSUE-179. Repository, checkout, namespace, display identity, deployment variables, database file, Compose names, metrics, webhook headers, stored identities (migration 0026), code identifiers and the six full-window site screenshots now use Postdot. Bounded compatibility remains for existing installations (deprecated `POSTBOT_*` variables, `postbot.sqlite` adoption, `postbot_pat_` keys, saved `postbot_webhook` profiles, opaque encryption authenticated-data bytes); published in `0.1.0-alpha.4` (run 40659873803). [Evidence](worklogs/2026-10-27-BRAND-551.md). [Upgrade guide](<../apps/docs/content/docs/(self-hosting)/(deployment)/installation.mdx>).
 
 - [x] **[PUBLIC-552]** Prepare the repository for public review `Priority: 🔴` `Complexity: L` — Owner requested a concise README, tracked-file and Git-history disclosure audit, and review of private context in Autonomos before changing visibility. Record namespace ownership, preserve private evidence outside Git, and report any required rotation/history decision before publication. README and bounded disclosure review complete; owner subsequently selected preserving history; PUBLIC-553 delivers the existing-repository transition. No visibility change. [Review](archive/root-documentation-2026-10-25/source/docs/security/public-source-review.md). [Evidence](worklogs/2026-10-21-PUBLIC-552.md).
 

@@ -3,6 +3,33 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## 0.1.0-alpha.4
+
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.4`
+- Manifest digest: `sha256:c345e86ab7995417b2a789e083fe262044c6132d5bb87edadd80337994e49ba3`
+- Platforms: Linux AMD64 and ARM64.
+- [Matching source](https://github.com/postdot/postdot/tree/ae117c125b5645ce7b49d147c24042bb690ea9a5).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/40659873803).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/40656698593).
+
+### Changes
+
+- Postdot is the only product name: deployment variables use `POSTDOT_`, the default
+  database is `postdot.sqlite`, the Compose service and volume are `postdot` and
+  `postdot-data`, metrics start with `postdot_`, and Custom HTTP webhooks send
+  `x-postdot-*` headers.
+- Product screenshots on the site show the Postdot name.
+
+### Upgrade from 0.1.0-alpha.3
+
+Existing installations keep working: `POSTBOT_*` variables and `postbot.sqlite` are
+still accepted (deprecated, with a warning), API keys and saved webhook profiles
+continue to work, and migration 0026 updates stored identities. Native checks on both
+platforms upgraded an alpha.3 data set that used the old names, then restored the
+pre-update backup with the previous executable. Follow
+[Move from the Postbot names](/docs/installation/#move-from-the-postbot-names), and
+back up the database and media first.
+
 ## 0.1.0-alpha.3
 
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.3`

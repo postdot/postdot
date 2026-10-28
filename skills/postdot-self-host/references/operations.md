@@ -47,8 +47,8 @@ marker or retry ambiguous posts to make the system appear healthy.
 
 ## Replacement and upgrades
 
-Upgrade from `0.1.0-alpha.2` to `0.1.0-alpha.3` and restoration of its pre-update
-backup were validated on native AMD64 and ARM64 with a live connection, queued work,
+Upgrade from `0.1.0-alpha.3` to `0.1.0-alpha.4` and restoration of its pre-update
+backup were validated on native AMD64 and ARM64 with a live connection, queued work, the previous variable names and database file,
 drafts and local media. Read the target release's evidence before each upgrade; a
 restart alone does not prove migration or rollback safety. Back up data and
 configuration, retain deployment secrets and the previous image, and confirm
