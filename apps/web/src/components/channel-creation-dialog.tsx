@@ -58,6 +58,7 @@ export function ChannelCreationDialog({
     pending,
     channels = [],
     compact = false,
+    defaultOpen = false,
 }: {
     readonly projectId: string
     readonly onCreate: (
@@ -67,6 +68,7 @@ export function ChannelCreationDialog({
     readonly pending: boolean
     readonly channels?: readonly ChannelIdentityPeer[]
     readonly compact?: boolean
+    readonly defaultOpen?: boolean
 }) {
     useLanguage()
     const presetsQuery = useQuery({
@@ -89,7 +91,7 @@ export function ChannelCreationDialog({
             ),
         [templates]
     )
-    const [open, setOpen] = useState(false)
+    const [open, setOpen] = useState(defaultOpen)
     const [step, setStep] = useState<'identity' | 'rules'>('identity')
     const [name, setName] = useState('')
     const [nameEdited, setNameEdited] = useState(false)

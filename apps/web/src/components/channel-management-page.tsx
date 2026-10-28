@@ -35,6 +35,7 @@ import { ChannelCadenceDialog } from './channel-cadence-dialog'
 interface ChannelManagementPageProps {
     readonly facebookSelection?: { readonly selection: string; readonly channelId: string }
     readonly onDismissPublisherFeedback?: () => Promise<void>
+    readonly startCreating?: boolean
     readonly publisherFeedback?: {
         readonly channelId?: string
         readonly result: PublisherCallbackResult
@@ -45,6 +46,7 @@ export function ChannelManagementPage({
     onDismissPublisherFeedback,
     publisherFeedback,
     facebookSelection,
+    startCreating = false,
 }: ChannelManagementPageProps) {
     useLanguage()
     const { isInstanceAdmin, projects } = useDashboardGlobal()
@@ -128,6 +130,7 @@ export function ChannelManagementPage({
                             channels={channels}
                             onCreate={onCreateChannel}
                             pending={pending}
+                            defaultOpen={startCreating}
                         />
                     ) : undefined
                 }

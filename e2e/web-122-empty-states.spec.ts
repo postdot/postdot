@@ -10,10 +10,16 @@ test('keeps the empty project overview focused while Queue remains usable', asyn
 
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
     await expect(page.locator('[data-calendar="reui"]')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
-    await expect(
-        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(1)
+    // SPEC-010 JRN-01/JRN-02: with no channel the next action is the channel, and the page says why
+    // the calendar is absent.
+    await expect(page.getByText('Add your first channel', { exact: true })).toBeVisible()
+    await expect(page.getByText(/The calendar appears here as soon as/)).toBeVisible()
+    await expect(page.locator('a[href*="/publications/new"]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await expect(page).toHaveURL(/\/channels$/)
+    await expect(page.getByRole('dialog', { name: 'Add a channel' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.goto(page.url().replace(/\/channels(?:\?.*)?$/, '/overview'))
 
     await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()

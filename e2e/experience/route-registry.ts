@@ -6,10 +6,8 @@
  * operator job. The experience audit measures the rendered application against
  * these declarations; a mismatch is a finding that cites the matching rule.
  *
- * The declarations are a draft until the owner accepts SPEC-010. Where the baseline audit found
- * the application disagreeing with a declaration (workspace channels renders the `settings` shell;
- * project tags and access are not reading columns), the declaration records the proposed intent,
- * not the current behaviour.
+ * Width classes follow the decisions recorded in SPEC-010 (2026-10-28). Pages that still render a
+ * different width than declared are baseline findings (UX-392), not registry errors.
  */
 
 export type ExperienceScope = 'project' | 'workspace' | 'personal' | 'installation'
@@ -18,10 +16,11 @@ export type ExperienceScope = 'project' | 'workspace' | 'personal' | 'installati
 export type ExperienceShell = 'product' | 'settings'
 
 /**
- * `work-surface` uses the available width; `reading-column` is the compact centred column used by
- * configuration pages; `directory` lists peer objects.
+ * Width follows the page's job (SPEC-010 LAY-02). `work-surface` uses the available width,
+ * `management-column` is a bounded 64 rem column for lists of peer objects and their actions, and
+ * `reading-column` is a compact 36 rem column for forms and preferences.
  */
-export type ExperienceWidthClass = 'work-surface' | 'reading-column' | 'directory'
+export type ExperienceWidthClass = 'work-surface' | 'management-column' | 'reading-column'
 
 export type ExperienceRoute = {
     readonly id: string
@@ -43,7 +42,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ workspaceId }) => `/dashboard?projectId=none&workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'product',
-        widthClass: 'directory',
+        widthClass: 'management-column',
         job: 'Choose or create a project',
     },
     {
@@ -75,7 +74,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ projectId }) => `/dashboard/projects/${projectId}/channels`,
         scope: 'project',
         shell: 'product',
-        widthClass: 'work-surface',
+        widthClass: 'management-column',
         job: 'Manage destination identity and connection readiness',
     },
     {
@@ -99,7 +98,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ projectId }) => `/dashboard/projects/${projectId}/tags`,
         scope: 'project',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Maintain project tags',
     },
     {
@@ -107,7 +106,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ projectId }) => `/dashboard/projects/${projectId}/access`,
         scope: 'project',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Manage project membership',
     },
     {
@@ -115,7 +114,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ workspaceId }) => `/dashboard/workspace/channels?workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'product',
-        widthClass: 'work-surface',
+        widthClass: 'management-column',
         job: 'Manage shared channels and their project use',
     },
     {
@@ -123,7 +122,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ workspaceId }) => `/dashboard/settings/workspace?workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Manage workspace members and groups',
     },
     {
@@ -147,7 +146,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/preferences/api-keys',
         scope: 'personal',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Manage personal API keys',
     },
     {
@@ -163,7 +162,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/settings/access',
         scope: 'installation',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Manage installation members and invitations',
     },
     {
@@ -171,7 +170,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/settings/provider-applications',
         scope: 'installation',
         shell: 'settings',
-        widthClass: 'reading-column',
+        widthClass: 'management-column',
         job: 'Configure provider OAuth applications',
     },
 ]

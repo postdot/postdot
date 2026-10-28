@@ -211,11 +211,12 @@ export function PublicationCalendarPage({
                                 render={
                                     <Link
                                         params={{ projectId: project.id }}
-                                        to="/dashboard/projects/$projectId/publications/new"
+                                        search={{ add: true }}
+                                        to="/dashboard/projects/$projectId/channels"
                                     />
                                 }>
                                 <AddIcon aria-hidden="true" />
-                                {m.overview_new_publication()}
+                                {m.channel_add()}
                             </Button>
                         ) : undefined
                     }

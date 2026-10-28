@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 
 import { ChannelManagementPage } from '@/components/channel-management-page'
 import {
@@ -8,6 +9,7 @@ import {
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/channels')({
     validateSearch: (search: Record<string, unknown>): ChannelsSearch => ({
+        add: search.add === true || search.add === 'true' ? true : undefined,
         publisher: parsePublisherCallbackResult(search.publisher),
         facebook_selection:
             typeof search.facebook_selection === 'string' &&
@@ -23,6 +25,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/channels')(
 })
 
 export interface ChannelsSearch {
+    add?: true
     facebook_selection?: string
     publisher?: PublisherCallbackResult
     publisher_channel?: string
@@ -32,6 +35,17 @@ function ChannelsRoute() {
     const navigate = useNavigate()
     const search = Route.useSearch()
     const { projectId } = Route.useParams()
+    // `add` is an entry request from empty states; it opens channel creation once and is not kept in the URL.
+    const [startCreating] = useState(search.add === true)
+    useEffect(() => {
+        if (search.add !== true) return
+        void navigate({
+            to: '/dashboard/projects/$projectId/channels',
+            params: { projectId },
+            search: previous => ({ ...previous, add: undefined }),
+            replace: true,
+        })
+    }, [navigate, projectId, search.add])
 
     async function dismissPublisherFeedback() {
         await navigate({
@@ -49,6 +63,7 @@ function ChannelsRoute() {
 
     return (
         <ChannelManagementPage
+            startCreating={startCreating}
             onDismissPublisherFeedback={dismissPublisherFeedback}
             facebookSelection={
                 search.facebook_selection && search.publisher_channel

@@ -537,10 +537,9 @@ test('creates the first destination while preserving the first publication', asy
     page,
 }, info) => {
     const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
-    await page
-        .getByRole('main')
-        .getByRole('button', { name: en.overview_new_publication, exact: true })
-        .click()
+    // An empty project's Overview leads to channel creation (SPEC-010 JRN-01); composition stays
+    // reachable by writing first, from Queue or its address.
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/publications/new$`))
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     const content = page.getByRole('textbox', {

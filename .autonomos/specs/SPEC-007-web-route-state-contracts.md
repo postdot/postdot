@@ -10,6 +10,9 @@
 - Related decision: ADR-057
 - Amendment: 2026-09-28 — Overview remains calendar-led; compact summary widgets
   provide current-work context. There is no separate Calendar route.
+- Amendment: 2026-10-28 — a project with no channel leads Overview with adding its
+  first channel and explains that the calendar appears once a channel exists
+  (owner direction, SPEC-010 JRN-01/JRN-02). The empty calendar is not shown.
 
 ## Intent
 
@@ -33,8 +36,8 @@ template.
 
 ### Overview and calendar
 
-- No channel: make connecting or adding the first destination the next useful
-  action; keep the date-oriented calendar available and do not lead with
+- No channel: lead with adding the first channel and say that the calendar
+  appears once one exists; do not show an empty calendar or lead with
   zero-valued publication metrics.
 - Channels but no publications: make the first source composition action clear
   and show enough channel readiness to prevent a dead-end; keep the calendar
