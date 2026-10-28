@@ -19,7 +19,7 @@ test('returns an invalid project URL to the explicit no-project context', async 
 
     await page.goto('/dashboard/projects/not-a-project/overview')
     await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
-    await expect(page.getByRole('heading', { name: 'Select project', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible()
 })
 
 test('refreshes project data after realtime reconnect and project events', async ({ page }) => {

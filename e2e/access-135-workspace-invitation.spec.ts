@@ -228,7 +228,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
 
         await memberPage.goto(`/dashboard/projects/${owner.projectId}/overview`)
         await expect(
-            memberPage.getByRole('heading', { name: 'Create your first project', exact: true })
+            memberPage.getByRole('heading', { name: 'Projects', exact: true })
         ).toBeVisible()
         await expect(memberPage).toHaveURL(/\/dashboard\?projectId=none$/)
         await refreshedEditorsGroup

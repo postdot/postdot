@@ -24,6 +24,11 @@ import {
     useDashboardGlobal,
     type DashboardGlobalContextValue,
 } from '@/lib/dashboard-context'
+import {
+    readDashboardScope,
+    rememberDashboardScope,
+    resolveDashboardScope,
+} from '@/lib/dashboard-scope'
 import { useLanguage } from '@/lib/i18n'
 import { ProjectRealtimeProvider } from '@/lib/project-realtime'
 import { useActionError } from '@/lib/use-action-error'
@@ -68,6 +73,13 @@ export const Route = createFileRoute('/dashboard')({
             ]
         )
         const { workspaces, canCreateWorkspace } = workspaceResponse
+        const remembered = readDashboardScope(session.user.id)
+        const scope = resolveDashboardScope({
+            ...deps,
+            remembered,
+            projects,
+            workspaces,
+        })
         if (isInstanceAdminSettingsPath(location.pathname) && !instanceAccess.isAdmin) {
             throw redirect({
                 to: '/dashboard',
@@ -76,10 +88,7 @@ export const Route = createFileRoute('/dashboard')({
             })
         }
         if (isWorkspaceSettingsPath(location.pathname)) {
-            const requestedWorkspaceId =
-                deps.workspaceId ??
-                workspaces.find(workspace => workspace.isDefault)?.id ??
-                workspaces[0]?.id
+            const requestedWorkspaceId = scope.workspaceId
             const requestedWorkspace = workspaces.find(
                 workspace => workspace.id === requestedWorkspaceId
             )
@@ -96,11 +105,35 @@ export const Route = createFileRoute('/dashboard')({
         }
         const isDashboardIndex =
             location.pathname === '/dashboard' || location.pathname === '/dashboard/'
+        const isGlobalContextPath =
+            isSettingsPath(location.pathname) ||
+            isPreferencesPath(location.pathname) ||
+            location.pathname === '/dashboard/workspace/channels'
+        if (
+            isGlobalContextPath &&
+            (deps.workspaceId === undefined || deps.projectId === undefined)
+        ) {
+            const search = new URLSearchParams(location.searchStr)
+            if (deps.workspaceId === undefined && scope.workspaceId !== null)
+                search.set('workspaceId', scope.workspaceId)
+            if (deps.projectId === undefined) search.set('projectId', scope.projectId ?? 'none')
+            if (search.toString() !== new URLSearchParams(location.searchStr).toString()) {
+                throw redirect({ href: `${location.pathname}?${search}`, replace: true })
+            }
+        }
         const firstProject =
-            deps.workspaceId === undefined
-                ? projects[0]
-                : projects.find(project => project.workspaceId === deps.workspaceId)
-        if (isDashboardIndex && deps.projectId !== 'none' && firstProject !== undefined) {
+            projects.find(project => project.id === scope.projectId) ??
+            projects.find(project => project.workspaceId === scope.workspaceId)
+        if (
+            isDashboardIndex &&
+            deps.projectId !== 'none' &&
+            !(
+                deps.projectId === undefined &&
+                remembered?.workspaceId === scope.workspaceId &&
+                remembered?.projectId === null
+            ) &&
+            firstProject !== undefined
+        ) {
             throw redirect({
                 to: '/dashboard/projects/$projectId/overview',
                 params: { projectId: firstProject.id },
@@ -115,6 +148,7 @@ export const Route = createFileRoute('/dashboard')({
             session,
             projects,
             workspaces,
+            scope,
         }
     },
     component: DashboardPage,
@@ -133,11 +167,23 @@ function DashboardPage() {
     const [workspaceName, setWorkspaceName] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useActionError()
-    const selectedWorkspaceId =
-        routeSearch.workspaceId ??
-        workspaces.find(workspace => workspace.isDefault)?.id ??
-        workspaces[0]?.id ??
-        null
+    const routeProjectId = pathname.match(/^\/dashboard\/projects\/([^/]+)/)?.[1]
+    const routeProject = projects.find(project => project.id === routeProjectId)
+    const scope = resolveDashboardScope({
+        workspaceId: routeProject?.workspaceId ?? routeSearch.workspaceId,
+        projectId: routeProject?.id ?? routeSearch.projectId,
+        remembered: initialData.scope,
+        projects,
+        workspaces,
+    })
+    const selectedWorkspaceId = scope.workspaceId
+
+    useEffect(() => {
+        rememberDashboardScope(initialData.session.user.id, {
+            workspaceId: scope.workspaceId,
+            projectId: scope.projectId,
+        })
+    }, [initialData.session.user.id, scope.workspaceId, scope.projectId])
 
     useEffect(() => {
         setProjects(initialData.projects)
@@ -282,7 +328,10 @@ function DashboardPage() {
         isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/workspace/channels'
     const settingsProjectId = isGlobalContextPath ? readProjectContextId(search) : undefined
     const selectedSettingsProject = isGlobalContextPath
-        ? (projects.find(project => project.id === settingsProjectId) ?? null)
+        ? (projects.find(
+              project =>
+                  project.id === settingsProjectId && project.workspaceId === selectedWorkspaceId
+          ) ?? null)
         : null
 
     return (
@@ -400,7 +449,7 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
                         <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
-                            {m.overview_create_first_project()}
+                            {m.nav_projects()}
                         </h1>
                         <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
                             {m.overview_create_first_project_description()}
@@ -476,11 +525,7 @@ function ProjectSelectionShell() {
                                 </Button>
                             }
                             description={m.dashboard_select_project_description()}
-                            title={
-                                hasProjects
-                                    ? m.nav_select_project()
-                                    : m.overview_create_first_project()
-                            }
+                            title={m.nav_projects()}
                         />
                         {hasProjects ? (
                             <PageColumn className="grid gap-2 sm:grid-cols-2" variant="management">

@@ -26,6 +26,10 @@ below. It changes styling of existing surfaces, not page layouts or workflows.
 - Primary action buttons are neutral: #1C1C1C with white text in light mode,
   #F4F4F4 with #1C1C1C text in dark mode. Blue remains the link/selection
   color (#2457D6 light, #94B5FF dark), separate from action fills.
+- Navigation icons use stable, restrained colours per destination (SPEC-010
+  WAY-01, accepted after owner review on 2026-10-28). Section labels identify
+  scope; icon colour is not the active-state signal. Keep labels, action fills
+  and selected surfaces neutral.
 - Field focus stays against the edge: a one-pixel inset ring, a lighter version
   of the same blue in light mode and #647897 in dark mode. Invalid fields retain
   their destructive indication.

@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 
 import { SourceComparisonContent } from '@/components/publication-editor-sidebar'
 import { api, formatApiError, type PublicationEditorState, type MediaReference } from '@/lib/api'
+import { loadPostPublications } from '@/lib/post-publications'
 import { getTargetPreviewBody, getTargetPreviewTitle } from '@/lib/publication-preview'
 import { getTargetMediaSelections } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -66,18 +67,7 @@ function Review({
         queryKey: ['project', projectId, 'source-review', postId],
         queryFn: async () => {
             const { post } = await api.getPost(projectId, postId)
-            const ids: string[] = []
-            let cursor: string | undefined
-            do {
-                const page = await api.listPublications(projectId, {
-                    limit: 100,
-                    ...(cursor ? { cursor } : {}),
-                })
-                ids.push(
-                    ...page.publications.filter(item => item.postId === postId).map(item => item.id)
-                )
-                cursor = page.nextCursor ?? undefined
-            } while (cursor)
+            const ids = (await loadPostPublications(projectId, postId)).map(item => item.id)
             const entries = await Promise.all(
                 ids.map(async id => (await api.getPublicationEditor(projectId, id)).editor)
             )

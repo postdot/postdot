@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from '@postdot/ui/components/select'
 import { Switch } from '@postdot/ui/components/switch'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -113,6 +114,7 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                 action={
                     canCreate.length ? (
                         <Button onClick={() => setCreating(value => !value)}>
+                            {creating ? null : <AddIcon aria-hidden="true" />}
                             {creating ? m.common_cancel() : m.channel_add()}
                         </Button>
                     ) : undefined
@@ -126,11 +128,17 @@ function WorkspaceChannelContent({ workspaceId }: { workspaceId: string }) {
                         <Label htmlFor="workspace-channel-initial-project">
                             {m.workspace_channel_initial_project()}
                         </Label>
+                        <p
+                            id="workspace-channel-initial-project-description"
+                            className="text-sm text-muted-foreground">
+                            {m.channel_transfer_description()}
+                        </p>
                         <Select
                             value={initialProjectId}
                             onValueChange={setInitialProjectId}
                             items={canCreate.map(p => ({ value: p.id, label: p.name }))}>
                             <SelectTrigger
+                                aria-describedby="workspace-channel-initial-project-description"
                                 id="workspace-channel-initial-project"
                                 className="w-full"
                                 disabled={pending}>

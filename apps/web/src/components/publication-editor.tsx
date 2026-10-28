@@ -1477,7 +1477,7 @@ export function PublicationEditor({
                     </DialogContent>
                 </Dialog>
             ) : null}
-            <div className="mx-auto min-w-0 max-w-6xl" inert={recoveryAvailable}>
+            <div className="min-w-0" inert={recoveryAvailable}>
                 <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-5 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
                     <Link
                         aria-label={
@@ -1727,7 +1727,7 @@ export function PublicationEditor({
                 ) : null}
 
                 <PublicationComposer
-                    className="mt-6"
+                    className="mt-6 max-w-none"
                     channelNavigation={
                         editorChannels.length > 1 ? (
                             <PublicationChannelRail

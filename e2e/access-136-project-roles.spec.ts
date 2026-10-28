@@ -43,6 +43,9 @@ test('project roles keep viewer read-only and editor actions available', async (
         await expect(
             viewerPage.getByRole('button', { name: 'New publication', exact: true })
         ).toHaveCount(0)
+        await expect(
+            viewerPage.getByRole('button', { name: 'Add channel', exact: true })
+        ).toHaveCount(0)
 
         await viewerPage.goto(`/dashboard/projects/${owner.projectId}/publications/new`)
         await expect(viewerPage).toHaveURL(
@@ -92,7 +95,7 @@ test('project roles keep viewer read-only and editor actions available', async (
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
         await expect(
-            editorPage.getByRole('button', { name: 'New publication', exact: true }).first()
+            editorPage.getByRole('button', { name: 'Add channel', exact: true })
         ).toBeVisible()
 
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/media`)

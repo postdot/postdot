@@ -24,21 +24,29 @@ routes. It complements `postdot-operational-ux` (calendar and copy density) and
 - Report evidence, not taste. Separate what was rendered from what was inferred
   from source, and state any viewport, theme, locale or data state that was not
   examined.
+- Object details keep their declared parent as the active navigation destination;
+  their title still names the object. Use the registry's `parent` and the route
+  contract in `DESIGN.md` when reviewing that relationship.
 
 ## Procedure
 
 1. Collect evidence. Run the collector from the repository root:
    `POSTDOT_EXPERIENCE_AUDIT=true bunx playwright test e2e/experience/experience-audit.spec.ts`.
-   It creates an isolated account, a workspace and three projects, then records
-   captures and `observations.json` under `test-results/experience-audit/` for
-   every registered route at 1440 and 390 px, plus the empty-project journey and
-   the sidebar scope transition. The folder is untracked; keep conclusions, not
-   captures, in the worklog.
+   It creates isolated English/dark empty and French/light populated cases, then
+   records captures and `observations.json` in scenario folders under
+   `test-results/experience-audit/` at 1440 and 390 px, plus first-use and scope
+   transitions. Object routes without a seeded object are recorded as omitted;
+   do not turn an omission into a successful review. The folder is untracked;
+   keep conclusions, not captures, in the worklog.
 2. Look at the captures. Do not rely on the measurements alone: they are coarse
    (block widths, selector text, shell groups, active item, icon colours).
-3. Extend the data when the question needs it. The default run covers empty
-   projects only; add channels, publications or members through the API before
-   judging populated states, and say so when you did not.
+3. Extend the data when the question needs it. The populated baseline includes
+   manual drafts, scheduled work and sharing; it does not cover every lifecycle
+   or role. For post/publication details, run
+   `POSTDOT_EXPERIENCE_AUDIT=true bunx playwright test e2e/experience/detail-journeys.spec.ts`.
+   That focused pass covers wide/tablet/mobile layouts, retained publication
+   history, error returns and sibling destinations beyond the first result page.
+   Distinguish real fixtures from synthetic failed-provider presentation.
 4. Walk each rule family in order (JRN, NAV, LAY, WAY, COH). For each failed rule
    record route, viewport, rule identifier, observation and evidence.
 5. Rank by the effect on a first-time operator: blocked or misled first, then

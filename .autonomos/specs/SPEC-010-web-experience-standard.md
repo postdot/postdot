@@ -1,6 +1,6 @@
 # SPEC-010 — Web experience standard
 
-- Status: accepted (2026-10-28, owner direction after review; WAY-01 stays a candidate until a rendered implementation is reviewed)
+- Status: accepted (2026-10-28, including the destination-colour revision after owner review)
 - Scope: authenticated web application journeys, navigation hierarchy, scope transitions, page width classes, wayfinding and cross-route coherence
 - Provenance: owner review after alpha.3 and owner decisions (2026-10-28), recorded below; COMM-016 review by the communications agent; baseline audit in [UX-389 worklog](../worklogs/2026-10-28-UX-389.md)
 - Related issue: ISSUE-192
@@ -18,7 +18,7 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 
 ## Owner decisions (2026-10-28)
 
-- Rules JRN, NAV, LAY, COH and WAY-02 to WAY-04 are accepted. WAY-01 awaits a rendered implementation.
+- Rules JRN, NAV, LAY, COH and WAY-02 to WAY-04 were accepted at the first checkpoint. The owner accepted WAY-01 after the destination-colour revision.
 - A project with no channel leads with adding its first channel; the empty Overview explains that the calendar appears once a channel exists. This amends the no-channel bullet of SPEC-007.
 - Width follows the job (LAY-02); the owner delegated the classes to the agent.
 - Workspace channels keeps the selected project and the product navigation (NAV-01, NAV-02), a delegated decision made on the owner's stated wish not to leave the page they were using.
@@ -66,7 +66,7 @@ The owner's product values decide trade-offs the rules do not: **intuitiveness**
 
 ### Wayfinding and identity (WAY)
 
-- **WAY-01 — Scope is recognizable at a glance.** Workspace, project, personal and installation destinations are told apart by more than their section label. Status: **candidate** — the owner finds the direction sensible and wants to judge a rendered implementation (2026-10-28). The proposed mechanism is one restrained colour role per scope on navigation icons and nothing else; it must keep `DESIGN.md` contrast and neutral action fills, and stays a candidate until that review.
+- **WAY-01 — Navigation destinations are recognizable at a glance.** Stable icon identity and restrained destination colours distinguish navigation items; section labels continue to identify their project, workspace, personal or installation scope. Status: **accepted** after owner review of the destination-colour revision (2026-10-28). The owner compared the first trial with Twenty and accepted stable colours per navigation destination rather than one colour for every item of a scope. Keep `DESIGN.md` contrast and neutral action fills.
 - **WAY-02 — Generated identity is reused.** An object that has a generated or uploaded identity mark shows it wherever the object is named in a list, selector or heading. Verification: review.
 - **WAY-03 — The active location is visible.** The sidebar marks exactly one active destination, and it corresponds to the page title (NAV-05). Verification: measure.
 - **WAY-04 — One noun per concept.** `Workspace` names the organizational container and is not also used for the project area; a return label, group label or empty state uses the noun the person would use for where they are. Verification: review of strings in both locales.

@@ -9,6 +9,7 @@ import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
 import { useEffect, useMemo, useState } from 'react'
 
 import { getZonedDateTimeParts } from '@/lib/date-time'
+import * as m from '@/paraglide/messages.js'
 
 interface CivilDateTime {
     readonly year: number
@@ -144,6 +145,11 @@ export function DateTimePicker({
                 className="w-fit max-w-[calc(100vw-1rem)] bg-popover p-3"
                 role="dialog"
                 aria-label={dateLabel}>
+                <p
+                    className="mb-2 max-w-64 break-words text-xs text-muted-foreground"
+                    data-schedule-time-zone="true">
+                    {m.date_time_picker_time_zone({ timeZone }, { locale })}
+                </p>
                 <Calendar
                     captionLayout="dropdown"
                     mode="single"

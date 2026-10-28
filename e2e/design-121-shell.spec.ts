@@ -183,7 +183,7 @@ test('keeps the explicit no-project context on the project picker', async ({ pag
     await page.getByRole('option', { name: 'No project selected', exact: true }).click()
 
     await expect(page).toHaveURL(/\/dashboard\?[^#]*projectId=none/)
-    await expect(page.getByRole('heading', { name: 'Select project', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Select project', exact: true })).toHaveText(
         'No project selected'
     )

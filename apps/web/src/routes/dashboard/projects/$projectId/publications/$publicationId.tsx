@@ -1,4 +1,5 @@
 import { Button, buttonVariants } from '@postdot/ui/components/button'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -17,6 +18,7 @@ import { useProjectLifecycle } from '@/components/resource-lifecycle-section'
 import { api, ApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import { loadPostPublications } from '@/lib/post-publications'
 import {
     classifyMembershipVerificationError,
     createProjectAccessState,
@@ -54,15 +56,17 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
             throw redirect({ to: '/login', search: { continue: undefined } })
         }
 
-        const [{ editor }, { publications }, { tags: projectTags }, { tags: publicationTags }] =
+        const [{ editor }, publicationsPage, { tags: projectTags }, { tags: publicationTags }] =
             await Promise.all([
                 api.getPublicationEditor(params.projectId, params.publicationId),
                 api.listPublications(params.projectId, { limit: 100 }),
                 api.listProjectTags(params.projectId, { includeArchived: true }),
                 api.listPublicationTags(params.projectId, params.publicationId),
             ])
-        const relatedPublications = publications.filter(
-            publication => publication.postId === editor.post.id
+        const relatedPublications = await loadPostPublications(
+            params.projectId,
+            editor.post.id,
+            publicationsPage
         )
         return { editor, projectTags, publicationTags, relatedPublications }
     },
@@ -252,7 +256,7 @@ function PublicationEditorRoute() {
 function AccessVerifyingNotice() {
     useLanguage()
     return (
-        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 pt-4 sm:px-6 lg:px-8">
             <p
                 role="status"
                 className="rounded-md bg-surface-inset/35 px-3 py-2.5 text-sm text-muted-foreground shadow-surface">
@@ -265,7 +269,7 @@ function AccessVerifyingNotice() {
 function AccessReconcilingNotice() {
     useLanguage()
     return (
-        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 pt-4 sm:px-6 lg:px-8">
             <p
                 role="status"
                 className="rounded-md bg-surface-inset/35 px-3 py-2.5 text-sm text-muted-foreground shadow-surface">
@@ -278,7 +282,7 @@ function AccessReconcilingNotice() {
 function AccessTechnicalErrorNotice({ onRetry }: { readonly onRetry: () => void }) {
     useLanguage()
     return (
-        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 pt-4 sm:px-6 lg:px-8">
             <EmptyState
                 action={
                     <Button onClick={onRetry} size="sm" variant="ghost">
@@ -296,7 +300,7 @@ function AccessTechnicalErrorNotice({ onRetry }: { readonly onRetry: () => void 
 function AccessRemovedSurface() {
     useLanguage()
     return (
-        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+        <main className="w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
             <EmptyState
                 action={
                     <Link
@@ -315,34 +319,52 @@ function AccessRemovedSurface() {
 }
 
 function PublicationUnavailable({ error, reset }: ErrorComponentProps) {
+    useLanguage()
     const { projectId } = Route.useParams()
+    const { from, date, view } = Route.useSearch()
     const router = useRouter()
     const unavailable = error instanceof ApiError && (error.status === 403 || error.status === 404)
     return (
-        <div className="mx-auto grid max-w-md justify-items-center gap-4 px-6 py-12 text-center">
-            <h1 className="font-heading text-xl font-semibold">
-                {unavailable ? m.notifications_subject_unavailable() : m.common_error_title()}
-            </h1>
-            {unavailable ? null : (
-                <p className="text-sm text-muted-foreground">{m.common_error_description()}</p>
-            )}
-            <div className="flex flex-wrap justify-center gap-3">
-                <Link
-                    className={buttonVariants({ variant: 'secondary' })}
-                    to="/dashboard/projects/$projectId/overview"
-                    params={{ projectId }}>
-                    {m.nav_overview()}
-                </Link>
-                {unavailable ? null : (
-                    <Button
-                        onClick={() => {
-                            reset()
-                            void router.invalidate()
-                        }}>
-                        {m.common_retry()}
-                    </Button>
-                )}
+        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto grid max-w-md justify-items-center gap-4 px-6 py-12 text-center">
+                <h1 className="font-heading text-xl font-semibold">
+                    {unavailable ? m.notifications_subject_unavailable() : m.common_error_title()}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                    {unavailable
+                        ? m.detail_unavailable_description()
+                        : m.common_error_description()}
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                    <Link
+                        className={buttonVariants({ variant: 'secondary' })}
+                        to={
+                            from === 'calendar'
+                                ? '/dashboard/projects/$projectId/overview'
+                                : '/dashboard/projects/$projectId/queue'
+                        }
+                        search={
+                            from === 'calendar'
+                                ? { date, view }
+                                : { filter: undefined, sort: undefined, tagIds: undefined }
+                        }
+                        params={{ projectId }}>
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        {from === 'calendar'
+                            ? m.editor_back_to_calendar()
+                            : m.editor_back_to_queue()}
+                    </Link>
+                    {unavailable ? null : (
+                        <Button
+                            onClick={() => {
+                                reset()
+                                void router.invalidate()
+                            }}>
+                            {m.common_retry()}
+                        </Button>
+                    )}
+                </div>
             </div>
-        </div>
+        </main>
     )
 }

@@ -77,6 +77,11 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(overviewSummary).not.toContainText('3 scheduled')
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
+    // JRN-04: desktop creation lives in the sidebar; the header supplies the mobile action.
+    await expect(page.getByRole('link', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('main').getByRole('button', { name: 'New publication', exact: true })
+    ).not.toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
 

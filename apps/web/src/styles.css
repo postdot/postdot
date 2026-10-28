@@ -4,6 +4,77 @@
 @source './';
 @source '../../../packages/ui/src';
 
+/* WAY-01: stable destination colours, confined to navigation glyphs. */
+:root {
+    --navigation-neutral: #666666;
+    --navigation-blue: #2457d6;
+    --navigation-amber: #8a5c1c;
+    --navigation-teal: #08786a;
+    --navigation-cyan: #16758a;
+    --navigation-violet: #7653b5;
+    --navigation-rose: #ac4268;
+}
+
+.dark {
+    --navigation-neutral: #b0b0b0;
+    --navigation-blue: #94b5ff;
+    --navigation-amber: #d5b07b;
+    --navigation-teal: #80c6b4;
+    --navigation-cyan: #88c5d2;
+    --navigation-violet: #c4abed;
+    --navigation-rose: #e4a0bd;
+}
+
+:is(
+        [data-navigation-destination='overview'],
+        [data-navigation-destination='projects'],
+        [data-navigation-destination='preferences'],
+        [data-navigation-destination='settings']
+    )
+    > svg {
+    color: var(--navigation-neutral);
+}
+
+:is(
+        [data-navigation-destination='performance'],
+        [data-navigation-destination='preferences-account'],
+        [data-navigation-destination='settings-access'],
+        [data-navigation-destination='settings-workspace']
+    )
+    > svg {
+    color: var(--navigation-blue);
+}
+
+:is(
+        [data-navigation-destination='queue'],
+        [data-navigation-destination='access'],
+        [data-navigation-destination='preferences-api-keys']
+    )
+    > svg {
+    color: var(--navigation-amber);
+}
+
+[data-navigation-destination='channels'] > svg {
+    color: var(--navigation-teal);
+}
+
+:is([data-navigation-destination='workspace-channels'], [data-navigation-destination='invitations'])
+    > svg {
+    color: var(--navigation-cyan);
+}
+
+:is(
+        [data-navigation-destination='media'],
+        [data-navigation-destination='settings-provider-applications']
+    )
+    > svg {
+    color: var(--navigation-violet);
+}
+
+[data-navigation-destination='tags'] > svg {
+    color: var(--navigation-rose);
+}
+
 .postdot-scrollbar-none {
     scrollbar-width: none;
 }

@@ -97,6 +97,11 @@ export function DashboardSearch({
     }).toString()
     const pages = [
         {
+            title: m.nav_projects(),
+            href: `/dashboard?${new URLSearchParams({ projectId: 'none', ...(workspaceId === null ? {} : { workspaceId }) })}`,
+            keywords: m.search_projects(),
+        },
+        {
             title: m.nav_preferences_general(),
             href: `/dashboard/preferences?${context}`,
             keywords: m.search_aliases_preferences(),
@@ -114,7 +119,7 @@ export function DashboardSearch({
         ...(isInstanceAdmin
             ? [
                   {
-                      title: m.nav_installation(),
+                      title: m.nav_instance(),
                       href: `/dashboard/settings?${context}`,
                       keywords: m.search_aliases_installation(),
                   },

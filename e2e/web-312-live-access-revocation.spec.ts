@@ -132,7 +132,7 @@ test('an open session keeps the last known project state after access is removed
         //    because the loader no longer finds it among the user's projects.
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
         await expect(
-            editorPage.getByRole('heading', { name: 'Create your first project', exact: true })
+            editorPage.getByRole('heading', { name: 'Projects', exact: true })
         ).toBeVisible()
         await expect(editorPage.getByText(publication.title, { exact: true })).toHaveCount(0)
     } finally {

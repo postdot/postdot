@@ -131,6 +131,11 @@ export function ChannelSharingDialog({
                                 <h3 id="channel-share-used" className="text-sm font-medium">
                                     {m.channel_share_used_by()}
                                 </h3>
+                                {canChange && active.length > 0 ? (
+                                    <p className="text-sm text-muted-foreground">
+                                        {m.channel_share_withdraw_consequence()}
+                                    </p>
+                                ) : null}
                                 <ul className="divide-y rounded-md border">
                                     {active.map(usage => (
                                         <li

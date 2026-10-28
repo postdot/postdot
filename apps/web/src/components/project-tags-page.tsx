@@ -146,17 +146,6 @@ export function ProjectTagsPage() {
                         />
                     ) : tags.length === 0 ? (
                         <EmptyState
-                            action={
-                                canManage ? (
-                                    <Button
-                                        onClick={() => setCreateOpen(true)}
-                                        size="sm"
-                                        variant="ghost">
-                                        <AddIcon aria-hidden="true" />
-                                        {m.project_tags_create()}
-                                    </Button>
-                                ) : undefined
-                            }
                             className="mt-8"
                             description={m.project_tags_empty_description()}
                             icon={<TagIcon aria-hidden="true" />}

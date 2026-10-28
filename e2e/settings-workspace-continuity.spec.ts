@@ -62,9 +62,31 @@ test('keeps personal and installation settings open when changing workspace cont
         await expect(workspaceSelector).toContainText(second!.name)
         expect(new URL(page.url()).pathname).toBe(path)
         await expect(
-            page.getByRole('button', { name: en.nav_back_to_workspace, exact: true })
+            page.getByRole('button', { name: en.nav_back_to_projects, exact: true })
         ).toBeVisible()
+        // NAV-03: the same context survives a fresh link with optional context omitted.
+        await page.goto(path)
+        await expect(workspaceSelector).toContainText(second!.name)
+        expect(new URL(page.url()).searchParams.get('workspaceId')).toBe(second!.id)
+        await expect(
+            page.getByRole('combobox', { name: en.nav_select_project, exact: true })
+        ).toContainText(en.nav_no_project_selected)
     }
+    await page.goto(`/dashboard/projects/${first!.projectId}/overview`)
+    await expect(
+        page.getByRole('combobox', { name: en.nav_select_workspace, exact: true })
+    ).toContainText(first!.name)
+    await page.reload()
+    await expect(
+        page.getByRole('combobox', { name: en.nav_select_workspace, exact: true })
+    ).toContainText(first!.name)
+    await page.goto('/dashboard/preferences/account')
+    await expect(
+        page.getByRole('combobox', { name: en.nav_select_workspace, exact: true })
+    ).toContainText(first!.name)
+    await expect(
+        page.getByRole('combobox', { name: en.nav_select_project, exact: true })
+    ).toContainText(`Project ${first!.name}`)
     await page.goto(
         `/dashboard/preferences/account?workspaceId=${first!.id}&projectId=${first!.projectId}`
     )

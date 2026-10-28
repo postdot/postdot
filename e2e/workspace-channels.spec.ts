@@ -167,6 +167,9 @@ for (const [locale, messages] of [
         ).toHaveCount(3)
         // Workspace creation explicitly chooses its first managing project.
         await page.getByRole('button', { name: messages.channel_add, exact: true }).click()
+        await expect(
+            page.getByRole('combobox', { name: messages.workspace_channel_initial_project })
+        ).toHaveAccessibleDescription(messages.channel_transfer_description)
         await page
             .getByRole('combobox', { name: messages.workspace_channel_initial_project })
             .click()

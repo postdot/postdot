@@ -32,7 +32,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
 
     await page.goto('/dashboard/settings/provider-applications')
 
-    await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications$/)
+    await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
     await expect(
         page.getByRole('heading', { name: 'OAuth applications', exact: true })
     ).toBeVisible()

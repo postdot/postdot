@@ -179,7 +179,7 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     ).toHaveAttribute('href', `/dashboard/projects/${projectId}/overview`)
     await page.goto('/dashboard/preferences?projectId=none')
     await expect(
-        page.getByRole('button', { name: 'Back to workspace', exact: true })
+        page.getByRole('button', { name: 'Back to projects', exact: true })
     ).toHaveAttribute('href', /projectId=none/)
 })
 

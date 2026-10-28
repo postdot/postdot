@@ -24,7 +24,9 @@ export type ExperienceWidthClass = 'work-surface' | 'management-column' | 'readi
 
 export type ExperienceRoute = {
     readonly id: string
-    readonly path: (context: ExperienceContext) => string
+    readonly path: (context: ExperienceContext) => string | null
+    /** Object details retain their parent navigation destination. */
+    readonly parent?: 'queue'
     readonly scope: ExperienceScope
     readonly shell: ExperienceShell
     readonly widthClass: ExperienceWidthClass
@@ -34,6 +36,8 @@ export type ExperienceRoute = {
 export type ExperienceContext = {
     readonly projectId: string
     readonly workspaceId: string
+    readonly postId?: string
+    readonly publicationId?: string
 }
 
 export const experienceRoutes: readonly ExperienceRoute[] = [
@@ -76,6 +80,28 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         shell: 'product',
         widthClass: 'management-column',
         job: 'Manage destination identity and connection readiness',
+    },
+    {
+        id: 'post-detail',
+        path: ({ projectId, postId }) =>
+            postId === undefined ? null : `/dashboard/projects/${projectId}/posts/${postId}`,
+        parent: 'queue',
+        scope: 'project',
+        shell: 'product',
+        widthClass: 'management-column',
+        job: 'Review the shared source and all destination publications',
+    },
+    {
+        id: 'publication-detail',
+        path: ({ projectId, publicationId }) =>
+            publicationId === undefined
+                ? null
+                : `/dashboard/projects/${projectId}/publications/${publicationId}`,
+        parent: 'queue',
+        scope: 'project',
+        shell: 'product',
+        widthClass: 'work-surface',
+        job: 'Edit a destination draft or inspect its retained execution and source context',
     },
     {
         id: 'media',

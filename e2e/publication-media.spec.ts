@@ -310,7 +310,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         })
     )
     await page.goto('/dashboard/settings/provider-applications')
-    await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications$/)
+    await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: 'OAuth applications', level: 1 })).toBeVisible()
     await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
     await page.unroute('**/api/settings/provider-applications')
@@ -320,7 +320,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
     await expect(page.locator('[data-empty-state="network"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeVisible()
     await expect(page.locator('[data-calendar="reui"]')).toHaveCount(0)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -419,7 +419,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.getByText('Draft', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use this version', exact: true })).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -1100,7 +1100,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByRole('button', { name: 'Edit', exact: true })
     ).toBeVisible()
 
-    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')

@@ -25,7 +25,7 @@ export function AccessPageHeader({
                 project.id === search.projectId &&
                 project.workspaceId === global.selectedWorkspaceId
         )?.id
-    const label = returnProjectId ? m.nav_back_to_project() : m.nav_back_to_workspace()
+    const label = returnProjectId ? m.nav_back_to_project() : m.nav_back_to_projects()
     return (
         <DashboardPageHeader
             action={action}

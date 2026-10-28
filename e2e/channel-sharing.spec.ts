@@ -63,6 +63,9 @@ for (const [locale, messages] of [
         ).toBeVisible()
         // The disclosure is stated before anything is shared.
         await expect(dialog.getByText(messages.channel_share_description)).toBeVisible()
+        await expect(
+            dialog.getByText(messages.channel_share_withdraw_consequence, { exact: true })
+        ).toBeVisible()
         await expect(dialog.getByText(targetName, { exact: true })).toBeVisible()
 
         await dialog

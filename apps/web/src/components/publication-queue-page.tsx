@@ -9,9 +9,9 @@ import {
 } from '@postdot/ui/components/select'
 import { Tabs, TabsList, TabsTrigger } from '@postdot/ui/components/tabs'
 import { cn } from '@postdot/ui/lib/utils'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
-import { PenIcon } from '@solar-icons/react/linear/pen'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -60,12 +60,13 @@ export function PublicationQueuePage({
     readonly initialTagIds?: readonly string[]
 }) {
     const { locale } = useLanguage()
-    const { project, projectRole } = useProjectDashboard()
+    const { project, projectRole, channels } = useProjectDashboard()
     const { due, publications, publicationsNextCursor, publicationSummary } =
         useProjectPublicationData(project.id)
     const { loadingMorePublications, onLoadMorePublications } = useProjectPublicationPagination(
         project.id
     )
+    const needsFirstChannel = channels.length === 0 && publications.length === 0
     const catalogQuery = useProjectTagCatalog(project.id)
     const projectTags = catalogQuery.data?.tags.filter(tag => tag.state === 'active') ?? []
     const {
@@ -246,18 +247,34 @@ export function PublicationQueuePage({
             <DashboardPageHeader
                 action={
                     canEditProject ? (
-                        <Button
-                            nativeButton={false}
-                            render={
-                                <Link
-                                    params={{ projectId: project.id }}
-                                    search={{ date: undefined }}
-                                    to="/dashboard/projects/$projectId/publications/new"
-                                />
-                            }>
-                            <PenIcon aria-hidden="true" />
-                            {m.overview_new_publication()}
-                        </Button>
+                        needsFirstChannel ? (
+                            <Button
+                                nativeButton={false}
+                                render={
+                                    <Link
+                                        params={{ projectId: project.id }}
+                                        search={{ add: true }}
+                                        to="/dashboard/projects/$projectId/channels"
+                                    />
+                                }>
+                                <AddIcon aria-hidden="true" />
+                                {m.channel_add()}
+                            </Button>
+                        ) : (
+                            <Button
+                                className={channels.length > 0 ? 'md:hidden' : undefined}
+                                nativeButton={false}
+                                render={
+                                    <Link
+                                        params={{ projectId: project.id }}
+                                        search={{ date: undefined }}
+                                        to="/dashboard/projects/$projectId/publications/new"
+                                    />
+                                }>
+                                <AddIcon aria-hidden="true" />
+                                {m.overview_new_publication()}
+                            </Button>
+                        )
                     ) : undefined
                 }
                 back={
@@ -506,24 +523,7 @@ export function PublicationQueuePage({
                 ) : (
                     <PublicationList
                         emptyAction={
-                            filter === 'all' ? (
-                                canEditProject ? (
-                                    <Button
-                                        nativeButton={false}
-                                        render={
-                                            <Link
-                                                params={{ projectId: project.id }}
-                                                search={{ date: undefined }}
-                                                to="/dashboard/projects/$projectId/publications/new"
-                                            />
-                                        }
-                                        size="sm"
-                                        variant="default">
-                                        <PenIcon aria-hidden="true" />
-                                        {m.overview_new_publication()}
-                                    </Button>
-                                ) : null
-                            ) : (
+                            filter === 'all' ? null : (
                                 <Button
                                     onClick={() => {
                                         setFilter('all')
@@ -540,10 +540,18 @@ export function PublicationQueuePage({
                                 </Button>
                             )
                         }
-                        emptyDescription={queueEmptyDescription(filter)}
+                        emptyDescription={
+                            needsFirstChannel && filter === 'all'
+                                ? m.channels_empty_description()
+                                : queueEmptyDescription(filter)
+                        }
                         emptyIllustration={queueEmptyIllustration(filter)}
                         emptyLayout="compact"
-                        emptyTitle={queueEmptyTitle(filter)}
+                        emptyTitle={
+                            needsFirstChannel && filter === 'all'
+                                ? m.overview_setup_channels_title()
+                                : queueEmptyTitle(filter)
+                        }
                         onToggleSelection={
                             canEditProject
                                 ? publication => togglePublicationSelection(publication.id)

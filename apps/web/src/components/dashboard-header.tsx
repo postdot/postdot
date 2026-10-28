@@ -76,7 +76,7 @@ export function DashboardHeader({
     useLanguage()
     const isSettingsShell =
         isInstanceSettings || isProjectSettings || isWorkspaceSettings || isUserPreferences
-    const backLabel = projectId !== null ? m.nav_back_to_project() : m.nav_back_to_workspace()
+    const backLabel = projectId !== null ? m.nav_back_to_project() : m.nav_back_to_projects()
     const backLink =
         projectId !== null ? (
             <Link params={{ projectId }} to="/dashboard/projects/$projectId/overview" />

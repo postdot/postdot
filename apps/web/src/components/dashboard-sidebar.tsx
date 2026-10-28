@@ -162,7 +162,7 @@ export function DashboardSidebar({
 
             {!isSettingsShell &&
             selectedProjectId !== null &&
-            channels.length > 0 &&
+            (channels.length > 0 || activeSection === 'new-publication') &&
             canEditProject ? (
                 <div className="px-3 pb-1 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
                     <SidebarMenu>
@@ -347,7 +347,11 @@ export function DashboardSidebar({
                                             active={activeSection === 'overview'}
                                             destination="overview"
                                             icon={<Widget2Icon aria-hidden="true" />}
-                                            label={m.nav_overview()}
+                                            label={
+                                                selectedProjectId === null
+                                                    ? m.nav_projects()
+                                                    : m.nav_overview()
+                                            }
                                             projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
@@ -514,6 +518,26 @@ function WorkspaceMenuItem({
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
+                data-navigation-destination={
+                    requiresProject
+                        ? undefined
+                        : destination === 'overview' && projectId === null
+                          ? 'projects'
+                          : destination
+                }
+                data-navigation-scope={
+                    requiresProject
+                        ? undefined
+                        : destination.startsWith('preferences')
+                          ? 'personal'
+                          : destination === 'workspace-channels' ||
+                              destination === 'settings-workspace' ||
+                              (destination === 'overview' && projectId === null)
+                            ? 'workspace'
+                            : destination.startsWith('settings')
+                              ? 'installation'
+                              : 'project'
+                }
                 aria-disabled={requiresProject}
                 disabled={requiresProject}
                 render={

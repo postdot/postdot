@@ -1,7 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -186,6 +185,7 @@ export function PublicationCalendarPage({
                 action={
                     noChannels || !canEditProject ? undefined : (
                         <Button
+                            className="md:hidden"
                             nativeButton={false}
                             render={
                                 <Link
@@ -194,7 +194,7 @@ export function PublicationCalendarPage({
                                     to="/dashboard/projects/$projectId/publications/new"
                                 />
                             }>
-                            <CalendarMinimalisticIcon aria-hidden="true" />
+                            <AddIcon aria-hidden="true" />
                             {m.overview_new_publication()}
                         </Button>
                     )
