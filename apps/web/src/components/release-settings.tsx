@@ -12,7 +12,7 @@ export function ReleaseSettings() {
     })
     return (
         <section
-            className="mx-auto mt-10 w-full max-w-3xl border-t border-border/50 pt-8"
+            className="mt-10 w-full border-t border-border/50 pt-8"
             aria-labelledby="release-title">
             <h2 id="release-title" className="font-heading text-xl font-semibold">
                 {m.release_title()}

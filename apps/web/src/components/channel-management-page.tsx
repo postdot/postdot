@@ -17,6 +17,7 @@ import { ChannelSharingDialog } from '@/components/channel-sharing-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { FacebookPagePickerDialog } from '@/components/facebook-page-picker-dialog'
+import { PageColumn } from '@/components/page-column'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
@@ -159,52 +160,56 @@ export function ChannelManagementPage({
                 title={m.channels_title()}
             />
 
-            {error && lifecycle === null ? (
-                <Alert
-                    variant="destructive"
-                    className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
-                    <AlertTitle>{m.channels_action_failed()}</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            ) : null}
+            <PageColumn variant="management">
+                {error && lifecycle === null ? (
+                    <Alert
+                        variant="destructive"
+                        className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
+                        <AlertTitle>{m.channels_action_failed()}</AlertTitle>
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                ) : null}
 
-            {publisherFeedback ? (
-                <PublisherCallbackFeedback
-                    canResumeComposition={canResumeComposition}
-                    channelId={publisherFeedback.channelId}
-                    onDismiss={onDismissPublisherFeedback}
-                    onRefreshProject={onRefreshProject}
-                    projectId={project.id}
-                    result={publisherFeedback.result}
-                />
-            ) : null}
+                {publisherFeedback ? (
+                    <PublisherCallbackFeedback
+                        canResumeComposition={canResumeComposition}
+                        channelId={publisherFeedback.channelId}
+                        onDismiss={onDismissPublisherFeedback}
+                        onRefreshProject={onRefreshProject}
+                        projectId={project.id}
+                        result={publisherFeedback.result}
+                    />
+                ) : null}
 
-            <section id="channels" className="scroll-mt-20">
-                {channels.length > 0 ? (
-                    <PublisherConnectionPanel
-                        channels={channels}
-                        connections={connections}
-                        pending={pending}
-                        onEditProfile={setProfileChannel}
-                        onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
-                        onCadence={setCadenceChannel}
-                        onShare={canEditProject ? setSharingChannel : undefined}
-                        onPublisherConnected={onPublisherConnected}
-                        onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
-                        onDisconnectPublisher={onDisconnectPublisher}
-                        isInstanceAdmin={isInstanceAdmin}
-                        readOnly={!canEditProject}
-                    />
-                ) : (
-                    <EmptyState
-                        className="mt-4"
-                        description={m.channels_empty_description()}
-                        icon={<LinkIcon aria-hidden="true" />}
-                        layout="compact"
-                        title={m.channels_empty_title()}
-                    />
-                )}
-            </section>
+                <section id="channels" className="scroll-mt-20">
+                    {channels.length > 0 ? (
+                        <PublisherConnectionPanel
+                            channels={channels}
+                            connections={connections}
+                            pending={pending}
+                            onEditProfile={setProfileChannel}
+                            onLifecycleAction={(action, channel) =>
+                                setLifecycle({ action, channel })
+                            }
+                            onCadence={setCadenceChannel}
+                            onShare={canEditProject ? setSharingChannel : undefined}
+                            onPublisherConnected={onPublisherConnected}
+                            onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
+                            onDisconnectPublisher={onDisconnectPublisher}
+                            isInstanceAdmin={isInstanceAdmin}
+                            readOnly={!canEditProject}
+                        />
+                    ) : (
+                        <EmptyState
+                            className="mt-4"
+                            description={m.channels_empty_description()}
+                            icon={<LinkIcon aria-hidden="true" />}
+                            layout="compact"
+                            title={m.channels_empty_title()}
+                        />
+                    )}
+                </section>
+            </PageColumn>
 
             {cadenceChannel ? (
                 <ChannelCadenceDialog

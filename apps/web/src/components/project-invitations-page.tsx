@@ -1,4 +1,5 @@
 import { AccessPageHeader } from '@/components/access-page-header'
+import { PageColumn } from '@/components/page-column'
 import { ProjectMembersSection } from '@/components/project-members-section'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -17,7 +18,7 @@ export function ProjectInvitationsPage() {
                     title={m.access_project_invitations_title()}
                 />
 
-                <div>
+                <PageColumn variant="management">
                     <ProjectMembersSection
                         currentUserId={global.session.user.id}
                         projectId={project.id}
@@ -25,7 +26,7 @@ export function ProjectInvitationsPage() {
                         view="invitations"
                         workspaceId={project.workspaceId}
                     />
-                </div>
+                </PageColumn>
             </div>
         </main>
     )

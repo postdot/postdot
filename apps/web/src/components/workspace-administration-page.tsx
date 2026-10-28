@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
+import { PageColumn } from '@/components/page-column'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { WorkspaceGroupsSection } from '@/components/workspace-groups-section'
 import { api, formatApiError } from '@/lib/api'
@@ -77,10 +78,10 @@ export function WorkspaceAdministrationPage({
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <div className="mx-auto w-full max-w-6xl">
+            <div className="w-full">
                 <AccessPageHeader title={m.access_workspace_title()} />
 
-                <div className="mx-auto w-full max-w-xl">
+                <PageColumn variant="reading">
                     {error ? (
                         <Alert className="mb-6" variant="destructive">
                             <AlertTitle>{m.access_action_failed()}</AlertTitle>
@@ -117,8 +118,8 @@ export function WorkspaceAdministrationPage({
                     ) : (
                         <WorkspaceGroupsSection workspaceId={workspaceId} />
                     )}
-                </div>
-                {workspaceId && <ResourceLifecycleSection kind="workspace" id={workspaceId} />}
+                    {workspaceId && <ResourceLifecycleSection kind="workspace" id={workspaceId} />}
+                </PageColumn>
             </div>
         </main>
     )

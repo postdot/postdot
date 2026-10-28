@@ -88,7 +88,9 @@ test('keeps navigation entries aligned with their route and context', async ({ p
 
     await page.goto(`/dashboard/settings?projectId=${projectId}`)
     await expect(page).toHaveURL(/\/dashboard\/settings(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'Administration', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Installation settings', exact: true })
+    ).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
@@ -97,6 +99,12 @@ test('keeps navigation entries aligned with their route and context', async ({ p
             .getByRole('navigation', { name: 'Installation administration', exact: true })
             .getByRole('link', { name: 'Overview', exact: true })
     ).toHaveCount(0)
+    // SPEC-010 NAV-05: the active sidebar item and the page title share one noun.
+    await expect(
+        page
+            .getByRole('navigation', { name: 'Installation administration', exact: true })
+            .getByRole('link', { name: 'Settings', exact: true })
+    ).toHaveAttribute('aria-current', 'page')
 
     await page.getByRole('link', { name: 'OAuth applications', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications(?:\?.*)?$/)

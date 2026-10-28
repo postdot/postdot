@@ -62,11 +62,11 @@ test('collects the first-use and navigation baseline', async ({ page }) => {
     await settle(page)
     observations.push(await observe(page, 'journey-1-empty-project-overview'))
     await shoot(page, 'journey-1-empty-project-overview')
-    const primary = page.getByRole('button', { name: 'New publication', exact: true }).first()
+    const primary = page.getByRole('main').getByRole('button').first()
     await primary.click()
     await settle(page)
-    observations.push(await observe(page, 'journey-1-empty-project-compose'))
-    await shoot(page, 'journey-1-empty-project-compose')
+    observations.push(await observe(page, 'journey-1-empty-project-primary-action'))
+    await shoot(page, 'journey-1-empty-project-primary-action')
 
     // Journey 2: project context across the sidebar.
     await page.goto(`/dashboard/projects/${projectId}/overview`)
@@ -175,6 +175,9 @@ async function observe(page: Page, id: string): Promise<Observation> {
             scrollRegion: rect(scroll),
             headings,
             blockWidths: [...new Set(widths)].sort((a, b) => a - b),
+            pageColumns: [...document.querySelectorAll('[data-page-column]')].map(node =>
+                node.getAttribute('data-page-column')
+            ),
             hasCalendar: document.querySelector('[data-calendar="reui"]') !== null,
             comboboxes,
             sidebarGroups,

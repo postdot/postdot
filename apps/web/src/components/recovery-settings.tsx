@@ -54,7 +54,7 @@ export function RecoverySettings() {
     if (!state.data.held) return null
     return (
         <section
-            className="mx-auto mt-10 w-full max-w-3xl border-t border-border/50 pt-8"
+            className="mt-10 w-full border-t border-border/50 pt-8"
             aria-labelledby="recovery-title">
             <h2 id="recovery-title" className="font-heading text-xl font-semibold">
                 {m.recovery_title()}

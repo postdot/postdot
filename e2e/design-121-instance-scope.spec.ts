@@ -14,7 +14,9 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await page.goto(`/dashboard/settings?projectId=${projectId}`)
 
     await expect(page).toHaveURL(/\/dashboard\/settings(?:\?.*)?$/)
-    await expect(page.getByRole('heading', { name: 'Administration', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Installation settings', exact: true })
+    ).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()

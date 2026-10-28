@@ -40,10 +40,12 @@ export function ResourceAvatar({
     kind,
     name,
     seed = name,
+    size = 'sm',
 }: {
     readonly kind: 'workspace' | 'project'
     readonly name: string
     readonly seed?: string
+    readonly size?: 'sm' | 'lg'
 }) {
     const generatedImage = useMemo(
         () => createDiceBearImage(channelStyle, `${kind}:${seed}`),
@@ -56,7 +58,8 @@ export function ResourceAvatar({
             data-resource-avatar="true"
             data-resource-kind={kind}
             className={cn(
-                'inline-flex size-6 shrink-0 items-center justify-center overflow-hidden bg-primary/10',
+                'inline-flex shrink-0 items-center justify-center overflow-hidden bg-primary/10',
+                size === 'lg' ? 'size-10' : 'size-6',
                 kind === 'workspace' ? 'rounded-full' : 'rounded-md'
             )}>
             <img alt="" className="size-full object-cover" src={generatedImage} />

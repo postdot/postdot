@@ -15,10 +15,10 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
-import { LetterIcon } from '@solar-icons/react/linear/letter'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
+import { ServerIcon } from '@solar-icons/react/linear/server'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { TagIcon } from '@solar-icons/react/linear/tag'
 import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
@@ -275,8 +275,8 @@ export function DashboardSidebar({
                                             <WorkspaceMenuItem
                                                 active={activeSection === 'settings'}
                                                 destination="settings"
-                                                icon={<LetterIcon aria-hidden="true" />}
-                                                label={m.smtp_title()}
+                                                icon={<ServerIcon aria-hidden="true" />}
+                                                label={m.nav_instance_configuration()}
                                                 projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />

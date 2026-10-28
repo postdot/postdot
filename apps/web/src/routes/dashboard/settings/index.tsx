@@ -22,8 +22,5 @@ export const Route = createFileRoute('/dashboard/settings/')({
 })
 
 function ConfigurationSettingsRoute() {
-    const search = Route.useSearch()
-    return (
-        <ConfigurationSettingsPage projectId={search.projectId} workspaceId={search.workspaceId} />
-    )
+    return <ConfigurationSettingsPage />
 }

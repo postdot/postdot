@@ -1,4 +1,5 @@
 import { AccessPageHeader } from '@/components/access-page-header'
+import { PageColumn } from '@/components/page-column'
 import { ProjectMembersSection } from '@/components/project-members-section'
 import { ResourceLifecycleSection } from '@/components/resource-lifecycle-section'
 import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
@@ -15,7 +16,7 @@ export function ProjectAccessPage() {
             <div className="w-full">
                 <AccessPageHeader projectId={project.id} title={m.access_title()} />
 
-                <div>
+                <PageColumn variant="management">
                     <ProjectMembersSection
                         currentUserId={global.session.user.id}
                         projectId={project.id}
@@ -23,8 +24,8 @@ export function ProjectAccessPage() {
                         view="access"
                         workspaceId={project.workspaceId}
                     />
-                </div>
-                <ResourceLifecycleSection kind="project" id={project.id} />
+                    <ResourceLifecycleSection kind="project" id={project.id} />
+                </PageColumn>
             </div>
         </main>
     )

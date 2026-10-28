@@ -92,7 +92,7 @@ function EmailSettingsFields({
     }
     return (
         <section
-            className="mx-auto mt-10 w-full max-w-3xl border-t border-border/50 pt-8"
+            className="mt-10 w-full border-t border-border/50 pt-8"
             aria-labelledby="smtp-title">
             <h2 id="smtp-title" className="font-heading text-xl font-semibold">
                 {m.smtp_title()}

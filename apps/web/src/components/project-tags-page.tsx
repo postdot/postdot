@@ -21,6 +21,7 @@ import { useState } from 'react'
 import { AccessPageHeader } from '@/components/access-page-header'
 import { ActionTooltip } from '@/components/action-tooltip'
 import { EmptyState } from '@/components/empty-state'
+import { PageColumn } from '@/components/page-column'
 import { ProjectTagDialog } from '@/components/project-tag-create-dialog'
 import { QueryErrorState } from '@/components/query-error-state'
 import { formatApiError } from '@/lib/api'
@@ -97,130 +98,133 @@ export function ProjectTagsPage() {
                     projectId={project.id}
                     title={m.project_tags_title()}
                 />
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                    {m.project_tags_description()}
-                </p>
-                {!canManage ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {m.project_tags_read_only()}
-                    </p>
-                ) : null}
+                <PageColumn variant="management">
+                    <p className="text-sm text-muted-foreground">{m.project_tags_description()}</p>
+                    {!canManage ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {m.project_tags_read_only()}
+                        </p>
+                    ) : null}
 
-                {actionError ? (
-                    <Alert
-                        className="mt-6 rounded-md border-state-failed/35 bg-state-failed/10"
-                        variant="destructive">
-                        <AlertTitle>{m.project_tags_action_failed()}</AlertTitle>
-                        <AlertDescription>{actionError}</AlertDescription>
-                    </Alert>
-                ) : null}
+                    {actionError ? (
+                        <Alert
+                            className="mt-6 rounded-md border-state-failed/35 bg-state-failed/10"
+                            variant="destructive">
+                            <AlertTitle>{m.project_tags_action_failed()}</AlertTitle>
+                            <AlertDescription>{actionError}</AlertDescription>
+                        </Alert>
+                    ) : null}
 
-                {loaded && refreshError ? (
-                    <Alert
-                        className="mt-6 rounded-md border-state-failed/35 bg-state-failed/10"
-                        variant="destructive">
-                        <AlertTitle>{m.project_tags_refresh_failed()}</AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-3">
-                            <span>{refreshError}</span>
-                            <Button
-                                onClick={() => void catalogQuery.refetch()}
-                                size="sm"
-                                variant="ghost">
-                                {m.common_retry()}
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                ) : null}
-
-                {catalogQuery.isPending ? (
-                    <div aria-busy="true" className="mt-8 space-y-3" role="status">
-                        <span className="sr-only">{m.common_loading()}</span>
-                        <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
-                        <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
-                        <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
-                    </div>
-                ) : !loaded && catalogQuery.isError ? (
-                    <QueryErrorState className="mt-8" onRetry={() => void catalogQuery.refetch()} />
-                ) : tags.length === 0 ? (
-                    <EmptyState
-                        action={
-                            canManage ? (
+                    {loaded && refreshError ? (
+                        <Alert
+                            className="mt-6 rounded-md border-state-failed/35 bg-state-failed/10"
+                            variant="destructive">
+                            <AlertTitle>{m.project_tags_refresh_failed()}</AlertTitle>
+                            <AlertDescription className="flex flex-wrap items-center gap-3">
+                                <span>{refreshError}</span>
                                 <Button
-                                    onClick={() => setCreateOpen(true)}
+                                    onClick={() => void catalogQuery.refetch()}
                                     size="sm"
                                     variant="ghost">
-                                    <AddIcon aria-hidden="true" />
-                                    {m.project_tags_create()}
+                                    {m.common_retry()}
                                 </Button>
-                            ) : undefined
-                        }
-                        className="mt-8"
-                        description={m.project_tags_empty_description()}
-                        icon={<TagIcon aria-hidden="true" />}
-                        layout="compact"
-                        title={m.project_tags_empty_title()}
-                    />
-                ) : (
-                    <div className="mt-8 space-y-8">
-                        <section aria-labelledby="project-active-tags">
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                                <h2 className="text-sm font-semibold" id="project-active-tags">
-                                    {m.project_tags_active()}
-                                </h2>
-                                <span className="text-xs text-muted-foreground">
-                                    {activeTags.length}
-                                </span>
-                            </div>
-                            {activeTags.length > 0 ? (
-                                <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
-                                    {activeTags.map(tag => (
-                                        <ProjectTagRow
-                                            key={tag.id}
-                                            canManage={canManage}
-                                            disabled={pendingTagId !== null}
-                                            onLifecycle={() => void handleLifecycle(tag)}
-                                            onRename={() => setRenameTag(tag)}
-                                            pending={pendingTagId === tag.id}
-                                            tag={tag}
-                                        />
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="rounded-md bg-surface-inset/45 px-4 py-3 text-sm text-muted-foreground">
-                                    {m.project_tags_no_active()}
-                                </p>
-                            )}
-                        </section>
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
 
-                        {archivedTags.length > 0 ? (
-                            <section aria-labelledby="project-archived-tags">
+                    {catalogQuery.isPending ? (
+                        <div aria-busy="true" className="mt-8 space-y-3" role="status">
+                            <span className="sr-only">{m.common_loading()}</span>
+                            <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
+                            <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
+                            <Skeleton className="h-12 rounded-md bg-surface-control motion-reduce:animate-none" />
+                        </div>
+                    ) : !loaded && catalogQuery.isError ? (
+                        <QueryErrorState
+                            className="mt-8"
+                            onRetry={() => void catalogQuery.refetch()}
+                        />
+                    ) : tags.length === 0 ? (
+                        <EmptyState
+                            action={
+                                canManage ? (
+                                    <Button
+                                        onClick={() => setCreateOpen(true)}
+                                        size="sm"
+                                        variant="ghost">
+                                        <AddIcon aria-hidden="true" />
+                                        {m.project_tags_create()}
+                                    </Button>
+                                ) : undefined
+                            }
+                            className="mt-8"
+                            description={m.project_tags_empty_description()}
+                            icon={<TagIcon aria-hidden="true" />}
+                            layout="compact"
+                            title={m.project_tags_empty_title()}
+                        />
+                    ) : (
+                        <div className="mt-8 space-y-8">
+                            <section aria-labelledby="project-active-tags">
                                 <div className="mb-3 flex items-center justify-between gap-3">
-                                    <h2
-                                        className="text-sm font-semibold"
-                                        id="project-archived-tags">
-                                        {m.project_tags_archived()}
+                                    <h2 className="text-sm font-semibold" id="project-active-tags">
+                                        {m.project_tags_active()}
                                     </h2>
                                     <span className="text-xs text-muted-foreground">
-                                        {archivedTags.length}
+                                        {activeTags.length}
                                     </span>
                                 </div>
-                                <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
-                                    {archivedTags.map(tag => (
-                                        <ProjectTagRow
-                                            key={tag.id}
-                                            canManage={canManage}
-                                            disabled={pendingTagId !== null}
-                                            onLifecycle={() => void handleLifecycle(tag)}
-                                            onRename={() => setRenameTag(tag)}
-                                            pending={pendingTagId === tag.id}
-                                            tag={tag}
-                                        />
-                                    ))}
-                                </ul>
+                                {activeTags.length > 0 ? (
+                                    <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
+                                        {activeTags.map(tag => (
+                                            <ProjectTagRow
+                                                key={tag.id}
+                                                canManage={canManage}
+                                                disabled={pendingTagId !== null}
+                                                onLifecycle={() => void handleLifecycle(tag)}
+                                                onRename={() => setRenameTag(tag)}
+                                                pending={pendingTagId === tag.id}
+                                                tag={tag}
+                                            />
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="rounded-md bg-surface-inset/45 px-4 py-3 text-sm text-muted-foreground">
+                                        {m.project_tags_no_active()}
+                                    </p>
+                                )}
                             </section>
-                        ) : null}
-                    </div>
-                )}
+
+                            {archivedTags.length > 0 ? (
+                                <section aria-labelledby="project-archived-tags">
+                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                        <h2
+                                            className="text-sm font-semibold"
+                                            id="project-archived-tags">
+                                            {m.project_tags_archived()}
+                                        </h2>
+                                        <span className="text-xs text-muted-foreground">
+                                            {archivedTags.length}
+                                        </span>
+                                    </div>
+                                    <ul className="divide-y divide-border/60 overflow-hidden rounded-md bg-surface-raised shadow-surface">
+                                        {archivedTags.map(tag => (
+                                            <ProjectTagRow
+                                                key={tag.id}
+                                                canManage={canManage}
+                                                disabled={pendingTagId !== null}
+                                                onLifecycle={() => void handleLifecycle(tag)}
+                                                onRename={() => setRenameTag(tag)}
+                                                pending={pendingTagId === tag.id}
+                                                tag={tag}
+                                            />
+                                        ))}
+                                    </ul>
+                                </section>
+                            ) : null}
+                        </div>
+                    )}
+                </PageColumn>
             </div>
 
             {canManage ? (

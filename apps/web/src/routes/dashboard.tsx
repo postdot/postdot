@@ -15,6 +15,8 @@ import { AppToaster } from '@/components/app-toaster'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { EmptyState } from '@/components/empty-state'
+import { ResourceAvatar } from '@/components/identity-visuals'
+import { PageColumn } from '@/components/page-column'
 import { ResourceCreationDialog } from '@/components/resource-creation-dialog'
 import { api, formatApiError, type Project } from '@/lib/api'
 import {
@@ -481,19 +483,27 @@ function ProjectSelectionShell() {
                             }
                         />
                         {hasProjects ? (
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <PageColumn className="grid gap-2 sm:grid-cols-2" variant="management">
                                 {projects.map(project => (
                                     <Link
                                         className="group flex items-center justify-between gap-4 rounded-md bg-muted px-4 py-3 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-muted/75"
                                         key={project.id}
                                         params={{ projectId: project.id }}
                                         to="/dashboard/projects/$projectId/overview">
-                                        <span className="min-w-0">
-                                            <span className="block truncate text-sm font-medium">
-                                                {project.name}
-                                            </span>
-                                            <span className="mt-1 block text-xs text-muted-foreground">
-                                                {project.timeZone}
+                                        <span className="flex min-w-0 items-center gap-3">
+                                            <ResourceAvatar
+                                                kind="project"
+                                                name={project.name}
+                                                seed={project.id}
+                                                size="lg"
+                                            />
+                                            <span className="min-w-0">
+                                                <span className="block truncate text-sm font-medium">
+                                                    {project.name}
+                                                </span>
+                                                <span className="mt-1 block text-xs text-muted-foreground">
+                                                    {project.timeZone}
+                                                </span>
                                             </span>
                                         </span>
                                         <AltArrowRightIcon
@@ -502,7 +512,7 @@ function ProjectSelectionShell() {
                                         />
                                     </Link>
                                 ))}
-                            </div>
+                            </PageColumn>
                         ) : (
                             <EmptyState
                                 className="mt-4 w-full"

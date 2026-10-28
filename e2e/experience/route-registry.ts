@@ -122,7 +122,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: ({ workspaceId }) => `/dashboard/settings/workspace?workspaceId=${workspaceId}`,
         scope: 'workspace',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Manage workspace members and groups',
     },
     {
@@ -146,7 +146,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/preferences/api-keys',
         scope: 'personal',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Manage personal API keys',
     },
     {
@@ -162,7 +162,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/settings/access',
         scope: 'installation',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Manage installation members and invitations',
     },
     {
@@ -170,7 +170,7 @@ export const experienceRoutes: readonly ExperienceRoute[] = [
         path: () => '/dashboard/settings/provider-applications',
         scope: 'installation',
         shell: 'settings',
-        widthClass: 'management-column',
+        widthClass: 'reading-column',
         job: 'Configure provider OAuth applications',
     },
 ]
