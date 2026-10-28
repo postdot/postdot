@@ -55,7 +55,7 @@ for (const [locale, copy, theme] of [
             const readGate = new Promise<void>(resolve => {
                 releaseRead = resolve
             })
-            const initialEndpoint = `**${draftPath}`
+            const initialEndpoint = `**${draftPath}*`
             await page.route(initialEndpoint, async route => {
                 await readGate
                 await route.continue()
@@ -80,15 +80,15 @@ for (const [locale, copy, theme] of [
             await saved
             const before = (await (await page.request.get(draftPath)).json()).draft
             if (!localCopy)
-                await page.evaluate(
-                    id => localStorage.removeItem(`postdot:publication-composer:v1:${id}`),
-                    project.id
-                )
-            const endpoint = `**${draftPath}`
+                await page.evaluate(id => {
+                    localStorage.removeItem(`postdot:publication-composer:v1:${id}`)
+                    sessionStorage.removeItem(`postdot:publication-composer:v1:${id}`)
+                }, project.id)
+            const endpoint = `**${draftPath}*`
             let writes = 0
             page.on('request', request => {
                 if (
-                    request.url().endsWith(draftPath) &&
+                    new URL(request.url()).pathname === draftPath &&
                     ['PUT', 'DELETE'].includes(request.method())
                 )
                     writes++
@@ -213,7 +213,7 @@ for (const [locale, copy] of [
             })
         ).toBeEnabled()
         const before = (await (await page.request.get(draftPath)).json()).draft
-        const endpoint = `**${draftPath}`
+        const endpoint = `**${draftPath}*`
         await page.route(endpoint, route =>
             route.request().method() === 'DELETE'
                 ? route.fulfill({

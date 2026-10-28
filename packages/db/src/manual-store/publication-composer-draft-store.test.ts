@@ -153,3 +153,63 @@ describe('publication composer draft store', () => {
         }
     })
 })
+
+it('refuses stale discard and reused revisions after the draft was recreated', () => {
+    const { database, project, store } = createFixture()
+    try {
+        const input = { projectId: project.project.id, subjectId: 'user-1' }
+        const first = store.savePublicationComposerDraft({
+            ...input,
+            expectedRevision: 0,
+            content: content('First tab'),
+        })!
+        const newer = store.savePublicationComposerDraft({
+            ...input,
+            expectedRevision: 1,
+            expectedDraftId: first.id,
+            content: content('Second tab'),
+        })!
+        expect(() =>
+            store.deletePublicationComposerDraft({
+                ...input,
+                expectedRevision: first.revision,
+                expectedDraftId: first.id,
+            })
+        ).toThrow('changed before it could be discarded')
+        expect(store.getPublicationComposerDraft(input.projectId, input.subjectId)).toEqual(newer)
+        expect(
+            store.deletePublicationComposerDraft({
+                ...input,
+                expectedRevision: newer.revision,
+                expectedDraftId: newer.id,
+            })
+        ).toBe(true)
+        const recreated = store.savePublicationComposerDraft({
+            ...input,
+            expectedRevision: 0,
+            content: content('Recreated draft'),
+        })!
+        expect(recreated.revision).toBe(first.revision)
+        expect(recreated.id).not.toBe(first.id)
+        expect(() =>
+            store.savePublicationComposerDraft({
+                ...input,
+                expectedRevision: first.revision,
+                expectedDraftId: first.id,
+                content: content('Stale overwrite'),
+            })
+        ).toThrow('replaced in another session')
+        expect(() =>
+            store.deletePublicationComposerDraft({
+                ...input,
+                expectedRevision: first.revision,
+                expectedDraftId: first.id,
+            })
+        ).toThrow('changed before it could be discarded')
+        expect(store.getPublicationComposerDraft(input.projectId, input.subjectId)).toEqual(
+            recreated
+        )
+    } finally {
+        closeDatabase(database)
+    }
+})

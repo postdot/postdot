@@ -5,6 +5,9 @@ const recoveryVersion = 1 as const
 
 export interface PublicationRecoveryState {
     readonly version: typeof recoveryVersion
+    readonly serverDraftRevision?: number
+    readonly serverDraftId?: string
+    readonly conflict?: boolean
     readonly savedAt: number
     readonly postTitle: string
     readonly postContent: string
@@ -19,9 +22,15 @@ export interface PublicationRecoveryState {
     readonly activeContentScopeId?: string
 }
 
-export type PublicationComposerDraftContent = Omit<PublicationRecoveryState, 'version' | 'savedAt'>
+export type PublicationComposerDraftContent = Omit<
+    PublicationRecoveryState,
+    'version' | 'savedAt' | 'serverDraftRevision' | 'serverDraftId' | 'conflict'
+>
 
 export interface PublicationRecoveryInput {
+    readonly serverDraftRevision?: number
+    readonly serverDraftId?: string
+    readonly conflict?: boolean
     readonly postTitle: string
     readonly postContent: string
     readonly sourceMedia: readonly MediaSelection[]
@@ -54,35 +63,31 @@ export function hasRecoverablePublicationContent(
 }
 
 export function readPublicationRecovery(projectId: string): PublicationRecoveryState | null {
-    const storage = getStorage()
-    if (storage === null) return null
-
-    try {
-        const raw = storage.getItem(publicationRecoveryKey(projectId))
-        if (raw === null) return null
-        const value: unknown = JSON.parse(raw)
-        return isPublicationRecoveryState(value) ? value : null
-    } catch {
-        return null
+    for (const storage of recoveryStorages()) {
+        try {
+            const raw = storage.getItem(publicationRecoveryKey(projectId))
+            if (raw === null) continue
+            const value: unknown = JSON.parse(raw)
+            if (isPublicationRecoveryState(value)) return value
+        } catch {
+            /* Try the other recovery copy when this storage is unavailable or corrupt. */
+        }
     }
+    return null
 }
 
 export function writePublicationRecovery(projectId: string, input: PublicationRecoveryInput) {
-    const storage = getStorage()
-    if (storage === null) return
-
     const key = publicationRecoveryKey(projectId)
     if (!hasRecoverablePublicationContent(input)) {
-        try {
-            storage.removeItem(key)
-        } catch {
-            // Storage can be unavailable in private browsing or embedded contexts.
-        }
+        clearPublicationRecovery(projectId)
         return
     }
 
     const state: PublicationRecoveryState = {
         version: recoveryVersion,
+        serverDraftRevision: input.serverDraftRevision,
+        serverDraftId: input.serverDraftId,
+        conflict: input.conflict,
         savedAt: Date.now(),
         postTitle: input.postTitle,
         postContent: input.postContent,
@@ -97,37 +102,52 @@ export function writePublicationRecovery(projectId: string, input: PublicationRe
         activeContentScopeId: input.activeContentScopeId,
     }
 
-    try {
-        storage.setItem(key, JSON.stringify(state))
-    } catch {
-        // Recovery is best effort; a full or unavailable storage must not block editing.
+    const encoded = JSON.stringify(state)
+    for (const storage of recoveryStorages()) {
+        try {
+            storage.setItem(key, encoded)
+        } catch {
+            /* Recovery is best effort. */
+        }
     }
 }
 
 export function clearPublicationRecovery(projectId: string) {
-    const storage = getStorage()
-    if (storage === null) return
-
-    try {
-        storage.removeItem(publicationRecoveryKey(projectId))
-    } catch {
-        // Storage can be unavailable in private browsing or embedded contexts.
+    for (const storage of recoveryStorages()) {
+        try {
+            storage.removeItem(publicationRecoveryKey(projectId))
+        } catch {
+            /* Recovery is best effort. */
+        }
     }
 }
 
-function getStorage(): Storage | null {
-    if (typeof window === 'undefined') return null
+function recoveryStorages(): Storage[] {
+    if (typeof window === 'undefined') return []
+    const storages: Storage[] = []
     try {
-        return window.localStorage
+        storages.push(window.sessionStorage)
     } catch {
-        return null
+        /* Shared storage may still be available. */
     }
+    try {
+        storages.push(window.localStorage)
+    } catch {
+        /* Tab storage may still be available. */
+    }
+    return storages
 }
 
 function isPublicationRecoveryState(value: unknown): value is PublicationRecoveryState {
     return (
         isRecord(value) &&
         value.version === recoveryVersion &&
+        (value.serverDraftRevision === undefined ||
+            (typeof value.serverDraftRevision === 'number' &&
+                Number.isSafeInteger(value.serverDraftRevision) &&
+                value.serverDraftRevision >= 0)) &&
+        (value.serverDraftId === undefined || typeof value.serverDraftId === 'string') &&
+        (value.conflict === undefined || typeof value.conflict === 'boolean') &&
         isSafeTimestamp(value.savedAt) &&
         isPublicationComposerDraftContent(value) &&
         hasRecoverablePublicationContent(value)
@@ -196,4 +216,38 @@ function isSafeTimestamp(value: unknown): value is number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** Strip recovery metadata before writing the existing composer payload. */
+export function recoveredComposerContent(
+    state: PublicationRecoveryState
+): PublicationComposerDraftContent {
+    return {
+        activeContentScopeId: state.activeContentScopeId,
+        activePublicationTabId: state.activePublicationTabId,
+        customizedContentTargetIds: state.customizedContentTargetIds,
+        customizedTargetIds: state.customizedTargetIds,
+        defaultDeliveryMode: state.defaultDeliveryMode,
+        defaultScheduledAt: state.defaultScheduledAt,
+        postContent: state.postContent,
+        postTitle: state.postTitle,
+        publicationTagIds: state.publicationTagIds,
+        publicationTargets: state.publicationTargets,
+        sourceMedia: state.sourceMedia,
+    }
+}
+
+/** Compare persisted JSON meaning without depending on object-property insertion order. */
+export function composerContentsEqual(left: unknown, right: unknown): boolean {
+    function canonical(value: unknown): string {
+        if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+        if (value !== null && typeof value === 'object')
+            return `{${Object.entries(value)
+                .filter(([, item]) => item !== undefined)
+                .sort(([first], [second]) => first.localeCompare(second))
+                .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
+                .join(',')}}`
+        return JSON.stringify(value) ?? 'null'
+    }
+    return canonical(left) === canonical(right)
 }

@@ -2562,5 +2562,18 @@
     "publication_move_mode_manual": "Manual",
     "publication_move_mode_automatic": "Automatic",
     "publication_move_event": "Moved to another channel",
-    "publication_move_event_created": "Created by moving pending work"
+    "publication_move_event_created": "Created by moving pending work",
+    "composer_conflict_title": "This draft changed in another tab",
+    "composer_conflict_choice": "Your version is preserved in this tab. Using the saved version replaces the editor contents; saving your version replaces the saved draft. Download both versions to keep a separate copy.",
+    "composer_conflict_notice": "Another tab saved a newer draft. Your changes are kept here. Compare the versions before saving or creating a publication.",
+    "composer_conflict_review": "Compare versions",
+    "composer_conflict_local": "Your version",
+    "composer_conflict_saved": "Saved version",
+    "composer_conflict_removed": "The saved draft was removed.",
+    "composer_conflict_download": "Download both versions",
+    "composer_conflict_replace": "Replace saved draft with mine",
+    "composer_conflict_use_saved": "Use saved version",
+    "composer_conflict_start_new": "Start a new draft",
+    "composer_conflict_refresh": "Refresh saved version",
+    "composer_conflict_read_failed": "The saved version could not be loaded. Refresh it before choosing a version."
 }

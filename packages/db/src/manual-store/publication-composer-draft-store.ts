@@ -19,10 +19,13 @@ export interface SavePublicationComposerDraftInput {
     readonly projectId: string
     readonly subjectId: string
     readonly expectedRevision: number
+    readonly expectedDraftId?: string
     readonly content: PublicationComposerDraftContent
 }
 
 export interface DeletePublicationComposerDraftInput {
+    readonly expectedRevision?: number
+    readonly expectedDraftId?: string
     readonly projectId: string
     readonly subjectId: string
 }
@@ -120,6 +123,12 @@ export function createPublicationComposerDraftStore(
             const current = loadDraftStatement.get(input.projectId, actor.id)
             const timestamp = options.now()
 
+            if (input.expectedDraftId !== undefined && input.expectedDraftId !== current?.id) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The composer draft was replaced in another session'
+                )
+            }
             if (current === null) {
                 if (input.expectedRevision !== 0) {
                     throw new DomainInvariantError(
@@ -177,6 +186,17 @@ export function createPublicationComposerDraftStore(
         (input: DeletePublicationComposerDraftInput): boolean => {
             const actor = options.loadActor(input.projectId, input.subjectId)
             if (actor === null) return false
+            const current = loadDraftStatement.get(input.projectId, actor.id)
+            if (
+                (input.expectedRevision !== undefined &&
+                    input.expectedRevision !== current?.revision) ||
+                (input.expectedDraftId !== undefined && input.expectedDraftId !== current?.id)
+            ) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The composer draft changed before it could be discarded'
+                )
+            }
             return deleteDraftStatement.run(input.projectId, actor.id).changes === 1
         }
     )

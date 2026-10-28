@@ -848,6 +848,7 @@ export const createPostBody = Type.Object(
 )
 
 export const savePublicationComposerDraftBody = Type.Object({
+    expectedDraftId: Type.Optional(Type.String({ minLength: 1 })),
     expectedRevision: Type.Integer({ minimum: 0 }),
     content: publicationComposerDraftContentSchema,
 })

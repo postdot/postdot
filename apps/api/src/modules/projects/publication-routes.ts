@@ -383,6 +383,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     projectId: params.projectId,
                     subjectId: user.id,
                     expectedRevision: body.expectedRevision,
+                    expectedDraftId: body.expectedDraftId,
                     content: body.content,
                 })
                 if (draft === null) {
@@ -397,12 +398,17 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
             '/api/projects/:projectId/publication-composer-draft',
             {
                 auth: true,
+                query: Type.Object({
+                    expectedRevision: Type.Optional(Type.Integer({ minimum: 0 })),
+                    expectedDraftId: Type.Optional(Type.String({ minLength: 1 })),
+                }),
                 params: projectParams,
                 response: {
                     200: Type.Object({ deleted: Type.Boolean() }),
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
+                    409: errorResponse,
                 },
                 detail: {
                     operationId: 'deletePublicationComposerDraft',
@@ -410,7 +416,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            ({ authMethod, query, params, status, user }) => {
                 if (
                     !canAccessProjectRole({
                         access,
@@ -425,6 +431,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 const deleted = manualStore.deletePublicationComposerDraft({
                     projectId: params.projectId,
                     subjectId: user.id,
+                    expectedRevision: query.expectedRevision,
+                    expectedDraftId: query.expectedDraftId,
                 })
                 return { deleted }
             }

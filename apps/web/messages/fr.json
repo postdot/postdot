@@ -2562,5 +2562,18 @@
     "publication_move_mode_manual": "Manuelle",
     "publication_move_mode_automatic": "Automatique",
     "publication_move_event": "Déplacée vers un autre canal",
-    "publication_move_event_created": "Créée par déplacement du travail en attente"
+    "publication_move_event_created": "Créée par déplacement du travail en attente",
+    "composer_conflict_title": "Ce brouillon a changé dans un autre onglet",
+    "composer_conflict_choice": "Votre version est conservée dans cet onglet. Utiliser la version enregistrée remplace le contenu de l’éditeur ; enregistrer votre version remplace le brouillon enregistré. Téléchargez les deux versions pour en garder une copie séparée.",
+    "composer_conflict_notice": "Un autre onglet a enregistré un brouillon plus récent. Vos modifications restent ici. Comparez les versions avant d’enregistrer ou de créer une publication.",
+    "composer_conflict_review": "Comparer les versions",
+    "composer_conflict_local": "Votre version",
+    "composer_conflict_saved": "Version enregistrée",
+    "composer_conflict_removed": "Le brouillon enregistré a été supprimé.",
+    "composer_conflict_download": "Télécharger les deux versions",
+    "composer_conflict_replace": "Remplacer le brouillon par ma version",
+    "composer_conflict_use_saved": "Utiliser la version enregistrée",
+    "composer_conflict_start_new": "Commencer un nouveau brouillon",
+    "composer_conflict_refresh": "Actualiser la version enregistrée",
+    "composer_conflict_read_failed": "La version enregistrée n’a pas pu être chargée. Actualisez-la avant de choisir une version."
 }

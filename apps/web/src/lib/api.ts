@@ -1105,19 +1105,28 @@ export const api = {
     async savePublicationComposerDraft(
         projectId: string,
         expectedRevision: number,
-        content: PublicationComposerDraftContent
+        content: PublicationComposerDraftContent,
+        expectedDraftId?: string
     ) {
         const { draft } = unwrap(
             await client.api
                 .projects({ projectId })
-                ['publication-composer-draft'].put({ expectedRevision, content })
+                ['publication-composer-draft'].put({ expectedRevision, content, expectedDraftId })
         )
         return { draft: parsePublicationComposerDraft(draft) }
     },
 
-    async deletePublicationComposerDraft(projectId: string) {
+    async deletePublicationComposerDraft(
+        projectId: string,
+        expectedRevision?: number,
+        expectedDraftId?: string
+    ) {
         return unwrap(
-            await client.api.projects({ projectId })['publication-composer-draft'].delete()
+            await client.api
+                .projects({ projectId })
+                ['publication-composer-draft'].delete(undefined, {
+                    query: { expectedRevision, expectedDraftId },
+                })
         )
     },
 

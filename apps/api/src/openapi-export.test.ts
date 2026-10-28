@@ -27,6 +27,23 @@ describe('isolated OpenAPI export', () => {
                     '/api/projects/{projectId}/channels/{channelId}/publisher/discord/connect'
                 ]?.post?.security
             ).toEqual([{ sessionCookie: [] }])
+            const composer = first.paths['/api/projects/{projectId}/publication-composer-draft']
+            expect(composer?.delete?.requestBody).toBeUndefined()
+            expect(composer?.delete?.parameters).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        name: 'expectedRevision',
+                        in: 'query',
+                        required: false,
+                    }),
+                    expect.objectContaining({
+                        name: 'expectedDraftId',
+                        in: 'query',
+                        required: false,
+                    }),
+                ])
+            )
+            expect(composer?.delete?.responses['409']).toBeDefined()
             expect(first.paths['/health']?.get?.security).toEqual([])
             expect(first.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(first.paths['/api/account/avatar']?.delete?.security).toEqual([

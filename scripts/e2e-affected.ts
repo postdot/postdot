@@ -110,6 +110,8 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
             'apps/web/src/routes/editor-lab.tsx',
             'apps/web/src/components/publication-*.tsx',
             'apps/web/src/components/new-publication-page.tsx',
+            'apps/web/src/components/composer-draft-conflict.tsx',
+            'apps/web/src/lib/publication-recovery.ts',
             'apps/web/src/stories/publication-composer.stories.tsx',
             'apps/web/src/components/editor-experiment-page.tsx',
             'apps/web/src/components/article-image-control.tsx',
@@ -129,6 +131,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
         specs: [
             'e2e/design-121-narrow-new-publication.spec.ts',
             'e2e/new-publication-recovery.spec.ts',
+            'e2e/composer-concurrent-editing.spec.ts',
             'e2e/editor-composer-pilot.spec.ts',
             'e2e/editor-experiment.spec.ts',
             'e2e/editor-touch-composition.spec.ts',

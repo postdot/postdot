@@ -20,6 +20,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
+import { ComposerDraftConflict } from '@/components/composer-draft-conflict'
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationComposer } from '@/components/publication-composer'
@@ -33,7 +34,13 @@ import {
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { QueryErrorState } from '@/components/query-error-state'
-import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
+import {
+    ApiError,
+    api,
+    formatApiError,
+    type MediaReference,
+    type PublicationComposerDraft,
+} from '@/lib/api'
 import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatCivilSchedule } from '@/lib/date-time'
@@ -41,7 +48,11 @@ import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { getNativeEditorProfile } from '@/lib/native-presentation'
 import { useProjectTagCatalog } from '@/lib/project-tags'
-import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
+import {
+    calendarDateTimeLocal,
+    createPublicationTarget,
+    type DeliveryMode,
+} from '@/lib/publication-authoring'
 import {
     type PublicationCreationMode,
     usePublicationComposer,
@@ -50,6 +61,8 @@ import {
     clearPublicationRecovery,
     hasRecoverablePublicationContent,
     readPublicationRecovery,
+    recoveredComposerContent,
+    composerContentsEqual,
     writePublicationRecovery,
     type PublicationComposerDraftContent,
     type PublicationRecoveryState,
@@ -153,9 +166,9 @@ export function NewPublicationPage({
     const [serverDraftLoadFailed, setServerDraftLoadFailed] = useState(false)
     const [serverDraftLoadAttempt, setServerDraftLoadAttempt] = useState(0)
     const [discardingRecovery, setDiscardingRecovery] = useState(false)
-    const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
-        'idle'
-    )
+    const [autosaveState, setAutosaveState] = useState<
+        'idle' | 'saving' | 'saved' | 'error' | 'conflict'
+    >('idle')
     const [autosaveError, setAutosaveError] = useState<string | null>(null)
     const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(() =>
         publicationTargets.some(
@@ -165,6 +178,9 @@ export function NewPublicationPage({
                     'active'
         )
     )
+    const autosaveConflict = useRef(false)
+    const [conflictBusy, setConflictBusy] = useState(false)
+    const [conflictVersionKnown, setConflictVersionKnown] = useState(false)
     const recoveryPromptOpen = useRef(recovery !== null)
     const currentComposerHasContent = useRef(hasCurrentComposerContent)
     const serverDraftRef = useRef<PublicationComposerDraft | null>(null)
@@ -260,6 +276,10 @@ export function NewPublicationPage({
     serverDraftRef.current = serverDraft
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        if (autosaveConflict.current) {
+            event.preventDefault()
+            return
+        }
         if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
         await autosaveQueue.current.catch(() => undefined)
 
@@ -287,6 +307,13 @@ export function NewPublicationPage({
     function restoreRecovery() {
         if (recovery === null || !serverDraftReady || discardingRecovery) return
 
+        applyComposerContent(recoveredComposerContent(recovery))
+        clearPublicationRecovery(project.id)
+        recoveryPromptOpen.current = false
+        setRecovery(null)
+    }
+
+    function applyComposerContent(recovery: PublicationComposerDraftContent) {
         onPostTitleChange(recovery.postTitle)
         onPostContentChange(recovery.postContent)
         onSourceMediaChange(recovery.sourceMedia)
@@ -299,9 +326,6 @@ export function NewPublicationPage({
         const restoredScope = resolveRecoveredContentScope(recovery)
         setActivePublicationTabId(restoredScope)
         setActiveContentScopeId(restoredScope)
-        clearPublicationRecovery(project.id)
-        recoveryPromptOpen.current = false
-        setRecovery(null)
     }
 
     async function discardRecovery() {
@@ -322,14 +346,21 @@ export function NewPublicationPage({
         if (serverDraftRef.current === null) return true
 
         try {
-            await api.deletePublicationComposerDraft(project.id)
+            await api.deletePublicationComposerDraft(
+                project.id,
+                serverDraftRef.current.revision,
+                serverDraftRef.current.id
+            )
             serverDraftRef.current = null
             setServerDraft(null)
             setAutosaveState('idle')
             setAutosaveError(null)
             return true
         } catch (caughtError) {
-            setAutosaveState('error')
+            if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
+                autosaveConflict.current = true
+                setAutosaveState('conflict')
+            } else setAutosaveState('error')
             setAutosaveError(formatApiError(caughtError))
             return false
         }
@@ -348,6 +379,88 @@ export function NewPublicationPage({
             publicationTagIds: [...publicationTagIds],
             publicationTargets: publicationTargets.map(target => ({ ...target })),
             sourceMedia: sourceMedia.map(selection => ({ ...selection })),
+        }
+    }
+
+    async function reviewConflict() {
+        recoveryPromptOpen.current = true
+        if (recovery === null)
+            setRecovery({
+                ...composerDraftContent(),
+                version: 1,
+                savedAt: Date.now(),
+                conflict: true,
+            })
+        setConflictBusy(true)
+        setConflictVersionKnown(false)
+        setAutosaveError(null)
+        try {
+            const { draft } = await api.getPublicationComposerDraft(project.id)
+            serverDraftRef.current = draft
+            setServerDraft(draft)
+            setConflictVersionKnown(true)
+        } catch (caught) {
+            setAutosaveError(formatApiError(caught))
+        } finally {
+            setConflictBusy(false)
+        }
+    }
+
+    async function resolveConflict(useLocal: boolean) {
+        if (recovery === null || conflictBusy || !conflictVersionKnown) return
+        setConflictBusy(true)
+        setAutosaveError(null)
+        try {
+            let chosen: PublicationComposerDraftContent
+            if (useLocal) {
+                chosen = recoveredComposerContent(recovery)
+                const { draft } = await api.savePublicationComposerDraft(
+                    project.id,
+                    serverDraftRef.current?.revision ?? 0,
+                    chosen,
+                    serverDraftRef.current?.id
+                )
+                serverDraftRef.current = draft
+                setServerDraft(draft)
+            } else {
+                const { draft } = await api.getPublicationComposerDraft(project.id)
+                serverDraftRef.current = draft
+                setServerDraft(draft)
+                chosen = draft?.content ?? {
+                    ...recoveredComposerContent(recovery),
+                    postTitle: '',
+                    postContent: '',
+                    sourceMedia: [],
+                    publicationTagIds: [],
+                    defaultDeliveryMode: 'manual',
+                    defaultScheduledAt: '',
+                    publicationTargets: [
+                        createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
+                    ],
+                    customizedTargetIds: [],
+                    customizedContentTargetIds: [],
+                    activeContentScopeId: publicationSharedTabId,
+                    activePublicationTabId: publicationSharedTabId,
+                }
+            }
+            applyComposerContent(chosen)
+            autosaveConflict.current = false
+            recoveryPromptOpen.current = false
+            setRecovery(null)
+            setAutosaveState('saved')
+        } catch (caught) {
+            setAutosaveError(formatApiError(caught))
+            // A refused replacement must show the latest version before another choice.
+            try {
+                const { draft } = await api.getPublicationComposerDraft(project.id)
+                serverDraftRef.current = draft
+                setServerDraft(draft)
+                setConflictVersionKnown(true)
+            } catch {
+                setConflictVersionKnown(false)
+            }
+        } finally {
+            setConflictBusy(false)
         }
     }
 
@@ -373,9 +486,31 @@ export function NewPublicationPage({
                 setServerDraft(draft)
                 setServerDraftReady(true)
 
+                const localRecovery = readPublicationRecovery(project.id)
+                if (
+                    localRecovery !== null &&
+                    !(
+                        draft !== null &&
+                        composerContentsEqual(
+                            recoveredComposerContent(localRecovery),
+                            draft.content
+                        )
+                    ) &&
+                    (localRecovery.conflict ||
+                        (localRecovery.serverDraftRevision !== undefined &&
+                            (localRecovery.serverDraftRevision !== (draft?.revision ?? 0) ||
+                                (localRecovery.serverDraftId !== undefined &&
+                                    localRecovery.serverDraftId !== draft?.id))))
+                ) {
+                    autosaveConflict.current = true
+                    setConflictVersionKnown(true)
+                    setAutosaveState('conflict')
+                    recoveryPromptOpen.current = true
+                    setRecovery(localRecovery)
+                    return
+                }
                 if (currentComposerHasContent.current || draft === null) return
 
-                const localRecovery = readPublicationRecovery(project.id)
                 const serverRecovery: PublicationRecoveryState = {
                     ...draft.content,
                     savedAt: draft.updatedAt,
@@ -397,13 +532,14 @@ export function NewPublicationPage({
     }, [project.id, serverDraftLoadAttempt])
 
     useEffect(() => {
-        if (!serverDraftReady || recoveryPromptOpen.current) return
+        if (!serverDraftReady || recoveryPromptOpen.current || autosaveConflict.current) return
 
         if (!hasCurrentComposerContent) {
             if (serverDraftRef.current === null) return
             autosaveQueue.current = autosaveQueue.current
                 .catch(() => undefined)
                 .then(async () => {
+                    if (autosaveConflict.current) return
                     await discardServerDraft()
                 })
             return
@@ -415,19 +551,27 @@ export function NewPublicationPage({
             autosaveQueue.current = autosaveQueue.current
                 .catch(() => undefined)
                 .then(async () => {
+                    if (autosaveConflict.current) return
                     setAutosaveState('saving')
                     setAutosaveError(null)
                     try {
                         const response = await api.savePublicationComposerDraft(
                             project.id,
                             serverDraftRef.current?.revision ?? 0,
-                            content
+                            content,
+                            serverDraftRef.current?.id
                         )
                         serverDraftRef.current = response.draft
                         setServerDraft(response.draft)
                         setAutosaveState('saved')
                     } catch (caughtError) {
-                        setAutosaveState('error')
+                        if (
+                            caughtError instanceof ApiError &&
+                            caughtError.code === 'write_conflict'
+                        ) {
+                            autosaveConflict.current = true
+                            setAutosaveState('conflict')
+                        } else setAutosaveState('error')
                         setAutosaveError(formatApiError(caughtError))
                     }
                 })
@@ -458,6 +602,14 @@ export function NewPublicationPage({
     useEffect(() => {
         if (recoveryPromptOpen.current) return
         writePublicationRecovery(project.id, {
+            serverDraftId: serverDraftReady
+                ? serverDraftRef.current?.id
+                : localRecoveryAtMount?.serverDraftId,
+            serverDraftRevision: serverDraftReady
+                ? (serverDraftRef.current?.revision ?? 0)
+                : localRecoveryAtMount?.serverDraftRevision,
+            conflict:
+                autosaveConflict.current || (!serverDraftReady && localRecoveryAtMount?.conflict),
             activeContentScopeId,
             activePublicationTabId,
             customizedContentTargetIds,
@@ -483,6 +635,10 @@ export function NewPublicationPage({
         publicationTagIds,
         publicationTargets,
         sourceMedia,
+        serverDraft,
+        serverDraftReady,
+        localRecoveryAtMount,
+        autosaveState,
     ])
 
     useEffect(() => {
@@ -706,7 +862,26 @@ export function NewPublicationPage({
                 </h1>
             </header>
 
-            {recovery !== null ? (
+            {recovery !== null && autosaveState === 'conflict' ? (
+                <ComposerDraftConflict
+                    local={recoveredComposerContent(recovery)}
+                    saved={serverDraft?.content ?? null}
+                    channels={channels}
+                    timeZone={project.timeZone}
+                    busy={conflictBusy}
+                    savedKnown={conflictVersionKnown}
+                    error={autosaveError}
+                    onRefresh={() => void reviewConflict()}
+                    onUseSaved={() => void resolveConflict(false)}
+                    onSaveLocal={() => void resolveConflict(true)}
+                    onClose={() => {
+                        applyComposerContent(recoveredComposerContent(recovery))
+                        recoveryPromptOpen.current = false
+                        setRecovery(null)
+                    }}
+                />
+            ) : null}
+            {recovery !== null && autosaveState !== 'conflict' ? (
                 <Dialog open onOpenChange={() => {}}>
                     <DialogContent
                         showCloseButton={false}
@@ -757,6 +932,19 @@ export function NewPublicationPage({
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+            ) : null}
+            {recovery === null && autosaveState === 'conflict' ? (
+                <Alert className="mb-6">
+                    <AlertTitle>{m.composer_conflict_title()}</AlertTitle>
+                    <AlertDescription>{m.composer_conflict_notice()}</AlertDescription>
+                    <Button
+                        className="mt-3"
+                        onClick={() => void reviewConflict()}
+                        type="button"
+                        variant="outline">
+                        {m.composer_conflict_review()}
+                    </Button>
+                </Alert>
             ) : null}
             {recovery === null && !serverDraftReady ? (
                 serverDraftLoadFailed ? (
@@ -1084,7 +1272,7 @@ export function NewPublicationPage({
                                             type="submit"
                                             value="draft"
                                             variant="ghost"
-                                            disabled={pending}>
+                                            disabled={pending || autosaveState === 'conflict'}>
                                             <FileTextIcon aria-hidden="true" />
                                             {m.publication_new_create_draft()}
                                         </Button>
@@ -1092,7 +1280,7 @@ export function NewPublicationPage({
                                             name="publication-action"
                                             type="submit"
                                             value="schedule"
-                                            disabled={pending}>
+                                            disabled={pending || autosaveState === 'conflict'}>
                                             <CalendarAddIcon aria-hidden="true" />
                                             {m.publication_new_schedule_count({
                                                 count: selectedPublicationCount,
@@ -1212,7 +1400,7 @@ export function NewPublicationPage({
     )
 }
 
-function resolveRecoveredContentScope(recovery: PublicationRecoveryState) {
+function resolveRecoveredContentScope(recovery: PublicationComposerDraftContent) {
     if (recovery.activeContentScopeId === publicationSharedTabId) return publicationSharedTabId
     if (
         recovery.activeContentScopeId !== undefined &&
