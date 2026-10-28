@@ -32,6 +32,7 @@ import {
 } from '@/components/publication-target-list'
 import { PublicationTextCount } from '@/components/publication-text-count'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
+import { QueryErrorState } from '@/components/query-error-state'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -149,6 +150,9 @@ export function NewPublicationPage({
     )
     const [serverDraft, setServerDraft] = useState<PublicationComposerDraft | null>(null)
     const [serverDraftReady, setServerDraftReady] = useState(false)
+    const [serverDraftLoadFailed, setServerDraftLoadFailed] = useState(false)
+    const [serverDraftLoadAttempt, setServerDraftLoadAttempt] = useState(0)
+    const [discardingRecovery, setDiscardingRecovery] = useState(false)
     const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
         'idle'
     )
@@ -281,7 +285,7 @@ export function NewPublicationPage({
     }
 
     function restoreRecovery() {
-        if (recovery === null) return
+        if (recovery === null || !serverDraftReady || discardingRecovery) return
 
         onPostTitleChange(recovery.postTitle)
         onPostContentChange(recovery.postContent)
@@ -301,14 +305,21 @@ export function NewPublicationPage({
     }
 
     async function discardRecovery() {
-        clearPublicationRecovery(project.id)
-        await discardServerDraft()
-        recoveryPromptOpen.current = false
-        setRecovery(null)
+        if (!serverDraftReady || discardingRecovery) return
+
+        setDiscardingRecovery(true)
+        try {
+            if (!(await discardServerDraft())) return
+            clearPublicationRecovery(project.id)
+            recoveryPromptOpen.current = false
+            setRecovery(null)
+        } finally {
+            setDiscardingRecovery(false)
+        }
     }
 
     async function discardServerDraft() {
-        if (serverDraftRef.current === null) return
+        if (serverDraftRef.current === null) return true
 
         try {
             await api.deletePublicationComposerDraft(project.id)
@@ -316,9 +327,11 @@ export function NewPublicationPage({
             setServerDraft(null)
             setAutosaveState('idle')
             setAutosaveError(null)
+            return true
         } catch (caughtError) {
             setAutosaveState('error')
             setAutosaveError(formatApiError(caughtError))
+            return false
         }
     }
 
@@ -349,6 +362,8 @@ export function NewPublicationPage({
 
     useEffect(() => {
         let cancelled = false
+        setServerDraftReady(false)
+        setServerDraftLoadFailed(false)
 
         void api
             .getPublicationComposerDraft(project.id)
@@ -371,17 +386,15 @@ export function NewPublicationPage({
                     setRecovery(serverRecovery)
                 }
             })
-            .catch(caughtError => {
+            .catch(() => {
                 if (cancelled) return
-                setServerDraftReady(true)
-                setAutosaveState('error')
-                setAutosaveError(formatApiError(caughtError))
+                setServerDraftLoadFailed(true)
             })
 
         return () => {
             cancelled = true
         }
-    }, [project.id])
+    }, [project.id, serverDraftLoadAttempt])
 
     useEffect(() => {
         if (!serverDraftReady || recoveryPromptOpen.current) return
@@ -390,7 +403,9 @@ export function NewPublicationPage({
             if (serverDraftRef.current === null) return
             autosaveQueue.current = autosaveQueue.current
                 .catch(() => undefined)
-                .then(() => discardServerDraft())
+                .then(async () => {
+                    await discardServerDraft()
+                })
             return
         }
 
@@ -713,21 +728,28 @@ export function NewPublicationPage({
                                 {recoveryExcerpt}
                             </p>
                         ) : null}
-                        {error ? (
+                        {serverDraftLoadFailed ? (
+                            <QueryErrorState
+                                onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
+                            />
+                        ) : null}
+                        {error || autosaveError ? (
                             <p role="alert" className="break-words text-sm text-state-failed">
-                                {error}
+                                {error ?? autosaveError}
                             </p>
                         ) : null}
                         <DialogFooter>
                             <Button
-                                disabled={!serverDraftReady}
+                                disabled={!serverDraftReady || discardingRecovery}
                                 onClick={() => void discardRecovery()}
                                 type="button"
                                 variant="secondary">
-                                {m.publication_new_recovery_discard()}
+                                {discardingRecovery
+                                    ? m.common_loading()
+                                    : m.publication_new_recovery_discard()}
                             </Button>
                             <Button
-                                disabled={!serverDraftReady}
+                                disabled={!serverDraftReady || discardingRecovery}
                                 onClick={restoreRecovery}
                                 type="button">
                                 {m.publication_new_recovery_restore()}
@@ -735,6 +757,18 @@ export function NewPublicationPage({
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+            ) : null}
+            {recovery === null && !serverDraftReady ? (
+                serverDraftLoadFailed ? (
+                    <QueryErrorState
+                        className="mb-6"
+                        onRetry={() => setServerDraftLoadAttempt(attempt => attempt + 1)}
+                    />
+                ) : (
+                    <p role="status" className="mb-6 text-sm text-muted-foreground">
+                        {m.common_loading()}
+                    </p>
+                )
             ) : null}
             {error && recovery === null ? (
                 <Alert

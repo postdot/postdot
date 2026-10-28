@@ -27,9 +27,8 @@ two initial failures and their causes).
 
 Released as `0.1.0-alpha.3` (source `cf7d7e9`, native AMD64/ARM64 acceptance with
 alpha.2 as the previous image). An operator-copied backup and real-provider
-acceptance remain unclaimed. Open follow-ups: the intermittent
-`editor-composer-pilot` draft-save flake, a workspace-level Channels page and
-owner visual review.
+acceptance remain unclaimed. Owner visual review remains separate from automated
+acceptance.
 
 Production realtime uses TanStack Query with authenticated SSE invalidation and
 the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-client-data-layer.md)
@@ -102,6 +101,7 @@ receipt while durable media cleanup retries independently.
 - [x] **[UX-401]** Repair detail-page continuity and recovery `Priority: 🟠` `Complexity: M` `Completed: 2026-10-28` — Complete sibling pagination, context-preserving error returns, prompt post errors, job-based widths and accessible destructive-action text. Eight focused browser scenarios, contrast/cancellation confirmation and the repository quick gate pass. [Evidence](worklogs/2026-10-28-UX-401.md).
 - [x] **[UX-402]** Review invitations and role-based access, and repair confirmed recovery defects `Priority: 🟠` `Complexity: M` `Completed: 2026-10-28` — Technical invitation/session failures offer Retry without claiming the link is invalid; unavailable links keep their terminal state, and the authentication brand has a landmark. Twenty registered destinations; nine focused browser scenarios pass, including real expiry/revocation and owner/editor/viewer boundaries. [Evidence](worklogs/2026-10-28-UX-402.md). Installation archives remain next.
 - [x] **[UX-403]** Review and repair archive, restoration and removal journeys `Priority: 🟠` `Complexity: M` `Completed: 2026-10-28` — Archives has its own destination/search entry, resource identity, management width and contextual return. Restore explains its actual consequences; technical reads and mutations can recover without confirming stale impact. Presented route matches preserve the query provider during settings/project transitions. Eight focused browser scenarios and static gates pass. [Evidence](worklogs/2026-10-28-UX-403.md).
+- [x] **[UX-404]** Protect composer recovery after failed initialization or discard `Priority: 🟠` `Complexity: M` `Completed: 2026-10-28` — Failed initial reads retain the inert form and offer Retry; failed discard keeps the local copy, decision and error until server deletion succeeds. Eleven distinct focused browser journeys, four historical-scenario repetitions, default discovery of the six new regressions, 57 scoped unit/selector tests and static gates pass. The stale historical-flake note is reconciled. [Evidence](worklogs/2026-10-28-UX-404.md).
 
 
 
