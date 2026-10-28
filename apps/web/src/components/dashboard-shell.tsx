@@ -58,8 +58,7 @@ export function DashboardShell({
         activeSection === 'preferences-account'
     const isProjectSettings =
         activeSection === 'access' || activeSection === 'invitations' || activeSection === 'tags'
-    const isWorkspaceSettings =
-        activeSection === 'settings-workspace' || activeSection === 'workspace-channels'
+    const isWorkspaceSettings = activeSection === 'settings-workspace'
     const isInstanceSettings =
         activeSection === 'settings' ||
         activeSection === 'settings-access' ||
@@ -108,6 +107,7 @@ export function DashboardShell({
                         hasPageBack={
                             isProjectSettings ||
                             isWorkspaceSettings ||
+                            activeSection === 'workspace-channels' ||
                             activeSection === 'settings-access' ||
                             activeSection === 'settings-provider-applications'
                         }

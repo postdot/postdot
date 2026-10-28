@@ -57,6 +57,17 @@ for (const [locale, messages] of [
             .getByRole('link', { name: messages.workspace_channels_title, exact: true })
             .click()
         await expect(page).toHaveURL(/\/dashboard\/workspace\/channels/)
+        // SPEC-010 NAV-01/NAV-02: the destination keeps the selected project and the product navigation.
+        await expect(page).toHaveURL(new RegExp(`projectId=${source.id}`))
+        await expect(
+            page.getByRole('combobox', { name: messages.nav_select_project }).first()
+        ).toContainText(`Source ${suffix}`)
+        await expect(
+            page.getByRole('link', { name: messages.nav_overview, exact: true })
+        ).toBeVisible()
+        await expect(
+            page.getByRole('button', { name: messages.nav_back_to_project, exact: true })
+        ).toBeVisible()
         const row = page.locator(`[data-workspace-channel="${channel.id}"]`)
         await expect(row).toBeVisible()
         await row.locator('summary').focus()

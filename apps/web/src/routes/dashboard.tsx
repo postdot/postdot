@@ -276,12 +276,12 @@ function DashboardPage() {
     }
 
     const isPreferences = isPreferencesPath(pathname)
-    const settingsProjectId =
-        isSettingsPath(pathname) || isPreferences ? readProjectContextId(search) : undefined
-    const selectedSettingsProject =
-        isSettingsPath(pathname) || isPreferences
-            ? (projects.find(project => project.id === settingsProjectId) ?? null)
-            : null
+    const isGlobalContextPath =
+        isSettingsPath(pathname) || isPreferences || pathname === '/dashboard/workspace/channels'
+    const settingsProjectId = isGlobalContextPath ? readProjectContextId(search) : undefined
+    const selectedSettingsProject = isGlobalContextPath
+        ? (projects.find(project => project.id === settingsProjectId) ?? null)
+        : null
 
     return (
         <DashboardGlobalProvider value={value}>

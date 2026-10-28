@@ -317,7 +317,7 @@ export function DashboardSidebar({
                                                 destination="workspace-channels"
                                                 icon={<LinkIcon aria-hidden="true" />}
                                                 label={m.workspace_channels_title()}
-                                                projectId={null}
+                                                projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
                                             <WorkspaceMenuItem
@@ -412,7 +412,7 @@ export function DashboardSidebar({
                                         destination="workspace-channels"
                                         icon={<LinkIcon aria-hidden="true" />}
                                         label={m.workspace_channels_title()}
-                                        projectId={null}
+                                        projectId={selectedProjectId}
                                         workspaceId={selectedWorkspaceId}
                                     />
                                 </SidebarMenu>
@@ -585,7 +585,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/workspace/channels"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: 'none' }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
