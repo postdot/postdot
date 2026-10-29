@@ -1,0 +1,21 @@
+{
+    "name": "@postdot/integrations",
+    "private": true,
+    "workspaces": [
+        "n8n"
+    ],
+    "scripts": {
+        "changeset": "changeset",
+        "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
+        "release": "node n8n/scripts/verify-release.cjs && changeset publish",
+        "build": "npm run build --workspace @postdot/n8n-nodes-postdot",
+        "typecheck": "npm run typecheck --workspace @postdot/n8n-nodes-postdot",
+        "lint": "npm run lint --workspace @postdot/n8n-nodes-postdot"
+    },
+    "devDependencies": {
+        "@changesets/cli": "3.0.3"
+    },
+    "engines": {
+        "node": "24.x"
+    }
+}

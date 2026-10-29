@@ -3,12 +3,12 @@ name: n8n package
 on:
     pull_request:
         paths:
-            - integrations/n8n/**
+            - integrations/**
             - .github/workflows/n8n.yml
     push:
         branches: [main]
         paths:
-            - integrations/n8n/**
+            - integrations/**
             - .github/workflows/n8n.yml
 
 permissions:
@@ -19,16 +19,17 @@ jobs:
         runs-on: ubuntu-latest
         defaults:
             run:
-                working-directory: integrations/n8n
+                working-directory: integrations
         steps:
             - uses: actions/checkout@v6.0.2
             - uses: actions/setup-node@v7
               with:
                   node-version: '24'
                   cache: npm
-                  cache-dependency-path: integrations/n8n/package-lock.json
-            - run: npm ci
+                  cache-dependency-path: integrations/package-lock.json
+            - run: npm ci --ignore-scripts
             - run: npm run typecheck
             - run: npm run lint
             - run: npm run build
-            - run: npm pack --dry-run
+            - run: npm run changeset -- status
+            - run: npm pack --workspace @postdot/n8n-nodes-postdot --dry-run
