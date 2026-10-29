@@ -17,6 +17,10 @@ export const defaultPostdotMediaUploadPolicy: PostdotMediaUploadPolicy = {
     maxFileSize: null,
 }
 
+export interface MediaUploadRequestOptions {
+    readonly signal?: AbortSignal
+}
+
 export interface PostdotMediaUploadClient {
     reserveMediaUpload: (
         projectId: string,
@@ -24,14 +28,25 @@ export interface PostdotMediaUploadClient {
             originalFilename: string
             expectedSize?: number
             contentType?: string
-        }
+        },
+        options?: MediaUploadRequestOptions
     ) => Promise<MediaReservation>
-    uploadMedia: (projectId: string, intentId: string, file: Blob) => Promise<MediaUpload>
+    uploadMedia: (
+        projectId: string,
+        intentId: string,
+        file: Blob,
+        options?: MediaUploadRequestOptions
+    ) => Promise<MediaUpload>
     finalizeMediaUpload: (
         projectId: string,
-        intentId: string
+        intentId: string,
+        options?: MediaUploadRequestOptions
     ) => Promise<MediaFinalize | { status: 'pending'; media: MediaReservation }>
-    getMedia: (projectId: string, assetId: string) => Promise<MediaReference>
+    getMedia: (
+        projectId: string,
+        assetId: string,
+        options?: MediaUploadRequestOptions
+    ) => Promise<MediaReference>
 }
 
 export interface PostdotMediaUploadController {
@@ -39,12 +54,14 @@ export interface PostdotMediaUploadController {
     readonly mediaByFileId: ReadonlyMap<string, MediaReference>
     readonly errorsByFileId: ReadonlyMap<string, unknown>
     readonly policy: PostdotMediaUploadPolicy
+    readonly dispose: () => void
     readonly setUploadPolicy: (policy: PostdotMediaUploadPolicy) => void
 }
 
 export interface PostdotMediaUploadOptions {
     readonly id?: string
     readonly recoveryExpires?: number
+    readonly recoveryEnabled?: boolean
 }
 
 export function createPostdotMediaUploadController(
@@ -64,6 +81,34 @@ export function createPostdotMediaUploadController(
         restrictions: toUppyRestrictions(uploadPolicy),
     })
 
+    const persistentRecovery = options.recoveryEnabled !== false
+    if (persistentRecovery) pruneUploadCheckpoints(uppy.getID())
+    const attempts = new Map<string, AbortController>()
+    let preservingRecovery = false
+    uppy.on('file-added', file => {
+        // An explicit new selection supersedes a previous dismissal of the same local file ID.
+        for (const storage of persistentRecovery ? uploadIntentStores() : []) {
+            try {
+                storage.removeItem(uploadIntentKey(uppy.getID(), file.id))
+            } catch {
+                /* Best effort. */
+            }
+        }
+    })
+    uppy.on('restored', () => {
+        for (const file of uppy.getFiles()) {
+            if (readUploadCheckpoint(uppy.getID(), file.id)?.discarded) uppy.removeFile(file.id)
+        }
+    })
+    uppy.on('file-removed', file => {
+        attempts.get(file.id)?.abort()
+        attempts.delete(file.id)
+        mediaByFileId.delete(file.id)
+        errorsByFileId.delete(file.id)
+        if (!preservingRecovery && persistentRecovery)
+            rememberUploadIntent(uppy.getID(), file.id, null)
+    })
+
     uppy.addUploader(async (fileIds, _uploadId) => {
         for (const fileId of fileIds) {
             const file = uppy.getFile(fileId)
@@ -79,7 +124,13 @@ export function createPostdotMediaUploadController(
                 continue
             }
 
+            const attempt = new AbortController()
+            attempts.set(fileId, attempt)
+            errorsByFileId.delete(fileId)
             try {
+                const savedIntent =
+                    (persistentRecovery ? readUploadIntent(uppy.getID(), fileId) : undefined) ??
+                    file.meta.postdotUploadIntentId
                 const media = await uploadPostdotMediaFile(
                     client,
                     projectId,
@@ -89,8 +140,18 @@ export function createPostdotMediaUploadController(
                         expectedSize: file.size ?? undefined,
                         contentType: file.type || undefined,
                     },
-                    waitForVerification
+                    waitForVerification,
+                    {
+                        signal: attempt.signal,
+                        intentId: typeof savedIntent === 'string' ? savedIntent : undefined,
+                        onReserved: intentId => {
+                            uppy.setFileMeta(fileId, { postdotUploadIntentId: intentId })
+                            if (persistentRecovery)
+                                rememberUploadIntent(uppy.getID(), fileId, intentId)
+                        },
+                    }
                 )
+                if (attempt.signal.aborted || !uppy.getFile(fileId)) continue
                 mediaByFileId.set(fileId, media)
                 uppy.emit('upload-progress', file, {
                     uploadStarted: file.progress.uploadStarted ?? Date.now(),
@@ -103,16 +164,19 @@ export function createPostdotMediaUploadController(
                     body: {},
                 })
             } catch (error) {
+                if (attempt.signal.aborted || !uppy.getFile(fileId)) continue
                 errorsByFileId.set(fileId, error)
                 uppy.emit('upload-error', file, {
                     name: 'PostdotMediaUploadError',
                     message: error instanceof Error ? error.message : String(error),
                 })
+            } finally {
+                if (attempts.get(fileId) === attempt) attempts.delete(fileId)
             }
         }
     })
 
-    if (canUseBrowserRecovery()) {
+    if (persistentRecovery && canUseBrowserRecovery()) {
         uppy.use(GoldenRetriever, {
             expires: options.recoveryExpires ?? 24 * 60 * 60 * 1000,
         })
@@ -122,6 +186,13 @@ export function createPostdotMediaUploadController(
         uppy,
         mediaByFileId,
         errorsByFileId,
+        dispose() {
+            preservingRecovery = true
+            // Destroy cancels files; detach persistence first so navigation is not a dismissal.
+            const recovery = uppy.getPlugin('GoldenRetriever')
+            if (recovery) uppy.removePlugin(recovery)
+            uppy.destroy()
+        },
         get policy() {
             return uploadPolicy
         },
@@ -170,24 +241,61 @@ export async function uploadPostdotMediaFile(
         readonly expectedSize?: number
         readonly contentType?: string
     },
-    waitForVerification: (milliseconds: number) => Promise<void> = delay
+    waitForVerification: (milliseconds: number) => Promise<void> = delay,
+    options: MediaUploadRequestOptions & {
+        readonly intentId?: string
+        readonly onReserved?: (intentId: string) => void
+    } = {}
 ): Promise<MediaReference> {
-    const reservation = await client.reserveMediaUpload(projectId, {
-        originalFilename: input.filename,
-        expectedSize: input.expectedSize,
-        contentType: input.contentType,
-    })
-    await client.uploadMedia(projectId, reservation.intent.id, input.data)
-    return completePostdotMediaUpload(client, projectId, reservation.intent.id, waitForVerification)
+    options.signal?.throwIfAborted()
+    let intentId = options.intentId
+    if (intentId === undefined) {
+        const reservation = await client.reserveMediaUpload(
+            projectId,
+            {
+                originalFilename: input.filename,
+                expectedSize: input.expectedSize,
+                contentType: input.contentType,
+            },
+            options
+        )
+        options.signal?.throwIfAborted()
+        intentId = reservation.intent.id
+        options.onReserved?.(intentId)
+    }
+    try {
+        await client.uploadMedia(projectId, intentId, input.data, options)
+    } catch (error) {
+        options.signal?.throwIfAborted()
+        // The server has retired this known intent; its bytes can start a fresh reservation.
+        if (
+            options.intentId !== undefined &&
+            error &&
+            typeof error === 'object' &&
+            'code' in error &&
+            error.code === 'upload_expired'
+        ) {
+            return uploadPostdotMediaFile(client, projectId, input, waitForVerification, {
+                ...options,
+                intentId: undefined,
+            })
+        }
+        throw error
+    }
+    options.signal?.throwIfAborted()
+    return completePostdotMediaUpload(client, projectId, intentId, waitForVerification, options)
 }
 
 export async function completePostdotMediaUpload(
     client: PostdotMediaUploadClient,
     projectId: string,
     intentId: string,
-    waitForVerification: (milliseconds: number) => Promise<void> = delay
+    waitForVerification: (milliseconds: number) => Promise<void> = delay,
+    options: MediaUploadRequestOptions = {}
 ): Promise<MediaReference> {
-    const finalized = await client.finalizeMediaUpload(projectId, intentId)
+    options.signal?.throwIfAborted()
+    const finalized = await client.finalizeMediaUpload(projectId, intentId, options)
+    options.signal?.throwIfAborted()
     if (finalized.status === 'ready') return finalized.media
     if (finalized.status === 'failed') {
         throw new MediaVerificationError(finalized.media)
@@ -195,7 +303,9 @@ export async function completePostdotMediaUpload(
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
         await waitForVerification(250)
-        const media = await client.getMedia(projectId, finalized.media.asset.id)
+        options.signal?.throwIfAborted()
+        const media = await client.getMedia(projectId, finalized.media.asset.id, options)
+        options.signal?.throwIfAborted()
         if (media.asset.state === 'ready') return media
         if (media.asset.state === 'failed') {
             throw new MediaVerificationError(media)
@@ -233,5 +343,97 @@ export function createOrderedUploadResults() {
                 }
             }
         },
+    }
+}
+
+/** Synchronous checkpoint complements the browser blob store's asynchronous writes. */
+function uploadIntentStores(): Storage[] {
+    if (typeof window === 'undefined') return []
+    const stores: Storage[] = []
+    try {
+        stores.push(window.sessionStorage)
+    } catch {
+        /* Recovery is best effort. */
+    }
+    try {
+        stores.push(window.localStorage)
+    } catch {
+        /* Recovery is best effort. */
+    }
+    return stores
+}
+function uploadIntentKey(owner: string, fileId: string) {
+    return `postdot:media-upload-intent:v1:${encodeURIComponent(owner)}:${encodeURIComponent(fileId)}`
+}
+function readUploadCheckpoint(
+    owner: string,
+    fileId: string
+): { intentId?: string; discarded?: boolean } | undefined {
+    for (const storage of uploadIntentStores()) {
+        try {
+            const key = uploadIntentKey(owner, fileId)
+            const raw = storage.getItem(key)
+            if (!raw) continue
+            const value: unknown = JSON.parse(raw)
+            if (
+                value &&
+                typeof value === 'object' &&
+                'expiresAt' in value &&
+                typeof value.expiresAt === 'number' &&
+                value.expiresAt > Date.now()
+            ) {
+                if ('discarded' in value && value.discarded === true) return { discarded: true }
+                if ('intentId' in value && typeof value.intentId === 'string')
+                    return { intentId: value.intentId }
+            }
+            storage.removeItem(key)
+        } catch {
+            /* Try the other recovery store. */
+        }
+    }
+}
+function readUploadIntent(owner: string, fileId: string) {
+    return readUploadCheckpoint(owner, fileId)?.intentId
+}
+function rememberUploadIntent(owner: string, fileId: string, intentId: string | null) {
+    for (const storage of uploadIntentStores()) {
+        try {
+            const key = uploadIntentKey(owner, fileId)
+            storage.setItem(
+                key,
+                JSON.stringify({
+                    ...(intentId === null ? { discarded: true } : { intentId }),
+                    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+                })
+            )
+        } catch {
+            /* Recovery is best effort. */
+        }
+    }
+}
+
+function pruneUploadCheckpoints(owner: string) {
+    const prefix = `postdot:media-upload-intent:v1:${encodeURIComponent(owner)}:`
+    for (const storage of uploadIntentStores()) {
+        try {
+            for (const key of Object.keys(storage)) {
+                if (!key.startsWith(prefix)) continue
+                try {
+                    const value: unknown = JSON.parse(storage.getItem(key) ?? 'null')
+                    if (
+                        !value ||
+                        typeof value !== 'object' ||
+                        !('expiresAt' in value) ||
+                        typeof value.expiresAt !== 'number' ||
+                        value.expiresAt <= Date.now()
+                    )
+                        storage.removeItem(key)
+                } catch {
+                    storage.removeItem(key)
+                }
+            }
+        } catch {
+            /* Recovery is best effort. */
+        }
     }
 }

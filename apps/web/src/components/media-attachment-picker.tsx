@@ -38,6 +38,7 @@ import {
     type MediaListSort,
     type MediaReference,
 } from '@/lib/api'
+import { useDashboardUserId } from '@/lib/dashboard-context'
 import { formatBytes } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
@@ -119,23 +120,26 @@ export interface MediaAttachmentPickerProps {
 }
 
 export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
-    const pickerKey = `${props.projectId}:${props.variant ?? 'library'}:${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
+    const ownerId = useDashboardUserId()
+    const pickerKey = `${ownerId ?? 'preview'}:${props.projectId}:${props.variant ?? 'library'}:${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
     return <MediaAttachmentPickerInstance key={pickerKey} {...props} />
 }
 
 function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
-    const recoveryId = `postdot-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
-    const [controller] = useState(() =>
-        createPostdotMediaUploadController(props.projectId, api, undefined, undefined, {
-            id: recoveryId,
-        })
-    )
-
+    const ownerId = useDashboardUserId()
+    const recoveryId = `postdot-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}:user:${encodeURIComponent(ownerId ?? 'preview')}`
+    const [controller, setController] = useState<PostdotMediaUploadController | null>(null)
+    const projectId = props.projectId
     useEffect(() => {
-        return () => {
-            void controller.uppy.destroy()
-        }
-    }, [controller])
+        // Discarded React renders must not install browser persistence or uploader listeners.
+        const next = createPostdotMediaUploadController(projectId, api, undefined, undefined, {
+            id: recoveryId,
+            recoveryEnabled: ownerId !== undefined,
+        })
+        setController(next)
+        return () => next.dispose()
+    }, [projectId, recoveryId, ownerId])
+    if (controller === null) return null
 
     return (
         <UppyContextProvider uppy={controller.uppy}>
@@ -530,14 +534,20 @@ function MediaAttachmentPickerView({
         }
     }, [manageOnly, projectId, selectedAssetIds])
 
+    const mounted = useRef(false)
+    useEffect(() => {
+        mounted.current = true
+        return () => {
+            mounted.current = false
+        }
+    }, [])
+
     function processUploadResult(
         result: UploadResult<Meta, Record<string, never>>,
         restrictionMessages: readonly string[] = []
     ) {
-        if (readOnly) {
-            setError(null)
-            return [...(result.successful ?? []), ...(result.failed ?? [])].map(file => file.id)
-        }
+        if (!mounted.current) return []
+        if (readOnly) return (result.successful ?? []).map(file => file.id)
 
         const uploaded = (result.successful ?? [])
             .map(file => controller.mediaByFileId.get(file.id))
@@ -576,7 +586,7 @@ function MediaAttachmentPickerView({
         const uploadErrors = [...restrictionMessages, ...failures]
         setError(uploadErrors.length > 0 ? uploadErrors.join(' ') : null)
 
-        return [...(result.successful ?? []), ...(result.failed ?? [])].map(file => file.id)
+        return (result.successful ?? []).map(file => file.id)
     }
 
     useEffect(() => {
@@ -593,11 +603,17 @@ function MediaAttachmentPickerView({
                 .upload()
                 .then(result => {
                     settle(() => {
-                        if (result !== undefined) processUploadResult(result, restrictionMessages)
+                        if (result !== undefined) {
+                            const completed = processUploadResult(result, restrictionMessages)
+                            controller.uppy.removeFiles(completed)
+                        }
                     })
                 })
-                .catch(caughtError => settle(() => setError(errorMessage(caughtError))))
-                .finally(() => controller.uppy.removeFiles(files.map(file => file.id)))
+                .catch(caughtError =>
+                    settle(() => {
+                        if (mounted.current) setError(errorMessage(caughtError))
+                    })
+                )
         }
 
         const handleRecoveryComplete = (result: UploadResult<Meta, Record<string, never>>) => {
@@ -1308,6 +1324,25 @@ function MediaAttachmentPickerView({
     const containerDropzoneProps = dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
+    const queuedFiles = uppyFiles.filter(
+        file => !file.progress.complete && !recoveredFileIds.has(file.id)
+    )
+    function retryUpload(fileId: string) {
+        if (readOnly || disabled || recoveryActionPending) return
+        const settle = orderedUploadResults.current.reserve()
+        void controller.uppy
+            .retryUpload(fileId)
+            .then(result =>
+                settle(() => {
+                    if (result) controller.uppy.removeFiles(processUploadResult(result))
+                })
+            )
+            .catch(error =>
+                settle(() => {
+                    if (mounted.current) setError(errorMessage(error))
+                })
+            )
+    }
     const hasRecoveredFiles = recoveredFiles.length > 0
     const dismissRecoveredFiles = () => {
         recoveryUploadPendingRef.current = false
@@ -1319,7 +1354,7 @@ function MediaAttachmentPickerView({
         fileButtonProps.onClick()
     }
     const resumeRecoveredFiles = () => {
-        if (recoveryActionPending || recoverableFiles.length === 0) return
+        if (disabled || readOnly || recoveryActionPending || recoverableFiles.length === 0) return
         setRecoveryActionPending(true)
         controller.uppy.removeFiles(ghostFiles.map(file => file.id))
         recoveryUploadPendingRef.current = true
@@ -1403,6 +1438,43 @@ function MediaAttachmentPickerView({
                             ? 'flex min-h-[calc(100vh-12rem)] flex-col gap-4'
                             : 'rounded-lg bg-muted p-4 sm:p-5'
                 }`}>
+                {!readOnly && queuedFiles.length > 0 ? (
+                    <div data-media-upload-queue="true" className="mb-4 space-y-2">
+                        {queuedFiles.map(file => (
+                            <div
+                                key={file.id}
+                                className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+                                <span className="min-w-0 flex-1 break-words">{file.name}</span>
+                                {file.error ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        aria-label={m.media_upload_retry_file({
+                                            filename: file.name ?? '',
+                                        })}
+                                        disabled={disabled || uploading !== null}
+                                        onClick={() => retryUpload(file.id)}>
+                                        {m.common_retry()}
+                                    </Button>
+                                ) : null}
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label={m.media_upload_cancel_file({
+                                        filename: file.name ?? '',
+                                    })}
+                                    onClick={() => {
+                                        controller.uppy.removeFile(file.id)
+                                        setError(null)
+                                    }}>
+                                    {m.common_cancel()}
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
                 {!readOnly && hasRecoveredFiles ? (
                     <MediaUploadRecoveryNotice
                         files={recoveredFiles}
@@ -1410,7 +1482,7 @@ function MediaAttachmentPickerView({
                         onDismiss={dismissRecoveredFiles}
                         onReselectMissing={reselectMissingRecoveredFiles}
                         onResume={resumeRecoveredFiles}
-                        pending={recoveryActionPending}
+                        pending={recoveryActionPending || disabled}
                     />
                 ) : null}
                 <input

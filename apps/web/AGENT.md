@@ -35,3 +35,5 @@
 
 - **Page width (SPEC-010 LAY-02):** width follows a page's job. Work surfaces (calendar, composer, queue, media, performance) use the available width; lists of peer objects use `PageColumn variant="management"` (64 rem) and forms or preferences use `variant="reading"` (36 rem). Keep every block of one page, including archive/delete sections, in the same column, and declare a new route in `e2e/experience/route-registry.ts`.
 - **Scope navigation (SPEC-010 NAV-01/NAV-02):** a sidebar destination carries the selected project (`projectId ?? 'none'`); never pass `projectId: 'none'` to drop it unless the destination cannot show one. Empty states lead with the first missing prerequisite (a project with no channel leads with `Add channel`).
+
+- **Upload recovery:** Scope browser file recovery and intent checkpoints to the authenticated author and picker scope. A retry reuses its known reservation; cancellation stops client work without deleting already shared project media. Unmounting preserves recovery and must not apply late results to the old picker. Keep persistence installation in effects so discarded React renders do not install orphan listeners.

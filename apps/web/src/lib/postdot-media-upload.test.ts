@@ -224,3 +224,105 @@ it('failed batches release successors and application reads the current selectio
     failed(() => {})
     expect(selected).toEqual(['library', 'reordered', 'new'])
 })
+
+it('retries an acknowledged reservation after a lost finalization response without another asset', async () => {
+    const media = createMedia('same-asset')
+    let reserves = 0
+    let finalizations = 0
+    const client = createClient({
+        reserveMediaUpload: async () => {
+            reserves++
+            return createReservation(media)
+        },
+        finalizeMediaUpload: async () => {
+            if (++finalizations === 1) throw new Error('Response lost after server committed')
+            return { status: 'ready', media } as MediaFinalize
+        },
+    })
+    const controller = createPostdotMediaUploadController('retry-project', client)
+    try {
+        const id = controller.uppy.addFile({
+            name: 'retry.png',
+            type: 'image/png',
+            data: new Blob(['png']),
+        })
+        expect((await controller.uppy.upload())?.failed).toHaveLength(1)
+        expect(controller.uppy.getFile(id)).toBeDefined()
+        expect((await controller.uppy.retryUpload(id))?.successful).toHaveLength(1)
+        expect(reserves).toBe(1)
+        expect(finalizations).toBe(2)
+        expect(controller.errorsByFileId.has(id)).toBe(false)
+        expect(controller.mediaByFileId.get(id)?.asset.id).toBe('same-asset')
+    } finally {
+        controller.uppy.destroy()
+    }
+})
+
+it('aborts a removed file and never finalizes or emits a late attachment', async () => {
+    let started: () => void = () => {}
+    const uploading = new Promise<void>(resolve => {
+        started = resolve
+    })
+    let signal: AbortSignal | undefined
+    let finalized = false
+    const client = createClient({
+        uploadMedia: async (_project, _intent, _file, options) => {
+            signal = options?.signal
+            started()
+            await new Promise<void>((_resolve, reject) =>
+                signal?.addEventListener('abort', () => reject(signal?.reason), { once: true })
+            )
+            return createUpload(createReservation(createMedia('cancelled')))
+        },
+        finalizeMediaUpload: async () => {
+            finalized = true
+            return { status: 'ready', media: createMedia('cancelled') } as MediaFinalize
+        },
+    })
+    const controller = createPostdotMediaUploadController('cancel-project', client)
+    const id = controller.uppy.addFile({
+        name: 'cancel.png',
+        type: 'image/png',
+        data: new Blob(['png']),
+    })
+    const result = controller.uppy.upload()
+    await uploading
+    controller.uppy.removeFile(id)
+    await result
+    expect(signal?.aborted).toBe(true)
+    expect(finalized).toBe(false)
+    expect(controller.mediaByFileId.has(id)).toBe(false)
+    controller.uppy.destroy()
+})
+
+it('starts a fresh reservation only after the server retires a known upload intent', async () => {
+    const media = createMedia('renewed-upload')
+    const intents: string[] = []
+    let reserves = 0
+    const client = createClient({
+        reserveMediaUpload: async () => {
+            reserves++
+            return createReservation(media)
+        },
+        uploadMedia: async (_project, intent) => {
+            intents.push(intent)
+            if (intent === 'expired-intent') throw { code: 'upload_expired' }
+            return createUpload(createReservation(media))
+        },
+        finalizeMediaUpload: async () => ({ status: 'ready', media }) as MediaFinalize,
+    })
+    await expect(
+        uploadPostdotMediaFile(
+            client,
+            'project',
+            {
+                filename: 'kept.png',
+                data: new Blob(['kept']),
+            },
+            async () => {},
+            { intentId: 'expired-intent' }
+        )
+    ).resolves.toBe(media)
+    expect(intents).toEqual(['expired-intent', 'intent-1'])
+    expect(reserves).toBe(1)
+})

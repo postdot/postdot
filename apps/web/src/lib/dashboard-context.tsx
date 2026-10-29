@@ -61,6 +61,11 @@ export function DashboardGlobalProvider({
     )
 }
 
+/** Standalone previews have no author and must not restore authenticated browser files. */
+export function useDashboardUserId() {
+    return useContext(DashboardGlobalContext)?.session.user.id
+}
+
 export function useDashboardGlobal() {
     const context = useContext(DashboardGlobalContext)
     if (context === null)

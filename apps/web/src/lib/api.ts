@@ -679,8 +679,13 @@ export const api = {
         return unwrap(await client.api.projects({ projectId }).media.sources.get())
     },
 
-    async getMedia(projectId: string, assetId: string) {
-        return unwrap(await client.api.projects({ projectId }).media({ assetId }).get())
+    async getMedia(projectId: string, assetId: string, options?: { signal?: AbortSignal }) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .media({ assetId })
+                .get({ fetch: { signal: options?.signal } })
+        )
     },
 
     async getMediaUsage(projectId: string, assetId: string) {
@@ -710,19 +715,33 @@ export const api = {
         )
     },
 
-    async reserveMediaUpload(projectId: string, input: WebApiRequests['reserveMediaUpload']) {
-        return unwrap(await client.api.projects({ projectId }).media.uploads.post(input))
+    async reserveMediaUpload(
+        projectId: string,
+        input: WebApiRequests['reserveMediaUpload'],
+        options?: { signal?: AbortSignal }
+    ) {
+        return unwrap(
+            await client.api
+                .projects({ projectId })
+                .media.uploads.post(input, { fetch: { signal: options?.signal } })
+        )
     },
 
     async importMediaFromUrl(projectId: string, url: string) {
         return unwrap(await client.api.projects({ projectId }).media.imports.url.post({ url }))
     },
 
-    async uploadMedia(projectId: string, intentId: string, file: Blob) {
+    async uploadMedia(
+        projectId: string,
+        intentId: string,
+        file: Blob,
+        options?: { signal?: AbortSignal }
+    ) {
         return requestBoundary<MediaUpload>(
             `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(intentId)}`,
             {
                 method: 'PUT',
+                signal: options?.signal,
                 body: file,
                 headers: {
                     'content-type': file.type || 'application/octet-stream',
@@ -731,9 +750,16 @@ export const api = {
         )
     },
 
-    async finalizeMediaUpload(projectId: string, intentId: string) {
+    async finalizeMediaUpload(
+        projectId: string,
+        intentId: string,
+        options?: { signal?: AbortSignal }
+    ) {
         return unwrap(
-            await client.api.projects({ projectId }).media.uploads({ intentId }).finalize.post()
+            await client.api
+                .projects({ projectId })
+                .media.uploads({ intentId })
+                .finalize.post(undefined, { fetch: { signal: options?.signal } })
         )
     },
 

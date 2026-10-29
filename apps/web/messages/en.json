@@ -806,6 +806,8 @@
     "media_accessibility_placeholder": "Describe this media for people who cannot see it",
     "media_upload": "Add media",
     "media_uploading": "Adding {filename}…",
+    "media_upload_retry_file": "Retry upload {filename}",
+    "media_upload_cancel_file": "Cancel upload {filename}",
     "media_recovery_title": "Interrupted import recovered",
     "media_recovery_description": [
         {

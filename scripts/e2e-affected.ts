@@ -195,6 +195,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
         specs: [
             'e2e/design-121-narrow-new-publication.spec.ts',
             'e2e/publication-media.spec.ts',
+            'e2e/media-upload-recovery.spec.ts',
             'e2e/web-124-outcome-states.spec.ts',
         ],
     },

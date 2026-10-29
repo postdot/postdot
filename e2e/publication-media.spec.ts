@@ -332,9 +332,6 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     })
     const initialChannelNameField = page.getByLabel('Channel name')
     await initialAddChannelButton.click()
-    if ((await initialChannelNameField.count()) === 0) {
-        await initialAddChannelButton.click()
-    }
     await expect(initialChannelNameField).toBeVisible()
     await expect(page.getByRole('radiogroup', { name: 'Profile', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
@@ -360,14 +357,11 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
-    const emptyCalendarNewPublication = page.locator(
-        'a[data-slot="button"][href*="/publications/new?date="]'
+    const todayCell = overviewCalendar.locator(
+        '[data-slot="event-calendar-month-cell"][data-today="true"]'
     )
-    await expect(emptyCalendarNewPublication).toHaveAttribute(
-        'href',
-        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
-    )
-    await emptyCalendarNewPublication.click()
+    await todayCell.hover()
+    await todayCell.getByRole('button', { name: 'Create publication', exact: true }).click()
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )

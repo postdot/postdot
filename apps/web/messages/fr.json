@@ -806,6 +806,8 @@
     "media_accessibility_placeholder": "Décrivez ce média pour les personnes qui ne peuvent pas le voir",
     "media_upload": "Ajouter un média",
     "media_uploading": "Ajout de {filename}…",
+    "media_upload_retry_file": "Réessayer l’envoi de {filename}",
+    "media_upload_cancel_file": "Annuler l’envoi de {filename}",
     "media_recovery_title": "Import interrompu récupéré",
     "media_recovery_description": [
         {
