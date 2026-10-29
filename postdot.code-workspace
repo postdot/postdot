@@ -21,6 +21,10 @@
       "path": "packages/ui",
     },
     {
+      "name": "n8n",
+      "path": "integrations/n8n",
+    },
+    {
       "name": "client",
       "path": "packages/client",
     },

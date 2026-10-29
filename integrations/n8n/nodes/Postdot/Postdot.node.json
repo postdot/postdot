@@ -1,0 +1,10 @@
+{
+    "node": "@postdot/n8n-nodes-postdot.postdot",
+    "nodeVersion": "1.0",
+    "codexVersion": "1.0",
+    "categories": ["Marketing & Content"],
+    "resources": {
+        "credentialDocumentation": [{ "url": "https://postdot.app/docs/n8n/" }],
+        "primaryDocumentation": [{ "url": "https://postdot.app/docs/n8n/" }]
+    }
+}

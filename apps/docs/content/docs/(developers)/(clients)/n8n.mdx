@@ -1,0 +1,100 @@
+---
+title: n8n
+description: Install the Postdot node and prepare a draft from an n8n workflow.
+---
+
+Use the Postdot node to create an unscheduled draft for review in Studio. It also
+lists projects and channels and reads saved publication state.
+
+The first public package is **0.1.0-alpha.1**, for self-hosted n8n. Install this
+exact prerelease version; it is on npm's `alpha` tag and is not verified for n8n
+Cloud. The acceptance run used n8n **2.45.6**.
+
+## 1. Install the package
+
+You need a Postdot instance that your n8n runtime can reach. As the n8n runtime
+user, install the package in n8n's persistent nodes directory:
+
+```sh
+mkdir -p ~/.n8n/nodes
+cd ~/.n8n/nodes
+npm install --omit=dev @postdot/n8n-nodes-postdot@0.1.0-alpha.1
+```
+
+Restart n8n, then search for **Postdot** in the node picker. If you set
+`N8N_USER_FOLDER`, use the `.n8n/nodes` directory under that location instead.
+For Docker, run the installation in the container with a persisted n8n user
+directory. Installing in an unrelated host directory does not install the node
+in the container.
+
+The [npm package](https://www.npmjs.com/package/@postdot/n8n-nodes-postdot) includes
+the example workflow. To build from source, follow the commands in the
+[package README](https://github.com/postdot/postdot/tree/main/integrations/n8n).
+
+## 2. Give n8n draft access
+
+In Postdot Studio, open **Settings**, then **API keys**. Create a key limited to
+the project you want to use and these actions:
+
+- `project:read`
+- `publication:manage`
+
+Leave `publication:dispatch` out. The key cannot grant access beyond its owner's
+current project permissions. See [API authentication](/docs/reference/authentication/).
+
+In n8n, add a **Postdot API** credential:
+
+| Field       | Value                                                                   |
+| ----------- | ----------------------------------------------------------------------- |
+| Postdot URL | Your instance origin, such as `https://postdot.example`, without `/api` |
+| API Key     | The Postdot key secret                                                  |
+
+Store the key in this credential, outside workflow parameters and shared exports.
+The credential test reads your accessible projects and sends no publication.
+
+Use an address reachable from the n8n process. Inside a container, `localhost`
+refers to that container, not the host or a separate Postdot container. Keep TLS
+certificate verification enabled when connecting over HTTPS.
+
+## 3. Prepare a draft
+
+Import [the example workflow](https://github.com/postdot/postdot/blob/main/integrations/n8n/examples/create-draft.json)
+from the source checkout, or add a Postdot node with **Resource: Post** and
+**Operation: Create Draft**.
+
+Select your Postdot credential on both Postdot nodes in the example. In **Draft
+settings**, replace `projectId` and `channelId` with IDs from your instance and
+enter the text you want to prepare. You can find IDs using the node's **Project /
+Get Many** and **Channel / Get Many** operations. When configuring a Postdot node
+directly, its project and channel fields also offer lists of accessible choices.
+
+Use **Automatic** for a connected publishing destination, or **Manual** for a
+channel you publish yourself. This selects the eventual delivery method. Both
+choices save an unscheduled draft.
+
+Run the workflow once. **Create Postdot draft** returns the source `post` and its
+`publications`; **Read saved publication** uses the returned publication ID to
+read its saved state. Check `publication.state`, `publication.scheduledAt` and the
+draft's validation results. A saved draft can require editing for the destination,
+particularly when that destination requires media. HTTP success does not mean
+that a social network received a publication.
+
+Open **Queue** in Studio to review the draft. This first operation prepares plain
+text for one destination. It does not upload media, connect provider accounts or
+schedule delivery.
+
+## Handle errors before repeating a write
+
+Keep **Retry On Fail** disabled on Create Draft, as it is in the example. Postdot
+may save the draft even when n8n loses the response. Inspect Queue or the API's
+publication list before running the creation again. A fresh run creates a new
+post; the node does not deduplicate source items. Several input items also create
+several posts.
+
+An invalid or revoked key returns `401`. A request outside the key's actions or
+its owner's permissions may return `403`; a project outside the key's scope can
+return `404`. Correct the credential or selection rather than granting broader
+access without identifying the refusal.
+
+You can use **Publication / Get** to inspect a known publication later. Its state
+and recorded outcome come from Postdot; it does not trigger a new delivery.
