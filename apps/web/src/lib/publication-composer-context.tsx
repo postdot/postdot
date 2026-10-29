@@ -31,7 +31,7 @@ import { providerRegistry } from '@/providers/registry'
 export type PublicationCreationMode = 'draft' | 'schedule'
 
 function useComposerSession() {
-    const { project, channels, activeChannels } = useProjectDashboard()
+    const { project, channels, activeChannels, access } = useProjectDashboard()
     const userId = useDashboardGlobal().session.user.id
     const queryClient = useQueryClient()
     const { error, pending, setError, runAction } = useProjectAction()
@@ -146,6 +146,7 @@ function useComposerSession() {
             (input): input is NonNullable<typeof input> => input !== null
         )
 
+        const accessEpoch = access.captureEpoch()
         let createdPublications: Publication[] | null = null
         const succeeded = await runAction(async () => {
             try {
@@ -185,6 +186,7 @@ function useComposerSession() {
                         }
                     })
                 )
+                if (!access.isCurrent(accessEpoch) || !access.canWrite()) return
                 const response = await api.createPost(project.id, {
                     expectedUserId: userId,
                     title: postTitle.trim() === '' ? undefined : postTitle,
@@ -197,7 +199,7 @@ function useComposerSession() {
                     },
                     publications,
                 })
-                createdPublications = response.publications
+                if (!access.isCurrent(accessEpoch) || !access.canWrite()) return
                 let tagAssignmentError: unknown = null
                 if (publicationTagIds.length > 0) {
                     try {
@@ -214,6 +216,8 @@ function useComposerSession() {
                         tagAssignmentError = caughtError
                     }
                 }
+                if (!access.isCurrent(accessEpoch) || !access.canWrite()) return
+                createdPublications = response.publications
                 setPostTitle('')
                 setPostContent('')
                 setSourceMedia([])

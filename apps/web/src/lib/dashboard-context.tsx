@@ -7,6 +7,7 @@ import {
     type ProjectCategory,
     type WorkspaceListItem,
 } from '@/lib/api'
+import { ProjectAccessContext, useProjectAccess } from '@/lib/project-access'
 import { projectResourceQueries } from '@/lib/project-resources'
 
 import type { loadProjectShell } from './project-shell-loader'
@@ -99,7 +100,9 @@ function useProjectShell(project: Project, initialData: ProjectShellData) {
     }
 }
 
-type ProjectDashboardContextValue = ReturnType<typeof useProjectShell>
+type ProjectDashboardContextValue = ReturnType<typeof useProjectShell> & {
+    access: ReturnType<typeof useProjectAccess>
+}
 const ProjectDashboardContext =
     (import.meta.hot?.data.projectDashboardContext as
         | Context<ProjectDashboardContextValue | null>
@@ -115,11 +118,15 @@ export function ProjectDashboardProvider({
     readonly initialData: ProjectShellData
     readonly project: Project
 }) {
-    const value = useProjectShell(project, initialData)
+    const shell = useProjectShell(project, initialData)
+    const access = useProjectAccess(project.id, shell.projectRole)
+    const value = { ...shell, access }
     return (
-        <ProjectDashboardContext.Provider value={value}>
-            {children}
-        </ProjectDashboardContext.Provider>
+        <ProjectAccessContext.Provider value={access}>
+            <ProjectDashboardContext.Provider value={value}>
+                {children}
+            </ProjectDashboardContext.Provider>
+        </ProjectAccessContext.Provider>
     )
 }
 

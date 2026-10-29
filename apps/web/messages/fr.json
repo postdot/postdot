@@ -2592,5 +2592,7 @@
     "composer_conflict_use_saved": "Utiliser la version enregistrée",
     "composer_conflict_start_new": "Commencer un nouveau brouillon",
     "composer_conflict_refresh": "Actualiser la version enregistrée",
-    "composer_conflict_read_failed": "La version enregistrée n’a pas pu être chargée. Actualisez-la avant de choisir une version."
+    "composer_conflict_read_failed": "La version enregistrée n’a pas pu être chargée. Actualisez-la avant de choisir une version.",
+    "project_access_unconfirmed_title": "Impossible de vérifier l’accès au projet",
+    "project_access_unconfirmed_description": "Cette page est en pause tant que l’accès ne peut pas être vérifié."
 }

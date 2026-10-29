@@ -85,7 +85,13 @@ function PublicationEditorRoute() {
         publicationTags,
         relatedPublications,
     } = Route.useLoaderData()
-    const { activeChannels, connections, project, projectRole } = useProjectDashboard()
+    const {
+        activeChannels,
+        connections,
+        project,
+        projectRole,
+        access: projectAccess,
+    } = useProjectDashboard()
     const { onCancelPublications, onPublish, onRetryPublication } = useProjectPublicationActions()
     const { onCreateProjectTag } = useProjectTagActions(project.id)
     const [access, dispatchAccess] = useReducer(
@@ -151,8 +157,9 @@ function PublicationEditorRoute() {
     )
 
     const retryAccessVerification = useCallback(() => {
+        if (projectAccess.status === 'technical-error') void projectAccess.verify()
         requestVerification('retry-verification')
-    }, [requestVerification])
+    }, [requestVerification, projectAccess.status, projectAccess.verify])
 
     const handleAccessReconciled = useCallback((succeeded: boolean) => {
         dispatchAccess({ type: succeeded ? 'reconcile-succeeded' : 'reconcile-failed' })

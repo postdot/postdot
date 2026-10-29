@@ -98,7 +98,8 @@ export function NewPublicationPage({
 }) {
     const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
-    const { activeChannels, channels, connections, project, projectRole } = useProjectDashboard()
+    const { activeChannels, channels, connections, project, projectRole, access } =
+        useProjectDashboard()
     const userId = useDashboardGlobal().session.user.id
     const {
         error,
@@ -295,7 +296,12 @@ export function NewPublicationPage({
     serverDraftRef.current = serverDraft
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        if (!access.canWrite()) {
+            event.preventDefault()
+            return
+        }
         event.preventDefault()
+        const accessEpoch = access.captureEpoch()
         if (
             autosaveConflict.current ||
             authoringPaused.current ||
@@ -304,6 +310,7 @@ export function NewPublicationPage({
             return
         if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
         await autosaveQueue.current.catch(() => undefined)
+        if (!access.isCurrent(accessEpoch) || !access.canWrite()) return
 
         const submitter = (event.nativeEvent as SubmitEvent).submitter
         const mode: PublicationCreationMode =
@@ -317,6 +324,7 @@ export function NewPublicationPage({
         )
             return
         const publications = await currentCreatePost.current(event, mode, pauseForSessionError)
+        if (!access.isCurrent(accessEpoch)) return
         if (publications !== null) {
             clearPublicationRecovery(project.id, userId)
             await discardServerDraft()
@@ -384,6 +392,7 @@ export function NewPublicationPage({
     }
 
     async function discardServerDraft() {
+        if (!access.canWrite()) return false
         if (serverDraftRef.current === null) return true
 
         try {
@@ -451,7 +460,7 @@ export function NewPublicationPage({
     }
 
     async function resolveConflict(useLocal: boolean) {
-        if (recovery === null || conflictBusy || !conflictVersionKnown) return
+        if (!access.canWrite() || recovery === null || conflictBusy || !conflictVersionKnown) return
         setConflictBusy(true)
         setAutosaveError(null)
         try {
@@ -584,14 +593,20 @@ export function NewPublicationPage({
     }, [project.id, serverDraftLoadAttempt, userId])
 
     useEffect(() => {
-        if (!serverDraftReady || recoveryPromptOpen.current || autosaveConflict.current) return
+        if (
+            !access.canWrite() ||
+            !serverDraftReady ||
+            recoveryPromptOpen.current ||
+            autosaveConflict.current
+        )
+            return
 
         if (!hasCurrentComposerContent) {
             if (serverDraftRef.current === null) return
             autosaveQueue.current = autosaveQueue.current
                 .catch(() => undefined)
                 .then(async () => {
-                    if (autosaveConflict.current) return
+                    if (!access.canWrite() || autosaveConflict.current) return
                     await discardServerDraft()
                 })
             return
@@ -603,7 +618,8 @@ export function NewPublicationPage({
             autosaveQueue.current = autosaveQueue.current
                 .catch(() => undefined)
                 .then(async () => {
-                    if (autosaveConflict.current) return
+                    if (!access.canWrite() || autosaveConflict.current) return
+                    const accessEpoch = access.captureEpoch()
                     setAutosaveState('saving')
                     setAutosaveError(null)
                     try {
@@ -614,10 +630,13 @@ export function NewPublicationPage({
                             serverDraftRef.current?.id,
                             userId
                         )
+                        if (!access.isCurrent(accessEpoch)) return
                         serverDraftRef.current = response.draft
                         setServerDraft(response.draft)
                         setAutosaveState('saved')
                     } catch (caughtError) {
+                        if (!access.isCurrent(accessEpoch)) return
+                        access.reportRefusal(caughtError)
                         setAutosaveError(formatApiError(caughtError))
                         if (pauseForSessionError(caughtError)) return
                         if (
@@ -636,6 +655,7 @@ export function NewPublicationPage({
             autosaveTimer.current = undefined
         }
     }, [
+        access.status,
         activeContentScopeId,
         activePublicationTabId,
         customizedContentTargetIds,
@@ -1338,7 +1358,8 @@ export function NewPublicationPage({
                                         onAssetsChange={setAvailableMedia}
                                         onPreparationChange={reportMediaPreparation}
                                         onError={pauseForSessionError}
-                                        disabled={pending}
+                                        disabled={pending || access.status !== 'confirmed'}
+                                        readOnly={!access.canWrite()}
                                     />
                                 </div>
 

@@ -2592,5 +2592,7 @@
     "composer_conflict_use_saved": "Use saved version",
     "composer_conflict_start_new": "Start a new draft",
     "composer_conflict_refresh": "Refresh saved version",
-    "composer_conflict_read_failed": "The saved version could not be loaded. Refresh it before choosing a version."
+    "composer_conflict_read_failed": "The saved version could not be loaded. Refresh it before choosing a version.",
+    "project_access_unconfirmed_title": "Project access could not be verified",
+    "project_access_unconfirmed_description": "This page is paused until access can be checked."
 }

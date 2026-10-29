@@ -6,8 +6,8 @@ import { readFrame, readFrames as readFramesFrom } from './realtime-stream-reade
 // WEB-312 pins how the open project event stream reacts when a user's access to
 // the project changes while the tab is connected. The gate is re-evaluated on
 // every pull, and an idle stream is pulled again by the heartbeat, so losing
-// access is reported within one heartbeat interval. Narrowing a role leaves the
-// gate satisfied, so nothing is reported at all.
+// access is reported within one heartbeat interval. An effective role change
+// requests a membership recheck without closing an authorized stream (WEB-598).
 
 const projectId = 'web-312-project'
 const shortHeartbeatIntervalMs = 25
@@ -59,25 +59,28 @@ describe('WEB-312 live access revocation on the project stream', () => {
         expect(closed.done).toBe(true)
     })
 
-    it('stays silent when the same user is only narrowed to a lower role', async () => {
-        const authorized = { value: true }
-        const stream = createStream(authorized)
-        const reader = stream.getReader()
-        const decoder = new TextDecoder()
-
+    it('announces a changed role without closing the authorized stream', async () => {
+        const role: { value: 'editor' | 'viewer' } = { value: 'editor' }
+        const reader = createProjectEventStream({
+            request: new Request(`http://localhost/api/projects/${projectId}/events`),
+            projectId,
+            journal: { readAfter: () => [] },
+            after: null,
+            isAuthorized: () => role.value,
+            options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
+        }).getReader()
         await reader.read()
-
-        // A narrower role still satisfies the access gate, so the stream keeps
-        // sends heartbeats and reports nothing: the client cannot learn the new role
-        // from the stream.
+        await readFrame(reader)
+        role.value = 'viewer'
         let text = ''
-        for (let index = 0; index < 4; index += 1) {
-            const chunk = await reader.read()
-            expect(chunk.done).toBe(false)
-            text += decoder.decode(chunk.value)
+        while (!text.includes('project.access-changed')) {
+            const next = await reader.read()
+            expect(next.done).toBe(false)
+            text += new TextDecoder().decode(next.value)
         }
+        expect(text).toContain(`"projectId":"${projectId}"`)
         expect(text).not.toContain('access-revoked')
-        expect(text).not.toContain('resync-required')
+        expect(text).not.toContain('viewer')
         await reader.cancel()
     })
 

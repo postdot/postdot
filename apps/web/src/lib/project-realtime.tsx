@@ -94,6 +94,7 @@ export type ProjectRealtimeSignal =
     | { readonly kind: 'update'; readonly event: ProjectRealtimeEvent }
     | { readonly kind: 'resync-required'; readonly reason: string }
     | { readonly kind: 'access-revoked' }
+    | { readonly kind: 'access-changed' }
 
 export type ProjectRealtimeStatus = 'connected' | 'disconnected'
 
@@ -178,6 +179,11 @@ export class BrowserProjectRealtimeEventSource implements ProjectRealtimeEventSo
             const reason = typeof value?.reason === 'string' ? value.reason : 'unknown'
             for (const listener of this.listeners) listener({ kind: 'resync-required', reason })
         })
+        this.eventSource.addEventListener('project.access-changed', event => {
+            const value = parseJsonObject(event.data)
+            if (value?.projectId !== this.projectId) return
+            for (const listener of this.listeners) listener({ kind: 'access-changed' })
+        })
         this.eventSource.addEventListener('project.access-revoked', event => {
             const value = parseJsonObject(event.data)
             if (value?.projectId !== this.projectId) return
@@ -245,9 +251,9 @@ type ProjectAccessRevocationListener = () => void
 const projectAccessRevocationListeners = new Map<string, Set<ProjectAccessRevocationListener>>()
 
 /**
- * Local fan-out for the project `access-revoked` signal. The stream itself is
- * unchanged: subscribers only observe the same ambiguous signal the bridge
- * already handles, so no transport behavior changes.
+ * Local request to verify project access after either an ambiguous revocation
+ * signal or an effective-role change. Neither signal itself establishes that
+ * the project must be removed from the interface.
  */
 export function subscribeProjectAccessRevocation(
     projectId: string,
@@ -271,6 +277,20 @@ export function notifyProjectAccessRevocation(projectId: string): void {
             // A subscriber must never break the bridge refresh path.
         }
     }
+}
+
+const projectAccessRestorationListeners = new Map<string, Set<() => void>>()
+function subscribeProjectAccessRestoration(projectId: string, listener: () => void) {
+    const listeners = projectAccessRestorationListeners.get(projectId) ?? new Set()
+    listeners.add(listener)
+    projectAccessRestorationListeners.set(projectId, listeners)
+    return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) projectAccessRestorationListeners.delete(projectId)
+    }
+}
+export function restartProjectRealtime(projectId: string) {
+    for (const listener of projectAccessRestorationListeners.get(projectId) ?? []) listener()
 }
 
 export function ProjectRealtimeProvider({
@@ -428,6 +448,11 @@ function UserRealtimeBridge() {
 
 function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
     const queryClient = useQueryClient()
+    const [restart, setRestart] = useState(0)
+    useEffect(
+        () => subscribeProjectAccessRestoration(projectId, () => setRestart(value => value + 1)),
+        [projectId]
+    )
 
     useEffect(() => {
         const source = createProjectRealtimeClient(projectId)
@@ -535,7 +560,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     void refresh('notifications', true)
                     return
                 }
-                if (signal.kind === 'access-revoked') {
+                if (signal.kind === 'access-revoked' || signal.kind === 'access-changed') {
                     notifyProjectAccessRevocation(projectId)
                     void refresh('project', true)
                     void refresh('notifications', true)
@@ -577,7 +602,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
             unsubscribe()
             source.close()
         }
-    }, [projectId, queryClient])
+    }, [projectId, queryClient, restart])
 
     return null
 }

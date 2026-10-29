@@ -109,7 +109,12 @@ interface ProjectEventStreamInput {
     readonly journal: Pick<EventJournalStore, 'readAfter'>
     readonly after: EventJournalCursor | null
     readonly projectChanges?: ProjectRealtimeHub
-    readonly isAuthorized?: () => boolean | Promise<boolean>
+    readonly isAuthorized?: () =>
+        | boolean
+        | 'owner'
+        | 'editor'
+        | 'viewer'
+        | Promise<boolean | 'owner' | 'editor' | 'viewer'>
     readonly options?: ProjectEventStreamOptions
 }
 
@@ -234,10 +239,10 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                     projectChanges,
                     isAuthorized: async () => {
                         const session = await auth.api.getSession({ headers: request.headers })
-                        return (
-                            session !== null &&
-                            access.canAccessProject(params.projectId, session.user.id)
-                        )
+                        return session === null
+                            ? false
+                            : (access.getProjectMembership(params.projectId, session.user.id)
+                                  ?.role ?? false)
                     },
                 }),
                 {
@@ -363,6 +368,7 @@ export function createProjectEventStream({
 }: ProjectEventStreamInput): ReadableStream<Uint8Array> {
     const streamOptions = normalizeStreamOptions(options)
     const encoder = new TextEncoder()
+    let confirmedAccess: boolean | string | undefined
     let scanCursor = after
     let lastSequence = after === null ? 0 : eventJournalCursorSequence(after)
     let heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
@@ -451,7 +457,18 @@ export function createProjectEventStream({
     ): Promise<boolean> {
         if (isAuthorized === undefined) return true
         try {
-            if (await isAuthorized()) return true
+            const current = await isAuthorized()
+            if (current) {
+                if (confirmedAccess !== undefined && current !== confirmedAccess) {
+                    controller.enqueue(
+                        encoder.encode(
+                            `event: project.access-changed\ndata: ${JSON.stringify({ projectId })}\n\n`
+                        )
+                    )
+                }
+                confirmedAccess = current
+                return true
+            }
         } catch {
             // Treat an authorization lookup failure as a revocation. A stream
             // must fail closed rather than continue serving project events.

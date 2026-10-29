@@ -20,6 +20,7 @@ import { QueryErrorState } from '@/components/query-error-state'
 import { ApiError, api, formatApiError } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import { useOptionalProjectAccess } from '@/lib/project-access'
 import { projectQueryKeys } from '@/lib/project-query-keys'
 import * as m from '@/paraglide/messages.js'
 
@@ -48,6 +49,7 @@ export function ResourceLifecycleSection({
     readonly inArchives?: boolean
 }) {
     useLanguage()
+    const access = useOptionalProjectAccess()
     const global = useDashboardGlobal()
     const search = useSearch({ from: '/dashboard' })
     const params = useParams({ strict: false })
@@ -78,9 +80,9 @@ export function ResourceLifecycleSection({
         queryFn: () => api.listWorkspaces(),
         enabled: kind === 'workspace',
     })
+    if (impact.error instanceof ApiError && [403, 404].includes(impact.error.status)) return null
     if (impact.isError && !impact.data)
-        return impact.error instanceof ApiError &&
-            [403, 404].includes(impact.error.status) ? null : (
+        return (
             <div role="alert">
                 {m.lifecycle_refresh_required()}{' '}
                 <Button variant="outline" onClick={() => void impact.refetch()}>
@@ -116,7 +118,7 @@ export function ResourceLifecycleSection({
         cancelled: m.publication_state_cancelled,
     }
     async function submit() {
-        if (!action || pending) return
+        if (!action || pending || (access !== null && !access.canWrite())) return
         setPending(true)
         setError(null)
         try {
@@ -143,6 +145,7 @@ export function ResourceLifecycleSection({
                 await navigate({ to: '/dashboard/settings/archives', search: archiveContext })
             await router.invalidate()
         } catch (caught) {
+            access?.reportRefusal(caught)
             setError(formatApiError(caught))
             await impact.refetch()
         } finally {

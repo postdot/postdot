@@ -1,7 +1,8 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
 import { Suspense } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
+import { ProjectAccessBoundary } from '@/components/project-access-boundary'
 import {
     ProjectLifecycleBoundary,
     useProjectLifecycle,
@@ -62,7 +63,17 @@ function ProjectDashboardFrame() {
     const global = useDashboardGlobal()
     const projectDashboard = useProjectDashboard()
     const lifecycle = useProjectLifecycle(projectDashboard.project.id)
+    const editorOwnsAccess = useMatches().some(
+        match => match.routeId === '/dashboard/projects/$projectId/publications/$publicationId'
+    )
 
+    if (projectDashboard.access.status === 'denied' && !editorOwnsAccess) {
+        return (
+            <ProjectAccessBoundary access={projectDashboard.access} editorOwnsAccess={false}>
+                {null}
+            </ProjectAccessBoundary>
+        )
+    }
     return (
         <ChannelIdentityProvider channels={projectDashboard.channels}>
             <DashboardShell
@@ -77,25 +88,32 @@ function ProjectDashboardFrame() {
                 projects={global.projects}
                 publisherConnections={projectDashboard.connections}
                 projectRole={
-                    lifecycle.data?.state === 'active' ? projectDashboard.projectRole : 'viewer'
+                    lifecycle.data?.state === 'active' &&
+                    projectDashboard.access.status === 'confirmed'
+                        ? projectDashboard.projectRole
+                        : 'viewer'
                 }
                 selectedProject={projectDashboard.project}
                 session={global.session}>
-                <Suspense
-                    fallback={
-                        <main
-                            aria-busy="true"
-                            className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-                            <h1 className="sr-only">{m.common_loading()}</h1>
-                            <p role="status" className="text-sm text-muted-foreground">
-                                {m.common_loading()}
-                            </p>
-                        </main>
-                    }>
-                    <ProjectLifecycleBoundary projectId={projectDashboard.project.id}>
-                        <Outlet />
-                    </ProjectLifecycleBoundary>
-                </Suspense>
+                <ProjectAccessBoundary
+                    access={projectDashboard.access}
+                    editorOwnsAccess={editorOwnsAccess}>
+                    <Suspense
+                        fallback={
+                            <main
+                                aria-busy="true"
+                                className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+                                <h1 className="sr-only">{m.common_loading()}</h1>
+                                <p role="status" className="text-sm text-muted-foreground">
+                                    {m.common_loading()}
+                                </p>
+                            </main>
+                        }>
+                        <ProjectLifecycleBoundary projectId={projectDashboard.project.id}>
+                            <Outlet />
+                        </ProjectLifecycleBoundary>
+                    </Suspense>
+                </ProjectAccessBoundary>
             </DashboardShell>
         </ChannelIdentityProvider>
     )

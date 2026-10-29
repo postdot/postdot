@@ -284,3 +284,16 @@ test('accepts scoped draft hints without treating them as durable events', () =>
     expect(signals).toEqual([{ kind: 'draft-changed', change }])
     source.close()
 })
+
+test('project access changes request verification without closing the stream', () => {
+    const fake = new FakeEventSource()
+    const client = createProjectRealtimeClient('project-1', () => fake)
+    const signals: unknown[] = []
+    client.subscribe(signal => signals.push(signal))
+    fake.emit('project.access-changed', JSON.stringify({ projectId: 'other-project' }))
+    expect(signals).toEqual([])
+    fake.emit('project.access-changed', JSON.stringify({ projectId: 'project-1' }))
+    expect(signals).toEqual([{ kind: 'access-changed' }])
+    expect(fake.closed).toBe(false)
+    client.close()
+})

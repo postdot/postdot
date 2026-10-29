@@ -42,6 +42,7 @@ import {
 } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { useOptionalProjectAccess } from '@/lib/project-access'
 import * as m from '@/paraglide/messages.js'
 
 type EditableProjectRole = Exclude<ProjectMemberRole, 'owner'>
@@ -84,6 +85,8 @@ export function ProjectMembersSection({
     workspaceId,
 }: ProjectMembersSectionProps) {
     const { locale } = useLanguage()
+    const access = useOptionalProjectAccess()
+    const [loadedAccessRevision, setLoadedAccessRevision] = useState<number | null>(null)
     const [members, setMembers] = useState<ProjectMember[] | null>(null)
     const [workspace, setWorkspace] = useState<WorkspaceSummary | null>(null)
     const [userGrants, setUserGrants] = useState<ProjectUserGrant[] | null>(null)
@@ -128,6 +131,7 @@ export function ProjectMembersSection({
 
                     const workspaceResponse = await api.getWorkspace(workspaceId)
                     if (cancelled) return
+                    setLoadedAccessRevision(access?.revision ?? 0)
                     setWorkspace(workspaceResponse)
 
                     if (!isWorkspaceAdmin(workspaceResponse)) {
@@ -158,6 +162,7 @@ export function ProjectMembersSection({
                 ])
                 if (cancelled) return
 
+                setLoadedAccessRevision(access?.revision ?? 0)
                 setMembers(memberResponse.members)
                 setWorkspace(accessSnapshot.workspace)
                 setUserGrants(accessSnapshot.userGrants)
@@ -174,11 +179,16 @@ export function ProjectMembersSection({
         return () => {
             cancelled = true
         }
-    }, [currentUserId, projectId, view, workspaceId])
+    }, [currentUserId, projectId, view, workspaceId, access?.revision])
 
+    const accessSnapshotConfirmed =
+        access === null ||
+        (access.status === 'confirmed' && loadedAccessRevision === access.revision)
     const canManageProject =
-        members?.some(member => member.userId === currentUserId && member.role === 'owner') ?? false
-    const canManageWorkspace = isWorkspaceAdmin(workspace)
+        accessSnapshotConfirmed &&
+        (members?.some(member => member.userId === currentUserId && member.role === 'owner') ??
+            false)
+    const canManageWorkspace = accessSnapshotConfirmed && isWorkspaceAdmin(workspace)
     const canManageAccess = canManageProject || canManageWorkspace
     const pendingInvitations =
         invitations?.filter(invitation => invitation.status === 'pending') ?? []
@@ -348,12 +358,14 @@ export function ProjectMembersSection({
     }
 
     async function runAction(action: string, operation: () => Promise<void>) {
+        if (access !== null && !access.canWrite()) return
         setError(null)
         setNotice(null)
         setPendingAction(action)
         try {
             await operation()
         } catch (caughtError) {
+            access?.reportRefusal(caughtError)
             setError(projectMembersErrorMessage(caughtError))
         } finally {
             setPendingAction(null)

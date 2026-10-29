@@ -28,10 +28,13 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 
 function NewPublicationRoute() {
     const { date, time, editor } = Route.useSearch()
-    const { project, projectRole } = useProjectDashboard()
+    const { project, projectRole, access } = useProjectDashboard()
     const lifecycle = useProjectLifecycle(project.id)
     if (!lifecycle.data) return null
-    if (projectRole === 'viewer' || lifecycle.data.state !== 'active') {
+    if (
+        (access.status === 'confirmed' && projectRole === 'viewer') ||
+        lifecycle.data.state !== 'active'
+    ) {
         return (
             <Navigate
                 to="/dashboard/projects/$projectId/queue"
