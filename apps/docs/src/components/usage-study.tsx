@@ -1,23 +1,19 @@
-import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { motion, useInView, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { useRef, useState } from 'react'
 import Mcp from '~icons/logos/model-context-protocol-icon'
-import N8n from '~icons/logos/n8n-icon'
 
 import { PostdotLogo } from './brand'
+import { ProductImage } from './product-image'
 
 import './public-home.css'
 import './usage-study.css'
-import { ProductImage } from './product-image'
+import { WorkflowIllustration } from './workflow-illustration'
 
 export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
     const [terminalRun, setTerminalRun] = useState(0)
-    const [workflowRun, setWorkflowRun] = useState(0)
     const terminal = useRef<HTMLDivElement>(null)
-    const workflow = useRef<SVGSVGElement>(null)
     const terminalVisible = useInView(terminal, { once: true, amount: 0.5 })
-    const workflowVisible = useInView(workflow, { once: true, amount: 0.5 })
     const stage = useRef<HTMLDivElement>(null)
     const reduced = useReducedMotion()
     const { scrollYProgress } = useScroll({ target: stage, offset: ['start end', 'end start'] })
@@ -96,75 +92,16 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                     </div>
                     <span className="usage-medium">Model Context Protocol</span>
                 </article>
-                <article
-                    className="usage-n8n"
-                    onPointerEnter={() => setWorkflowRun(value => value + 1)}>
+                <article className="usage-n8n">
                     <div className="usage-caption">
-                        <span className="usage-status" data-status="planned">
-                            Planned
+                        <span className="usage-status" data-status="available">
+                            Alpha
                         </span>
                         <h3>n8n</h3>
                         <p>Publishing, in your flow.</p>
                     </div>
-                    <motion.svg
-                        ref={workflow}
-                        key={workflowRun}
-                        data-playing={workflowVisible && !reduced}
-                        className="usage-workflow-art"
-                        viewBox="0 0 400 280"
-                        aria-hidden="true"
-                        initial={false}>
-                        <path
-                            className="usage-flow-track"
-                            d="M70 55H155Q200 55 200 100V140M200 140V180Q200 225 245 225H330"
-                        />
-                        <motion.path
-                            className="usage-flow-signal"
-                            d="M70 55H155Q200 55 200 100V140M200 140V180Q200 225 245 225H330"
-                            pathLength={1}
-                        />
-                        <rect
-                            className="usage-flow-node usage-flow-start"
-                            x="37"
-                            y="22"
-                            width="66"
-                            height="66"
-                            rx="3"
-                        />
-                        <CodeSquareIcon x={53} y={38} width={34} height={34} />
-                        <text x="117" y="39">
-                            Trigger
-                        </text>
-                        <rect
-                            className="usage-flow-hub"
-                            x="132"
-                            y="94"
-                            width="136"
-                            height="92"
-                            rx="3"
-                        />
-                        <N8n x="148" y="114" width="104" height="52" />
-                        <rect
-                            className="usage-flow-node usage-flow-end"
-                            x="297"
-                            y="192"
-                            width="66"
-                            height="66"
-                            rx="3"
-                        />
-                        <PostdotLogo x={311} y={206} width={38} height={38} />
-                        <text x="283" y="251" textAnchor="end">
-                            Create a draft
-                        </text>
-                    </motion.svg>
+                    <WorkflowIllustration />
                     <span className="usage-medium">Workflow integration</span>
-                    <button
-                        className="usage-art-replay"
-                        aria-label="Replay workflow animation"
-                        title="Replay workflow animation"
-                        onClick={() => setWorkflowRun(value => value + 1)}>
-                        <RestartIcon size={15} />
-                    </button>
                 </article>
                 <article
                     className="usage-cli usage-small"
@@ -312,8 +249,8 @@ export function UsageGallery({ embedded = false }: { embedded?: boolean }) {
                 </motion.article>
             </div>
             <p className="usage-study-note">
-                Studio, CLI/API and MCP exist today. Skills, n8n and mobile show the direction
-                ahead.
+                Studio, CLI/API, MCP and the n8n alpha exist today. Skills and mobile show the
+                direction ahead.
             </p>
         </section>
     )

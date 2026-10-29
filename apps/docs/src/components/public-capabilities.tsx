@@ -1,16 +1,11 @@
 // cspell:ignore مرحبًا
 
-import { CloudIcon } from '@solar-icons/react/linear/cloud'
-import { CodeSquareIcon } from '@solar-icons/react/linear/code-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
-import { PlayIcon } from '@solar-icons/react/linear/play'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
-import { UsersGroupRoundedIcon } from '@solar-icons/react/linear/users-group-rounded'
 import { motion, useReducedMotion } from 'motion/react'
-import Bluesky from '~icons/logos/bluesky'
-import LinkedIn from '~icons/logos/linkedin-icon'
 
+import { ChannelsScene, MediaScene, ProjectsScene } from './capability-scenes'
 import { PublicEntrance } from './public-entrance'
 
 import './public-capabilities.css'
@@ -24,12 +19,7 @@ export function PublicCapabilities() {
                 <p>Your content, media and collaborators, with a place for each.</p>
             </PublicEntrance>
             <div className="capabilities-grid">
-                <motion.article
-                    className="capability-projects"
-                    initial="rest"
-                    whileInView="open"
-                    whileHover={reduced ? 'rest' : 'hovered'}
-                    viewport={{ once: true, amount: 0.4 }}>
+                <article className="capability-projects">
                     <div className="capability-copy">
                         <h3>
                             Separate projects.
@@ -41,48 +31,9 @@ export function PublicCapabilities() {
                             posts, channels and media, with access you control.
                         </p>
                     </div>
-                    <div
-                        className="capability-workspace"
-                        role="img"
-                        aria-label="One workspace groups three separate projects: Your brand, Client work and Side project.">
-                        <div className="capability-workspace-label">
-                            <UsersGroupRoundedIcon size={18} />
-                            <span>Your workspace</span>
-                            <span>People & permissions</span>
-                        </div>
-                        <div className="capability-folders" aria-hidden="true">
-                            {['Your brand', 'Client work', 'Side project'].map((name, index) => (
-                                <motion.div
-                                    key={name}
-                                    className={`capability-folder capability-folder-${index}`}
-                                    variants={{
-                                        rest: { x: 0, rotate: 0 },
-                                        open: {
-                                            x: reduced ? 0 : (index - 1) * 14,
-                                            rotate: reduced ? 0 : (index - 1) * 5,
-                                        },
-                                        hovered: { x: (index - 1) * 23, rotate: (index - 1) * 8 },
-                                    }}
-                                    transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}>
-                                    <div className="capability-folder-paper">
-                                        <span>Posts</span>
-                                        <span>Channels</span>
-                                        <span>Media</span>
-                                    </div>
-                                    <div className="capability-folder-cover">
-                                        <span>{name}</span>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </div>
-                </motion.article>
-                <motion.article
-                    className="capability-media"
-                    initial="rest"
-                    whileInView="open"
-                    whileHover={reduced ? 'rest' : 'hovered'}
-                    viewport={{ once: true, amount: 0.4 }}>
+                    <ProjectsScene />
+                </article>
+                <article className="capability-media">
                     <div className="capability-copy">
                         <h3>
                             Your media.
@@ -94,74 +45,15 @@ export function PublicCapabilities() {
                             your S3-compatible bucket.
                         </p>
                     </div>
-                    <div
-                        className="capability-file-scene"
-                        role="img"
-                        aria-label="Images and videos share a media library, with previews kept separate from the originals.">
-                        <motion.div
-                            className="capability-file capability-video"
-                            aria-hidden="true"
-                            variants={{
-                                rest: { rotate: 0, x: 0 },
-                                open: { rotate: reduced ? 0 : 9, x: reduced ? 0 : 28 },
-                                hovered: { rotate: 13, x: 38 },
-                            }}
-                            transition={{ duration: 0.65 }}>
-                            <span>VIDEO</span>
-                            <div className="capability-video-frame">
-                                <PlayIcon size={35} />
-                            </div>
-                            <div className="capability-film-track">
-                                <i />
-                                <i />
-                                <i />
-                                <i />
-                                <i />
-                                <i />
-                            </div>
-                        </motion.div>
-                        <motion.div
-                            className="capability-file capability-image"
-                            aria-hidden="true"
-                            variants={{
-                                rest: { rotate: 0, x: 0 },
-                                open: { rotate: reduced ? 0 : -7, x: reduced ? 0 : -24 },
-                                hovered: { rotate: -11, x: -32 },
-                            }}
-                            transition={{ duration: 0.65 }}>
-                            <span>IMAGE</span>
-                            <div className="capability-image-frame">
-                                <GalleryIcon size={62} strokeWidth={1} />
-                            </div>
-                            <span className="capability-file-caption">Original + previews</span>
-                        </motion.div>
-                        <span className="capability-storage">
-                            <CloudIcon size={15} /> Local or S3-compatible
-                        </span>
-                    </div>
-                </motion.article>
+                    <MediaScene />
+                </article>
                 <article className="capability-detail capability-channels">
                     <h3>
                         Built-in channels.
                         <br />
                         Custom options, too.
                     </h3>
-                    <div
-                        className="capability-channel-pair"
-                        role="img"
-                        aria-label="Built-in social channels and custom HTTP destinations are both supported.">
-                        <div className="capability-channel-tile capability-built-in">
-                            <div aria-hidden="true">
-                                <LinkedIn />
-                                <Bluesky />
-                            </div>
-                            <span>Built-in</span>
-                        </div>
-                        <div className="capability-channel-tile capability-custom">
-                            <CodeSquareIcon size={38} aria-hidden="true" />
-                            <span>Custom</span>
-                        </div>
-                    </div>
+                    <ChannelsScene />
                     <p className="capability-small-caption">Connected, manual or custom.</p>
                 </article>
                 <motion.article

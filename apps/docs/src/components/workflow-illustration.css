@@ -1,0 +1,119 @@
+.usage-n8n .workflow-illustration {
+    --field-ink: #8a4658;
+    --field-route: #df4b76;
+    --field-draft: #c23c68;
+    --field-surface: #fcf2f0;
+    position: absolute;
+    top: 170px;
+    left: 0;
+    width: 100%;
+    height: 280px;
+    color: #8a4658;
+}
+.dark .usage-n8n .workflow-illustration {
+    --field-route: #f08aa6;
+    --field-draft: #f08aa6;
+    --field-surface: #422d35;
+    color: #ecc6cf;
+}
+.workflow-illustration .dot-field-canvas {
+    mask-image: none;
+}
+.workflow-trigger,
+.workflow-hub,
+.workflow-draft {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    border: 1px solid #d7afb7;
+    color: inherit;
+}
+.workflow-trigger,
+.workflow-draft {
+    width: 66px;
+    height: 66px;
+}
+.workflow-trigger {
+    left: 9.25%;
+    top: 22px;
+}
+.workflow-draft {
+    right: 9.25%;
+    top: 192px;
+}
+.workflow-draft > svg {
+    width: 34px;
+    height: 34px;
+}
+.workflow-hub {
+    left: 33%;
+    top: 94px;
+    width: 136px;
+    height: 92px;
+    padding: 16px;
+    background: #f5d2d9;
+}
+.workflow-hub > svg {
+    width: 100%;
+    height: auto;
+}
+.workflow-label {
+    position: absolute;
+    font-size: 12px;
+}
+.workflow-label-trigger {
+    left: 29.25%;
+    top: 28px;
+}
+.workflow-label-draft {
+    right: 29.5%;
+    top: 238px;
+}
+.dark .workflow-trigger,
+.dark .workflow-hub,
+.dark .workflow-draft {
+    border-color: #78515f;
+}
+.dark .workflow-hub {
+    background: #4a303c;
+}
+@media (min-width: 601px) and (max-width: 1000px) {
+    .usage-n8n .workflow-illustration {
+        top: 0;
+        left: 40%;
+        width: 56%;
+        height: 260px;
+    }
+    .workflow-hub {
+        top: 76px;
+    }
+    .workflow-draft {
+        top: 174px;
+    }
+    .workflow-label-draft {
+        top: 220px;
+    }
+}
+@media (max-width: 600px) {
+    .usage-n8n .workflow-illustration {
+        top: 125px;
+        height: 235px;
+    }
+    .workflow-trigger,
+    .workflow-draft {
+        width: 56px;
+        height: 56px;
+    }
+    .workflow-hub {
+        top: 80px;
+        width: 112px;
+        height: 76px;
+    }
+    .workflow-draft {
+        top: 166px;
+    }
+    .workflow-label-draft {
+        top: 205px;
+        right: 28%;
+    }
+}
