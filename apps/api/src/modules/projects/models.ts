@@ -816,6 +816,7 @@ export const activateChannelProfileBody = Type.Object({
 
 export const createPostBody = Type.Object(
     {
+        expectedUserId: Type.Optional(Type.String({ minLength: 1 })),
         cadenceConfirmation: Type.Optional(Type.String({ minLength: 64, maxLength: 64 })),
         title: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
         sourceContent: sourceContentSchema,
@@ -848,6 +849,7 @@ export const createPostBody = Type.Object(
 )
 
 export const savePublicationComposerDraftBody = Type.Object({
+    expectedUserId: Type.Optional(Type.String({ minLength: 1 })),
     expectedDraftId: Type.Optional(Type.String({ minLength: 1 })),
     expectedRevision: Type.Integer({ minimum: 0 }),
     content: publicationComposerDraftContentSchema,

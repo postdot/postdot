@@ -50,7 +50,7 @@ export function ChannelManagementPage({
     startCreating = false,
 }: ChannelManagementPageProps) {
     useLanguage()
-    const { isInstanceAdmin, projects } = useDashboardGlobal()
+    const { isInstanceAdmin, projects, session } = useDashboardGlobal()
     const { channels, connections, project, projectRole } = useProjectDashboard()
     const { postContent, postTitle, publicationTargets, sourceMedia } = usePublicationComposer()
     const {
@@ -75,7 +75,7 @@ export function ChannelManagementPage({
             publicationTargets,
             sourceMedia,
         }) ||
-            readPublicationRecovery(project.id) !== null)
+            readPublicationRecovery(project.id, session.user.id) !== null)
     const backLabel = canResumeComposition
         ? m.publication_resume_composition()
         : m.nav_back_to_overview()

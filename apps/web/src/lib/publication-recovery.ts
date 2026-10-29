@@ -44,8 +44,13 @@ export interface PublicationRecoveryInput {
     readonly activeContentScopeId: string
 }
 
-export function publicationRecoveryKey(projectId: string) {
-    return `postdot:publication-composer:v${recoveryVersion}:${encodeURIComponent(projectId)}`
+/**
+ * Browser recovery belongs to one author in one project. Entries written before authors were
+ * recorded use the unscoped key; they are never read or removed under an account, so no account
+ * inherits their bytes.
+ */
+export function publicationRecoveryKey(projectId: string, userId: string) {
+    return `postdot:publication-composer:v${recoveryVersion}:${encodeURIComponent(projectId)}:user:${encodeURIComponent(userId)}`
 }
 
 export function hasRecoverablePublicationContent(
@@ -62,10 +67,13 @@ export function hasRecoverablePublicationContent(
     )
 }
 
-export function readPublicationRecovery(projectId: string): PublicationRecoveryState | null {
+export function readPublicationRecovery(
+    projectId: string,
+    userId: string
+): PublicationRecoveryState | null {
     for (const storage of recoveryStorages()) {
         try {
-            const raw = storage.getItem(publicationRecoveryKey(projectId))
+            const raw = storage.getItem(publicationRecoveryKey(projectId, userId))
             if (raw === null) continue
             const value: unknown = JSON.parse(raw)
             if (isPublicationRecoveryState(value)) return value
@@ -76,10 +84,14 @@ export function readPublicationRecovery(projectId: string): PublicationRecoveryS
     return null
 }
 
-export function writePublicationRecovery(projectId: string, input: PublicationRecoveryInput) {
-    const key = publicationRecoveryKey(projectId)
+export function writePublicationRecovery(
+    projectId: string,
+    userId: string,
+    input: PublicationRecoveryInput
+) {
+    const key = publicationRecoveryKey(projectId, userId)
     if (!hasRecoverablePublicationContent(input)) {
-        clearPublicationRecovery(projectId)
+        clearPublicationRecovery(projectId, userId)
         return
     }
 
@@ -112,10 +124,10 @@ export function writePublicationRecovery(projectId: string, input: PublicationRe
     }
 }
 
-export function clearPublicationRecovery(projectId: string) {
+export function clearPublicationRecovery(projectId: string, userId: string) {
     for (const storage of recoveryStorages()) {
         try {
-            storage.removeItem(publicationRecoveryKey(projectId))
+            storage.removeItem(publicationRecoveryKey(projectId, userId))
         } catch {
             /* Recovery is best effort. */
         }

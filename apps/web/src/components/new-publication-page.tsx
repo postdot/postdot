@@ -42,7 +42,7 @@ import {
     type PublicationComposerDraft,
 } from '@/lib/api'
 import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { formatCivilSchedule } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -90,6 +90,7 @@ export function NewPublicationPage({
     const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
     const { activeChannels, channels, connections, project, projectRole } = useProjectDashboard()
+    const userId = useDashboardGlobal().session.user.id
     const {
         error,
         onCreatePost,
@@ -118,7 +119,7 @@ export function NewPublicationPage({
     })
     const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
     const canCreateProjectTag = projectRole === 'owner' || projectRole === 'editor'
-    const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id))
+    const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id, userId))
     const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
     const appliedCalendarSlot = useRef<string | undefined>(undefined)
     const currentTargetIds = new Set(publicationTargets.map(target => target.id))
@@ -167,7 +168,7 @@ export function NewPublicationPage({
     const [serverDraftLoadAttempt, setServerDraftLoadAttempt] = useState(0)
     const [discardingRecovery, setDiscardingRecovery] = useState(false)
     const [autosaveState, setAutosaveState] = useState<
-        'idle' | 'saving' | 'saved' | 'error' | 'conflict'
+        'idle' | 'saving' | 'saved' | 'error' | 'conflict' | 'account'
     >('idle')
     const [autosaveError, setAutosaveError] = useState<string | null>(null)
     const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(() =>
@@ -179,6 +180,7 @@ export function NewPublicationPage({
         )
     )
     const autosaveConflict = useRef(false)
+    const accountChanged = useRef(false)
     const [conflictBusy, setConflictBusy] = useState(false)
     const [conflictVersionKnown, setConflictVersionKnown] = useState(false)
     const recoveryPromptOpen = useRef(recovery !== null)
@@ -276,7 +278,7 @@ export function NewPublicationPage({
     serverDraftRef.current = serverDraft
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-        if (autosaveConflict.current) {
+        if (autosaveConflict.current || accountChanged.current) {
             event.preventDefault()
             return
         }
@@ -290,7 +292,7 @@ export function NewPublicationPage({
                 : 'schedule'
         const publications = await onCreatePost(event, mode)
         if (publications !== null) {
-            clearPublicationRecovery(project.id)
+            clearPublicationRecovery(project.id, userId)
             await discardServerDraft()
             recoveryPromptOpen.current = false
             setRecovery(null)
@@ -308,7 +310,7 @@ export function NewPublicationPage({
         if (recovery === null || !serverDraftReady || discardingRecovery) return
 
         applyComposerContent(recoveredComposerContent(recovery))
-        clearPublicationRecovery(project.id)
+        clearPublicationRecovery(project.id, userId)
         recoveryPromptOpen.current = false
         setRecovery(null)
     }
@@ -334,12 +336,22 @@ export function NewPublicationPage({
         setDiscardingRecovery(true)
         try {
             if (!(await discardServerDraft())) return
-            clearPublicationRecovery(project.id)
+            clearPublicationRecovery(project.id, userId)
             recoveryPromptOpen.current = false
             setRecovery(null)
         } finally {
             setDiscardingRecovery(false)
         }
+    }
+
+    /** Another tab signed in as someone else: this page's cookie no longer belongs to its author. */
+    function pauseForAccountChange() {
+        accountChanged.current = true
+        autosaveConflict.current = true
+        // Any open comparison or recovery choice was built from this page's account.
+        recoveryPromptOpen.current = false
+        setRecovery(null)
+        setAutosaveState('account')
     }
 
     async function discardServerDraft() {
@@ -349,7 +361,8 @@ export function NewPublicationPage({
             await api.deletePublicationComposerDraft(
                 project.id,
                 serverDraftRef.current.revision,
-                serverDraftRef.current.id
+                serverDraftRef.current.id,
+                userId
             )
             serverDraftRef.current = null
             setServerDraft(null)
@@ -357,7 +370,9 @@ export function NewPublicationPage({
             setAutosaveError(null)
             return true
         } catch (caughtError) {
-            if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
+            if (caughtError instanceof ApiError && caughtError.code === 'account_changed') {
+                pauseForAccountChange()
+            } else if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 autosaveConflict.current = true
                 setAutosaveState('conflict')
             } else setAutosaveState('error')
@@ -395,11 +410,13 @@ export function NewPublicationPage({
         setConflictVersionKnown(false)
         setAutosaveError(null)
         try {
-            const { draft } = await api.getPublicationComposerDraft(project.id)
+            const { draft } = await api.getPublicationComposerDraft(project.id, userId)
             serverDraftRef.current = draft
             setServerDraft(draft)
             setConflictVersionKnown(true)
         } catch (caught) {
+            if (caught instanceof ApiError && caught.code === 'account_changed')
+                pauseForAccountChange()
             setAutosaveError(formatApiError(caught))
         } finally {
             setConflictBusy(false)
@@ -418,12 +435,13 @@ export function NewPublicationPage({
                     project.id,
                     serverDraftRef.current?.revision ?? 0,
                     chosen,
-                    serverDraftRef.current?.id
+                    serverDraftRef.current?.id,
+                    userId
                 )
                 serverDraftRef.current = draft
                 setServerDraft(draft)
             } else {
-                const { draft } = await api.getPublicationComposerDraft(project.id)
+                const { draft } = await api.getPublicationComposerDraft(project.id, userId)
                 serverDraftRef.current = draft
                 setServerDraft(draft)
                 chosen = draft?.content ?? {
@@ -450,13 +468,19 @@ export function NewPublicationPage({
             setAutosaveState('saved')
         } catch (caught) {
             setAutosaveError(formatApiError(caught))
+            if (caught instanceof ApiError && caught.code === 'account_changed') {
+                pauseForAccountChange()
+                return
+            }
             // A refused replacement must show the latest version before another choice.
             try {
-                const { draft } = await api.getPublicationComposerDraft(project.id)
+                const { draft } = await api.getPublicationComposerDraft(project.id, userId)
                 serverDraftRef.current = draft
                 setServerDraft(draft)
                 setConflictVersionKnown(true)
-            } catch {
+            } catch (refreshError) {
+                if (refreshError instanceof ApiError && refreshError.code === 'account_changed')
+                    pauseForAccountChange()
                 setConflictVersionKnown(false)
             }
         } finally {
@@ -479,14 +503,14 @@ export function NewPublicationPage({
         setServerDraftLoadFailed(false)
 
         void api
-            .getPublicationComposerDraft(project.id)
+            .getPublicationComposerDraft(project.id, userId)
             .then(({ draft }) => {
                 if (cancelled) return
                 serverDraftRef.current = draft
                 setServerDraft(draft)
                 setServerDraftReady(true)
 
-                const localRecovery = readPublicationRecovery(project.id)
+                const localRecovery = readPublicationRecovery(project.id, userId)
                 if (
                     localRecovery !== null &&
                     !(
@@ -521,15 +545,19 @@ export function NewPublicationPage({
                     setRecovery(serverRecovery)
                 }
             })
-            .catch(() => {
+            .catch(caught => {
                 if (cancelled) return
+                if (caught instanceof ApiError && caught.code === 'account_changed') {
+                    pauseForAccountChange()
+                    return
+                }
                 setServerDraftLoadFailed(true)
             })
 
         return () => {
             cancelled = true
         }
-    }, [project.id, serverDraftLoadAttempt])
+    }, [project.id, serverDraftLoadAttempt, userId])
 
     useEffect(() => {
         if (!serverDraftReady || recoveryPromptOpen.current || autosaveConflict.current) return
@@ -559,13 +587,19 @@ export function NewPublicationPage({
                             project.id,
                             serverDraftRef.current?.revision ?? 0,
                             content,
-                            serverDraftRef.current?.id
+                            serverDraftRef.current?.id,
+                            userId
                         )
                         serverDraftRef.current = response.draft
                         setServerDraft(response.draft)
                         setAutosaveState('saved')
                     } catch (caughtError) {
                         if (
+                            caughtError instanceof ApiError &&
+                            caughtError.code === 'account_changed'
+                        ) {
+                            pauseForAccountChange()
+                        } else if (
                             caughtError instanceof ApiError &&
                             caughtError.code === 'write_conflict'
                         ) {
@@ -600,8 +634,9 @@ export function NewPublicationPage({
     ])
 
     useEffect(() => {
-        if (recoveryPromptOpen.current) return
-        writePublicationRecovery(project.id, {
+        // Closing a refused recovery choice must not replace its snapshot with the empty form.
+        if (recoveryPromptOpen.current || accountChanged.current) return
+        writePublicationRecovery(project.id, userId, {
             serverDraftId: serverDraftReady
                 ? serverDraftRef.current?.id
                 : localRecoveryAtMount?.serverDraftId,
@@ -635,6 +670,7 @@ export function NewPublicationPage({
         publicationTagIds,
         publicationTargets,
         sourceMedia,
+        userId,
         serverDraft,
         serverDraftReady,
         localRecoveryAtMount,
@@ -933,6 +969,19 @@ export function NewPublicationPage({
                     </DialogContent>
                 </Dialog>
             ) : null}
+            {autosaveState === 'account' ? (
+                <Alert className="mb-6" role="alert">
+                    <AlertTitle>{m.composer_account_changed_title()}</AlertTitle>
+                    <AlertDescription>{m.composer_account_changed_notice()}</AlertDescription>
+                    <Button
+                        className="mt-3"
+                        onClick={() => window.location.reload()}
+                        type="button"
+                        variant="outline">
+                        {m.composer_account_changed_reload()}
+                    </Button>
+                </Alert>
+            ) : null}
             {recovery === null && autosaveState === 'conflict' ? (
                 <Alert className="mb-6">
                     <AlertTitle>{m.composer_conflict_title()}</AlertTitle>
@@ -946,7 +995,7 @@ export function NewPublicationPage({
                     </Button>
                 </Alert>
             ) : null}
-            {recovery === null && !serverDraftReady ? (
+            {recovery === null && !serverDraftReady && autosaveState !== 'account' ? (
                 serverDraftLoadFailed ? (
                     <QueryErrorState
                         className="mb-6"
@@ -971,7 +1020,7 @@ export function NewPublicationPage({
                 aria-busy={!serverDraftReady}
                 className={cn(recovery !== null && 'opacity-55')}
                 data-new-publication-form="true"
-                inert={!serverDraftReady || recovery !== null}
+                inert={!serverDraftReady || recovery !== null || autosaveState === 'account'}
                 onSubmit={event => void handleSubmit(event)}>
                 <section data-new-publication-workspace="true">
                     <PublicationComposer
@@ -1272,7 +1321,11 @@ export function NewPublicationPage({
                                             type="submit"
                                             value="draft"
                                             variant="ghost"
-                                            disabled={pending || autosaveState === 'conflict'}>
+                                            disabled={
+                                                pending ||
+                                                autosaveState === 'conflict' ||
+                                                autosaveState === 'account'
+                                            }>
                                             <FileTextIcon aria-hidden="true" />
                                             {m.publication_new_create_draft()}
                                         </Button>
@@ -1280,7 +1333,11 @@ export function NewPublicationPage({
                                             name="publication-action"
                                             type="submit"
                                             value="schedule"
-                                            disabled={pending || autosaveState === 'conflict'}>
+                                            disabled={
+                                                pending ||
+                                                autosaveState === 'conflict' ||
+                                                autosaveState === 'account'
+                                            }>
                                             <CalendarAddIcon aria-hidden="true" />
                                             {m.publication_new_schedule_count({
                                                 count: selectedPublicationCount,

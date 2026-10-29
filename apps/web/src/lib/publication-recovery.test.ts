@@ -153,11 +153,11 @@ test('keeps each tab recovery independent and strips version guards from the ser
         conflict: true,
     }
     try {
-        writePublicationRecovery('project-1', input)
+        writePublicationRecovery('project-1', 'user-1', input)
         browser.sessionStorage = second
-        writePublicationRecovery('project-1', { ...input, postContent: 'Tab B' })
+        writePublicationRecovery('project-1', 'user-1', { ...input, postContent: 'Tab B' })
         browser.sessionStorage = first
-        const recovered = readPublicationRecovery('project-1')!
+        const recovered = readPublicationRecovery('project-1', 'user-1')!
         expect(recovered.postContent).toBe('Tab A')
         expect(recovered.serverDraftRevision).toBe(3)
         const payload = recoveredComposerContent(recovered)
@@ -166,21 +166,63 @@ test('keeps each tab recovery independent and strips version guards from the ser
         expect(payload).not.toHaveProperty('serverDraftId')
         expect(payload.sourceMedia).toEqual(input.sourceMedia)
         expect(payload.publicationTargets).toEqual(input.publicationTargets)
-        clearPublicationRecovery('project-1')
+        clearPublicationRecovery('project-1', 'user-1')
         browser.sessionStorage = second
-        expect(readPublicationRecovery('project-1')?.postContent).toBe('Tab B')
+        expect(readPublicationRecovery('project-1', 'user-1')?.postContent).toBe('Tab B')
         // A damaged tab copy must not hide a valid shared recovery point.
-        writePublicationRecovery('project-1', { ...input, postContent: 'Shared fallback' })
-        second.setItem(publicationRecoveryKey('project-1'), '{invalid')
-        expect(readPublicationRecovery('project-1')?.postContent).toBe('Shared fallback')
+        writePublicationRecovery('project-1', 'user-1', {
+            ...input,
+            postContent: 'Shared fallback',
+        })
+        second.setItem(publicationRecoveryKey('project-1', 'user-1'), '{invalid')
+        expect(readPublicationRecovery('project-1', 'user-1')?.postContent).toBe('Shared fallback')
         Object.defineProperty(browser, 'localStorage', {
             configurable: true,
             get() {
                 throw new Error('Storage blocked')
             },
         })
-        writePublicationRecovery('project-1', { ...input, postContent: 'Tab-only storage' })
-        expect(readPublicationRecovery('project-1')?.postContent).toBe('Tab-only storage')
+        writePublicationRecovery('project-1', 'user-1', {
+            ...input,
+            postContent: 'Tab-only storage',
+        })
+        expect(readPublicationRecovery('project-1', 'user-1')?.postContent).toBe('Tab-only storage')
+    } finally {
+        if (descriptor) Object.defineProperty(globalThis, 'window', descriptor)
+        else Reflect.deleteProperty(globalThis, 'window')
+    }
+})
+
+test('keeps recovery separate per author and never reads unscoped legacy entries', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window')
+    const storage = memoryStorage()
+    Object.defineProperty(globalThis, 'window', {
+        configurable: true,
+        value: { sessionStorage: memoryStorage(), localStorage: storage },
+    })
+    const input = {
+        postTitle: '',
+        postContent: 'Author one',
+        sourceMedia: [],
+        publicationTargets: [target('')],
+        publicationTagIds: [],
+        defaultDeliveryMode: 'manual' as const,
+        defaultScheduledAt: '',
+        customizedTargetIds: new Set<string>(),
+        customizedContentTargetIds: new Set<string>(),
+        activePublicationTabId: 'shared',
+        activeContentScopeId: 'shared',
+    }
+    try {
+        const legacyKey = 'postdot:publication-composer:v1:project-1'
+        storage.setItem(legacyKey, '{"legacy":true}')
+        writePublicationRecovery('project-1', 'user-1', input)
+        expect(readPublicationRecovery('project-1', 'user-2')).toBeNull()
+        writePublicationRecovery('project-1', 'user-2', { ...input, postContent: 'Author two' })
+        clearPublicationRecovery('project-1', 'user-2')
+        expect(readPublicationRecovery('project-1', 'user-1')?.postContent).toBe('Author one')
+        expect(readPublicationRecovery('project-1', 'user-2')).toBeNull()
+        expect(storage.getItem(legacyKey)).toBe('{"legacy":true}')
     } finally {
         if (descriptor) Object.defineProperty(globalThis, 'window', descriptor)
         else Reflect.deleteProperty(globalThis, 'window')

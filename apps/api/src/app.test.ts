@@ -1478,6 +1478,34 @@ describe('Postdot API', () => {
             )
             expect(channelResponse.status).toBe(201)
             const channel = (await channelResponse.json()) as { channel: { id: string } }
+            // A tab prepared for another signed-in account cannot create a post under this one.
+            const otherAccountPost = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        expectedUserId: 'another-account',
+                        title: 'Written for another account',
+                        sourceContent: {
+                            body: { text: 'Refused.', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channel.channel.id,
+                                targetContent: { body: 'Refused.', media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(otherAccountPost.status).toBe(409)
+            expect(await otherAccountPost.json()).toMatchObject({
+                error: { code: 'account_changed' },
+            })
             const postResponse = await jsonRequest(
                 app,
                 `/api/projects/${firstProject.project.id}/posts`,
@@ -4414,6 +4442,42 @@ describe('Postdot API', () => {
                 }),
             })
             expect(invalidResponse.status).toBe(400)
+
+            // A tab prepared for another account must not read as, write to or clear this draft.
+            const otherAccountSave = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    expectedRevision: 2,
+                    expectedUserId: 'another-account',
+                    content: { ...updatedContent, postContent: 'Written for another account.' },
+                }),
+            })
+            expect(otherAccountSave.status).toBe(409)
+            expect(await otherAccountSave.json()).toMatchObject({
+                error: { code: 'account_changed' },
+            })
+            const otherAccountRead = await jsonRequest(
+                app,
+                `${path}?expectedUserId=another-account`,
+                cookie
+            )
+            expect(otherAccountRead.status).toBe(409)
+            expect(await otherAccountRead.text()).not.toContain('The updated recovery copy.')
+            const otherAccountDelete = await jsonRequest(
+                app,
+                `${path}?expectedUserId=another-account`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(otherAccountDelete.status).toBe(409)
+            const afterOtherAccount = await jsonRequest(app, path, cookie)
+            expect(
+                (
+                    (await afterOtherAccount.json()) as {
+                        draft: { content: { postContent: string } }
+                    }
+                ).draft.content.postContent
+            ).toBe('The updated recovery copy.')
 
             const deleteResponse = await jsonRequest(app, path, cookie, { method: 'DELETE' })
             expect(deleteResponse.status).toBe(200)

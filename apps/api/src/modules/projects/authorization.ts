@@ -29,3 +29,12 @@ export function forbiddenProjectMutation() {
         },
     } as const
 }
+
+export function accountChanged() {
+    return {
+        error: {
+            code: 'account_changed',
+            message: 'This request was prepared for a different signed-in account',
+        },
+    } as const
+}

@@ -132,6 +132,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
             'e2e/design-121-narrow-new-publication.spec.ts',
             'e2e/new-publication-recovery.spec.ts',
             'e2e/composer-concurrent-editing.spec.ts',
+            'e2e/composer-account-isolation.spec.ts',
             'e2e/editor-composer-pilot.spec.ts',
             'e2e/editor-experiment.spec.ts',
             'e2e/editor-touch-composition.spec.ts',

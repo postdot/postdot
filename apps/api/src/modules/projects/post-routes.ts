@@ -3,7 +3,7 @@ import type { AccessStore } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { apiKeyHasCapability } from './api-key-permissions'
-import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
+import { accountChanged, canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     createPostBody,
     errorResponse,
@@ -194,6 +194,9 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     })
                 ) {
                     return status(403, forbiddenProjectMutation())
+                }
+                if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+                    return status(409, accountChanged())
                 }
 
                 if (

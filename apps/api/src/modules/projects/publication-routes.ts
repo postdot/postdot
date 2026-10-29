@@ -4,7 +4,7 @@ import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
 import { apiKeyHasCapability } from './api-key-permissions'
-import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
+import { accountChanged, canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     duePublicationSchema,
     errorResponse,
@@ -315,12 +315,16 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
             '/api/projects/:projectId/publication-composer-draft',
             {
                 auth: true,
+                query: Type.Object({
+                    expectedUserId: Type.Optional(Type.String({ minLength: 1 })),
+                }),
                 params: projectParams,
                 response: {
                     200: publicationComposerDraftResponseSchema,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
+                    409: errorResponse,
                 },
                 detail: {
                     operationId: 'getPublicationComposerDraft',
@@ -328,7 +332,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            ({ authMethod, params, query, status, user }) => {
                 if (
                     !canAccessProjectRole({
                         access,
@@ -341,6 +345,9 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
+                }
+                if (query.expectedUserId !== undefined && query.expectedUserId !== user.id) {
+                    return status(409, accountChanged())
                 }
                 return { draft: manualStore.getPublicationComposerDraft(params.projectId, user.id) }
             }
@@ -378,6 +385,9 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
+                if (body.expectedUserId !== undefined && body.expectedUserId !== user.id) {
+                    return status(409, accountChanged())
+                }
 
                 const draft = manualStore.savePublicationComposerDraft({
                     projectId: params.projectId,
@@ -401,6 +411,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 query: Type.Object({
                     expectedRevision: Type.Optional(Type.Integer({ minimum: 0 })),
                     expectedDraftId: Type.Optional(Type.String({ minLength: 1 })),
+                    expectedUserId: Type.Optional(Type.String({ minLength: 1 })),
                 }),
                 params: projectParams,
                 response: {
@@ -427,6 +438,9 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 ) {
                     return status(403, forbiddenProjectMutation())
+                }
+                if (query.expectedUserId !== undefined && query.expectedUserId !== user.id) {
+                    return status(409, accountChanged())
                 }
                 const deleted = manualStore.deletePublicationComposerDraft({
                     projectId: params.projectId,

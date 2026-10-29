@@ -13,7 +13,7 @@ import {
 } from 'react'
 
 import { api, type Publication } from '@/lib/api'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import {
     dateTimeLocalErrorMessage,
     parseDateTimeLocal,
@@ -32,6 +32,7 @@ export type PublicationCreationMode = 'draft' | 'schedule'
 
 function useComposerSession() {
     const { project, channels, activeChannels } = useProjectDashboard()
+    const userId = useDashboardGlobal().session.user.id
     const queryClient = useQueryClient()
     const { error, pending, setError, runAction } = useProjectAction()
     const tagActions = useProjectTagActions(project.id)
@@ -180,6 +181,7 @@ function useComposerSession() {
                 })
             )
             const response = await api.createPost(project.id, {
+                expectedUserId: userId,
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
                     ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),

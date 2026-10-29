@@ -61,7 +61,8 @@ for (const [locale, copy, theme] of [
                 await route.continue()
             })
             const readStarted = page.waitForRequest(
-                request => request.url().endsWith(draftPath) && request.method() === 'GET'
+                request =>
+                    new URL(request.url()).pathname === draftPath && request.method() === 'GET'
             )
             await page.goto(path)
             await readStarted
@@ -72,7 +73,7 @@ for (const [locale, copy, theme] of [
             const text = '  Protected announcement 👋\n\n**literal**\n'
             const saved = page.waitForResponse(
                 response =>
-                    response.url().endsWith(draftPath) &&
+                    new URL(response.url()).pathname === draftPath &&
                     response.request().method() === 'PUT' &&
                     response.ok()
             )
@@ -81,8 +82,11 @@ for (const [locale, copy, theme] of [
             const before = (await (await page.request.get(draftPath)).json()).draft
             if (!localCopy)
                 await page.evaluate(id => {
-                    localStorage.removeItem(`postdot:publication-composer:v1:${id}`)
-                    sessionStorage.removeItem(`postdot:publication-composer:v1:${id}`)
+                    // Recovery keys carry the author after the project; match every author.
+                    const prefix = `postdot:publication-composer:v1:${encodeURIComponent(id)}:`
+                    for (const storage of [localStorage, sessionStorage])
+                        for (const key of Object.keys(storage))
+                            if (key.startsWith(prefix)) storage.removeItem(key)
                 }, project.id)
             const endpoint = `**${draftPath}*`
             let writes = 0
@@ -144,7 +148,7 @@ for (const [locale, copy, theme] of [
             await expect(form).not.toHaveAttribute('inert', '')
             const savedAgain = page.waitForResponse(
                 response =>
-                    response.url().endsWith(draftPath) &&
+                    new URL(response.url()).pathname === draftPath &&
                     response.request().method() === 'PUT' &&
                     response.ok()
             )
@@ -198,7 +202,7 @@ for (const [locale, copy] of [
         })
         const saved = page.waitForResponse(
             response =>
-                response.url().endsWith(draftPath) &&
+                new URL(response.url()).pathname === draftPath &&
                 response.request().method() === 'PUT' &&
                 response.ok()
         )
@@ -229,10 +233,11 @@ for (const [locale, copy] of [
         await expect(form).toHaveAttribute('inert', '')
         expect((await (await page.request.get(draftPath)).json()).draft).toEqual(before)
         expect(
-            await page.evaluate(
-                id => localStorage.getItem(`postdot:publication-composer:v1:${id}`),
-                project.id
-            )
+            await page.evaluate(id => {
+                const prefix = `postdot:publication-composer:v1:${encodeURIComponent(id)}:`
+                const key = Object.keys(localStorage).find(item => item.startsWith(prefix))
+                return key === undefined ? null : localStorage.getItem(key)
+            }, project.id)
         ).toContain('Keep this draft until discard succeeds')
         await page.setViewportSize({ width: 390, height: 900 })
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])

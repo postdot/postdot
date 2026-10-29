@@ -69,7 +69,7 @@ for (const [locale, copy, theme] of [
             async function saveFirst(text: string) {
                 const saved = page.waitForResponse(
                     response =>
-                        response.url().endsWith(endpoint) &&
+                        new URL(response.url()).pathname === endpoint &&
                         response.request().method() === 'PUT' &&
                         response.ok()
                 )
@@ -79,7 +79,8 @@ for (const [locale, copy, theme] of [
             await saveFirst('Version A from the first tab')
             const refused = other.waitForResponse(
                 response =>
-                    response.url().endsWith(endpoint) && response.request().method() === 'PUT'
+                    new URL(response.url()).pathname === endpoint &&
+                    response.request().method() === 'PUT'
             )
             await secondEditor.fill('Version B from the second tab')
             expect((await refused).status()).toBe(409)
@@ -91,7 +92,8 @@ for (const [locale, copy, theme] of [
             ).toBeDisabled()
             let secondWrites = 0
             other.on('request', request => {
-                if (request.url().endsWith(endpoint) && request.method() === 'PUT') secondWrites++
+                if (new URL(request.url()).pathname === endpoint && request.method() === 'PUT')
+                    secondWrites++
             })
             await secondEditor.fill('Version B continued locally')
             await saveFirst('Version A continued after the conflict')
@@ -174,7 +176,7 @@ test('guards stale discard and draft recreation while retaining legacy delete co
     const { other, endpoint } = await setup(page, context)
     const saved = page.waitForResponse(
         response =>
-            response.url().endsWith(endpoint) &&
+            new URL(response.url()).pathname === endpoint &&
             response.request().method() === 'PUT' &&
             response.ok()
     )
@@ -210,7 +212,7 @@ test('creating a post from an older tab does not delete the newer recovery draft
     const { other, endpoint } = await setup(page, context)
     const saved = page.waitForResponse(
         response =>
-            response.url().endsWith(endpoint) &&
+            new URL(response.url()).pathname === endpoint &&
             response.request().method() === 'PUT' &&
             response.ok()
     )
@@ -245,7 +247,7 @@ test('keeps both choices blocked after a failed conflict read, then recovers wit
     const { other, endpoint } = await setup(page, context)
     const saved = page.waitForResponse(
         response =>
-            response.url().endsWith(endpoint) &&
+            new URL(response.url()).pathname === endpoint &&
             response.request().method() === 'PUT' &&
             response.ok()
     )
@@ -254,13 +256,14 @@ test('keeps both choices blocked after a failed conflict read, then recovers wit
         .fill('Server version before read failure')
     await saved
     const refused = other.waitForResponse(
-        response => response.url().endsWith(endpoint) && response.request().method() === 'PUT'
+        response =>
+            new URL(response.url()).pathname === endpoint && response.request().method() === 'PUT'
     )
     await other
         .getByRole('textbox', { name: 'Content', exact: true })
         .fill('Local version before read failure')
     expect((await refused).status()).toBe(409)
-    const matcher = `**${endpoint}`
+    const matcher = `**${endpoint}*`
     await other.route(matcher, route =>
         route.request().method() === 'GET'
             ? route.fulfill({
@@ -302,7 +305,7 @@ test('returning from channel setup keeps the same-tab draft without a false conf
     const { other, endpoint } = await setup(page, context)
     const saved = page.waitForResponse(
         response =>
-            response.url().endsWith(endpoint) &&
+            new URL(response.url()).pathname === endpoint &&
             response.request().method() === 'PUT' &&
             response.ok()
     )
@@ -314,7 +317,7 @@ test('returning from channel setup keeps the same-tab draft without a false conf
     await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
     const loaded = page.waitForResponse(
         response =>
-            response.url().endsWith(endpoint) &&
+            new URL(response.url()).pathname === endpoint &&
             response.request().method() === 'GET' &&
             response.ok()
     )
@@ -351,7 +354,7 @@ test('resumes after a save committed during channel navigation without a false c
     const responseGate = new Promise<void>(resolve => {
         releaseResponse = resolve
     })
-    const matcher = `**${endpoint}`
+    const matcher = `**${endpoint}*`
     await page.route(matcher, async route => {
         if (route.request().method() !== 'PUT') return route.continue()
         const response = await route.fetch()

@@ -1095,9 +1095,11 @@ export const api = {
         )
     },
 
-    async getPublicationComposerDraft(projectId: string) {
+    async getPublicationComposerDraft(projectId: string, expectedUserId: string) {
         const { draft } = unwrap(
-            await client.api.projects({ projectId })['publication-composer-draft'].get()
+            await client.api
+                .projects({ projectId })
+                ['publication-composer-draft'].get({ query: { expectedUserId } })
         )
         return { draft: draft === null ? null : parsePublicationComposerDraft(draft) }
     },
@@ -1106,26 +1108,31 @@ export const api = {
         projectId: string,
         expectedRevision: number,
         content: PublicationComposerDraftContent,
-        expectedDraftId?: string
+        expectedDraftId: string | undefined,
+        expectedUserId: string
     ) {
         const { draft } = unwrap(
-            await client.api
-                .projects({ projectId })
-                ['publication-composer-draft'].put({ expectedRevision, content, expectedDraftId })
+            await client.api.projects({ projectId })['publication-composer-draft'].put({
+                expectedRevision,
+                content,
+                expectedDraftId,
+                expectedUserId,
+            })
         )
         return { draft: parsePublicationComposerDraft(draft) }
     },
 
     async deletePublicationComposerDraft(
         projectId: string,
-        expectedRevision?: number,
-        expectedDraftId?: string
+        expectedRevision: number | undefined,
+        expectedDraftId: string | undefined,
+        expectedUserId: string
     ) {
         return unwrap(
             await client.api
                 .projects({ projectId })
                 ['publication-composer-draft'].delete(undefined, {
-                    query: { expectedRevision, expectedDraftId },
+                    query: { expectedRevision, expectedDraftId, expectedUserId },
                 })
         )
     },
@@ -1562,6 +1569,8 @@ function apiErrorMessage(code: string): string {
             return m.api_invalid_transition()
         case 'write_conflict':
             return m.api_write_conflict()
+        case 'account_changed':
+            return m.api_account_changed()
         case 'provider_unavailable':
             return m.api_provider_unavailable()
         case 'publisher_exists':

@@ -44,6 +44,16 @@ describe('isolated OpenAPI export', () => {
                 ])
             )
             expect(composer?.delete?.responses['409']).toBeDefined()
+            expect(composer?.get?.parameters).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        name: 'expectedUserId',
+                        in: 'query',
+                        required: false,
+                    }),
+                ])
+            )
+            expect(composer?.get?.responses['409']).toBeDefined()
             expect(first.paths['/health']?.get?.security).toEqual([])
             expect(first.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(first.paths['/api/account/avatar']?.delete?.security).toEqual([
