@@ -155,6 +155,11 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function DashboardPage() {
+    const { session } = Route.useLoaderData()
+    return <DashboardSession key={session.user.id} />
+}
+
+function DashboardSession() {
     const navigate = useNavigate()
     // Keep the shell around the presented child until navigation commits.
     const pathname = useMatches({ select: matches => matches.at(-1)?.pathname ?? '/dashboard' })

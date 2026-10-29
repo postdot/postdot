@@ -72,7 +72,8 @@ function useComposerSession() {
     const refreshProject = () => refreshPublicationResources(queryClient, project.id)
     async function handleCreatePost(
         event: FormEvent<HTMLFormElement>,
-        mode: PublicationCreationMode = 'schedule'
+        mode: PublicationCreationMode = 'schedule',
+        onFailure?: (error: unknown) => void
     ): Promise<Publication[] | null> {
         event.preventDefault()
         const hasSharedText = postContent.trim() !== ''
@@ -147,78 +148,86 @@ function useComposerSession() {
 
         let createdPublications: Publication[] | null = null
         const succeeded = await runAction(async () => {
-            // Read at submission, not from a potentially stale profile cache.
-            // Unmodified destinations retain server-owned source projection.
-            const publications = await Promise.all(
-                validPublicationInputs.map(async input => {
-                    const target = publicationTargets.find(
-                        item => item.channelId === input.channelId
-                    )!
-                    const channel = activeChannels.find(item => item.id === input.channelId)!
-                    const copy = target.content.trim()
-                    // Preserve the existing article override, including title-only drafts.
-                    const preserveEmptyHeadline =
-                        providerRegistry.forExecution(channel.execution)?.authoring
-                            ?.preserveEmptyHeadline === true
-                    if (copy === '' && !preserveEmptyHeadline) return input
-                    const { active } = await api.getChannelProfileState(project.id, input.channelId)
-                    return {
-                        ...input,
-                        targetContent: adaptSourceContentToProfile(
-                            {
-                                ...(postTitle.trim() === '' && !preserveEmptyHeadline
-                                    ? {}
-                                    : { headline: postTitle.trim() }),
-                                body: {
-                                    text: copy === '' ? postContent : copy,
-                                    format: 'plain_text',
+            try {
+                // Read at submission, not from a potentially stale profile cache.
+                // Unmodified destinations retain server-owned source projection.
+                const publications = await Promise.all(
+                    validPublicationInputs.map(async input => {
+                        const target = publicationTargets.find(
+                            item => item.channelId === input.channelId
+                        )!
+                        const channel = activeChannels.find(item => item.id === input.channelId)!
+                        const copy = target.content.trim()
+                        // Preserve the existing article override, including title-only drafts.
+                        const preserveEmptyHeadline =
+                            providerRegistry.forExecution(channel.execution)?.authoring
+                                ?.preserveEmptyHeadline === true
+                        if (copy === '' && !preserveEmptyHeadline) return input
+                        const { active } = await api.getChannelProfileState(
+                            project.id,
+                            input.channelId
+                        )
+                        return {
+                            ...input,
+                            targetContent: adaptSourceContentToProfile(
+                                {
+                                    ...(postTitle.trim() === '' && !preserveEmptyHeadline
+                                        ? {}
+                                        : { headline: postTitle.trim() }),
+                                    body: {
+                                        text: copy === '' ? postContent : copy,
+                                        format: 'plain_text',
+                                    },
+                                    media: sourceMedia,
                                 },
-                                media: sourceMedia,
-                            },
-                            active.profile
-                        ),
-                    }
+                                active.profile
+                            ),
+                        }
+                    })
+                )
+                const response = await api.createPost(project.id, {
+                    expectedUserId: userId,
+                    title: postTitle.trim() === '' ? undefined : postTitle,
+                    sourceContent: {
+                        ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),
+                        ...(sourceBody.trim() === ''
+                            ? {}
+                            : { body: { text: sourceBody, format: 'plain_text' as const } }),
+                        media: sourceMedia,
+                    },
+                    publications,
                 })
-            )
-            const response = await api.createPost(project.id, {
-                expectedUserId: userId,
-                title: postTitle.trim() === '' ? undefined : postTitle,
-                sourceContent: {
-                    ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),
-                    ...(sourceBody.trim() === ''
-                        ? {}
-                        : { body: { text: sourceBody, format: 'plain_text' as const } }),
-                    media: sourceMedia,
-                },
-                publications,
-            })
-            createdPublications = response.publications
-            let tagAssignmentError: unknown = null
-            if (publicationTagIds.length > 0) {
-                try {
-                    await Promise.all(
-                        response.publications.map(publication =>
-                            api.replacePublicationTags(
-                                project.id,
-                                publication.id,
-                                publicationTagIds
+                createdPublications = response.publications
+                let tagAssignmentError: unknown = null
+                if (publicationTagIds.length > 0) {
+                    try {
+                        await Promise.all(
+                            response.publications.map(publication =>
+                                api.replacePublicationTags(
+                                    project.id,
+                                    publication.id,
+                                    publicationTagIds
+                                )
                             )
                         )
-                    )
-                } catch (caughtError) {
-                    tagAssignmentError = caughtError
+                    } catch (caughtError) {
+                        tagAssignmentError = caughtError
+                    }
                 }
-            }
-            setPostTitle('')
-            setPostContent('')
-            setSourceMedia([])
-            setPublicationTagIds([])
-            setPublicationTargets([
-                createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
-            ])
-            await refreshProject()
-            if (tagAssignmentError !== null) {
-                toast.add({ title: m.taxonomy_assignment_failed(), type: 'warning' })
+                setPostTitle('')
+                setPostContent('')
+                setSourceMedia([])
+                setPublicationTagIds([])
+                setPublicationTargets([
+                    createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
+                ])
+                await refreshProject()
+                if (tagAssignmentError !== null) {
+                    toast.add({ title: m.taxonomy_assignment_failed(), type: 'warning' })
+                }
+            } catch (error) {
+                onFailure?.(error)
+                throw error
             }
         })
         return succeeded ? createdPublications : null
