@@ -104,6 +104,8 @@ export interface MediaAttachmentPickerProps {
     readonly onChange: (value: MediaSelection[]) => void
     readonly onAssetsChange?: (assets: MediaReference[]) => void
     readonly onPreparationChange?: (pending: boolean) => void
+    /** Receives every failure the picker reports, so the caller can treat an ended session. */
+    readonly onError?: (error: unknown) => void
     readonly triggerContainer?: HTMLElement | null
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
@@ -157,6 +159,7 @@ function MediaAttachmentPickerView({
     onChange,
     onAssetsChange,
     onPreparationChange,
+    onError,
     renderHeader,
     triggerContainer,
     disabled = false,
@@ -175,6 +178,10 @@ function MediaAttachmentPickerView({
     const [loadingMore, setLoadingMore] = useState(false)
     const [savingEdited, setSavingEdited] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const describeError = (cause: unknown) => {
+        onError?.(cause)
+        return errorMessage(cause)
+    }
     const [searchQuery, setSearchQuery] = useState('')
     const [searchPending, setSearchPending] = useState(false)
     const [mediaSort, setMediaSort] = useState<MediaListSort>('newest')
@@ -217,7 +224,7 @@ function MediaAttachmentPickerView({
                 }
             })
             .catch(caughtError => {
-                if (active) setError(errorMessage(caughtError))
+                if (active) setError(describeError(caughtError))
             })
         return () => {
             active = false
@@ -489,7 +496,7 @@ function MediaAttachmentPickerView({
                 })
                 .catch(caughtError => {
                     if (active && requestId === listRequestId.current) {
-                        setError(errorMessage(caughtError))
+                        setError(describeError(caughtError))
                     }
                 })
                 .finally(() => {
@@ -597,7 +604,7 @@ function MediaAttachmentPickerView({
             const cause =
                 controller.errorsByFileId.get(file.id) ??
                 new Error(file.error ?? 'media_upload_failed')
-            return `${file.name}: ${errorMessage(cause)}`
+            return `${file.name}: ${describeError(cause)}`
         })
         const uploadErrors = [...restrictionMessages, ...failures]
         setError(uploadErrors.length > 0 ? uploadErrors.join(' ') : null)
@@ -627,7 +634,7 @@ function MediaAttachmentPickerView({
                 })
                 .catch(caughtError =>
                     settle(() => {
-                        if (mounted.current) setError(errorMessage(caughtError))
+                        if (mounted.current) setError(describeError(caughtError))
                     })
                 )
         }
@@ -644,7 +651,7 @@ function MediaAttachmentPickerView({
             if (!recoveryUploadPendingRef.current) return
             recoveryUploadPendingRef.current = false
             setRecoveryActionPending(false)
-            setError(errorMessage(error))
+            setError(describeError(error))
         }
 
         controller.uppy.on('files-added', handleFilesAdded)
@@ -934,7 +941,7 @@ function MediaAttachmentPickerView({
             }
             setDeletionAsset(null)
         } catch (caughtError) {
-            setDeletionError(errorMessage(caughtError))
+            setDeletionError(describeError(caughtError))
         } finally {
             setDeletionPending(false)
         }
@@ -1085,7 +1092,7 @@ function MediaAttachmentPickerView({
                 )
             }
         } catch (caughtError) {
-            setBulkDeletionError(errorMessage(caughtError))
+            setBulkDeletionError(describeError(caughtError))
         } finally {
             setBulkDeletionPending(false)
         }
@@ -1168,7 +1175,7 @@ function MediaAttachmentPickerView({
             setEditorAsset(null)
             setViewerAsset(null)
         } catch (caughtError) {
-            setError(errorMessage(caughtError))
+            setError(describeError(caughtError))
             throw caughtError
         } finally {
             setSavingEdited(false)
@@ -1213,7 +1220,7 @@ function MediaAttachmentPickerView({
 
             setSourcePickerOpen(false)
         } catch (caughtError) {
-            setUrlImportError(errorMessage(caughtError))
+            setUrlImportError(describeError(caughtError))
         } finally {
             setUrlImportPending(false)
         }
@@ -1257,7 +1264,7 @@ function MediaAttachmentPickerView({
             setTrashCount(response.trashCount)
             setRetentionMs(response.retentionMs)
         } catch (caughtError) {
-            if (requestId === listRequestId.current) setError(errorMessage(caughtError))
+            if (requestId === listRequestId.current) setError(describeError(caughtError))
         } finally {
             loadMoreInFlightRef.current = false
             if (requestId === listRequestId.current) setLoadingMore(false)
@@ -1355,7 +1362,7 @@ function MediaAttachmentPickerView({
             )
             .catch(error =>
                 settle(() => {
-                    if (mounted.current) setError(errorMessage(error))
+                    if (mounted.current) setError(describeError(error))
                 })
             )
     }
@@ -1380,7 +1387,7 @@ function MediaAttachmentPickerView({
                 }
             })()
                 .catch(error => {
-                    if (mounted.current) setError(errorMessage(error))
+                    if (mounted.current) setError(describeError(error))
                 })
                 .finally(() => {
                     if (mounted.current) setRecoveryActionPending(false)
@@ -1422,7 +1429,7 @@ function MediaAttachmentPickerView({
                 type: file.type,
             })
         } catch (caughtError) {
-            setError(errorMessage(caughtError))
+            setError(describeError(caughtError))
             throw caughtError
         }
     }

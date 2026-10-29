@@ -1337,6 +1337,7 @@ export function NewPublicationPage({
                                         onChange={onSourceMediaChange}
                                         onAssetsChange={setAvailableMedia}
                                         onPreparationChange={reportMediaPreparation}
+                                        onError={pauseForSessionError}
                                         disabled={pending}
                                     />
                                 </div>
