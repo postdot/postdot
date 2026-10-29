@@ -1,6 +1,6 @@
 {
     "title": "Clients & integrations",
     "defaultOpen": true,
-    "pages": ["automation", "mcp", "cli-reference"],
+    "pages": ["automation", "n8n", "mcp", "cli-reference"],
     "icon": "code"
 }

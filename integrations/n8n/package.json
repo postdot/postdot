@@ -1,0 +1,58 @@
+{
+    "name": "@postdot/n8n-nodes-postdot",
+    "version": "0.1.0-alpha.1",
+    "description": "Prepare Postdot publication drafts from n8n",
+    "keywords": [
+        "n8n-community-node-package",
+        "postdot"
+    ],
+    "homepage": "https://postdot.app/docs/n8n/",
+    "license": "AGPL-3.0-only",
+    "author": {
+        "name": "Postdot",
+        "url": "https://postdot.app"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/postdot/postdot.git",
+        "directory": "integrations/n8n"
+    },
+    "files": [
+        "dist",
+        "examples",
+        "LICENSE"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org",
+        "tag": "alpha"
+    },
+    "scripts": {
+        "build": "n8n-node build",
+        "lint": "n8n-node lint",
+        "typecheck": "tsc --noEmit",
+        "prepublishOnly": "node scripts/verify-release.cjs",
+        "postbuild": "node scripts/copy-metadata.cjs"
+    },
+    "devDependencies": {
+        "@n8n/node-cli": "0.54.5",
+        "n8n-workflow": "2.16.0",
+        "typescript": "5.9.3"
+    },
+    "peerDependencies": {
+        "n8n-workflow": "*"
+    },
+    "engines": {
+        "node": ">=22.16"
+    },
+    "n8n": {
+        "n8nNodesApiVersion": 1,
+        "strict": false,
+        "credentials": [
+            "dist/credentials/PostdotApi.credentials.js"
+        ],
+        "nodes": [
+            "dist/nodes/Postdot/Postdot.node.js"
+        ]
+    }
+}

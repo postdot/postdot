@@ -1,0 +1,115 @@
+{
+    "name": "Prepare a Postdot draft for review",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "manual-start",
+            "name": "Run manually",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [0, 0]
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "project",
+                            "name": "projectId",
+                            "value": "REPLACE_WITH_PROJECT_ID",
+                            "type": "string"
+                        },
+                        {
+                            "id": "channel",
+                            "name": "channelId",
+                            "value": "REPLACE_WITH_CHANNEL_ID",
+                            "type": "string"
+                        },
+                        {
+                            "id": "text",
+                            "name": "text",
+                            "value": "Our Friday update is ready for review.",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "draft-settings",
+            "name": "Draft settings",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [240, 0]
+        },
+        {
+            "parameters": {
+                "resource": "post",
+                "operation": "createDraft",
+                "projectId": "={{$json.projectId}}",
+                "channelId": "={{$json.channelId}}",
+                "text": "={{$json.text}}",
+                "deliveryMode": "automatic"
+            },
+            "id": "create-draft",
+            "name": "Create Postdot draft",
+            "type": "@postdot/n8n-nodes-postdot.postdot",
+            "typeVersion": 1,
+            "position": [480, 0],
+            "retryOnFail": false
+        },
+        {
+            "parameters": {
+                "resource": "publication",
+                "operation": "get",
+                "projectId": "={{$('Draft settings').item.json.projectId}}",
+                "publicationId": "={{$json.publications[0].id}}"
+            },
+            "id": "read-draft",
+            "name": "Read saved publication",
+            "type": "@postdot/n8n-nodes-postdot.postdot",
+            "typeVersion": 1,
+            "position": [720, 0],
+            "retryOnFail": false
+        }
+    ],
+    "connections": {
+        "Run manually": {
+            "main": [
+                [
+                    {
+                        "node": "Draft settings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Draft settings": {
+            "main": [
+                [
+                    {
+                        "node": "Create Postdot draft",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Postdot draft": {
+            "main": [
+                [
+                    {
+                        "node": "Read saved publication",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "pinData": {}
+}

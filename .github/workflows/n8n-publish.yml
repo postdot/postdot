@@ -1,0 +1,43 @@
+name: Publish n8n package
+
+on:
+    push:
+        tags: ['n8n-v*']
+
+permissions:
+    contents: read
+    id-token: write
+
+concurrency:
+    group: n8n-npm-publication
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: integrations/n8n
+        steps:
+            - uses: actions/checkout@v6.0.2
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: '24'
+                  registry-url: https://registry.npmjs.org
+                  package-manager-cache: false
+            - name: Verify release identity
+              run: node scripts/verify-release.cjs
+            - run: npm ci --ignore-scripts
+            - run: npm run typecheck
+            - run: npm run lint
+            - run: npm run build
+            - name: Pack the checked package
+              run: npm pack --json > "$RUNNER_TEMP/n8n-package.json"
+            - name: Publish the archive with provenance
+              # The first publication uses a temporary bootstrap token. Delete it
+              # afterward and configure npm to trust this exact workflow for OIDC.
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.N8N_NPM_BOOTSTRAP_TOKEN }}
+              run: |
+                  archive=$(node -p "JSON.parse(require('node:fs').readFileSync(process.env.RUNNER_TEMP + '/n8n-package.json', 'utf8'))[0].filename")
+                  npm publish "./$archive" --access public --tag "$(node -p "require('./package.json').publishConfig.tag")" --provenance
