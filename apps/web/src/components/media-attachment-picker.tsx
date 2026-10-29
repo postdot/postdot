@@ -103,6 +103,7 @@ export interface MediaAttachmentPickerProps {
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly onAssetsChange?: (assets: MediaReference[]) => void
+    readonly onPreparationChange?: (pending: boolean) => void
     readonly triggerContainer?: HTMLElement | null
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
@@ -155,6 +156,7 @@ function MediaAttachmentPickerView({
     value,
     onChange,
     onAssetsChange,
+    onPreparationChange,
     renderHeader,
     triggerContainer,
     disabled = false,
@@ -296,6 +298,20 @@ function MediaAttachmentPickerView({
         bulkSelectionResolutionPending ||
         recoveryActionPending
     const mediaWriteDisabled = interactionLocked || readOnly
+    useEffect(() => {
+        if (!onPreparationChange) return
+        const report = () =>
+            onPreparationChange?.(
+                controller.uppy.getFiles().length > 0 || urlImportPending || savingEdited
+            )
+        // Retain the hold through upload-success until the ready asset has been attached and removed.
+        controller.uppy.on('state-update', report)
+        report()
+        return () => {
+            controller.uppy.off('state-update', report)
+        }
+    }, [controller, onPreparationChange, urlImportPending, savingEdited])
+
     const orderedUploadResults = useRef(createOrderedUploadResults())
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
@@ -1350,13 +1366,27 @@ function MediaAttachmentPickerView({
         controller.uppy.removeFiles(recoveredFiles.map(file => file.id))
     }
     const reselectMissingRecoveredFiles = () => {
-        controller.uppy.removeFiles(ghostFiles.map(file => file.id))
         fileButtonProps.onClick()
     }
     const resumeRecoveredFiles = () => {
         if (disabled || readOnly || recoveryActionPending || recoverableFiles.length === 0) return
         setRecoveryActionPending(true)
-        controller.uppy.removeFiles(ghostFiles.map(file => file.id))
+        if (ghostFiles.length > 0) {
+            // Available blobs can finish while missing files retain their separate choice.
+            void (async () => {
+                for (const file of recoverableFiles) {
+                    const result = await controller.uppy.retryUpload(file.id)
+                    if (result) controller.uppy.removeFiles(processUploadResult(result))
+                }
+            })()
+                .catch(error => {
+                    if (mounted.current) setError(errorMessage(error))
+                })
+                .finally(() => {
+                    if (mounted.current) setRecoveryActionPending(false)
+                })
+            return
+        }
         recoveryUploadPendingRef.current = true
         controller.uppy.emit('restore-confirmed')
     }
@@ -1487,6 +1517,22 @@ function MediaAttachmentPickerView({
                 ) : null}
                 <input
                     {...fileInputProps}
+                    onChange={event => {
+                        const selected = Array.from(event.currentTarget.files ?? [])
+                        if (selected.length === 0) return
+                        const replaced = ghostFiles.filter(ghost =>
+                            selected.some(
+                                file =>
+                                    file.name === ghost.name &&
+                                    (ghost.size === null || file.size === ghost.size)
+                            )
+                        )
+                        controller.uppy.removeFiles(replaced.map(file => file.id))
+                        controller.uppy.addFiles(
+                            selected.map(file => ({ name: file.name, type: file.type, data: file }))
+                        )
+                        event.currentTarget.value = ''
+                    }}
                     className="sr-only"
                     disabled={interactionLocked}
                     tabIndex={-1}

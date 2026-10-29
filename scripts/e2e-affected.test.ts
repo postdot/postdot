@@ -562,7 +562,7 @@ describe('known story fixtures', () => {
         expect(resolution.scenarios.map(scenario => scenario.spec)).toContain(
             'e2e/new-publication-recovery.spec.ts'
         )
-        expect(resolution.scenarios).toHaveLength(13)
+        expect(resolution.scenarios).toHaveLength(14)
     })
 
     test.each([

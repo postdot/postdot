@@ -1776,6 +1776,7 @@
             }
         }
     ],
+    "publication_new_media_preparation_pending": "Terminez, réessayez ou annulez les envois de médias avant de créer cette publication.",
     "publication_new_create_draft": "Créer un brouillon",
     "publication_new_add_channel": "Ajoutez un canal pour choisir où vos publications sont envoyées.",
     "publication_new_manage_channels": "Gérer les canaux",

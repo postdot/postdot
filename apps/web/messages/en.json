@@ -1776,6 +1776,7 @@
             }
         }
     ],
+    "publication_new_media_preparation_pending": "Finish, retry or cancel your media uploads before creating this publication.",
     "publication_new_create_draft": "Create draft",
     "publication_new_add_channel": "Add a channel to choose where your publications go.",
     "publication_new_manage_channels": "Manage channels",

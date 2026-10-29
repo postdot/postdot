@@ -17,7 +17,16 @@ import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type FormEvent,
+} from 'react'
 
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { ComposerDraftConflict } from '@/components/composer-draft-conflict'
@@ -118,6 +127,14 @@ export function NewPublicationPage({
         sourceMedia,
     })
     const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
+    const [mediaPreparationPending, setMediaPreparationPending] = useState(false)
+    const mediaPreparationPendingRef = useRef(false)
+    const currentCreatePost = useRef(onCreatePost)
+    currentCreatePost.current = onCreatePost
+    const reportMediaPreparation = useCallback((next: boolean) => {
+        mediaPreparationPendingRef.current = next
+        setMediaPreparationPending(next)
+    }, [])
     const canCreateProjectTag = projectRole === 'owner' || projectRole === 'editor'
     const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id, userId))
     const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
@@ -279,7 +296,12 @@ export function NewPublicationPage({
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        if (autosaveConflict.current || authoringPaused.current) return
+        if (
+            autosaveConflict.current ||
+            authoringPaused.current ||
+            mediaPreparationPendingRef.current
+        )
+            return
         if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
         await autosaveQueue.current.catch(() => undefined)
 
@@ -288,8 +310,13 @@ export function NewPublicationPage({
             submitter instanceof HTMLButtonElement && submitter.value === 'draft'
                 ? 'draft'
                 : 'schedule'
-        if (authoringPaused.current || autosaveConflict.current) return
-        const publications = await onCreatePost(event, mode, pauseForSessionError)
+        if (
+            authoringPaused.current ||
+            autosaveConflict.current ||
+            mediaPreparationPendingRef.current
+        )
+            return
+        const publications = await currentCreatePost.current(event, mode, pauseForSessionError)
         if (publications !== null) {
             clearPublicationRecovery(project.id, userId)
             await discardServerDraft()
@@ -1309,6 +1336,7 @@ export function NewPublicationPage({
                                         value={sourceMedia}
                                         onChange={onSourceMediaChange}
                                         onAssetsChange={setAvailableMedia}
+                                        onPreparationChange={reportMediaPreparation}
                                         disabled={pending}
                                     />
                                 </div>
@@ -1333,6 +1361,14 @@ export function NewPublicationPage({
                         }
                         footer={
                             <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                                {mediaPreparationPending ? (
+                                    <p
+                                        id="new-publication-media-preparation"
+                                        role="status"
+                                        className="w-full text-sm text-muted-foreground">
+                                        {m.publication_new_media_preparation_pending()}
+                                    </p>
+                                ) : null}
                                 <span
                                     aria-live="polite"
                                     className="min-h-4 text-xs text-muted-foreground"
@@ -1346,7 +1382,13 @@ export function NewPublicationPage({
                                             type="submit"
                                             value="draft"
                                             variant="ghost"
+                                            aria-describedby={
+                                                mediaPreparationPending
+                                                    ? 'new-publication-media-preparation'
+                                                    : undefined
+                                            }
                                             disabled={
+                                                mediaPreparationPending ||
                                                 pending ||
                                                 autosaveState === 'conflict' ||
                                                 autosaveState === 'account' ||
@@ -1359,7 +1401,13 @@ export function NewPublicationPage({
                                             name="publication-action"
                                             type="submit"
                                             value="schedule"
+                                            aria-describedby={
+                                                mediaPreparationPending
+                                                    ? 'new-publication-media-preparation'
+                                                    : undefined
+                                            }
                                             disabled={
+                                                mediaPreparationPending ||
                                                 pending ||
                                                 autosaveState === 'conflict' ||
                                                 autosaveState === 'account' ||
