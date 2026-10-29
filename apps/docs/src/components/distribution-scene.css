@@ -1,0 +1,110 @@
+.distribution-scene {
+    --field-ink: var(--home-ink);
+    --field-route: var(--home-blue);
+    --field-surface: var(--home-card);
+    --field-muted: var(--home-muted);
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 0;
+}
+.distribution-scene-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(44px, 9vw, 88px);
+}
+.distribution-source {
+    padding: 14px;
+    border: 1px solid var(--home-edge);
+}
+.distribution-label {
+    margin: 0;
+    font-size: 12px;
+    color: var(--home-muted);
+}
+.distribution-title {
+    margin: 4px 0 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+}
+.distribution-copy {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--home-muted);
+}
+.distribution-map {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 12px;
+    border-radius: 3px;
+}
+.distribution-targets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.distribution-target {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid var(--home-edge);
+}
+.distribution-logo {
+    width: 28px;
+    height: 28px;
+}
+.distribution-logo svg {
+    width: 16px;
+    height: 16px;
+}
+.distribution-target-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+.distribution-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--home-blue);
+}
+.distribution-target .distribution-copy {
+    margin-top: 3px;
+    font-size: 12px;
+}
+.distribution-thumb {
+    grid-column: 2;
+    width: 100%;
+    max-height: 56px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+.dark .distribution-scene .field-logo {
+    background: #fff;
+}
+@media (max-width: 640px) {
+    .distribution-scene-layout {
+        grid-template-columns: 1fr;
+        gap: 56px;
+    }
+}
+@media (max-width: 640px) {
+    .distribution-map {
+        height: 112px;
+        object-fit: cover;
+        object-position: center 40%;
+    }
+}
+.distribution-thumb {
+    object-position: center 38%;
+}

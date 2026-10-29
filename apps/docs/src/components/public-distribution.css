@@ -15,120 +15,14 @@
     letter-spacing: -0.025em;
     text-wrap: balance;
 }
-.home-distribution p {
+.home-distribution-copy p {
     margin: 24px 0 0;
     max-width: 360px;
     color: var(--home-muted);
     font-size: 16px;
     line-height: 1.6;
 }
-.distribution-art {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 640/390;
-    --face: #f4f4f4;
-    --edge: #bcbcbc;
-    --ink: #777;
-    --blue: #2457d6;
-    --wash: #ededed;
-    color: #1c1c1c;
-}
-.dark .distribution-art {
-    --face: #171717;
-    --edge: #575757;
-    --ink: #aaa;
-    --blue: #94b5ff;
-    --wash: #222;
-    color: #f4f4f4;
-}
-.distribution-art .distribution-still,
-.distribution-live {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-.distribution-live > svg {
-    width: 100%;
-    height: 100%;
-}
-.distribution-art .distribution-live {
-    visibility: hidden;
-}
-.distribution-art[data-ready='true'] .distribution-live {
-    visibility: visible;
-}
-.distribution-art[data-ready='true'] .distribution-still {
-    visibility: hidden;
-}
-.distribution-art .sil {
-    fill: var(--face);
-    stroke: var(--edge);
-    stroke-width: 0.65;
-    stroke-linejoin: round;
-}
-.distribution-art .sil.active {
-    stroke: var(--blue);
-    stroke-width: 1;
-}
-.distribution-art .crease {
-    fill: none;
-    stroke: var(--edge);
-    stroke-width: 0.45;
-    opacity: 0.65;
-}
-.distribution-art .rule {
-    fill: none;
-    stroke: var(--ink);
-    stroke-width: 1.1;
-    stroke-linecap: round;
-    opacity: 0.5;
-}
-.distribution-art .image {
-    fill: var(--wash);
-    stroke: none;
-}
-.distribution-art .accent {
-    fill: none;
-    stroke: var(--blue);
-    stroke-width: 1.1;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-.distribution-art .connector {
-    fill: none;
-    stroke: var(--edge);
-    stroke-width: 0.8;
-}
-.distribution-art .pulse {
-    fill: var(--blue);
-    stroke: none;
-}
 @media (max-width: 800px) {
-    .distribution-art .sil,
-    .distribution-art .crease,
-    .distribution-art .rule,
-    .distribution-art .accent,
-    .distribution-art .connector {
-        vector-effect: non-scaling-stroke;
-    }
-    .distribution-art .sil.active {
-        stroke-width: 0.85;
-    }
-    .distribution-art .crease {
-        stroke-width: 0.4;
-    }
-    .distribution-art .rule {
-        stroke-width: 0.65;
-        opacity: 0.65;
-    }
-    .distribution-art .accent {
-        stroke-width: 0.75;
-    }
-    .distribution-art .connector {
-        stroke-width: 0.55;
-    }
-
     .home-distribution {
         grid-template-columns: 1fr;
         padding: 72px 22px 0;
@@ -137,27 +31,7 @@
     .home-distribution h2 {
         font-size: 28px;
     }
-    .home-distribution p {
+    .home-distribution-copy p {
         max-width: 440px;
     }
-    .distribution-art {
-        max-width: 640px;
-        margin: 0 auto;
-    }
-}
-
-.distribution-schedule rect {
-    fill: var(--face);
-    stroke: var(--edge);
-    stroke-width: 0.65;
-}
-.distribution-schedule svg {
-    color: var(--blue);
-}
-.distribution-schedule text {
-    fill: currentColor;
-    font-family: 'Host Grotesk', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
 }
