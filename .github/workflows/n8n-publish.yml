@@ -2,11 +2,16 @@ name: Publish n8n package
 
 on:
     push:
-        tags: ['n8n-v*']
+        branches: [main]
+        paths:
+            - integrations/**
+            - .github/workflows/n8n-publish.yml
+    workflow_dispatch:
 
 permissions:
-    contents: read
+    contents: write
     id-token: write
+    pull-requests: write
 
 concurrency:
     group: n8n-npm-publication
@@ -17,27 +22,28 @@ jobs:
         runs-on: ubuntu-latest
         defaults:
             run:
-                working-directory: integrations/n8n
+                working-directory: integrations
         steps:
             - uses: actions/checkout@v6.0.2
+              with:
+                  fetch-depth: 0
             - uses: actions/setup-node@v7
               with:
                   node-version: '24'
                   registry-url: https://registry.npmjs.org
-                  package-manager-cache: false
-            - name: Verify release identity
-              run: node scripts/verify-release.cjs
+                  cache: npm
+                  cache-dependency-path: integrations/package-lock.json
             - run: npm ci --ignore-scripts
             - run: npm run typecheck
             - run: npm run lint
             - run: npm run build
-            - name: Pack the checked package
-              run: npm pack --json > "$RUNNER_TEMP/n8n-package.json"
-            - name: Publish the archive with provenance
-              # The first publication uses a temporary bootstrap token. Delete it
-              # afterward and configure npm to trust this exact workflow for OIDC.
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.N8N_NPM_BOOTSTRAP_TOKEN }}
-              run: |
-                  archive=$(node -p "JSON.parse(require('node:fs').readFileSync(process.env.RUNNER_TEMP + '/n8n-package.json', 'utf8'))[0].filename")
-                  npm publish "./$archive" --access public --tag "$(node -p "require('./package.json').publishConfig.tag")" --provenance
+            - run: npm pack --workspace @postdot/n8n-nodes-postdot --dry-run
+            - name: Create version pull request or publish through OIDC
+              uses: changesets/action@v2
+              with:
+                  cwd: integrations
+                  version-script: npm run version-packages
+                  publish-script: npm run release
+                  pr-title: 'chore(n8n): version package'
+                  commit-message: 'chore(n8n): version package'
+                  create-github-releases: false

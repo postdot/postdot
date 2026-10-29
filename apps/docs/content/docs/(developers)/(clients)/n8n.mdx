@@ -6,9 +6,8 @@ description: Install the Postdot node and prepare a draft from an n8n workflow.
 Use the Postdot node to create an unscheduled draft for review in Studio. It also
 lists projects and channels and reads saved publication state.
 
-The first public package is **0.1.0-alpha.1**, for self-hosted n8n. Install this
-exact prerelease version; it is on npm's `alpha` tag and is not verified for n8n
-Cloud. The acceptance run used n8n **2.45.6**.
+The package is an alpha release for self-hosted n8n, tested with n8n **2.45.6**.
+It is available on npm's `alpha` tag and is not verified for n8n Cloud.
 
 ## 1. Install the package
 
@@ -18,7 +17,7 @@ user, install the package in n8n's persistent nodes directory:
 ```sh
 mkdir -p ~/.n8n/nodes
 cd ~/.n8n/nodes
-npm install --omit=dev @postdot/n8n-nodes-postdot@0.1.0-alpha.1
+npm install --omit=dev @postdot/n8n-nodes-postdot@alpha
 ```
 
 Restart n8n, then search for **Postdot** in the node picker. If you set
@@ -27,9 +26,12 @@ For Docker, run the installation in the container with a persisted n8n user
 directory. Installing in an unrelated host directory does not install the node
 in the container.
 
+You can also install from **Settings > Community Nodes > Install** in n8n by
+entering `@postdot/n8n-nodes-postdot@alpha` as the package name. See
+[n8n's community node installation guide](https://docs.n8n.io/integrations/community-nodes/installation/gui-install/).
+
 The [npm package](https://www.npmjs.com/package/@postdot/n8n-nodes-postdot) includes
-the example workflow. To build from source, follow the commands in the
-[package README](https://github.com/postdot/postdot/tree/main/integrations/n8n).
+the example workflow.
 
 ## 2. Give n8n draft access
 

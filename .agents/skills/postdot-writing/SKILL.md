@@ -52,6 +52,8 @@ retain the facts needed to do the task. A prose score is not evidence of quality
 
 ## Accepted calibration
 
+Public npm READMEs serve package users discovering the integration. Explain installation, credentials, supported operations and a first successful result. Keep monorepo boundaries, lint exceptions, CI secrets and release procedures in maintainer guidance, outside that README (owner correction, 2026-10-29).
+
 The owner reviewed the SITE-462 first-publication, Bluesky and concepts pages
 and found their tone and explanation level coherent and well calibrated. Use
 that level of directness and detail as a baseline, not a fixed page template.
