@@ -47,6 +47,24 @@ function SetupPage() {
     return (
         <AuthShell>
             <AuthForm
+                beforeForm={
+                    <ol
+                        aria-label={m.auth_setup_steps_label()}
+                        className="mt-6 grid gap-2 text-sm leading-6 text-muted-foreground">
+                        {[
+                            m.auth_setup_step_admin(),
+                            m.auth_setup_step_close(),
+                            m.auth_setup_step_invite(),
+                        ].map((step, index) => (
+                            <li key={step} className="flex gap-3">
+                                <span className="w-4 shrink-0 font-medium text-foreground tabular-nums">
+                                    {index + 1}
+                                </span>
+                                <span>{step}</span>
+                            </li>
+                        ))}
+                    </ol>
+                }
                 description={m.auth_setup_administrator_description()}
                 mode="sign-up"
                 onSubmit={handleSubmit}

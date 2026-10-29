@@ -54,7 +54,7 @@ function ResetPasswordPage() {
 
     return (
         <AuthShell>
-            <h1 className="font-heading text-3xl font-semibold">
+            <h1 className="font-heading text-3xl font-semibold tracking-tight">
                 {complete
                     ? m.auth_password_reset_complete_title()
                     : invalidLink
@@ -94,7 +94,7 @@ function ResetPasswordPage() {
                         <FieldLabel htmlFor={passwordId}>{m.auth_password_new()}</FieldLabel>
                         <Input
                             autoComplete="new-password"
-                            className="h-11 rounded-lg px-3.5"
+                            className="h-11 bg-surface-raised px-3.5"
                             id={passwordId}
                             maxLength={128}
                             minLength={8}
@@ -110,7 +110,7 @@ function ResetPasswordPage() {
                         </FieldLabel>
                         <Input
                             autoComplete="new-password"
-                            className="h-11 rounded-lg px-3.5"
+                            className="h-11 bg-surface-raised px-3.5"
                             id={confirmationId}
                             maxLength={128}
                             minLength={8}
@@ -127,11 +127,7 @@ function ResetPasswordPage() {
                         </p>
                     ) : null}
 
-                    <Button
-                        className="h-11 w-full rounded-lg"
-                        disabled={pending}
-                        size="lg"
-                        type="submit">
+                    <Button className="h-11 w-full" disabled={pending} size="lg" type="submit">
                         {pending ? m.auth_working() : m.auth_password_reset_save()}
                     </Button>
                 </form>

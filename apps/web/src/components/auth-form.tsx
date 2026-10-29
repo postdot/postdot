@@ -3,7 +3,7 @@ import { Field, FieldLabel } from '@postdot/ui/components/field'
 import { Input } from '@postdot/ui/components/input'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { EyeClosedIcon } from '@solar-icons/react/linear/eye-closed'
-import { useEffect, useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -17,6 +17,7 @@ export interface AuthFormValues {
 }
 
 interface AuthFormProps {
+    readonly beforeForm?: ReactNode
     readonly description?: string
     readonly emailReadOnly?: boolean
     readonly error?: string | null
@@ -35,6 +36,7 @@ interface AuthFormProps {
 }
 
 export function AuthForm({
+    beforeForm,
     description,
     emailReadOnly = false,
     error = null,
@@ -85,12 +87,14 @@ export function AuthForm({
 
     return (
         <div>
-            <h1 className="font-heading text-3xl font-semibold">
+            <h1 className="font-heading text-3xl font-semibold tracking-tight">
                 {title ?? (isSignUp ? m.auth_start_workspace_title() : m.auth_sign_in_title())}
             </h1>
             {description ? (
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">{description}</p>
             ) : null}
+
+            {beforeForm}
 
             <form className="mt-8 grid gap-5" onSubmit={handleSubmit}>
                 {isSignUp ? (
@@ -98,7 +102,7 @@ export function AuthForm({
                         <FieldLabel htmlFor={nameId}>{m.auth_name()}</FieldLabel>
                         <Input
                             autoComplete="name"
-                            className="h-11 rounded-lg px-3.5"
+                            className="h-11 bg-surface-raised px-3.5"
                             id={nameId}
                             required
                             value={name}
@@ -111,7 +115,7 @@ export function AuthForm({
                     <FieldLabel htmlFor={emailId}>{m.auth_email()}</FieldLabel>
                     <Input
                         autoComplete="email"
-                        className="h-11 rounded-lg px-3.5"
+                        className="h-11 bg-surface-raised px-3.5"
                         id={emailId}
                         readOnly={emailReadOnly}
                         required
@@ -127,7 +131,7 @@ export function AuthForm({
                         <Input
                             aria-invalid={error !== null || undefined}
                             autoComplete={isSignUp ? 'new-password' : 'current-password'}
-                            className="h-11 rounded-lg px-3.5 pr-10"
+                            className="h-11 bg-surface-raised px-3.5 pr-10"
                             id={passwordId}
                             minLength={8}
                             required
@@ -167,17 +171,13 @@ export function AuthForm({
                 {error ? (
                     <div
                         aria-live="polite"
-                        className="rounded-lg bg-state-failed/10 px-3 py-2 text-sm text-state-failed shadow-field"
+                        className="rounded-[3px] bg-state-failed/10 px-3 py-2 text-sm text-state-failed shadow-field"
                         role="alert">
                         {error}
                     </div>
                 ) : null}
 
-                <Button
-                    className="h-11 w-full rounded-lg"
-                    disabled={pending}
-                    size="lg"
-                    type="submit">
+                <Button className="h-11 w-full" disabled={pending} size="lg" type="submit">
                     {pending
                         ? m.auth_working()
                         : isSignUp
