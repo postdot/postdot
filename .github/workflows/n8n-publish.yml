@@ -1,12 +1,28 @@
-name: Publish n8n package
+name: Publish npm packages
 
 on:
     push:
         branches: [main]
         paths:
             - integrations/**
+            - packages/cli/**
+            - packages/client/**
+            - apps/api/**
+            - packages/core/**
+            - packages/db/**
+            - scripts/npm-release.test.ts
+            - scripts/qualify-public-cli.ts
+            - scripts/cli-publication-acceptance.ts
+            - bun.lock
+            - package.json
             - .github/workflows/n8n-publish.yml
     workflow_dispatch:
+        inputs:
+            mode:
+                description: Routine OIDC release or initial CLI staging
+                type: choice
+                options: [release, bootstrap-cli]
+                default: release
 
 permissions:
     contents: write
@@ -31,19 +47,57 @@ jobs:
               with:
                   node-version: '24'
                   registry-url: https://registry.npmjs.org
-                  cache: npm
-                  cache-dependency-path: integrations/package-lock.json
+            - uses: oven-sh/setup-bun@v2.2.0
+              with:
+                  bun-version-file: package.json
+            - name: Use the pinned npm CLI with staged publishing support
+              run: npm install --global npm@12.2.1
             - run: npm ci --ignore-scripts
+            - name: Install CLI source dependencies
+              working-directory: .
+              run: bun install --frozen-lockfile
+            - name: Check and build CLI
+              working-directory: .
+              run: |
+                  bun run --cwd packages/cli typecheck
+                  bun run --cwd packages/cli lint
+                  bun run --cwd packages/cli test
+                  bun run --cwd packages/cli build
             - run: npm run typecheck
             - run: npm run lint
             - run: npm run build
-            - run: npm pack --workspace @postdot/n8n-nodes-postdot --dry-run
-            - name: Create version pull request or publish through OIDC
+            - name: Verify release boundaries and the installed CLI
+              working-directory: .
+              run: |
+                  bunx oxlint --deny-warnings integrations/scripts integrations/cli/scripts integrations/n8n/scripts scripts/npm-release.test.ts
+                  bun test scripts/npm-release.test.ts
+                  bun run scripts/qualify-public-cli.ts
+            - run: npm run prepare:cli
+            - run: npm run pack:release
+            - name: Retain the reviewed release archives and integrity plan
+              uses: actions/upload-artifact@v6
+              with:
+                  name: npm-release-${{ github.sha }}-${{ inputs.mode || 'release' }}
+                  path: integrations/.artifacts/npm
+                  if-no-files-found: error
+                  retention-days: 7
+            - name: Create one version PR or publish prepared archives with OIDC
+              if: inputs.mode != 'bootstrap-cli'
               uses: changesets/action@v2
+              env:
+                  NODE_AUTH_TOKEN: ''
+                  NPM_TOKEN: ''
+                  POSTDOT_NPM_RELEASE_MODE: release
               with:
                   cwd: integrations
                   version-script: npm run version-packages
                   publish-script: npm run release
-                  pr-title: 'chore(n8n): version package'
-                  commit-message: 'chore(n8n): version package'
+                  pr-title: 'chore(npm): version packages'
+                  commit-message: 'chore(npm): version packages'
                   create-github-releases: false
+            - name: Stage the first CLI version only
+              if: inputs.mode == 'bootstrap-cli'
+              run: npm run bootstrap:cli
+              env:
+                  POSTDOT_NPM_RELEASE_MODE: bootstrap-cli
+                  NODE_AUTH_TOKEN: ${{ secrets.CLI_NPM_STAGE_TOKEN }}

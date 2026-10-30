@@ -25,6 +25,10 @@
       "path": "integrations",
     },
     {
+      "name": "cli-source",
+      "path": "packages/cli",
+    },
+    {
       "name": "client",
       "path": "packages/client",
     },

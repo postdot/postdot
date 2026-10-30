@@ -2,15 +2,19 @@
     "name": "@postdot/integrations",
     "private": true,
     "workspaces": [
-        "n8n"
+        "n8n",
+        "cli"
     ],
     "scripts": {
         "changeset": "changeset",
         "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
-        "release": "node n8n/scripts/verify-release.cjs && changeset publish",
+        "release": "node scripts/publish.mjs",
         "build": "npm run build --workspace @postdot/n8n-nodes-postdot",
         "typecheck": "npm run typecheck --workspace @postdot/n8n-nodes-postdot",
-        "lint": "npm run lint --workspace @postdot/n8n-nodes-postdot"
+        "lint": "npm run lint --workspace @postdot/n8n-nodes-postdot",
+        "prepare:cli": "node scripts/prepare-cli.mjs",
+        "pack:release": "node scripts/pack-release.mjs",
+        "bootstrap:cli": "node scripts/bootstrap-cli.mjs"
     },
     "devDependencies": {
         "@changesets/cli": "3.0.3"

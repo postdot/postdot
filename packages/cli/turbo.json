@@ -1,0 +1,14 @@
+{
+    "extends": ["//"],
+    "tasks": {
+        "build": {
+            "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/integrations/cli/package.json"]
+        },
+        "test": {
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/integrations/cli/package.json"]
+        },
+        "typecheck": {
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/integrations/cli/package.json"]
+        }
+    }
+}

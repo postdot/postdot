@@ -1,14 +1,28 @@
-name: n8n package
+name: npm packages
 
 on:
     pull_request:
         paths:
             - integrations/**
+            - packages/cli/**
+            - packages/client/**
+            - scripts/npm-release.test.ts
+            - scripts/qualify-public-cli.ts
+            - scripts/cli-publication-acceptance.ts
+            - bun.lock
+            - package.json
             - .github/workflows/n8n.yml
     push:
         branches: [main]
         paths:
             - integrations/**
+            - packages/cli/**
+            - packages/client/**
+            - scripts/npm-release.test.ts
+            - scripts/qualify-public-cli.ts
+            - scripts/cli-publication-acceptance.ts
+            - bun.lock
+            - package.json
             - .github/workflows/n8n.yml
 
 permissions:
@@ -27,9 +41,23 @@ jobs:
                   node-version: '24'
                   cache: npm
                   cache-dependency-path: integrations/package-lock.json
+            - uses: oven-sh/setup-bun@v2.2.0
+              with:
+                  bun-version-file: package.json
             - run: npm ci --ignore-scripts
+            - name: Install and check CLI source
+              working-directory: .
+              run: |
+                  bun install --frozen-lockfile
+                  bun run --cwd packages/cli typecheck
+                  bun run --cwd packages/cli lint
+                  bun run --cwd packages/cli test
+                  bunx oxlint --deny-warnings integrations/scripts integrations/cli/scripts integrations/n8n/scripts scripts/npm-release.test.ts
+                  bun test scripts/npm-release.test.ts
+                  bun run scripts/qualify-public-cli.ts
             - run: npm run typecheck
             - run: npm run lint
             - run: npm run build
             - run: npm run changeset -- status
-            - run: npm pack --workspace @postdot/n8n-nodes-postdot --dry-run
+            - run: npm run prepare:cli
+            - run: npm run pack:release

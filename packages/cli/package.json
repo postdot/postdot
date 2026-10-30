@@ -1,0 +1,26 @@
+{
+    "name": "@postdot/cli-source",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Bun build workspace for the public Postdot CLI",
+    "license": "AGPL-3.0-only",
+    "type": "module",
+    "scripts": {
+        "build": "bun run build.ts",
+        "build:executable": "bun run build.ts --compile",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "devDependencies": {
+        "@postdot/client": "workspace:*",
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.4",
+        "commander": "15.0.0",
+        "typescript": "7.0.2"
+    }
+}
