@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 
-import manifest from '../package.json'
+import manifest from '../../../integrations/cli/package.json'
 import { registerConfigurationCommands } from './configuration-commands'
 import { positiveInteger } from './context'
 import { registerDiscoveryCommands } from './discovery-commands'

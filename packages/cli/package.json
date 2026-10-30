@@ -1,28 +1,10 @@
 {
-    "name": "@postdot/cli",
-    "version": "0.1.0-alpha.0",
-    "description": "Operate a remote Postdot instance from your terminal",
-    "homepage": "https://postdot.app/docs/cli-reference/",
+    "name": "@postdot/cli-source",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Bun build workspace for the public Postdot CLI",
     "license": "AGPL-3.0-only",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/postdot/postdot.git",
-        "directory": "packages/cli"
-    },
-    "bin": {
-        "postdot": "dist/cli.js"
-    },
-    "files": [
-        "dist/cli.js",
-        "LICENSE",
-        "README.md",
-        "THIRD-PARTY-NOTICES"
-    ],
     "type": "module",
-    "publishConfig": {
-        "access": "public",
-        "tag": "alpha"
-    },
     "scripts": {
         "build": "bun run build.ts",
         "build:executable": "bun run build.ts --compile",
@@ -40,8 +22,5 @@
         "@types/bun": "1.4.4",
         "commander": "15.0.0",
         "typescript": "7.0.2"
-    },
-    "engines": {
-        "node": ">=24"
     }
 }

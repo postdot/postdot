@@ -80,9 +80,10 @@ try {
     await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)
     if (standalone)
         await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build:executable'], root)
+    await child([Bun.which('node') ?? 'node', 'integrations/scripts/prepare-cli.mjs'], root)
     await child(
         ['npm', 'pack', '--pack-destination', directory, '--json'],
-        join(root, 'packages/cli')
+        join(root, 'integrations/cli')
     )
     const tarball = (await readdir(directory)).find(name => name.endsWith('.tgz'))
     assert.ok(tarball)

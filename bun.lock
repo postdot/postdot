@@ -205,11 +205,8 @@
       },
     },
     "packages/cli": {
-      "name": "@postdot/cli",
-      "version": "0.1.0-alpha.0",
-      "bin": {
-        "postdot": "dist/cli.js",
-      },
+      "name": "@postdot/cli-source",
+      "version": "0.0.0",
       "devDependencies": {
         "@postdot/client": "workspace:*",
         "@tala-tools/tsconfig": "0.1.0",
@@ -1312,7 +1309,7 @@
 
     "@postdot/bluesky": ["@postdot/bluesky@workspace:packages/bluesky"],
 
-    "@postdot/cli": ["@postdot/cli@workspace:packages/cli"],
+    "@postdot/cli-source": ["@postdot/cli-source@workspace:packages/cli"],
 
     "@postdot/client": ["@postdot/client@workspace:packages/client"],
 

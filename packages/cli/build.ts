@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir } from 'node:fs/promises'
+import { chmod, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const directory = import.meta.dir
@@ -31,4 +31,3 @@ if (standalone) {
     if (!build.success) throw new AggregateError(build.logs, 'CLI bundling failed')
     await chmod(join(directory, 'dist/cli.js'), 0o755)
 }
-await copyFile(join(directory, '../../LICENSE'), join(directory, 'LICENSE'))

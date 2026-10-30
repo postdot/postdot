@@ -1,11 +1,22 @@
 # Postdot CLI
 
 Operate a remote Postdot instance from your terminal using a scoped API key.
-This package is under development and has not yet been published to npm.
+This is an alpha release for publication workflows.
 
-The installed `postdot` command requires Node.js 24 or later. Bun can run the same JavaScript;
-select Bun explicitly with `bunx --bun` when the npm package becomes available.
-Standalone executables that embed Bun remain an optional distribution path.
+## Install
+
+The installed `postdot` command requires Node.js 24 or later:
+
+```sh
+npm install --global @postdot/cli@alpha
+postdot --help
+```
+
+With Bun, run the same package explicitly through Bun:
+
+```sh
+bunx --bun --package @postdot/cli@alpha postdot --help
+```
 
 ## Connect to an instance
 
