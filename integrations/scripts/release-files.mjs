@@ -63,7 +63,7 @@ export function checkedPlan(filename, { packed = false, artifactRoot = artifactD
                 metadata.name !== release.name ||
                 metadata.version !== release.version ||
                 metadata.private ||
-                metadata.publishConfig?.tag !== 'alpha' ||
+                metadata.publishConfig?.tag !== 'latest' ||
                 metadata.publishConfig.access !== 'public' ||
                 metadata.publishConfig.registry !== 'https://registry.npmjs.org' ||
                 !metadata.publishConfig.provenance

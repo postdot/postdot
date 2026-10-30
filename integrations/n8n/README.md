@@ -9,12 +9,12 @@ This community node supports **self-hosted n8n**. It is an alpha release, tested
 You need a running Postdot instance that n8n can reach and permission to install community nodes in n8n.
 
 1. In n8n, open **Settings > Community Nodes** and select **Install**.
-2. Enter `@postdot/n8n-nodes-postdot@alpha` as the package name.
+2. Enter `@postdot/n8n-nodes-postdot` as the package name.
 3. Review the community node notice and select **Install**.
 
 Add a node to your workflow and search for **Postdot**.
 
-For Docker, queue mode or installations managed from the command line, see [n8n's manual installation guide](https://docs.n8n.io/integrations/community-nodes/installation/manual-install/). Use `@postdot/n8n-nodes-postdot@alpha` as the package name and keep the installation in n8n's persistent user directory.
+For Docker, queue mode or installations managed from the command line, see [n8n's manual installation guide](https://docs.n8n.io/integrations/community-nodes/installation/manual-install/). Use `@postdot/n8n-nodes-postdot` as the package name and keep the installation in n8n's persistent user directory.
 
 ## Connect your Postdot instance
 

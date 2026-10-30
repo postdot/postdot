@@ -16,7 +16,7 @@ rmSync(artifactDirectory, { recursive: true, force: true })
 changeset(['publish-plan', '--output', planFile])
 const plan = checkedPlan(planFile)
 // Changesets defaults initial prereleases to latest. Our public manifests are
-// authoritative for the reviewed alpha tag, including the first publication.
+// authoritative for the reviewed dist-tag, including the first publication.
 for (const release of plan.plan.flat())
     release.tag = verifyMetadata(packageDirectories.get(release.name)).publishConfig.tag
 writeFileSync(planFile, `${JSON.stringify(plan, null, 2)}\n`)

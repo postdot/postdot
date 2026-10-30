@@ -27,7 +27,7 @@ function verifyMetadata(directory) {
         !pkg.publishConfig.provenance
     )
         throw new Error('Unexpected package identity, visibility, registry or provenance')
-    if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(pkg.version) || pkg.publishConfig.tag !== 'alpha')
+    if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(pkg.version) || pkg.publishConfig.tag !== 'latest')
         throw new Error('Only explicitly versioned alpha packages may be released')
     return pkg
 }

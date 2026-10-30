@@ -8,14 +8,14 @@ This is an alpha release for publication workflows.
 The installed `postdot` command requires Node.js 24 or later:
 
 ```sh
-npm install --global @postdot/cli@alpha
+npm install --global @postdot/cli
 postdot --help
 ```
 
 With Bun, run the same package explicitly through Bun:
 
 ```sh
-bunx --bun --package @postdot/cli@alpha postdot --help
+bunx --bun --package @postdot/cli postdot --help
 ```
 
 ## Connect to an instance

@@ -23,7 +23,7 @@
         "access": "public",
         "provenance": true,
         "registry": "https://registry.npmjs.org",
-        "tag": "alpha"
+        "tag": "latest"
     },
     "scripts": {
         "prepublishOnly": "node scripts/verify-release.cjs"

@@ -25,7 +25,7 @@ const identity = {
 
 test('routine publication requires the existing main-workflow identity and refuses token fallback', () => {
     for (const directory of packageDirectories.values())
-        expect(verifyPackage(directory, identity).publishConfig.tag).toBe('alpha')
+        expect(verifyPackage(directory, identity).publishConfig.tag).toBe('latest')
     for (const change of [
         { GITHUB_ACTIONS: 'false' },
         { GITHUB_REPOSITORY: 'other/repository' },
@@ -82,7 +82,7 @@ test('packed plans reject altered archives, wrong release tags and paths outside
             name: metadata.name,
             version: metadata.version,
             access: 'public',
-            tag: 'alpha',
+            tag: 'latest',
             tarball: {
                 path: 'cli.tgz',
                 integrity: `sha256-${createHash('sha256').update(readFileSync(archive)).digest('base64')}`,
@@ -93,9 +93,9 @@ test('packed plans reject altered archives, wrong release tags and paths outside
             writeFileSync(file, JSON.stringify({ version: 1, plan: [[entry]] }))
         write(release)
         expect(checkedPlan(file, { packed: true, artifactRoot: directory }).plan[0][0].tag).toBe(
-            'alpha'
+            'latest'
         )
-        write({ ...release, tag: 'latest' })
+        write({ ...release, tag: 'alpha' })
         expect(() => checkedPlan(file, { packed: true, artifactRoot: directory })).toThrow(
             'canonical manifest'
         )
