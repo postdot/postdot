@@ -24,6 +24,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/docs/package.json apps/docs/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/auth/package.json packages/auth/package.json
+COPY packages/cli/package.json packages/cli/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/custom-http/package.json packages/custom-http/package.json

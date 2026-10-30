@@ -15,7 +15,7 @@ The existing script is a working remote client, not a server-maintenance executa
 
 ## Recommended architecture
 
-1. `packages/cli` is a root Bun workspace with a public package manifest and `postdot` bin. Development continues with the existing toolchain. The published artifact is bundled JavaScript targeting Node.js 24 or later, with a Node shebang and Node-standard filesystem/stdin APIs. Qualify Node 24 and 26 on Linux, macOS and Windows before advertising support. Bun execution is an additional tested convenience, not an installation prerequisite.
+1. `packages/cli` is a root Bun workspace with a public package manifest and `postdot` bin. Bun is the primary development and execution runtime. Build standalone executables with the existing stable `bun build --compile`; these embed Bun and require no preinstalled JavaScript runtime. Also build bundled JavaScript for Bun and, where verified, Node compatibility. Keep portable Node-standard APIs where they do not compromise Bun behavior. Qualify each advertised platform/runtime; cross-compilation alone is not execution evidence. Do not install a separate global Bun runtime as an npm side effect.
 2. Commander declares nested commands, options, validation, help and usage errors. Handlers own user workflows and presentation; they call the existing `@postdot/client` factory. Keep configuration, credential access and output formatting separate from handlers. No generic command/plugin framework or per-endpoint command generation.
 3. `packages/client` remains transport-focused. `treaty<PostdotApp>` derives requests and responses from Elysia types; do not maintain handwritten API DTOs, endpoint wrappers or a parallel OpenAPI-generated client. Type-only server imports disappear from the runtime bundle. Bundle the existing client implementation into the CLI; publishing a standalone SDK is not a prerequisite.
 4. Preserve inferred Treaty response types through handlers and the shared error boundary. Review the existing generic `call<T>` casts rather than carrying unchecked result assertions into the new CLI. The server remains authoritative for content validation, authorization and lifecycle rules. Local CLI validation covers syntax, required arguments and configuration only.
@@ -44,18 +44,18 @@ Commander is the preferred fit because the existing operator surface needs detai
 
 Publish `@postdot/cli` on the `alpha` tag through a dedicated GitHub Actions workflow, Changesets and npm trusted publishing/OIDC. Keep CLI versioning independent of application images and n8n releases. Use root-scoped CLI Changesets with all unrelated/private workspaces excluded, and do not move the n8n npm workspace or change its release cadence. Build from the root frozen Bun lockfile, pack only the reviewed CLI files and licenses, then publish the tested tarball with npm in CI. No developer-machine publication or token fallback.
 
-The package must contain no `workspace:` dependencies, server/database runtime code or source-checkout requirements. Validate the installed tarball from a directory outside the repository, including help and real remote calls. Start with npm/npx distribution; native binaries, install scripts, shell completion and update notifications are deferred until concrete demand justifies additional release artifacts. npm's initial package/trust association is a release dependency to resolve using the owner's established CI-only practice, not an assumed existing permission.
+The package must contain no `workspace:` dependencies, server/database runtime code or source-checkout requirements. Validate the installed tarball from a directory outside the repository, including help and real remote calls. Deliver native Bun executables as first-class release artifacts and the npm JavaScript package as a complementary distribution channel. Document the runtime requirements of each channel explicitly. Shell install scripts, shell completion and update notifications are deferred. Future AOT compilation and runtime-module reduction are evaluation opportunities, not release dependencies; introduce them only after measured compatibility, size and startup acceptance. npm's initial package/trust association is a release dependency to resolve using the owner's established CI-only practice, not an assumed existing permission.
 
 ## Delivery slices and acceptance
 
-1. Prove the packaging boundary: minimal installed Node CLI using the bundled Treaty client, remote authenticated read and a media file upload. Inspect the runtime dependency graph for server/Bun leakage. Record supported runtime/OS evidence before migrating all commands.
+1. Prove the packaging boundary: installed Bun CLI and standalone executable using the bundled Treaty client, plus a compatible Node JavaScript build, remote authenticated read and a media file upload. Inspect the runtime dependency graph for accidental server/database dependencies. Record supported runtime/OS evidence before migrating all commands.
 2. Deliver configuration, origin-bound credentials, command tree, help, JSON/error contract and the API-key command inventory. Port existing business workflows without duplicating server contracts. Retain the source-script entry point as a thin adapter only where compatibility is real; mark unsupported legacy administrative paths explicitly.
 3. Qualify a complete remote workflow from the installed package: discover project/channel contract, upload media, create and inspect a draft, schedule/cancel, handle denied access, stale revision and uncertain transport. Cover profile isolation, noninteractive input, credential permissions and the supported server-version range. Add focused checks at each boundary rather than repeating the entire Studio matrix.
 4. Prepare the public README and CLI docs, release workflow, Changeset and tarball. Keep public docs accurate until the package is actually available. Publish the reviewed alpha through CI, then verify clean installation from npm. Local build success is not publication acceptance.
 
 ## Deferred scope
 
-A separately published SDK, native executables, a terminal dashboard, a plugin system, automatic background updates, new server endpoints and new authentication protocols are outside this release. Session-only administration is explicitly excluded from the first API-key alpha; revisit after the publication workflows ship, using the existing authentication contract.
+A separately published SDK, experimental AOT optimizations, a terminal dashboard, a plugin system, automatic background updates, new server endpoints and new authentication protocols are outside this release. Session-only administration is explicitly excluded from the first API-key alpha; revisit after the publication workflows ship, using the existing authentication contract.
 
 ## Sources reviewed
 
@@ -63,5 +63,7 @@ A separately published SDK, native executables, a terminal dashboard, a plugin s
 - [Commander](https://github.com/tj/commander.js): command/option declarations, help and output/error controls.
 - [Citty](https://github.com/unjs/citty): composable command declarations and lazy loading.
 - [Oclif](https://oclif.io/docs/introduction/): extensible CLI platform and plugin model.
+- [Bun compiler](https://bun.com/docs/compiler): stable standalone compilation versus experimental AOT.
+- [Bun AOT implementation](https://github.com/oven-sh/bun/pull/45631): merged work is not a release qualification.
 - [Node.js releases](https://nodejs.org/en/about/previous-releases): runtime support policy.
 - [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/): CI identity and provenance.
