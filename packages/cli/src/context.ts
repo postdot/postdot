@@ -1,19 +1,12 @@
 import { createPostdotClient, type PostdotClient } from '@postdot/client'
 import { InvalidArgumentError } from 'commander'
 
-export class CliError extends Error {
-    constructor(
-        message: string,
-        readonly code: string,
-        readonly exitCode = 1,
-        readonly details?: unknown
-    ) {
-        super(message)
-    }
-}
+import { resolveConnection, type ConfigurationOptions } from './configuration'
+import { CliError } from './errors'
 
-export interface Options {
-    readonly baseUrl?: string
+export { CliError } from './errors'
+
+export interface Options extends ConfigurationOptions {
     readonly timeoutMs: number
     readonly json?: boolean
 }
@@ -24,47 +17,45 @@ export function positiveInteger(value: string) {
     return Number(value)
 }
 
-export function connection(options: Options): PostdotClient {
-    let url: URL
-    try {
-        url = new URL(options.baseUrl ?? process.env.POSTDOT_URL ?? 'http://localhost:3000')
-    } catch {
-        throw new CliError(
-            'Provide a valid server origin with --base-url or POSTDOT_URL.',
-            'invalid_input',
-            2
-        )
-    }
-    if (
-        !['http:', 'https:'].includes(url.protocol) ||
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
-        url.pathname !== '/'
-    )
-        throw new CliError(
-            'The server URL must be an HTTP(S) origin without credentials, query or path.',
-            'invalid_input',
-            2
-        )
-    const token = process.env.POSTDOT_API_KEY
-    if (!token)
-        throw new CliError(
-            'Set POSTDOT_API_KEY to an API key created in Studio.',
-            'authentication_required',
-            3
-        )
-    return createPostdotClient(url.origin, {
+export function clientFor(origin: string, token: string, timeoutMs: number): PostdotClient {
+    return createPostdotClient(origin, {
         token,
         fetcher: (input, init) =>
             fetch(input, {
                 ...init,
                 signal: init?.signal
-                    ? AbortSignal.any([init.signal, AbortSignal.timeout(options.timeoutMs)])
-                    : AbortSignal.timeout(options.timeoutMs),
+                    ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+                    : AbortSignal.timeout(timeoutMs),
+                // Avoid forwarding stored credentials through a server redirect.
+                redirect: 'error',
             }),
     })
+}
+function requireToken(token: string | undefined): string {
+    if (!token)
+        throw new CliError(
+            'No API key is available. Use auth login for a saved profile, or POSTDOT_API_KEY for automation.',
+            'authentication_required',
+            3
+        )
+    return token
+}
+export function connection(options: Options): PostdotClient {
+    const settings = resolveConnection(options)
+    return clientFor(settings.origin, requireToken(settings.token), options.timeoutMs)
+}
+export function projectConnection(options: Options): { client: PostdotClient; projectId: string } {
+    const settings = resolveConnection(options)
+    if (!settings.project)
+        throw new CliError(
+            'Choose a project with --project, POSTDOT_PROJECT or config set-project.',
+            'project_required',
+            2
+        )
+    return {
+        client: clientFor(settings.origin, requireToken(settings.token), options.timeoutMs),
+        projectId: settings.project,
+    }
 }
 
 export async function result<T, E>(

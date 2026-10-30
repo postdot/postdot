@@ -5,7 +5,16 @@ import { basename } from 'node:path'
 import { Command } from 'commander'
 
 import manifest from '../package.json'
-import { CliError, connection, output, positiveInteger, result, type Options } from './context'
+import { registerConfigurationCommands } from './configuration-commands'
+import {
+    CliError,
+    connection,
+    output,
+    positiveInteger,
+    projectConnection,
+    result,
+    type Options,
+} from './context'
 
 export function createProgram({
     jsonErrors = false,
@@ -18,6 +27,8 @@ export function createProgram({
         .description('Operate a remote Postdot instance.')
         .version(manifest.version)
         .option('--base-url <origin>', 'Postdot server origin (or POSTDOT_URL)')
+        .option('--profile <name>', 'Saved connection profile (or POSTDOT_PROFILE)')
+        .option('--config-dir <path>', 'Absolute configuration directory (or POSTDOT_CONFIG_DIR)')
         .option('--timeout-ms <milliseconds>', 'Per-request deadline', positiveInteger, 30_000)
         .option('--json', 'Print one JSON result without terminal decoration')
         .exitOverride()
@@ -49,28 +60,27 @@ export function createProgram({
     media
         .command('policy')
         .description('Inspect the server upload policy.')
-        .requiredOption('--project <id>', 'Project identifier')
+        .option('--project <id>', 'Project identifier (or POSTDOT_PROJECT / profile default)')
         .action(async (_options, command: Command) => {
-            const options = command.optsWithGlobals<Options & { project: string }>()
+            const options = command.optsWithGlobals<Options>()
+            const { client, projectId } = projectConnection(options)
             const body = await result(
-                connection(options)
-                    .api.projects({ projectId: options.project })
-                    .media['upload-policy'].get()
+                client.api.projects({ projectId }).media['upload-policy'].get()
             )
             output(body, JSON.stringify(body, null, 2), options)
         })
     media
         .command('upload')
         .description('Reserve, upload and finalize a local file without automatic retries.')
-        .requiredOption('--project <id>', 'Project identifier')
+        .option('--project <id>', 'Project identifier (or POSTDOT_PROJECT / profile default)')
         .requiredOption('--file <path>', 'Readable, nonempty local file')
         .requiredOption('--content-type <type>', 'File MIME type accepted by the server')
         .option('--alt <text>', 'Default accessibility text')
         .action(async (_options, command: Command) => {
             const options = command.optsWithGlobals<
-                Options & { project: string; file: string; contentType: string; alt?: string }
+                Options & { file: string; contentType: string; alt?: string }
             >()
-            const client = connection(options)
+            const { client, projectId } = projectConnection(options)
             let size: number
             try {
                 const info = await stat(options.file)
@@ -83,7 +93,7 @@ export function createProgram({
                     2
                 )
             }
-            const route = client.api.projects({ projectId: options.project }).media
+            const route = client.api.projects({ projectId }).media
             const policy = await result(route['upload-policy'].get())
             if (
                 size > policy.maxFileSize ||
@@ -134,5 +144,6 @@ export function createProgram({
                 )
             }
         })
+    registerConfigurationCommands(program)
     return program
 }

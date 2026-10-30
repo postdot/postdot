@@ -25,7 +25,7 @@ try {
                       ...(failure.details === undefined ? {} : { details: failure.details }),
                   },
               })
-            : failure.message
+            : `${failure.message}${failure.details === undefined ? '' : `\n${JSON.stringify(failure.details, null, 2)}`}`
         process.stderr.write(`${message}\n`)
         process.exitCode = failure.exitCode
     }

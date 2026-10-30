@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { copyFile, mkdtemp, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -19,6 +19,7 @@ import { createLocalMediaStore } from '../packages/media/src/index'
 // This acceptance tool owns its temporary installation, server and database.
 // It exercises the actual npm artifact and executable, not a source-only import.
 const root = resolve(import.meta.dir, '..')
+const standalone = process.argv.includes('--standalone')
 const directory = await mkdtemp(join(tmpdir(), 'postdot-cli-distribution-'))
 const database = createDatabase(':memory:')
 runMigrations(database)
@@ -46,11 +47,16 @@ const app = createApp({
 })
 const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: request => app.handle(request) })
 
-async function child(command: string[], cwd: string, environment: Record<string, string> = {}) {
+async function child(
+    command: string[],
+    cwd: string,
+    environment: Record<string, string> = {},
+    options: { input?: string; expectedStatus?: number } = {}
+) {
     const process = Bun.spawn(command, {
         cwd,
         env: { PATH: Bun.env.PATH, ...environment },
-        stdin: 'ignore',
+        stdin: options.input === undefined ? 'ignore' : new Blob([options.input]),
         stdout: 'pipe',
         stderr: 'pipe',
     })
@@ -59,13 +65,18 @@ async function child(command: string[], cwd: string, environment: Record<string,
         new Response(process.stderr).text(),
         process.exited,
     ])
-    assert.equal(status, 0, `Command failed (${command[0]}): ${stderr}`)
+    assert.equal(status, options.expectedStatus ?? 0, `Command failed (${command[0]}): ${stderr}`)
+    if (options.expectedStatus) {
+        assert.equal(stdout, '', 'A failed command must not write a result to stdout')
+        return stderr
+    }
     return stdout
 }
 
 try {
     await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)
-    await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build:executable'], root)
+    if (standalone)
+        await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build:executable'], root)
     await child(
         ['npm', 'pack', '--pack-destination', directory, '--json'],
         join(root, 'packages/cli')
@@ -88,10 +99,15 @@ try {
     )
     const js = join(installed, 'node_modules/@postdot/cli/dist/cli.js')
     const native = join(directory, process.platform === 'win32' ? 'postdot.exe' : 'postdot')
-    await copyFile(
-        join(root, 'packages/cli/dist', process.platform === 'win32' ? 'postdot.exe' : 'postdot'),
-        native
-    )
+    if (standalone)
+        await copyFile(
+            join(
+                root,
+                'packages/cli/dist',
+                process.platform === 'win32' ? 'postdot.exe' : 'postdot'
+            ),
+            native
+        )
     const signup = await app.handle(
         new Request('http://localhost:3000/api/auth/sign-up/email', {
             method: 'POST',
@@ -120,17 +136,33 @@ try {
         )
     )
     const environment = { POSTDOT_URL: server.url.origin, POSTDOT_API_KEY: token }
-    const node = Bun.which('node')
-    assert.ok(node, 'Node is required to qualify the optional compatibility artifact')
+    const installedBin = join(installed, 'node_modules/.bin/postdot')
+    const binEnvironment = { ...environment, POSTDOT_CONFIG_DIR: join(directory, 'bin-config') }
+    const fromBin = JSON.parse(
+        await child([installedBin, 'projects', 'list', '--json'], directory, binEnvironment)
+    )
+    assert.ok(fromBin.projects.some((item: { id: string }) => item.id === project.id))
+    const bunOnlyBin = JSON.parse(
+        await child(
+            [process.execPath, 'run', '--bun', installedBin, 'projects', 'list', '--json'],
+            directory,
+            { ...binEnvironment, PATH: directory }
+        )
+    )
+    assert.ok(bunOnlyBin.projects.some((item: { id: string }) => item.id === project.id))
+
+    const node = process.env.POSTDOT_CLI_NODE ?? Bun.which('node')
+    assert.ok(node, 'Node is required to qualify the JavaScript package compatibility')
     const runtimes = [
         { name: 'bun-javascript', command: [process.execPath, js] },
-        { name: 'standalone-bun', command: [native] },
+        ...(standalone ? [{ name: 'standalone-bun', command: [native] }] : []),
         { name: 'node-javascript', command: [node, js] },
     ]
     for (const runtime of runtimes) {
         // The standalone invocation can run with no runtime available on PATH.
         const env = {
             ...environment,
+            POSTDOT_CONFIG_DIR: join(directory, `automation-${runtime.name}`),
             ...(runtime.name === 'standalone-bun' ? { PATH: directory } : {}),
         }
         const listed = JSON.parse(
@@ -173,16 +205,110 @@ try {
             new Uint8Array(await content.arrayBuffer()),
             new Uint8Array(await Bun.file(file).arrayBuffer())
         )
-        console.log(`${runtime.name}: installed remote discovery and media upload passed`)
+        assert.equal(await Bun.file(join(env.POSTDOT_CONFIG_DIR, 'config.json')).exists(), false)
+
+        const configDir = join(directory, `profiles-${runtime.name}`)
+        const profileEnvironment = { POSTDOT_CONFIG_DIR: configDir }
+        const invoke = (
+            args: string[],
+            options: { input?: string; expectedStatus?: number } = {}
+        ) => child([...runtime.command, ...args, '--json'], directory, profileEnvironment, options)
+        await invoke(['config', 'add', 'work', '--url', server.url.origin, '--project', project.id])
+        const loggedIn = await invoke(['auth', 'login', '--token-stdin'], { input: `${token}\n` })
+        assert.equal(JSON.parse(loggedIn).authenticated, true)
+        assert.ok(!loggedIn.includes(token))
+        const credentialsBefore = await Bun.file(join(configDir, 'credentials.json')).text()
+        assert.equal((await stat(join(configDir, 'credentials.json'))).mode & 0o777, 0o600)
+        const status = await invoke(['auth', 'status'])
+        assert.equal(JSON.parse(status).credentialSource, 'profile')
+        assert.ok(!status.includes(token))
+        const policy = JSON.parse(await invoke(['media', 'policy']))
+        assert.ok(policy.maxFileSize > 0)
+        const invalidFile = join(directory, `invalid-${runtime.name}.png`)
+        await Bun.write(invalidFile, 'This is not an image')
+        const uploadArguments = [
+            'media',
+            'upload',
+            '--file',
+            invalidFile,
+            '--content-type',
+            'image/png',
+        ]
+        const failedUpload = JSON.parse(await invoke(uploadArguments, { expectedStatus: 1 }))
+        assert.ok(failedUpload.error.details.assetId)
+        assert.ok(failedUpload.error.details.intentId)
+        const humanUploadFailure = await child(
+            [...runtime.command, ...uploadArguments],
+            directory,
+            profileEnvironment,
+            { expectedStatus: 1 }
+        )
+        assert.ok(humanUploadFailure.includes('"assetId"'))
+        assert.ok(humanUploadFailure.includes('"intentId"'))
+
+        const denied = JSON.parse(
+            await invoke(['auth', 'login', '--token-stdin'], {
+                input: 'invalid-key',
+                expectedStatus: 3,
+            })
+        )
+        assert.ok(denied.error.code)
+        assert.equal(await Bun.file(join(configDir, 'credentials.json')).text(), credentialsBefore)
+        await invoke(['auth', 'login', '--token-stdin'], {
+            input: 'x'.repeat(16_385),
+            expectedStatus: 2,
+        })
+        assert.equal(await Bun.file(join(configDir, 'credentials.json')).text(), credentialsBefore)
+        await invoke(['auth', 'login'], { expectedStatus: 2 })
+        const listedProfiles = await invoke(['config', 'list'])
+        assert.ok(!listedProfiles.includes(token))
+        let unexpectedRequests = 0
+        const otherServer = Bun.serve({
+            hostname: '127.0.0.1',
+            port: 0,
+            fetch() {
+                unexpectedRequests++
+                return Response.json({ projects: [] })
+            },
+        })
+        try {
+            const mismatch = JSON.parse(
+                await invoke(['projects', 'list', '--base-url', otherServer.url.origin], {
+                    expectedStatus: 3,
+                })
+            )
+            assert.equal(mismatch.error.code, 'authentication_required')
+            assert.equal(unexpectedRequests, 0)
+        } finally {
+            await otherServer.stop(true)
+        }
+        const loggedOut = JSON.parse(await invoke(['auth', 'logout']))
+        assert.equal(loggedOut.removed, true)
+        assert.ok(!(await Bun.file(join(configDir, 'credentials.json')).text()).includes(token))
+        await invoke(['auth', 'status'], { expectedStatus: 3 })
+        const environmentStatus = JSON.parse(
+            await child([...runtime.command, 'auth', 'status', '--json'], directory, {
+                ...profileEnvironment,
+                POSTDOT_API_KEY: token,
+            })
+        )
+        assert.equal(environmentStatus.credentialSource, 'environment')
+        console.log(
+            `${runtime.name}: installed remote discovery, media upload, saved profiles and credential isolation passed`
+        )
     }
-    const help = await child([native, 'media', 'upload', '--help'], directory, { PATH: directory })
+    const help = await child(
+        [...(standalone ? [native] : [process.execPath, js]), 'media', 'upload', '--help'],
+        directory,
+        { PATH: directory }
+    )
     assert.ok(help.includes('--project <id>'))
     const packageManifest = await Bun.file(
         join(installed, 'node_modules/@postdot/cli/package.json')
     ).json()
     assert.equal(packageManifest.dependencies, undefined)
     console.log(
-        'Standalone help works without credentials or an installed runtime; npm artifact has no runtime workspace dependencies.'
+        'Help works without credentials or network; the npm artifact has no runtime workspace dependencies.'
     )
 } finally {
     await server.stop(true)
