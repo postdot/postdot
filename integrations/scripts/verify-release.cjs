@@ -11,11 +11,11 @@ function verifyIdentity(environment = process.env) {
         environment.GITHUB_REPOSITORY !== 'postdot/postdot' ||
         environment.GITHUB_REF !== 'refs/heads/main' ||
         environment.GITHUB_WORKFLOW_REF !==
-            'postdot/postdot/.github/workflows/n8n-publish.yml@refs/heads/main' ||
+            'postdot/postdot/.github/workflows/npm-publish.yml@refs/heads/main' ||
         !environment.ACTIONS_ID_TOKEN_REQUEST_URL ||
         !environment.ACTIONS_ID_TOKEN_REQUEST_TOKEN
     )
-        throw new Error('Publish only through postdot/postdot n8n-publish.yml on main')
+        throw new Error('Publish only through postdot/postdot npm-publish.yml on main')
 }
 function verifyMetadata(directory) {
     const pkg = JSON.parse(readFileSync(resolve(directory, 'package.json'), 'utf8'))
