@@ -15,6 +15,7 @@ import {
     runMigrations,
 } from '../packages/db/src/index'
 import { createLocalMediaStore } from '../packages/media/src/index'
+import { qualifyPublications, qualifyUncertainWrite } from './cli-publication-acceptance'
 
 // This acceptance tool owns its temporary installation, server and database.
 // It exercises the actual npm artifact and executable, not a source-only import.
@@ -31,7 +32,9 @@ const media = createMediaAssetStore(
         maxObjectBytes: 2_000_000,
     })
 )
+const clock = Date.now()
 const app = createApp({
+    manualStore: { now: () => clock },
     database,
     media,
     publisher: createPublisherRuntime(database, {
@@ -157,8 +160,44 @@ try {
         { name: 'bun-javascript', command: [process.execPath, js] },
         ...(standalone ? [{ name: 'standalone-bun', command: [native] }] : []),
         { name: 'node-javascript', command: [node, js] },
+        ...(process.argv.includes('--node24-container') ||
+        process.env.POSTDOT_CLI_RUNTIME === 'node24-container'
+            ? [
+                  {
+                      name: 'node24-container',
+                      command: [
+                          'docker',
+                          'run',
+                          '--rm',
+                          '--interactive',
+                          '--network',
+                          'host',
+                          '--user',
+                          `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
+                          '--mount',
+                          `type=bind,source=${directory},target=${directory}`,
+                          '--workdir',
+                          directory,
+                          '--env',
+                          'POSTDOT_URL',
+                          '--env',
+                          'POSTDOT_API_KEY',
+                          '--env',
+                          'POSTDOT_CONFIG_DIR',
+                          'node:24-slim',
+                          'node',
+                          js,
+                      ],
+                  },
+              ]
+            : []),
     ]
-    for (const runtime of runtimes) {
+    const selectedRuntime = process.env.POSTDOT_CLI_RUNTIME
+    if (selectedRuntime && !runtimes.some(runtime => runtime.name === selectedRuntime))
+        throw new Error('Unknown CLI qualification runtime')
+    for (const runtime of runtimes.filter(
+        runtime => !selectedRuntime || runtime.name === selectedRuntime
+    )) {
         // The standalone invocation can run with no runtime available on PATH.
         const env = {
             ...environment,
@@ -224,6 +263,39 @@ try {
         assert.ok(!status.includes(token))
         const policy = JSON.parse(await invoke(['media', 'policy']))
         assert.ok(policy.maxFileSize > 0)
+        const machine = (
+            args: string[],
+            options: { input?: string; expectedStatus?: number } = {}
+        ) => child([...runtime.command, ...args, '--json'], directory, env, options)
+        const workflow = await qualifyPublications({
+            invoke,
+            client,
+            projectId: project.id,
+            assetId: uploaded.media.asset.id,
+            directory,
+            label: runtime.name,
+            now: () => clock,
+        })
+        const deniedWrite = JSON.parse(
+            await child(
+                [
+                    ...runtime.command,
+                    'posts',
+                    'create',
+                    '--project',
+                    project.id,
+                    '--input',
+                    '-',
+                    '--json',
+                ],
+                directory,
+                { ...env, POSTDOT_API_KEY: workflow.readOnlyToken },
+                { input: JSON.stringify(workflow.postInput), expectedStatus: 3 }
+            )
+        )
+        assert.equal(deniedWrite.error.details.status, 403)
+        await qualifyUncertainWrite(machine, project.id)
+
         const invalidFile = join(directory, `invalid-${runtime.name}.png`)
         await Bun.write(invalidFile, 'This is not an image')
         const uploadArguments = [
@@ -294,7 +366,7 @@ try {
         )
         assert.equal(environmentStatus.credentialSource, 'environment')
         console.log(
-            `${runtime.name}: installed remote discovery, media upload, saved profiles and credential isolation passed`
+            `${runtime.name}: installed remote publication workflow, uploads, saved profiles and credential isolation passed`
         )
     }
     const help = await child(

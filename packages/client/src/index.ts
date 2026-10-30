@@ -57,6 +57,7 @@ export interface PostdotClientOptions {
     readonly headers?: ConstructorParameters<typeof Headers>[0]
     readonly token?: string
     readonly fetcher?: PostdotFetcher
+    readonly parseDate?: boolean
 }
 
 export function createPostdotClient(
@@ -72,6 +73,7 @@ export function createPostdotClient(
             credentials: 'same-origin',
         },
         fetcher: options.fetcher as typeof fetch | undefined,
+        parseDate: options.parseDate,
         headers,
     })
 }

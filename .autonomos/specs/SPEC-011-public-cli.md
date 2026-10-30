@@ -9,7 +9,7 @@
 
 ## Product boundary
 
-An operator installs `@postdot/cli`, obtains the `postdot` command and operates a remote Postdot instance without a source checkout, Bun, server installation or database access. Interactive operators and unattended scripts share the same commands. The first alpha covers the existing API-key-authorized publication workflow, including project/channel discovery, content contracts, media, drafts, scheduling and recovery. It does not promise a command for every HTTP endpoint.
+An operator installs `@postdot/cli`, obtains the `postdot` command and operates a remote Postdot instance without a source checkout, Bun, server installation or database access. Interactive operators and unattended scripts share the same commands. The first alpha covers the existing API-key-authorized publication workflow, including project/channel discovery, content contracts, media, drafts, scheduling and recovery. The first alpha leaves project/channel setup, sharing configuration, project lifecycle administration and audit in Studio or the legacy source script. It does not promise a command for every HTTP endpoint.
 
 The existing script is a working remote client, not a server-maintenance executable. Its HTTP behavior is useful implementation input; its manual argument parser, monolithic help and cookie-printing login are not the public product contract. Inventory its commands and authorization requirements before migration. Document any deliberate difference; do not silently remove an operator workflow.
 

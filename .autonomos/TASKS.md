@@ -9,7 +9,7 @@
 - [x] **[WEB-600]** Copy an internal publication link from Queue and publication details `Priority: 🔵` `Complexity: S` `Completed: 2026-10-30` — Owner accepts a small copy-link action for existing project members; retain normal authorization, localize feedback and provide a fallback if clipboard access fails.
 
 - [x] **[CLI-601]** Design the independently installable public CLI `Priority: 🟠` `Complexity: M` `Completed: 2026-10-30` — Recommended architecture and release boundary in [SPEC-011](specs/SPEC-011-public-cli.md); [evidence](worklogs/2026-10-30-CLI-601.md).
-- [/] **[CLI-602]** Implement and release the public remote CLI `Priority: 🟠` `Complexity: L` — SPEC-011: installed Bun/Node JavaScript package is the first distribution; standalone compilation is optional. Remote reads/uploads, origin-bound profiles and API-key login/status/logout work locally. Continue publication-command migration, release qualification and CI/OIDC delivery. [Evidence](worklogs/2026-10-30-CLI-602.md).
+- [/] **[CLI-602]** Implement and release the public remote CLI `Priority: 🟠` `Complexity: L` — Installed JavaScript CLI supports Node/Bun with profiles, media and the publication workflow through Treaty; qualification passes on Bun and Node 24/26. First-alpha scope and deferred administration are explicit in SPEC-011. Continue CI/OIDC release preparation and supported-platform/server qualification. [Evidence](worklogs/2026-10-30-CLI-602.md).
 
 ## Current direction
 

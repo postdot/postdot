@@ -228,3 +228,16 @@ describe('Postdot client', () => {
         expect(authorization === 'Bearer postdot_pat_test-token').toBe(true)
     })
 })
+
+it('preserves JSON date strings when requested while retaining the default date parsing', async () => {
+    const fetcher = async () => Response.json({ projects: [{ id: 'p', name: '2026-10-30' }] })
+    const plain = await createPostdotClient('http://localhost:3000', {
+        fetcher,
+        parseDate: false,
+    }).api.projects.get()
+    expect(plain.data?.projects[0]?.name).toBe('2026-10-30')
+    const original = await createPostdotClient('http://localhost:3000', {
+        fetcher,
+    }).api.projects.get()
+    expect(original.data?.projects[0]?.name).toBeInstanceOf(Date)
+})

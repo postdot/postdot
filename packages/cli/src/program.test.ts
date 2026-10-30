@@ -27,3 +27,25 @@ test('invalid options fail before attempting a remote operation', async () => {
         })
     ).rejects.toMatchObject({ code: 'commander.missingMandatoryOptionValue' })
 })
+
+test('publication syntax rejects invalid batch identifiers and timestamps before a connection', async () => {
+    const invalidCommands = [
+        ['publications', 'schedule', '--publications', 'one,,two', '--at', '1'],
+        ['publications', 'schedule', '--publications', 'one', '--at', '-1'],
+        [
+            'publications',
+            'promote',
+            '--publication',
+            'p',
+            '--expected-revision',
+            '1.5',
+            '--at',
+            '1',
+        ],
+        ['publications', 'reconcile', '--publication', 'p', '--resolution', 'guess'],
+    ]
+    for (const args of invalidCommands)
+        await expect(
+            createProgram({ jsonErrors: true }).parseAsync(args, { from: 'user' })
+        ).rejects.toMatchObject({ code: 'commander.invalidArgument' })
+})

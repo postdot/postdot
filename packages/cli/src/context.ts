@@ -20,6 +20,7 @@ export function positiveInteger(value: string) {
 export function clientFor(origin: string, token: string, timeoutMs: number): PostdotClient {
     return createPostdotClient(origin, {
         token,
+        parseDate: false,
         fetcher: (input, init) =>
             fetch(input, {
                 ...init,
@@ -58,9 +59,13 @@ export function projectConnection(options: Options): { client: PostdotClient; pr
     }
 }
 
-export async function result<T, E>(
-    request: Promise<{ data: T; error: E; status: number; response?: Response }>
-): Promise<NonNullable<T>> {
+type ApiResult<T, E> = Promise<{ data: T; error: E; status: number; response?: Response }>
+export function result<T, E>(request: ApiResult<T, E>, nullable?: false): Promise<NonNullable<T>>
+export function result<T, E>(
+    request: ApiResult<T, E>,
+    nullable: true
+): Promise<NonNullable<T> | null>
+export async function result<T, E>(request: ApiResult<T, E>, nullable = false) {
     let response: Awaited<typeof request>
     try {
         response = await request
@@ -92,13 +97,22 @@ export async function result<T, E>(
             typeof error.code === 'string'
                 ? error.code
                 : 'http_error'
+        const message =
+            typeof error === 'object' &&
+            error !== null &&
+            'message' in error &&
+            typeof error.message === 'string'
+                ? error.message
+                : `The server refused the request (HTTP ${response.status}).`
         throw new CliError(
-            `The server refused the request (HTTP ${response.status}).`,
+            message,
             code,
             response.status === 401 || response.status === 403 ? 3 : 1,
-            { status: response.status }
+            { status: response.status, ...(error === undefined ? {} : { server: error }) }
         )
     }
+    if (nullable && (response.data === null || response.data === undefined || response.data === ''))
+        return null
     if (response.data === null || response.data === undefined)
         throw new CliError('The server returned an empty response.', 'invalid_response')
     return response.data
