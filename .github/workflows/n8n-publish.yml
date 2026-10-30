@@ -10,7 +10,7 @@ on:
             - apps/api/**
             - packages/core/**
             - packages/db/**
-            - scripts/npm-release.test.ts
+            - integrations/scripts/release.test.ts
             - scripts/qualify-public-cli.ts
             - scripts/cli-publication-acceptance.ts
             - bun.lock
@@ -69,8 +69,8 @@ jobs:
             - name: Verify release boundaries and the installed CLI
               working-directory: .
               run: |
-                  bunx oxlint --deny-warnings integrations/scripts integrations/cli/scripts integrations/n8n/scripts scripts/npm-release.test.ts
-                  bun test scripts/npm-release.test.ts
+                  bunx oxlint --deny-warnings integrations/scripts integrations/cli/scripts integrations/n8n/scripts
+                  bun test integrations/scripts/release.test.ts
                   bun run scripts/qualify-public-cli.ts
             - run: npm run prepare:cli
             - run: npm run pack:release
