@@ -6,10 +6,10 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
-import { checkedPlan, packageDirectories } from './release-files.mjs'
+import { checkedPlan, packageDirectories } from '../scripts/release-files.mjs'
 
 const require = createRequire(import.meta.url)
-const { verifyIdentity, verifyPackage } = require('./verify-release.cjs')
+const { verifyIdentity, verifyPackage } = require('../scripts/verify-release.cjs')
 const root = resolve(import.meta.dir, '../..')
 const node = process.env.POSTDOT_CLI_NODE ?? Bun.which('node') ?? process.execPath
 const identity = {
