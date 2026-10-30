@@ -230,6 +230,8 @@
     "auth_board_source_label": "Publication source",
     "auth_board_source_title": "Annonce de la collection de vendredi",
     "auth_board_caption": "Une publication source devient une publication par destination, chacune avec son état et sa prochaine étape.",
+    "auth_stage_headline_source": "Une source.",
+    "auth_stage_headline_destinations": "Chaque destination.",
     "auth_setup_steps_label": "Ensuite",
     "auth_setup_step_admin": "Ce compte devient l’administrateur de l’installation.",
     "auth_setup_step_close": "L’inscription publique se ferme dès qu’il existe.",

@@ -230,6 +230,8 @@
     "auth_board_source_label": "Source post",
     "auth_board_source_title": "Friday collection announcement",
     "auth_board_caption": "One source post becomes a publication for each destination, each with its own state and next step.",
+    "auth_stage_headline_source": "One source.",
+    "auth_stage_headline_destinations": "Every destination.",
     "auth_setup_steps_label": "What happens next",
     "auth_setup_step_admin": "This account becomes the installation administrator.",
     "auth_setup_step_close": "Public signup closes as soon as it exists.",

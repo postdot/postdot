@@ -1546,7 +1546,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-159] Establish a supported n8n integration path
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-10-29)
 - Priority: medium — after core access surfaces stabilize
 - Evidence: The owner named n8n among intended ways to use Postbot. The API can be called programmatically, but that alone does not establish a tested n8n experience or an official node.
 - Impact: Promoting an integration without a documented, reproducible workflow would shift authentication, error and publication semantics onto users.
@@ -1556,6 +1556,8 @@ posture` is an exact patch duplicate of `aa889111`, and
   [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Remaining scope (ALPHA-578, 2026-10-24): n8n integration remains a proposal; define the supported workflow before implementation.
+
+- Resolution (N8N-595, 2026-10-29): The owner prioritized integration quality and accepted package maintenance. Delivered a source-installable native n8n package for project/channel discovery, unscheduled text draft preparation and publication reads, plus an imported and executed example. Scoped credentials, refusals and a lost response after one successful write were verified in actual n8n 2.45.6; docs distinguish a saved draft from delivery. Publishing to npm, Cloud verification, media and scheduling operations remain separate scope. [Evidence](worklogs/2026-10-29-N8N-595.md).
 
 ## [ISSUE-160] Explore a mobile Postbot client
 
@@ -1633,7 +1635,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-165] Add a Telegram publishing destination
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-10-29)
 - Evidence: No Telegram publishing adapter or built-in channel was found; the owner requests broader network coverage.
 - Desired outcome: A verified bot/account connection and bounded text/media publication flow, preserving project ownership, content validation, durable effects and stored remote identity. Polls and further native formats are separately scoped.
 - Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
@@ -1643,6 +1645,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner product direction, 2026-10-16.
 
 - Remaining scope (ALPHA-578, 2026-10-24): Telegram publishing, polls and albums are implemented; remaining scope is owner-authorized real bot/account publication acceptance. No live Telegram outcome is claimed.
+
+- Resolution (TELEGRAM-594, 2026-10-29): Owner-authorized real acceptance passed with a dedicated bot and private broadcast channel. Connection sent no probe; scheduled text, photo, video, anonymous multiple-choice poll and ordered mixed album published through Postdot with persisted message/media identities and one attempt per job. Restart preserved receipts without replay. This closes the recorded publishing acceptance gap; public-channel usernames, forced provider errors and automatic poll expiry were not exercised in this live pass. [Evidence](worklogs/2026-10-29-TELEGRAM-594.md).
 
 ## [ISSUE-166] Establish Facebook and Instagram integration scope
 
@@ -1757,12 +1761,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-175] Investigate a development API shutdown that retained SQLite
 
 - Type: defect
-- Status: open
+- Status: resolved — superseded by DEV-411 and DEV-412
 - Evidence: CHANNEL-488 found the server process alive with the database and runtime-lock descriptors open after its earlier SIGTERM drain log, while port 3002 had no listener. A second explicit termination ended it. The exact retained marker was removed only after verifying its owner and that no process held the database, WAL, shared-memory or marker files.
 - Desired outcome: Reproduce and identify which shutdown step can remain pending. Preserve fail-closed runtime exclusion; do not introduce automatic stale-lock reclamation or infer quiescence from a missing listener.
-- Tasks: CHANNEL-488 (recovery and evidence); root-cause repair remains pending.
+- Tasks: CHANNEL-488 (historical recovery), DEV-411 (open-stream shutdown correction), DEV-412 (startup termination correction).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Reproduce the later retained-process incident and identify its pending drain step. Earlier hangup fixes and the WAL fixture correction do not establish this cause.
+- Closure review (2026-10-29): The active repair follow-up was stale. Current source includes 552c18cc7 (close project/user streams before graceful HTTP stop) and f0de926cc (handle termination before acquiring the startup marker). Current isolated process checks confirm normal exit and marker release with an open authenticated stream and during startup. No further runtime code change is warranted by the available evidence. The exact trigger of the original CHANNEL-488 incident remains unproved; retain it as historical evidence and reopen only for a new reproducible retained-process symptom. Do not schedule another repair from this old observation alone. [Review](worklogs/2026-10-19-DEV-411.md#current-source-review-2026-10-29).
 
 ## [ISSUE-176] Exclude generated test and runtime data from production build contexts
 
