@@ -2594,5 +2594,9 @@
     "composer_conflict_refresh": "Actualiser la version enregistrée",
     "composer_conflict_read_failed": "La version enregistrée n’a pas pu être chargée. Actualisez-la avant de choisir une version.",
     "project_access_unconfirmed_title": "Impossible de vérifier l’accès au projet",
-    "project_access_unconfirmed_description": "Cette page est en pause tant que l’accès ne peut pas être vérifié."
+    "project_access_unconfirmed_description": "Cette page est en pause tant que l’accès ne peut pas être vérifié.",
+    "publication_copy_link": "Copier le lien de la publication",
+    "publication_link_copied": "Lien de la publication copié",
+    "publication_link_label": "Lien de la publication",
+    "publication_link_manual_copy": "Copiez ce lien manuellement. Son ouverture nécessite un accès à ce projet."
 }

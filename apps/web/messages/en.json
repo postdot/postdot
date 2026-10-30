@@ -2594,5 +2594,9 @@
     "composer_conflict_refresh": "Refresh saved version",
     "composer_conflict_read_failed": "The saved version could not be loaded. Refresh it before choosing a version.",
     "project_access_unconfirmed_title": "Project access could not be verified",
-    "project_access_unconfirmed_description": "This page is paused until access can be checked."
+    "project_access_unconfirmed_description": "This page is paused until access can be checked.",
+    "publication_copy_link": "Copy publication link",
+    "publication_link_copied": "Publication link copied",
+    "publication_link_label": "Publication link",
+    "publication_link_manual_copy": "Copy this link manually. Opening it requires access to this project."
 }

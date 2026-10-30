@@ -25,6 +25,7 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-mi
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, type ReactNode } from 'react'
 
+import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { api, type PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
@@ -316,6 +317,10 @@ function PublicationListItem({
                     selectionEnabled={selectionEnabled}
                     action={
                         <div className="flex flex-wrap items-center justify-end gap-1">
+                            <CopyPublicationLink
+                                projectId={publication.projectId}
+                                publicationId={publication.id}
+                            />
                             {showPostLink ? (
                                 <Link
                                     className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:underline"

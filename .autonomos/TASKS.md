@@ -5,6 +5,9 @@
 > **Complexity:** [S] Small (1h), [M] Medium (4h), [L] Large (1-2 days), [XL] Huge (Planning req.)
 > **Status:** [ ] Todo, [/] In Progress, [x] Done, [!] Blocked
 
+- [x] **[SITE-599]** Publish the approved landing illustrations `Priority: 🟠` `Complexity: S` `Completed: 2026-10-30` — Owner authorizes shipping the frozen UX-416 result unchanged through the existing documentation deployment workflow. Isolate unrelated local application commits and authentication design. [Evidence](worklogs/2026-10-29-SITE-599.md).
+- [x] **[WEB-600]** Copy an internal publication link from Queue and publication details `Priority: 🔵` `Complexity: S` `Completed: 2026-10-30` — Owner accepts a small copy-link action for existing project members; retain normal authorization, localize feedback and provide a fallback if clipboard access fails.
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

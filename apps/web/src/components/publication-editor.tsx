@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { CopyPublicationLink } from '@/components/copy-publication-link'
 import { type MediaSelection } from '@/components/media-attachment-picker'
 import { PostSourceReview } from '@/components/post-source-review'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
@@ -1514,16 +1515,20 @@ export function PublicationEditor({
                         title={publicationEditorHeading(editor, sourceContent)}>
                         {publicationEditorHeading(editor, sourceContent)}
                     </h1>
-                    {publicationEditable ? (
-                        <div className="col-start-2 row-start-1 min-w-0 justify-self-end lg:col-start-3">
+                    <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-2 justify-self-end lg:col-start-3">
+                        {publicationEditable ? (
                             <PublicationEditorSaveIndicator
                                 compactOnMobile
                                 state={saveState}
                                 revision={editor.draft.revision}
                                 showRevision={false}
                             />
-                        </div>
-                    ) : null}
+                        ) : null}
+                        <CopyPublicationLink
+                            projectId={projectId}
+                            publicationId={editor.publication.id}
+                        />
+                    </div>
                 </header>
 
                 {editor.movement?.fromPublicationId || editor.movement?.toPublicationId ? (
