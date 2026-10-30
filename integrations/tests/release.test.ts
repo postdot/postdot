@@ -16,7 +16,7 @@ const identity = {
     GITHUB_ACTIONS: 'true',
     GITHUB_REPOSITORY: 'postdot/postdot',
     GITHUB_REF: 'refs/heads/main',
-    GITHUB_WORKFLOW_REF: 'postdot/postdot/.github/workflows/n8n-publish.yml@refs/heads/main',
+    GITHUB_WORKFLOW_REF: 'postdot/postdot/.github/workflows/npm-publish.yml@refs/heads/main',
     ACTIONS_ID_TOKEN_REQUEST_URL: 'https://example.test/oidc',
     ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'fixture-only',
     GITHUB_EVENT_NAME: 'push',

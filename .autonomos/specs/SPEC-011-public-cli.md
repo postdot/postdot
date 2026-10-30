@@ -42,7 +42,7 @@ Commander is the preferred fit because the existing operator surface needs detai
 
 ## Distribution and release
 
-Publish `@postdot/cli` on the `alpha` tag through the existing shared `n8n-publish.yml` GitHub Actions workflow, Changesets and npm trusted publishing/OIDC. Keep the filename for existing n8n trust. CLI and n8n versions remain independent within `integrations/.changeset`; one workflow creates their version PR and publishes prepared archives. Build CLI source from the root frozen Bun lockfile, prepare the public package under `integrations/cli`, then pack only reviewed files and licenses. No developer-machine publication or routine token fallback.
+Publish `@postdot/cli` on the `alpha` tag through the shared `npm-publish.yml` GitHub Actions workflow, Changesets and npm trusted publishing/OIDC. CLI and n8n versions remain independent within `integrations/.changeset`; one workflow creates their version PR and publishes prepared archives. Build CLI source from the root frozen Bun lockfile, prepare the public package under `integrations/cli`, then pack only reviewed files and licenses. No developer-machine publication or routine token fallback.
 
 The first CLI package creation uses an explicit CI-only staged upload with a temporary stage-only credential. The owner approves the stage on npm with 2FA and configures that package's Trusted Publisher; later releases use OIDC exclusively. Keep this bootstrap separate from ordinary publication and remove its temporary GitHub secret afterward. While bootstrap is pending, n8n releases remain possible.
 

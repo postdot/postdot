@@ -15,7 +15,7 @@ on:
             - scripts/cli-publication-acceptance.ts
             - bun.lock
             - package.json
-            - .github/workflows/n8n-publish.yml
+            - .github/workflows/npm-publish.yml
     workflow_dispatch:
         inputs:
             mode:
