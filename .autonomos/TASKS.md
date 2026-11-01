@@ -10,6 +10,8 @@
 
 - [x] **[META-603]** Prepare Instagram Unified Login App Review evidence and submission materials `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Current requirements and app readiness checked; permission justifications, recording script and prerequisite inventory prepared. Submission still needs an application privacy/deletion process, stable review deployment, Tech Provider eligibility and resolution of the mandatory messaging permission. No submission or Live-mode claim. [Evidence](worklogs/2026-11-01-META-603-app-review.md).
 
+- [x] **[DOCS-604]** Document application privacy and data deletion for self-hosted instances `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Added source-backed privacy and deletion guides, navigation/cross-links and an operator policy checklist. Instance-specific identity, contact, retention and hosting details still need confirmation before using a policy for Meta review. [Evidence](worklogs/2026-11-01-DOCS-604-application-data.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

@@ -111,3 +111,40 @@ service is implied by these maintenance commands.
 For resource observation, see [metrics](/docs/metrics/). Logs default to error
 level in production; inspect a bounded interval privately before sharing redacted
 excerpts. Readiness and metrics do not prove provider connectivity or email delivery.
+
+## Publish an instance privacy policy
+
+The [application data notice](/docs/application-privacy/) and
+[deletion guide](/docs/delete-application-data/) describe standard software
+behavior. Publish an instance-specific policy and a working request contact
+before using your deployment's URLs in a provider's application review.
+
+Document the following for the installation you actually run:
+
+- Your operator identity, contact details and the instance URL covered by the
+  policy. Identify who handles privacy and deletion requests.
+- The data you process, why you process it and the applicable basis for each use.
+  Include user accounts, access grants, provider connections, authored content,
+  media, delivery history and any additional deployment logging or monitoring.
+- Who receives the data: authorized team members, connected platforms and the
+  hosting, storage, email or monitoring services you use. Describe relevant
+  processing locations and international transfers for that deployment.
+- Retention periods or criteria for live content, activity records, logs, media
+  trash and backups, including off-machine copies. Do not promise that
+  disconnecting an account deletes every related record.
+- How someone can request access, correction, deletion or other applicable rights,
+  how you verify the request and how you communicate the result. Explain the
+  records retained for shared work or other stated requirements.
+- How you check physical media cleanup, handle retained backups and reapply
+  deletion decisions when restoring an older snapshot.
+
+Keep the policy publicly reachable without a Postdot login. Test the contact
+procedure, assign someone to handle it, and update the policy when the deployment
+or data uses change. The documentation publisher's contact address is not the
+request handler for every independently operated instance.
+
+For Meta, configure the actual application policy and deletion-instructions URLs
+in the app settings. The API does not provide a Meta-specific data-deletion
+callback; do not point the callback setting at a documentation page or an
+unimplemented route. An instructions page should identify the responsible
+operator and explain how to make a request for that application.

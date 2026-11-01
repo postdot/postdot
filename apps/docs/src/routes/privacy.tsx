@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { LegalPage } from '@/components/legal-page'
 import { PrivacySettingsButton } from '@/components/privacy-settings-button'
@@ -23,6 +23,19 @@ function Privacy() {
                 This policy covers the Postdot website and documentation at postdot.app. It does not
                 cover a Postdot instance that you run yourself: that software sends nothing to the
                 publisher.
+            </p>
+
+            <p>
+                For the software, read{' '}
+                <Link to="/docs/$" params={{ _splat: 'application-privacy' }}>
+                    Application data and privacy
+                </Link>{' '}
+                and{' '}
+                <Link to="/docs/$" params={{ _splat: 'delete-application-data' }}>
+                    Delete application data
+                </Link>
+                . The operator of your instance provides its own policy and handles its data
+                requests.
             </p>
 
             <h2>Who is responsible</h2>

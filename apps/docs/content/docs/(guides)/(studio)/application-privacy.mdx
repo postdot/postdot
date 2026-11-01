@@ -1,0 +1,89 @@
+---
+title: Application data and privacy
+description: Understand what a Postdot instance stores, where it sends data, and who to contact.
+---
+
+A Postdot instance stores the accounts, publishing work and connections used by
+its team. The person or organization running that instance controls its database,
+media storage, hosting, logs and backups. Contact that operator for the privacy
+policy and data requests that apply to your instance.
+
+This page describes the software's data handling. The
+[postdot.app website privacy policy](/privacy/) covers the documentation website;
+it does not identify the operator or retention rules for another installation.
+
+## Data used by the application
+
+| Data                                                              | What Postdot uses it for                                        |
+| ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account name, email, avatar, password hash and session records    | Sign-in, account recovery and authenticated access              |
+| Workspace and project memberships, groups, roles and invitations  | Determine who can read, edit, manage and publish                |
+| Source posts, destination versions, captions, media and schedules | Prepare and deliver the content selected by the team            |
+| Connected provider account IDs, names and permission metadata     | Identify publishing destinations and their connections          |
+| Provider access credentials and application secrets               | Authorize server-side requests to the selected provider         |
+| Publication outcomes, external media IDs and activity records     | Show delivery results, coordinate work and preserve its history |
+
+Provider credentials and application secrets are encrypted in the database using
+the instance's configured encryption key. This does not encrypt every database
+field or uploaded file. The operator must protect the database, storage and keys.
+
+## Who can access data
+
+Postdot checks workspace and project access before returning content or accepting
+changes. A channel can be shared across projects in the same workspace. Its
+connection can therefore remain in use after someone leaves one project or a
+project is deleted. See [shared channels](/docs/shared-channels/).
+
+Authorized team members can access data according to their roles. The operator
+also controls the infrastructure and its backups. The operator's policy should
+identify any hosting, storage, email or monitoring providers used by that
+installation.
+
+## Data sent to other services
+
+When you connect a publishing account, the destination platform handles its own
+login and consent. Postdot receives the authorization result and stores the
+credentials needed for the connection on the instance's server. You enter your
+Facebook or Instagram password on Meta's login screen, not in Postdot's
+connection form.
+
+When a publication is delivered, Postdot sends the selected content to its
+destination provider. For Instagram image publishing, Meta receives the caption
+and a signed HTTPS URL from which its servers can fetch the selected JPEG. The
+resulting Instagram post is subject to Meta's own data handling and account
+controls.
+
+If email is configured, the instance's email service processes messages such as
+invitations and password recovery. Reverse proxies, hosting services and any
+operator-added monitoring can also process connection or request information.
+Their configuration and retention depend on the installation.
+
+Using a self-hosted instance does not send its database or publishing content to
+the postdot.app documentation publisher. Opening this documentation website is a
+separate interaction covered by its website policy.
+
+## Retention and removal
+
+Drafts, publication history and uploaded media remain until they are removed
+through the available workflows. Archiving retains data. Disconnecting a provider
+stops that connection's use; it does not delete every associated draft, media file
+or already published post.
+
+Shared resources, removal receipts, media cleanup and backups have different
+lifecycles. The operator determines backup and log retention and must explain
+those periods in the instance's policy. Postdot does not set a universal deletion
+deadline for every installation.
+
+Follow [Delete application data](/docs/delete-application-data/) to choose the
+appropriate removal action or send a request to your operator.
+
+## Contact the operator of your instance
+
+Use the support or privacy contact provided by the organization running the
+Postdot address where you sign in. If you do not know that contact, ask the person
+who invited you or your workspace administrator to identify the instance
+operator. Include the instance URL and the account or workspace involved so the
+request reaches the right installation. Do not send passwords or access tokens.
+
+Operators can use the [privacy-policy checklist](/docs/operations/#publish-an-instance-privacy-policy)
+to document their own identity, processing choices and request procedure.

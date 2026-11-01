@@ -8,7 +8,9 @@
         "media",
         "channels",
         "shared-channels",
-        "first-comments"
+        "first-comments",
+        "application-privacy",
+        "delete-application-data"
     ],
     "icon": "document"
 }

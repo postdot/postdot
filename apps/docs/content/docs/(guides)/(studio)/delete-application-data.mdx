@@ -1,0 +1,86 @@
+---
+title: Delete application data
+description: Disconnect accounts, remove local content, and request deletion from your instance operator.
+---
+
+For a request about a Postdot instance, contact the person or organization running
+the address where you sign in. That operator controls its database, media and
+backups. The documentation website cannot remove data from another installation.
+See [Application data and privacy](/docs/application-privacy/) for the data involved.
+
+## Choose the action you need
+
+| Your goal                                                        | Available action and its limits                                                                                                                        |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Stop a publishing connection                                     | Disconnect its publisher. Drafts, delivery history and existing external posts remain.                                                                 |
+| Remove access to one project                                     | Ask its owner or administrator to remove the relevant access. This does not erase the person's account or shared content.                              |
+| Retain a project without further publishing                      | Archive it. Archiving keeps its data.                                                                                                                  |
+| Remove local project or workspace content                        | Use permanent deletion with the required permissions and review the impact first. Shared channel resources can survive project deletion.               |
+| Remove an uploaded file                                          | Check its usage and delete it from Media when no retained references prevent removal. The confirmation explains trash and permanent deletion.          |
+| Remove an account or request removal beyond those controls       | Contact the instance operator. Postdot does not offer a single self-service action that erases all account-related data across workspaces and backups. |
+| Remove a post already published on Instagram or another platform | Use that platform's own controls. Removing it locally does not remove the remote post.                                                                 |
+
+## Stop a provider connection
+
+Open the channel's publishing connection and choose **Disconnect** with an
+account authorized to manage it. If work is active, Postdot can refuse the action
+until the operation finishes; inspect the publication outcome before proceeding.
+A shared channel's connection serves its attached projects, so review the impact
+with the other projects that use it.
+
+Once no connection references a local credential, Postdot revokes that credential
+and clears its encrypted access token, refresh token and provider-session fields.
+Other referenced credentials remain. Account identifiers, authored content and
+activity history are not all erased by disconnection.
+
+For Instagram, you can also remove the application's authorization in Meta's own
+account or business settings. That controls Meta's grant to the app. It does not
+send a complete data-deletion request to the instance operator or remove local
+content already stored in Postdot.
+
+## Remove projects, workspaces and media
+
+Follow [Archive and delete projects](/docs/projects/) for the permission checks,
+impact preview and permanent-deletion confirmation. Deleting a project removes
+its local content and history, while workspace-owned channels and connections
+needed by surviving projects remain. Deleting a workspace also removes its
+common channel resources. A minimal removal receipt remains, without publication
+content or provider secrets.
+
+Follow [Inspect or remove a file](/docs/media/#inspect-or-remove-a-file) for media
+usage and trash behavior. Permanent project or workspace deletion queues owned
+media for physical cleanup. Storage failures or an active backup can delay that
+cleanup; the operator must verify completion against the original storage backend.
+
+## Send a deletion request
+
+Send the request through the operator's published support or privacy contact. If
+that contact is not available, ask your workspace administrator or the person who
+invited you to identify the operator.
+
+Include:
+
+- The Postdot instance URL and the email address of your Postdot account.
+- The workspace, project or connected provider account concerned.
+- Whether you want access removed, a connection disconnected, specific content
+  deleted or a broader account-data review.
+- A reply address where the operator can confirm the scope and outcome.
+
+Do not include your password, provider tokens or application secrets. The
+operator may need to verify your authority through an existing authenticated
+channel before changing shared resources. Ask for confirmation of what was
+removed, what remains, why it remains and how any delayed cleanup will be handled.
+This documentation does not submit a request or create a deletion tracking code.
+
+## Backups and data on other services
+
+A backup created before deletion can still contain the old data. The operator
+must apply its backup-retention policy to local and off-machine copies, and review
+deletions when restoring an older snapshot. Deletion from the running database
+alone does not prove that every backup or storage copy was erased.
+
+Posts already delivered, provider-side account data and records held by hosting
+or email services follow those services' own controls and retention. The operator
+should explain which records it can remove and which requests need to go to
+another service. Read [Backups and recovery](/docs/operations/) for the recovery
+boundary.
