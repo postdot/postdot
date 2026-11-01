@@ -8,6 +8,8 @@
 - [x] **[CLI-601]** Design the independently installable public CLI `Priority: 🟠` `Complexity: M` `Completed: 2026-10-30` — Recommended architecture and release boundary in [SPEC-011](specs/SPEC-011-public-cli.md); [evidence](worklogs/2026-10-30-CLI-601.md).
 - [/] **[CLI-602]** Implement and release the public remote CLI `Priority: 🟠` `Complexity: L` — Installed Node/Bun CLI covers profiles, media and publication workflows through Treaty. Shared n8n/CLI Changesets pipeline and reviewed alpha.1 archive are prepared; finish CI-only staged bootstrap, npm approval/trust and released-server qualification before publication acceptance. [Evidence](worklogs/2026-10-30-CLI-602.md).
 
+- [x] **[META-603]** Prepare Instagram Unified Login App Review evidence and submission materials `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Current requirements and app readiness checked; permission justifications, recording script and prerequisite inventory prepared. Submission still needs an application privacy/deletion process, stable review deployment, Tech Provider eligibility and resolution of the mandatory messaging permission. No submission or Live-mode claim. [Evidence](worklogs/2026-11-01-META-603-app-review.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
