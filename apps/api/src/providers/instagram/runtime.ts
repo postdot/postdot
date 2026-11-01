@@ -20,6 +20,10 @@ export function createInstagramRuntime({
             applicationId
         )
         if (!configured?.clientId || !configured.clientSecret) return undefined
+        const configId =
+            configured.handleResolver?.trim() ||
+            process.env.POSTDOT_INSTAGRAM_CONFIG_ID?.trim() ||
+            undefined
         return {
             applicationId: configured.id,
             oauth: createInstagramOAuth({
@@ -28,6 +32,7 @@ export function createInstagramRuntime({
                 callbackUri: instagramCallbackUri,
                 fetcher: options.instagram?.fetcher,
                 now,
+                configId,
             }),
         }
     }

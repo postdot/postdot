@@ -313,6 +313,9 @@ export function createInstagramConnectionFlow(options: {
                 issuedAt,
                 appScopedId: account.appScopedId,
                 accountType: account.accountType,
+                ...(token.accessToken.startsWith('EA')
+                    ? { graphOrigin: 'https://graph.facebook.com' }
+                    : {}),
             })
             const saved = await options.credentials.createPublisherCredential({
                 projectId: binding.projectId,

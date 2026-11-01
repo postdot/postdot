@@ -85,6 +85,7 @@ export interface InstagramPublisherOptions {
     readonly timeoutMs?: number
     /** Caller cancellation. A cancelled write stays unknown, never published. */
     readonly signal?: AbortSignal
+    readonly graphOrigin?: string
 }
 
 const containerStatuses = new Map<string, InstagramContainerStatus>([
@@ -98,6 +99,7 @@ const containerStatuses = new Map<string, InstagramContainerStatus>([
 export function createInstagramPublisher(options: InstagramPublisherOptions = {}) {
     const fetcher = options.fetcher ?? fetch
     const timeoutMs = options.timeoutMs ?? 30_000
+    const graphOrigin = options.graphOrigin ?? INSTAGRAM_GRAPH_ORIGIN
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000)
         throw new Error('Instagram timeout must be between 1 and 300000 milliseconds')
 
@@ -120,7 +122,7 @@ export function createInstagramPublisher(options: InstagramPublisherOptions = {}
                 ),
             }
 
-        const url = new URL(`${INSTAGRAM_GRAPH_ORIGIN}/${INSTAGRAM_GRAPH_VERSION}/${input.path}`)
+        const url = new URL(`${graphOrigin}/${INSTAGRAM_GRAPH_VERSION}/${input.path}`)
         if (input.query !== undefined) url.search = input.query.toString()
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), timeoutMs)

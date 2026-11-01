@@ -31,6 +31,19 @@ const server: OAuthAuthorizationServer = {
     pkce: 'disabled',
 }
 
+const unifiedAuthorizationEndpoint = 'https://www.facebook.com/dialog/oauth'
+const unifiedTokenEndpoint = 'https://graph.facebook.com/v26.0/oauth/access_token'
+const unifiedAssignedAccountsEndpoint =
+    'https://graph.facebook.com/v26.0/me/assigned_instagram_accounts'
+const unifiedMeEndpoint = 'https://graph.facebook.com/v26.0/me'
+
+const unifiedServer: OAuthAuthorizationServer = {
+    issuer: 'https://www.facebook.com',
+    authorizationEndpoint: unifiedAuthorizationEndpoint,
+    tokenEndpoint: unifiedTokenEndpoint,
+    pkce: 'disabled',
+}
+
 const requestTimeoutMs = 30_000
 /** A provider lifetime beyond one year is not credible and is refused. */
 const maximumExpiresInSeconds = 31_536_000
@@ -264,10 +277,13 @@ export function createInstagramOAuth(options: {
     readonly callbackUri: string
     readonly fetcher?: InstagramFetcher
     readonly now?: () => number
+    readonly configId?: string
 }) {
     if (!/^[1-9]\d*$/.test(options.clientId))
         throw new Error('Instagram application configuration is invalid')
     if (!/^[\x21-\x7e]{1,4096}$/.test(options.clientSecret))
+        throw new Error('Instagram application configuration is invalid')
+    if (options.configId !== undefined && !/^[1-9]\d*$/.test(options.configId))
         throw new Error('Instagram application configuration is invalid')
     const callback = new URL(options.callbackUri)
     if (
@@ -280,6 +296,7 @@ export function createInstagramOAuth(options: {
         throw new Error('Instagram callback must be an exact HTTPS URL without query or fragment')
     const fetcher = options.fetcher ?? fetch
     const now = options.now ?? Date.now
+    const isUnified = Boolean(options.configId)
 
     /** The provider documents a literal `#_` artifact on the callback URL. */
     function callbackParameters(parameters: URL): URL {
@@ -414,10 +431,144 @@ export function createInstagramOAuth(options: {
         }
     }
 
+    async function completeUnified(parameters: URLSearchParams): Promise<InstagramOAuthResult> {
+        const code = parameters.get('code')!
+        const body = new URLSearchParams({
+            client_id: options.clientId,
+            client_secret: options.clientSecret,
+            grant_type: 'authorization_code',
+            redirect_uri: callback.href,
+            code,
+        })
+        let tokenPayload: Record<string, unknown> | null = null
+        try {
+            const response = await fetcher(unifiedTokenEndpoint, {
+                method: 'POST',
+                body,
+                redirect: 'error',
+                cache: 'no-store',
+                credentials: 'omit',
+                signal: AbortSignal.timeout(requestTimeoutMs),
+                headers: {
+                    accept: 'application/json',
+                    'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                },
+            })
+            const data: unknown = await response.json().catch(() => null)
+            if (!response.ok || !isRecord(data) || carriesProviderError(data)) {
+                throw new Error('token exchange failed')
+            }
+            tokenPayload = data
+        } catch {
+            throw new InstagramOAuthError('exchange_failed')
+        }
+
+        const accessToken = tokenPayload.access_token
+        if (!validToken(accessToken)) throw new InstagramOAuthError('exchange_failed')
+        const expiresInSeconds = readRequiredExpiration(tokenPayload) ?? 5_184_000
+
+        const assignedUrl = new URL(unifiedAssignedAccountsEndpoint)
+        assignedUrl.search = new URLSearchParams({ fields: 'id,username' }).toString()
+        let assignedPayload: Record<string, unknown> | null = null
+        try {
+            const response = await fetcher(assignedUrl, {
+                method: 'GET',
+                redirect: 'error',
+                cache: 'no-store',
+                credentials: 'omit',
+                signal: AbortSignal.timeout(requestTimeoutMs),
+                headers: {
+                    authorization: `Bearer ${accessToken}`,
+                    accept: 'application/json',
+                },
+            })
+            const data: unknown = await response.json().catch(() => null)
+            if (!response.ok || !isRecord(data) || carriesProviderError(data)) {
+                throw new Error('assigned accounts query failed')
+            }
+            assignedPayload = data
+        } catch {
+            throw new InstagramOAuthError('exchange_failed')
+        }
+
+        const assignedList = assignedPayload.data
+        if (!Array.isArray(assignedList) || assignedList.length === 0) {
+            throw new InstagramOAuthError('account_ineligible')
+        }
+        const assignedEntry = assignedList[0]
+        if (!isRecord(assignedEntry) || carriesProviderError(assignedEntry)) {
+            throw new InstagramOAuthError('exchange_failed')
+        }
+        const accountId = assignedEntry.id
+        const username = readUsername(assignedEntry.username)
+        if (!numericId(accountId) || username === null) {
+            throw new InstagramOAuthError('exchange_failed')
+        }
+
+        const meUrl = new URL(unifiedMeEndpoint)
+        meUrl.search = new URLSearchParams({ fields: 'client_business_id,id' }).toString()
+        let meAppScopedId = accountId
+        try {
+            const response = await fetcher(meUrl, {
+                method: 'GET',
+                redirect: 'error',
+                cache: 'no-store',
+                credentials: 'omit',
+                signal: AbortSignal.timeout(requestTimeoutMs),
+                headers: {
+                    authorization: `Bearer ${accessToken}`,
+                    accept: 'application/json',
+                },
+            })
+            const data: unknown = await response.json().catch(() => null)
+            if (response.ok && isRecord(data) && !carriesProviderError(data)) {
+                if (typeof data.id === 'string' && numericId(data.id)) {
+                    meAppScopedId = data.id
+                }
+            }
+        } catch {
+            // fallback meAppScopedId
+        }
+
+        return {
+            tokens: {
+                accessToken,
+                refreshToken: null,
+                expiresInSeconds,
+                scopes: [
+                    'instagram_business_basic',
+                    'instagram_business_content_publish',
+                    'instagram_basic',
+                    'instagram_content_publish',
+                ],
+                tokenType: 'bearer',
+            },
+            account: {
+                id: accountId,
+                appScopedId: meAppScopedId,
+                username,
+                accountType: 'BUSINESS',
+            },
+        }
+    }
+
     return {
         clientId: options.clientId,
         callbackUri: options.callbackUri,
-        createAuthorizationRequest() {
+        async createAuthorizationRequest() {
+            if (isUnified) {
+                const request = await createAuthorizationRequest({
+                    authorizationServer: unifiedServer,
+                    clientId: options.clientId,
+                    callbackUri: options.callbackUri,
+                    scopes: [],
+                    additionalParameters: {
+                        config_id: options.configId!,
+                    },
+                })
+                request.url.searchParams.delete('scope')
+                return request
+            }
             return createAuthorizationRequest({
                 authorizationServer: server,
                 clientId: options.clientId,
@@ -441,7 +592,7 @@ export function createInstagramOAuth(options: {
             let validated: URLSearchParams
             try {
                 validated = validateAuthorizationResponse({
-                    authorizationServer: server,
+                    authorizationServer: isUnified ? unifiedServer : server,
                     clientId: options.clientId,
                     parameters,
                     expectedState: input.expectedState,
@@ -459,6 +610,10 @@ export function createInstagramOAuth(options: {
             const code = validated.get('code')
             if (validated.getAll('code').length !== 1 || !code?.trim())
                 throw new InstagramOAuthError('invalid_callback')
+
+            if (isUnified) {
+                return completeUnified(validated)
+            }
 
             const exchanged = await exchangeCode(validated)
             if (exchanged === null) throw new InstagramOAuthError('exchange_failed')
@@ -502,6 +657,17 @@ export function createInstagramOAuth(options: {
             if (!Number.isSafeInteger(input.expiresAt) || input.expiresAt <= input.issuedAt)
                 throw new InstagramOAuthError('token_invalid')
             if (input.expiresAt <= now()) throw new InstagramOAuthError('token_expired')
+
+            if (isUnified) {
+                return {
+                    accessToken: input.accessToken,
+                    tokenType: 'bearer',
+                    expiresInSeconds: 5_184_000,
+                    expiresAt: input.expiresAt,
+                    issuedAt: input.issuedAt,
+                }
+            }
+
             if (now() - input.issuedAt < minimumRefreshAgeMs)
                 throw new InstagramOAuthError('token_too_new')
 

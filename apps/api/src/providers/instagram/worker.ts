@@ -85,8 +85,9 @@ export function createInstagramProviderAdapter(
                 input,
                 createPublisher:
                     options.createPublisher ??
-                    (() =>
+                    ((graphOrigin?: string) =>
                         createInstagramPublisher({
+                            graphOrigin,
                             signal: input.signal,
                             fetcher: effectFetcher(
                                 input.signal,
@@ -101,7 +102,7 @@ export function createInstagramProviderAdapter(
 
 async function executeInstagramPublication(input: {
     readonly input: BuiltInProviderExecutionInput
-    readonly createPublisher: () => InstagramPublisher
+    readonly createPublisher: (graphOrigin?: string) => InstagramPublisher
     readonly resolveOAuth?: (
         providerApplicationId: string | null
     ) => Promise<InstagramOAuth | undefined>
@@ -137,6 +138,7 @@ async function executeInstagramPublication(input: {
         | {
               readonly ok: true
               readonly accessToken: string
+              readonly graphOrigin?: string
               readonly markReconnectRequired: () => void
           }
         | { readonly ok: false; readonly outcome: ExternalEffectOutcome }
@@ -181,8 +183,18 @@ async function executeInstagramPublication(input: {
                     context,
                     resolveOAuth: input.resolveOAuth,
                 })
+                const session = parseInstagramProviderSession(context.secrets.providerSession)
+                const graphOrigin =
+                    session?.graphOrigin ??
+                    (context.secrets.accessToken.startsWith('EA')
+                        ? 'https://graph.facebook.com'
+                        : undefined)
                 return resolved.ok
-                    ? { ...resolved, markReconnectRequired: context.markReconnectRequired }
+                    ? {
+                          ...resolved,
+                          graphOrigin,
+                          markReconnectRequired: context.markReconnectRequired,
+                      }
                     : resolved
             },
             execution.signal
@@ -194,7 +206,7 @@ async function executeInstagramPublication(input: {
 
     return publishInstagramImage({
         execution,
-        publisher: input.createPublisher(),
+        publisher: input.createPublisher(token.graphOrigin),
         accessToken: token.accessToken,
         markReconnectRequired: token.markReconnectRequired,
         accountId: destination.id,
@@ -625,6 +637,7 @@ interface InstagramProviderSession {
     readonly issuedAt: number
     readonly appScopedId: string
     readonly accountType: 'BUSINESS' | 'MEDIA_CREATOR'
+    readonly graphOrigin?: string
 }
 
 /**
@@ -649,7 +662,11 @@ function parseInstagramProviderSession(value: string | null): InstagramProviderS
     if (typeof appScopedId !== 'string' || !/^[1-9]\d{0,63}$/.test(appScopedId)) return null
     const accountType = session.accountType
     if (accountType !== 'BUSINESS' && accountType !== 'MEDIA_CREATOR') return null
-    return { issuedAt, appScopedId, accountType }
+    const graphOrigin =
+        typeof session.graphOrigin === 'string' && session.graphOrigin.startsWith('https://')
+            ? session.graphOrigin
+            : undefined
+    return { issuedAt, appScopedId, accountType, ...(graphOrigin ? { graphOrigin } : {}) }
 }
 
 /**

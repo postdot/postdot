@@ -813,3 +813,80 @@ test('no authorization or refresh request publishes anything', async () => {
     }
     expect(requests.filter(request => request.url.pathname === '/media_publish')).toHaveLength(0)
 })
+
+test('unified login authorization request uses facebook.com/dialog/oauth and config_id without scope', async () => {
+    const oauth = createInstagramOAuth({
+        clientId,
+        clientSecret,
+        callbackUri,
+        configId: '4436311590014005',
+    })
+    const request = await oauth.createAuthorizationRequest()
+    expect(request.url.origin).toBe('https://www.facebook.com')
+    expect(request.url.pathname).toBe('/dialog/oauth')
+    expect(request.url.searchParams.get('client_id')).toBe(clientId)
+    expect(request.url.searchParams.get('config_id')).toBe('4436311590014005')
+    expect(request.url.searchParams.get('redirect_uri')).toBe(callbackUri)
+    expect(request.url.searchParams.get('response_type')).toBe('code')
+    expect(request.url.searchParams.get('state')).toBe(request.state)
+    expect(request.url.searchParams.has('scope')).toBe(false)
+})
+
+test('unified login complete exchanges code against graph.facebook.com and resolves assigned Instagram accounts', async () => {
+    const requests: { url: URL; init?: RequestInit }[] = []
+    const oauth = createInstagramOAuth({
+        clientId,
+        clientSecret,
+        callbackUri,
+        configId: '4436311590014005',
+        fetcher: async (input, init) => {
+            const url = new URL(String(input))
+            requests.push({ url, init })
+            if (url.pathname.endsWith('/oauth/access_token')) {
+                return Response.json({
+                    access_token: 'synthetic-unified-token',
+                    token_type: 'bearer',
+                })
+            }
+            if (url.pathname.endsWith('/me/assigned_instagram_accounts')) {
+                return Response.json({
+                    data: [
+                        {
+                            id: professionalId,
+                            username: 'synthetic_business',
+                        },
+                    ],
+                })
+            }
+            if (url.pathname.endsWith('/me')) {
+                return Response.json({
+                    id: appScopedId,
+                    client_business_id: '2336810330412176',
+                })
+            }
+            return new Response('Not found', { status: 404 })
+        },
+    })
+    const authorization = await oauth.createAuthorizationRequest()
+    const result = await oauth.complete({
+        parameters: callback(`${callbackUri}?code=synthetic-code&state=${authorization.state}`),
+        expectedState: authorization.state,
+    })
+    expect(result.tokens.accessToken).toBe('synthetic-unified-token')
+    expect(result.tokens.tokenType).toBe('bearer')
+    expect(result.tokens.scopes).toContain('instagram_business_basic')
+    expect(result.tokens.scopes).toContain('instagram_business_content_publish')
+    expect(result.tokens.scopes).toContain('instagram_basic')
+    expect(result.tokens.scopes).toContain('instagram_content_publish')
+    expect(result.account.id).toBe(professionalId)
+    expect(result.account.username).toBe('synthetic_business')
+    expect(result.account.appScopedId).toBe(appScopedId)
+    expect(result.account.accountType).toBe('BUSINESS')
+    expect(requests).toHaveLength(3)
+    expect(requests[0]!.url.origin).toBe('https://graph.facebook.com')
+    expect(requests[0]!.url.pathname).toBe('/v26.0/oauth/access_token')
+    expect(requests[1]!.url.origin).toBe('https://graph.facebook.com')
+    expect(requests[1]!.url.pathname).toBe('/v26.0/me/assigned_instagram_accounts')
+    expect(requests[2]!.url.origin).toBe('https://graph.facebook.com')
+    expect(requests[2]!.url.pathname).toBe('/v26.0/me')
+})
