@@ -93,6 +93,44 @@ Analytics through Bluesky's public API does not require OAuth or either of these
 web deployment profiles. Only account authorization and authenticated
 publishing do.
 
+## Instagram (Unified Login)
+
+Instagram publishing uses Meta's **Facebook Login for Business** with the
+Unified Login template. Connecting an Instagram channel requires an Instagram
+Professional account (Business or Creator) linked to a Facebook Page within a
+Meta Business Portfolio.
+
+### Deployment requirements
+
+- **Public HTTPS callback**: Meta requires a public HTTPS redirect URI. Local
+  loopback (`http://localhost`) is supported for local development only if
+  registered explicitly in the Meta Developer portal.
+- **Reachability of uploaded media**: Meta's Graph API does not accept direct
+  binary uploads for Instagram container publishing. Media files uploaded to
+  Postdot must be accessible over a publicly reachable HTTPS origin so Meta's
+  servers can download the image container.
+- **Configuration ID environment variable**: Postdot requires the numeric
+  configuration identifier generated in Meta's Business Login setup:
+
+```dotenv
+# apps/api/.env
+POSTDOT_INSTAGRAM_CONFIG_ID=4436311590014005
+```
+
+### Meta Developer setup
+
+1. Create a **Business** application in the Meta for Developers portal and add
+   the **Instagram API** use case.
+2. In **Facebook Login for Business** -> **Configurations**, create a
+   configuration using the **Instagram API (Unified Login)** template.
+3. Select **Instagram accounts** under Assets, request `instagram_basic`,
+   `instagram_content_publish`, `instagram_manage_comments`, and
+   `instagram_manage_messages`, and select **System-user access token**.
+4. Register the deployment callback under **API setup with Unified login**:
+   `https://<postdot-domain>/api/oauth/instagram/callback`.
+5. In Postdot's **OAuth applications**, record the Meta **App ID** (Client ID)
+   and **App Secret** (Client Secret).
+
 ## Other providers
 
 Provider setup remains provider-specific:

@@ -1,0 +1,110 @@
+---
+title: Instagram
+description: Connect an Instagram Professional account using Meta Unified Login.
+---
+
+An installation administrator first configures the Meta OAuth application and
+Business Login configuration. Connecting an Instagram channel requires an
+Instagram Professional account (Business or Creator) managed through a Meta
+Business Portfolio. Personal Instagram profiles cannot publish through the Meta
+Graph API.
+
+## Prerequisites
+
+Before connecting in Postdot, confirm your Meta asset hierarchy in
+[Meta Business Suite](https://business.facebook.com/):
+
+- **Business Portfolio**: A Meta Business account that owns or manages your
+  application and Instagram assets.
+- **Instagram Professional Account**: The target profile must be converted to a
+  **Business** or **Creator** account.
+- **Linked Facebook Page**: The Instagram Professional account must be linked to
+  a Facebook Page within your Business Portfolio (verified in Meta Accounts
+  Center).
+
+## Configure the application
+
+Operators configure the Meta Developer application and Postdot deployment:
+
+### 1. Create the Meta Developer application
+
+Create an app in the [Meta for Developers](https://developers.facebook.com/) portal:
+
+1. Select **Other** as the use case, then choose the **Business** app type.
+2. In the app dashboard, add the **Instagram API** product (under _Manage
+   messaging & content on Instagram_).
+
+### 2. Configure Facebook Login for Business (Unified Login)
+
+Meta requires newly created applications to use Facebook Login for Business with
+the Unified Login template:
+
+1. Navigate to **Facebook Login for Business** -> **Configurations**.
+2. Create or edit a configuration using the **Instagram API (Unified Login)**
+   template.
+3. Under **Assets**, select **Instagram accounts** (deselect Ad accounts if not
+   needed).
+4. Under **Permissions**, include:
+    - `instagram_basic`
+    - `instagram_content_publish`
+    - `instagram_manage_comments`
+    - `instagram_manage_messages`
+5. Under **Token type**, select **System-user access token** and choose
+   expiration **Never** (or the long-lived 60-day token).
+6. Note the generated **Configuration ID** (numeric identifier).
+
+### 3. Register the OAuth callback
+
+Under **Use Cases** -> **Customize** -> **Instagram API** -> **API setup with
+Unified login**, register the redirect URL for your Postdot deployment:
+
+```text
+https://postdot.example/api/oauth/instagram/callback
+```
+
+Replace `postdot.example` with your public Postdot API origin. Meta rejects
+insecure HTTP origins outside `localhost`.
+
+### 4. Set Postdot environment and OAuth application
+
+1. Add the configuration ID to your Postdot API environment:
+    ```dotenv
+    POSTDOT_INSTAGRAM_CONFIG_ID=your_meta_configuration_id
+    ```
+2. In Postdot's **OAuth applications** (under workspace or instance settings),
+   register the Instagram application:
+    - **Client ID**: Your Meta App ID.
+    - **Client secret**: Your Meta App Secret.
+    - Set the application to **Active** and mark it as default if desired.
+
+## Connect the channel
+
+1. Open **Channels** in Studio and select **Instagram**.
+2. Click **Connect account**. You will be redirected to the Meta Business Login
+   flow.
+3. Log in with your Meta credentials, select your Business Portfolio, and choose
+   the Instagram Professional account to connect.
+4. When returned to Postdot, verify the account username and ID shown on the
+   channel card.
+
+## Publishing and media requirements
+
+Instagram requires an image file for feed publishing:
+
+- **Format**: JPEG or PNG.
+- **Media accessibility**: Uploaded media must be served over a publicly
+  accessible HTTPS URL so Meta's servers can retrieve the media container during
+  publishing.
+- **Captions**: Standard text captions are delivered with the image.
+
+## If authorization or delivery fails
+
+- **App mode and permissions**: When the Meta app is in Development mode, only
+  users listed under **App Roles** (Administrators, Developers, or Testers) can
+  authorize the application.
+- **No Instagram accounts found**: Ensure the Instagram account is converted to
+  a Professional account and linked to a Facebook Page within the same Business
+  Portfolio.
+- **Expired tokens**: If access is revoked or token expiration occurs, reconnect
+  the channel from Studio. Retrying a failed send without reconnecting will not
+  renew credentials.
