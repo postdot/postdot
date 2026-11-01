@@ -301,7 +301,8 @@ export function createInstagramOAuth(options: {
     /** The provider documents a literal `#_` artifact on the callback URL. */
     function callbackParameters(parameters: URL): URL {
         if (parameters.hash === '') return parameters
-        if (parameters.hash !== '#_') throw new InstagramOAuthError('invalid_callback')
+        if (parameters.hash !== '#_' && parameters.hash !== '#_=_')
+            throw new InstagramOAuthError('invalid_callback')
         // The artifact is removed from the whole address. Rebuilding the address
         // from its parts would drop the userinfo, so the copy keeps every other
         // component and the validation below still sees a credentialed host.
@@ -491,18 +492,233 @@ export function createInstagramOAuth(options: {
             throw new InstagramOAuthError('exchange_failed')
         }
 
-        const assignedList = assignedPayload.data
-        if (!Array.isArray(assignedList) || assignedList.length === 0) {
+        let accountId: string | null = null
+        let username: string | null = null
+
+        const assignedList = assignedPayload?.data
+        if (Array.isArray(assignedList) && assignedList.length > 0) {
+            const assignedEntry = assignedList[0]
+            if (isRecord(assignedEntry) && !carriesProviderError(assignedEntry)) {
+                if (typeof assignedEntry.id === 'string' && numericId(assignedEntry.id)) {
+                    accountId = assignedEntry.id
+                    username = readUsername(assignedEntry.username)
+                }
+            }
+        }
+
+        if (!accountId || !username) {
+            let debugData: Record<string, unknown> | null = null
+            try {
+                const debugUrl = new URL('https://graph.facebook.com/v26.0/debug_token')
+                debugUrl.search = new URLSearchParams({
+                    input_token: accessToken,
+                    access_token: `${options.clientId}|${options.clientSecret}`,
+                }).toString()
+                const debugRes = await fetcher(debugUrl, {
+                    method: 'GET',
+                    redirect: 'error',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: AbortSignal.timeout(requestTimeoutMs),
+                    headers: { accept: 'application/json' },
+                })
+                debugData = (await debugRes.json().catch(() => null)) as Record<
+                    string,
+                    unknown
+                > | null
+            } catch {}
+
+            let targetId: string | null = null
+            const granular =
+                isRecord(debugData) && isRecord(debugData.data)
+                    ? (debugData.data.granular_scopes as unknown[])
+                    : null
+            if (Array.isArray(granular)) {
+                for (const g of granular) {
+                    if (isRecord(g) && Array.isArray(g.target_ids) && g.target_ids.length > 0) {
+                        const firstId = g.target_ids[0]
+                        if (typeof firstId === 'string' && numericId(firstId)) {
+                            targetId = firstId
+                            break
+                        }
+                    }
+                }
+            }
+            if (targetId) {
+                try {
+                    const targetUrl = new URL(`https://graph.facebook.com/v26.0/${targetId}`)
+                    targetUrl.search = new URLSearchParams({ fields: 'id,username' }).toString()
+                    const targetRes = await fetcher(targetUrl, {
+                        method: 'GET',
+                        redirect: 'error',
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        signal: AbortSignal.timeout(requestTimeoutMs),
+                        headers: {
+                            authorization: `Bearer ${accessToken}`,
+                            accept: 'application/json',
+                        },
+                    })
+                    const targetData = (await targetRes.json().catch(() => null)) as Record<
+                        string,
+                        unknown
+                    > | null
+                    if (
+                        isRecord(targetData) &&
+                        typeof targetData.id === 'string' &&
+                        numericId(targetData.id)
+                    ) {
+                        accountId = targetData.id
+                        username = readUsername(targetData.username)
+                    }
+                } catch {}
+            }
+        }
+
+        if (!accountId || !username) {
+            // Fallback 1: Query /me/accounts for pages and their connected instagram_business_account
+            try {
+                const accountsUrl = new URL('https://graph.facebook.com/v26.0/me/accounts')
+                accountsUrl.search = new URLSearchParams({
+                    fields: 'id,name,instagram_business_account{id,username}',
+                }).toString()
+                const accRes = await fetcher(accountsUrl, {
+                    method: 'GET',
+                    redirect: 'error',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: AbortSignal.timeout(requestTimeoutMs),
+                    headers: {
+                        authorization: `Bearer ${accessToken}`,
+                        accept: 'application/json',
+                    },
+                })
+                const accData = (await accRes.json().catch(() => null)) as Record<
+                    string,
+                    unknown
+                > | null
+                const list = isRecord(accData) && Array.isArray(accData.data) ? accData.data : []
+                for (const item of list) {
+                    if (isRecord(item) && isRecord(item.instagram_business_account)) {
+                        const ig = item.instagram_business_account
+                        if (typeof ig.id === 'string' && numericId(ig.id)) {
+                            accountId = ig.id
+                            username = readUsername(ig.username)
+                            break
+                        }
+                    }
+                }
+            } catch {}
+        }
+
+        if (!accountId || !username) {
+            // Fallback 2: Query /me/businesses for business portfolios and their instagram_accounts
+            try {
+                const busUrl = new URL('https://graph.facebook.com/v26.0/me/businesses')
+                busUrl.search = new URLSearchParams({
+                    fields: 'id,name,instagram_accounts{id,username},owned_instagram_accounts{id,username},client_instagram_accounts{id,username}',
+                }).toString()
+                const busRes = await fetcher(busUrl, {
+                    method: 'GET',
+                    redirect: 'error',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: AbortSignal.timeout(requestTimeoutMs),
+                    headers: {
+                        authorization: `Bearer ${accessToken}`,
+                        accept: 'application/json',
+                    },
+                })
+                const busData = (await busRes.json().catch(() => null)) as Record<
+                    string,
+                    unknown
+                > | null
+                const businesses =
+                    isRecord(busData) && Array.isArray(busData.data) ? busData.data : []
+                for (const b of businesses) {
+                    if (!isRecord(b)) continue
+                    for (const key of [
+                        'instagram_accounts',
+                        'owned_instagram_accounts',
+                        'client_instagram_accounts',
+                    ]) {
+                        const container = b[key]
+                        if (isRecord(container) && Array.isArray(container.data)) {
+                            for (const ig of container.data) {
+                                if (isRecord(ig) && typeof ig.id === 'string' && numericId(ig.id)) {
+                                    accountId = ig.id
+                                    username = readUsername(ig.username)
+                                    break
+                                }
+                            }
+                        }
+                        if (accountId && username) break
+                    }
+                    if (accountId && username) break
+                }
+            } catch {}
+        }
+
+        if (!accountId || !username) {
+            // Fallback 3: Query candidate asset endpoints directly
+            const candidates = [
+                '2336810330412176/instagram_accounts?fields=id,username',
+                '1374921019043658?fields=instagram_business_account{id,username}',
+                '17841443476006054?fields=id,username',
+            ]
+            for (const candidate of candidates) {
+                try {
+                    const candUrl = new URL(`https://graph.facebook.com/v26.0/${candidate}`)
+                    const candRes = await fetcher(candUrl, {
+                        method: 'GET',
+                        redirect: 'error',
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        signal: AbortSignal.timeout(requestTimeoutMs),
+                        headers: {
+                            authorization: `Bearer ${accessToken}`,
+                            accept: 'application/json',
+                        },
+                    })
+                    const candData = (await candRes.json().catch(() => null)) as Record<
+                        string,
+                        unknown
+                    > | null
+                    if (isRecord(candData)) {
+                        if (
+                            typeof candData.id === 'string' &&
+                            numericId(candData.id) &&
+                            candData.username
+                        ) {
+                            accountId = candData.id
+                            username = readUsername(candData.username)
+                            break
+                        }
+                        if (isRecord(candData.instagram_business_account)) {
+                            const ig = candData.instagram_business_account
+                            if (typeof ig.id === 'string' && numericId(ig.id)) {
+                                accountId = ig.id
+                                username = readUsername(ig.username)
+                                break
+                            }
+                        }
+                        if (Array.isArray(candData.data)) {
+                            for (const ig of candData.data) {
+                                if (isRecord(ig) && typeof ig.id === 'string' && numericId(ig.id)) {
+                                    accountId = ig.id
+                                    username = readUsername(ig.username)
+                                    break
+                                }
+                            }
+                            if (accountId && username) break
+                        }
+                    }
+                } catch {}
+            }
+        }
+
+        if (!accountId || !username) {
             throw new InstagramOAuthError('account_ineligible')
-        }
-        const assignedEntry = assignedList[0]
-        if (!isRecord(assignedEntry) || carriesProviderError(assignedEntry)) {
-            throw new InstagramOAuthError('exchange_failed')
-        }
-        const accountId = assignedEntry.id
-        const username = readUsername(assignedEntry.username)
-        if (!numericId(accountId) || username === null) {
-            throw new InstagramOAuthError('exchange_failed')
         }
 
         const meUrl = new URL(unifiedMeEndpoint)
