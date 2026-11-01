@@ -97,6 +97,8 @@ export interface InstagramAccount {
 
 export interface InstagramOAuthResult {
     readonly tokens: OAuthTokenSet
+    readonly graphOrigin?: 'https://graph.facebook.com'
+    readonly tokenLifetime?: 'non_expiring'
     readonly account: InstagramAccount
 }
 
@@ -466,7 +468,52 @@ export function createInstagramOAuth(options: {
 
         const accessToken = tokenPayload.access_token
         if (!validToken(accessToken)) throw new InstagramOAuthError('exchange_failed')
-        const expiresInSeconds = readRequiredExpiration(tokenPayload) ?? 5_184_000
+        let expiresInSeconds = readRequiredExpiration(tokenPayload)
+        let nonExpiring = false
+        if (expiresInSeconds === null) {
+            // Missing/zero expiry needs explicit provider confirmation; malformed
+            // finite metadata must never become a non-expiring credential.
+            if (Object.hasOwn(tokenPayload, 'expires_in') && tokenPayload.expires_in !== 0)
+                throw new InstagramOAuthError('exchange_failed')
+            try {
+                const target = new URL('https://graph.facebook.com/v26.0/debug_token')
+                target.searchParams.set('input_token', accessToken)
+                const response = await fetcher(target, {
+                    method: 'GET',
+                    redirect: 'error',
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    signal: AbortSignal.timeout(requestTimeoutMs),
+                    headers: {
+                        authorization: `Bearer ${options.clientId}|${options.clientSecret}`,
+                        accept: 'application/json',
+                    },
+                })
+                const payload: unknown = await response.json().catch(() => null)
+                const data = isRecord(payload) ? payload.data : null
+                if (
+                    !response.ok ||
+                    !isRecord(payload) ||
+                    carriesProviderError(payload) ||
+                    !isRecord(data) ||
+                    carriesProviderError(data) ||
+                    data.is_valid !== true ||
+                    data.app_id !== options.clientId ||
+                    typeof data.expires_at !== 'number' ||
+                    !Number.isSafeInteger(data.expires_at) ||
+                    data.expires_at < 0
+                )
+                    throw new Error('invalid token metadata')
+                if (data.expires_at === 0) nonExpiring = true
+                else {
+                    expiresInSeconds = Math.floor((data.expires_at * 1000 - now()) / 1000)
+                    if (expiresInSeconds <= 0 || expiresInSeconds > maximumExpiresInSeconds)
+                        throw new Error('invalid token lifetime')
+                }
+            } catch {
+                throw new InstagramOAuthError('exchange_failed')
+            }
+        }
 
         const assignedUrl = new URL(unifiedAssignedAccountsEndpoint)
         assignedUrl.search = new URLSearchParams({ fields: 'id,username' }).toString()
@@ -747,6 +794,8 @@ export function createInstagramOAuth(options: {
         }
 
         return {
+            graphOrigin: 'https://graph.facebook.com',
+            ...(nonExpiring ? { tokenLifetime: 'non_expiring' as const } : {}),
             tokens: {
                 accessToken,
                 refreshToken: null,
@@ -874,15 +923,9 @@ export function createInstagramOAuth(options: {
                 throw new InstagramOAuthError('token_invalid')
             if (input.expiresAt <= now()) throw new InstagramOAuthError('token_expired')
 
-            if (isUnified) {
-                return {
-                    accessToken: input.accessToken,
-                    tokenType: 'bearer',
-                    expiresInSeconds: 5_184_000,
-                    expiresAt: input.expiresAt,
-                    issuedAt: input.issuedAt,
-                }
-            }
+            // Business Integration System User tokens use a separate management API. Reusing the existing
+            // token does not renew it; expiration requires reconnection here.
+            if (isUnified) throw new InstagramOAuthError('refresh_failed')
 
             if (now() - input.issuedAt < minimumRefreshAgeMs)
                 throw new InstagramOAuthError('token_too_new')

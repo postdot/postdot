@@ -482,3 +482,14 @@ test('the documented direct-login permissions are exposed without a connection f
         'instagram_business_content_publish',
     ])
 })
+
+test('rejects a Graph origin outside the two supported Meta hosts', () => {
+    for (const graphOrigin of [
+        'https://attacker.example',
+        'https://graph.facebook.com.attacker.example',
+        'http://graph.facebook.com',
+    ])
+        expect(() => createInstagramPublisher({ graphOrigin })).toThrow(
+            'Instagram Graph origin is invalid'
+        )
+})

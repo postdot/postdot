@@ -848,6 +848,9 @@ test('unified login complete exchanges code against graph.facebook.com and resol
                     token_type: 'bearer',
                 })
             }
+            if (url.pathname.endsWith('/debug_token')) {
+                return Response.json({ data: { app_id: clientId, is_valid: true, expires_at: 0 } })
+            }
             if (url.pathname.endsWith('/me/assigned_instagram_accounts')) {
                 return Response.json({
                     data: [
@@ -882,11 +885,128 @@ test('unified login complete exchanges code against graph.facebook.com and resol
     expect(result.account.username).toBe('synthetic_business')
     expect(result.account.appScopedId).toBe(appScopedId)
     expect(result.account.accountType).toBe('BUSINESS')
-    expect(requests).toHaveLength(3)
+    expect(result.tokens.expiresInSeconds).toBeNull()
+    expect(result.tokenLifetime).toBe('non_expiring')
+    expect(result.graphOrigin).toBe('https://graph.facebook.com')
+    expect(requests).toHaveLength(4)
     expect(requests[0]!.url.origin).toBe('https://graph.facebook.com')
     expect(requests[0]!.url.pathname).toBe('/v26.0/oauth/access_token')
-    expect(requests[1]!.url.origin).toBe('https://graph.facebook.com')
-    expect(requests[1]!.url.pathname).toBe('/v26.0/me/assigned_instagram_accounts')
     expect(requests[2]!.url.origin).toBe('https://graph.facebook.com')
-    expect(requests[2]!.url.pathname).toBe('/v26.0/me')
+    expect(requests[2]!.url.pathname).toBe('/v26.0/me/assigned_instagram_accounts')
+    expect(requests[3]!.url.origin).toBe('https://graph.facebook.com')
+    expect(requests[3]!.url.pathname).toBe('/v26.0/me')
+})
+
+async function unifiedLifetimeFixture(token: Record<string, unknown>, metadata: unknown) {
+    const requests: URL[] = []
+    const oauth = createInstagramOAuth({
+        clientId,
+        clientSecret,
+        callbackUri,
+        configId: '123456',
+        now: () => 1_800_000_000_000,
+        fetcher: async input => {
+            const url = new URL(String(input))
+            requests.push(url)
+            if (url.pathname.endsWith('/oauth/access_token'))
+                return Response.json({ access_token: 'synthetic-unified-token', ...token })
+            if (url.pathname.endsWith('/debug_token')) return Response.json(metadata)
+            if (url.pathname.endsWith('/me/assigned_instagram_accounts'))
+                return Response.json({
+                    data: [{ id: professionalId, username: 'synthetic_business' }],
+                })
+            return Response.json({ id: appScopedId })
+        },
+    })
+    const auth = await oauth.createAuthorizationRequest()
+    return {
+        oauth,
+        requests,
+        complete: () =>
+            oauth.complete({
+                parameters: callback(`${callbackUri}?code=synthetic-code&state=${auth.state}`),
+                expectedState: auth.state,
+            }),
+    }
+}
+
+test('Unified lifetime keeps an explicit finite duration and never pretends to renew it', async () => {
+    const item = await unifiedLifetimeFixture({ expires_in: 3600 }, null)
+    const result = await item.complete()
+    expect(result.tokens.expiresInSeconds).toBe(3600)
+    expect(result.tokenLifetime).toBeUndefined()
+    expect(item.requests.some(url => url.pathname.endsWith('/debug_token'))).toBe(false)
+    const count = item.requests.length
+    await expect(
+        item.oauth.refresh({
+            accessToken: 'synthetic-unified-token',
+            issuedAt: 1_799_000_000_000,
+            expiresAt: 1_800_000_060_000,
+        })
+    ).rejects.toMatchObject({ code: 'refresh_failed' })
+    expect(item.requests).toHaveLength(count)
+})
+
+test('Unified lifetime resolves a missing duration from the verified absolute deadline', async () => {
+    const item = await unifiedLifetimeFixture(
+        {},
+        {
+            data: {
+                is_valid: true,
+                app_id: clientId,
+                expires_at: 1_800_003_600,
+            },
+        }
+    )
+    expect((await item.complete()).tokens.expiresInSeconds).toBe(3600)
+})
+
+test('Unified never substitutes a guessed lifetime for invalid or unverified token metadata', async () => {
+    for (const metadata of [
+        null,
+        { data: {} },
+        { data: { is_valid: false, app_id: clientId, expires_at: 0 } },
+        { data: { is_valid: true, app_id: '999', expires_at: 0 } },
+        ...[null, -1, '0', 1_799_999_999].map(expires_at => ({
+            data: {
+                is_valid: true,
+                app_id: clientId,
+                expires_at,
+            },
+        })),
+    ]) {
+        const item = await unifiedLifetimeFixture({}, metadata)
+        await expect(item.complete()).rejects.toMatchObject({ code: 'exchange_failed' })
+        expect(item.requests).toHaveLength(2)
+    }
+    for (const expires_in of [null, -1, 'garbage', 1.5]) {
+        const item = await unifiedLifetimeFixture(
+            { expires_in },
+            {
+                data: {
+                    is_valid: true,
+                    app_id: clientId,
+                    expires_at: 0,
+                },
+            }
+        )
+        await expect(item.complete()).rejects.toMatchObject({ code: 'exchange_failed' })
+        expect(item.requests).toHaveLength(1)
+    }
+})
+
+test('Unified accepts a provider-confirmed zero expiration without a synthetic deadline', async () => {
+    const item = await unifiedLifetimeFixture(
+        { expires_in: 0 },
+        {
+            data: {
+                is_valid: true,
+                app_id: clientId,
+                expires_at: 0,
+            },
+        }
+    )
+    const result = await item.complete()
+    expect(result.tokens.expiresInSeconds).toBeNull()
+    expect(result.tokenLifetime).toBe('non_expiring')
 })

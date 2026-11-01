@@ -57,14 +57,15 @@ function plainText(value: unknown): value is string {
 
 interface PreparedToken {
     readonly accessToken: string
-    readonly expiresInSeconds: number
+    readonly expiresInSeconds: number | null
+    readonly nonExpiring: boolean
+    readonly graphOrigin?: 'https://graph.facebook.com'
     readonly scopes: readonly string[]
 }
 
 /**
- * The exchanged token is read defensively. A missing, nullable, negative or
- * implausible lifetime is never replaced by a guessed default: an unknown
- * provider deadline is a failure, not a licence to invent one.
+ * Only explicit Unified metadata can attest a non-expiring token. Other
+ * absent, invalid or implausible lifetimes are refused without a default.
  */
 function readPreparedToken(value: unknown): PreparedToken | null {
     const result = asRecord(value)
@@ -75,11 +76,20 @@ function readPreparedToken(value: unknown): PreparedToken | null {
     const tokenType = tokens.tokenType
     if (typeof tokenType !== 'string' || tokenType.toLowerCase() !== 'bearer') return null
     const expiresInSeconds = tokens.expiresInSeconds
+    const graphOrigin =
+        result.graphOrigin === 'https://graph.facebook.com'
+            ? ('https://graph.facebook.com' as const)
+            : undefined
+    const nonExpiring =
+        graphOrigin !== undefined &&
+        result.tokenLifetime === 'non_expiring' &&
+        expiresInSeconds === null
     if (
-        typeof expiresInSeconds !== 'number' ||
-        !Number.isSafeInteger(expiresInSeconds) ||
-        expiresInSeconds <= 0 ||
-        expiresInSeconds > maximumExpiresInSeconds
+        !nonExpiring &&
+        (typeof expiresInSeconds !== 'number' ||
+            !Number.isSafeInteger(expiresInSeconds) ||
+            expiresInSeconds <= 0 ||
+            expiresInSeconds > maximumExpiresInSeconds)
     )
         return null
     const scopes = tokens.scopes
@@ -89,7 +99,13 @@ function readPreparedToken(value: unknown): PreparedToken | null {
         if (!plainText(scope)) return null
         granted.push(scope)
     }
-    return { accessToken, expiresInSeconds, scopes: granted }
+    return {
+        accessToken,
+        expiresInSeconds: expiresInSeconds as number | null,
+        nonExpiring,
+        graphOrigin,
+        scopes: granted,
+    }
 }
 
 interface PreparedAccount {
@@ -304,8 +320,10 @@ export function createInstagramConnectionFlow(options: {
             authorizeActor(binding)
             assertNoActiveConnection(binding)
             const issuedAt = now()
-            const expiresAt = issuedAt + token.expiresInSeconds * 1000
-            if (!Number.isSafeInteger(expiresAt)) return fail('provider_unavailable')
+            const expiresAt =
+                token.expiresInSeconds === null ? null : issuedAt + token.expiresInSeconds * 1000
+            if (expiresAt !== null && !Number.isSafeInteger(expiresAt))
+                return fail('provider_unavailable')
             // The issuance metadata is encrypted with the credential and lets a
             // later worker enforce the provider refresh age.
             const providerSession = JSON.stringify({
@@ -313,9 +331,8 @@ export function createInstagramConnectionFlow(options: {
                 issuedAt,
                 appScopedId: account.appScopedId,
                 accountType: account.accountType,
-                ...(token.accessToken.startsWith('EA')
-                    ? { graphOrigin: 'https://graph.facebook.com' }
-                    : {}),
+                ...(token.graphOrigin ? { graphOrigin: token.graphOrigin } : {}),
+                ...(token.nonExpiring ? { nonExpiring: true } : {}),
             })
             const saved = await options.credentials.createPublisherCredential({
                 projectId: binding.projectId,

@@ -66,7 +66,7 @@ const containerPreparationBudgetMs = 5 * 60_000
 export interface InstagramProviderAdapterOptions {
     readonly fetcher?: InstagramFetcher
     /** The transport used for container and publication requests. */
-    readonly createPublisher?: () => InstagramPublisher
+    readonly createPublisher?: (graphOrigin?: string) => InstagramPublisher
     /** Resolves the application configuration that issued the credential. */
     readonly resolveOAuth?: (
         providerApplicationId: string | null
@@ -184,11 +184,7 @@ async function executeInstagramPublication(input: {
                     resolveOAuth: input.resolveOAuth,
                 })
                 const session = parseInstagramProviderSession(context.secrets.providerSession)
-                const graphOrigin =
-                    session?.graphOrigin ??
-                    (context.secrets.accessToken.startsWith('EA')
-                        ? 'https://graph.facebook.com'
-                        : undefined)
+                const graphOrigin = session?.graphOrigin
                 return resolved.ok
                     ? {
                           ...resolved,
@@ -217,8 +213,8 @@ async function executeInstagramPublication(input: {
 }
 
 /**
- * Enforces the credential lifetime. A durable Instagram credential always has
- * a known deadline; an expired token is never refreshed. A token that expires
+ * Enforces the credential lifetime, including verified non-expiring Unified
+ * credentials. An expired token is never refreshed. A direct token that expires
  * soon is refreshed only when it is old enough and the issuing application
  * configuration is available.
  */
@@ -235,6 +231,18 @@ async function resolveInstagramAccessToken(input: {
     const execution = input.execution
     const context = input.context
     const expiresAt = context.credential.expiresAt
+    const session = parseInstagramProviderSession(context.secrets.providerSession)
+    if (
+        expiresAt === null &&
+        session?.nonExpiring === true &&
+        session.graphOrigin === 'https://graph.facebook.com' &&
+        session.issuedAt <= context.now()
+    ) {
+        const accessToken = context.secrets.accessToken
+        return accessToken.trim().length > 0
+            ? { ok: true, accessToken }
+            : { ok: false, outcome: permanentFailure('The Instagram access token is unavailable') }
+    }
     if (expiresAt === null) {
         context.markReconnectRequired()
         return {
@@ -258,7 +266,8 @@ async function resolveInstagramAccessToken(input: {
         return { ok: false, outcome: permanentFailure('The Instagram access token is unavailable') }
     if (expiresAt - context.now() > refreshWindowMs) return { ok: true, accessToken }
 
-    const session = parseInstagramProviderSession(context.secrets.providerSession)
+    // Unified tokens are not renewed by the direct Instagram refresh API.
+    if (session?.graphOrigin === 'https://graph.facebook.com') return { ok: true, accessToken }
     // Without usable issuance metadata the credential cannot be refreshed. The
     // stored token is still inside its own known lifetime, so it is used as it
     // is instead of inventing an expiration.
@@ -638,6 +647,7 @@ interface InstagramProviderSession {
     readonly appScopedId: string
     readonly accountType: 'BUSINESS' | 'MEDIA_CREATOR'
     readonly graphOrigin?: string
+    readonly nonExpiring?: boolean
 }
 
 /**
@@ -663,10 +673,14 @@ function parseInstagramProviderSession(value: string | null): InstagramProviderS
     const accountType = session.accountType
     if (accountType !== 'BUSINESS' && accountType !== 'MEDIA_CREATOR') return null
     const graphOrigin =
-        typeof session.graphOrigin === 'string' && session.graphOrigin.startsWith('https://')
-            ? session.graphOrigin
-            : undefined
-    return { issuedAt, appScopedId, accountType, ...(graphOrigin ? { graphOrigin } : {}) }
+        session.graphOrigin === 'https://graph.facebook.com' ? session.graphOrigin : undefined
+    return {
+        issuedAt,
+        appScopedId,
+        accountType,
+        ...(graphOrigin ? { graphOrigin } : {}),
+        ...(session.nonExpiring === true ? { nonExpiring: true } : {}),
+    }
 }
 
 /**

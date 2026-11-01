@@ -32,6 +32,7 @@ const issuedAt = 1_800_000_000_000
 async function fixture(
     options: {
         readonly expiresInSeconds?: number | null
+        readonly nonExpiring?: boolean
         readonly scopes?: readonly string[]
     } = {}
 ) {
@@ -120,6 +121,9 @@ async function fixture(
             exchanges++
             if (duringExchange) await duringExchange()
             return {
+                ...(options.nonExpiring
+                    ? { graphOrigin: 'https://graph.facebook.com', tokenLifetime: 'non_expiring' }
+                    : {}),
                 tokens: {
                     accessToken,
                     refreshToken: null,
@@ -559,6 +563,18 @@ test('losing channel management during application lookup blocks credential pers
         })
         expect(f.storedCredentials()).toHaveLength(0)
         expect(f.connection()).toBeNull()
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('stores a verified non-expiring Unified credential without inventing a deadline', async () => {
+    const f = await fixture({ expiresInSeconds: null, nonExpiring: true })
+    try {
+        const { url } = await f.flow.start(f.binding, '/dashboard/channels')
+        await f.flow.complete(f.binding, f.callback(url))
+        expect(f.storedCredentials()[0]!.expiresAt).toBeNull()
+        expect(f.connection()).not.toBeNull()
     } finally {
         closeDatabase(f.database)
     }

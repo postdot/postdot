@@ -97,14 +97,13 @@ publishing do.
 
 Instagram publishing uses Meta's **Facebook Login for Business** with the
 Unified Login template. Connecting an Instagram channel requires an Instagram
-Professional account (Business or Creator) linked to a Facebook Page within a
-Meta Business Portfolio.
+Professional account (Business or Creator) shared through a Meta Business
+Portfolio. Unified Login does not require a Facebook Page.
 
 ### Deployment requirements
 
-- **Public HTTPS callback**: Meta requires a public HTTPS redirect URI. Local
-  loopback (`http://localhost`) is supported for local development only if
-  registered explicitly in the Meta Developer portal.
+- **Public HTTPS callback**: Register your public HTTPS redirect URI in Meta's
+  **Facebook Login for Business** settings.
 - **Reachability of uploaded media**: Meta's Graph API does not accept direct
   binary uploads for Instagram container publishing. Media files uploaded to
   Postdot must be accessible over a publicly reachable HTTPS origin so Meta's
@@ -114,19 +113,20 @@ Meta Business Portfolio.
 
 ```dotenv
 # apps/api/.env
-POSTDOT_INSTAGRAM_CONFIG_ID=4436311590014005
+POSTDOT_INSTAGRAM_CONFIG_ID=your_meta_configuration_id
 ```
 
 ### Meta Developer setup
 
-1. Create a **Business** application in the Meta for Developers portal and add
-   the **Instagram API** use case.
+1. Create an application with **Manage messaging & content on Instagram** in
+   the Meta for Developers portal and associate it with your business portfolio.
 2. In **Facebook Login for Business** -> **Configurations**, create a
    configuration using the **Instagram API (Unified Login)** template.
 3. Select **Instagram accounts** under Assets, request `instagram_basic`,
-   `instagram_content_publish`, `instagram_manage_comments`, and
+   `instagram_content_publish`, and
    `instagram_manage_messages`, and select **System-user access token**.
-4. Register the deployment callback under **API setup with Unified login**:
+4. Register the deployment callback under **Facebook Login for Business** ->
+   **Settings** -> **Valid OAuth Redirect URIs**:
    `https://<postdot-domain>/api/oauth/instagram/callback`.
 5. In Postdot's **OAuth applications**, record the Meta **App ID** (Client ID)
    and **App Secret** (Client Secret).

@@ -100,6 +100,8 @@ export function createInstagramPublisher(options: InstagramPublisherOptions = {}
     const fetcher = options.fetcher ?? fetch
     const timeoutMs = options.timeoutMs ?? 30_000
     const graphOrigin = options.graphOrigin ?? INSTAGRAM_GRAPH_ORIGIN
+    if (graphOrigin !== INSTAGRAM_GRAPH_ORIGIN && graphOrigin !== 'https://graph.facebook.com')
+        throw new Error('Instagram Graph origin is invalid')
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000)
         throw new Error('Instagram timeout must be between 1 and 300000 milliseconds')
 

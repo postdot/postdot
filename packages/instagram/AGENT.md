@@ -1,4 +1,4 @@
-# Instagram direct-login protocol
+# Instagram publishing and login protocol
 
 - Own the direct Instagram Login single-image protocol, its native profile and the confidential login/account protocol. Application configuration, encrypted credentials, callback routes, connection persistence, inspected media, durable effects, the worker and Studio belong to their existing application boundaries.
 - Pin the direct-login host `graph.instagram.com` and version `v26.0`. Never follow a provider redirect or a provider-supplied URL; requests use `redirect: 'error'`, `credentials: 'omit'`, a bearer token in the authorization header and a bounded timeout with an optional caller abort.
@@ -20,4 +20,11 @@
 - The fixed token endpoints carry the client secret as a documented transport exception. Never log, return or attach those URLs, the secret, the code, the state or a token to an error, and never reuse an error cause.
 - A durable Instagram credential needs a known lifetime. The long-lived token keeps the provider's actual lifetime, and an absent, null, zero, negative or malformed expiry is a failure on completion and on refresh. A 60-day lifetime is never guessed, an unknown lifetime never becomes a stored credential and the refreshed result therefore always carries a real expiry.
 - Refreshing uses the long-lived token itself. An expired token cannot be refreshed and a token younger than 24 hours is refused before any request. Corrupt metadata is refused before any request too: a negative issuance or a lifetime that ends no later than it starts. The provider issues no refresh token, so none is invented.
-- The callback accepts only the documented literal `#_` artifact and removes it before validation without rebuilding the address, so the rest of it, including any userinfo, stays visible to the checks below. Every other fragment, a foreign origin or path, userinfo, a duplicated state or code, an empty code and a refusal that does not carry the expected state are refused before any provider request.
+- The callback accepts only the documented literal `#_` or Meta Unified `#_=_` artifact and removes it before validation without rebuilding the address, so the rest of it, including any userinfo, stays visible to the checks below. Every other fragment, a foreign origin or path, userinfo, a duplicated state or code, an empty code and a refusal that does not carry the expected state are refused before any provider request.
+
+## Unified Login
+
+- Unified Login uses a configuration ID and the fixed `www.facebook.com` authorization and `graph.facebook.com/v26.0` API hosts. Keep its token lifecycle separate from direct Instagram Login.
+- Preserve a finite provider lifetime. If exchange omits expiry or reports zero, confirm `is_valid`, issuing `app_id` and `expires_at` through the fixed Meta `debug_token` endpoint before storing the credential. Only confirmed zero expiration produces a nullable deadline and encrypted `nonExpiring` metadata; unknown or malformed metadata fails closed. The debugging endpoint's `input_token` query is a documented transport exception and must never enter logs or errors.
+- A verified non-expiring Unified credential may publish with a null deadline; a direct-login credential with unknown expiry must still require reconnection. Unified credentials with finite deadlines use their existing token until expiry and then require reconnection. Do not report a successful renewal without actually issuing a new token through the separate management API.
+- Write the Graph host from explicit adapter metadata, never infer the new connection's host from a token prefix. Keep this metadata encrypted with the credential.

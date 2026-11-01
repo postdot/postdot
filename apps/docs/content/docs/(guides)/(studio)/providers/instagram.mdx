@@ -18,9 +18,9 @@ Before connecting in Postdot, confirm your Meta asset hierarchy in
   application and Instagram assets.
 - **Instagram Professional Account**: The target profile must be converted to a
   **Business** or **Creator** account.
-- **Linked Facebook Page**: The Instagram Professional account must be linked to
-  a Facebook Page within your Business Portfolio (verified in Meta Accounts
-  Center).
+
+A Facebook Page is not required by Unified Login. The account must be shared
+with the application through its business portfolio.
 
 ## Configure the application
 
@@ -30,9 +30,8 @@ Operators configure the Meta Developer application and Postdot deployment:
 
 Create an app in the [Meta for Developers](https://developers.facebook.com/) portal:
 
-1. Select **Other** as the use case, then choose the **Business** app type.
-2. In the app dashboard, add the **Instagram API** product (under _Manage
-   messaging & content on Instagram_).
+1. Select **Manage messaging & content on Instagram** as the use case.
+2. Associate the app with your business portfolio.
 
 ### 2. Configure Facebook Login for Business (Unified Login)
 
@@ -47,23 +46,23 @@ the Unified Login template:
 4. Under **Permissions**, include:
     - `instagram_basic`
     - `instagram_content_publish`
-    - `instagram_manage_comments`
     - `instagram_manage_messages`
-5. Under **Token type**, select **System-user access token** and choose
-   expiration **Never** (or the long-lived 60-day token).
+5. Use the template's **System-user access token**. Check its expiration in
+   the configuration preview. Postdot preserves a verified non-expiring token
+   without assigning a deadline; expiring Unified tokens require reconnection
+   when they expire.
 6. Note the generated **Configuration ID** (numeric identifier).
 
 ### 3. Register the OAuth callback
 
-Under **Use Cases** -> **Customize** -> **Instagram API** -> **API setup with
-Unified login**, register the redirect URL for your Postdot deployment:
+Under **Facebook Login for Business** -> **Settings**, add your deployment's
+callback to **Valid OAuth Redirect URIs** and save the changes:
 
 ```text
 https://postdot.example/api/oauth/instagram/callback
 ```
 
-Replace `postdot.example` with your public Postdot API origin. Meta rejects
-insecure HTTP origins outside `localhost`.
+Replace `postdot.example` with your public Postdot API origin. Use a public HTTPS callback.
 
 ### 4. Set Postdot environment and OAuth application
 
@@ -71,7 +70,7 @@ insecure HTTP origins outside `localhost`.
     ```dotenv
     POSTDOT_INSTAGRAM_CONFIG_ID=your_meta_configuration_id
     ```
-2. In Postdot's **OAuth applications** (under workspace or instance settings),
+2. In Postdot's **OAuth applications** in the administration settings,
    register the Instagram application:
     - **Client ID**: Your Meta App ID.
     - **Client secret**: Your Meta App Secret.
@@ -91,7 +90,7 @@ insecure HTTP origins outside `localhost`.
 
 Instagram requires an image file for feed publishing:
 
-- **Format**: JPEG or PNG.
+- **Format**: exactly one JPEG, up to 8,000,000 bytes.
 - **Media accessibility**: Uploaded media must be served over a publicly
   accessible HTTPS URL so Meta's servers can retrieve the media container during
   publishing.
@@ -102,9 +101,13 @@ Instagram requires an image file for feed publishing:
 - **App mode and permissions**: When the Meta app is in Development mode, only
   users listed under **App Roles** (Administrators, Developers, or Testers) can
   authorize the application.
-- **No Instagram accounts found**: Ensure the Instagram account is converted to
-  a Professional account and linked to a Facebook Page within the same Business
-  Portfolio.
+- **No Instagram accounts found**: Ensure the account is Professional, belongs
+  to the selected business portfolio and was shared with the app during consent.
 - **Expired tokens**: If access is revoked or token expiration occurs, reconnect
   the channel from Studio. Retrying a failed send without reconnecting will not
   renew credentials.
+
+If Meta's **API setup with Unified login** screen fails to load, use
+**Facebook Login for Business** -> **Templates** to create the Unified Login
+configuration, then **Settings** to register the callback. A successful setup
+still needs a complete authorization and publication check.

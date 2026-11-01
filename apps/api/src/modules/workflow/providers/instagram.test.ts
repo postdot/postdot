@@ -326,7 +326,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         }
 
         const adapter = createInstagramProviderAdapter({
-            createPublisher: () => createInstagramPublisher({ fetcher }),
+            createPublisher: graphOrigin => createInstagramPublisher({ fetcher, graphOrigin }),
             ...(options.resolveOAuth === undefined ? {} : { resolveOAuth: options.resolveOAuth }),
         })
 
@@ -1081,3 +1081,38 @@ test('coordinates real Instagram renewal across concurrent preparation with stal
         await item.cleanup()
     }
 })
+
+for (const expiresAt of [null, now + 60_000]) {
+    test(`Unified credential with expiry ${expiresAt} publishes without simulated renewal`, async () => {
+        let resolutions = 0
+        const item = await fixture({
+            credentialExpiresAt: expiresAt,
+            providerSession: JSON.stringify({
+                version: 1,
+                issuedAt: now - 30 * dayMs,
+                appScopedId: '17841400000000000',
+                accountType: 'BUSINESS',
+                graphOrigin: 'https://graph.facebook.com',
+                ...(expiresAt === null ? { nonExpiring: true } : {}),
+            }),
+            resolveOAuth: async () => {
+                resolutions++
+                return undefined
+            },
+            replies: request =>
+                request.url.pathname.endsWith('/media_publish')
+                    ? Response.json({ id: mediaId })
+                    : Response.json({ id: containerId, status_code: 'FINISHED' }),
+        })
+        try {
+            expect(await item.execute()).toEqual({ type: 'published', externalId: mediaId })
+            expect(resolutions).toBe(0)
+            expect(
+                item.requests.every(request => request.url.origin === 'https://graph.facebook.com')
+            ).toBe(true)
+            expect(item.replacements).toHaveLength(0)
+        } finally {
+            await item.cleanup()
+        }
+    })
+}
