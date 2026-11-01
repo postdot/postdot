@@ -3,6 +3,7 @@
     "defaultOpen": false,
     "pages": [
         "index",
+        "setup-effort",
         "bluesky",
         "mastodon",
         "linkedin",

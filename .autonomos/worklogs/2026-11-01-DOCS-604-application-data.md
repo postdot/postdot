@@ -71,3 +71,14 @@ deletion instructions and verify its contact process. Prepare a stable HTTPS rev
 instance and reviewer access after those facts are set. Do not fill Meta's policy
 fields with generic software documentation as if it identifies the application
 operator or completes its data-deletion service.
+
+
+## Subsequent owner direction
+
+The owner clarified that Postdot has no SaaS service and set central Meta App
+Review and a reviewer-hosted instance aside. The preparation above remains a
+historical assessment of external-business access, not the current plan. Each
+self-hosted operator is responsible for its provider applications and eligibility.
+The generic privacy/deletion guides remain useful; collecting a central review
+instance's operator identity is no longer a project dependency. DOCS-605 explains
+these provider-specific setup and approval boundaries publicly.

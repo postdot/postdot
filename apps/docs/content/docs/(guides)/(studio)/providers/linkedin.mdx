@@ -7,6 +7,15 @@ An installation administrator first configures a LinkedIn OAuth application.
 Connecting a personal profile and connecting an organization page are distinct
 operations; a working member connection does not grant organization access.
 
+## Check API product access first
+
+Member publishing uses the **Share on LinkedIn** product. Organization publishing
+needs separate **Community Management** access, which LinkedIn reviews and
+currently restricts to registered legal organizations for commercial use cases.
+Page administration alone does not grant that API access. Check the
+[setup comparison](/docs/providers/setup-effort/#linkedin-member-publishing-and-organization-access-differ)
+before configuring an organization connection.
+
 ## Configure the application
 
 Create or use your LinkedIn developer application. Enable the products and

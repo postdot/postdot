@@ -19,6 +19,8 @@ content generator.
 
 - **Licensing:** Original Postdot code is AGPL-3.0-only. Preserve third-party licenses and notices; do not add proprietary editions, contributor copyright assignments, or commercial relicensing grants without an explicit owner decision. Preparing launch artifacts does not authorize making the repository public or publishing releases.
 
+- **Provider access (owner direction, 2026-11-01):** Postdot is self-hosted, with no central SaaS provider application or shared API entitlement. Document each destination's registration, account, approval and cost requirements before presenting it as ready to connect. Distinguish an operator's own assets from services connecting external businesses; do not initiate central App Review or a reviewer-hosted service without an explicitly accepted need.
+
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits

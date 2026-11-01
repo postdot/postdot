@@ -1,0 +1,114 @@
+---
+title: Connection setup effort
+description: Compare account credentials, automatic app registration, developer setup and provider approval before choosing a destination.
+---
+
+A supported destination is not always ready to connect after installing Postdot.
+Some providers need an account key or bot token. Others require a developer
+application, a public callback, a particular account type, paid API access or
+approval of the intended use. Those requirements belong to the platform and can
+make an otherwise supported integration impractical for an individual operator.
+
+Postdot is self-hosted. You configure the credentials or applications for your
+installation. Postdot does not provide a centrally approved provider application
+or API subscription with the software.
+
+## Four setup paths
+
+| Path                         | What you do                                                                                                          | Where you can get stuck                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Account key or bot token     | Generate a credential and give it access to the intended destination                                                 | Account restrictions, invalid credentials or missing destination rights                        |
+| Automatic app registration   | Configure the instance origin, then sign in and authorize; Postdot handles provider-side client registration         | The server can restrict registration, or required public metadata/callbacks may be unreachable |
+| Manual developer application | Create an app in the provider portal, configure products/permissions and an exact callback, then connect the account | Developer-account eligibility, application settings, account type, API entitlement or charges  |
+| Provider-reviewed access     | Apply for an API product or broader access and provide the evidence requested by the platform                        | Organization requirements, business verification, recordings, review delays or refusal         |
+
+These paths describe the setup actions, not a guarantee of difficulty or approval.
+A token-based connection can still require manual bot setup. A provider can use a
+simpler path for personal publishing and a reviewed path for organization access.
+
+## Compare the supported destinations
+
+The table describes the publishing connections implemented in Postdot. Check the
+linked platform documentation and your developer console for current eligibility,
+charges and limits before committing to a deployment.
+
+| Destination and use                                          | Setup in Postdot                                                           | Provider preparation and access barrier                                                                                                                         |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [DEV.to account](/docs/providers/devto/)                     | Account API key                                                            | Generate the key in account settings; no separate OAuth app or callback in this flow                                                                            |
+| Telegram channel                                             | Bot token and channel reference                                            | Create a bot through BotFather, then make it a channel administrator with posting rights                                                                        |
+| [Mastodon account](/docs/providers/mastodon/)                | Instance origin and OAuth authorization                                    | Postdot registers the app on that instance; its operator must allow registration and the requested access                                                       |
+| [Bluesky account](/docs/providers/bluesky/)                  | Administrator-configured OAuth profile, then account authorization         | Client registration uses metadata rather than a developer portal; a remote deployment needs public HTTPS metadata and callback configuration                    |
+| [Discord server channel](/docs/providers/discord/)           | Bot token and channel ID                                                   | Manually create a Discord developer app/bot, install it in the server and grant channel permissions                                                             |
+| [LinkedIn member profile](/docs/providers/linkedin/)         | Configured OAuth app, then member authorization                            | Create an app and enable Share on LinkedIn plus the identity product; confirm that the app has the requested permissions                                        |
+| [LinkedIn organization page](/docs/providers/linkedin/)      | Configured OAuth app, account authorization and organization ID            | Community Management access is reviewed; page administration alone does not grant the API product                                                               |
+| [X account](/docs/providers/x/)                              | Configured OAuth 2.0 app, then account authorization                       | Developer/API access and publishing/media permissions must be available; check the current usage charges and entitlement in X's developer console               |
+| Facebook Page                                                | Configured Meta OAuth app, Page discovery and selection                    | The account must manage the Page and the app must have the required access; own-business access and external-business access have different review requirements |
+| [Instagram professional account](/docs/providers/instagram/) | Meta app, Unified Login configuration, portfolio and account authorization | Business or Creator account and eligible portfolio/application setup; Standard Access and Advanced Access serve different audiences                             |
+
+A manual channel needs no provider credential. You prepare the destination's
+content in Postdot and record the result after publishing it yourself. A custom
+HTTP destination has the access requirements of the service you configure; it is
+not a way around a platform's API rules.
+
+## Facebook and Instagram: your accounts or other businesses?
+
+For accounts or business assets that you own or manage, Meta documents Standard
+Access for eligible applications and role-authorized users. This still requires
+application setup, the relevant account/asset rights and the requested
+permissions. A successful test does not qualify every account or permission.
+
+Connecting businesses outside that boundary requires Advanced Access for the
+requested permissions and a Live application. App Review, Tech Provider
+onboarding or business verification may then apply. This broader access is not a
+prerequisite that every self-hosted Postdot operator must complete.
+
+Instagram's Unified Login adds a business portfolio and configuration ID. Its
+setup can therefore be substantial even when no external-business review is
+needed. Account security checks and portfolio eligibility can also delay setup;
+Postdot cannot remove those platform checks. See
+[Meta's access-level guidance](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login/permissions)
+and [App Review scenarios](https://developers.facebook.com/documentation/instagram-platform/app-review).
+
+## LinkedIn: member publishing and organization access differ
+
+LinkedIn documents adding the
+[Share on LinkedIn product](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin)
+to obtain member publishing permission. This does not grant organization-page
+access.
+
+[Community Management access](https://learn.microsoft.com/en-us/linkedin/marketing/community-management-app-review)
+requires a reviewed application. LinkedIn currently restricts that product to
+registered legal organizations and commercial use cases, with verified business
+and Page details. Broader access has additional review evidence requirements.
+Self-hosting Postdot or being a Page administrator does not waive those conditions.
+Check eligibility before spending time on an organization connection.
+
+## Choose before configuring
+
+1. Identify the exact destination: your member profile, an organization page,
+   a bot-managed channel or a professional Instagram account.
+2. Check whether your account and application qualify for its API product. Treat
+   provider approval and budget as prerequisites when they apply.
+3. Configure only the required application, origins and credentials. Follow the
+   [deployment guide](/docs/provider-configuration/) and the provider-specific
+   connection instructions.
+4. Verify the connected identity, then check one supported publication when you
+   are ready to send it. A successful login does not prove media access or every
+   publishing permission.
+
+If the required API access is unavailable, use a manual channel for that
+destination instead of assuming that a Postdot setting can unlock it. The
+[capability table](/docs/providers/provider-capabilities/) describes content
+support separately from these connection requirements.
+
+## Platform references
+
+- [Forem API keys](https://developers.forem.com/api)
+- [Telegram bot creation](https://core.telegram.org/bots/tutorial)
+- [Mastodon OAuth and application registration](https://docs.joinmastodon.org/spec/oauth/)
+- [AT Protocol automated OAuth client registration](https://atproto.com/specs/oauth)
+- [Discord app creation and installation](https://docs.discord.com/developers/quick-start/getting-started)
+- [X OAuth configuration](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code)
+
+Requirements checked November 1, 2026. The platforms can change these requirements;
+the current developer console and provider documentation determine actual access.

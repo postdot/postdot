@@ -8,6 +8,11 @@ defined by the provider flow being used. The application can remain a simple
 single-process self-hosted deployment while a particular provider may require a
 public callback or a public client document.
 
+Before configuring a developer application, compare
+[connection setup effort](/docs/providers/setup-effort/). Application creation,
+API product access and account authorization are separate steps; some product
+access requires provider approval or usage charges even on a self-hosted instance.
+
 ## Common Postdot requirements
 
 - Keep the database, `BETTER_AUTH_SECRET`, media signing secret, and publisher

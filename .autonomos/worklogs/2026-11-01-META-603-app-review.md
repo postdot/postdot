@@ -178,3 +178,14 @@ are this preparation record and task state only; no application behavior changed
 
 META-603 is complete as preparation. Advanced Access, business verification,
 external reviewer access, a new recording and actual submission remain unclaimed.
+
+
+## Subsequent owner direction
+
+The owner clarified that Postdot has no SaaS service and set central Meta App
+Review and a reviewer-hosted instance aside. The preparation above remains a
+historical assessment of external-business access, not the current plan. Each
+self-hosted operator is responsible for its provider applications and eligibility.
+The generic privacy/deletion guides remain useful; collecting a central review
+instance's operator identity is no longer a project dependency. DOCS-605 explains
+these provider-specific setup and approval boundaries publicly.
