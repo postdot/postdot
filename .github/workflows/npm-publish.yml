@@ -88,6 +88,8 @@ jobs:
               if: inputs.mode != 'bootstrap-cli'
               uses: changesets/action@v2
               env:
+                  NODE_AUTH_TOKEN: ''
+                  NPM_TOKEN: ''
                   POSTDOT_NPM_RELEASE_MODE: release
               with:
                   cwd: integrations

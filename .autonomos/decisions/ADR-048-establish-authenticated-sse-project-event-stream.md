@@ -1,6 +1,6 @@
 # ADR-048 — Establish an Authenticated Project Event Stream over SSE
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-07
 - Scope: authenticated server-to-client project update transport
 - Provenance: REALTIME-102, ISSUE-050, PR #109 follow-up

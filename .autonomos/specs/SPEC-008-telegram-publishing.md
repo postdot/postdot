@@ -1,6 +1,6 @@
 # SPEC-008 — Telegram publishing
 
-- Status: draft; initial single-media scope accepted by owner on 2026-10-17
+- Status: accepted (delivered across TELEGRAM-498 through TELEGRAM-594)
 - Scope: First-party Telegram connection, content validation and durable publication
 - Provenance: Owner-approved expansion sequence; [ISSUE-165](../ISSUES.md); TELEGRAM-498
 - Related specification: [SPEC-004](SPEC-004-publication-content-boundary.md)

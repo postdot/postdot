@@ -1,6 +1,6 @@
 # ADR-044 — Use Dedicated X (Twitter) Built-in Provider Adapter
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-06
 - Scope: X built-in channel connections, OAuth 2.0 PKCE, credentials, and publication delivery
 - Related issue: PROVIDER-93

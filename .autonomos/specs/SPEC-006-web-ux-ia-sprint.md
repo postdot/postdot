@@ -1,6 +1,6 @@
 # SPEC-006 — Postbot web UX and information architecture sprint
 
-- Status: draft
+- Status: accepted (delivered across WEB-117 through AUDIT-125 and UX-389 through UX-403)
 - Scope: authenticated web application information architecture, interaction
   hierarchy, shared UI foundations, responsive behavior, and validation
 - Provenance: independent Muse-1.3 and Luna-max UX/UI audits; owner discussion

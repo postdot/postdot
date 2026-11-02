@@ -1,6 +1,6 @@
 # ADR-045 — Use a Dedicated DEV.to Built-in Provider Adapter
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-06
 - Scope: DEV.to channel profiles, project-owned API-key connections, and article delivery
 - Related issue: PROVIDER-94

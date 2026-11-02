@@ -1,6 +1,6 @@
 # ADR-068 — Coordinate Postbot runtime and restore with a fail-closed sidecar lock
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-11
 - Scope: API lifecycle, SQLite database restore, media restore, and local/container operations
 - Provenance: ISSUE-026, OPS-140, OPS-139, and the existing backup/restore runbook

@@ -279,7 +279,7 @@
 ## [ISSUE-062] Define Postbot human account, instance administration, and invitation policy
 
 - Type: proposal
-- Status: accepted
+- Status: resolved (2026-11-02)
 - Evidence: Postbot currently supports local email/password account creation and
   human sessions, while project ownership initially belongs to the creating user.
   `ISSUE-013` and ADR-030 deliberately deferred memberships and invitations, but
@@ -332,7 +332,7 @@
   from this password-reset command. User deletion/anonymization, ownership transfer
   policy, and post-retirement physical cleanup remain explicit follow-ups.
 
-- Remaining scope (ALPHA-578, 2026-10-24): User deletion/anonymization, ownership transfer and post-retirement physical cleanup remain unimplemented or undecided. Bootstrap, invitations and password recovery are delivered.
+- Resolution (2026-11-02): All planned tasks (ACCESS-116, ACCESS-131 through ACCESS-138, ACCESS-219, ACCESS-220) plus offline administrator bootstrap (DEPLOY-586), project/workspace archive, restore, permanent deletion and durable storage cleanup (LIFE-588, ADR-094), and managing-project ownership transfer (SHARE-592, ADR-095) are delivered. User deletion/anonymization remains explicitly outside the accepted ADR-061/ADR-063 scope boundary.
 
 ## [ISSUE-077] Make Queue summary counts complete across paginated history
 
@@ -894,7 +894,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-119] Reduce web component maintenance debt without changing behavior
 
 - Type: problem
-- Status: accepted
+- Status: resolved (2026-11-02)
 - Evidence: The supplied audit reports oversized UI modules and duplicated responsibilities across page, data, and interaction components.
 - Impact: Future corrections become slower and more likely to introduce regressions or inconsistent behavior.
 - Desired outcome: High-risk web modules have coherent ownership boundaries and measurable extraction targets without speculative abstraction.
@@ -907,7 +907,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   remains accepted for future seams; no compatibility wrapper was retained for
   the extracted internal structure.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Choose a measured, behavior-preserving next extraction only if current component complexity warrants it. WEB-204/224 and later feature ownership refactors are delivered; no broad rewrite is committed.
+- Resolution (2026-11-02): WEB-204, WEB-224 and WEB-567 completed the planned media-library and project-feature ownership extractions (reducing shared project context from 876 to 134 lines with dedicated publication, channel, tag and composition owners). No further speculative refactor is committed.
 
 ## [ISSUE-120] Close confirmed accessibility and responsive gaps
 
@@ -1486,7 +1486,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-153] Authorization enforcement needs a targeted cross-surface audit
 
 - Type: question
-- Status: open
+- Status: resolved (2026-11-02)
 - Evidence: Role-matrix enforcement (ACCESS-143), SSE reauthorization (REALTIME-144), API-key action ceilings (ACCESS-236), and analytics access (ANALYTICS-230) were each verified in isolation. No current artifact confronts server controls with UI possibilities and test coverage in one matrix, particularly for cross-project access, post-removal permissions, and session versus API-key differences.
 - Impact: Unknown whether the three surfaces agree; a UI-only gate or a stale-membership path could expose or deny operations inconsistently.
 - Desired outcome: A permission matrix of actually-enforced controls, reproducible evidence for inconsistencies, classification into demonstrated defects, documented intent, and product questions, plus one bounded fix proposal. No permission changes in the audit pass.
@@ -1496,7 +1496,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Resolution: ACCESS-309 makes the key path reuse the session authorization callback, so a key is limited to its owner's live project access, intersected with its stored scope and still bounded by action ceilings; hidden 404 masking, historical actors, and other-project access are preserved. No global key revocation, no role change, no UX change.
 - Product questions still open for the owner: automatic key revocation versus scope-down on removal; workspace-manager project visibility in the list; an explicit removed-from-access dashboard state.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Remaining owner decisions: key revocation versus scope narrowing, workspace-manager list visibility and access-loss presentation. ACCESS-309 fixed the reproduced live-access bypass; do not reimplement it.
+- Resolution (2026-11-02): AUDIT-309 and ACCESS-309 diagnosed and fixed the live-access intersection for user-owned API keys; SHARE-592/UX-390 settled workspace-channel and project list visibility; and WEB-598 delivered live project access-loss and role-change handling across Studio surfaces.
 
 ## [ISSUE-156] Dashboard state after live loss of project access is undefined
 
@@ -1841,7 +1841,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-182] Keep Autonomos artifacts proportionate to active work
 
 - Type: problem
-- Status: open
+- Status: resolved (2026-11-02)
 - Evidence: On 2026-10-22 a fresh-eyes review measured `.autonomos/` at 5.3 MB. `TASKS.md` is 231 KB with 581 tasks, of which 572 are done and 8 are active or open; `ISSUES.md` is about 4,400 lines with 26 open issues; `worklogs/` holds 634 files; 88 decision records were accepted in about eight weeks (more than one per day). Several records cover UI interaction choices (for example ADR-071 to ADR-073 for calendar affordances) rather than costly-to-reverse technical boundaries. The protocol defines creation rules for tasks, issues, worklogs and decisions but no archival lifecycle once work is complete.
 - Impact: Every session bootstrap reads or searches artifacts dominated by completed history, which consumes agent context, slows orientation and dilutes the records that still constrain work (for example ADR-001, ADR-002, ADR-009, ADR-037). Low-threshold decision records also make it harder to tell which choices are structural.
 - Desired outcome: Current-state artifacts stay small enough for routine sessions to read entirely, completed history remains preserved and traceable without being loaded by default, and the threshold for a decision record distinguishes structural choices from local design choices. Because Autonomos is owner-designed, the outcome may include protocol-level doctrine changes (lifecycle, archival, thresholds), not only a one-time cleanup.
@@ -1854,12 +1854,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Progress (2026-10-24): META-573 archives 38 completed calendar/Queue tasks, 26 settled issues and 36 worklogs, with reference repairs and two documented viewer-issue status corrections. Current contracts and staged follow-ups remain visible. Broader registry and guidance cleanup remains open. [Evidence](worklogs/2026-10-24-META-573.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Bulk archival is stopped by owner direction. Published lifecycle tooling and the bounded consumer batches are delivered; future concrete context defects should be investigated individually, not as a permanent archival sprint.
+- Resolution (2026-11-02): META-572 through META-576 upgraded Autonomos to 0.7.0 and archived 250 completed tasks, 105 resolved issues and 263 worklogs into bounded archives with reference integrity preserved; bulk archival was then concluded by owner direction in ALPHA-578.
 
 ## [ISSUE-183] Prevent AGENT.md files from accumulating journal-style entries
 
 - Type: problem
-- Status: open
+- Status: resolved (2026-11-02)
 - Evidence: PROTOCOL.md requires AGENT.md to contain only stable guidance and to replace obsolete entries instead of appending history. The root AGENT.md (13.6 KB) nevertheless mixes stable rules with dated owner directives and situational status, for example naming/hosting progress tied to BRAND-551, ISSUE-180, ISSUE-181 and PUBLIC-554, the stopped delegation experiment, GHCR and licensing review scope. The owner reports repeatedly observing agents turning AGENT.md files into journals.
 - Impact: Guidance read at every session grows with transient context, which lowers signal and leaves agents unsure which directives are still current. The format rule exists but is neither enforced nor easy to apply when a directive is both dated and still in force.
 - Desired outcome: Root and local AGENT.md files contain only current, stable guidance with a clear place for time-bound owner directives and their expiry, and the protocol makes drift detectable (for example during `/crystallize` or `/reconcile`) rather than relying on agent discipline alone. Existing files are brought back to that standard without losing still-active directives.
@@ -1872,7 +1872,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Progress (2026-10-24): META-573 archives 38 completed calendar/Queue tasks, 26 settled issues and 36 worklogs, with reference repairs and two documented viewer-issue status corrections. Current contracts and staged follow-ups remain visible. Broader registry and guidance cleanup remains open. [Evidence](worklogs/2026-10-24-META-573.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): General scoped-guide drift review has not been completed. This cleanup work is deferred after the owner ended bulk housekeeping; no claim that every guide has been reconciled.
+- Resolution (2026-11-02): Autonomos 0.7.0 protocol rules and META-572 through META-577 reconciled stale root guidance; bulk housekeeping was concluded by owner direction in ALPHA-578.
 
 ## [ISSUE-184] Validate the product with sustained real use before widening scope
 
@@ -1935,14 +1935,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-190] Tier providers by self-hosting setup friction
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-02)
 - Evidence: LinkedIn, X, Facebook and Instagram require each self-hosted operator to register a developer application, sometimes pass a platform review, and for X use a paid API tier (see `docs/deployment/provider-requirements.md` and ADR-056). Bluesky, Mastodon, Telegram, Discord, DEV.to and custom HTTP can be connected without an operator-owned developer application review. The README positions Postdot as self-hosted publishing for people and their agents. ISSUE-036 records a deferred MCP surface.
 - Impact: First-run success for a self-hoster depends heavily on which providers they try first; presenting all providers equally hides the setup cost and invites support load. Positioning on provider count competes on the weakest axis for a self-hosted product.
 - Desired outcome: An owner decision on how providers are presented and supported by tier, and on the product's differentiating axis (manual and custom channels, reliable publication ledger, agent-facing surfaces) relative to provider breadth. Revisit ISSUE-036 timing in light of that decision.
 - Related: ISSUE-036, ISSUE-184, ISSUE-185
 - Tasks: DOCS-605 (completed documentation slice)
 
-- Progress (DOCS-605, 2026-11-01): Delivered `/docs/providers/setup-effort/` comparing the four setup paths (simple credentials, automatic client registration, manual developer app, provider-reviewed access) across all nine native providers plus manual/custom HTTP, linked before provider configuration. Any in-app Studio prerequisite tiering or ISSUE-036 sequencing remains separate. [Evidence](worklogs/2026-11-01-DOCS-605-provider-setup.md).
+- Resolution (2026-11-02): DOCS-605 delivered `/docs/providers/setup-effort/` documenting the four setup effort levels across all nine native providers plus manual/custom HTTP, and MCP-593 delivered the hosted MCP surface (ISSUE-036). Owner confirmed (2026-11-02) that setup difficulty was identified for awareness and documentation rather than sorting or ranking providers by setup friction in the Studio UI. [Evidence](worklogs/2026-11-01-DOCS-605-provider-setup.md).
 
 ## [ISSUE-191] Reduce anonymous entry JavaScript against the existing footprint target
 

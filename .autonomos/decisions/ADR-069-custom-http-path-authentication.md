@@ -1,6 +1,6 @@
 # ADR-069 — Bind custom HTTP path authentication to one encrypted secret segment
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-11
 - Scope: Runtime-defined custom HTTP connection authentication and mapped delivery
 - Provenance: ISSUE-031, SECURITY-141, and owner approval to implement the bounded path-authentication follow-up

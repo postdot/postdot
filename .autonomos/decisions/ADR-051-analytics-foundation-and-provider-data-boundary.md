@@ -1,6 +1,6 @@
 # ADR-051 — Establish a Query-Time Operational Analytics Foundation and Provider Data Boundary
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-07
 - Scope: operational analytics read models, metric semantics, and provider-owned engagement data
 - Provenance: ISSUE-054, ANALYTICS-107, ANALYTICS-89

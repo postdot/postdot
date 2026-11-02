@@ -1,6 +1,6 @@
 # ADR-052 — Add a Bounded Bluesky Provider-Analytics Observation Slice
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-08
 - Scope: the first provider-owned analytics collector and persisted read model
 - Provenance: ISSUE-056, ANALYTICS-109, ANALYTICS-112

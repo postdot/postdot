@@ -2,7 +2,7 @@
 
 <!-- cspell:words Citty -->
 
-- Status: draft
+- Status: accepted (delivered across CLI-601, CLI-602 and CLI-608)
 - Scope: public remote-operation CLI, packaging and first-alpha release
 - Provenance: owner delegates CLI scope and design on 2026-10-30; explicitly retains Eden Treaty as the typed API client.
 - Related tasks: CLI-601 (design), CLI-602 (implementation and release)

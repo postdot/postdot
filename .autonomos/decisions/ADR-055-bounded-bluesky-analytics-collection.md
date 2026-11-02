@@ -1,6 +1,6 @@
 # ADR-055 — Bound the First Real Bluesky Provider-Analytics Collection
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-08
 - Scope: explicit public Bluesky collection, source timestamps, and coverage
 - Provenance: ISSUE-056, ANALYTICS-109, ANALYTICS-112, ANALYTICS-114
