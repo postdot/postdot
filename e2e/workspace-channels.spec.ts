@@ -14,6 +14,13 @@ for (const [locale, messages] of [
         page,
     }) => {
         test.setTimeout(90000)
+        const queryClientErrors: string[] = []
+        const uncaughtErrors: string[] = []
+        page.on('console', message => {
+            if (message.type() === 'error' && message.text().includes('No QueryClient set'))
+                queryClientErrors.push(message.text())
+        })
+        page.on('pageerror', error => uncaughtErrors.push(error.message))
         await page.emulateMedia({ reducedMotion: 'reduce' })
         const suffix = randomUUID().slice(0, 7)
         expect(
@@ -117,8 +124,49 @@ for (const [locale, messages] of [
         await expect(cadence).toHaveCount(0)
         const rules = await page.request.get(`${base}/${channel.id}/cadence`)
         expect(await rules.json()).toMatchObject({ rules: { dailyMax: 3 } })
+        // GitHub #13: follow the usage link without replacing the browser document.
+        // Hold the project loader so the previous outlet must keep its QueryClient.
+        let releaseMembership!: () => void
+        const membershipGate = new Promise<void>(resolve => {
+            releaseMembership = resolve
+        })
+        let membershipRequested!: () => void
+        const membershipStarted = new Promise<void>(resolve => {
+            membershipRequested = resolve
+        })
+        const membershipUrl = `**/api/projects/${target.id}/membership`
+        await page.route(membershipUrl, async route => {
+            membershipRequested()
+            await membershipGate
+            await route.continue()
+        })
+        try {
+            const navigation = row
+                .getByRole('link', { name: `Target ${suffix}`, exact: true })
+                .click()
+            await membershipStarted
+            await expect(row).toBeVisible()
+            expect(queryClientErrors).toEqual([])
+            expect(uncaughtErrors).toEqual([])
+            releaseMembership()
+            await navigation
+            await expect(page).toHaveURL(new RegExp(`/projects/${target.id}/channels$`))
+            await expect(page.locator(`[id="publisher-connection-${channel.id}"]`)).toBeVisible()
+        } finally {
+            releaseMembership()
+            await page.unrouteAll({ behavior: 'wait' })
+        }
+        // Repeat through history to cover an already loaded destination as well.
+        await page.goBack()
+        await expect(row).toBeVisible()
+        await row.locator('summary').click()
+        await row.getByRole('link', { name: `Target ${suffix}`, exact: true }).click()
+        await expect(page).toHaveURL(new RegExp(`/projects/${target.id}/channels$`))
+        await expect(page.locator(`[id="publisher-connection-${channel.id}"]`)).toBeVisible()
+        expect(queryClientErrors).toEqual([])
+        expect(uncaughtErrors).toEqual([])
+
         // The contextual project dialog exposes the same explicit transfer.
-        await page.goto(`/dashboard/projects/${target.id}/channels`)
         await page
             .getByRole('button', {
                 name: messages.channel_manage.replace('{channel}', channel.name),

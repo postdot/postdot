@@ -16,6 +16,8 @@
 
 - [/] **[RELEASE-606]** Prepare the next container alpha after Instagram consolidation `Priority: 🟠` `Complexity: L` — Local alpha.6 preparation complete: corrected configuration/navigation, accepted all 216 browser scenarios across isolated passes plus four SMTP scenarios, and verified immutable AMD64 candidate recovery and alpha.5 upgrade/restoration. Native dual-architecture CI and explicit publication authorization remain release gates; no image published. [Evidence](worklogs/2026-11-01-RELEASE-606-alpha6.md).
 
+- [x] **[WEB-607]** Resolve shared-channel project navigation console error (GitHub #13) `Priority: 🟠` `Complexity: S` — Completed 2026-11-02: confirmed the existing shell correction, reproduced the exact error with legacy shell selection, and added English/French usage-link regressions with delayed loading, repeated navigation and console checks. [Evidence](worklogs/2026-11-02-WEB-607.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)
