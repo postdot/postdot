@@ -53,6 +53,7 @@ jobs:
               with:
                   bun-version-file: package.json
             - name: Use the pinned npm CLI with staged publishing support
+              if: inputs.mode == 'bootstrap-cli'
               run: npm install --global npm@12.2.1
             - run: npm ci --ignore-scripts
             - name: Install CLI source dependencies
@@ -87,8 +88,6 @@ jobs:
               if: inputs.mode != 'bootstrap-cli'
               uses: changesets/action@v2
               env:
-                  NODE_AUTH_TOKEN: ''
-                  NPM_TOKEN: ''
                   POSTDOT_NPM_RELEASE_MODE: release
               with:
                   cwd: integrations

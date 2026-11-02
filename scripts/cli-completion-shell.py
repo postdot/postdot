@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-completion-shell-") as director
         if shell == "bash":
             setup = source + "; __postdot_capture() { printf '\\n__POSTDOT_RESULT__:%s\\n' \"$READLINE_LINE\"; READLINE_LINE=''; }; bind -x '\"\\C-x\":__postdot_capture'"
         elif shell == "zsh":
-            setup = "autoload -Uz compinit; compinit -D; " + source + "; bindkey -e; __postdot_capture() { print -r -- ''; print -r -- \"__POSTDOT_RESULT__:$BUFFER\"; BUFFER=''; zle reset-prompt; }; zle -N __postdot_capture; bindkey '^X' __postdot_capture"
+            setup = "autoload -Uz compinit; compinit -u -D; " + source + "; bindkey -e; __postdot_capture() { print -r -- ''; print -r -- \"__POSTDOT_RESULT__:$BUFFER\"; BUFFER=''; zle reset-prompt; }; zle -N __postdot_capture; bindkey '^X' __postdot_capture"
         else:
             setup = source + "; function __postdot_capture; printf '\\n__POSTDOT_RESULT__:%s\\n' (commandline); commandline ''; commandline -f repaint; end; bind ctrl-x __postdot_capture"
         os.write(master, (setup + "; printf '%s%s\\n' '__POSTDOT_' 'READY__'\n").encode())
