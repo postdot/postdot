@@ -1608,17 +1608,17 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-163] Define intentional workflow coverage across Postbot clients
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-02)
 - Priority: medium — before expanding client promises
 - Evidence: Studio, API and CLI exist, while MCP, agent skills, n8n and mobile have different readiness and audience roles. The existing docs/capability-evidence.md records partial CLI coverage, including administration. The owner wants these surfaces to feel like ways to use one product, not disconnected products.
 - Impact: An undifferentiated list of client logos could imply equal availability or full parity, while new clients might reimplement domain rules.
 - Desired outcome: Maintain a workflow-oriented coverage map for human and programmatic clients; identify actual gaps, intentionally unsupported operations and planned surfaces. Separate a direct client (Studio/mobile), an access protocol/interface (API/CLI/MCP), orchestration (n8n) and agent guidance (skills). Preserve shared permissions, project ownership, revisions and effect boundaries; do not require every client to implement every screen.
-- Tasks: none — recorded for triage; no implementation authorized by intake
+- Tasks: AGENT-580, MCP-593, N8N-595/596/597, CLI-601/602/608
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 - Related evidence: [client coverage](archive/root-documentation-2026-10-25/source/docs/capability-evidence.md), ISSUE-036, ISSUE-158, ISSUE-159 and ISSUE-160.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Decide intentional capability coverage among Studio, API, CLI and planned MCP; backend availability alone is not client completion.
+- Resolution (MCP-593 / CLI-601 / CLI-602 / CLI-608, 2026-11-02): All programmatic and client surfaces now have explicit, documented contracts and boundaries: hosted `/mcp` exposes 72 OpenAPI-derived project tools gated by API-key capabilities and dispatch confirmation ([ADR-096](decisions/ADR-096-mcp-operator-surface.md), [evidence](worklogs/2026-10-28-MCP-593.md)); the standalone `@postdot/cli` covers API-key publication/media/profile workflows and offline shell completion ([SPEC-011](specs/SPEC-011-public-cli.md), [evidence](worklogs/2026-10-30-CLI-602.md)); `@postdot/n8n-nodes-postdot` covers scoped n8n orchestration ([evidence](worklogs/2026-10-29-N8N-595.md)); and portable agent skills guide safe use ([evidence](worklogs/2026-10-24-AGENT-580.md)). Session-only administration remains deliberately in Studio.
 
 ## [ISSUE-164] Generate a version-matched OpenAPI reference for the static docs
 
@@ -1651,15 +1651,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-166] Establish Facebook and Instagram integration scope
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-01)
 - Evidence: The owner requests mainstream networks beyond the existing six. No first-party Meta publishing adapters were found. Official documentation access in PRODUCT-477 was rate-limited.
 - Desired outcome: Verify supported account types, permissions, app review/development access and initial publication formats before implementation. Record unknowns instead of promising personal-profile support or universal content formats.
 - Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review), FACEBOOK-506 (isolated Pages discovery and text/link/photo protocol), FACEBOOK-507 (isolated content profile and granted-permission Page selection), FACEBOOK-508 (confidential OAuth adapter), FACEBOOK-509 (authenticated callback and connection persistence), FACEBOOK-510 (encrypted application settings and gated Studio Page picker), FACEBOOK-511 (native capability and worker completion). FACEBOOK-511 registers the native profile, validation, Studio creation and production worker after owner acceptance of an explicitly unknown text maximum. Synthetic creation-to-connection and worker tests pass. FACEBOOK-512 verified live OAuth, explicit Page selection and text/single-PNG publishing on an owner-authorized test Page. INSTAGRAM-535 adds the isolated single-image protocol/profile after the owner selected direct Instagram Login in ADR-088; INSTAGRAM-536 adds distinct encrypted application settings, direct-login OAuth and project account connection with targeted synthetic security, storage and HTTP verification. INSTAGRAM-537 integrates durable single-JPEG delivery, bounded container processing, safe token refresh and Studio creation/connection. Canonical synthetic worker, HTTP and browser checks pass; Instagram live account access, signed-media fetching and App Review remain unverified (INSTAGRAM-538).
+- Tasks: PRODUCT-477 (initial discovery), META-505 (current official access and architecture review), FACEBOOK-506 (isolated Pages discovery and text/link/photo protocol), FACEBOOK-507 (isolated content profile and granted-permission Page selection), FACEBOOK-508 (confidential OAuth adapter), FACEBOOK-509 (authenticated callback and connection persistence), FACEBOOK-510 (encrypted application settings and gated Studio Page picker), FACEBOOK-511 (native capability and worker completion). FACEBOOK-511 registers the native profile, validation, Studio creation and production worker after owner acceptance of an explicitly unknown text maximum. Synthetic creation-to-connection and worker tests pass. FACEBOOK-512 verified live OAuth, explicit Page selection and text/single-PNG publishing on an owner-authorized test Page. INSTAGRAM-535 adds the isolated single-image protocol/profile after the owner selected direct Instagram Login in ADR-088; INSTAGRAM-536 adds distinct encrypted application settings, direct-login OAuth and project account connection with targeted synthetic security, storage and HTTP verification. INSTAGRAM-537 integrates durable single-JPEG delivery, bounded container processing, safe token refresh and Studio creation/connection. INSTAGRAM-538 completed live Instagram Unified Login OAuth, public signed-JPEG fetching and publication acceptance (`@dealcast.prod`), followed by metadata-backed token expiration and Graph routing consolidation.
 - Research: [Meta integration discovery](archive/root-documentation-2026-10-25/source/docs/project/meta-integration-discovery.md); current account/login boundaries, review requirements, media lifecycle and first-lot recommendation.
 - Source: owner product direction, 2026-10-16.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Facebook live validation is delivered. Instagram synthetic integration is delivered; INSTAGRAM-538 remains blocked on operator access, with live media fetching/App Review unverified.
+- Resolution (INSTAGRAM-538 / META-603 / DOCS-605, 2026-11-01): Facebook live validation (`FACEBOOK-512`/`519`) and Instagram Unified Login live validation (`INSTAGRAM-538`) are delivered and shipped in `0.1.0-alpha.6` (`RELEASE-606`). The owner set central Meta App Review and reviewer-hosted instances aside because Postdot is self-hosted and each operator configures its own eligible Standard or Advanced access (`DOCS-604`/`DOCS-605`). [Evidence](worklogs/2026-11-01-INSTAGRAM-538.md).
 
 ## [ISSUE-167] Replace normal Studio JSON authoring with a structured channel builder
 
@@ -1805,14 +1805,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-179] Coordinate the final product identity as Postdot
 
 - Type: proposal
-- Status: accepted
+- Status: resolved (2026-10-27)
 - Evidence: On 2026-10-21 the owner selected Postdot and reported reserving postdot.app. The current product is named Postbot while the local checkout still uses Herald. The owner also reports reserving the npm postdot namespace, GitHub postdot organization and Docker Hub ID postdot; these are future publication targets, not evidence of package/image releases. The owner requested durable planning, without starting the rename immediately.
 - Impact: Mixed active names confuse users, contributors and release operators.
 - Desired outcome: Adopt Postdot consistently across active branding, packages, executable/configuration names, docs, workspace and checkout identity, GitHub repository and release artifacts. Inventory internal, external and persisted identifiers before changing them; explicitly resolve compatibility and data migration needs. Preserve factual historical records and third-party attribution rather than rewriting evidence blindly.
-- Tasks: BRAND-551 (namespace/display/repository/checkout delivered; deployment compatibility transition remains); PUBLIC-553 (history-preserving preparation complete).
-- Review evidence (2026-10-22): outside `.autonomos/`, 2,426 case-insensitive `postbot` occurrences remain in tracked files, including exported types (`PostbotDatabase`, `createPostbotClient`), `POSTBOT_*` environment variables, the Compose service, image and volume names, and the `postbot` script. The repository is already public, so external dependence on these identifiers can start before the compatibility transition completes.
+- Tasks: BRAND-551 (complete); PUBLIC-553 (complete).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Decide and implement the remaining deployment-variable, volume/database and persisted-identity compatibility transition. Source namespace/display/repository renaming is delivered.
+- Resolution (BRAND-551, 2026-10-27): Renamed 400+ tracked files (`POSTBOT_*` → `POSTDOT_*`, types, Compose service/volume, `postdot.js`, metrics, headers, screenshots and social cards), added migration `0026_postdot_identity.sql`, and implemented bounded legacy compatibility (deprecated `POSTBOT_*` env fallback with warning, lock-guarded `postbot.sqlite` → `postdot.sqlite` adoption, `postbot_pat_` key acceptance, and `POSTDOT_DATA_VOLUME`). Published in `0.1.0-alpha.4`. [Evidence](worklogs/2026-10-27-BRAND-551.md).
 
 ## [ISSUE-180] Evaluate site and documentation hosting after the reference migration
 
@@ -1941,9 +1940,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: First-run success for a self-hoster depends heavily on which providers they try first; presenting all providers equally hides the setup cost and invites support load. Positioning on provider count competes on the weakest axis for a self-hosted product.
 - Desired outcome: An owner decision on how providers are presented and supported by tier, and on the product's differentiating axis (manual and custom channels, reliable publication ledger, agent-facing surfaces) relative to provider breadth. Revisit ISSUE-036 timing in light of that decision.
 - Related: ISSUE-036, ISSUE-184, ISSUE-185
-- Tasks: none
+- Tasks: DOCS-605 (completed documentation slice)
 
-- Remaining scope (ALPHA-578, 2026-10-24): Decide provider presentation/support tiers using actual self-hosting setup friction; no provider removal or new connection is implied.
+- Progress (DOCS-605, 2026-11-01): Delivered `/docs/providers/setup-effort/` comparing the four setup paths (simple credentials, automatic client registration, manual developer app, provider-reviewed access) across all nine native providers plus manual/custom HTTP, linked before provider configuration. Any in-app Studio prerequisite tiering or ISSUE-036 sequencing remains separate. [Evidence](worklogs/2026-11-01-DOCS-605-provider-setup.md).
 
 ## [ISSUE-191] Reduce anonymous entry JavaScript against the existing footprint target
 
