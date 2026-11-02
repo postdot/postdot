@@ -8,7 +8,7 @@ import { createApp } from '../../../app'
 import { createPublisherRuntime } from '../../publishers/runtime'
 
 const origin = 'https://postdot.test'
-async function fixture(configured = true) {
+async function fixture(configured = true, configId?: string) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     let calls = 0
@@ -18,6 +18,7 @@ async function fixture(configured = true) {
         publisherEncryptionKey: new Uint8Array(32).fill(9),
         publisherEncryptionKeyId: 'test',
         instagram: {
+            configId,
             fetcher: async (input: string | URL | Request) => {
                 calls++
                 const url = new URL(String(input))
@@ -258,6 +259,24 @@ test('Instagram authorization cannot be started by an automation key', async () 
         expect(((await callback.json()) as { error: { code: string } }).error.code).toBe(
             'insufficient_api_key_permissions'
         )
+        expect(f.calls).toBe(0)
+    } finally {
+        closeDatabase(f.database)
+    }
+})
+
+test('deployment configuration selects Unified Login without storing a config ID in another provider field', async () => {
+    const f = await fixture(true, '123456789')
+    try {
+        const response = await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })
+        expect(response.status).toBe(200)
+        const authorization = new URL(((await response.json()) as { url: string }).url)
+        expect(authorization.origin).toBe('https://www.facebook.com')
+        expect(authorization.searchParams.get('config_id')).toBe('123456789')
+        expect(authorization.searchParams.has('scope')).toBe(false)
+        const saved =
+            f.publisher.providerApplicationStore.listProviderApplicationConfigurations('instagram')
+        expect(saved[0]!.handleResolver).toBeNull()
         expect(f.calls).toBe(0)
     } finally {
         closeDatabase(f.database)

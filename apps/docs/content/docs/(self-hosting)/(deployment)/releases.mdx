@@ -3,6 +3,45 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
+## Unreleased — 0.1.0-alpha.6 candidate
+
+This version is being prepared. The latest published image remains
+`0.1.0-alpha.5`; do not change an installation to an unpublished image tag.
+
+### Planned changes
+
+- Connect Instagram professional accounts using newer Meta applications through
+  Unified Login. Configure the Meta app and its Business Login configuration ID
+  before connecting. Existing direct Instagram Login support remains available
+  for eligible applications. See [Instagram setup](/docs/providers/instagram/).
+- Preserve verified Instagram token lifetimes, including confirmed non-expiring
+  Unified credentials, without assigning a guessed expiry or simulating renewal.
+  Expiring Unified credentials require reconnection when they expire.
+- Recover publication drafts, selected media and interrupted uploads across
+  session interruptions, live access changes and concurrent editing. Keep recovery
+  separated when the signed-in account changes.
+- Improve project navigation, publication details and archive/recovery workflows,
+  refresh authentication/onboarding pages, and copy internal publication links.
+- Explain [provider setup effort](/docs/providers/setup-effort/) before connecting:
+  credentials, automatic registration, developer applications and reviewed API
+  products have different requirements on a self-hosted instance.
+- Document [application data](/docs/application-privacy/) and
+  [data deletion](/docs/delete-application-data/), including shared resources,
+  external publications and the instance operator's responsibilities.
+
+### Planned upgrade from 0.1.0-alpha.5
+
+No database migration is added relative to alpha.5. Back up the database and media
+and preserve the deployment secrets before updating. Configure
+`POSTDOT_INSTAGRAM_CONFIG_ID` with the numeric Meta Unified Login configuration ID
+when using that flow. Reconnect an existing Unified connection to obtain the
+verified lifetime metadata introduced in this candidate.
+
+Native image acceptance, the published digest and the exact upgrade/restoration
+evidence will be recorded when the candidate is accepted and published. The public
+CLI and n8n packages have their own versions and release process; this container
+candidate does not publish or bundle a new npm release.
+
 ## 0.1.0-alpha.5
 
 - Image: `ghcr.io/postdot/postdot:0.1.0-alpha.5`

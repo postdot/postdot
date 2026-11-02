@@ -89,6 +89,7 @@ const environmentDefinitions = {
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
     BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
+    POSTDOT_INSTAGRAM_CONFIG_ID: env.optionalString({ minLength: 1 }),
     X_CLIENT_ID: env.optionalString({ minLength: 1 }),
     X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     POSTDOT_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
@@ -160,6 +161,7 @@ export interface PostdotConfig {
         readonly publisherEncryptionKeyId: string
     }
     readonly publishers: {
+        readonly instagram?: { readonly configId: string }
         readonly linkedin?: {
             readonly clientId: string
             readonly clientSecret: string
@@ -220,6 +222,9 @@ export function createPostdotMaintenanceConfig(
 
 export function createPostdotConfig(source: EnvironmentSource = Bun.env): PostdotConfig {
     const environment = createEnvironment(environmentDefinitions, source)
+    const instagramConfigId = environment.POSTDOT_INSTAGRAM_CONFIG_ID
+    if (instagramConfigId !== undefined && !/^[1-9]\d*$/.test(instagramConfigId))
+        throw new Error('POSTDOT_INSTAGRAM_CONFIG_ID must be a positive numeric identifier')
     if (environment.POSTDOT_METRICS_ENABLED && environment.POSTDOT_METRICS_TOKEN === undefined) {
         throw new Error('POSTDOT_METRICS_TOKEN is required when POSTDOT_METRICS_ENABLED=true')
     }
@@ -309,6 +314,9 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
             publisherEncryptionKeyId: environment.POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID,
         },
         publishers: {
+            ...(instagramConfigId === undefined
+                ? {}
+                : { instagram: { configId: instagramConfigId } }),
             ...(linkedin === undefined ? {} : { linkedin }),
             ...(bluesky === undefined ? {} : { bluesky }),
             ...(x === undefined ? {} : { x }),

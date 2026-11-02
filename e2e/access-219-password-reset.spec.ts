@@ -255,7 +255,10 @@ test('configures SMTP in administration and sends a real test without exposing c
     })
     expect(signup.status()).toBe(200)
     await page.goto('/dashboard/preferences')
-    await page.getByRole('link', { name: 'Email delivery', exact: true }).click()
+    await page
+        .getByRole('navigation', { name: 'Installation administration', exact: true })
+        .getByRole('link', { name: 'Settings', exact: true })
+        .click()
     await expect(page).toHaveURL(/\/dashboard\/settings/)
     await expect(page.getByRole('heading', { name: 'Email delivery', exact: true })).toBeVisible()
     await expect(

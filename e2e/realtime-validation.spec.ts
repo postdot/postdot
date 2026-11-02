@@ -815,8 +815,8 @@ test('opens notification subjects without acknowledgement and handles unavailabl
     await expect(
         page.getByRole('heading', { name: en.notifications_subject_unavailable, exact: true })
     ).toBeVisible()
-    await page.getByRole('link', { name: en.nav_overview, exact: true }).click()
-    await expect(page).toHaveURL(/\/overview$/)
+    await page.getByRole('link', { name: en.editor_back_to_queue, exact: true }).click()
+    await expect(page).toHaveURL(/\/queue$/)
     expect(mutations).toBe(0)
 })
 

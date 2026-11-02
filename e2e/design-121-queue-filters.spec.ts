@@ -16,6 +16,10 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
     await page.goto(page.url().replace(/\/overview$/, '/queue'))
     await expect(page.getByRole('link', { name: 'Back to overview', exact: true })).toBeVisible()
 
+    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toHaveAttribute(
+        'href',
+        /\/channels\?add=true$/
+    )
     const filterList = page.getByRole('tablist').first()
     await expect(filterList).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Scheduled (0)', exact: true })).toHaveText(
@@ -29,9 +33,7 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
             const back = element
                 .querySelector('a[aria-label="Back to overview"]')
                 ?.getBoundingClientRect()
-            const action = element
-                .querySelector('a[href*="/publications/new"]')
-                ?.getBoundingClientRect()
+            const action = element.querySelector('a[href*="/channels"]')?.getBoundingClientRect()
             const bounds = element.getBoundingClientRect()
             if (!title || !back || !action) throw new Error('Queue header controls are missing')
             return {

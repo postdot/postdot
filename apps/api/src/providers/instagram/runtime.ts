@@ -2,7 +2,7 @@ import { createInstagramOAuth, type InstagramFetcher } from '@postdot/instagram'
 
 import type { ProviderRuntimeContext } from '../runtime-context'
 export interface InstagramRuntimeOptions {
-    readonly instagram?: { readonly fetcher?: InstagramFetcher }
+    readonly instagram?: { readonly fetcher?: InstagramFetcher; readonly configId?: string }
 }
 export function createInstagramRuntime({
     options,
@@ -20,10 +20,7 @@ export function createInstagramRuntime({
             applicationId
         )
         if (!configured?.clientId || !configured.clientSecret) return undefined
-        const configId =
-            configured.handleResolver?.trim() ||
-            process.env.POSTDOT_INSTAGRAM_CONFIG_ID?.trim() ||
-            undefined
+
         return {
             applicationId: configured.id,
             oauth: createInstagramOAuth({
@@ -32,7 +29,7 @@ export function createInstagramRuntime({
                 callbackUri: instagramCallbackUri,
                 fetcher: options.instagram?.fetcher,
                 now,
-                configId,
+                configId: options.instagram?.configId,
             }),
         }
     }

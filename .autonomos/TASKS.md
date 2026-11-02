@@ -14,6 +14,8 @@
 
 - [x] **[DOCS-605]** Explain provider setup effort and access barriers `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Added a source-backed setup/access comparison for all nine native providers, with distinct LinkedIn member/organization and Meta own/external-business cases; linked it before configuration and retired the central Meta review plan. [Evidence](worklogs/2026-11-01-DOCS-605-provider-setup.md).
 
+- [/] **[RELEASE-606]** Prepare the next container alpha after Instagram consolidation `Priority: 🟠` `Complexity: L` — Compare source with published alpha.5, prepare alpha.6 notes, validate integration and immutable candidate upgrade/restoration, and record exact publication inputs. Preparation does not publish an image. [Evidence](worklogs/2026-11-01-RELEASE-606-alpha6.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

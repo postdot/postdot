@@ -31,7 +31,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
     // Owner: the create and selection entry points are offered.
     await page.goto(`/dashboard/projects/${owner.projectId}/overview`)
     await expect(page.locator('[data-calendar="reui"]')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'New publication', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Select', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reschedule', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
@@ -65,6 +65,9 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
 
         // Forbidden actions are not offered at all.
         await expect(
+            viewerPage.getByRole('link', { name: 'New publication', exact: true })
+        ).toHaveCount(0)
+        await expect(
             viewerPage.getByRole('button', { name: 'New publication', exact: true })
         ).toHaveCount(0)
         await expect(viewerPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
@@ -80,6 +83,9 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         for (const view of ['month', 'week', 'day', 'agenda'] as const) {
             await viewerPage.goto(`/dashboard/projects/${owner.projectId}/overview?view=${view}`)
             await expect(viewerPage.locator('[data-calendar="reui"]')).toBeVisible()
+            await expect(
+                viewerPage.getByRole('link', { name: 'New publication', exact: true })
+            ).toHaveCount(0)
             await expect(
                 viewerPage.getByRole('button', { name: 'New publication', exact: true })
             ).toHaveCount(0)
@@ -186,7 +192,7 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/overview`)
         await expect(editorPage.locator('[data-calendar="reui"]')).toBeVisible()
         await expect(
-            editorPage.getByRole('button', { name: 'New publication', exact: true })
+            editorPage.getByRole('link', { name: 'New publication', exact: true })
         ).toBeVisible()
 
         // Selection stays available and reveals the bulk actions.

@@ -130,6 +130,35 @@ test('keeps local text and refuses server writes after project access is withdra
             'inert',
             ''
         )
+        // Retain unsaved work before revocation; the live guard may remove
+        // the editor before a post-revocation keystroke can produce a request.
+        const matcher = `**${data.endpoint}*`
+        await memberPage.route(matcher, route =>
+            route.request().method() === 'PUT'
+                ? route.fulfill({
+                      status: 503,
+                      json: { error: { code: 'unavailable', message: 'Temporary failure' } },
+                  })
+                : route.continue()
+        )
+        const content = memberPage.getByRole('textbox', { name: 'Content', exact: true })
+        const [unsavedRequest] = await Promise.all([
+            memberPage.waitForRequest(
+                request =>
+                    new URL(request.url()).pathname === data.endpoint && request.method() === 'PUT'
+            ),
+            content.fill('Local text retained after access was withdrawn'),
+        ])
+        await expect(
+            memberPage.getByText('Local recovery remains available', { exact: true })
+        ).toBeVisible()
+        expect((await (await data.member.request.get(data.endpoint)).json()).draft).toBeNull()
+        await memberPage.unroute(matcher)
+        let writesAfterRemoval = 0
+        memberPage.on('request', request => {
+            if (new URL(request.url()).pathname === data.endpoint && request.method() === 'PUT')
+                writesAfterRemoval++
+        })
         const members = await data.admin.request.get(`/api/projects/${data.project.id}/members`)
         expect(members.status()).toBe(200)
         const membership = (
@@ -144,15 +173,15 @@ test('keeps local text and refuses server writes after project access is withdra
             ).status()
         ).toBe(200)
 
-        const refused = memberPage.waitForResponse(
-            response =>
-                response.url().endsWith(data.endpoint) && response.request().method() === 'PUT'
-        )
-        const content = memberPage.getByRole('textbox', { name: 'Content', exact: true })
-        await content.fill('Text typed after access was withdrawn')
-        expect([403, 404]).toContain((await refused).status())
-        await expect(content).toHaveValue('Text typed after access was withdrawn')
-        expect((await (await data.admin.request.get(data.endpoint)).json()).draft).toBeNull()
+        await expect(memberPage.getByText('Project access removed', { exact: true })).toBeVisible({
+            timeout: 25_000,
+        })
+        await expect(content).toHaveCount(0)
+        expect(writesAfterRemoval).toBe(0)
+        const refused = await data.member.request.put(data.endpoint, {
+            data: unsavedRequest.postDataJSON(),
+        })
+        expect([403, 404]).toContain(refused.status())
         const stored = await memberPage.evaluate(
             prefix =>
                 Object.keys(localStorage)
@@ -161,7 +190,7 @@ test('keeps local text and refuses server writes after project access is withdra
             `postdot:publication-composer:v1:${encodeURIComponent(data.project.id)}:user:${encodeURIComponent(data.second.id)}`
         )
         expect(stored).toHaveLength(1)
-        expect(stored[0]).toContain('Text typed after access was withdrawn')
+        expect(stored[0]).toContain('Local text retained after access was withdrawn')
     } finally {
         await data.close()
     }

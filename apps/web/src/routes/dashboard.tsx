@@ -80,12 +80,23 @@ export const Route = createFileRoute('/dashboard')({
             projects,
             workspaces,
         })
+        const returnToScope = () =>
+            scope.projectId === null
+                ? redirect({
+                      to: '/dashboard',
+                      search: {
+                          workspaceId: scope.workspaceId ?? undefined,
+                          projectId: 'none',
+                      },
+                      replace: true,
+                  })
+                : redirect({
+                      to: '/dashboard/projects/$projectId/overview',
+                      params: { projectId: scope.projectId },
+                      replace: true,
+                  })
         if (isInstanceAdminSettingsPath(location.pathname) && !instanceAccess.isAdmin) {
-            throw redirect({
-                to: '/dashboard',
-                search: { workspaceId: deps.workspaceId },
-                replace: true,
-            })
+            throw returnToScope()
         }
         if (isWorkspaceSettingsPath(location.pathname)) {
             const requestedWorkspaceId = scope.workspaceId
@@ -96,11 +107,7 @@ export const Route = createFileRoute('/dashboard')({
                 requestedWorkspace === undefined ||
                 (requestedWorkspace.role !== 'owner' && requestedWorkspace.role !== 'admin')
             ) {
-                throw redirect({
-                    to: '/dashboard',
-                    search: { workspaceId: deps.workspaceId },
-                    replace: true,
-                })
+                throw returnToScope()
             }
         }
         const isDashboardIndex =

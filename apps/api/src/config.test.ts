@@ -486,3 +486,20 @@ describe('Postdot maintenance configuration', () => {
         )
     })
 })
+
+it('validates the optional deployment Instagram configuration ID without changing direct-login defaults', () => {
+    const base = {
+        BETTER_AUTH_SECRET: secret,
+        POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+        POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+    }
+    expect(createPostdotConfig(base).publishers.instagram).toBeUndefined()
+    expect(
+        createPostdotConfig({ ...base, POSTDOT_INSTAGRAM_CONFIG_ID: ' 123456 ' }).publishers
+            .instagram
+    ).toEqual({ configId: '123456' })
+    for (const configId of ['0', '-1', '0123', '1.5', 'https://example.test'])
+        expect(() =>
+            createPostdotConfig({ ...base, POSTDOT_INSTAGRAM_CONFIG_ID: configId })
+        ).toThrow('POSTDOT_INSTAGRAM_CONFIG_ID must be a positive numeric identifier')
+})

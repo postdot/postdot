@@ -3,8 +3,7 @@
 Requires Docker, Python 3 and a locally built candidate. No real provider calls.
 The previous image is pinned; the candidate is resolved to its immutable local ID.
 The previous release is seeded with a connected custom webhook channel and a scheduled
-automatic publication, so the ownership conversion is exercised on a recorded connection and
-queued work. Nothing is dispatched: the endpoint is unreachable and the time is distant.
+automatic publication, so recorded connections and queued work are exercised across versions. Nothing is dispatched: the endpoint is unreachable and the time is distant.
 """
 
 import argparse
@@ -21,7 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PREVIOUS = "ghcr.io/postdot/postdot@sha256:c345e86ab7995417b2a789e083fe262044c6132d5bb87edadd80337994e49ba3"
+PREVIOUS = "ghcr.io/postdot/postdot@sha256:4aed12e94996cc75a258ea50d6eeb3da41b0cff08151f987251626ebe42c7931"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--image", required=True)
 parser.add_argument("--previous-image", default=PREVIOUS)
@@ -104,7 +103,7 @@ with tempfile.TemporaryDirectory(prefix="postdot-upgrade-") as directory:
                 "POSTBOT_PUBLISHER_ENCRYPTION_KEY": secrets.token_hex(32),
                 "POSTBOT_MEDIA_DIRECTORY": "/data/media",
                 "LOG_LEVEL": "error",
-                # The previous release only knows the original names; the candidate must accept them.
+                # Retain deprecated deployment names to verify compatibility with existing settings.
             }.items()
         )
     )
