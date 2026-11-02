@@ -1967,3 +1967,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: UX-389
 
 - Resolution: UX-389 delivered the owner-accepted SPEC-010 rules, a 21-destination registry, the review skill and baseline evidence. Authorized follow-ups UX-390 through UX-403 repaired the recorded journey, width, scope, explanation and recovery defects. Scope and remaining product work are retained in the [UX-403 handoff](worklogs/2026-10-28-UX-403.md); this resolution does not claim physical-device, live-provider or complete browser-matrix acceptance.
+
+## [ISSUE-193] Transition web client localization from bundled inlining to asynchronous lazy loading
+
+- Type: proposal
+- Status: open
+- Priority: medium — staged when expanding language count beyond initial 4 locales
+- Evidence: Owner review (2026-11-02) highlighted that inlining all compiled translations in every component (Paraglide default `strategy: ["localStorage", "preferredLanguage", "baseLocale"]`) scales linearly in $O(N)$ with the number of languages. With 4 locales, entry JavaScript increased by +5.79 KiB gzip (to 170.24 KiB, remaining under WEB-587 budget of 180 KiB). Adding 10–20+ locales on a stable version would exceed the entry budget and force users to download inactive language dictionaries.
+- Impact: Scaling to 10+ or 15+ locales without changing the delivery strategy will blow past the initial client bundle budget and degrade parsing/network performance on mobile.
+- Desired outcome: Decouple client language assets into asynchronous chunks ($O(1)$ per user session). The browser loads exclusively the active locale dictionary at startup, dynamic imports load target dictionaries on explicit locale switch, and heavy locale datasets (such as `emojibase-data`) remain strictly on-demand.
+- Related: ADR-046, ISSUE-049, ISSUE-162, ISSUE-191, WEB-587
+- Tasks: none — recorded for architectural transition when post-stability localization scaling begins.
+- Source: owner direction, 2026-11-02.
