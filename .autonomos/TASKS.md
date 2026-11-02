@@ -18,6 +18,8 @@
 
 - [x] **[WEB-607]** Resolve shared-channel project navigation console error (GitHub #13) `Priority: 🟠` `Complexity: S` — Completed 2026-11-02: confirmed the existing shell correction, reproduced the exact error with legacy shell selection, and added English/French usage-link regressions with delayed loading, repeated navigation and console checks. [Evidence](worklogs/2026-11-02-WEB-607.md).
 
+- [x] **[CLI-608]** Add offline Bash, Zsh and Fish shell completion `Priority: 🔵` `Complexity: M` `Completed: 2026-11-02` — Delivered `postdot completion <bash|zsh|fish>` and grammar-only candidate generation from Commander metadata without server calls, profile reads or startup-file edits; qualified 54 interactive PTY cases across Bash, Zsh and Fish under Bun and Node plus CLI Changeset and docs. [Evidence](worklogs/2026-11-02-CLI-608.md).
+
 ## Current direction
 
 Shared-channel implementation follows [ADR-095](decisions/ADR-095-workspace-channels-and-project-attachments.md)

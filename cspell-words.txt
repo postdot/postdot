@@ -10,6 +10,9 @@ bogeychan
 bunx
 Cloudflare
 CNIL
+compadd
+compdef
+compinit
 cookieless
 cursoring
 Cutover

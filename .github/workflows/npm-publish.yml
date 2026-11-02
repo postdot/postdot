@@ -13,6 +13,7 @@ on:
             - integrations/tests/release.test.ts
             - scripts/qualify-public-cli.ts
             - scripts/cli-qualification-*.ts
+            - scripts/cli-completion-*
             - scripts/cli-publication-acceptance.ts
             - bun.lock
             - package.json

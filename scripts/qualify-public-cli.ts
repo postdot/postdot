@@ -19,6 +19,7 @@ const { values: options } = parseArgs({
         released: { type: 'boolean', default: false },
         standalone: { type: 'boolean', default: false },
         'node24-container': { type: 'boolean', default: false },
+        'shell-completion': { type: 'boolean', default: false },
         package: { type: 'string', default: '@postdot/cli@0.1.0-alpha.1' },
         image: {
             type: 'string',
@@ -30,6 +31,13 @@ const { values: options } = parseArgs({
 const { standalone, released, image, package: packageSpec } = options
 assert.ok(!released || !standalone, 'Published npm acceptance does not build standalone source')
 assert.match(packageSpec, /^@postdot\/cli@\d+\.\d+\.\d+-alpha\.\d+$/)
+assert.ok(
+    !options['shell-completion'] ||
+        (!standalone &&
+            !options['node24-container'] &&
+            process.env.POSTDOT_CLI_RUNTIME !== 'node24-container'),
+    'Shell acceptance requires installed JavaScript and host runtimes'
+)
 const directory = await mkdtemp(join(tmpdir(), 'postdot-cli-distribution-'))
 const clock = Date.now()
 let server: CliQualificationFixture | undefined
@@ -202,6 +210,10 @@ try {
     for (const runtime of runtimes.filter(
         runtime => !selectedRuntime || runtime.name === selectedRuntime
     )) {
+        if (options['shell-completion']) {
+            const { qualifyShellCompletion } = await import('./cli-completion-acceptance')
+            await qualifyShellCompletion({ command: runtime.command, entry: js, directory, child })
+        }
         // The standalone invocation can run with no runtime available on PATH.
         const env = {
             ...environment,
