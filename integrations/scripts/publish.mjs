@@ -47,7 +47,8 @@ async function reportOidcExchangeDiagnostics(manifests) {
             )
         }
         for (const manifest of manifests) {
-            const exchangeUrl = `https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${encodeURIComponent(manifest.name)}`
+            const escapedName = manifest.name.replace('/', '%2f')
+            const exchangeUrl = `https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${escapedName}`
             const exchangeResponse = await fetch(exchangeUrl, {
                 method: 'POST',
                 headers: {
