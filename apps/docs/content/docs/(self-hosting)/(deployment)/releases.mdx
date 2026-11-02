@@ -3,12 +3,16 @@ title: Releases
 description: Published images, changes, source revisions and validated upgrade paths.
 ---
 
-## Unreleased — 0.1.0-alpha.6 candidate
+## 0.1.0-alpha.6
 
-This version is being prepared. The latest published image remains
-`0.1.0-alpha.5`; do not change an installation to an unpublished image tag.
+- Image: `ghcr.io/postdot/postdot:0.1.0-alpha.6`
+- Manifest digest: `sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1`
+- Platforms: Linux AMD64 and ARM64; anonymous registry access verified.
+- [Matching source](https://github.com/postdot/postdot/tree/a09294317eba13fe4fd1427e585b8db924e3f38a).
+- [Publication and native acceptance](https://github.com/postdot/postdot/actions/runs/41429723386).
+- [Source integration CI](https://github.com/postdot/postdot/actions/runs/41423140856).
 
-### Planned changes
+### Changes
 
 - Connect Instagram professional accounts using newer Meta applications through
   Unified Login. Configure the Meta app and its Business Login configuration ID
@@ -29,18 +33,21 @@ This version is being prepared. The latest published image remains
   [data deletion](/docs/delete-application-data/), including shared resources,
   external publications and the instance operator's responsibilities.
 
-### Planned upgrade from 0.1.0-alpha.5
+### Upgrade from 0.1.0-alpha.5
 
 No database migration is added relative to alpha.5. Back up the database and media
 and preserve the deployment secrets before updating. Configure
 `POSTDOT_INSTAGRAM_CONFIG_ID` with the numeric Meta Unified Login configuration ID
 when using that flow. Reconnect an existing Unified connection to obtain the
-verified lifetime metadata introduced in this candidate.
+verified lifetime metadata introduced in this release.
 
-Native image acceptance, the published digest and the exact upgrade/restoration
-evidence will be recorded when the candidate is accepted and published. The public
-CLI and n8n packages have their own versions and release process; this container
-candidate does not publish or bundle a new npm release.
+Native checks on both platforms upgraded an alpha.5 data set and restored its
+pre-update backup with the alpha.5 executable. Login, projects, channels, drafts,
+media, recorded connections and queued work were preserved. No provider request
+was dispatched by these acceptance fixtures.
+
+The public CLI and n8n packages have their own versions and release process;
+this container release does not publish a new npm version.
 
 ## 0.1.0-alpha.5
 

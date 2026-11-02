@@ -14,7 +14,7 @@
 
 - [x] **[DOCS-605]** Explain provider setup effort and access barriers `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Added a source-backed setup/access comparison for all nine native providers, with distinct LinkedIn member/organization and Meta own/external-business cases; linked it before configuration and retired the central Meta review plan. [Evidence](worklogs/2026-11-01-DOCS-605-provider-setup.md).
 
-- [/] **[RELEASE-606]** Prepare the next container alpha after Instagram consolidation `Priority: 🟠` `Complexity: L` — Local alpha.6 preparation complete: corrected configuration/navigation, accepted all 216 browser scenarios across isolated passes plus four SMTP scenarios, and verified immutable AMD64 candidate recovery and alpha.5 upgrade/restoration. Native dual-architecture CI and explicit publication authorization remain release gates; no image published. [Evidence](worklogs/2026-11-01-RELEASE-606-alpha6.md).
+- [x] **[RELEASE-606]** Prepare the next container alpha after Instagram consolidation `Priority: 🟠` `Complexity: L` — Local alpha.6 preparation complete: corrected configuration/navigation, accepted all 216 browser scenarios across isolated passes plus four SMTP scenarios, and verified immutable AMD64 candidate recovery and alpha.5 upgrade/restoration. Published 2026-11-02 after successful push CI and native AMD64/ARM64 acceptance; public manifest and anonymous access verified (release run 41429723386). [Evidence](worklogs/2026-11-01-RELEASE-606-alpha6.md).
 
 - [x] **[WEB-607]** Resolve shared-channel project navigation console error (GitHub #13) `Priority: 🟠` `Complexity: S` — Completed 2026-11-02: confirmed the existing shell correction, reproduced the exact error with legacy shell selection, and added English/French usage-link regressions with delayed loading, repeated navigation and console checks. [Evidence](worklogs/2026-11-02-WEB-607.md).
 
@@ -48,8 +48,8 @@ the durable server journal; see [ADR-047](decisions/ADR-047-evaluate-reactive-cl
 and [ADR-050](decisions/ADR-050-post-commit-project-realtime-signal.md).
 The comparison experiment is retired; future DB adoption requires a concrete need.
 Foundation maintenance follows [ADR-092](decisions/ADR-092-propose-foundation-release-baseline.md).
-The current published image is `0.1.0-alpha.5`, with native AMD64/ARM64 upgrade
-and restoration acceptance from `0.1.0-alpha.4` under MCP-593. Distribution
+The current published image is `0.1.0-alpha.6`, with native AMD64/ARM64 upgrade
+and restoration acceptance from `0.1.0-alpha.5` under RELEASE-606. Distribution
 notices remain packaged; release policy follows ADR-093.
 The anonymous login entry meets the 180 KiB JavaScript target under WEB-587; build CI guards it.
 ISSUE-182/183 retain broader cleanup scope.
