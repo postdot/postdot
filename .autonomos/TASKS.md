@@ -6,7 +6,7 @@
 > **Status:** [ ] Todo, [/] In Progress, [x] Done, [!] Blocked
 
 - [x] **[CLI-601]** Design the independently installable public CLI `Priority: 🟠` `Complexity: M` `Completed: 2026-10-30` — Recommended architecture and release boundary in [SPEC-011](specs/SPEC-011-public-cli.md); [evidence](worklogs/2026-10-30-CLI-601.md).
-- [/] **[CLI-602]** Implement and release the public remote CLI `Priority: 🟠` `Complexity: L` — Installed Node/Bun CLI covers profiles, media and publication workflows through Treaty. Shared n8n/CLI Changesets pipeline and reviewed alpha.1 archive are prepared; finish CI-only staged bootstrap, npm approval/trust and released-server qualification before publication acceptance. [Evidence](worklogs/2026-10-30-CLI-602.md).
+- [x] **[CLI-602]** Implement and release the public remote CLI `Priority: 🟠` `Complexity: L` — Installed Node/Bun CLI covers profiles, media and publication workflows through Treaty. CLI alpha.1 is public on latest and the shared Changesets/OIDC pipeline is configured. Completed 2026-11-02: registry CLI alpha.1 qualified against published alpha.5/alpha.6 under Bun and Node 24/25 on Linux AMD64; repeatable isolated acceptance, package CI and public installed-CLI documentation delivered. [Evidence](worklogs/2026-10-30-CLI-602.md).
 
 - [x] **[META-603]** Prepare Instagram Unified Login App Review evidence and submission materials `Priority: 🟠` `Complexity: M` `Completed: 2026-11-01` — Preparation recorded. Owner subsequently set central App Review and a reviewer-hosted instance aside: Postdot is self-hosted and each operator configures its own eligible access. External-business access remains a provider-specific scenario, not the next project task. [Evidence](worklogs/2026-11-01-META-603-app-review.md).
 

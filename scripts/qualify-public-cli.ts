@@ -2,53 +2,37 @@ import assert from 'node:assert/strict'
 import { copyFile, mkdtemp, readdir, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { parseArgs } from 'node:util'
 
 import { createPostdotClient } from '@postdot/client'
 
-import { createApp, createPublisherRuntime } from '../apps/api/src/index'
-import { createAuth } from '../packages/auth/src/index'
 import { result } from '../packages/cli/src/context'
-import {
-    closeDatabase,
-    createDatabase,
-    createMediaAssetStore,
-    runMigrations,
-} from '../packages/db/src/index'
-import { createLocalMediaStore } from '../packages/media/src/index'
 import { qualifyPublications, qualifyUncertainWrite } from './cli-publication-acceptance'
+import type { CliQualificationFixture } from './cli-qualification-fixture'
 
 // This acceptance tool owns its temporary installation, server and database.
 // It exercises the actual npm artifact and executable, not a source-only import.
 const root = resolve(import.meta.dir, '..')
-const standalone = process.argv.includes('--standalone')
-const directory = await mkdtemp(join(tmpdir(), 'postdot-cli-distribution-'))
-const database = createDatabase(':memory:')
-runMigrations(database)
-const media = createMediaAssetStore(
-    database,
-    createLocalMediaStore({
-        rootDirectory: join(directory, 'objects'),
-        storeId: 'cli-distribution',
-        maxObjectBytes: 2_000_000,
-    })
-)
-const clock = Date.now()
-const app = createApp({
-    manualStore: { now: () => clock },
-    database,
-    media,
-    publisher: createPublisherRuntime(database, {
-        apiOrigin: 'http://localhost:3000',
-        webOrigin: 'http://localhost:5173',
-        publisherEncryptionKey: new Uint8Array(32).fill(7),
-        publisherEncryptionKeyId: 'cli-distribution',
-    }),
-    auth: createAuth(database, {
-        baseURL: 'http://localhost:3000',
-        secret: 'postdot-cli-distribution-secret-long-enough',
-    }),
+const { values: options } = parseArgs({
+    args: process.argv.slice(2),
+    options: {
+        released: { type: 'boolean', default: false },
+        standalone: { type: 'boolean', default: false },
+        'node24-container': { type: 'boolean', default: false },
+        package: { type: 'string', default: '@postdot/cli@0.1.0-alpha.1' },
+        image: {
+            type: 'string',
+            default:
+                'ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1',
+        },
+    },
 })
-const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: request => app.handle(request) })
+const { standalone, released, image, package: packageSpec } = options
+assert.ok(!released || !standalone, 'Published npm acceptance does not build standalone source')
+assert.match(packageSpec, /^@postdot\/cli@\d+\.\d+\.\d+-alpha\.\d+$/)
+const directory = await mkdtemp(join(tmpdir(), 'postdot-cli-distribution-'))
+const clock = Date.now()
+let server: CliQualificationFixture | undefined
 
 async function child(
     command: string[],
@@ -77,16 +61,28 @@ async function child(
 }
 
 try {
-    await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)
-    if (standalone)
-        await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build:executable'], root)
-    await child([Bun.which('node') ?? 'node', 'integrations/scripts/prepare-cli.mjs'], root)
-    await child(
-        ['npm', 'pack', '--pack-destination', directory, '--json'],
-        join(root, 'integrations/cli')
-    )
-    const tarball = (await readdir(directory)).find(name => name.endsWith('.tgz'))
-    assert.ok(tarball)
+    server = released
+        ? await (
+              await import('./cli-qualification-container')
+          ).createContainerCliFixture(directory, image)
+        : (await import('./cli-qualification-source')).createSourceCliFixture(directory, clock)
+    let installSpec = packageSpec
+    if (!released) {
+        await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)
+        if (standalone)
+            await child(
+                [process.execPath, 'run', '--cwd', 'packages/cli', 'build:executable'],
+                root
+            )
+        await child([Bun.which('node') ?? 'node', 'integrations/scripts/prepare-cli.mjs'], root)
+        await child(
+            ['npm', 'pack', '--pack-destination', directory, '--json'],
+            join(root, 'integrations/cli')
+        )
+        const tarball = (await readdir(directory)).find(name => name.endsWith('.tgz'))
+        assert.ok(tarball)
+        installSpec = join(directory, tarball)
+    }
     const installed = join(directory, 'installation')
     await child(
         [
@@ -94,7 +90,7 @@ try {
             'install',
             '--prefix',
             installed,
-            join(directory, tarball),
+            installSpec,
             '--ignore-scripts',
             '--no-audit',
             '--no-fund',
@@ -102,6 +98,14 @@ try {
         directory
     )
     const js = join(installed, 'node_modules/@postdot/cli/dist/cli.js')
+    const identity = await Bun.file(
+        join(installed, 'node_modules/@postdot/cli/package.json')
+    ).json()
+    assert.equal(identity.name, '@postdot/cli')
+    if (released) assert.equal(identity.version, packageSpec.slice('@postdot/cli@'.length))
+    console.log(
+        `Installed ${identity.name}@${identity.version}; ${released ? 'published container' : 'checkout source'} server`
+    )
     const native = join(directory, process.platform === 'win32' ? 'postdot.exe' : 'postdot')
     if (standalone)
         await copyFile(
@@ -112,7 +116,7 @@ try {
             ),
             native
         )
-    const signup = await app.handle(
+    const signup = await server.handle(
         new Request('http://localhost:3000/api/auth/sign-up/email', {
             method: 'POST',
             headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
@@ -161,8 +165,7 @@ try {
         { name: 'bun-javascript', command: [process.execPath, js] },
         ...(standalone ? [{ name: 'standalone-bun', command: [native] }] : []),
         { name: 'node-javascript', command: [node, js] },
-        ...(process.argv.includes('--node24-container') ||
-        process.env.POSTDOT_CLI_RUNTIME === 'node24-container'
+        ...(options['node24-container'] || process.env.POSTDOT_CLI_RUNTIME === 'node24-container'
             ? [
                   {
                       name: 'node24-container',
@@ -236,7 +239,7 @@ try {
                 .get()
         )
         assert.equal(stored.asset.state, 'ready')
-        const content = await fetch(
+        const content: Response = await fetch(
             `${server.url}api/projects/${project.id}/media/${uploaded.media.asset.id}/content`,
             { headers: { authorization: `Bearer ${token}` } }
         )
@@ -275,7 +278,8 @@ try {
             assetId: uploaded.media.asset.id,
             directory,
             label: runtime.name,
-            now: () => clock,
+            now: released ? Date.now : () => clock,
+            waitForDue: released,
         })
         const deniedWrite = JSON.parse(
             await child(
@@ -384,7 +388,6 @@ try {
         'Help works without credentials or network; the npm artifact has no runtime workspace dependencies.'
     )
 } finally {
-    await server.stop(true)
-    closeDatabase(database)
+    await server?.stop()
     await rm(directory, { recursive: true, force: true })
 }

@@ -11,8 +11,16 @@ Install the [Postdot agent skills](https://github.com/postdot/postdot#agent-skil
 for first-alpha self-hosting, API-backed workflows and troubleshooting. The skills
 work without a development checkout. Assistants that speak MCP can connect directly to
 your instance; see [Connect an agent with MCP](/docs/mcp/).
-The CLI walkthrough below works from a Postdot source checkout with Bun installed.
-It does not require a separate CLI service or a model subscription from Postdot.
+Install the public CLI with Node.js 24 or later:
+
+```sh
+npm install --global @postdot/cli
+postdot --help
+```
+
+With Bun, use `bunx --bun --package @postdot/cli postdot --help` and replace
+`postdot` in the commands below with `bunx --bun --package @postdot/cli postdot`.
+The public package works without a Postdot source checkout.
 For workflow automation, [use the Postdot node in n8n](/docs/n8n/).
 
 ## Create a draft for review
@@ -45,7 +53,7 @@ or your shell environment. You can edit the key's limits or revoke it from Studi
 
 Set `POSTDOT_URL` to your installation's origin, for example
 `http://127.0.0.1:3000` for the default local Docker installation, and
-`POSTDOT_API_KEY` to the key secret. Run the commands below at the source checkout root.
+`POSTDOT_API_KEY` to the key secret. Run the commands below from your working directory.
 
 </Step>
 <Step>
@@ -53,22 +61,22 @@ Set `POSTDOT_URL` to your installation's origin, for example
 ### Find your project and channel
 
 ```sh
-bun run postdot projects list --json
+postdot projects list --json
 ```
 
 Copy the selected project's ID into `PROJECT_ID`, then inspect its channels:
 
 ```sh
 export PROJECT_ID="REPLACE_WITH_PROJECT_ID"
-bun run postdot channels list --project "$PROJECT_ID" --json
+postdot channels list --project "$PROJECT_ID" --json
 ```
 
 Use the ID of a channel you already connected in Studio:
 
 ```sh
 export CHANNEL_ID="REPLACE_WITH_CHANNEL_ID"
-bun run postdot channels profile --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
-bun run postdot publishers list --project "$PROJECT_ID" --json
+postdot channels profile --project "$PROJECT_ID" --channel "$CHANNEL_ID" --json
+postdot publishers list --project "$PROJECT_ID" --json
 ```
 
 `channels profile` describes the destination's accepted content under
@@ -109,7 +117,7 @@ For a built-in Bluesky channel, save this as `post.json`, replacing
 ```
 
 ```sh
-bun run postdot posts create --project "$PROJECT_ID" --input post.json --json
+postdot posts create --project "$PROJECT_ID" --input post.json --json
 ```
 
 </Step>
@@ -122,7 +130,7 @@ publication ID to inspect it:
 
 ```sh
 export PUBLICATION_ID="REPLACE_WITH_PUBLICATION_ID"
-bun run postdot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
+postdot publications show --project "$PROJECT_ID" --publication "$PUBLICATION_ID" --json
 ```
 
 There is deliberately no `scheduledAt` in the input. `automatic` selects the
@@ -148,7 +156,7 @@ server saved the draft but the response was lost. Inspect the current publicatio
 before submitting the same content again:
 
 ```sh
-bun run postdot publications list --project "$PROJECT_ID" --json
+postdot publications list --project "$PROJECT_ID" --json
 ```
 
 Lists are paginated. When `nextCursor` is present, pass its value with `--cursor`
@@ -157,7 +165,7 @@ to read the next page.
 ## Go further
 
 ```sh
-bun run postdot --help
+postdot --help
 ```
 
 The CLI also supports media upload/import, draft updates and explicit publication
@@ -170,7 +178,7 @@ project and action checks. Built-in publisher OAuth and access administration
 require a human session. Other clients do not bypass these boundaries.
 
 See the [CLI reference](/docs/cli-reference/) for media, revision checks and lifecycle
-commands. `0.1.0-alpha.3` also provides [shared-channel commands](/docs/cli-reference/#share-and-manage-channels),
+commands. Source-checkout administration also provides [shared-channel commands](/docs/cli-reference/#share-and-manage-channels),
 including cadence confirmation and pending-publication moves. Sharing needs `channel:share` and live
 underlying authority; it does not expand a draft-only key's publication actions. API integrations can add unscheduled destinations to an existing source
 through the [API reference](/docs/reference/). Source revision checks and explicit

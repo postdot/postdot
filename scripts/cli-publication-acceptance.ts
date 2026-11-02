@@ -18,6 +18,7 @@ export async function qualifyPublications({
     directory,
     label,
     now,
+    waitForDue = false,
 }: {
     invoke: Invoke
     client: PostdotClient
@@ -26,6 +27,7 @@ export async function qualifyPublications({
     directory: string
     label: string
     now: () => number
+    waitForDue?: boolean
 }) {
     const scope = client.api.projects({ projectId })
     const { channel } = await result(scope.channels.post({ name: `CLI workflow ${label}` }))
@@ -164,9 +166,14 @@ export async function qualifyPublications({
     assert.equal(moved.editor.movement.fromPublicationId, editor.publication.id)
 
     // Manual completion records an action done by an operator, without a provider call.
-    const due = await create(makePost(now()))
+    const due = await create(makePost(now() + (waitForDue ? 2_000 : 0)))
     const dueId = due.publications[0].id
-    const awaiting = JSON.parse(await invoke(['publications', 'due']))
+    let awaiting = JSON.parse(await invoke(['publications', 'due']))
+    const deadline = Date.now() + 10_000
+    while (waitForDue && !JSON.stringify(awaiting).includes(dueId) && Date.now() < deadline) {
+        await Bun.sleep(100)
+        awaiting = JSON.parse(await invoke(['publications', 'due']))
+    }
     assert.ok(JSON.stringify(awaiting).includes(dueId))
     await invoke([
         'publications',

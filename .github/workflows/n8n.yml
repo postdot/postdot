@@ -8,6 +8,7 @@ on:
             - packages/client/**
             - integrations/tests/release.test.ts
             - scripts/qualify-public-cli.ts
+            - scripts/cli-qualification-*.ts
             - scripts/cli-publication-acceptance.ts
             - bun.lock
             - package.json
@@ -20,6 +21,7 @@ on:
             - packages/client/**
             - integrations/tests/release.test.ts
             - scripts/qualify-public-cli.ts
+            - scripts/cli-qualification-*.ts
             - scripts/cli-publication-acceptance.ts
             - bun.lock
             - package.json
@@ -55,6 +57,11 @@ jobs:
                   bunx oxlint --deny-warnings integrations/scripts integrations/cli/scripts integrations/n8n/scripts integrations/tests
                   bun test integrations/tests/release.test.ts
                   bun run scripts/qualify-public-cli.ts
+            - name: Qualify public CLI against published servers
+              working-directory: .
+              run: |
+                  bun run scripts/qualify-public-cli.ts --released --image ghcr.io/postdot/postdot@sha256:4aed12e94996cc75a258ea50d6eeb3da41b0cff08151f987251626ebe42c7931
+                  bun run scripts/qualify-public-cli.ts --released --image ghcr.io/postdot/postdot@sha256:92321cb2a782b8c06c679b71b511185d6575d432a2a1d84a737952dd525d4ab1
             - run: npm run typecheck
             - run: npm run lint
             - run: npm run build

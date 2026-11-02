@@ -12,6 +12,7 @@ on:
             - packages/db/**
             - integrations/tests/release.test.ts
             - scripts/qualify-public-cli.ts
+            - scripts/cli-qualification-*.ts
             - scripts/cli-publication-acceptance.ts
             - bun.lock
             - package.json
