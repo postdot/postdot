@@ -1592,18 +1592,18 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-162] Expand interface language coverage beyond English and French
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-02)
 - Priority: medium — staged after the existing language foundation
 - Evidence: The owner wants broader international accessibility. Paraglide currently declares en and fr; the localization foundation tracked by ISSUE-049 is resolved, while additional languages and their quality/maintenance process remain future work.
 - Impact: Advertising multi-language support broadly could imply catalogs that do not exist, while adding catalogs without translation and delivery checks could degrade quality or loading behavior.
 - Desired outcome: Prioritize additional locales with translation ownership, fallback and formatting checks, and evidence of their delivered-page/bundle cost. Distinguish interface locale from publication content language and public-site localization. Do not reopen the already completed foundation or promise a language count.
-- Tasks: none — recorded for triage; no implementation authorized by intake
+- Tasks: none — recorded for triage; authorized and implemented per owner direction (2026-11-02)
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
 - Additional owner direction, 2026-10-16: evaluate two further locales after product expansion, with delivered-bundle and interaction measurements. The pair is not selected. PRODUCT-477 found generated static EN/FR imports and an emoji-data locale list that must be included in the scope. See [expansion plan](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Additional interface locales remain proposed; English/French are implemented.
+- Resolution (2026-11-02): Spanish (`es`) and German (`de`) locales have been implemented with 100% message parity across all 2,199 keys in `apps/web/messages/es.json` and `apps/web/messages/de.json`. All placeholder parameters and ICU plural forms are preserved. Added approved unchanged brand names and technical terms to `scripts/i18n-coverage.ts`. Updated Inlang settings (`apps/web/project.inlang/settings.json`), emoji dataset generation in `apps/web/vite.config.ts`, UI calendar locales in `@postdot/ui`, and `LanguageSwitcher` with native language names and flag icons. Measured delivered bundle impact: anonymous login entry point gzip size increased by only 5.79 KiB (from 164.58 KiB to 170.24 KiB), remaining well within the strict 180 KiB budget (184,320 bytes) with 9.99 KiB headroom. Runtime cold start (median 481 ms) and idle RSS (121.88 MiB) remained within budget targets. Verified with `bun run i18n:coverage`, unit test suites, and quick validation gates.
 
 ## [ISSUE-163] Define intentional workflow coverage across Postbot clients
 

@@ -7,6 +7,8 @@
     "language_menu_label": "Langue",
     "language_english": "Anglais",
     "language_french": "Français",
+    "language_spanish": "Espagnol",
+    "language_german": "Allemand",
     "language_switch_to": "Changer la langue pour {language}",
     "language_selected": "Langue sélectionnée : {language}",
     "common_cancel": "Annuler",

@@ -12,7 +12,7 @@ import {
     type RootProps,
     type WeekNumberProps,
 } from 'react-day-picker'
-import { enUS, fr } from 'react-day-picker/locale'
+import { de, enUS, es, fr } from 'react-day-picker/locale'
 
 import { cn } from '../lib/utils'
 import { Button, buttonVariants } from './button'
@@ -191,6 +191,7 @@ function CalendarDayButton({ className, day, modifiers, ...props }: DayButtonPro
 function CalendarWeekNumber({ children, ...props }: WeekNumberProps) {
     return (
         <td {...props}>
+            \n{' '}
             <div className="flex size-(--cell-size) items-center justify-center text-center">
                 {children}
             </div>
@@ -198,6 +199,6 @@ function CalendarWeekNumber({ children, ...props }: WeekNumberProps) {
     )
 }
 
-const calendarLocales = { en: enUS, fr }
+const calendarLocales = { en: enUS, fr, es, de }
 
 export { Calendar, CalendarDayButton, calendarLocales }

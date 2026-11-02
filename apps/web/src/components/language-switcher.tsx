@@ -1,3 +1,5 @@
+import flagDe from '@iconify-icons/flag/de-4x3'
+import flagEs from '@iconify-icons/flag/es-4x3'
 import flagFr from '@iconify-icons/flag/fr-4x3'
 import flagGb from '@iconify-icons/flag/gb-4x3'
 import { Icon } from '@iconify/react'
@@ -17,17 +19,20 @@ import { type Locale, locales } from '@/paraglide/runtime.js'
 const languageLabels: Record<Locale, () => string> = {
     en: m.language_english,
     fr: m.language_french,
+    es: m.language_spanish,
+    de: m.language_german,
 }
 
 const languageFlags = {
     en: flagGb,
     fr: flagFr,
+    es: flagEs,
+    de: flagDe,
 } as const
 
 export function LanguageSwitcher() {
     const { locale, setLocale } = useLanguage()
-    const nextLocale = locale === 'en' ? 'fr' : 'en'
-    const label = m.language_switch_to({ language: languageLabels[nextLocale]() })
+    const label = m.language_menu_label()
 
     return (
         <DropdownMenu>

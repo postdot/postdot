@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getZonedDateTimeParts } from '@/lib/date-time'
 import * as m from '@/paraglide/messages.js'
+import type { Locale } from '@/paraglide/runtime.js'
 
 interface CivilDateTime {
     readonly year: number
@@ -27,7 +28,7 @@ export interface DateTimePickerProps {
     readonly disabled?: boolean
     readonly displayLocale?: string
     readonly id: string
-    readonly locale?: 'en' | 'fr'
+    readonly locale?: Locale
     readonly onChange: (value: string) => void
     readonly placeholder: string
     readonly required?: boolean

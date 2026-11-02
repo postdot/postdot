@@ -80,7 +80,7 @@ function parseAllowedHost(value: string | undefined): string | undefined {
 /** Serve the picker datasets locally in both development and production. */
 function emojiDataAssets(): Plugin {
     const assets = new Map<string, Buffer>()
-    for (const locale of ['en', 'fr']) {
+    for (const locale of ['en', 'fr', 'es', 'de']) {
         for (const name of ['data', 'messages']) {
             assets.set(
                 `emoji-data/17.0.0/${locale}/${name}.json`,
