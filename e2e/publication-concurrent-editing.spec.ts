@@ -586,6 +586,22 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
             } else {
                 const response = await route.fetch()
                 expect(response.ok()).toBe(true)
+                // Deliver the authoritative refresh while the promotion response is
+                // still held, then lose that response after React presents the read.
+                const refresh = page.waitForResponse(
+                    response =>
+                        new URL(response.url()).pathname ===
+                            `/api/projects/${pair.id}/publications/${pair.first}/editor` &&
+                        response.request().method() === 'GET'
+                )
+                await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+                await (await refresh).finished()
+                await page.evaluate(
+                    () =>
+                        new Promise<void>(resolve =>
+                            requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+                        )
+                )
                 await route.abort('failed')
             }
         })

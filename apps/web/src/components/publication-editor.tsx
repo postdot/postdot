@@ -465,7 +465,8 @@ export function PublicationEditor({
     useEffect(() => {
         if (initialEditor.publication.id !== editor.publication.id) return
         if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
-        if (pendingSaveGeneration !== null || editorMutationPending) return
+        if (pendingSaveGeneration !== null || editorMutationPending || promotionRecoveryRequired)
+            return
         lastIncomingEditorFingerprint.current = incomingEditorFingerprint
         if (incomingEditorFingerprint === currentEditorFingerprint) return
 
@@ -502,6 +503,7 @@ export function PublicationEditor({
         incomingEditorFingerprint,
         pendingSaveGeneration,
         editorMutationPending,
+        promotionRecoveryRequired,
         initialEditor,
         timeZone,
     ])
