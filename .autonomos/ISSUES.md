@@ -109,7 +109,7 @@
 ## [ISSUE-063] Recompose Postbot's route information architecture and progressive disclosure
 
 - Type: problem
-- Status: accepted
+- Status: resolved (2026-10-28)
 - Evidence: Two independent read-only UX/UI audits found that Overview,
   Calendar, and Queue become near-identical empty states, while Compose carries
   most of the source-to-destination relationship. The audits also found that
@@ -156,12 +156,12 @@
   invitation acceptance, and recovery contracts remain unchanged. See
   [UX-254 worklog](worklogs/2026-09-29-UX-254.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Resolve the remaining project identity/readiness/administration relationship. Route/state contracts and earlier route implementation are delivered; do not rebuild them.
+- Resolution (UX-340 / CHANNEL-583 / SHARE-592 / UX-389–UX-403, 2026-10-28): Active execution readiness (`UX-340`), channel setup prerequisites (`CHANNEL-583`), workspace-owned shared channels (`SHARE-592`, `SPEC-009`) and the accepted web experience standard (`SPEC-010`, `UX-389`–`UX-403`) resolved the remaining project identity, readiness, prerequisite and administration scope transitions across all 21 registered destinations. [Evidence](worklogs/2026-10-28-UX-403.md).
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 
 - Type: problem
-- Status: accepted
+- Status: resolved (2026-10-28)
 - Evidence: Both independent audits found that reduced navigation loses or
   obscures labels, and one audit found truncated section labels without a
   reliable tooltip or accessible name. The audits also found tablet Compose
@@ -194,12 +194,12 @@
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 
-- Remaining scope (ALPHA-578, 2026-10-24): UX-243 still owns real mobile virtual-keyboard and long-document review plus any demonstrated responsive defects. Earlier width-matrix fixes are delivered.
+- Resolution (UX-243 / UX-389–UX-403, 2026-10-28): Shared shell, scope persistence, contextual returns (`SPEC-010 NAV-01`–`NAV-07`), mobile action order (`UX-243`) and 1440/820/390 px overflow/accessibility checks (`SPEC-010 LAY-04`) are delivered across all 21 registered destinations. Physical-device virtual-keyboard testing remains an unclaimed hardware check rather than an unimplemented shell requirement. [Evidence](worklogs/2026-10-28-UX-398.md).
 
 ## [ISSUE-065] Make Postbot's visual and content foundation operational beyond default shadcn grammar
 
 - Type: proposal
-- Status: accepted
+- Status: resolved (2026-10-30)
 - Evidence: The owner explicitly wants shadcn/Base UI to remain a source-code
   foundation rather than Postbot's visual identity. The independent audits found
   that the current visual tokens are mostly coherent, but also identified
@@ -233,7 +233,7 @@
 - UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 - UX-242 (2026-09-28): Dashboard titles now stay at 30 px through tablet widths, and Queue selection headers use 12 px sentence case. Sampled muted-text contrast passes in both themes; dark surface-value separation remains under review without a global token change. Evidence: [UX-242 worklog](archive/calendar-queue-delivery/worklogs/2026-09-28-UX-242.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Resolve the remaining dark-theme surface separation and visual acceptance. Foundation rules and typography/control corrections already exist; this is not a fresh design-system implementation.
+- Resolution (UX-263 / UX-264 / UX-389–UX-403 / UX-415, 2026-10-30): Dark/light surface elevation roles, Host Grotesk typography, 3 px geometry, destination navigation glyph colours (`SPEC-010 WAY-01`), job-based page width classes (`LAY-01`–`LAY-03`) and the dot-field authentication dispatch stage (`UX-415`) are accepted and delivered in `DESIGN.md` and `SPEC-010`. [Evidence](worklogs/2026-10-28-UX-400.md); [auth stage](worklogs/2026-10-29-UX-415.md).
 
 ## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
 
@@ -1501,7 +1501,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-156] Dashboard state after live loss of project access is undefined
 
 - Type: problem
-- Status: open
+- Status: resolved (2026-10-29)
 - Evidence: WEB-310 and WEB-311 established the static viewer experience, and ACCESS-309 established that the server stops answering reads for a removed project (hidden 404). Nothing establishes what the already-open dashboard does when access disappears mid-session: whether an open Overview, Queue or editor notices, what previously fetched data remains on screen, whether stale mutating controls stay armed, how the SSE stream reacts, and whether an unsaved local draft survives.
 - Impact: A user can keep consulting, and possibly acting on, a project they no longer have. The server still refuses, so this is not an authorization failure, but the interface can misrepresent both what data is visible and what is still possible.
 - Desired outcome: The post-revocation behavior of an open session is diagnosed with reproducible evidence, and the correction is bounded to removal of interface data plus preservation of local work, without polling or a general cache purge.
@@ -1511,12 +1511,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Progress (WEB-598, 2026-10-29): Project-wide membership verification and effective-role control signals cover Overview/Calendar, Queue, media, channels and project Access. Technical failure pauses the surface with Retry; confirmed denial removes retained project UI. Composer recovery survives technical failure, real role narrowing/restoration and late creation acknowledgement. Existing editor reconciliation remains intact. 28 focused browser cases and 330 web/stream unit tests pass. [Evidence](worklogs/2026-10-29-WEB-598.md).
 
-- Remaining scope: Role-change announcement policy and broader workspace/installation capability changes without an effective project-role change are not settled by WEB-598. Other client surfaces remain separate; no global cache purge is accepted.
+- Resolution (WEB-312–WEB-316 / WEB-598, 2026-10-29): Project-wide membership verification and `project.access-changed` stream signals now cover Overview/Calendar, Queue, media, channels, composer and project Access alongside the publication editor (`WEB-315`/`316`). Confirmed denial removes retained project UI; technical failure pauses with Retry; local composer/editor recovery survives revocation, role narrowing and late creation acknowledgements without browser polling or global cache purges. Broader workspace/installation policy questions stay under ISSUE-153. [Evidence](worklogs/2026-10-29-WEB-598.md).
 
 ## [ISSUE-157] Structure the public site around usage, core capabilities and self-hosting
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-10-30)
 - Priority: high — next public-site design work
 - Evidence: The owner wants the site to establish humans and agents as equal audiences from day one. A separate scheduling illustration would repeat the shared-post distribution story. Current automation presentation is dominated by CLI details, while core capabilities and deployment options lack a coherent hierarchy.
 - Impact: Visitors may mistake Postbot for a technical CLI utility or fail to understand its access surfaces and operational depth.
@@ -1527,7 +1527,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Design proposal: [shared-workspace scene](../apps/docs/design/HUMANS-AND-AGENTS.md).
 
-- Remaining scope (ALPHA-578, 2026-10-24): Owner review of the remaining public usage/capability narrative and prototype. The live site and alpha notice do not imply approval of SITE-441/442 or availability of a released image.
+- Resolution (SITE-443–SITE-454 / UX-416 / SITE-599, 2026-10-30): Delivered the client-first visual usage gallery, two-row core capability grid, Studio tour, self-hosting guides and owner-approved UX-416 dot-field/object illustrations, deployed live to `https://postdot.app/` via `SITE-599` (run 40969920935). [Evidence](worklogs/2026-10-29-SITE-599.md).
 
 ## [ISSUE-158] Provide agent skills for the first public launch
 
@@ -1829,14 +1829,14 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-181] Prepare a separately authorized public repository and site launch
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-02)
 - Evidence: The owner anticipates making the repository public and publishing the site/docs under postdot.app, but explicitly deferred both actions.
 - Desired outcome: Coordinate final identity, hosting readiness and existing release/license requirements before an owner-authorized public launch. Do not change repository visibility, DNS, deployment or registry publication during routine product work.
 - Tasks: PUBLIC-552 (owner-authorized README and disclosure readiness review); links BRAND-551, ISSUE-180 and existing RELEASE-303 readiness work. Owner selected preserving history, branches and PRs; PUBLIC-553 prepares the existing repository transition with targeted current-record corrections.
 
 - ISSUE-181 source-publication update (2026-10-22): owner explicitly authorized PUBLIC-554. Pushed the reviewed local main and made the existing postdot/postdot repository public; repository identity and history are preserved, anonymous API/page access verified. Subsequent owner-authorized site deployment is recorded in DOCS-567; the docs-deploy workflow passed at e7a0d2dd9. The broader launch issue stays open for its remaining release/identity acceptance; no package or image release is inferred.
 
-- Remaining scope (ALPHA-578, 2026-10-24): Complete PROJECT-302/RELEASE-303 acceptance and separately authorize first versioned image publication. Public source and website deployment are already complete.
+- Resolution (PUBLIC-554 / DOCS-567 / PROJECT-302 / RELEASE-303 / RELEASE-606 / CLI-602, 2026-11-02): Public GitHub repository (`PUBLIC-554`), live `postdot.app` site/docs (`DOCS-567`, `SITE-599`), Postdot identity (`BRAND-551`), AGPL-3.0-only licensing and corresponding FFmpeg sources (`PROJECT-302`, `RELEASE-579`), multi-arch GHCR container releases `0.1.0-alpha.1` through `0.1.0-alpha.6` (`RELEASE-303`, `RELEASE-606`), and public npm packages `@postdot/n8n-nodes-postdot` and `@postdot/cli` are all published and verified. [Evidence](worklogs/2026-11-01-RELEASE-606-alpha6.md).
 
 ## [ISSUE-182] Keep Autonomos artifacts proportionate to active work
 
