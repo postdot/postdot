@@ -4,17 +4,37 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 test('keeps core project surfaces free of automated accessibility violations', async ({ page }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(120_000)
 
     const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
 
-    for (const path of ['overview', 'performance', 'queue', 'media', 'channels']) {
+    for (const path of [
+        'overview',
+        'performance',
+        'queue',
+        'media',
+        'channels',
+        'tags',
+        'access',
+        'invitations',
+        'publications/new',
+    ]) {
         await page.goto(`/dashboard/projects/${projectId}/${path}`)
         await expect(page.locator('[data-dashboard-scroll]')).toBeVisible()
 
         const results = await new AxeBuilder({ page }).analyze()
         expect(results.violations, `Accessibility violations on ${path}`).toEqual([])
     }
+
+    // Command palette dialog accessibility
+    await page.keyboard.press('Control+k')
+    await expect(page.locator('[role="dialog"]')).toBeVisible()
+    const paletteResults = await new AxeBuilder({ page }).analyze()
+    expect(paletteResults.violations, 'Accessibility violations on search palette dialog').toEqual(
+        []
+    )
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[role="dialog"]')).toBeHidden()
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
