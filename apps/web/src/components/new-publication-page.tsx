@@ -8,6 +8,7 @@ import {
     DialogTitle,
 } from '@postdot/ui/components/dialog'
 import { Input } from '@postdot/ui/components/input'
+import { Kbd } from '@postdot/ui/components/kbd'
 import { cn } from '@postdot/ui/lib/utils'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
@@ -76,6 +77,7 @@ import {
     type PublicationComposerDraftContent,
     type PublicationRecoveryState,
 } from '@/lib/publication-recovery'
+import { getModifierKey } from '@/lib/shortcuts'
 import * as m from '@/paraglide/messages.js'
 import { providerRegistry } from '@/providers/registry'
 
@@ -127,6 +129,7 @@ export function NewPublicationPage({
         publicationTargets,
         sourceMedia,
     })
+    const formRef = useRef<HTMLFormElement | null>(null)
     const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
     const [mediaPreparationPending, setMediaPreparationPending] = useState(false)
     const mediaPreparationPendingRef = useRef(false)
@@ -820,6 +823,45 @@ export function NewPublicationPage({
         )
     }
 
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.isComposing) return
+            const hasMod = event.metaKey || event.ctrlKey
+            if (hasMod && event.key === 'Enter') {
+                const form = formRef.current
+                if (!form) return
+                const scheduleBtn = form.querySelector<HTMLButtonElement>(
+                    'button[name="publication-action"][value="schedule"]'
+                )
+                const draftBtn = form.querySelector<HTMLButtonElement>(
+                    'button[name="publication-action"][value="draft"]'
+                )
+                const targetBtn =
+                    scheduleBtn && !scheduleBtn.disabled
+                        ? scheduleBtn
+                        : draftBtn && !draftBtn.disabled
+                          ? draftBtn
+                          : null
+                if (targetBtn) {
+                    event.preventDefault()
+                    targetBtn.click()
+                }
+            } else if (hasMod && event.shiftKey && event.key.toLowerCase() === 'm') {
+                const form = formRef.current
+                if (!form) return
+                const mediaBtn = form.querySelector<HTMLButtonElement>(
+                    'button[data-media-picker-trigger="true"]'
+                )
+                if (mediaBtn && !mediaBtn.disabled) {
+                    event.preventDefault()
+                    mediaBtn.click()
+                }
+            }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [])
+
     function handleTargetCustomizationChange(targetId: string, customized: boolean) {
         setCustomizedTargetIds(current => {
             const next = new Set(current)
@@ -1082,6 +1124,7 @@ export function NewPublicationPage({
             ) : null}
 
             <form
+                ref={formRef}
                 aria-busy={
                     !serverDraftReady && autosaveState !== 'account' && autosaveState !== 'session'
                 }
@@ -1436,9 +1479,14 @@ export function NewPublicationPage({
                                                 autosaveState === 'session'
                                             }>
                                             <CalendarAddIcon aria-hidden="true" />
-                                            {m.publication_new_schedule_count({
-                                                count: selectedPublicationCount,
-                                            })}
+                                            <span>
+                                                {m.publication_new_schedule_count({
+                                                    count: selectedPublicationCount,
+                                                })}
+                                            </span>
+                                            <Kbd className="ml-1 hidden font-mono text-[10px] opacity-75 sm:inline-flex">
+                                                {getModifierKey()}↵
+                                            </Kbd>
                                         </Button>
                                     </div>
                                 ) : null}

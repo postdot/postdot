@@ -1,5 +1,6 @@
 import { Button } from '@postdot/ui/components/button'
 import { Field, FieldLabel } from '@postdot/ui/components/field'
+import { Kbd } from '@postdot/ui/components/kbd'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { CheckIcon } from '@solar-icons/react/linear/check'
@@ -8,6 +9,7 @@ import { DateTimePicker } from '@/components/date-time-picker'
 import { formatCivilSchedule } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import type { PublicationPromotionIntent } from '@/lib/publication-promotion'
+import { getModifierKey } from '@/lib/shortcuts'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationEditorPromotionSectionProps {
@@ -102,15 +104,20 @@ export function PublicationEditorPromotionAction({
                     disabled={disabled}
                     aria-busy={pending}>
                     <CheckIcon aria-hidden="true" />
-                    {pending
-                        ? m.editor_applying_draft()
-                        : intent === 'schedule'
-                          ? m.editor_schedule_action()
-                          : intent === 'update_schedule'
-                            ? m.editor_update_schedule_action()
-                            : intent === 'return_draft'
-                              ? m.editor_return_draft_action()
-                              : m.editor_select_version_action()}
+                    <span>
+                        {pending
+                            ? m.editor_applying_draft()
+                            : intent === 'schedule'
+                              ? m.editor_schedule_action()
+                              : intent === 'update_schedule'
+                                ? m.editor_update_schedule_action()
+                                : intent === 'return_draft'
+                                  ? m.editor_return_draft_action()
+                                  : m.editor_select_version_action()}
+                    </span>
+                    <Kbd className="ml-1 hidden font-mono text-[10px] opacity-75 sm:inline-flex">
+                        {getModifierKey()}↵
+                    </Kbd>
                 </Button>
             </div>
         </div>

@@ -988,6 +988,23 @@ export function PublicationEditor({
         timeZone,
     ])
 
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.isComposing) return
+            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                const promoteBtn = document.querySelector<HTMLButtonElement>(
+                    'button[data-publication-promotion-action]'
+                )
+                if (promoteBtn && !promoteBtn.disabled) {
+                    event.preventDefault()
+                    promoteBtn.click()
+                }
+            }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [])
+
     async function promoteDraft() {
         if (
             accessWritesBlocked ||

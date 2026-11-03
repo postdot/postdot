@@ -56,6 +56,7 @@ import {
 } from '@/lib/postdot-media-upload'
 import { createOrderedUploadResults } from '@/lib/postdot-media-upload'
 import { subscribeMediaPreviewUpdates } from '@/lib/project-realtime'
+import { getModifierKey } from '@/lib/shortcuts'
 import {
     mediaSelectionsEqual,
     reorderMediaSelections,
@@ -1441,11 +1442,12 @@ function MediaAttachmentPickerView({
     })
 
     const attachmentTrigger = (
-        <ActionTooltip label={m.media_upload()}>
+        <ActionTooltip label={m.media_upload()} shortcut={`${getModifierKey()}⇧M`}>
             <Button
                 type="button"
                 variant="ghost"
                 size="icon"
+                data-media-picker-trigger="true"
                 aria-label={m.media_upload()}
                 disabled={interactionLocked}
                 onClick={openAttachmentLibrary}>
