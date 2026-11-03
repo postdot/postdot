@@ -1,6 +1,6 @@
 {
     "title": "Deployment",
     "defaultOpen": true,
-    "pages": ["installation", "provider-configuration", "releases"],
+    "pages": ["installation", "reverse-proxy", "provider-configuration", "releases"],
     "icon": "server"
 }

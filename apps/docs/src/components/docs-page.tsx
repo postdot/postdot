@@ -1,5 +1,6 @@
 import type { OpenAPIPageProps_Preloaded } from 'fumadocs-openapi/ui'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 import { DocsPage, MarkdownCopyButton, ViewOptionsPopover } from 'fumadocs-ui/layouts/notebook/page'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import { DocsBody, DocsDescription, DocsTitle } from 'fumadocs-ui/page'
@@ -24,6 +25,8 @@ export function DocsPageView({ page, preloaded }: { page: Page; preloaded?: Prel
             ...defaultMdxComponents,
             Step,
             Steps,
+            Tab,
+            Tabs,
             OpenAPIPage: (props: ComponentProps<typeof OpenAPIPage>) => (
                 <OpenAPIPage {...(preloaded ? { preloaded } : {})} {...props} />
             ),

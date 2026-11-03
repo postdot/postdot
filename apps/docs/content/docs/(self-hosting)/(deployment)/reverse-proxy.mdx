@@ -1,0 +1,243 @@
+---
+title: Reverse proxy
+description: Configure an HTTPS reverse proxy (Caddy, Nginx, Traefik) in front of Postdot with Let's Encrypt, SSE streaming, and media upload support.
+---
+
+Postdot runs its API, Studio dashboard, scheduler, and background worker in a single
+container or process listening on loopback (`127.0.0.1:3000` by default). In production,
+place an HTTPS reverse proxy on the host or ingress network in front of Postdot to
+terminate TLS, provide automatic certificates, and forward client requests.
+
+For initial single-node container deployment, follow the
+[Docker Compose installation guide](/docs/installation/). For OAuth callback domains and
+external reachability constraints, see [provider configuration](/docs/provider-configuration/).
+
+## Proxy requirements
+
+A reverse proxy in front of Postdot must satisfy four operational requirements:
+
+1. **Origin alignment**: Configure both `BETTER_AUTH_URL` and `POSTDOT_WEB_ORIGIN` in
+   your `.env` file to match the public canonical HTTPS origin (for example,
+   `https://postdot.example.com`). Better Auth and session cookie validation rely on
+   exact origin matching.
+2. **Forwarded headers**: Forward `Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, and
+   `X-Forwarded-Host`. These ensure cookies receive the `Secure` flag and OAuth
+   redirects target the correct public domain.
+3. **Response streaming (Server-Sent Events)**: Postdot uses SSE streams for real-time
+   project events and progress notifications (`GET /api/projects/:projectId/events`).
+   Proxy response buffering must be disabled so events reach the browser immediately.
+4. **Media upload request size**: Postdot accepts direct media uploads (images, videos,
+   and avatars). Default proxy request body limits (such as Nginx's 1 MB limit) will
+   fail uploads with `413 Request Entity Too Large`. Set the body limit to at least 100 MB.
+
+## Caddy
+
+Caddy handles automatic TLS certificate issuance and renewal via Let's Encrypt
+or ZeroSSL with zero manual certificate renewal cron jobs. Caddy also streams
+SSE responses without buffering by default.
+
+### Caddyfile
+
+Add this block to your `/etc/caddy/Caddyfile`:
+
+```
+postdot.example.com {
+    encode zstd gzip
+
+    # Set max upload size to match application needs (e.g. 100 MB)
+    request_body {
+        max_size 100MB
+    }
+
+    reverse_proxy 127.0.0.1:3000 {
+        # Forward public host and proxy headers
+        header_up Host {host}
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-Proto https
+
+        # Buffering is off by default in Caddy, preserving SSE real-time events
+        flush_interval -1
+    }
+}
+```
+
+Apply the configuration:
+
+```sh
+sudo caddy reload --config /etc/caddy/Caddyfile
+```
+
+## Nginx
+
+Nginx requires explicit configuration for forwarded headers, request body size,
+and unbuffered streaming for Server-Sent Events.
+
+### Virtual host configuration
+
+Save the following server configuration to `/etc/nginx/sites-available/postdot`
+(and symlink it to `/etc/nginx/sites-enabled/`):
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name postdot.example.com;
+
+    # Redirect all HTTP traffic to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name postdot.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/postdot.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/postdot.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Allow large media file uploads (images, video)
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        # Forward client identity and scheme
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+
+        # WebSocket / Connection upgrade
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # Disable buffering for Server-Sent Events (SSE)
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 24h;
+        proxy_send_timeout 24h;
+    }
+}
+```
+
+Test and reload Nginx:
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## Traefik
+
+When running Traefik as an edge router in Docker, configure Postdot
+using Docker labels in your `compose.yaml` file and connect Postdot to Traefik's
+external network.
+
+### Docker Compose labels
+
+```yaml
+services:
+    postdot:
+        image: ghcr.io/postdot/postdot:0.1.0-alpha.6
+        restart: unless-stopped
+        environment:
+            - BETTER_AUTH_URL=https://postdot.example.com
+            - POSTDOT_WEB_ORIGIN=https://postdot.example.com
+        networks:
+            - traefik-public
+            - internal
+        labels:
+            - 'traefik.enable=true'
+            - 'traefik.http.routers.postdot.rule=Host(`postdot.example.com`)'
+            - 'traefik.http.routers.postdot.entrypoints=websecure'
+            - 'traefik.http.routers.postdot.tls.certresolver=letsencrypt'
+            - 'traefik.http.services.postdot.loadbalancer.server.port=3000'
+            - 'traefik.http.services.postdot.loadbalancer.passHostHeader=true'
+
+networks:
+    traefik-public:
+        external: true
+    internal:
+        internal: true
+```
+
+Traefik passes the `Host` and `X-Forwarded-*` headers automatically and does
+not buffer HTTP chunked or SSE streams unless explicitly configured with a
+buffering middleware.
+
+## Environment configuration
+
+Update your `.env` file to instruct Postdot to bind to loopback and advertise its public
+canonical URL:
+
+```dotenv
+# Bind to loopback interface on host
+POSTDOT_HTTP_PORT=127.0.0.1:3000
+
+# Canonical public HTTPS origin (no trailing slash)
+BETTER_AUTH_URL=https://postdot.example.com
+POSTDOT_WEB_ORIGIN=https://postdot.example.com
+```
+
+Restart the Postdot service after editing `.env`:
+
+```sh
+docker compose up -d --wait
+```
+
+<Callout type="warn">
+    Never leave `BETTER_AUTH_URL` or `POSTDOT_WEB_ORIGIN` set to `http://127.0.0.1:3000` in
+    production. If the configured origin does not match the browser's URL, authentication cookies
+    will fail to set or validate.
+</Callout>
+
+## Verification checklist
+
+After starting your reverse proxy and Postdot, run these checks to qualify the deployment:
+
+### 1. Check HTTP to HTTPS redirection
+
+Verify that unencrypted HTTP requests redirect to HTTPS:
+
+```sh
+curl -I http://postdot.example.com
+```
+
+The response should return HTTP `301` or `308` with a `Location: https://postdot.example.com/` header.
+
+### 2. Verify health and readiness endpoints
+
+Query Postdot's health probes through your public domain:
+
+```sh
+curl --fail https://postdot.example.com/health
+curl --fail https://postdot.example.com/ready
+```
+
+Both should return HTTP `200 OK` with JSON bodies (`{"status":"ok",...}`).
+
+### 3. Verify Server-Sent Events (SSE) streaming
+
+Test that proxy buffering does not block event stream flushing:
+
+```sh
+curl -N -H "Accept: text/event-stream" https://postdot.example.com/ready
+```
+
+The connection should establish immediately without hanging on proxy buffers.
+
+### 4. Test media upload capacity
+
+Upload an image or sample file larger than 1 MB through Postdot Studio. If your reverse
+proxy limits body sizes, you will observe HTTP `413 Request Entity Too Large` in the
+browser network console. Adjust `client_max_body_size` (Nginx) or `max_size` (Caddy)
+if needed.

@@ -130,11 +130,12 @@ no longer need it. For an existing account, use the interactive
 
 For a public deployment, keep the container bound to loopback and place an HTTPS
 reverse proxy on the host in front of it. Set `BETTER_AUTH_URL` and
-`POSTDOT_WEB_ORIGIN` to the same public HTTPS origin before starting. A proxy running
-in another container needs an appropriate private network configuration instead
-of this host-loopback example. Complete initial account setup before exposing the
-installation. Provider OAuth and media delivery have additional reachability
-requirements: see [provider requirements](/docs/provider-configuration/).
+`POSTDOT_WEB_ORIGIN` to the same public HTTPS origin before starting. For ready-to-use
+configurations with Caddy, Nginx, or Traefik—including Let's Encrypt TLS termination,
+Server-Sent Events (SSE) streaming, and upload request limits—see the
+[reverse proxy deployment guide](/docs/reverse-proxy/). Complete initial account setup
+before exposing the installation. Provider OAuth and media delivery have additional
+reachability requirements: see [provider requirements](/docs/provider-configuration/).
 
 ## Persistent data and ordinary operation
 

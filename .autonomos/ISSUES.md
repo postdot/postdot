@@ -1576,18 +1576,20 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-161] Broaden documented self-hosting paths without implying unverified support
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-03)
 - Priority: medium — Docker/Compose first; orchestrators considered separately
 - Evidence: The owner wants quick-start guides and resources for Docker, Compose, potentially Swarm, Kubernetes, Helm and other relevant hosts. Dockerfile and Compose files already exist; no Swarm/Kubernetes/Helm deliverables were found in the current repository. Release policy already targets GHCR and linux/amd64 plus linux/arm64 under RELEASE-303.
 - Impact: A long list of deployment logos could misrepresent supported installation paths and dilute the lightweight single-service starting point.
 - Desired outcome: Provide a concise Docker/Compose default, then independently scoped, exercised operator guides for justified additional environments. Helm is a possibility, not a selected architecture or launch requirement. Documentation points to public versioned AMD64/ARM64 artifacts only after acceptance and publication. Preserve the single-service/local-storage baseline; optional S3 and orchestrators must not become prerequisites. Public release remains separately authorized.
-- Tasks: none — recorded for triage; no implementation authorized by intake
+- Tasks: none — recorded for triage; implemented per owner direction (2026-11-03)
 - Source: owner direction, 2026-10-15; public-site planning captured in
   [public positioning](archive/root-documentation-2026-10-25/source/docs/project/public-positioning.md).
 
-- Related work: RELEASE-303 remains the active image-release task. Do not duplicate it or treat this issue as authorization to publish.
-
-- Remaining scope (ALPHA-578, 2026-10-24): Verify each additional self-hosting route before documenting it as supported. Existing source/Compose installation is delivered.
+- Resolution (2026-11-03):
+  1. Structured `apps/docs/content/docs/(self-hosting)/(deployment)/` information architecture to seamlessly support multiple deployment guides alongside Docker Compose (`installation.mdx`), without URL breakage or future structural refactors.
+  2. Authored dedicated reverse-proxy deployment guide (`apps/docs/content/docs/(self-hosting)/(deployment)/reverse-proxy.mdx`) detailing complete production configurations for Caddy, Nginx, and Traefik with automatic Let's Encrypt TLS, unbuffered Server-Sent Events (SSE) streaming, media upload request limits (100MB+), and essential forwarded headers (`Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, `X-Forwarded-Host`).
+  3. Integrated cross-references into `installation.mdx` and `self-hosting.mdx`.
+  4. Qualified via static link checks (`check:links` 250 pages, 1186 local targets, 0 failures), LLM export checks (`check:llms`), social metadata checks (`check:og`), and `bun run check:quick`.
 
 ## [ISSUE-162] Expand interface language coverage beyond English and French
 

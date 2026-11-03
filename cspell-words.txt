@@ -8,6 +8,7 @@ badgateway
 Bluesky
 bogeychan
 bunx
+certresolver
 Cloudflare
 CNIL
 compadd
@@ -28,6 +29,7 @@ emojibase
 favourites
 frimousse
 frontmatter
+fullchain
 fuma
 fumadocs
 Grainient
@@ -43,6 +45,7 @@ hoverable
 IDAT
 keycap
 Laravel
+letsencrypt
 lifecycles
 livez
 llms
@@ -74,6 +77,7 @@ prerender
 prerendered
 prerenderer
 prerenders
+privkey
 presign
 presigning
 prevalidated
@@ -134,6 +138,7 @@ wayfinding
 Wayfinding
 webfonts
 webglcontextlost
+websecure
 wireframes
 workspace
 workstream

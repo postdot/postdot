@@ -19,6 +19,10 @@ even when Postdot itself runs locally.
         Use the published alpha image, configure secrets and start your instance with Docker
         Compose. Building from source remains an option.
     </Card>
+    <Card title="Configure reverse proxy" href="/docs/reverse-proxy/">
+        Terminate HTTPS with Let's Encrypt, configure streaming for SSE events and adjust media
+        upload limits using Caddy, Nginx, or Traefik.
+    </Card>
     <Card title="Back up or update an instance" href="/docs/operations/">
         Check what to preserve, prepare for an upgrade and understand recovery after restoring a
         backup.
@@ -47,8 +51,9 @@ precautions, see [backup and restoration](/docs/installation/#backup-and-restora
 ## Adapt the installation
 
 - **Public HTTPS access:** set the instance origin and reverse proxy before
-  connecting accounts. [Provider connections](/docs/providers/) explains the
-  authorization requirements for local and public deployments.
+  connecting accounts. Follow the [reverse proxy deployment guide](/docs/reverse-proxy/)
+  for Caddy, Nginx, or Traefik configurations. [Provider connections](/docs/providers/) explains
+  the authorization requirements for local and public deployments.
 - **Email or S3-compatible media storage:** follow
   [optional email and S3](/docs/installation/#optional-email-and-s3).
   Changing the storage setting does not migrate existing media.
