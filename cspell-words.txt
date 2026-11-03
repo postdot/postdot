@@ -8,6 +8,7 @@ badgateway
 Bluesky
 bogeychan
 bunx
+certmanager
 certresolver
 Cloudflare
 CNIL
@@ -44,6 +45,7 @@ hotspot
 hoverable
 IDAT
 keycap
+kubelet
 Laravel
 letsencrypt
 lifecycles

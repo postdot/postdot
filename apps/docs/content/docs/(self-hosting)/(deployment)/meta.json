@@ -1,6 +1,13 @@
 {
     "title": "Deployment",
     "defaultOpen": true,
-    "pages": ["installation", "reverse-proxy", "provider-configuration", "releases"],
+    "pages": [
+        "installation",
+        "reverse-proxy",
+        "kubernetes",
+        "docker-swarm",
+        "provider-configuration",
+        "releases"
+    ],
     "icon": "server"
 }

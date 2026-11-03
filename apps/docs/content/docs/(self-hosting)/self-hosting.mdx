@@ -54,6 +54,9 @@ precautions, see [backup and restoration](/docs/installation/#backup-and-restora
   connecting accounts. Follow the [reverse proxy deployment guide](/docs/reverse-proxy/)
   for Caddy, Nginx, or Traefik configurations. [Provider connections](/docs/providers/) explains
   the authorization requirements for local and public deployments.
+- **Cluster orchestrators:** to run Postdot in a cluster environment while respecting
+  its single-replica SQLite architecture, follow the [Kubernetes guide](/docs/kubernetes/)
+  or the [Docker Swarm guide](/docs/docker-swarm/).
 - **Email or S3-compatible media storage:** follow
   [optional email and S3](/docs/installation/#optional-email-and-s3).
   Changing the storage setting does not migrate existing media.

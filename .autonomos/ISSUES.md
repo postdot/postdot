@@ -1588,8 +1588,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Resolution (2026-11-03):
   1. Structured `apps/docs/content/docs/(self-hosting)/(deployment)/` information architecture to seamlessly support multiple deployment guides alongside Docker Compose (`installation.mdx`), without URL breakage or future structural refactors.
   2. Authored dedicated reverse-proxy deployment guide (`apps/docs/content/docs/(self-hosting)/(deployment)/reverse-proxy.mdx`) detailing complete production configurations for Caddy, Nginx, and Traefik with automatic Let's Encrypt TLS, unbuffered Server-Sent Events (SSE) streaming, media upload request limits (100MB+), and essential forwarded headers (`Host`, `X-Forwarded-Proto`, `X-Forwarded-For`, `X-Forwarded-Host`).
-  3. Integrated cross-references into `installation.mdx` and `self-hosting.mdx`.
-  4. Qualified via static link checks (`check:links` 250 pages, 1186 local targets, 0 failures), LLM export checks (`check:llms`), social metadata checks (`check:og`), and `bun run check:quick`.
+  3. Authored dedicated Kubernetes deployment guide (`apps/docs/content/docs/(self-hosting)/(deployment)/kubernetes.mdx`) detailing single-replica architecture constraints, Recreate deployment strategy, ReadWriteOnce persistent storage, readiness/liveness probes, Ingress SSE/upload tuning, and offline account provisioning. Qualified live on ephemeral k3d cluster.
+  4. Authored dedicated Docker Swarm deployment guide (`apps/docs/content/docs/(self-hosting)/(deployment)/docker-swarm.mdx`) detailing single-replica replicated mode, `order: stop-first` update configuration to prevent SQLite lock collisions, volume node placement constraints, Traefik routing, and runtime health probes. Qualified live on local Swarm cluster.
+  5. Integrated cross-references across `installation.mdx`, `self-hosting.mdx`, and `meta.json`.
+  6. Qualified via static link checks (`check:links` 252 pages, 1207 local targets, 0 failures), LLM export checks (`check:llms`), social metadata checks (`check:og`), and `bun run check:quick`.
 
 ## [ISSUE-162] Expand interface language coverage beyond English and French
 

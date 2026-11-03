@@ -1,0 +1,328 @@
+---
+title: Kubernetes
+description: Deploy Postdot on Kubernetes with single-replica persistence, Recreate deployment strategy, readiness probes, and Ingress.
+---
+
+Postdot runs its API, Studio dashboard, scheduler, and background worker in a single
+process within one container. Application state resides in an embedded SQLite database
+(`/data/postdot.sqlite`) guarded by a runtime lock (`.runtime.lock`).
+
+This architecture requires specific Kubernetes deployment settings to ensure data integrity
+and continuous operation. For Docker Compose or standalone container installation, see
+the [Docker Compose installation guide](/docs/installation/).
+
+## Architecture constraints
+
+Deploying Postdot on Kubernetes requires observing four critical operational constraints:
+
+1. **Strictly one replica (`replicas: 1`)**:
+   Postdot must not be scaled horizontally across multiple pods. Multiple active containers
+   accessing the same SQLite file will trigger locking conflicts or database corruption.
+   Horizontal pod autoscaling (HPA) must not be configured for Postdot.
+2. **`Recreate` deployment strategy**:
+   Kubernetes uses `RollingUpdate` by default, which launches a new pod before terminating
+   the old one. Because the old pod holds the `.runtime.lock` on the persistent volume, a
+   new pod starting concurrently will fail to start. Setting `strategy.type: Recreate`
+   ensures the existing pod drains and terminates cleanly before the replacement pod mounts
+   the volume and starts.
+3. **Persistent volume storage (`ReadWriteOnce`)**:
+   Mount a persistent volume claim at `/data` for the SQLite database and local media storage.
+   Use a block storage provisioner (such as EBS, Ceph RBD, or local persistent volumes)
+   with POSIX filesystem support. Avoid network file systems (such as NFS) that may have
+   unreliable SQLite file locking semantics.
+4. **Ingress and streaming configuration**:
+   Postdot uses Server-Sent Events (SSE) for live event streams (`/api/projects/:projectId/events`).
+   The Ingress controller must disable response proxy buffering and permit large request
+   bodies (at least 100 MB) for media uploads.
+
+## Kubernetes manifest
+
+The following manifest defines a complete Postdot deployment, including a `Secret`,
+`PersistentVolumeClaim`, `Deployment`, `Service`, and `Ingress`.
+
+Save this configuration to `postdot.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: postdot
+---
+apiVersion: v1
+kind: Secret
+metadata:
+    name: postdot-secrets
+    namespace: postdot
+type: Opaque
+stringData:
+    # Generate each 32-byte hex secret with: openssl rand -hex 32
+    BETTER_AUTH_SECRET: replace-with-32-byte-hex-secret
+    POSTDOT_MEDIA_PUBLIC_URL_SECRET: replace-with-32-byte-hex-secret
+    POSTDOT_PUBLISHER_ENCRYPTION_KEY: replace-with-32-byte-hex-secret
+    POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID: v1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: postdot-data
+    namespace: postdot
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: postdot
+    namespace: postdot
+    labels:
+        app.kubernetes.io/name: postdot
+spec:
+    replicas: 1
+    strategy:
+        type: Recreate
+    selector:
+        matchLabels:
+            app.kubernetes.io/name: postdot
+    template:
+        metadata:
+            labels:
+                app.kubernetes.io/name: postdot
+        spec:
+            containers:
+                - name: postdot
+                  image: ghcr.io/postdot/postdot:0.1.0-alpha.6
+                  imagePullPolicy: IfNotPresent
+                  env:
+                      - name: NODE_ENV
+                        value: production
+                      - name: PORT
+                        value: '3000'
+                      - name: DB_FILE_NAME
+                        value: /data/postdot.sqlite
+                      - name: POSTDOT_MIGRATIONS_DIR
+                        value: /app/migrations
+                      - name: POSTDOT_WEB_ASSETS_DIR
+                        value: /app/public
+                      - name: POSTDOT_MEDIA_DIRECTORY
+                        value: /data/media
+                      - name: LOG_PRETTY
+                        value: 'false'
+                      # Canonical public HTTPS origin (no trailing slash)
+                      - name: BETTER_AUTH_URL
+                        value: https://postdot.example.com
+                      - name: POSTDOT_WEB_ORIGIN
+                        value: https://postdot.example.com
+                      - name: BETTER_AUTH_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: postdot-secrets
+                                key: BETTER_AUTH_SECRET
+                      - name: POSTDOT_MEDIA_PUBLIC_URL_SECRET
+                        valueFrom:
+                            secretKeyRef:
+                                name: postdot-secrets
+                                key: POSTDOT_MEDIA_PUBLIC_URL_SECRET
+                      - name: POSTDOT_PUBLISHER_ENCRYPTION_KEY
+                        valueFrom:
+                            secretKeyRef:
+                                name: postdot-secrets
+                                key: POSTDOT_PUBLISHER_ENCRYPTION_KEY
+                      - name: POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID
+                        valueFrom:
+                            secretKeyRef:
+                                name: postdot-secrets
+                                key: POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID
+                  ports:
+                      - name: http
+                        containerPort: 3000
+                        protocol: TCP
+                  livenessProbe:
+                      httpGet:
+                          path: /health
+                          port: http
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+                      timeoutSeconds: 3
+                      failureThreshold: 3
+                  readinessProbe:
+                      httpGet:
+                          path: /ready
+                          port: http
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+                      timeoutSeconds: 3
+                      failureThreshold: 2
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 256Mi
+                      limits:
+                          cpu: 1000m
+                          memory: 1Gi
+                  volumeMounts:
+                      - name: data
+                        mountPath: /data
+            volumes:
+                - name: data
+                  persistentVolumeClaim:
+                      claimName: postdot-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: postdot
+    namespace: postdot
+    labels:
+        app.kubernetes.io/name: postdot
+spec:
+    type: ClusterIP
+    ports:
+        - name: http
+          port: 3000
+          targetPort: http
+          protocol: TCP
+    selector:
+        app.kubernetes.io/name: postdot
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: postdot
+    namespace: postdot
+    annotations:
+        # Disable proxy response buffering for Server-Sent Events (SSE)
+        nginx.ingress.kubernetes.io/proxy-buffering: 'off'
+        nginx.ingress.kubernetes.io/proxy-read-timeout: '86400'
+        nginx.ingress.kubernetes.io/proxy-send-timeout: '86400'
+        # Allow media file uploads up to 100 MB
+        nginx.ingress.kubernetes.io/proxy-body-size: '100m'
+        # Automatic TLS with cert-manager
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+    ingressClassName: nginx
+    tls:
+        - hosts:
+              - postdot.example.com
+          secretName: postdot-tls
+    rules:
+        - host: postdot.example.com
+          http:
+              paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: postdot
+                            port:
+                                number: 3000
+```
+
+## Deployment steps
+
+### 1. Generate secrets
+
+Generate three independent 32-byte hex secrets using OpenSSL:
+
+```sh
+openssl rand -hex 32
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+Replace the placeholder values in the `Secret` resource in `postdot.yaml` with the
+generated values. Losing the publisher encryption key renders stored connection
+credentials unrecoverable.
+
+### 2. Apply the manifest
+
+Create the namespace and deploy all resources:
+
+```sh
+kubectl apply -f postdot.yaml
+```
+
+Monitor the deployment until the pod is ready:
+
+```sh
+kubectl get pods -n postdot -w
+```
+
+### 3. Verify health and readiness probes
+
+Check that both liveness and readiness probes succeed:
+
+```sh
+kubectl describe pod -l app.kubernetes.io/name=postdot -n postdot
+```
+
+The conditions list should show `Initialized`, `Ready`, and `ContainersReady` as `True`.
+
+You can also query the readiness JSON payload directly using Bun's runtime fetch:
+
+```sh
+POD_NAME=$(kubectl get pod -n postdot -l app.kubernetes.io/name=postdot -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n postdot "$POD_NAME" -- bun -e "console.log(await (await fetch('http://127.0.0.1:3000/ready')).text())"
+```
+
+### 4. Create the administrator account
+
+Once the Ingress is active, navigate to your public domain in a browser and create
+the first account to claim the instance. Public registration closes immediately after
+this step.
+
+Alternatively, provision the administrator account non-interactively using `kubectl exec`:
+
+```sh
+# Create a local bootstrap payload
+cat << 'EOF' > bootstrap.json
+{
+  "name": "Administrator",
+  "email": "admin@example.com",
+  "password": "replace-with-a-unique-long-password"
+}
+EOF
+
+# Scale down to release runtime lock
+kubectl scale deployment postdot -n postdot --replicas=0
+kubectl wait --for=delete pod -l app.kubernetes.io/name=postdot -n postdot --timeout=60s
+
+# Run the bootstrap command in a one-off pod mounting the PVC
+kubectl run postdot-bootstrap -n postdot --rm -i --restart=Never \
+  --image=ghcr.io/postdot/postdot:0.1.0-alpha.6 \
+  --overrides='{
+    "spec": {
+      "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": "postdot-data"}}],
+      "containers": [{
+        "name": "bootstrap",
+        "image": "ghcr.io/postdot/postdot:0.1.0-alpha.6",
+        "command": ["bun", "/app/postdot.js", "account", "bootstrap", "--database", "/data/postdot.sqlite"],
+        "stdin": true,
+        "volumeMounts": [{"name": "data", "mountPath": "/data"}]
+      }]
+    }
+  }' < bootstrap.json
+
+# Scale deployment back up
+kubectl scale deployment postdot -n postdot --replicas=1
+rm -f bootstrap.json
+```
+
+## Backup and maintenance
+
+To create a consistent portable backup bundle on Kubernetes:
+
+```sh
+# 1. Trigger the backup inside the running pod
+POD_NAME=$(kubectl get pod -n postdot -l app.kubernetes.io/name=postdot -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n postdot "$POD_NAME" -- mkdir -p /data/backups
+kubectl exec -n postdot "$POD_NAME" -- bun /app/postdot.js backup --media --output /data/backups/manual-backup.bundle
+
+# 2. Copy the bundle to your local administrative machine
+kubectl cp "postdot/$POD_NAME:/data/backups/manual-backup.bundle" ./manual-backup.bundle
+```
+
+Store backup bundles securely outside the Kubernetes cluster.

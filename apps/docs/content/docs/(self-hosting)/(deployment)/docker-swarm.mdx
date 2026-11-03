@@ -1,0 +1,228 @@
+---
+title: Docker Swarm
+description: Deploy Postdot as a Docker Swarm stack with single-replica persistence, stop-first update order, and Traefik ingress.
+---
+
+Postdot runs its API, Studio dashboard, scheduler, and background worker in a single
+process within one container. Application state resides in an embedded SQLite database
+(`/data/postdot.sqlite`) guarded by an exclusive runtime lock (`.runtime.lock`).
+
+When running in a Docker Swarm cluster, stack deployment must be configured to respect
+single-process execution and volume locality. For standalone single-node deployment,
+see the [Docker Compose installation guide](/docs/installation/).
+
+## Swarm architecture constraints
+
+Deploying Postdot as a Swarm service requires three critical configurations:
+
+1. **Strictly one replica (`replicas: 1`)**:
+   Postdot cannot be scaled horizontally across multiple tasks. Two tasks writing to the
+   same SQLite database will encounter locking conflicts or cause data corruption.
+2. **`stop-first` update ordering (`update_config.order: stop-first`)**:
+   Docker Swarm defaults to `start-first` updates, launching a replacement task before
+   stopping the previous task. Because the existing task holds the `.runtime.lock` on the
+   data volume, the replacement task will fail to start. Setting `order: stop-first` ensures
+   the running task stops and releases its runtime lock before the new container starts.
+3. **Volume placement constraints**:
+   By default, named Docker volumes are node-local. In a multi-node Swarm cluster, you
+   must pin the Postdot service to a specific node (for example, using
+   `placement.constraints: [node.labels.postdot-storage == "true"]` or
+   `[node.role == manager]`) so tasks always mount the node hosting the database, unless
+   you use a shared cluster volume driver.
+
+## Swarm stack definition
+
+The following `stack.yaml` defines a complete Postdot deployment on Docker Swarm,
+including service configuration, update policies, and Traefik routing labels.
+
+Save this configuration to `stack.yaml`:
+
+```yaml
+version: '3.8'
+
+services:
+    postdot:
+        image: ghcr.io/postdot/postdot:0.1.0-alpha.6
+        environment:
+            - NODE_ENV=production
+            - PORT=3000
+            - DB_FILE_NAME=/data/postdot.sqlite
+            - POSTDOT_MIGRATIONS_DIR=/app/migrations
+            - POSTDOT_WEB_ASSETS_DIR=/app/public
+            - POSTDOT_MEDIA_DIRECTORY=/data/media
+            - LOG_PRETTY=false
+            # Canonical public HTTPS origin (no trailing slash)
+            - BETTER_AUTH_URL=https://postdot.example.com
+            - POSTDOT_WEB_ORIGIN=https://postdot.example.com
+            - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+            - POSTDOT_MEDIA_PUBLIC_URL_SECRET=${POSTDOT_MEDIA_PUBLIC_URL_SECRET}
+            - POSTDOT_PUBLISHER_ENCRYPTION_KEY=${POSTDOT_PUBLISHER_ENCRYPTION_KEY}
+            - POSTDOT_PUBLISHER_ENCRYPTION_KEY_ID=v1
+        volumes:
+            - postdot-data:/data
+        networks:
+            - traefik-public
+            - internal
+        deploy:
+            mode: replicated
+            replicas: 1
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+                max_attempts: 3
+            update_config:
+                parallelism: 1
+                order: stop-first
+                failure_action: rollback
+                delay: 10s
+            rollback_config:
+                parallelism: 1
+                order: stop-first
+            placement:
+                constraints:
+                    # Pin to manager or a labelled worker with the local volume
+                    - node.role == manager
+            labels:
+                - 'traefik.enable=true'
+                - 'traefik.docker.network=traefik-public'
+                - 'traefik.http.routers.postdot.rule=Host(`postdot.example.com`)'
+                - 'traefik.http.routers.postdot.entrypoints=websecure'
+                - 'traefik.http.routers.postdot.tls.certresolver=letsencrypt'
+                - 'traefik.http.services.postdot.loadbalancer.server.port=3000'
+                - 'traefik.http.services.postdot.loadbalancer.passHostHeader=true'
+
+volumes:
+    postdot-data:
+        name: postdot-data
+
+networks:
+    traefik-public:
+        external: true
+    internal:
+        driver: overlay
+        attachable: false
+```
+
+## Deployment steps
+
+### 1. Initialize Swarm and overlay network
+
+If the host is not already part of a Swarm, initialize it:
+
+```sh
+docker swarm init
+```
+
+Create the external overlay network used by the reverse proxy if it does not already exist:
+
+```sh
+docker network create --driver overlay traefik-public
+```
+
+### 2. Configure deployment secrets
+
+Generate three independent 32-byte hex secrets and save them in a private `.env` file
+in the same directory as `stack.yaml`:
+
+```sh
+touch .env
+chmod 600 .env
+
+cat << EOF >> .env
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+POSTDOT_MEDIA_PUBLIC_URL_SECRET=$(openssl rand -hex 32)
+POSTDOT_PUBLISHER_ENCRYPTION_KEY=$(openssl rand -hex 32)
+EOF
+```
+
+Retain secure off-cluster backups of these keys. Losing `POSTDOT_PUBLISHER_ENCRYPTION_KEY`
+makes stored credentials unusable.
+
+### 3. Deploy the stack
+
+Export the variables from `.env` and deploy the stack into the Swarm cluster:
+
+```sh
+export $(grep -v '^#' .env | xargs)
+docker stack deploy -c stack.yaml postdot
+```
+
+Verify that the service is running and inspect its status:
+
+```sh
+docker stack services postdot
+docker stack ps postdot
+```
+
+### 4. Verify service health and readiness
+
+Inspect container logs to ensure database migrations and scheduler started normally:
+
+```sh
+docker service logs -f postdot_postdot
+```
+
+Query the readiness probe inside the active container using Bun's runtime fetch:
+
+```sh
+CONTAINER_ID=$(docker ps -q -f name=postdot_postdot)
+docker exec "$CONTAINER_ID" bun -e "console.log(await (await fetch('http://127.0.0.1:3000/ready')).text())"
+```
+
+The response returns `{"status":"ready",...}` with positive checks for database,
+scheduler, notifications, and media maintenance.
+
+### 5. Create the administrator account
+
+Open `https://postdot.example.com` in your browser and complete the initial account
+registration form to become the instance administrator. Public registration closes
+automatically.
+
+For offline provisioning:
+
+```sh
+# Stop the service to release the database runtime lock
+docker service scale postdot_postdot=0
+
+cat << 'EOF' > bootstrap.json
+{
+  "name": "Administrator",
+  "email": "admin@example.com",
+  "password": "replace-with-a-unique-long-password"
+}
+EOF
+
+# Run one-off bootstrap container mounting the volume
+docker run --rm -i \
+  -v postdot-data:/data \
+  ghcr.io/postdot/postdot:0.1.0-alpha.6 \
+  account bootstrap --database /data/postdot.sqlite --input /dev/stdin < bootstrap.json
+
+rm -f bootstrap.json
+docker service scale postdot_postdot=1
+```
+
+## Backup and updates
+
+### Create a backup
+
+Execute the backup command inside the active Swarm container:
+
+```sh
+CONTAINER_ID=$(docker ps -q -f name=postdot_postdot)
+docker exec "$CONTAINER_ID" mkdir -p /data/backups
+docker exec "$CONTAINER_ID" bun /app/postdot.js backup --media --output /data/backups/swarm-backup.bundle
+docker cp "$CONTAINER_ID:/data/backups/swarm-backup.bundle" ./swarm-backup.bundle
+```
+
+### Apply an update
+
+When updating the container image or modifying environment settings in `stack.yaml`, re-run:
+
+```sh
+export $(grep -v '^#' .env | xargs)
+docker stack deploy -c stack.yaml postdot
+```
+
+Swarm's `order: stop-first` directive will drain and stop the running container, release
+the `.runtime.lock`, and start the new image with existing data intact.
