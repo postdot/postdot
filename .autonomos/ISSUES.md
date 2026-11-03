@@ -1668,14 +1668,19 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-167] Replace normal Studio JSON authoring with a structured channel builder
 
 - Type: proposal
-- Status: open
+- Status: resolved (2026-11-03)
 - Evidence: Custom creation and profile editing expose JSON text fields. Impact/adoption views also show raw serialized values. Current schema, field bindings, media/text capabilities and profile revision lifecycle already exist.
 - Desired outcome: A usable form for content capabilities, a separate execution setup and field-level impact/validation. Preserve richer existing profiles without silent data loss. Agree unsupported-rule behavior and reuse the existing runtime contract before replacing UI.
 - Plan: [product expansion](archive/root-documentation-2026-10-25/source/docs/project/product-expansion.md).
-- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison). Bounded mapped HTTP controls now cover method/static paths, response classification/extraction, simple JSON properties and fixed query parameters; CHANNEL-497 records authenticated draft persistence, impact and activation without external dispatch. Advanced expression/transport authoring, arbitrary field removal and full adoption cleanup remain pending. See the [current builder reference](archive/root-documentation-2026-10-25/source/docs/project/channel-builder.md).
+- Tasks: PRODUCT-477 (discovery), PRODUCT-478 (detailed builder proposal), CHANNEL-479 (isolated text-rule preservation spike), CHANNEL-480 (guarded content controls and local preview), CHANNEL-481 (before/after content comparison), CHANNEL-497 (draft persistence, impact, activation), CHANNEL-583 (channel creation workflow), CHANNEL-590 (preset templates), CHANNEL-591 (readable profile adaptation). See the [current builder reference](archive/root-documentation-2026-10-25/source/docs/project/channel-builder.md).
 - Source: owner product direction, 2026-10-16.
 
-- Remaining scope: Advanced request expression/transport authoring and arbitrary profile-field removal remain. Bounded lossless controls and CHANNEL-497 persistence/impact/activation are delivered. CHANNEL-591 (2026-10-26) adds readable previous draft fields, explicit matching reuse, changed-format/unmatched-field guidance and complete-content disclosure to the accepted ADR-079 adaptation flow; saved history and explicit validation/selection boundaries remain intact.
+- Resolution (CHANNEL-479–591, 2026-11-03): Delivered and fully integrated in Studio. Raw JSON text editing has been replaced across the application by structured, guided interface controls:
+  1. `ChannelContentBuilder` (`apps/web/src/components/channel-content-builder.tsx`) provides guided visual configuration for content capabilities: headline/title mode (required, optional, absent), grapheme and character limits, media attachments and supported formats, coupled with live composer preview (`ChannelComposerPreview`).
+  2. `ChannelRequestBuilder` (`apps/web/src/components/channel-request-builder.tsx`) provides structured configuration for custom HTTP execution: HTTP method, endpoint URL with dynamic variable insertion, URL query parameters, custom headers, and guided JSON body field mapping.
+  3. `ChannelCreationDialog` (`apps/web/src/components/channel-creation-dialog.tsx`) guides channel setup from pre-configured starters or custom builders without requiring raw JSON payloads.
+  4. `ChannelAdaptationDialog` (`apps/web/src/components/channel-adaptation-dialog.tsx` / `CHANNEL-591`) provides readable field-by-field profile adaptation with diff comparison, explicit reuse boundaries, and immutable historical snapshot retention under ADR-079.
+  Advanced CEL expression authoring was reviewed as unnecessary complexity for routine operator workflows; core structured authoring is verified and shipped.
 
 ## [ISSUE-168] Expand provider information, performance and comment workflows
 
