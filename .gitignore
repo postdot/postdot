@@ -19,6 +19,7 @@ storybook-static/
 coverage/
 playwright-report/
 test-results/
+apps/web/src/locales/
 
 # Runtime data
 data/

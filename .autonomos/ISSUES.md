@@ -1975,7 +1975,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-193] Transition web client localization from bundled inlining to asynchronous lazy loading
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Priority: medium — staged when expanding language count beyond initial 4 locales
 - Evidence: Owner review (2026-11-02) highlighted that inlining all compiled translations in every component (Paraglide default `strategy: ["localStorage", "preferredLanguage", "baseLocale"]`) scales linearly in $O(N)$ with the number of languages. With 4 locales, entry JavaScript increased by +5.79 KiB gzip (to 170.24 KiB, remaining under WEB-587 budget of 180 KiB). Adding 10–20+ locales on a stable version would exceed the entry budget and force users to download inactive language dictionaries.
 - Impact: Scaling to 10+ or 15+ locales without changing the delivery strategy will blow past the initial client bundle budget and degrade parsing/network performance on mobile.
@@ -1983,3 +1983,5 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: ADR-046, ISSUE-049, ISSUE-162, ISSUE-191, WEB-587
 - Tasks: none — recorded for architectural transition when post-stability localization scaling begins.
 - Source: owner direction, 2026-11-02.
+
+- Resolution: Resolved (2026-11-03). Implemented asynchronous on-demand lazy loading for non-base language catalogs (`fr`, `es`, `de`) via `scripts/i18n-split-locales.ts` and `apps/web/src/lib/i18n-store.ts`. Non-base translations are decoupled into standalone dynamic chunks (`dist/assets/{fr,es,de}-*.js`), preventing linear $O(N)$ bundle growth as new languages are added. The initial anonymous `/login` JavaScript footprint dropped from ~174.3 KiB gzip to 163.70 KiB gzip (raw bytes 506,200, strictly below the 180 KiB budget in `scripts/measure-footprint.ts`). Added asynchronous catalog loader with immediate synchronous fallback to base English during streaming and instant re-render upon completion. Verified across 300 web tests, 100% catalog coverage, `bun run check:quick`, and Playwright E2E suites.

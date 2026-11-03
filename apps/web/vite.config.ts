@@ -7,6 +7,21 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 
+import { splitLocales } from '../../scripts/i18n-split-locales'
+
+function splitLocalesPlugin(): Plugin {
+    return {
+        name: 'postdot-i18n-split-locales',
+        enforce: 'post',
+        async buildStart() {
+            await splitLocales()
+        },
+        async configureServer() {
+            await splitLocales()
+        },
+    }
+}
+
 export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, process.cwd(), '')
     const apiOrigin = parseApiOrigin(environment.POSTDOT_API_ORIGIN)
@@ -25,7 +40,9 @@ export default defineConfig(({ mode }) => {
                 project: './project.inlang',
                 outdir: './src/paraglide',
                 strategy: ['localStorage', 'preferredLanguage', 'baseLocale'],
+                outputStructure: 'message-modules',
             }),
+            splitLocalesPlugin(),
             emojiDataAssets(),
             react(),
             tailwindcss(),

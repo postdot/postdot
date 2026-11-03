@@ -1,9 +1,15 @@
 /* cspell:disable */
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
 
 import * as m from '../paraglide/messages.js'
+import { loadLocale } from './i18n-store.js'
 
 describe('web localization foundation', () => {
+    beforeAll(async () => {
+        await loadLocale('fr')
+        await loadLocale('es')
+        await loadLocale('de')
+    })
     test('compiles English, French, Spanish, and German catalogs with typed interpolation', () => {
         const englishMenuLabel = String(m.language_menu_label({}, { locale: 'en' }))
         const frenchMenuLabel = String(m.language_menu_label({}, { locale: 'fr' }))
