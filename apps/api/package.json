@@ -9,7 +9,7 @@
     "scripts": {
         "build": "bun build ./src/index.ts --outdir ./dist --target bun --minify",
         "dev": "bun ../../scripts/dev-api.ts",
-        "lint": "oxlint --deny-warnings .",
+        "lint": "oxlint --type-aware --deny-warnings .",
         "lint:fix": "oxlint --fix .",
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",

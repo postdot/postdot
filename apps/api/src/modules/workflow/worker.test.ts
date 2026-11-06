@@ -658,7 +658,7 @@ describe('publication worker', () => {
                 ])
             )
         } finally {
-            receiver.stop()
+            await receiver.stop()
             closeDatabase(database)
         }
     })
@@ -1288,7 +1288,7 @@ describe('publication worker', () => {
                     .all()
             ).toEqual([{ state: 'published' }])
         } finally {
-            receiver.stop()
+            await receiver.stop()
             closeDatabase(database)
         }
     })
@@ -1575,7 +1575,7 @@ describe('publication worker', () => {
             await worker.stop()
         } finally {
             releaseTimedOutRequest?.()
-            receiver.stop()
+            await receiver.stop()
             closeDatabase(database)
         }
     })
@@ -1760,7 +1760,7 @@ describe('publication worker', () => {
                     .all()
             ).toEqual([{ state: 'published' }])
         } finally {
-            receiver.stop()
+            await receiver.stop()
             closeDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
@@ -2055,7 +2055,7 @@ describe('publication worker', () => {
                     .all()
             ).toEqual([{ state: 'published', externalId: 'urn:li:post:refreshed' }])
         } finally {
-            provider.stop()
+            await provider.stop()
             closeDatabase(database)
         }
     })

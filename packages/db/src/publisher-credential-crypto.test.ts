@@ -99,7 +99,7 @@ describe('publisher credential cipher', () => {
     })
 
     it('validates key and secret material without including it in errors', async () => {
-        expectCipherError(
+        await expectCipherError(
             () =>
                 createPublisherCredentialCipher({
                     keyId: 'primary',

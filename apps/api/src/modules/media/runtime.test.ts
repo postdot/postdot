@@ -35,8 +35,11 @@ describe('media runtime maintenance', () => {
         await new Promise(resolve => setTimeout(resolve, 10))
         expect(runtime.state).toBe('running')
 
-        runtime.stop()
+        // Shutdown waits for the reconciliation still in flight.
+        const stopping = runtime.stop()
         expect(runtime.state).toBe('stopped')
+        release?.()
+        await stopping
         const callsAfterStop = calls
         await new Promise(resolve => setTimeout(resolve, 15))
         expect(calls).toBe(callsAfterStop)
@@ -103,14 +106,14 @@ describe('media runtime maintenance', () => {
         expect(runtime.state).toBe('failed')
         expect(errors).toEqual([failure])
 
-        runtime.stop()
+        await runtime.stop()
         runtime.start()
         expect(runtime.state).toBe('recovering')
         await new Promise(resolve => setTimeout(resolve, 70))
         expect(runtime.state).toBe('started')
         expect(calls).toBe(2)
 
-        runtime.stop()
+        await runtime.stop()
     })
 
     it('rejects an invalid reconciliation interval', () => {

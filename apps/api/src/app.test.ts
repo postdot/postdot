@@ -4953,7 +4953,7 @@ describe('Postdot API', () => {
                     .all()
             ).toEqual([{ state: 'active' }])
         } finally {
-            provider.stop()
+            await provider.stop()
             closeDatabase(database)
         }
     })
@@ -5079,7 +5079,7 @@ describe('Postdot API', () => {
                 scopes: ['openid', 'profile', 'rw_organization_admin', 'w_organization_social'],
             })
         } finally {
-            provider.stop()
+            await provider.stop()
             closeDatabase(database)
         }
     })
@@ -5454,7 +5454,7 @@ describe('Postdot API', () => {
                     .all()
             ).toEqual([{ state: 'active' }])
         } finally {
-            provider.stop()
+            await provider.stop()
             closeDatabase(database)
         }
     })
@@ -5634,7 +5634,7 @@ describe('Postdot API', () => {
             expect(JSON.stringify(listBody)).not.toContain('x-access-token-2')
             expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-2')
         } finally {
-            provider.stop()
+            await provider.stop()
             closeDatabase(database)
         }
     })
