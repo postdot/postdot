@@ -70,10 +70,19 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
    expressions (JSON, epoch time, pattern match, introspection, constraint-error classification)
    live in one dialect module. There is still no universal repository layer or second copy of the
    store logic.
-6. **Schema and migrations are regenerated per engine.** The 27-file SQLite chain is replaced by
-   one generated baseline per engine, plus one explicit, reviewed file of extras per engine
-   (triggers, views, expression indexes). Each later schema change produces one migration per
-   engine. Integer millisecond timestamps become `bigint` in PostgreSQL.
+6. **Postdot owns its schema as portable SQL migrations; Drizzle is retired** (amended
+   2026-11-06, owner). Drizzle schemas are bound to one engine and Postdot already runs only
+   raw SQL, so Drizzle offered no shared schema. Each migration is one file: SQL common to
+   both engines (SQLite accepts PostgreSQL type names such as `bigint`, `text`, `boolean`),
+   plus an explicit per-engine section only where they differ (identity keys, `blob`/`bytea`,
+   triggers, deferred constraints). A Postdot-owned runner applies them with the existing
+   fail-closed checks, and an automated parity test migrates both engines and compares the
+   introspected schemas (tables, columns, nullability, defaults, keys, indexes, foreign keys).
+   No conversion tool generates one engine's schema from the other. The current schema becomes
+   one portable baseline; an up-to-date SQLite database from the historical Drizzle chain is
+   adopted in place (baseline recorded as applied) rather than recreated. Integer millisecond
+   timestamps are `bigint`. Drizzle's remaining uses (API response schemas, test queries,
+   the Better Auth adapter) are replaced; Better Auth uses an adapter on the persistence port.
 7. **Topology is enforced by construction.** The profile defines the instance capability:
    - SQLite **or** local media → **single instance**. With SQLite, the existing sidecar lock
      already refuses a second process. PostgreSQL with local media takes a database-held
@@ -95,8 +104,8 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
 | Task | Content |
 |------|---------|
 | DB-609 | Phase 0: async port, SQLite writer gate, ambient transactions, every store and caller converted, SQLite only, no behaviour change |
-| DB-610 | Phase 1: dialect module, portable SQL audit, regenerated SQLite baseline plus explicit extras |
-| DB-611 | Phase 2: PostgreSQL adapter, schema, baseline, Better Auth adapter, CI parity on both engines |
+| DB-610 | Phase 1: dialect module and portable SQL audit of runtime statements |
+| DB-611 | Phase 2: PostgreSQL adapter, portable SQL migrations and runner with schema parity, Better Auth on the port, Drizzle retired, CI parity on both engines |
 | DB-612 | Phase 3: topology guard, multi-instance coordination, PostgreSQL operations runbook |
 | DB-613 | Phase 4: profile transfer (database export/import, media copy) and documentation |
 
