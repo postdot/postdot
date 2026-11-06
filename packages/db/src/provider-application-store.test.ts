@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 
 import { providerApplicationPolicies } from '../../../apps/api/src/providers/registry'
-import { closeDatabase, createDatabase } from './client'
 import { createSecretCipher } from './encrypted-secret-crypto'
-import { runMigrations } from './migrations'
 import { createProviderApplicationStore } from './provider-application-store'
+import { closeTestDatabase, openTestDatabase } from './testing'
 
 const now = 1_800_000_000_000
 
-function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
-    database.$client
-        .query(
+async function createFixture() {
+    const database = (await openTestDatabase()).database
+    await database.sql
+        .statement(
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
@@ -36,7 +34,7 @@ function createFixture() {
 
 describe('provider application store', () => {
     it('encrypts client secrets and only exposes safe metadata', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const secret = 'unique-provider-client-secret-for-file-scan'
@@ -64,8 +62,8 @@ describe('provider application store', () => {
             const resolved = await fixture.store.resolveProviderApplication('linkedin')
             expect(resolved?.clientSecret).toBe(secret)
 
-            const stored = fixture.database.$client
-                .query<{ ciphertext: Uint8Array }, []>(
+            const stored = await fixture.database.sql
+                .statement<{ ciphertext: Uint8Array }, []>(
                     `select client_secret_ciphertext as ciphertext
                      from provider_application_configurations`
                 )
@@ -73,12 +71,12 @@ describe('provider application store', () => {
             expect(stored).not.toBeNull()
             expect(Buffer.from(stored?.ciphertext ?? []).includes(Buffer.from(secret))).toBe(false)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('maintains one active default and promotes a fallback when disabling it', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const first = await fixture.store.createProviderApplication({
@@ -122,12 +120,12 @@ describe('provider application store', () => {
                 )
             ).toHaveLength(1)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
     it('validates provider-specific configuration shapes', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const loopback = await fixture.store.createProviderApplication({
@@ -183,13 +181,13 @@ describe('provider application store', () => {
                 oauthMode: 'loopback',
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })
 
 it('encrypts Facebook application secrets and rejects non-numeric application IDs', async () => {
-    const { database, store } = createFixture()
+    const { database, store } = await createFixture()
     try {
         await expect(
             store.createProviderApplication({
@@ -216,16 +214,18 @@ it('encrypts Facebook application secrets and rejects non-numeric application ID
         )
         expect(
             JSON.stringify(
-                database.$client.query('select * from provider_application_configurations').all()
+                await database.sql
+                    .statement('select * from provider_application_configurations')
+                    .all()
             )
         ).not.toContain('facebook-encrypted-secret')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('encrypts Instagram application secrets and only exposes safe metadata', async () => {
-    const { database, store } = createFixture()
+    const { database, store } = await createFixture()
     try {
         const secret = 'instagram-encrypted-secret'
         const saved = await store.createProviderApplication({
@@ -250,8 +250,8 @@ it('encrypts Instagram application secrets and only exposes safe metadata', asyn
         expect(
             JSON.stringify(await store.listProviderApplicationConfigurations('instagram'))
         ).not.toContain(secret)
-        const stored = database.$client
-            .query<{ ciphertext: Uint8Array }, []>(
+        const stored = await database.sql
+            .statement<{ ciphertext: Uint8Array }, []>(
                 `select client_secret_ciphertext as ciphertext
                  from provider_application_configurations
                  where provider_id = 'instagram'`
@@ -259,14 +259,16 @@ it('encrypts Instagram application secrets and only exposes safe metadata', asyn
             .get()
         expect(stored).not.toBeNull()
         expect(Buffer.from(stored?.ciphertext ?? []).includes(Buffer.from(secret))).toBe(false)
-        expect((await store.resolveProviderApplication('instagram'))?.clientSecret).toBe(secret)
+        ;(await expect((await store.resolveProviderApplication('instagram'))?.clientSecret)).toBe(
+            secret
+        )
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('rejects unusable Instagram application identifiers and public configuration fields', async () => {
-    const { database, store } = createFixture()
+    const { database, store } = await createFixture()
     try {
         for (const clientId of ['not-an-app-id', '0', '-12', '12.5', '0123', ' 1234']) {
             await expect(
@@ -309,12 +311,12 @@ it('rejects unusable Instagram application identifiers and public configuration 
             })
         ).rejects.toThrow('clientSecret must not be blank')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('keeps Instagram defaults, secret preservation and disabling independent per provider', async () => {
-    const { database, store } = createFixture()
+    const { database, store } = await createFixture()
     try {
         const facebook = await store.createProviderApplication({
             providerId: 'facebook',
@@ -381,6 +383,6 @@ it('keeps Instagram defaults, secret preservation and disabling independent per 
             facebook.configuration.id
         )
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

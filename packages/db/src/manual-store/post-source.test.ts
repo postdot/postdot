@@ -1,14 +1,11 @@
 import { expect, test } from 'bun:test'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 test('saves a shared source after publication without changing drafts, targets or jobs', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const projectId = (
             await store.createProject({
@@ -44,7 +41,7 @@ test('saves a shared source after publication without changing drafts, targets o
             'publication_approval_requests',
         ]
         const snapshot = () =>
-            tables.map(table => database.$client.query(`select * from ${table}`).all())
+            tables.map(async table => await database.sql.statement(`select * from ${table}`).all())
         const before = snapshot()
         const input = {
             projectId,
@@ -86,8 +83,8 @@ test('saves a shared source after publication without changing drafts, targets o
         ).rejects.toThrow('Source media')
         expect(await store.getPost(projectId, initial.post.id, 'owner')).toEqual(saved)
         expect(snapshot()).toEqual(before)
-        const events = database.$client
-            .query<{ action: string; metadata: string }, []>(
+        const events = await database.sql
+            .statement<{ action: string; metadata: string }, []>(
                 "select action, metadata_json as metadata from audit_events where action = 'post.source.updated'"
             )
             .all()
@@ -98,6 +95,6 @@ test('saves a shared source after publication without changing drafts, targets o
         })
         expect(events[0]!.metadata).not.toContain('New shared source')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

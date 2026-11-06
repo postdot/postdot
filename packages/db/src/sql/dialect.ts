@@ -271,6 +271,11 @@ export function scalarMaxSql(
     dialect: SqlDialect,
     ...expressions: readonly [string, string, ...string[]]
 ): string {
+    if (expressions.some(expression => /\?(?!\d)/.test(expression))) {
+        // The PostgreSQL form repeats each expression; an unnumbered placeholder
+        // would then shift every following parameter.
+        throw new Error('scalarMaxSql expressions must use numbered ?N placeholders')
+    }
     if (dialect === 'sqlite') {
         return `max(${expressions.join(', ')})`
     }
@@ -296,7 +301,7 @@ export function auditEventSequenceHighWaterSql(dialect: SqlDialect): string {
     if (dialect === 'sqlite') {
         return "select seq as sequence from sqlite_sequence where name = 'audit_events'"
     }
-    return "select case when is_called then last_value else 0 end as sequence from pg_sequences where schemaname = current_schema() and sequencename = 'audit_events_sequence_seq'"
+    return "select coalesce(last_value, 0) as sequence from pg_sequences where schemaname = current_schema() and sequencename = 'audit_events_sequence_seq'"
 }
 
 /**

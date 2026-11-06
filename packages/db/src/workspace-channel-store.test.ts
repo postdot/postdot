@@ -1,10 +1,10 @@
 import { expect, it } from 'bun:test'
 
 import { CadenceConflictError, cadencePeriod, createChannelCadenceStore } from './channel-cadence'
-import { closeDatabase, createDatabase, setDatabaseCommitObserver } from './client'
+import { setDatabaseCommitObserver } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
+import { closeTestDatabase, foreignKeyViolations, openTestDatabase } from './testing'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 import {
     createWorkspaceChannelStore,
@@ -13,14 +13,13 @@ import {
 } from './workspace-channel-store'
 
 async function fixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     for (const id of ['workspace', 'foreign']) {
-        database.$client
-            .query('insert into organization(id,name,slug,created_at) values (?,?,?,100)')
+        await database.sql
+            .statement('insert into organization(id,name,slug,created_at) values (?,?,?,100)')
             .run(id, id, id)
-        database.$client
-            .query(
+        await database.sql
+            .statement(
                 'insert into workspaces(id,organization_id,name,slug,created_at,updated_at) values (?,?,?,?,100,100)'
             )
             .run(id, id, id, id)
@@ -143,13 +142,13 @@ it('creates one workspace-owned channel, profile, attachment, manager and attrib
         })
         expect(f.channel).not.toHaveProperty('projectId')
         expect(
-            f.database.$client
-                .query('select project_id from channel_managers where channel_id=?')
+            await f.database.sql
+                .statement('select project_id from channel_managers where channel_id=?')
                 .get(f.channel.id)
         ).toEqual({ project_id: f.source.project.id })
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select origin,attached_by_actor_id from project_channel_attachments where channel_id=?'
                 )
                 .get(f.channel.id)
@@ -162,9 +161,9 @@ it('creates one workspace-owned channel, profile, attachment, manager and attrib
                 .filter(event => event.subject.id === f.channel.id)
                 .map(event => [event.name, event.actorId, event.subject.id])
         ).toEqual([['channel.created', f.actor.id, f.channel.id]])
-        expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        expect(await foreignKeyViolations(f.database)).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -209,7 +208,7 @@ it('shares by attachment without exposing an unreadable manager project or conne
         ).toEqual({ kind: 'not_found' })
         expect(await f.store.listProject(reader, f.source.project.id)).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -270,7 +269,7 @@ it('keeps sharing authority separate from connection-management capabilities and
             })
         ).toEqual({ kind: 'not_found' })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -305,12 +304,12 @@ it('allows a project owner to withdraw its own use with only that project in sco
             shared: false,
         })
         expect(
-            f.database.$client
-                .query('select project_id from channel_managers where channel_id=?')
+            await f.database.sql
+                .statement('select project_id from channel_managers where channel_id=?')
                 .get(f.channel.id)
         ).toEqual({ project_id: f.source.project.id })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -336,13 +335,13 @@ it('requires an explicit last-attachment archive choice and leaves no accidental
             })
         ).toEqual({ kind: 'changed', revision: 2 })
         expect(
-            f.database.$client
-                .query('select state,archived_at,revision from channels where id=?')
+            await f.database.sql
+                .statement('select state,archived_at,revision from channels where id=?')
                 .get(f.channel.id)
         ).toEqual({ state: 'archived', archived_at: f.now, revision: 2 })
         expect(
-            f.database.$client
-                .query('select * from channel_managers where channel_id=?')
+            await f.database.sql
+                .statement('select * from channel_managers where channel_id=?')
                 .all(f.channel.id)
         ).toEqual([])
         expect(
@@ -351,7 +350,7 @@ it('requires an explicit last-attachment archive choice and leaves no accidental
             )
         ).toEqual(['channel.project_detached', 'channel.archived'])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -393,7 +392,7 @@ it('checks revisions and transfers management explicitly without granting it thr
             })
         ).toEqual({ kind: 'not_found' })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -410,7 +409,7 @@ it('rolls back resource creation and its wakeup if journal persistence fails', a
             subject: { type: 'test', id: 'test' },
             occurredAt: 1000,
         })
-        const before = f.database.$client.query('select id from channels order by id').all()
+        const before = await f.database.sql.statement('select id from channels order by id').all()
         const wakeups: unknown[] = []
         const remove = setDatabaseCommitObserver(f.database, ids => wakeups.push(ids))
         let sequence = 0
@@ -422,19 +421,19 @@ it('rolls back resource creation and its wakeup if journal persistence fails', a
         await expect(
             failing.create(f.ctx, { projectId: f.source.project.id, name: 'Must roll back' })
         ).rejects.toThrow()
-        expect(f.database.$client.query('select id from channels order by id').all()).toEqual(
+        expect(await f.database.sql.statement('select id from channels order by id').all()).toEqual(
             before
         )
         expect(
-            f.database.$client
-                .query("select id from channel_profile_versions where id='new-profile'")
+            await f.database.sql
+                .statement("select id from channel_profile_versions where id='new-profile'")
                 .all()
         ).toEqual([])
         expect(wakeups).toEqual([])
-        expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        expect(await foreignKeyViolations(f.database)).toEqual([])
         remove()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -468,15 +467,15 @@ it('filters workspace metadata per channel and keeps administration separate fro
         ).toMatchObject({ canManage: true, management: { kind: 'project', project: null } })
         expect(await f.store.listWorkspace(admin, 'foreign')).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('preserves migrated attachment provenance and requires explicit management recovery after reattachment', async () => {
     const f = await fixture()
     try {
-        const original = f.database.$client
-            .query(
+        const original = await f.database.sql
+            .statement(
                 'select origin,attached_at,attached_by_actor_id from project_channel_attachments where project_id=? and channel_id=?'
             )
             .get(f.source.project.id, f.seed.id)
@@ -499,14 +498,14 @@ it('preserves migrated attachment provenance and requires explicit management re
                 expectedRevision: 3,
             })
         ).toEqual({ kind: 'not_found' })
-        f.database.$client
-            .query(`insert into channel_profile_versions
+        await f.database.sql
+            .statement(`insert into channel_profile_versions
             (id,workspace_id,channel_id,profile_id,version,origin,state,profile_json,profile_hash,schema_hash,created_by_actor_id)
             select 'late-profile',workspace_id,channel_id,profile_id,version+1,origin,'draft',profile_json,profile_hash,schema_hash,created_by_actor_id from channel_profile_versions where id=?`)
             .run(f.seed.profileVersionId)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select project_id from project_channel_profiles where project_id=? and profile_id='late-profile'"
                 )
                 .all(f.source.project.id)
@@ -520,22 +519,22 @@ it('preserves migrated attachment provenance and requires explicit management re
             })
         ).toEqual({ kind: 'changed', revision: 4 })
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select origin,attached_at,attached_by_actor_id from project_channel_attachments where project_id=? and channel_id=?'
                 )
                 .get(f.source.project.id, f.seed.id)
         ).toEqual(original)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select project_id from project_channel_profiles where project_id=? and profile_id='late-profile'"
                 )
                 .all(f.source.project.id)
         ).toEqual([{ project_id: f.source.project.id }])
         expect(
-            f.database.$client
-                .query('select * from channel_managers where channel_id=?')
+            await f.database.sql
+                .statement('select * from channel_managers where channel_id=?')
                 .all(f.seed.id)
         ).toEqual([])
         expect(
@@ -555,7 +554,7 @@ it('preserves migrated attachment provenance and requires explicit management re
             toProjectId: f.target.project.id,
         })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -589,15 +588,15 @@ it('keeps last-retired resources available to workspace administrators without r
         ).toMatchObject({ state: 'archived', canManage: true, management: { kind: 'workspace' } })
         expect(await f.store.listProject(admin, f.source.project.id, true)).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('withdraws from an already archived channel without repeating the archive decision or rewriting its timestamp', async () => {
     const f = await fixture()
     try {
-        f.database.$client
-            .query("update channels set state='archived',archived_at=? where id=?")
+        await f.database.sql
+            .statement("update channels set state='archived',archived_at=? where id=?")
             .run(f.now - 10, f.channel.id)
         const before = await createEventJournalStore(f.database).latestCursor()
         expect(
@@ -608,8 +607,8 @@ it('withdraws from an already archived channel without repeating the archive dec
             })
         ).toEqual({ kind: 'changed', revision: 2 })
         expect(
-            f.database.$client
-                .query('select archived_at from channels where id=?')
+            await f.database.sql
+                .statement('select archived_at from channels where id=?')
                 .get(f.channel.id)
         ).toEqual({ archived_at: f.now - 10 })
         expect(
@@ -621,7 +620,7 @@ it('withdraws from an already archived channel without repeating the archive dec
             ).map(event => event.name)
         ).toEqual(['channel.project_detached'])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -718,7 +717,7 @@ it('reports only time taken by other projects, anonymously unless the project is
             f.store.occupancy(f.ctx, f.source.project.id, { from: 10, to: 10 })
         ).rejects.toThrow()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -765,7 +764,7 @@ it('configures cadence only through live management, defaults the timezone and r
             })
         ).toMatchObject({ revision: 2, dailyMax: null, weeklyMax: null, minimumIntervalMs: null })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -804,19 +803,19 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
                 return error as CadenceConflictError
             }
         }
-        const before = f.database.$client
-            .query<{ n: number }, []>('select count(*) as n from posts')
-            .get()!.n
+        const before = (await f.database.sql
+            .statement<{ n: number }, []>('select count(*) as n from posts')
+            .get())!.n
         const conflict = await capture(() => create(at))
         expect(conflict.warnings.map(w => w.rule)).toEqual(['daily_max', 'weekly_max'])
         expect(JSON.stringify(conflict)).not.toContain('Private')
-        expect(f.database.$client.query('select count(*) as n from posts').get()).toEqual({
+        expect(await f.database.sql.statement('select count(*) as n from posts').get()).toEqual({
             n: before,
         })
         const second = (await create(at, conflict.confirmation)).publications[0]!
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select action from audit_events where action='publication.cadence_confirmed'"
                 )
                 .all()
@@ -862,7 +861,7 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
             })
         ).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -894,8 +893,8 @@ it('persists an attributed single-effect spacing override and invalidates it on 
         }))!
         const publication = created.publications[0]!
         // The pacing service also serves automatic work without requiring a live provider in this fixture.
-        f.database.$client
-            .query("update publications set delivery_mode='automatic' where id=?")
+        await f.database.sql
+            .statement("update publications set delivery_mode='automatic' where id=?")
             .run(publication.id)
         await f.store.configureCadence(f.ctx, {
             channelId: f.channel.id,
@@ -904,8 +903,8 @@ it('persists an attributed single-effect spacing override and invalidates it on 
             weeklyMax: null,
             minimumIntervalMs: 60000,
         })
-        f.database.$client
-            .query('update channel_cadence set last_effect_at=? where channel_id=?')
+        await f.database.sql
+            .statement('update channel_cadence set last_effect_at=? where channel_id=?')
             .run(f.now, f.channel.id)
         const cadence = createChannelCadenceStore(f.database)
         const timing = (await cadence.timing(projectId, publication.id))!
@@ -949,7 +948,7 @@ it('persists an attributed single-effect spacing override and invalidates it on 
         await cadence.recordEffect(publication.id, f.now + 1)
         expect((await cadence.timing(projectId, publication.id))?.eligibleAt).toBe(f.now + 60001)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -1011,6 +1010,6 @@ it('counts shared manual work at its recorded outcome time without exposing its 
             now + 60000
         )
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

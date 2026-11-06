@@ -1,16 +1,13 @@
 import { expect, test } from 'bun:test'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 const sourceContent = { body: { text: 'Shared source', format: 'plain_text' as const }, media: [] }
 
 test('adds current-source drafts atomically without changing existing targets or scheduling jobs', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const project = (
             await store.createProject({
@@ -41,7 +38,7 @@ test('adds current-source drafts atomically without changing existing targets or
             initial.publications[0]!.id,
             'owner'
         )
-        const jobsBefore = database.$client.query('select * from jobs').all()
+        const jobsBefore = await database.sql.statement('select * from jobs').all()
         const input = {
             projectId: project.id,
             postId: initial.post.id,
@@ -65,7 +62,9 @@ test('adds current-source drafts atomically without changing existing targets or
                 ],
             })
         ).rejects.toThrow()
-        expect(database.$client.query('select count(*) as count from publications').get()).toEqual({
+        expect(
+            await database.sql.statement('select count(*) as count from publications').get()
+        ).toEqual({
             count: 1,
         })
         await expect(
@@ -102,11 +101,11 @@ test('adds current-source drafts atomically without changing existing targets or
         expect(
             await store.getPublicationEditorState(project.id, initial.publications[0]!.id, 'owner')
         ).toEqual(before)
-        expect(database.$client.query('select * from jobs').all()).toEqual(jobsBefore)
-        expect(database.$client.query('select count(*) as count from posts').get()).toEqual({
+        expect(await database.sql.statement('select * from jobs').all()).toEqual(jobsBefore)
+        expect(await database.sql.statement('select count(*) as count from posts').get()).toEqual({
             count: 1,
         })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

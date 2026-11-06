@@ -2853,3 +2853,12 @@ create trigger workspaces_lifecycle_identity before insert on "workspaces"
 -- postdot:common
 insert into "instance_state" ("id", "state", "bootstrap_blocked", "created_at", "updated_at")
 values ('default', 'claimable', 0, cast(unixepoch('subsecond') * 1000 as bigint), cast(unixepoch('subsecond') * 1000 as bigint));
+
+-- postdot:postgres
+-- Scope cleanup triggers remove actors and project attachments after the
+-- owning scope's dependent rows have cascaded (SQLite checks NO ACTION keys at
+-- statement end, after triggers). PostgreSQL fires its key checks and these
+-- AFTER triggers in name order, so these keys are checked at commit instead.
+alter table "actors" alter constraint "actors_project_id_fkey" deferrable initially deferred;
+alter table "actors" alter constraint "actors_workspace_id_fkey" deferrable initially deferred;
+alter table "project_channel_attachments" alter constraint "project_channel_attachments_workspace_id_project_id_fkey" deferrable initially deferred;

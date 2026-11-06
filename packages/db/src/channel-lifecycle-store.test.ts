@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
-import { publishers } from './schema'
-import { seedTestWorkspace, workspaceOf } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace, workspaceOf } from './testing'
 
 const now = 1_800_000_000_000
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const store = createManualStore(database, { now: () => now })
     const project = await store.createProject({
         workspaceId: await seedTestWorkspace(database),
@@ -122,7 +118,7 @@ describe('channel lifecycle store', () => {
                 'project.created',
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -156,7 +152,7 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'blocked', blockers: ['active_work'] })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -170,15 +166,16 @@ describe('channel lifecycle store', () => {
                 subjectId: 'user-1',
                 expectedRevision: 1,
             })
-            fixture.database
-                .insert(publishers)
-                .values({
-                    id: 'publisher-1',
-                    workspaceId: await workspaceOf(fixture.database, fixture.project.project.id),
-                    channelId: fixture.channel.id,
-                    kind: 'manual',
-                })
-                .run()
+            await fixture.database.sql
+                .statement<never, [string, string, string, string]>(
+                    'insert into publishers (id, workspace_id, channel_id, kind) values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'publisher-1',
+                    await workspaceOf(fixture.database, fixture.project.project.id),
+                    fixture.channel.id,
+                    'manual'
+                )
 
             expect(
                 await fixture.store.deleteChannel({
@@ -189,8 +186,8 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'blocked', blockers: ['publisher'] })
 
-            fixture.database.$client
-                .query('delete from publishers where id = ?1')
+            await fixture.database.sql
+                .statement('delete from publishers where id = ?1')
                 .run('publisher-1')
             expect(
                 await fixture.store.deleteChannel({
@@ -201,7 +198,7 @@ describe('channel lifecycle store', () => {
                 })
             ).toEqual({ kind: 'deleted' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -234,7 +231,7 @@ describe('channel lifecycle store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

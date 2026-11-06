@@ -536,7 +536,7 @@ export function createWorkspaceChannelStore(
             validateCadence(value)
             await sql
                 .statement(`insert into channel_cadence (channel_id,revision,time_zone,daily_max,weekly_max,minimum_interval_ms,updated_by_actor_id,updated_at)
-            values (?,1,?,?,?,?,?,?) on conflict(channel_id) do update set revision=revision+1,time_zone=excluded.time_zone,
+            values (?,1,?,?,?,?,?,?) on conflict(channel_id) do update set revision=channel_cadence.revision+1,time_zone=excluded.time_zone,
             daily_max=excluded.daily_max,weekly_max=excluded.weekly_max,minimum_interval_ms=excluded.minimum_interval_ms,
             updated_by_actor_id=excluded.updated_by_actor_id,updated_at=excluded.updated_at`)
                 .run(
@@ -550,9 +550,9 @@ export function createWorkspaceChannelStore(
                 )
             await sql
                 .statement(
-                    `update channel_cadence set last_effect_at=nullif(${scalarMaxSql(sql.dialect, 'coalesce(last_effect_at,0)', 'coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?),0)')},0) where channel_id=?`
+                    `update channel_cadence set last_effect_at=nullif(${scalarMaxSql(sql.dialect, 'coalesce(last_effect_at,0)', 'coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?1),0)')},0) where channel_id=?1`
                 )
-                .run(row.id, row.id)
+                .run(row.id)
             await sql
                 .statement(
                     'delete from publication_cadence_overrides where publication_id in (select id from publications where channel_id=?)'

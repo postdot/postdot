@@ -26,6 +26,7 @@ import type {
  * Result rows are normalized to the SQLite profile's shape:
  * - `bigint` (int8) values become JavaScript numbers (integer milliseconds,
  *   sequences); a value beyond 2^53 is rejected rather than rounded;
+ * - booleans from expressions (`exists`, comparisons) become 1/0;
  * - unquoted `as camelCase` aliases, folded to lowercase by PostgreSQL, are
  *   restored from the statement text.
  */
@@ -196,6 +197,9 @@ async function* yieldRows<Row>(rows: Promise<Row[]>): AsyncGenerator<Row> {
 }
 
 function normalizeValue(value: unknown): unknown {
+    // Postdot stores flags as integers; booleans only come from expressions
+    // (exists, comparisons), which SQLite returns as 1/0.
+    if (typeof value === 'boolean') return value ? 1 : 0
     if (typeof value !== 'bigint') return value
     if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
         throw new RangeError(`Integer ${value} exceeds the safe JavaScript range`)

@@ -6,11 +6,9 @@ import {
     processNextExternalEffect,
 } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from './client'
 import { SecretCipherError } from './encrypted-secret-crypto'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
 import {
     createNotificationDeliveryStore,
     type NotificationDelivery,
@@ -18,14 +16,19 @@ import {
 import { createNotificationDestinationSecretCipher } from './notification-destination-secret-crypto'
 import { createNotificationDestinationSecretStore } from './notification-destination-secret-store'
 import { createNotificationStore } from './notification-store'
-import { seedTestWorkspace } from './testing'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+} from './testing'
 
 const eventTime = 1_800_000_000_000
 const operationTime = eventTime + 1_000
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     let nextId = 0
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
@@ -141,7 +144,7 @@ describe('notification delivery store', () => {
                 },
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -172,22 +175,22 @@ describe('notification delivery store', () => {
             })
             expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(2)
 
-            const firstDelivery = fixture.database.$client
-                .query<{ readonly id: string }, [destinationId: string]>(
+            const firstDelivery = await fixture.database.sql
+                .statement<{ readonly id: string }, [destinationId: string]>(
                     'select id from notification_deliveries where destination_id = ?1'
                 )
                 .get(firstDestination.id)
             if (firstDelivery === null) throw new Error('The first delivery is missing')
 
-            expect(() =>
-                fixture.database.$client
-                    .query<void, [secretId: string, deliveryId: string]>(
+            await expect(
+                fixture.database.sql
+                    .statement<void, [secretId: string, deliveryId: string]>(
                         'update notification_deliveries set secret_id = ?1 where id = ?2'
                     )
                     .run(secondSecret.id, firstDelivery.id)
-            ).toThrow()
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -318,16 +321,16 @@ describe('notification delivery store', () => {
             }
             expect(wrongKeyError).toBeInstanceOf(SecretCipherError)
 
-            const storedCiphertext = fixture.database.$client
-                .query<{ readonly ciphertext: Uint8Array }, [id: string]>(
+            const storedCiphertext = await fixture.database.sql
+                .statement<{ readonly ciphertext: Uint8Array }, [id: string]>(
                     'select ciphertext from notification_destination_secrets where id = ?1'
                 )
                 .get(secondSecret.id)
             if (storedCiphertext === null) throw new Error('The stored secret is missing')
             const tamperedCiphertext = Uint8Array.from(storedCiphertext.ciphertext)
             tamperedCiphertext[0] = (tamperedCiphertext[0] ?? 0) ^ 1
-            fixture.database.$client
-                .query<void, [ciphertext: Uint8Array, id: string]>(
+            await fixture.database.sql
+                .statement<void, [ciphertext: Uint8Array, id: string]>(
                     'update notification_destination_secrets set ciphertext = ?1 where id = ?2'
                 )
                 .run(tamperedCiphertext, secondSecret.id)
@@ -343,8 +346,8 @@ describe('notification delivery store', () => {
             }
             expect(tamperingError).toBeInstanceOf(SecretCipherError)
 
-            const storedSecrets = fixture.database.$client
-                .query<
+            const storedSecrets = await fixture.database.sql
+                .statement<
                     {
                         readonly state: string
                         readonly ciphertext: Uint8Array
@@ -364,7 +367,7 @@ describe('notification delivery store', () => {
             )
             expect(storedSecrets.every(secret => secret.nonce.byteLength === 12)).toBe(true)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -409,13 +412,13 @@ describe('notification delivery store', () => {
                     })
                 )?.items
             ).toEqual([])
-            expect(() =>
-                fixture.database.$client.run(
+            await expect(
+                fixture.database.sql.exec(
                     `delete from notification_destinations where id = '${destination.id}'`
                 )
-            ).toThrow()
+            ).rejects.toThrow()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -432,25 +435,25 @@ describe('notification delivery store', () => {
                 id: 'event-supported',
                 name: 'publication.execution.succeeded',
             })
-            fixture.database.$client.run(`
-                create trigger reject_delivery_cursor
-                before insert on notification_delivery_projection_cursors
-                begin
-                    select raise(abort, 'cursor rejected');
-                end
-            `)
+            await installRejectingTrigger(fixture.database, {
+                name: 'reject_delivery_cursor',
+                table: 'notification_delivery_projection_cursors',
+                timing: 'before',
+                event: 'insert',
+                message: 'cursor rejected',
+            })
 
             await expect(fixture.deliveries.project(fixture.project.project.id)).rejects.toThrow()
             expect(await fixture.deliveries.list(fixture.project.project.id, 'human-1')).toEqual([])
 
-            fixture.database.$client.run('drop trigger reject_delivery_cursor')
+            await dropRejectingTrigger(fixture.database, 'reject_delivery_cursor')
             expect(await fixture.deliveries.project(fixture.project.project.id)).toEqual({
                 scanned: 3,
                 created: 1,
                 hasMore: false,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -495,7 +498,7 @@ describe('notification delivery store', () => {
                 })
             ).rejects.toThrow(DomainInvariantError)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -551,7 +554,7 @@ describe('notification delivery store', () => {
                 )?.attempts
             ).toBe(2)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -651,7 +654,7 @@ describe('notification delivery store', () => {
                 retryPolicy.nextRunAt({ attempts: retryClaim.attempts, failedAt: operationTime })
             ).toBe(operationTime + 100)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

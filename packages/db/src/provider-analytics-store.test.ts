@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
 import { createProviderAnalyticsStore } from './provider-analytics-store'
-import { seedTestWorkspace } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from './testing'
 
 const now = 1_800_000_000_000
 const did = 'did:plc:provider-analytics'
@@ -42,9 +40,8 @@ function observation(
 
 describe('provider analytics store', () => {
     it('records immutable snapshots, deduplicates a repeated fetch, and isolates projects', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const first = await manual.createProject({
                 workspaceId: await seedTestWorkspace(database),
@@ -129,14 +126,13 @@ describe('provider analytics store', () => {
                 })
             ).toMatchObject({ observations: [] })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('reads latest metrics before applying the cap and isolates selected publication histories', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const { project } = await manual.createProject({
                 workspaceId: await seedTestWorkspace(database),
@@ -238,14 +234,13 @@ describe('provider analytics store', () => {
                 })
             ).rejects.toThrow()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('lists only known provider publications and never discovers account content', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const manual = createManualStore(database, { now: () => now })
             const project = await manual.createProject({
                 workspaceId: await seedTestWorkspace(database),
@@ -272,14 +267,14 @@ describe('provider analytics store', () => {
             const publicationId = created.publications[0]?.id
             if (publicationId === undefined) throw new Error('The publication ID is missing')
 
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     'insert into publishers (id, workspace_id, channel_id, kind, created_at, updated_at) ' +
                         "values (?1, (select workspace_id from projects where id = ?2), ?3, 'bluesky', ?4, ?4)"
                 )
                 .run('publisher-1', project.project.id, channel.id, now)
-            database.$client
-                .query('update publications set external_id = ?1 where id = ?2')
+            await database.sql
+                .statement('update publications set external_id = ?1 where id = ?2')
                 .run('at://did:plc:provider-analytics/app.bsky.feed.post/3known', publicationId)
 
             const store = createProviderAnalyticsStore(database)
@@ -300,7 +295,7 @@ describe('provider analytics store', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

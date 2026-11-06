@@ -2,19 +2,22 @@ import { describe, expect, it } from 'bun:test'
 
 import { DomainInvariantError } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
 import { createNotificationStore } from './notification-store'
-import { seedTestWorkspace } from './testing'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+} from './testing'
 
 const eventTime = 1_800_000_000_000
 const operationTime = eventTime + 1_000
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     let nextId = 0
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
@@ -51,13 +54,12 @@ describe('notification store', () => {
     it('projects supported outcomes once for human actors only', async () => {
         const fixture = await createFixture()
         try {
-            fixture.database.$client.run(
-                `insert into actors (
+            await fixture.database.sql
+                .statement(`insert into actors (
                     id, project_id, kind, subject_id, display_name, created_at, updated_at
                 ) values ('human-2', ?1, 'human', 'subject-2', 'Second human', 1, 1),
-                         ('machine-1', ?1, 'api_token', 'token-1', 'Machine', 1, 1)`,
-                [fixture.project.project.id]
-            )
+                         ('machine-1', ?1, 'api_token', 'token-1', 'Machine', 1, 1)`)
+                .run(fixture.project.project.id)
             await appendPublicationEvent(fixture, {
                 id: 'event-succeeded',
                 name: 'publication.execution.succeeded',
@@ -78,8 +80,8 @@ describe('notification store', () => {
                 hasMore: false,
             })
             expect(
-                fixture.database.$client
-                    .query<{ recipientActorId: string }, []>(
+                await fixture.database.sql
+                    .statement<{ recipientActorId: string }, []>(
                         'select recipient_actor_id as recipientActorId from notifications order by recipient_actor_id'
                     )
                     .all()
@@ -88,7 +90,7 @@ describe('notification store', () => {
                 { recipientActorId: 'human-2' },
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -127,7 +129,7 @@ describe('notification store', () => {
                 )?.items.map(notification => notification.kind)
             ).toEqual(['publication_ambiguous'])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -164,7 +166,7 @@ describe('notification store', () => {
                 )?.items.map(notification => notification.sourceEventId)
             ).toEqual(['event-supported'])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -175,29 +177,33 @@ describe('notification store', () => {
                 id: 'event-rollback',
                 name: 'publication.execution.failed',
             })
-            fixture.database.$client.run(`
-                create trigger reject_notification_cursor
-                before insert on notification_projection_cursors
-                begin
-                    select raise(abort, 'cursor rejected');
-                end
-            `)
+            await installRejectingTrigger(fixture.database, {
+                name: 'reject_notification_cursor',
+                table: 'notification_projection_cursors',
+                timing: 'before',
+                event: 'insert',
+                message: 'cursor rejected',
+            })
 
             await expect(
                 fixture.notifications.project(fixture.project.project.id)
             ).rejects.toThrow()
             expect(
-                fixture.database.$client
-                    .query<{ count: number }, []>('select count(*) as count from notifications')
-                    .get()?.count
+                (
+                    await fixture.database.sql
+                        .statement<{ count: number }, []>(
+                            'select count(*) as count from notifications'
+                        )
+                        .get()
+                )?.count
             ).toBe(0)
 
-            fixture.database.$client.run('drop trigger reject_notification_cursor')
+            await dropRejectingTrigger(fixture.database, 'reject_notification_cursor')
             expect((await fixture.notifications.project(fixture.project.project.id)).created).toBe(
                 1
             )
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -266,7 +272,7 @@ describe('notification store', () => {
                 )
             ).toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -287,7 +293,7 @@ describe('notification store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -319,7 +325,7 @@ describe('notification store', () => {
             expect(ids).toHaveLength(55)
             expect(new Set(ids).size).toBe(55)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -341,7 +347,7 @@ describe('notification store', () => {
                 ).rejects.toThrow(DomainInvariantError)
             }
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -365,15 +371,14 @@ describe('notification store', () => {
             })
             await fixture.notifications.project(second.project.id)
 
-            fixture.database.$client.run(
-                `insert into notifications (
+            await fixture.database.sql
+                .statement(`insert into notifications (
                     id, project_id, recipient_user_id, recipient_actor_id, source_event_id,
                     kind, severity, subject_type, subject_id, title, body, created_at
                 ) values ('global-notification', null, 'human-1', null, 'system-update-1',
                     'publication_ambiguous', 'warning', 'system', 'system-update-1',
-                    'Postdot update available', 'A new Postdot update is available.', ?1)`,
-                [eventTime + 2]
-            )
+                    'Postdot update available', 'A new Postdot update is available.', ?1)`)
+                .run(eventTime + 2)
 
             const page = await fixture.notifications.listForUser({ userId: 'human-1' })
             expect(page.items.map(item => item.sourceEventId)).toEqual([
@@ -394,7 +399,7 @@ describe('notification store', () => {
                 await fixture.notifications.markReadForUser('global-notification', 'other-user')
             ).toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -420,7 +425,7 @@ describe('notification store', () => {
                 inAppEnabled: false,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

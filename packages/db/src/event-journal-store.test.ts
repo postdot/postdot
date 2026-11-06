@@ -2,31 +2,29 @@ import { describe, expect, it } from 'bun:test'
 
 import { DomainInvariantError } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from './client'
+import { type DatabaseHandle } from './client'
 import {
     createEventJournalStore,
     eventJournalCursorSequence,
     parseEventJournalCursor,
 } from './event-journal-store'
-import { runMigrations } from './migrations'
+import { closeTestDatabase, openTestDatabase } from './testing'
 
-function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
+async function seedProject(database: DatabaseHandle, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
-    database.$client.run(
-        `insert into projects (id, name, created_at, updated_at)
-         values (?1, ?2, 100, 100)`,
-        [projectId, `Project ${suffix}`]
-    )
-    database.$client.run(
-        `insert into actors (id, project_id, kind, display_name, created_at, updated_at)
-         values (?1, ?2, 'human', ?3, 100, 100)`,
-        [actorId, projectId, `Actor ${suffix}`]
-    )
+    await database.sql
+        .statement(`insert into projects (id, name, created_at, updated_at)
+         values (?1, ?2, 100, 100)`)
+        .run(projectId, `Project ${suffix}`)
+    await database.sql
+        .statement(`insert into actors (id, project_id, kind, display_name, created_at, updated_at)
+         values (?1, ?2, 'human', ?3, 100, 100)`)
+        .run(actorId, projectId, `Actor ${suffix}`)
     return { projectId, actorId }
 }
 
-function eventInput(project: ReturnType<typeof seedProject>, suffix: string) {
+function eventInput(project: Awaited<ReturnType<typeof seedProject>>, suffix: string) {
     return {
         projectId: project.projectId,
         actorId: project.actorId,
@@ -42,27 +40,28 @@ function eventInput(project: ReturnType<typeof seedProject>, suffix: string) {
 
 describe('event journal store', () => {
     it('returns no cursor for an empty journal, including a zero sqlite sequence', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            database.$client.run(
-                "insert into sqlite_sequence (name, seq) values ('audit_events', 0)"
-            )
+            // SQLite keeps an explicit zero high-water row; PostgreSQL's sequence starts uncalled.
+            if (database.sql.dialect === 'sqlite') {
+                await database.sql.exec(
+                    "insert into sqlite_sequence (name, seq) values ('audit_events', 0)"
+                )
+            }
 
             const store = createEventJournalStore(database)
 
             expect(await store.latestCursor()).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('persists versioned facts and reads equal-timestamp entries in append order', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const firstProject = seedProject(database, 'first')
-            const secondProject = seedProject(database, 'second')
+            const firstProject = await seedProject(database, 'first')
+            const secondProject = await seedProject(database, 'second')
             let nextId = 0
             const store = createEventJournalStore(database, {
                 createId: () => `event-${++nextId}`,
@@ -85,15 +84,14 @@ describe('event journal store', () => {
             ).toEqual([second])
             expect(await store.readAllAfter({ after: first.cursor })).toEqual([second, hidden])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('validates envelopes before persistence', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const project = seedProject(database, 'validation')
+            const project = await seedProject(database, 'validation')
             const store = createEventJournalStore(database)
 
             await expect(
@@ -101,7 +99,7 @@ describe('event journal store', () => {
             ).rejects.toThrow(DomainInvariantError)
             expect(await store.readAfter({ projectId: project.projectId })).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -112,10 +110,9 @@ describe('event journal store', () => {
     })
 
     it('participates in a surrounding SQLite transaction', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const project = seedProject(database, 'rollback')
+            const project = await seedProject(database, 'rollback')
             const store = createEventJournalStore(database, { createId: () => 'event-fixed' })
             await store.append(eventInput(project, 'existing'))
 
@@ -131,28 +128,33 @@ describe('event journal store', () => {
 
             await expect(changeAndAppend()).rejects.toThrow()
             expect(
-                database.$client
-                    .query<{ name: string }, [string]>('select name from projects where id = ?1')
-                    .get(project.projectId)?.name
+                (
+                    await database.sql
+                        .statement<{ name: string }, [string]>(
+                            'select name from projects where id = ?1'
+                        )
+                        .get(project.projectId)
+                )?.name
             ).toBe('Project rollback')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('never reuses a cursor after the project owning the latest event is deleted', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
-            const firstProject = seedProject(database, 'deleted')
-            const secondProject = seedProject(database, 'surviving')
+            const firstProject = await seedProject(database, 'deleted')
+            const secondProject = await seedProject(database, 'surviving')
             let nextId = 0
             const store = createEventJournalStore(database, {
                 createId: () => `event-monotonic-${++nextId}`,
             })
             const deleted = await store.append(eventInput(firstProject, 'deleted'))
 
-            database.$client.query('delete from projects where id = ?1').run(firstProject.projectId)
+            await database.sql
+                .statement('delete from projects where id = ?1')
+                .run(firstProject.projectId)
             const surviving = await store.append(eventInput(secondProject, 'surviving'))
 
             expect(surviving.cursor).not.toBe(deleted.cursor)
@@ -160,7 +162,7 @@ describe('event journal store', () => {
                 await store.readAfter({ projectId: secondProject.projectId, after: deleted.cursor })
             ).toEqual([surviving])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

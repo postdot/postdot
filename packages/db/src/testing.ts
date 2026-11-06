@@ -194,3 +194,61 @@ async function openEngineDatabase(): Promise<TestDatabase> {
         },
     }
 }
+
+/** Test fixture: foreign-key violations left in the database (always none on PostgreSQL). */
+export async function foreignKeyViolations(database: DatabaseHandle): Promise<unknown[]> {
+    if (database.sql.dialect === 'postgres') return []
+    return database.sql.statement('pragma foreign_key_check').all()
+}
+
+export interface RejectingTrigger {
+    readonly name: string
+    readonly table: string
+    readonly timing: 'before' | 'after'
+    readonly event: 'insert' | 'update' | 'delete'
+    /** Row condition using `new.` / `old.` references, valid on both engines. */
+    readonly when?: string
+    readonly message: string
+}
+
+const rejectingTriggers = new WeakMap<DatabaseHandle, Map<string, string>>()
+
+/** Test fixture: a trigger that aborts matching writes with `message`, on either engine. */
+export async function installRejectingTrigger(
+    database: DatabaseHandle,
+    trigger: RejectingTrigger
+): Promise<void> {
+    const { name, table, timing, event, when, message } = trigger
+    const quoted = message.replaceAll("'", "''")
+    if (database.sql.dialect === 'postgres') {
+        await database.sql.exec(`
+            create function ${name}_fn() returns trigger language plpgsql as $$
+            begin
+                ${when === undefined ? '' : `if not (${when}) then return ${event === 'delete' ? 'old' : 'new'}; end if;`}
+                raise exception '${quoted}';
+            end
+            $$;
+            create trigger ${name} ${timing} ${event} on "${table}" for each row execute function ${name}_fn();
+        `)
+    } else {
+        await database.sql.exec(`
+            create temp trigger ${name} ${timing} ${event} on ${table}
+            ${when === undefined ? '' : `when ${when}`}
+            begin select raise(abort, '${quoted}'); end
+        `)
+    }
+    const installed = rejectingTriggers.get(database) ?? new Map<string, string>()
+    installed.set(name, table)
+    rejectingTriggers.set(database, installed)
+}
+
+export async function dropRejectingTrigger(database: DatabaseHandle, name: string): Promise<void> {
+    const table = rejectingTriggers.get(database)?.get(name)
+    if (table === undefined) throw new Error(`Unknown rejecting trigger ${name}`)
+    if (database.sql.dialect === 'postgres') {
+        await database.sql.exec(`drop trigger ${name} on "${table}"; drop function ${name}_fn();`)
+    } else {
+        await database.sql.exec(`drop trigger ${name}`)
+    }
+    rejectingTriggers.get(database)!.delete(name)
+}

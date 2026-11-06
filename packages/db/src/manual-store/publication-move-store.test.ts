@@ -3,10 +3,15 @@ import { expect, it } from 'bun:test'
 import { createManualChannelProfile, type ChannelProfileDefinition } from '@postdot/core'
 
 import { CadenceConflictError } from '../channel-cadence'
-import { createDatabase, closeDatabase, setDatabaseCommitObserver } from '../client'
+import { setDatabaseCommitObserver } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import {
+    closeTestDatabase,
+    foreignKeyViolations,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+} from '../testing'
 import type { MovePublicationInput } from './publication-move-store'
 const now = 1_800_000_000_000
 function profile(limit = 1000): ChannelProfileDefinition {
@@ -35,8 +40,7 @@ function profile(limit = 1000): ChannelProfileDefinition {
     }
 }
 async function fixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const store = createManualStore(database, { now: () => now })
     const project = await store.createProject({
         workspaceId: await seedTestWorkspace(database),
@@ -125,14 +129,14 @@ it('moves future work atomically in the same post, preserving exact content, sou
         expect(old.draft).toEqual(original.draft)
         expect(old.movement?.toPublicationId).toBe(moved.publication.id)
         expect(
-            f.database.$client
-                .query('select * from publication_approval_requests where publication_id=?')
+            await f.database.sql
+                .statement('select * from publication_approval_requests where publication_id=?')
                 .all(moved.publication.id)
         ).toEqual([])
-        expect(f.database.$client.query('PRAGMA foreign_key_check').all()).toEqual([])
+        expect(await foreignKeyViolations(f.database)).toEqual([])
         await expect(f.store.movePublication(await f.input())).rejects.toThrow('Only future work')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('keeps incompatible destination content as an unscheduled review draft with the requested time retained', async () => {
@@ -149,8 +153,8 @@ it('keeps incompatible destination content as an unscheduled review draft with t
         expect(moved.draft.validationIssues.length).toBeGreaterThan(0)
         expect(moved.movement?.requestedScheduledAt).toBe(f.publication.scheduledAt)
         expect(
-            f.database.$client
-                .query('select id from jobs where publication_id=?')
+            await f.database.sql
+                .statement('select id from jobs where publication_id=?')
                 .all(moved.publication.id)
         ).toEqual([])
         expect(
@@ -172,14 +176,14 @@ it('keeps incompatible destination content as an unscheduled review draft with t
                 .publication.state
         ).toBe('cancelled')
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "select id from audit_events where entity_id=? and action='publication.moved'"
                 )
                 .all(f.publication.id)
         ).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('rejects stale publication, source and destination profile revisions without touching the original', async () => {
@@ -201,28 +205,28 @@ it('rejects stale publication, source and destination profile revisions without 
             (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
-        expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
+        expect(await f.database.sql.statement('select * from publication_moves').all()).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('refuses any execution attempt, even when no remote effect occurred or a claim was compensated', async () => {
     const f = await fixture()
     try {
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 `insert into jobs(id,project_id,publication_id,state,run_at,attempts,created_at,updated_at,completed_at) values ('attempted',?,?,'cancelled',?,1,?,?,?)`
             )
             .run(f.projectId, f.publication.id, now, now, now, now)
         await expect(f.store.movePublication(await f.input())).rejects.toThrow(
             'without an execution attempt'
         )
-        f.database.$client.query('update jobs set attempts=0 where id=?').run('attempted')
-        const actor = f.database.$client
-            .query<{ id: string }, [string]>('select id from actors where project_id=? limit 1')
-            .get(f.projectId)!.id
-        f.database.$client
-            .query(
+        await f.database.sql.statement('update jobs set attempts=0 where id=?').run('attempted')
+        const actor = (await f.database.sql
+            .statement<{ id: string }, [string]>('select id from actors where project_id=? limit 1')
+            .get(f.projectId))!.id
+        await f.database.sql
+            .statement(
                 `insert into audit_events(id,project_id,actor_id,action,entity_type,entity_id,created_at) values ('claim-proof',?,?,'publication.execution.claimed','publication',?,?)`
             )
             .run(f.projectId, actor, f.publication.id, now)
@@ -230,7 +234,7 @@ it('refuses any execution attempt, even when no remote effect occurred or a clai
             'without an execution attempt'
         )
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('rolls back cancellation, new work and observer wakeups if move history cannot persist', async () => {
@@ -238,25 +242,29 @@ it('rolls back cancellation, new work and observer wakeups if move history canno
     try {
         const commits: unknown[] = []
         setDatabaseCommitObserver(f.database, ids => commits.push(ids))
-        f.database.$client.run(
-            "create temp trigger reject_move before insert on publication_moves begin select raise(abort,'Move rejected'); end"
-        )
+        await installRejectingTrigger(f.database, {
+            name: 'reject_move',
+            table: 'publication_moves',
+            timing: 'before',
+            event: 'insert',
+            message: 'Move rejected',
+        })
         await expect(f.store.movePublication(await f.input())).rejects.toThrow('Move rejected')
         expect(
             (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
-        expect(f.database.$client.query('select id from publications').all()).toHaveLength(1)
+        expect(await f.database.sql.statement('select id from publications').all()).toHaveLength(1)
         expect(commits).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('can recover detached pending work but never write a detached, foreign or archived destination', async () => {
     const f = await fixture()
     try {
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 "update project_channel_attachments set state='detached',detached_at=? where project_id=? and channel_id=?"
             )
             .run(now, f.projectId, f.source.id)
@@ -277,24 +285,24 @@ it('can recover detached pending work but never write a detached, foreign or arc
             })
         ).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('cancels only the old pending job and creates a fresh automatic job without any execution or approval state', async () => {
     const f = await fixture()
     try {
-        const workspace = f.database.$client
-            .query<{ workspace_id: string }, [string]>(
+        const workspace = (await f.database.sql
+            .statement<{ workspace_id: string }, [string]>(
                 'select workspace_id from projects where id=?'
             )
-            .get(f.projectId)!.workspace_id
+            .get(f.projectId))!.workspace_id
         for (const [id, channel] of [
             ['source-publisher', f.source],
             ['target-publisher', f.target],
         ] as const)
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "insert into publishers(id,workspace_id,channel_id,kind,created_at,updated_at) values (?,?,?,'move-test',?,?)"
                 )
                 .run(id, workspace, channel.id, now, now)
@@ -311,22 +319,24 @@ it('cancels only the old pending job and creates a fresh automatic job without a
             deliveryMode: 'automatic',
         }))!
         expect(
-            f.database.$client
-                .query('select state,attempts from jobs where publication_id=?')
+            await f.database.sql
+                .statement('select state,attempts from jobs where publication_id=?')
                 .get(source.id)
         ).toEqual({ state: 'cancelled', attempts: 0 })
         expect(
-            f.database.$client
-                .query('select state,attempts,run_at,claim_token from jobs where publication_id=?')
+            await f.database.sql
+                .statement(
+                    'select state,attempts,run_at,claim_token from jobs where publication_id=?'
+                )
                 .get(moved.publication.id)
         ).toEqual({ state: 'pending', attempts: 0, run_at: source.scheduledAt, claim_token: null })
         expect(
-            f.database.$client
-                .query('select * from publication_execution_revisions where publication_id=?')
+            await f.database.sql
+                .statement('select * from publication_execution_revisions where publication_id=?')
                 .all(moved.publication.id)
         ).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('binds a cadence confirmation to the move and rolls back the first conflicting write', async () => {
@@ -372,7 +382,7 @@ it('binds a cadence confirmation to the move and rolls back the first conflictin
             (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
-        expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
+        expect(await f.database.sql.statement('select * from publication_moves').all()).toEqual([])
         expect(
             (await f.store.movePublication({
                 ...(await f.input()),
@@ -380,7 +390,7 @@ it('binds a cadence confirmation to the move and rolls back the first conflictin
             }))!.publication.state
         ).toBe('scheduled')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('supersedes pending approval without granting a new approval to the replacement', async () => {
@@ -397,17 +407,17 @@ it('supersedes pending approval without granting a new approval to the replaceme
         const moved = (await f.store.movePublication(await f.input(draft.id)))!
         expect(moved.publication.state).toBe('draft')
         expect(
-            f.database.$client
-                .query('select state from publication_approval_requests where publication_id=?')
+            await f.database.sql
+                .statement('select state from publication_approval_requests where publication_id=?')
                 .get(draft.id)
         ).toEqual({ state: 'superseded' })
         expect(
-            f.database.$client
-                .query('select * from publication_approval_requests where publication_id=?')
+            await f.database.sql
+                .statement('select * from publication_approval_requests where publication_id=?')
                 .all(moved.publication.id)
         ).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('revalidates media references and keeps unavailable media intact for review', async () => {
@@ -447,22 +457,22 @@ it('revalidates media references and keeps unavailable media intact for review',
         expect(moved.publication.reviewState).toBe('review_required')
         expect(moved.draft.validationIssues.length).toBeGreaterThan(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 it('keeps move receipts immutable and permits authorized project graph deletion without foreign-key damage', async () => {
     const f = await fixture()
     try {
         await f.store.movePublication(await f.input())
-        expect(() =>
-            f.database.$client
-                .query('update publication_moves set created_at=0 where project_id=?')
+        await expect(
+            f.database.sql
+                .statement('update publication_moves set created_at=0 where project_id=?')
                 .run(f.projectId)
-        ).toThrow('immutable')
-        f.database.$client.query('delete from projects where id=?').run(f.projectId)
-        expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
-        expect(f.database.$client.query('PRAGMA foreign_key_check').all()).toEqual([])
+        ).rejects.toThrow('immutable')
+        await f.database.sql.statement('delete from projects where id=?').run(f.projectId)
+        expect(await f.database.sql.statement('select * from publication_moves').all()).toEqual([])
+        expect(await foreignKeyViolations(f.database)).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

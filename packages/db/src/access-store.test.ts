@@ -1,17 +1,22 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createAccessStore, createDatabase, runMigrations } from './index'
+import { createAccessStore } from './index'
 import { createManualStore } from './manual-store'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    installRejectingTrigger,
+    openTestDatabase,
+} from './testing'
 
 describe('instance access store', () => {
     it('claims a fresh instance once and gives the first user the admin role', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client
-                .query(
-                    `insert into user (id, name, email, email_verified, created_at, updated_at)
+            await database.sql
+                .statement(
+                    `insert into "user" (id, name, email, email_verified, created_at, updated_at)
                      values ('user-1', 'Postdot Operator', 'operator@postdot.local', 0, 1, 1)`
                 )
                 .run()
@@ -33,8 +38,8 @@ describe('instance access store', () => {
             expect(workspace?.organizationId).toBeString()
             expect((await access.getDefaultWorkspaceForUser('user-1'))?.id).toBe(workspace?.id)
             expect(
-                database.$client
-                    .query<{ readonly count: number }, [string]>(
+                await database.sql
+                    .statement<{ readonly count: number }, [string]>(
                         'select count(*) as count from team where organization_id = ?1'
                     )
                     .get(workspace?.organizationId ?? '')
@@ -43,17 +48,16 @@ describe('instance access store', () => {
                 kind: 'already_claimed',
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('does not claim a database explicitly marked for orphan recovery', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client
-                .query(`update instance_state set bootstrap_blocked = 1 where id = 'default'`)
+            await database.sql
+                .statement(`update instance_state set bootstrap_blocked = 1 where id = 'default'`)
                 .run()
 
             const access = createAccessStore(database)
@@ -66,17 +70,16 @@ describe('instance access store', () => {
                 kind: 'already_claimed',
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates owner memberships and evaluates direct grants through the workspace boundary', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client.exec(`
-                insert into user (id, name, email, email_verified, created_at, updated_at)
+            await database.sql.exec(`
+                insert into "user" (id, name, email, email_verified, created_at, updated_at)
                 values
                     ('owner', 'Project Owner', 'owner@postdot.local', 0, 1, 1),
                     ('member', 'Project Member', 'member@postdot.local', 0, 2, 2),
@@ -89,15 +92,15 @@ describe('instance access store', () => {
             const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into instance_memberships
                      (id, user_id, role, state, created_at, updated_at)
                      values ('instance-membership:member', 'member', 'member', 'enabled', 2, 2)`
                 )
                 .run()
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into member
                      (id, organization_id, user_id, role, created_at)
                      values ('workspace-member:member', ?1, 'member', 'member', 2)`
@@ -131,11 +134,14 @@ describe('instance access store', () => {
                 })
             ).toMatchObject({ id: ownerMembership?.id, role: 'owner' })
 
-            database.$client.exec(`
-                create trigger reject_access_actor before insert on actors
-                when new.subject_id = 'member'
-                begin select raise(abort, 'actor insert failed'); end;
-            `)
+            await installRejectingTrigger(database, {
+                name: 'reject_access_actor',
+                table: 'actors',
+                timing: 'before',
+                event: 'insert',
+                when: "new.subject_id = 'member'",
+                message: 'actor insert failed',
+            })
             await expect(
                 access.grantProjectUserAccess({
                     projectId: created.project.id,
@@ -148,7 +154,7 @@ describe('instance access store', () => {
                     grant => grant.userId === 'member'
                 )
             ).toBe(false)
-            database.$client.exec('drop trigger reject_access_actor')
+            await dropRejectingTrigger(database, 'reject_access_actor')
 
             expect(
                 await access.grantProjectUserAccess({
@@ -172,8 +178,8 @@ describe('instance access store', () => {
             })
             expect(await access.canAccessProject(created.project.id, 'member', 'editor')).toBe(true)
 
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update instance_memberships set state = 'disabled' where user_id = 'member'`
                 )
                 .run()
@@ -188,17 +194,16 @@ describe('instance access store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('does not treat workspace membership as project access without a Postdot grant', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client.exec(`
-                insert into user (id, name, email, email_verified, created_at, updated_at)
+            await database.sql.exec(`
+                insert into "user" (id, name, email, email_verified, created_at, updated_at)
                 values
                     ('organization-owner', 'Organization Owner', 'owner@postdot.local', 0, 1, 1),
                     ('organization-member', 'Organization Member', 'member@postdot.local', 0, 2, 2)
@@ -210,13 +215,13 @@ describe('instance access store', () => {
             const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
-            database.$client.exec(`
+            await database.sql.exec(`
                 insert into instance_memberships
                     (id, user_id, role, state, created_at, updated_at)
                 values ('instance-membership:organization-member', 'organization-member', 'member', 'enabled', 2, 2)
             `)
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into member
                      (id, organization_id, user_id, role, created_at)
                      values ('workspace-member:organization-member', ?1, 'organization-member', 'member', 2)`
@@ -261,17 +266,16 @@ describe('instance access store', () => {
             )
             expect(await access.listProjectMemberships(created.project.id)).toHaveLength(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('keeps project grants separate from workspace membership and resolves team access', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client.exec(`
-                insert into user (id, name, email, email_verified, created_at, updated_at)
+            await database.sql.exec(`
+                insert into "user" (id, name, email, email_verified, created_at, updated_at)
                 values
                     ('grant-owner', 'Grant Owner', 'grant-owner@postdot.local', 0, 1, 1),
                     ('grant-member', 'Grant Member', 'grant-member@postdot.local', 0, 2, 2)
@@ -286,7 +290,7 @@ describe('instance access store', () => {
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
-            database.$client.exec(`
+            await database.sql.exec(`
                 insert into instance_memberships
                     (id, user_id, role, state, created_at, updated_at)
                 values ('instance-membership:grant-member', 'grant-member', 'member', 'enabled', 2, 2);
@@ -360,17 +364,16 @@ describe('instance access store', () => {
             )
             expect(await access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('lists safe member identity fields and makes role/state updates safe and idempotent', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
-            database.$client.exec(`
-                insert into user (id, name, email, email_verified, created_at, updated_at)
+            await database.sql.exec(`
+                insert into "user" (id, name, email, email_verified, created_at, updated_at)
                 values
                     ('admin', 'Instance Admin', 'admin@postdot.local', 0, 1, 1),
                     ('member', 'Instance Member', 'member@postdot.local', 0, 2, 2),
@@ -379,7 +382,7 @@ describe('instance access store', () => {
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
             await access.claimFirstAccount({ userId: 'admin' })
-            database.$client.exec(`
+            await database.sql.exec(`
                 insert into instance_memberships
                     (id, user_id, role, state, created_at, updated_at)
                 values
@@ -477,7 +480,7 @@ describe('instance access store', () => {
                 })
             ).toEqual({ kind: 'last_admin' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
