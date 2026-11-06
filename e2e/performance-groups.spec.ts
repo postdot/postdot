@@ -174,7 +174,7 @@ test('groups loaded destinations by source and distinguishes zero, missing, and 
         animations: 'disabled',
     })
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(
         page.getByText(frenchTranslation('performance_grouped_description'), { exact: true })

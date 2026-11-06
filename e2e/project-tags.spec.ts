@@ -142,7 +142,7 @@ test('keeps duplicate input and provides a narrow localized tag manager', async 
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(
         page.getByRole('heading', { name: frenchTranslation('project_tags_title'), exact: true })

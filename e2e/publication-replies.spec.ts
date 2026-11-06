@@ -194,7 +194,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         expect(requests).toHaveLength(3)
         await expect(panel.locator('script')).toHaveCount(0)
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+        await page.getByRole('button', { name: 'Language', exact: true }).click()
         await page.getByRole('menuitem', { name: 'French', exact: true }).click()
         const frenchPanel = page.locator('details').filter({
             has: page

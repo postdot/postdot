@@ -62,7 +62,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(delivery).not.toHaveAttribute('open', '')
     await expect(page.locator('#deliver-at')).not.toBeVisible()
     await expect(
-        page.getByRole('button', { name: 'Update scheduled publication', exact: true })
+        page.getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await expect(
         page.locator('[data-composer-settings]').locator('[data-publication-delivery-disclosure]')
@@ -70,7 +70,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(
         page
             .locator('[data-composer-actions]')
-            .getByRole('button', { name: 'Update scheduled publication', exact: true })
+            .getByRole('button', { name: /^Update scheduled publication(?:\s*(?:Ctrl|⌘)↵)?$/ })
     ).toBeVisible()
     await expect(
         page.locator('[data-composer-editor]').locator('[data-publication-delivery-disclosure]')
@@ -303,7 +303,7 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     const editorUrl = `/dashboard/projects/${projectId}/publications/${publication.id}`
     await page.goto(editorUrl)
 
-    const action = page.getByRole('button', { name: 'Use this version', exact: true })
+    const action = page.getByRole('button', { name: /^Use this version(?:\s*(?:Ctrl|⌘)↵)?$/ })
     await expect(action).toBeEnabled()
     const bodyField = page.locator('[data-target-field="body"] textarea')
     await expect(bodyField).toHaveValue(initialBody)

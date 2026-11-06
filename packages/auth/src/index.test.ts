@@ -58,6 +58,74 @@ function createFixture(
 }
 
 describe('Postdot authentication', () => {
+    for (const fixtureMode of [false, true]) {
+        it(`keeps the production member cap while allowing the shared fixture population (fixture mode ${fixtureMode})`, async () => {
+            const { auth, access, database } = createFixture({
+                allowAdditionalSignups: fixtureMode,
+            })
+            const signup = (email: string) =>
+                auth.handler(
+                    new Request(`${baseURL}/api/auth/sign-up/email`, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json', origin: baseURL },
+                        body: JSON.stringify({
+                            email,
+                            name: email,
+                            password: 'membership-fixture-password',
+                        }),
+                    })
+                )
+            try {
+                const owner = await signup('limit-owner@postdot.local')
+                expect(owner.status).toBe(200)
+                const workspace = (await access.getDefaultWorkspace())!
+                database.$client.transaction(() => {
+                    for (let index = 0; index < 100; index++) {
+                        const id = `limit-member-${index}`
+                        database.$client
+                            .query(`insert into user (id, name, email, email_verified, created_at, updated_at)
+                            values (?1, ?1, ?2, 0, 0, 0)`)
+                            .run(id, `${id}@postdot.local`)
+                        database.$client
+                            .query(`insert into member (id, organization_id, user_id, role, created_at)
+                            values (?1, ?2, ?1, 'member', 0)`)
+                            .run(id, workspace.organizationId)
+                    }
+                })()
+                const invitation = await auth.api.createInvitation({
+                    body: {
+                        organizationId: workspace.organizationId,
+                        email: 'limit-invitee@postdot.local',
+                        role: 'member',
+                    },
+                    headers: new Headers({
+                        cookie: owner.headers.get('set-cookie')!.split(';')[0]!,
+                    }),
+                })
+                const invited = await signup('limit-invitee@postdot.local')
+                expect(invited.status).toBe(200)
+                const accepted = await auth.handler(
+                    new Request(`${baseURL}/api/auth/organization/accept-invitation`, {
+                        method: 'POST',
+                        headers: {
+                            'content-type': 'application/json',
+                            origin: baseURL,
+                            cookie: invited.headers.get('set-cookie')!.split(';')[0]!,
+                        },
+                        body: JSON.stringify({ invitationId: invitation.id }),
+                    })
+                )
+                expect(accepted.status).toBe(fixtureMode ? 200 : 403)
+                if (!fixtureMode)
+                    expect(await accepted.json()).toMatchObject({
+                        code: 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED',
+                    })
+            } finally {
+                closeDatabase(database)
+            }
+        })
+    }
+
     it('keeps auth reads outside an uncommitted Postdot transaction', async () => {
         const { auth, database } = createFixture()
         const entered = Promise.withResolvers<void>()

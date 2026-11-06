@@ -113,7 +113,7 @@ test('keeps failed and ambiguous publications legible across queue and overview'
         await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toBeVisible()
     }
 
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(page.getByRole('link').filter({ hasText: failedTitle })).toContainText(
         frenchTranslation('publication_state_failed')

@@ -536,7 +536,8 @@ export function createAuth(
                 organizationInvitationURL,
                 requireEmailVerificationOnInvitation,
                 sendOrganizationInvitationEmail,
-            }
+            },
+            allowAdditionalSignups
         ),
         databaseHooks: {
             user: {

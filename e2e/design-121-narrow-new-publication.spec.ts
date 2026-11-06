@@ -290,7 +290,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
             response => response.url().includes('/posts') && response.request().method() === 'POST',
             { timeout: 10_000 }
         ),
-        page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click(),
+        page.getByRole('button', { name: /^Schedule 2 publications(?:\s*(?:Ctrl|⌘)↵)?$/ }).click(),
     ]).then(([response]) => response)
     expect(createResponse.status(), await createResponse.text()).toBe(201)
     const created = await createResponse.json()

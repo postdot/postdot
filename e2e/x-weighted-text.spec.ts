@@ -107,7 +107,7 @@ test('inserts emojis at the cursor and keeps destination changes separate', asyn
     await expect(target).toHaveText('Custom 😀')
     await page.getByRole('button', { name: 'Common', exact: true }).click()
     await expect(source).toHaveText('Hello world')
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     const frenchData = page.waitForResponse(
         response => response.url().endsWith('/emoji-data/17.0.0/fr/data.json') && response.ok()

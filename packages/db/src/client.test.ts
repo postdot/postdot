@@ -11,6 +11,31 @@ import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { seedTestWorkspace } from './testing'
 
+it('does not publish an in-flight commit to an observer removed during shutdown', async () => {
+    const database = createDatabase(':memory:')
+    const entered = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const published: string[][] = []
+    const clear = setDatabaseCommitObserver(database, ids => published.push([...ids]))
+    const committing = database.sql.transaction(async () => {
+        recordDatabaseCommitProject(database, 'project')
+        entered.resolve()
+        await release.promise
+    })
+    try {
+        await entered.promise
+        clear()
+        release.resolve()
+        await committing
+        expect(published).toEqual([])
+    } finally {
+        release.resolve()
+        await committing
+        clear()
+        closeDatabase(database)
+    }
+})
+
 function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`

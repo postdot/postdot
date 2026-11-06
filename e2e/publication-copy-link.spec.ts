@@ -104,7 +104,7 @@ test('readers can copy manually when clipboard permission is denied, in French',
         const reader = await fixture.member.newPage()
         const path = `/dashboard/projects/${fixture.project.id}/publications/${publications[0].id}`
         await reader.goto(path)
-        await reader.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+        await reader.getByRole('button', { name: 'Language', exact: true }).click()
         await reader.getByRole('menuitem', { name: 'French', exact: true }).click()
         await reader
             .getByRole('button', { name: 'Copier le lien de la publication', exact: true })

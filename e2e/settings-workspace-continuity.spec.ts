@@ -9,7 +9,8 @@ import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 test('keeps personal and installation settings open when changing workspace context', async ({
     page,
 }, testInfo) => {
-    test.setTimeout(90_000)
+    // Seven routes each reload and reopen before the locale/theme/accessibility checks.
+    test.setTimeout(180_000)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')

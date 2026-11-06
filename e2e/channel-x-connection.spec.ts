@@ -230,6 +230,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/channels$`))
 
     await connectButton().click()
+    await page.waitForURL('https://x.com/i/oauth2/authorize**', { waitUntil: 'load' })
     await Promise.all([
         page.waitForURL(url => url.searchParams.get('publisher') === 'authorization_denied', {
             waitUntil: 'load',
@@ -239,6 +240,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     await expect(page.getByRole('alert')).toContainText('Authorization declined')
 
     await connectButton().click()
+    await page.waitForURL('https://x.com/i/oauth2/authorize**', { waitUntil: 'load' })
     await Promise.all([
         page.waitForURL(url => url.searchParams.get('publisher') === 'connected', {
             waitUntil: 'load',
@@ -254,6 +256,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
     const reconnectButton = connection.getByRole('button', { name: 'Reconnect X', exact: true })
     await expect(reconnectButton).toBeVisible()
     await reconnectButton.click()
+    await page.waitForURL('https://x.com/i/oauth2/authorize**', { waitUntil: 'load' })
     await Promise.all([
         page.waitForURL(url => url.searchParams.get('publisher') === 'connected', {
             waitUntil: 'load',

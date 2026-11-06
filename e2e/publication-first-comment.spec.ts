@@ -98,7 +98,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             animations: 'disabled',
         })
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+        await page.getByRole('button', { name: 'Language', exact: true }).click()
         await page.getByRole('menuitem', { name: 'French', exact: true }).click()
         await expect(
             section.getByRole('textbox', {

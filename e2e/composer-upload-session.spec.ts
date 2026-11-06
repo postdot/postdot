@@ -94,7 +94,14 @@ test('a session that ends mid-upload offers sign-in without losing the held crea
         await expect(signIn).toBeVisible()
         await expect(form).toHaveAttribute('inert', '')
         await signIn.click()
+        const recoveredDraft = page.waitForResponse(
+            response =>
+                new URL(response.url()).pathname === data.endpoint &&
+                response.request().method() === 'GET' &&
+                response.ok()
+        )
         await login(page, data.ownerEmail, data.password)
+        await recoveredDraft
         await expect(page).toHaveURL(data.url)
         const recovery = page.locator('[data-new-publication-recovery]')
         await expect(recovery).toContainText(text)

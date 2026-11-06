@@ -148,7 +148,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
     await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('button', { name: 'Language', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
 

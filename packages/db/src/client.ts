@@ -75,10 +75,11 @@ export function recordDatabaseCommitProject(database: PostdotDatabase, projectId
         // Published once, after the outermost commit. A project recorded by a
         // savepoint that later rolled back still produces a wakeup; wakeups
         // are hints and readers re-read the durable journal.
-        database.sql.afterCommit(
-            () => publishCommittedProjects(registration, [...recorded]),
-            'transaction'
-        )
+        database.sql.afterCommit(() => {
+            if (commitObservers.get(database) === registration) {
+                publishCommittedProjects(registration, [...recorded])
+            }
+        }, 'transaction')
     }
     projects.add(projectId)
 }
