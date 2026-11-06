@@ -106,7 +106,7 @@ export function createResourceLifecycleStore(database: DatabaseHandle) {
             totals.mediaBytes =
                 (totals.mediaBytes ?? 0) +
                 (await count(
-                    'select coalesce(sum(byte_size), 0) as n from media_representations where project_id = ?',
+                    'select cast(coalesce(sum(byte_size), 0) as bigint) as n from media_representations where project_id = ?',
                     project.id
                 ))
             for (const row of await rows<{ state: string; n: number }>(

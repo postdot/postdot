@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { TelegramFetcher } from '@postdot/telegram'
 
 import { createApp } from '../../../app'
@@ -60,8 +61,7 @@ function membershipResponse(): Response {
 }
 
 async function createFixture(telegramFetcher?: TelegramFetcher) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -188,7 +188,7 @@ describe('Telegram publisher connection routes', () => {
                     body.connection.credentialId
                 )
             ).toMatchObject({ accessToken: botToken })
-            const stored = database.$client.query('SELECT * FROM publisher_credentials').all()
+            const stored = await database.sql.statement('SELECT * FROM publisher_credentials').all()
             expect(stored).toHaveLength(1)
             expect(JSON.stringify(stored)).not.toContain(botToken)
             const list = await jsonRequest(app, `/api/projects/${projectId}/publishers`, cookie)
@@ -201,7 +201,7 @@ describe('Telegram publisher connection routes', () => {
             expect(duplicate.status).toBe(409)
             expect(transport.calls).toBe(3)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('reconnects a credential requiring attention only after a fresh verification', async () => {
@@ -237,7 +237,7 @@ describe('Telegram publisher connection routes', () => {
             })
             expect(transport.calls).toBe(6)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('requires authentication and masks a channel from a different project before provider access', async () => {
@@ -265,7 +265,7 @@ describe('Telegram publisher connection routes', () => {
             ).toBe(404)
             expect(transport.calls).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     it('persists nothing after rejected permissions or provider unavailability', async () => {
@@ -296,11 +296,13 @@ describe('Telegram publisher connection routes', () => {
                 expect(response.status).toBe(index === 0 ? 400 : index === 1 ? 403 : 503)
                 expect(await response.text()).not.toContain(botToken)
                 expect(
-                    database.$client.query('SELECT * FROM publisher_credentials').all()
+                    await database.sql.statement('SELECT * FROM publisher_credentials').all()
                 ).toHaveLength(0)
-                expect(database.$client.query('SELECT * FROM publishers').all()).toHaveLength(0)
+                expect(await database.sql.statement('SELECT * FROM publishers').all()).toHaveLength(
+                    0
+                )
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         }
     })

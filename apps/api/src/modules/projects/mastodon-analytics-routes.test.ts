@@ -1,21 +1,15 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createManualStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createMastodonAnalyticsReader, mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 async function fixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const origin = 'http://localhost:3000'
     const auth = createAuth(database, {
         baseURL: origin,
@@ -112,8 +106,8 @@ async function fixture() {
         scheduledAt: clock + 1000,
     })
     // Seed a retained delivered receipt in this isolated DB; never send a real status.
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             "update publications set state = 'published', external_id = '100', external_url = 'https://original.example/@owner/100', published_at = ?1, published_by_actor_id = created_by_actor_id where id = ?2"
         )
         .run(clock, publicationId)
@@ -195,12 +189,12 @@ test('Mastodon metrics are collected manually and persisted with real zero, unkn
             )
         ).toBe(true)
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 6 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -252,32 +246,32 @@ test('Mastodon metrics enforce project roles and recheck access after an asynchr
         )
         expect(f.calls).toBe(1)
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 0 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('Mastodon metrics never attach an in-flight response to a changed provider receipt', async () => {
     const f = await fixture()
     try {
-        f.duringRead(() => {
-            f.database.$client
-                .query('update publications set external_url = ?1 where id = ?2')
+        f.duringRead(async () => {
+            await f.database.sql
+                .statement('update publications set external_url = ?1 where id = ?2')
                 .run('https://different.example/@owner/100', f.publicationId)
         })
         expect((await f.request(f.path + '/collect', f.owner.cookie, 'POST', f.body)).status).toBe(
             404
         )
         expect(
-            f.database.$client
-                .query('select count(*) as count from provider_analytics_observations')
+            await f.database.sql
+                .statement('select count(*) as count from provider_analytics_observations')
                 .get()
         ).toEqual({ count: 0 })
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

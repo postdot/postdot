@@ -4,17 +4,14 @@ import { createHash } from 'node:crypto'
 import { createAuth } from '@postdot/auth'
 import type { ChannelProfileDefinition } from '@postdot/core'
 import {
-    closeDatabase,
     createInstallationEmailSettingsStore,
     createSecretCipher,
     createAccessStore,
-    createDatabase,
     createEventJournalStore,
     createNotificationStore,
     createNotificationEmailStore,
-    runMigrations,
 } from '@postdot/db'
-import { fromDbRow, type TestRow } from '@postdot/db/testing'
+import { closeTestDatabase, fromDbRow, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import {
     createLinkedInMemberProfileClient,
     createLinkedInOrganizationClient,
@@ -138,8 +135,7 @@ async function createFixture(
         readonly allowAdditionalSignups?: boolean
     } = {}
 ) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: options.apiOrigin ?? baseURL,
         webOrigin: options.webOrigin ?? 'http://localhost:5173',
@@ -325,7 +321,7 @@ describe('Postdot API', () => {
                 ).status
             ).toBe(409)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -418,7 +414,7 @@ describe('Postdot API', () => {
             expect(conflictBody.error.code).toBe('write_conflict')
             expect(conflictBody.error.issues).toBeUndefined()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -577,7 +573,7 @@ describe('Postdot API', () => {
             expect(builtin.status).toBe(201)
             expect(await listCount()).toBe(5)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -650,7 +646,7 @@ describe('Postdot API', () => {
             })
         } finally {
             await server.stop(true)
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -661,7 +657,7 @@ describe('Postdot API', () => {
             const response = await app.handle(new Request(`${baseURL}/metrics`))
             expect(response.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -688,7 +684,7 @@ describe('Postdot API', () => {
             expect(authResponse.status).toBe(200)
             expect(await authResponse.json()).toEqual({ ok: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -707,7 +703,7 @@ describe('Postdot API', () => {
             expect(response.status).toBe(200)
             expect(await response.json()).toMatchObject({ user: { email } })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -781,7 +777,7 @@ describe('Postdot API', () => {
                     },
                 })
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         })
     }
@@ -830,7 +826,7 @@ describe('Postdot API', () => {
                 })
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -869,7 +865,7 @@ describe('Postdot API', () => {
             )
             expect(metadataResponse.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -950,8 +946,8 @@ describe('Postdot API', () => {
                 'secondary-linkedin-client-id'
             )
 
-            const attempt = database.$client
-                .query<{ providerApplicationId: string | null }, []>(
+            const attempt = await database.sql
+                .statement<{ providerApplicationId: string | null }, []>(
                     `select provider_application_id as providerApplicationId
                      from oauth_authorization_attempts`
                 )
@@ -959,7 +955,7 @@ describe('Postdot API', () => {
             expect(attempt?.providerApplicationId).toBe(secondaryApplicationBody.application.id)
             expect(attempt?.providerApplicationId).not.toBe(applicationBody.application.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -979,7 +975,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1005,7 +1001,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1035,7 +1031,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1047,7 +1043,7 @@ describe('Postdot API', () => {
                 notifications: { state: 'started' },
             },
         })
-        closeDatabase(database)
+        await closeTestDatabase(database)
 
         const response = await app.handle(new Request(`${baseURL}/ready`))
         expect(response.status).toBe(503)
@@ -1382,7 +1378,7 @@ describe('Postdot API', () => {
                 'not_ready'
             )
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1779,7 +1775,7 @@ describe('Postdot API', () => {
                 ],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1796,8 +1792,8 @@ describe('Postdot API', () => {
             const created = (await createProjectResponse.json()) as {
                 project: { id: string }
             }
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(created.project.id)
@@ -1848,7 +1844,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1873,7 +1869,7 @@ describe('Postdot API', () => {
                     body: JSON.stringify({ enabled: true }),
                 })
             expect((await enable()).status).toBe(400)
-            database.$client.exec('update user set email_verified = 1')
+            await database.sql.exec('update "user" set email_verified = 1')
             expect((await enable()).status).toBe(200)
             expect(await (await jsonRequest(app, path, cookie)).json()).toMatchObject({
                 enabled: true,
@@ -1905,7 +1901,7 @@ describe('Postdot API', () => {
                 ).status
             ).toBe(200)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1922,8 +1918,8 @@ describe('Postdot API', () => {
             const created = (await createProjectResponse.json()) as {
                 project: { id: string }
             }
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(created.project.id)
@@ -2072,7 +2068,7 @@ describe('Postdot API', () => {
                 inAppEnabled: false,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2088,8 +2084,8 @@ describe('Postdot API', () => {
             expect(projectResponse.status).toBe(201)
             const project = (await projectResponse.json()) as { project: { id: string } }
             const projectId = project.project.id
-            const actor = database.$client
-                .query<{ id: string }, [string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(projectId)
@@ -2226,7 +2222,7 @@ describe('Postdot API', () => {
             )
             expect(bearerResponse.status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2280,7 +2276,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2291,8 +2287,8 @@ describe('Postdot API', () => {
 
         try {
             const ownerCookie = await signUp(app, 'lifecycle-owner@postdot.local')
-            const owner = database.$client
-                .query<{ readonly userId: string }, []>(
+            const owner = await database.sql
+                .statement<{ readonly userId: string }, []>(
                     `select claimed_by_user_id as userId from instance_state where id = 'default'`
                 )
                 .get()
@@ -2307,8 +2303,8 @@ describe('Postdot API', () => {
                 project: { id: string }
             }
             expect(
-                database.$client
-                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                await database.sql
+                    .statement<{ readonly role: string; readonly state: string }, [string, string]>(
                         `select role, 'active' as state
                          from project_user_grants
                          where project_id = ?1 and user_id = ?2`
@@ -2332,9 +2328,9 @@ describe('Postdot API', () => {
 
             const memberEmail = 'lifecycle-member@postdot.local'
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
-            const member = database.$client
-                .query<{ readonly userId: string }, [string]>(
-                    `select id as userId from user where email = ?1`
+            const member = await database.sql
+                .statement<{ readonly userId: string }, [string]>(
+                    `select id as userId from "user" where email = ?1`
                 )
                 .get(memberEmail)
             expect(member).not.toBeNull()
@@ -2349,8 +2345,8 @@ describe('Postdot API', () => {
                 project: { id: string }
             }
             expect(
-                database.$client
-                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                await database.sql
+                    .statement<{ readonly role: string; readonly state: string }, [string, string]>(
                         `select role, 'active' as state
                          from project_user_grants
                          where project_id = ?1 and user_id = ?2`
@@ -2520,14 +2516,14 @@ describe('Postdot API', () => {
             )
             expect(outsiderUpdateResponse.status).toBe(404)
 
-            const outsider = database.$client
-                .query<{ readonly userId: string }, [string]>(
-                    `select id as userId from user where email = ?1`
+            const outsider = await database.sql
+                .statement<{ readonly userId: string }, [string]>(
+                    `select id as userId from "user" where email = ?1`
                 )
                 .get(outsiderEmail)
             expect(outsider).not.toBeNull()
-            database.$client
-                .query(`update instance_memberships set state = 'disabled' where user_id = ?1`)
+            await database.sql
+                .statement(`update instance_memberships set state = 'disabled' where user_id = ?1`)
                 .run(outsider?.userId ?? '')
             const disabledCreateResponse = await jsonRequest(app, '/api/projects', outsiderCookie, {
                 method: 'POST',
@@ -2557,7 +2553,7 @@ describe('Postdot API', () => {
             const verifiedToken = await auth.api.verifyApiKey({ body: { key: tokenBody.token } })
             expect(verifiedToken.valid).toBe(true)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2586,7 +2582,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2695,7 +2691,7 @@ describe('Postdot API', () => {
             })
             expect(activationBody.channel.profileVersionId).toBe(draftBody.profile.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2828,7 +2824,7 @@ describe('Postdot API', () => {
             expect(deleteResponse.status).toBe(200)
             expect(await deleteResponse.json()).toEqual({ deleted: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2884,7 +2880,7 @@ describe('Postdot API', () => {
             })
             expect(JSON.stringify(connectionBody)).not.toContain(secret)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -2951,7 +2947,7 @@ describe('Postdot API', () => {
             }
             expect(listBody.connections[0]?.authentication).toEqual({ kind: 'path' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3039,8 +3035,8 @@ describe('Postdot API', () => {
             const auditBody = (await auditResponse.json()) as {
                 events: Array<{ action: string; actorId: string }>
             }
-            const humanActor = database.$client
-                .query<{ readonly id: string }, [string]>(
+            const humanActor = await database.sql
+                .statement<{ readonly id: string }, [string]>(
                     `select id from actors where project_id = ?1 and kind = 'human'`
                 )
                 .get(projectId)
@@ -3092,7 +3088,7 @@ describe('Postdot API', () => {
             const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(revokedResponse.status).toBe(401)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3137,8 +3133,10 @@ describe('Postdot API', () => {
                 app,
                 'project-access-outsider@postdot.local'
             )
-            const outsider = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const outsider = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('project-access-outsider@postdot.local')
             const outsiderWorkspace = await access.getDefaultWorkspace()
             expect(outsider).not.toBeNull()
@@ -3149,8 +3147,8 @@ describe('Postdot API', () => {
             // Additional-signup fixtures are workspace owners by default. This
             // account represents an ordinary workspace member with no project
             // grant, so it must remain hidden from the project access surface.
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1 and user_id = ?2`
@@ -3188,8 +3186,10 @@ describe('Postdot API', () => {
             )
 
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(memberEmail)
             const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
@@ -3200,8 +3200,8 @@ describe('Postdot API', () => {
             // The additional-signup fixture normally provisions a default
             // workspace for independent browser tests. Remove that fixture
             // membership so this test exercises the real invitation path.
-            database.$client
-                .query('delete from member where organization_id = ?1 and user_id = ?2')
+            await database.sql
+                .statement('delete from member where organization_id = ?1 and user_id = ?2')
                 .run(workspace.organizationId, member.id)
 
             const pendingInvitationsResponse = await jsonRequest(
@@ -3391,7 +3391,7 @@ describe('Postdot API', () => {
                 }),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3407,8 +3407,10 @@ describe('Postdot API', () => {
                 app,
                 'group-grant-workspace-admin@postdot.local'
             )
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('group-grant-member@postdot.local')
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The group grant member was not created')
@@ -3461,8 +3463,8 @@ describe('Postdot API', () => {
             // browser fixtures can coexist. Model the invited project member
             // explicitly before checking that workspace membership alone does
             // not grant project access or workspace administration rights.
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1
@@ -3548,7 +3550,7 @@ describe('Postdot API', () => {
             expect(await removed.json()).toEqual({ removed: true })
             expect(await access.canAccessProject(projectId, member.id)).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3602,8 +3604,10 @@ describe('Postdot API', () => {
             })
 
             const memberCookie = await signUpFixtureAdditionalUser(app, targetEmail)
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The invited workspace member was not created')
@@ -3671,7 +3675,7 @@ describe('Postdot API', () => {
                 ]),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3681,8 +3685,10 @@ describe('Postdot API', () => {
         try {
             const ownerCookie = await signUp(app, 'group-visibility-owner@postdot.local')
             const memberCookie = await signUp(app, 'group-visibility-member@postdot.local')
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('group-visibility-member@postdot.local')
             const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
@@ -3691,8 +3697,8 @@ describe('Postdot API', () => {
                 throw new Error('The group visibility fixture is incomplete')
             }
 
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `update member
                      set role = 'member'
                      where organization_id = ?1
@@ -3840,7 +3846,7 @@ describe('Postdot API', () => {
             expect(await projectsAfterAllRemovalsResponse.json()).toEqual({ projects: [] })
             expect(await access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -3862,11 +3868,11 @@ describe('Postdot API', () => {
                     name: 'Legacy organization',
                     slug: 'legacy-organization-test',
                     userId: (
-                        database.$client
-                            .query<{ readonly id: string }, [string]>(
-                                'select id from user where email = ?1'
+                        (await database.sql
+                            .statement<{ readonly id: string }, [string]>(
+                                'select id from "user" where email = ?1'
                             )
-                            .get('organization-owner@postdot.local') ?? { id: '' }
+                            .get('organization-owner@postdot.local')) ?? { id: '' }
                     ).id,
                 },
             })
@@ -3886,8 +3892,10 @@ describe('Postdot API', () => {
             })
 
             expect(accepted.member.role).toBe('editor')
-            const member = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const member = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get('organization-member@postdot.local')
             expect(member).not.toBeNull()
             expect(await access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
@@ -3911,7 +3919,7 @@ describe('Postdot API', () => {
             )
             expect(projectAfterLeave.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4353,7 +4361,7 @@ describe('Postdot API', () => {
                 ],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4494,7 +4502,7 @@ describe('Postdot API', () => {
             expect(idempotentDeleteResponse.status).toBe(200)
             expect(await idempotentDeleteResponse.json()).toEqual({ deleted: false })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4661,7 +4669,7 @@ describe('Postdot API', () => {
             )
             expect(duplicateCancelResponse.status).toBe(422)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4727,7 +4735,7 @@ describe('Postdot API', () => {
                 execution: { contractId: 'x', revision: 'post-v1' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -4881,8 +4889,8 @@ describe('Postdot API', () => {
                 `${channelLocation}&publisher=connected`
             )
 
-            const storedAttempt = database.$client
-                .query<{ stateDigest: Uint8Array; verifier: Uint8Array | null }, []>(`
+            const storedAttempt = await database.sql
+                .statement<{ stateDigest: Uint8Array; verifier: Uint8Array | null }, []>(`
                     select state_digest as stateDigest,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -4913,8 +4921,8 @@ describe('Postdot API', () => {
             expect(listBody.connections[0]).not.toHaveProperty('refreshToken')
 
             expect(
-                database.$client
-                    .query<{ providerId: string }, []>(
+                await database.sql
+                    .statement<{ providerId: string }, []>(
                         `select provider_id as providerId from account`
                     )
                     .all()
@@ -4928,7 +4936,7 @@ describe('Postdot API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
-            database.$client.exec(`
+            await database.sql.exec(`
                 update instance_state
                 set state = 'claimable',
                     bootstrap_blocked = 0,
@@ -4964,7 +4972,7 @@ describe('Postdot API', () => {
             ).toEqual([{ state: 'active' }])
         } finally {
             await provider.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -5090,7 +5098,7 @@ describe('Postdot API', () => {
             })
         } finally {
             await provider.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -5257,8 +5265,8 @@ describe('Postdot API', () => {
             expect(state).toBeString()
 
             // The PKCE verifier is persisted encrypted while the attempt is pending.
-            const pendingAttempt = database.$client
-                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+            const pendingAttempt = await database.sql
+                .statement<{ status: string; verifier: Uint8Array | null }, []>(`
                     select status,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -5294,8 +5302,8 @@ describe('Postdot API', () => {
             expect(seenProfileTokens).toEqual(['x-access-token-1'])
 
             // Consuming the attempt clears the single-use verifier ciphertext.
-            const storedAttempt = database.$client
-                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+            const storedAttempt = await database.sql
+                .statement<{ status: string; verifier: Uint8Array | null }, []>(`
                     select status,
                            pkce_verifier_ciphertext as verifier
                     from oauth_authorization_attempts
@@ -5408,8 +5416,8 @@ describe('Postdot API', () => {
             expect(JSON.stringify(connectionStartBody)).not.toContain('x-refresh-token-1')
             expect(JSON.stringify(listBody)).not.toContain('x-access-token-1')
             expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-1')
-            const storedSecrets = database.$client
-                .query<{ accessToken: Uint8Array; refreshToken: Uint8Array }, []>(`
+            const storedSecrets = await database.sql
+                .statement<{ accessToken: Uint8Array; refreshToken: Uint8Array }, []>(`
                     select access_token_ciphertext as accessToken,
                            refresh_token_ciphertext as refreshToken
                     from publisher_credentials
@@ -5423,8 +5431,8 @@ describe('Postdot API', () => {
             }
 
             expect(
-                database.$client
-                    .query<{ providerId: string }, []>(
+                await database.sql
+                    .statement<{ providerId: string }, []>(
                         `select provider_id as providerId from account`
                     )
                     .all()
@@ -5438,7 +5446,7 @@ describe('Postdot API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
-            database.$client.exec(`
+            await database.sql.exec(`
                 update instance_state
                 set state = 'claimable',
                     bootstrap_blocked = 0,
@@ -5474,7 +5482,7 @@ describe('Postdot API', () => {
             ).toEqual([{ state: 'active' }])
         } finally {
             await provider.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -5654,7 +5662,7 @@ describe('Postdot API', () => {
             expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-2')
         } finally {
             await provider.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -5735,7 +5743,7 @@ describe('Postdot API', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -5851,7 +5859,7 @@ describe('Postdot API', () => {
             )
             expect(promoteResponse.status).toBe(400)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
@@ -5863,8 +5871,7 @@ function readOpenApiStatus(response: OpenApiResponse | undefined): string | unde
 }
 
 it('restricts SMTP settings to human instance administrators and never returns credentials', async () => {
-    const settingsDatabase = createDatabase(':memory:')
-    await runMigrations(settingsDatabase)
+    const settingsDatabase = (await openTestDatabase()).database
     const sent: string[] = []
     const service = await createEmailSettingsService({
         store: createInstallationEmailSettingsStore(
@@ -5966,8 +5973,8 @@ it('restricts SMTP settings to human instance administrators and never returns c
         ).toBe(403)
         expect(sent).toHaveLength(1)
     } finally {
-        closeDatabase(database)
-        closeDatabase(settingsDatabase)
+        await closeTestDatabase(database)
+        await closeTestDatabase(settingsDatabase)
     }
 })
 
@@ -5996,16 +6003,16 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
     try {
         const admin = await signUp(app, 'recovery-admin@postdot.local')
         const member = await signUp(app, 'recovery-member@postdot.local')
-        const memberUser = database.$client
-            .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-member@postdot.local'"
+        const memberUser = (await database.sql
+            .statement<{ id: string }, []>(
+                'select id from "user" where email = \'recovery-member@postdot.local\''
             )
-            .get()!
-        const adminUser = database.$client
-            .query<{ id: string }, []>(
-                "select id from user where email = 'recovery-admin@postdot.local'"
+            .get())!
+        const adminUser = (await database.sql
+            .statement<{ id: string }, []>(
+                'select id from "user" where email = \'recovery-admin@postdot.local\''
             )
-            .get()!
+            .get())!
         await auth.api.setRole({
             body: { userId: memberUser.id, role: 'user' },
             headers: new Headers({ cookie: admin }),
@@ -6044,7 +6051,7 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
         })
         expect(created.status).toBe(201)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
@@ -6065,7 +6072,7 @@ it('serves recovery inspection as ready without masking failed runtimes', async 
                 checks: { recovery: 'held', scheduler: state },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     }
 })
@@ -6099,13 +6106,15 @@ it('saves the standalone post source with revision guards and no destination cha
             expectedSourceRevision: 1,
             sourceContent: { body: { text: 'Updated', format: 'plain_text' }, media: [] },
         })
-        const before = database.$client.query('select * from publication_working_drafts').all()
+        const before = await database.sql
+            .statement('select * from publication_working_drafts')
+            .all()
         const updated = await jsonRequest(app, url, cookie, { method: 'PATCH', body })
         expect(updated.status).toBe(200)
         const viewerCookie = await signUpFixtureAdditionalUser(app, 'source-viewer@postdot.local')
-        const viewer = database.$client
-            .query<{ id: string }, [string]>('select id from user where email = ?1')
-            .get('source-viewer@postdot.local')!
+        const viewer = (await database.sql
+            .statement<{ id: string }, [string]>('select id from "user" where email = ?1')
+            .get('source-viewer@postdot.local'))!
         expect(
             await access.grantProjectUserAccess({
                 projectId: project.id,
@@ -6131,9 +6140,9 @@ it('saves the standalone post source with revision guards and no destination cha
                 sourceContent: { body: { text: 'Updated' } },
             }
         )
-        expect(database.$client.query('select * from publication_working_drafts').all()).toEqual(
-            before
-        )
+        expect(
+            await database.sql.statement('select * from publication_working_drafts').all()
+        ).toEqual(before)
         expect((await jsonRequest(app, url, cookie, { method: 'PATCH', body })).status).toBe(409)
         expect((await jsonRequest(app, url, '', { method: 'PATCH', body })).status).toBe(401)
         expect(
@@ -6148,6 +6157,6 @@ it('saves the standalone post source with revision guards and no destination cha
             ).status
         ).toBe(400)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

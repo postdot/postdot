@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { DevtoFetcher } from '@postdot/devto'
 
 import { createApp } from '../../../app'
@@ -34,8 +35,7 @@ function createDevtoFetcher(responses: readonly Response[]): {
 }
 
 async function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -142,7 +142,7 @@ describe('DEV.to publisher connection routes', () => {
             const headers = new Headers(devto.calls[0]?.init?.headers)
             expect(headers.get('api-key')).toBe(apiKey)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -163,7 +163,7 @@ describe('DEV.to publisher connection routes', () => {
             expect(response.status).toBe(400)
             expect(await response.json()).toMatchObject({ error: { code: 'invalid_api_key' } })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -207,7 +207,7 @@ describe('DEV.to publisher connection routes', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -223,7 +223,7 @@ describe('DEV.to publisher connection routes', () => {
             )
             expect(response.status).toBe(401)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
@@ -253,7 +253,7 @@ it('reports OAuth prerequisites without exposing configuration or mistaking fail
         expect(JSON.stringify(body)).not.toContain('PRIVATE_CONFIGURATION_SENTINEL')
         expect((await jsonRequest(app, path, '')).status).toBe(401)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
@@ -268,6 +268,6 @@ it('recognizes existing server OAuth configuration without returning credentials
         expect(body.oauthReadiness.linkedin).toBe('ready')
         expect(JSON.stringify(body)).not.toContain('PRIVATE_CLIENT_SECRET')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

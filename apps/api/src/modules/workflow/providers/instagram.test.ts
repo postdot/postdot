@@ -5,21 +5,18 @@ import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createMediaAssetStore,
     createProviderMediaDeliveryStore,
     createPublisherCredentialStore,
     createPublisherCredentialCipher,
     createWorkflowStore,
-    runMigrations,
     type PublisherExecutionMedia,
     type PublisherCredentialRefreshContext,
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
-import { fromDbRow, type TestRow } from '@postdot/db/testing'
+import { closeTestDatabase, fromDbRow, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace, workspaceOf } from '@postdot/db/testing'
 import {
     createInstagramOAuth,
@@ -118,7 +115,7 @@ interface Fixture {
 
 async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
     const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     const mediaStore = createLocalMediaStore({
         storeId: 'local-default',
         rootDirectory: join(directory, 'media'),
@@ -129,7 +126,6 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
     const replacements: ReplacePublisherCredentialTokensInput[] = []
 
     try {
-        await runMigrations(database)
         const media = createMediaAssetStore(database, mediaStore, {
             now: () => now,
             createId: (() => {
@@ -446,12 +442,12 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             replacements,
             execute,
             cleanup: async () => {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(directory, { recursive: true, force: true })
             },
         }
     } catch (error) {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(directory, { recursive: true, force: true })
         throw error
     }

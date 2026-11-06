@@ -1,15 +1,12 @@
 import { expect, test } from 'bun:test'
 
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
-    runMigrations,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import { linkedinChannelProfile } from '@postdot/linkedin'
 
 import { linkedInPublisherConnectionPolicy } from '../../providers/linkedin/connection-policy'
@@ -24,8 +21,7 @@ function gate() {
 }
 
 async function fixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let creationTime = Date.now()
     const manual = createManualStore(database, { now: () => creationTime })
     const credentials = createPublisherCredentialStore(database, {
@@ -159,7 +155,7 @@ test('a blocked project retains one slot while another serves existing and newly
         blocked.release()
         await worker.stop()
         await run
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -198,17 +194,19 @@ test('stop drains both occupied slots and leaves pending work unclaimed', async 
         await run
         expect(started).toBe(2)
         expect(
-            f.database.$client
-                .query<{ count: number }, []>(
-                    "SELECT count(*) AS count FROM jobs WHERE state = 'pending'"
-                )
-                .get()?.count
+            (
+                await f.database.sql
+                    .statement<{ count: number }, []>(
+                        "SELECT count(*) AS count FROM jobs WHERE state = 'pending'"
+                    )
+                    .get()
+            )?.count
         ).toBe(1)
     } finally {
         blocked.release()
         await worker.stop()
         await run
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -276,7 +274,7 @@ test('replies and first comments share publication slots and cannot overlap anot
         blocked.release()
         await run
         await worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -327,7 +325,7 @@ test('a publication backlog in concurrent projects cannot starve replies or firs
         expect(starts).toHaveLength(6)
     } finally {
         await worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -364,6 +362,6 @@ test('an immediate local backlog yields to stop signals instead of draining in a
     } finally {
         await worker.stop()
         await run
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

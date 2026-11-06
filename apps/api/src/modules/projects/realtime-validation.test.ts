@@ -3,8 +3,8 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import type { DatabaseHandle } from '@postdot/db'
 import {
-    closeDatabase,
     createDatabase,
     defineTransaction,
     mapSequential,
@@ -15,9 +15,16 @@ import {
     setDatabaseCommitObserver,
     type EventJournalCursor,
     type EventJournalEntry,
+    closeDatabase,
     type PostdotDatabase,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import {
+    closeTestDatabase,
+    dropRejectingTrigger,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedTestWorkspace,
+} from '@postdot/db/testing'
 
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'
@@ -28,17 +35,17 @@ const eventTime = 1_800_000_000_000
 const projectionTime = eventTime + 1_000
 const idleHeartbeatIntervalMs = 60_000
 
-async function createFixture(database: PostdotDatabase) {
+async function createFixture(database: DatabaseHandle) {
     let nextId = 0
     const createId = () => `realtime-106-${++nextId}`
-    database.$client
-        .query(
-            `insert into user (id, name, email, email_verified, created_at, updated_at)
+    await database.sql
+        .statement(
+            `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@postdot.local', 0, ?1, ?1)`
         )
         .run(eventTime)
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             `insert into instance_memberships
              (id, user_id, role, state, created_at, updated_at)
              values ('instance-membership:realtime-106-human', 'realtime-106-human', 'admin', 'enabled', ?1, ?1)`
@@ -198,9 +205,8 @@ async function createTemporaryDatabase() {
 
 describe('REALTIME-106 realtime validation', () => {
     it('keeps CLI-style writes correct with zero SSE subscribers and projects for a later browser', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            await runMigrations(database)
             const fixture = await createFixture(database)
             let globalRecoveryScans = 0
             const projectedProjects: string[] = []
@@ -214,15 +220,24 @@ describe('REALTIME-106 realtime validation', () => {
                     return fixture.notifications.project(projectId)
                 },
             })
+            const projectionRuns: Promise<unknown>[] = []
             const realtime = createProjectRealtimeRuntime({
-                onProjectsChanged: projectIds => projection.runProjects(projectIds),
+                onProjectsChanged: projectIds => {
+                    const run = projection.runProjects(projectIds)
+                    projectionRuns.push(run)
+                    return run
+                },
             })
+            const publications: Promise<unknown>[] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
-                void realtime.publish(projectIds)
+                publications.push(realtime.publish(projectIds))
             })
 
             try {
                 const event = await appendPublicationEvent(fixture, 'zero-subscriber-event')
+                // The commit wakes the projection; wait for that run, not for a fixed delay.
+                await Promise.all(publications)
+                await Promise.all(projectionRuns)
 
                 expect(projectedProjects).toEqual([fixture.project.id])
                 expect(globalRecoveryScans).toBe(0)
@@ -250,7 +265,7 @@ describe('REALTIME-106 realtime validation', () => {
                 await projection.stop()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -301,9 +316,8 @@ describe('REALTIME-106 realtime validation', () => {
     })
 
     it('replays disconnected commits once across cursor reconnects and continues from the last cursor', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            await runMigrations(database)
             const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 
@@ -353,7 +367,7 @@ describe('REALTIME-106 realtime validation', () => {
                 await bridge.dispose()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -527,9 +541,8 @@ describe('REALTIME-106 realtime validation', () => {
     })
 
     it('emits no signal for rollback and keeps the committed fact recoverable after observer failure', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            await runMigrations(database)
             const fixture = await createFixture(database)
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
@@ -575,25 +588,24 @@ describe('REALTIME-106 realtime validation', () => {
                 clearFailingObserver()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('recovers a committed event when notification projection fails after commit', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            await runMigrations(database)
             const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 
             try {
-                database.$client.run(`
-                    create trigger reject_realtime_projection_cursor
-                    before insert on notification_projection_cursors
-                    begin
-                        select raise(abort, 'projection unavailable');
-                    end
-                `)
+                await installRejectingTrigger(database, {
+                    name: 'reject_realtime_projection_cursor',
+                    table: 'notification_projection_cursors',
+                    timing: 'before',
+                    event: 'insert',
+                    message: 'projection unavailable',
+                })
 
                 const event = await appendPublicationEvent(fixture, 'projection-failure-event')
                 expect(bridge.observerErrors).toEqual([])
@@ -614,7 +626,7 @@ describe('REALTIME-106 realtime validation', () => {
                     )?.items
                 ).toEqual([])
 
-                database.$client.run('drop trigger reject_realtime_projection_cursor')
+                await dropRejectingTrigger(database, 'reject_realtime_projection_cursor')
                 await bridge.projection.runNow()
 
                 expect(bridge.projection.state).toBe('idle')
@@ -630,7 +642,7 @@ describe('REALTIME-106 realtime validation', () => {
                 await bridge.dispose()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

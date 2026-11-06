@@ -1,9 +1,6 @@
 import { expect, test } from 'bun:test'
 
 import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
     createManualStore,
     createAuthorizationAttemptStore,
     createProviderApplicationStore,
@@ -12,7 +9,7 @@ import {
     createPublisherStore,
     createSecretCipher,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     INSTAGRAM_PUBLISH_PERMISSIONS,
     instagramChannelProfile,
@@ -36,8 +33,7 @@ async function fixture(
         readonly scopes?: readonly string[]
     } = {}
 ) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let timestamp = issuedAt
     let editor = true
     let manager = true
@@ -45,8 +41,8 @@ async function fixture(
     let duringExchange: (() => void | Promise<void>) | null = null
     let duringApplicationCheck: (() => void) | undefined
     const now = () => timestamp
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             'insert into "user" (id, name, email, email_verified, created_at, updated_at) values (?1, ?2, ?3, 1, ?4, ?4)'
         )
         .run('owner', 'Owner', 'owner@example.test', timestamp)
@@ -283,18 +279,20 @@ test('the callback connects the professional account under its issuing applicati
             appScopedId: appScopedAccountId,
             accountType: 'BUSINESS',
         })
-        const sealed = f.database.$client
-            .query<{ ciphertext: Uint8Array | null }, []>(
+        const sealed = await f.database.sql
+            .statement<{ ciphertext: Uint8Array | null }, []>(
                 'select provider_session_ciphertext as ciphertext from publisher_credentials'
             )
             .all()
         expect(sealed).toHaveLength(1)
         expect(new TextDecoder().decode(sealed[0]!.ciphertext!)).not.toContain(appScopedAccountId)
         expect(
-            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+            JSON.stringify(
+                await f.database.sql.statement('select * from publisher_credentials').all()
+            )
         ).not.toContain(accessToken)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -310,7 +308,7 @@ test('a replayed callback state is refused before the provider code is exchanged
         })
         expect(f.exchanges).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -326,7 +324,7 @@ test('an expired attempt is refused before the provider code is exchanged', asyn
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -378,7 +376,7 @@ test('a callback bound to another channel, project, actor or application is refu
         ).rejects.toMatchObject({ code: 'invalid_attempt' })
         expect(f.exchanges).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -393,7 +391,7 @@ test('losing editor access while the provider exchange runs stores no connection
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -414,7 +412,7 @@ test('a disabled issuing application stops the connection after the provider exc
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -428,7 +426,7 @@ test('a connection made while the provider exchange runs is not overwritten', as
         })
         expect((await f.connection())?.destination?.id).toBe('555000111')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -449,7 +447,7 @@ test('a connection made after the authorization started is reported instead of r
             stored.find(credential => credential.externalAccountId === professionalAccountId)!.state
         ).toBe('revoked')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -470,7 +468,7 @@ test('a reconnectable connection is replaced by the identity pinned at the start
         expect(await f.storedCredentials()).toHaveLength(1)
         expect((await f.storedCredentials())[0]!.state).toBe('active')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -485,12 +483,12 @@ test('two concurrent authorizations keep a single connection', async () => {
         ])
         expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
         expect(results.filter(result => result.status === 'rejected')).toHaveLength(1)
-        expect(f.database.$client.query('select * from publisher_connections').all()).toHaveLength(
-            1
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_connections').all()
+        ).toHaveLength(1)
         expect(await f.storedCredentials()).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -505,7 +503,7 @@ test('an unknown provider lifetime is refused instead of being replaced by a def
             expect(await f.storedCredentials()).toHaveLength(0)
             expect(await f.connection()).toBeNull()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     }
 })
@@ -520,7 +518,7 @@ test('a missing publishing scope is refused', async () => {
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -537,7 +535,7 @@ test('a manual channel cannot be connected through the Instagram flow', async ()
         ).rejects.toMatchObject({ code: 'conflict' })
         expect(f.exchanges).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -552,7 +550,7 @@ test('editor access is rechecked after the asynchronous application lookup befor
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -567,7 +565,7 @@ test('losing channel management during application lookup blocks credential pers
         expect(await f.storedCredentials()).toHaveLength(0)
         expect(await f.connection()).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -579,6 +577,6 @@ test('stores a verified non-expiring Unified credential without inventing a dead
         expect((await f.storedCredentials())[0]!.expiresAt).toBeNull()
         expect(await f.connection()).not.toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

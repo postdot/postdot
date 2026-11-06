@@ -2,21 +2,15 @@ import { it, expect } from 'bun:test'
 
 import { expect as browserExpect } from '@playwright/test'
 import { createAuth } from '@postdot/auth'
-import {
-    createDatabase,
-    closeDatabase,
-    runMigrations,
-    createSecretCipher,
-    createInstallationEmailSettingsStore,
-} from '@postdot/db'
+import { createSecretCipher, createInstallationEmailSettingsStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { SendMailOptions } from 'nodemailer'
 
 import { createPostdotAuthEmailDelivery } from './delivery'
 import { createEmailSettingsService } from './settings'
 
 it('encrypts settings, preserves or removes passwords explicitly, and reloads without falling back to deployment', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const cipher = createSecretCipher({
         domain: 'postdot.installation-email',
         keyId: 'test',
@@ -48,7 +42,9 @@ it('encrypts settings, preserves or removes passwords explicitly, and reloads wi
             username: 'mailer',
             password: 'FAKE_SMTP_SECRET_355',
         })
-        const persisted = database.$client.query('select * from installation_email_settings').get()
+        const persisted = await database.sql
+            .statement('select * from installation_email_settings')
+            .get()
         expect(JSON.stringify(persisted)).not.toContain('FAKE_SMTP_SECRET_355')
         expect(JSON.stringify(service.view())).not.toContain('FAKE_SMTP_SECRET_355')
         await service.save({
@@ -78,13 +74,12 @@ it('encrypts settings, preserves or removes passwords explicitly, and reloads wi
         )
         await expect(wrong.read()).rejects.toThrow()
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('applies newly saved SMTP to existing auth callbacks and keeps disabled delivery silent', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const store = createInstallationEmailSettingsStore(
         database,
         createSecretCipher({
@@ -128,13 +123,12 @@ it('applies newly saved SMTP to existing auth callbacks and keeps disabled deliv
         expect(messages).toHaveLength(1)
         expect(messages[0]?.from).toBe('new@example.test')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('preserves Better Auth disabled-email responses while allowing a later configuration', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let available = false
     const auth = createAuth(database, {
         baseURL: 'http://localhost:3000',
@@ -163,13 +157,12 @@ it('preserves Better Auth disabled-email responses while allowing a later config
         available = false
         expect((await request('request-password-reset')).status).toBe(400)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('blocks all SMTP delivery during recovery without contacting the transport', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let held = true
     let sends = 0
     try {
@@ -204,6 +197,6 @@ it('blocks all SMTP delivery during recovery without contacting the transport', 
         await service.test('admin@example.test')
         expect(sends).toBe(1)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@postdot/db'
+import { createMediaAssetStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createLocalMediaStore, type MediaStore } from '@postdot/media'
 
 import { previewFixturePng } from '../../../../../packages/db/src/image-preview-fixture'
@@ -60,8 +61,7 @@ async function jsonRequest(
 describe('media HTTP routes', () => {
     it('executes the authenticated upload, inspection, listing, and deletion flow', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-'))
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
+        const database = (await openTestDatabase()).database
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
             webOrigin: 'http://localhost:5173',
@@ -587,15 +587,14 @@ describe('media HTTP routes', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 
     it('publishes media routes in the OpenAPI inventory when the media service is enabled', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-openapi-'))
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
+        const database = (await openTestDatabase()).database
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
             webOrigin: 'http://localhost:5173',
@@ -653,7 +652,7 @@ describe('media HTTP routes', () => {
                     ?.responses
             ).toHaveProperty('200')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })

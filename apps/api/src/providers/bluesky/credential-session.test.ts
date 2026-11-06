@@ -6,20 +6,16 @@ import {
     serializeBlueskySession,
 } from '@postdot/bluesky'
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
-    runMigrations,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 
 import { restoreCredentialBlueskySession } from './credential-session'
 
 it('coordinates the real SDK across sessions and persists implicit later renewals before releasing ownership', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     try {
         const project = await createManualStore(database).createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -257,6 +253,6 @@ it('coordinates the real SDK across sessions and persists implicit later renewal
                 ?.state
         ).toBe('active')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 }, 10000)

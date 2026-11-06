@@ -5,16 +5,13 @@ import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postdot/core'
 import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
     createManualStore,
     createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     createInstagramPublisher,
     instagramChannelProfile,
@@ -35,8 +32,7 @@ for (const scenario of [
     'ambiguous_publish',
 ] as const) {
     test(`Instagram worker persists ${scenario} without recreating a container or replaying a publication`, async () => {
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
+        const database = (await openTestDatabase()).database
         const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-worker-'))
         let clock = 1_800_000_000_000
         const media = createMediaAssetStore(
@@ -210,7 +206,9 @@ for (const scenario of [
             try {
                 await worker.processDueEvents(clock)
                 if (scenario === 'deferred') {
-                    expect(database.$client.query('select state from publications').get()).toEqual({
+                    expect(
+                        await database.sql.statement('select state from publications').get()
+                    ).toEqual({
                         state: 'ready',
                     })
                     expect(
@@ -227,8 +225,8 @@ for (const scenario of [
                 }
                 const ambiguous = scenario.startsWith('ambiguous')
                 expect(
-                    database.$client
-                        .query('select state, external_id as externalId from publications')
+                    await database.sql
+                        .statement('select state, external_id as externalId from publications')
                         .get()
                 ).toEqual({
                     state: ambiguous ? 'ambiguous' : 'published',
@@ -240,8 +238,10 @@ for (const scenario of [
                 ).toHaveLength(scenario === 'ambiguous_create' ? 0 : 1)
                 if (!ambiguous) {
                     expect(
-                        database.$client
-                            .query('select remote_media_id as id from provider_media_deliveries')
+                        await database.sql
+                            .statement(
+                                'select remote_media_id as id from provider_media_deliveries'
+                            )
                             .get()
                     ).toEqual({ id: '777' })
                     expect(
@@ -269,7 +269,7 @@ for (const scenario of [
                 await worker.stop()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(directory, { recursive: true, force: true })
         }
     })

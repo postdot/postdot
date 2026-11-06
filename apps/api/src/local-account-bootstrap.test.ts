@@ -55,7 +55,7 @@ describe('offline administrator bootstrap', () => {
                 expect((await access.getInstanceState()).state).toBe('claimed')
                 expect(await access.isSignupAllowed()).toBe(false)
                 expect(
-                    database.$client.query('select count(*) as count from session').get()
+                    await database.sql.statement('select count(*) as count from session').get()
                 ).toEqual({ count: 0 })
                 const auth = createAuth(database, {
                     baseURL: 'http://localhost:3000',
@@ -95,7 +95,9 @@ describe('offline administrator bootstrap', () => {
             expect(results.filter(result => result.status === 'rejected')).toHaveLength(1)
             const claimed = createDatabase(filename)
             try {
-                expect(claimed.$client.query('select count(*) as count from user').get()).toEqual({
+                expect(
+                    await claimed.sql.statement('select count(*) as count from "user"').get()
+                ).toEqual({
                     count: 1,
                 })
                 expect((await createAccessStore(claimed).getInstanceState()).state).toBe('claimed')

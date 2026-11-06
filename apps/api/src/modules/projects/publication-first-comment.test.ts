@@ -2,13 +2,8 @@ import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
 import { blueskyChannelProfile } from '@postdot/bluesky'
-import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
-    createManualStore,
-    createAccessStore,
-} from '@postdot/db'
+import { createManualStore, createAccessStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
@@ -27,13 +22,12 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
             ? 'https://social.example/@owner/100'
             : 'https://bsky.app/profile/owner.test/post/parent'
     const accountId = provider === 'mastodon' ? '10' : did
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let clock = Date.now()
     let parentFails = false
     let commentThrows = false
     let liveAccount = '10'
-    let beforeContext: (() => void) | undefined
+    let beforeContext: (() => Promise<unknown> | void) | undefined
     let parentEffects = 0
     const commentEffects: string[] = []
     const baseURL = 'http://localhost:3000'
@@ -54,7 +48,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
                 }
                 if (parsed.pathname === '/api/v1/statuses/100') {
                     expect(new Headers(init?.headers).has('authorization')).toBe(false)
-                    beforeContext?.()
+                    await beforeContext?.()
                     return Response.json({
                         id: '100',
                         account: { id: '10' },
@@ -257,7 +251,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
         setLiveAccount(id: string) {
             liveAccount = id
         },
-        beforeContext(callback: () => void) {
+        beforeContext(callback: () => Promise<unknown> | void) {
             beforeContext = callback
         },
         loseCommentResponse() {
@@ -280,7 +274,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
         },
         async close() {
             await worker.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         },
     }
 }
@@ -347,8 +341,8 @@ test('never arms a comment for failed or merely manually marked parent success',
         await f.publish()
         await f.service.processDueEvents()
         expect(f.commentEffects).toHaveLength(0)
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 "update publications set state = 'published', error_message = null, external_id = ?1, published_at = ?2, published_by_actor_id = (select id from actors where project_id = publications.project_id and subject_id = ?4) where id = ?3"
             )
             .run(parentUri, f.now, f.publicationId, f.owner.id)
@@ -520,12 +514,13 @@ test('Mastodon first comments recheck the account and the instance immediately b
             ).toBe(200)
             if (mismatch === 'account') f.setLiveAccount('99')
             else
-                f.beforeContext(() =>
-                    f.database.$client
-                        .query(
-                            "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
-                        )
-                        .run(f.credentialId)
+                f.beforeContext(
+                    async () =>
+                        await f.database.sql
+                            .statement(
+                                "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
+                            )
+                            .run(f.credentialId)
                 )
             await f.publish()
             await f.service.processDueEvents()

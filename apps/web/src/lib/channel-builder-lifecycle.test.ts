@@ -3,12 +3,8 @@ import { expect, test } from 'bun:test'
 import { createManualChannelProfile } from '@postdot/core'
 
 import { createAuth } from '../../../../packages/auth/src/index'
-import {
-    createAccessStore,
-    createDatabase,
-    closeDatabase,
-    runMigrations,
-} from '../../../../packages/db/src/index'
+import { createAccessStore } from '../../../../packages/db/src/index'
+import { closeTestDatabase, openTestDatabase } from '../../../../packages/db/src/testing'
 import { createApp } from '../../../api/src/app'
 import { createPublisherRuntime } from '../../../api/src/modules/publishers/runtime'
 import {
@@ -22,8 +18,7 @@ import { editMappedRequest } from './channel-request-builder'
 test('persists mapped builder edits through draft review and guarded activation', async () => {
     const origin = 'http://localhost:3000'
     const now = 1_800_000_000_000
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const access = createAccessStore(database)
     const auth = createAuth(database, {
         baseURL: origin,
@@ -204,6 +199,6 @@ test('persists mapped builder edits through draft review and guarded activation'
         expect(editorAfter.draft.profileVersionId).toBe(original.id)
         expect(proposed).toEqual(snapshot)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

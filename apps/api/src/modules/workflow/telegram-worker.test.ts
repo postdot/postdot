@@ -5,16 +5,13 @@ import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postdot/core'
 import {
-    createDatabase,
-    closeDatabase,
-    runMigrations,
     createManualStore,
     createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { type TestRow } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 import {
@@ -47,8 +44,7 @@ for (const entry of scenarios) {
     const { outcome: scenario, media: mediaKind } = entry
     const poll = 'poll' in entry && entry.poll
     test(`Telegram worker persists ${poll ? 'poll' : (mediaKind ?? 'text')} ${scenario} without replaying completed work`, async () => {
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
+        const database = (await openTestDatabase()).database
         const now = 1_800_000_000_000
         let clock = now
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-telegram-worker-'))
@@ -282,8 +278,8 @@ for (const entry of scenarios) {
                 await worker.processDueEvents(now)
                 if (scenario === 'retry') {
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
@@ -315,8 +311,8 @@ for (const entry of scenarios) {
                 ])
                 if (mediaKind) {
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select state, remote_media_id as remoteId from provider_media_deliveries'
                             )
                             .all()
@@ -328,8 +324,8 @@ for (const entry of scenarios) {
                         }))
                     )
                     expect(
-                        database.$client
-                            .query(
+                        await database.sql
+                            .statement(
                                 'select count(*) as count from publication_execution_revision_media'
                             )
                             .get()
@@ -395,7 +391,7 @@ for (const entry of scenarios) {
                 await worker.stop()
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })

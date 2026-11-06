@@ -36,11 +36,11 @@ export function createPublicationCommentStore(database: DatabaseHandle) {
         insert into publication_comment_snapshots (project_id, publication_id, root_uri, snapshot_json, last_attempt_at, last_error)
         values (?1, ?2, ?3, ?4, ?5, ?6)
         on conflict(project_id, publication_id) do update set
-            snapshot_json = case when root_uri = excluded.root_uri then coalesce(excluded.snapshot_json, snapshot_json) else excluded.snapshot_json end,
+            snapshot_json = case when publication_comment_snapshots.root_uri = excluded.root_uri then coalesce(excluded.snapshot_json, publication_comment_snapshots.snapshot_json) else excluded.snapshot_json end,
             root_uri = excluded.root_uri,
             last_attempt_at = excluded.last_attempt_at,
             last_error = excluded.last_error
-        where last_attempt_at <= excluded.last_attempt_at
+        where publication_comment_snapshots.last_attempt_at <= excluded.last_attempt_at
     `)
     async function eligible(input: CommentIdentity, role: 'viewer' | 'editor') {
         requireNonBlank(input.rootUri, 'comment root URI')

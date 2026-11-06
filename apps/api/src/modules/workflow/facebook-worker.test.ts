@@ -5,16 +5,13 @@ import { join } from 'node:path'
 
 import { ChannelProfileCompiler } from '@postdot/core'
 import {
-    createDatabase,
-    closeDatabase,
-    runMigrations,
     createManualStore,
     createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookPublisher,
     facebookChannelProfile,
@@ -30,8 +27,7 @@ import { createPublicationWorker } from './worker'
 for (const photo of [false, true])
     for (const scenario of ['published', 'ambiguous', 'authentication', 'retry'] as const) {
         test(`Facebook worker persists ${photo ? 'photo' : 'text'} ${scenario} without replay`, async () => {
-            const database = createDatabase(':memory:')
-            await runMigrations(database)
+            const database = (await openTestDatabase()).database
             const directory = await mkdtemp(join(tmpdir(), 'postdot-facebook-worker-'))
             const now = 1_800_000_000_000
             let clock = now
@@ -196,8 +192,8 @@ for (const photo of [false, true])
                         await worker.processDueEvents(clock)
                     }
                     expect(
-                        database.$client
-                            .query('select state, external_id as externalId from publications')
+                        await database.sql
+                            .statement('select state, external_id as externalId from publications')
                             .all()
                     ).toEqual([
                         {
@@ -215,8 +211,8 @@ for (const photo of [false, true])
                     ])
                     if (photo)
                         expect(
-                            database.$client
-                                .query(
+                            await database.sql
+                                .statement(
                                     'select state, remote_media_id as remoteId from provider_media_deliveries'
                                 )
                                 .all()
@@ -268,7 +264,7 @@ for (const photo of [false, true])
                     await worker.stop()
                 }
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(directory, { recursive: true, force: true })
             }
         })

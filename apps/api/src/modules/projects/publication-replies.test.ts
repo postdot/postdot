@@ -3,14 +3,8 @@ import { expect, test } from 'bun:test'
 import type { ComAtprotoRepoCreateRecord } from '@atproto/api'
 import { createAuth } from '@postdot/auth'
 import { blueskyChannelProfile, type restoreBlueskySession } from '@postdot/bluesky'
-import {
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    createResourceLifecycleStore,
-    runMigrations,
-    closeDatabase,
-} from '@postdot/db'
+import { createAccessStore, createManualStore, createResourceLifecycleStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createApp } from '../../app'
@@ -21,8 +15,7 @@ import type { PublicationRepliesResponse } from './publication-replies-routes'
 import { createPublicationRepliesService } from './publication-replies-service'
 
 async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'bluesky') {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const baseURL = 'http://localhost:3000'
     const auth = createAuth(database, {
         baseURL,
@@ -32,7 +25,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
     const effects: string[] = []
     let mode: 'success' | 'failed' | 'throw' = 'success'
     let permission = true
-    let beforeContext: (() => void) | undefined
+    let beforeContext: (() => Promise<unknown> | void) | undefined
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -73,7 +66,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
                 if (path.endsWith('verify_credentials'))
                     return Response.json({ id: permission ? '10' : '99' })
                 if (path.endsWith('/context')) {
-                    beforeContext?.()
+                    await beforeContext?.()
                     return Response.json({ ancestors: [{ id: '100' }] })
                 }
                 return Response.json(
@@ -140,7 +133,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
         publisher,
         restoreSession: production ? restore : undefined,
         contextFetcher: async () => {
-            beforeContext?.()
+            await beforeContext?.()
             // cspell:disable-next-line
             const cid = 'bafyreiecx6dujwoeqpdzl27w67z4h46hyklk3an4i4cvvmioaqb2qbyo5u'
             const root = {
@@ -252,14 +245,14 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
             provider === 'mastodon'
                 ? 'https://social.example/api/v1/statuses/200'
                 : 'at://did:plc:bbbbbbbbbbbbbbbbbbbbbbbb/app.bsky.feed.post/comment'
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             "update publications set state = 'published', external_id = ?1, published_at = ?2, published_by_actor_id = created_by_actor_id where id = ?3"
         )
         .run(provider === 'mastodon' ? '100' : rootUri, Date.now(), publicationId)
     if (provider === 'mastodon')
-        database.$client
-            .query('update publications set external_url = ?1 where id = ?2')
+        await database.sql
+            .statement('update publications set external_url = ?1 where id = ?2')
             .run('https://social.example/@owner/100', publicationId)
     const actorId = (await publisher.publisherStore.getProjectActorId(project.id, owner.id))!
     const credential = await publisher.credentialStore.createPublisherCredential({
@@ -301,8 +294,8 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
             })
         ).kind
     ).toBe('created')
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             'insert into publication_comment_snapshots (project_id, publication_id, root_uri, snapshot_json, last_attempt_at) values (?1,?2,?3,?4,?5)'
         )
         .run(
@@ -346,7 +339,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
         setPermission(value: boolean) {
             permission = value
         },
-        beforeContext(callback: () => void) {
+        beforeContext(callback: () => Promise<unknown> | void) {
             beforeContext = callback
         },
         publisher,
@@ -412,15 +405,17 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             ).toBe(404)
             expect((await f.request(f.path, '')).status).toBe(401)
             expect(
-                f.database.$client
-                    .query<{ count: number }, []>(
-                        "select count(*) as count from audit_events where action like 'publication_reply.%'"
-                    )
-                    .get()?.count
+                (
+                    await f.database.sql
+                        .statement<{ count: number }, []>(
+                            "select count(*) as count from audit_events where action like 'publication_reply.%'"
+                        )
+                        .get()
+                )?.count
             ).toBe(3)
         } finally {
             await f.worker.stop()
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     test('records known failures and uncertain writes without automatic resends or raw errors', async () => {
@@ -444,7 +439,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             expect(f.effects).toHaveLength(2)
         } finally {
             await f.worker.stop()
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     test('recovers pre-effect claims, quarantines interrupted effects and refuses stale completions', async () => {
@@ -486,7 +481,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             expect(f.effects).toHaveLength(0)
         } finally {
             await f.worker.stop()
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -496,8 +491,8 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             const body = f.body()
             expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
             const row = (await f.service.store.get(body.requestId))!
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     "update publisher_credentials set state = 'reconnect_required' where id = ?1"
                 )
                 .run(row.credentialId)
@@ -506,16 +501,20 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             expect((await f.service.store.get(body.requestId))?.state).toBe('failed')
             for (const table of ['posts', 'publications'])
                 expect(
-                    f.database.$client
-                        .query<{ count: number }, []>(`select count(*) as count from ${table}`)
-                        .get()?.count
+                    (
+                        await f.database.sql
+                            .statement<{ count: number }, []>(
+                                `select count(*) as count from ${table}`
+                            )
+                            .get()
+                    )?.count
                 ).toBe(1)
             expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
                 canReply: false,
             })
         } finally {
             await f.worker.stop()
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 }
@@ -539,7 +538,7 @@ test('keeps older outgoing history reachable through a project-scoped cursor', a
         ).toBe(53)
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -562,12 +561,13 @@ test('prepares live references, verifies granted scope, persists refresh and rec
         await f.worker.processDueEvents(Date.now())
         expect(f.effects).toHaveLength(1)
         f.setPermission(true)
-        f.beforeContext(() =>
-            f.database.$client
-                .query(
-                    "update publisher_credentials set state = 'reconnect_required' where id = ?1"
-                )
-                .run(f.credentialId)
+        f.beforeContext(
+            async () =>
+                await f.database.sql
+                    .statement(
+                        "update publisher_credentials set state = 'reconnect_required' where id = ?1"
+                    )
+                    .run(f.credentialId)
         )
         expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
         await f.worker.processDueEvents(Date.now())
@@ -578,7 +578,7 @@ test('prepares live references, verifies granted scope, persists refresh and rec
         expect(rows.filter(reply => reply.state === 'failed')).toHaveLength(2)
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -594,12 +594,13 @@ test('Mastodon refuses a different live account and rechecks the original instan
         f.setPermission(true)
         const second = f.body()
         expect((await f.request(f.path, f.owner.cookie, second)).status).toBe(200)
-        f.beforeContext(() =>
-            f.database.$client
-                .query(
-                    "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
-                )
-                .run(f.credentialId)
+        f.beforeContext(
+            async () =>
+                await f.database.sql
+                    .statement(
+                        "update publisher_connections set endpoint_url = 'https://other.example' where credential_id = ?1"
+                    )
+                    .run(f.credentialId)
         )
         await f.worker.processDueEvents(Date.now())
         expect((await f.service.store.get(second.requestId))?.state).toBe('failed')
@@ -610,15 +611,15 @@ test('Mastodon refuses a different live account and rechecks the original instan
         })
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 test('refreshes an expired Mastodon token through the original controlled transport before replying', async () => {
     const f = await fixture(true, 'mastodon')
     try {
-        f.database.$client
-            .query('update publisher_credentials set expires_at = 1 where id = ?1')
+        await f.database.sql
+            .statement('update publisher_credentials set expires_at = 1 where id = ?1')
             .run(f.credentialId)
         const body = f.body()
         expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
@@ -633,7 +634,7 @@ test('refreshes an expired Mastodon token through the original controlled transp
         expect(f.effects).toEqual([body.requestId])
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -704,7 +705,7 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
         ).toBeNull()
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -765,6 +766,6 @@ test('persists an already-sent reply while retirement waits, without admitting a
         ).toBeNull()
     } finally {
         await f.worker.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

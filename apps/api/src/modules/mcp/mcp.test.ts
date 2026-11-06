@@ -3,13 +3,8 @@ import { describe, expect, it } from 'bun:test'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createNotificationStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -20,8 +15,7 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
 async function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -115,7 +109,7 @@ describe('MCP endpoint', () => {
             ])
                 expect(names).not.toContain(hidden)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -174,7 +168,7 @@ describe('MCP endpoint', () => {
             ).headers.get('set-cookie')
             expect((await post({ cookie: cookie?.split(';', 1)[0] ?? '' })).status).toBe(401)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -236,7 +230,7 @@ describe('MCP endpoint', () => {
             expect(unknown.isError).toBe(true)
             await full.client.close()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -300,7 +294,7 @@ describe('MCP endpoint', () => {
             expect(draft.isError).toBe(false)
             await client.close()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 
@@ -316,7 +310,7 @@ describe('MCP endpoint', () => {
             )
             expect(response.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

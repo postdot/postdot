@@ -2,24 +2,21 @@ import { it } from 'bun:test'
 
 import { expect } from '@playwright/test'
 import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
     createAccessStore,
     createManualStore,
     createEventJournalStore,
     createNotificationEmailStore,
     createNotificationDeliveryStore,
 } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { SendMailOptions } from 'nodemailer'
 
 import { classifySmtpFailure, createNotificationEmailRuntime } from './email-runtime'
 
 async function fixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
-    database.$client.exec(
-        "insert into user (id, name, email, email_verified, created_at, updated_at) values ('owner', 'Owner', 'owner@example.test', 1, 1, 1)"
+    const database = (await openTestDatabase()).database
+    await database.sql.exec(
+        "insert into \"user\" (id, name, email, email_verified, created_at, updated_at) values ('owner', 'Owner', 'owner@example.test', 1, 1, 1)"
     )
     const access = createAccessStore(database)
     await access.claimFirstAccount({ userId: 'owner' })
@@ -67,12 +64,14 @@ it('enrolls future outcomes only, deduplicates replay and never reenables a disa
         expect((await f.store.deliveries.project(f.projectId)).created).toBe(1)
         const delivery = (await f.store.deliveries.list(f.projectId, 'owner'))![0]!
         expect(await f.store.resolveRecipient(delivery)).toBe('owner@example.test')
-        f.database.$client.exec("update user set email = 'new@example.test' where id = 'owner'")
+        await f.database.sql.exec(
+            "update \"user\" set email = 'new@example.test' where id = 'owner'"
+        )
         expect(await f.store.resolveRecipient(delivery)).toBe('new@example.test')
-        f.database.$client.exec("update user set email_verified = 0 where id = 'owner'")
+        await f.database.sql.exec('update "user" set email_verified = 0 where id = \'owner\'')
         expect(await f.store.resolveRecipient(delivery)).toBeNull()
         expect(await f.store.setEnabled(f.projectId, 'owner', true)).toBeNull()
-        f.database.$client.exec(
+        await f.database.sql.exec(
             "update instance_memberships set state = 'disabled' where user_id = 'owner'"
         )
         expect(await f.store.preferences(f.projectId, 'owner')).toBeNull()
@@ -80,18 +79,18 @@ it('enrolls future outcomes only, deduplicates replay and never reenables a disa
         await f.append()
         expect((await f.store.deliveries.project(f.projectId)).created).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
 it('does not notify a removed member whose historical actor remains', async () => {
     const f = await fixture()
     try {
-        f.database.$client
-            .exec(`insert into user (id, name, email, email_verified, created_at, updated_at) values ('member', 'Member', 'member@example.test', 1, 1, 1);
+        await f.database.sql
+            .exec(`insert into "user" (id, name, email, email_verified, created_at, updated_at) values ('member', 'Member', 'member@example.test', 1, 1, 1);
             insert into instance_memberships (id, user_id, role, state, created_at, updated_at) values ('membership', 'member', 'member', 'enabled', 1, 1);`)
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 'insert into member (id, organization_id, user_id, role, created_at) values (?, ?, ?, ?, ?)'
             )
             .run(
@@ -113,8 +112,8 @@ it('does not notify a removed member whose historical actor remains', async () =
         expect(await f.store.resolveRecipient(delivery)).toBe('member@example.test')
         expect(await f.access.removeProjectUserAccess(f.projectId, 'member')).toBe(true)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select count(*) as count from actors where project_id = ? and subject_id = ?'
                 )
                 .get(f.projectId, 'member')
@@ -123,7 +122,7 @@ it('does not notify a removed member whose historical actor remains', async () =
         await f.append()
         expect((await f.store.deliveries.project(f.projectId)).created).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -167,7 +166,7 @@ it('delivers escaped HTML and text, recovers startup backlog, and keeps SMTP unc
         )
     } finally {
         await runtime.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -218,7 +217,7 @@ it('does not project, claim or recover another transport delivery', async () => 
             (await other.list(f.projectId, 'owner'))?.find(d => d.id === claimed.id)?.state
         ).toBe('running')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -251,7 +250,7 @@ it('keeps disabled SMTP work pending and resumes it when configuration becomes a
         await runtime.start()
         expect(messages).toHaveLength(0)
         expect(
-            f.database.$client.query('select state from notification_deliveries').get()
+            await f.database.sql.statement('select state from notification_deliveries').get()
         ).toMatchObject({ state: 'pending' })
         smtp = { host: 'unused', port: 25, secure: false, from: 'new@example.test' }
         await runtime.replan()
@@ -259,6 +258,6 @@ it('keeps disabled SMTP work pending and resumes it when configuration becomes a
         expect(messages[0]?.from).toBe('new@example.test')
     } finally {
         await runtime.stop()
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

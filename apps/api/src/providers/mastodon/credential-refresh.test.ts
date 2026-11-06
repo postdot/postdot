@@ -1,13 +1,7 @@
 import { expect, it } from 'bun:test'
 
-import {
-    closeDatabase,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-    type PublisherExecutionTarget,
-} from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { createManualStore, type PublisherExecutionTarget } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import { mastodonChannelProfile } from '@postdot/mastodon'
 
 import { createPublisherRuntime } from '../../modules/publishers/runtime'
@@ -15,8 +9,7 @@ import { prepareMastodonReplyAccount } from './reply'
 import { createMastodonProviderAdapter } from './worker'
 
 it('shares one renewal between publication and reply preparation and ignores stale target expiry', async () => {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const now = Date.now()
     let clock = now
     try {
@@ -209,6 +202,6 @@ it('shares one renewal between publication and reply preparation and ignores sta
             )?.accessToken
         ).toBe('new-owner-grant')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

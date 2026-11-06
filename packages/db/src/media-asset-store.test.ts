@@ -693,7 +693,8 @@ describe('project media lifecycle', () => {
             expect(pageCount).toBe(42)
             expect(seenAssetIds.size).toBe(1_000)
         })
-    })
+        // 2,000 single-row inserts take network round trips on PostgreSQL.
+    }, 30_000)
 
     it('applies media filters and sort orders before paginating', async () => {
         let currentTime = now

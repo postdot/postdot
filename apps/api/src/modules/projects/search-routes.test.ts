@@ -4,14 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createMediaAssetStore,
-    createManualStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createMediaAssetStore, createManualStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 
 import { createApp } from '../../app'
@@ -23,8 +17,7 @@ const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const mediaRoot = mkdtempSync(join(tmpdir(), 'search-383-media-'))
     const media = createMediaAssetStore(
         database,
@@ -92,16 +85,16 @@ describe('global dashboard search', () => {
         try {
             const ownerCookie = await signUp(app, 'search-owner@postdot.local')
             const readerCookie = await signUp(app, 'search-reader@postdot.local')
-            const ownerId = database.$client
-                .query<{ id: string }, []>(
-                    "select id from user where email = 'search-owner@postdot.local'"
+            const ownerId = (await database.sql
+                .statement<{ id: string }, []>(
+                    'select id from "user" where email = \'search-owner@postdot.local\''
                 )
-                .get()!.id
-            const readerId = database.$client
-                .query<{ id: string }, []>(
-                    "select id from user where email = 'search-reader@postdot.local'"
+                .get())!.id
+            const readerId = (await database.sql
+                .statement<{ id: string }, []>(
+                    'select id from "user" where email = \'search-reader@postdot.local\''
                 )
-                .get()!.id
+                .get())!.id
             const store = createManualStore(database)
             const projectResponse = await sessionRequest(app, '/api/projects', ownerCookie, {
                 method: 'POST',
@@ -138,23 +131,22 @@ describe('global dashboard search', () => {
                     }
                 ).results
             }
-            const actor = database.$client
-                .query<{ id: string }, string[]>(
+            const actor = (await database.sql
+                .statement<{ id: string }, string[]>(
                     'select id from actors where project_id = ? limit 1'
                 )
-                .get(project.id)!
+                .get(project.id))!
             for (const [id, state, archivedAt] of [
                 ['search-media', 'ready', null],
                 ['search-pending', 'reserved', null],
                 ['search-archived', 'ready', now],
             ] as const) {
-                database.$client.run(
-                    `insert into media_assets
+                await database.sql
+                    .statement(`insert into media_assets
                     (id, project_id, original_filename, default_accessibility_text, state,
                     archived_at, created_by_actor_id, created_at, updated_at)
-                    values (?, ?, 'Needle-photo.png', 'A mountain landscape', ?, ?, ?, ?, ?)`,
-                    [id, project.id, state, archivedAt, actor.id, now, now]
-                )
+                    values (?, ?, 'Needle-photo.png', 'A mountain landscape', ?, ?, ?, ?, ?)`)
+                    .run(id, project.id, state, archivedAt, actor.id, now, now)
             }
             expect((await search(ownerCookie, 'mountain')).map(result => result.id)).toEqual([
                 'search-media',
@@ -194,7 +186,7 @@ describe('global dashboard search', () => {
                 (await search(ownerCookie, 'Needle')).filter(result => result.kind === 'channel')
             ).toHaveLength(10)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })

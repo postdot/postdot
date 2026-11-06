@@ -1,15 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import type { ChannelProfileDefinition } from '@postdot/core'
-import {
-    closeDatabase,
-    createDatabase,
-    createManualStore,
-    createMediaAssetStore,
-    createWorkflowStore,
-    runMigrations,
-} from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { createManualStore, createMediaAssetStore, createWorkflowStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import { linkedinChannelProfile } from '@postdot/linkedin'
 
 // Synthetic limits exercise the shipped identity/execution contract, not current provider limits.
@@ -31,8 +24,7 @@ function limitedProfile(limit: number): ChannelProfileDefinition {
     }
 }
 async function fixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let now = 1_800_000_000_000
     const media = createMediaAssetStore(database, {
         storeId: 'metadata-fixture',
@@ -58,8 +50,8 @@ async function fixture() {
         name: 'Synthetic LinkedIn',
         profile: limitedProfile(500),
     }))!
-    database.$client
-        .query(
+    await database.sql
+        .statement(
             "insert into publishers (id,workspace_id,channel_id,kind) values (?,(select workspace_id from projects where id = ?),?,'linkedin')"
         )
         .run('publisher', project.id, channel.id)
@@ -128,19 +120,19 @@ async function fixture() {
         }))!
         return { draft, preview, result }
     }
-    const publication = (id: string) =>
-        database.$client.query('select * from publications where id = ?').get(id) as {
+    const publication = async (id: string) =>
+        (await database.sql.statement('select * from publications where id = ?').get(id)) as {
             review_state: string
             target_revision_id: string
             state: string
         }
-    const target = (id: string) =>
-        database.$client
-            .query('select * from publication_target_revisions where publication_id = ?')
+    const target = async (id: string) =>
+        await database.sql
+            .statement('select * from publication_target_revisions where publication_id = ?')
             .all(id)
-    const execution = (id: string) =>
-        database.$client
-            .query('select * from publication_execution_revisions where publication_id = ?')
+    const execution = async (id: string) =>
+        await database.sql
+            .statement('select * from publication_execution_revisions where publication_id = ?')
             .all(id)
     return {
         database,
@@ -178,14 +170,16 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
                 outcome: { type: 'published', externalId: 'historical' },
             })
         ).toBe('published')
-        const historicalTarget = f.target(historical.id)
-        const historicalExecution = f.execution(historical.id)
+        const historicalTarget = await f.target(historical.id)
+        const historicalExecution = await f.execution(historical.id)
         const long = await f.create(420, f.now + 60_000)
         const short = await f.create(280, f.now + 60_000)
         const draft = await f.create(420)
-        const beforeTargets = f.target(long.id)
-        const beforeDraft = f.database.$client
-            .query('select content_json from publication_working_drafts where publication_id = ?')
+        const beforeTargets = await f.target(long.id)
+        const beforeDraft = await f.database.sql
+            .statement(
+                'select content_json from publication_working_drafts where publication_id = ?'
+            )
             .get(draft.id)
         const activation = await f.activate()
         expect(activation.preview.pendingTargets).toEqual(
@@ -194,31 +188,31 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
                 expect.objectContaining({ id: short.id, state: 'compatible' }),
             ])
         )
-        expect(f.publication(long.id).review_state).toBe('review_required')
-        expect(f.publication(short.id).review_state).toBe('compatible')
-        expect(f.target(long.id)).toEqual(beforeTargets)
+        expect((await f.publication(long.id)).review_state).toBe('review_required')
+        expect((await f.publication(short.id)).review_state).toBe('compatible')
+        expect(await f.target(long.id)).toEqual(beforeTargets)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select content_json from publication_working_drafts where publication_id = ?'
                 )
                 .get(draft.id)
         ).toEqual(beforeDraft)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select review_state from publication_working_drafts where publication_id = ?'
                 )
                 .get(draft.id)
         ).toEqual({ review_state: 'review_required' })
-        expect(f.target(historical.id)).toEqual(historicalTarget)
-        expect(f.execution(historical.id)).toEqual(historicalExecution)
+        expect(await f.target(historical.id)).toEqual(historicalTarget)
+        expect(await f.execution(historical.id)).toEqual(historicalExecution)
         expect((await f.create(420)).reviewState).toBe('review_required')
         await expect(f.create(420, f.now)).rejects.toThrow()
         const newDraft = await f.create(280)
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select profile_version_id from publication_working_drafts where publication_id = ?'
                 )
                 .get(newDraft.id)
@@ -243,7 +237,7 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
             })
         ).toBeNull()
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -252,16 +246,16 @@ test('a claim made before limit activation cannot cross the effect boundary with
     try {
         const publication = await f.create(420, f.now)
         const work = await f.claim()
-        const before = f.target(publication.id)
+        const before = await f.target(publication.id)
         await f.activate()
         expect(await f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(
             false
         )
-        expect(f.publication(publication.id).review_state).toBe('review_required')
-        expect(f.target(publication.id)).toEqual(before)
-        expect(f.execution(publication.id)).toHaveLength(0)
+        expect((await f.publication(publication.id)).review_state).toBe('review_required')
+        expect(await f.target(publication.id)).toEqual(before)
+        expect(await f.execution(publication.id)).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -271,9 +265,9 @@ for (const retry of [false, true]) {
         try {
             const publication = await f.create(420, f.now)
             const work = await f.start()
-            const before = f.execution(publication.id)
+            const before = await f.execution(publication.id)
             await f.activate()
-            expect(f.execution(publication.id)).toEqual(before)
+            expect(await f.execution(publication.id)).toEqual(before)
             expect(
                 await f.workflow.completeExternalEffect({
                     jobId: work.job.id,
@@ -289,7 +283,7 @@ for (const retry of [false, true]) {
                     ...(retry ? { retryAt: f.now + 60_000 } : {}),
                 })
             ).toBe(retry ? 'failed' : 'published')
-            expect(f.execution(publication.id)).toEqual(before)
+            expect(await f.execution(publication.id)).toEqual(before)
             if (retry) {
                 f.advance()
                 expect(
@@ -300,9 +294,9 @@ for (const retry of [false, true]) {
                         leaseExpiresAt: f.now + 60_000,
                     })
                 ).toBeNull()
-            } else expect(f.publication(publication.id).state).toBe('published')
+            } else expect((await f.publication(publication.id)).state).toBe('published')
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 }
@@ -322,7 +316,7 @@ test('explicit retries of retained failed targets cannot bypass a newer incompat
                 errorMessage: 'Synthetic failure',
             },
         })
-        const before = f.target(publication.id)
+        const before = await f.target(publication.id)
         await f.activate()
         expect(
             (
@@ -333,9 +327,9 @@ test('explicit retries of retained failed targets cannot bypass a newer incompat
                 })
             ).kind
         ).toBe('not_retryable')
-        expect(f.target(publication.id)).toEqual(before)
+        expect(await f.target(publication.id)).toEqual(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -344,7 +338,7 @@ test('a compatible old target can retry after activation without replacing its i
     try {
         const publication = await f.create(280, f.now)
         const work = await f.start()
-        const target = f.target(publication.id)
+        const target = await f.target(publication.id)
         await f.activate()
         expect(
             await f.workflow.completeExternalEffect({
@@ -362,7 +356,7 @@ test('a compatible old target can retry after activation without replacing its i
         f.advance()
         const retry = await f.start()
         expect(retry.job.publicationId).toBe(publication.id)
-        expect(f.target(publication.id)).toEqual(target)
+        expect(await f.target(publication.id)).toEqual(target)
         expect(
             await f.workflow.completeExternalEffect({
                 jobId: retry.job.id,
@@ -372,7 +366,7 @@ test('a compatible old target can retry after activation without replacing its i
             })
         ).toBe('published')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -389,10 +383,10 @@ test('a changed built-in execution contract blocks even a short retained target 
         expect(await f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(
             false
         )
-        expect(f.publication(publication.id).review_state).toBe('review_required')
-        expect(f.execution(publication.id)).toHaveLength(0)
+        expect((await f.publication(publication.id)).review_state).toBe('review_required')
+        expect(await f.execution(publication.id)).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -404,21 +398,21 @@ test('an in-flight retry rechecks the current media requirements while preservin
             subjectId: 'operator',
             originalFilename: 'retained.png',
         }))!
-        f.database.$client
-            .query("update media_assets set state = 'ready' where id = ?")
+        await f.database.sql
+            .statement("update media_assets set state = 'ready' where id = ?")
             .run(reservation.asset.id)
-        f.database.$client
-            .query(
+        await f.database.sql
+            .statement(
                 "update media_representations set state = 'ready', detected_content_type = 'image/png', detected_format = 'png', family = 'image', byte_size = 67, sha256 = ?, width = 1, height = 1 where id = ?"
             )
             .run('a'.repeat(64), reservation.representation.id)
         const publication = await f.create(280, f.now, [{ assetId: reservation.asset.id }])
         const work = await f.start()
-        const before = f.database.$client
-            .query(
+        const before = await f.database.sql
+            .statement(
                 'select * from publication_execution_revision_media where execution_revision_id = ?'
             )
-            .all((f.execution(publication.id)[0] as { id: string }).id)
+            .all(((await f.execution(publication.id))[0] as { id: string }).id)
         const profile = limitedProfile(300)
         const schema = profile.contentSchema as { properties: { media: { maxItems: number } } }
         schema.properties.media.maxItems = 0
@@ -446,16 +440,16 @@ test('an in-flight retry rechecks the current media requirements while preservin
                 retryAt: f.now + 60_000,
             })
         ).toBe('failed')
-        expect(f.publication(publication.id).review_state).toBe('review_required')
+        expect((await f.publication(publication.id)).review_state).toBe('review_required')
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select * from publication_execution_revision_media where execution_revision_id = ?'
                 )
-                .all((f.execution(publication.id)[0] as { id: string }).id)
+                .all(((await f.execution(publication.id))[0] as { id: string }).id)
         ).toEqual(before)
         expect(before).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

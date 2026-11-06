@@ -4,13 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createMediaAssetStore,
-    runMigrations,
-} from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { createAccessStore, createMediaAssetStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 
 import { createApp } from '../../app'
@@ -22,8 +18,7 @@ const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const mediaRoot = mkdtempSync(join(tmpdir(), 'access-309-media-'))
     const media = createMediaAssetStore(
         database,
@@ -124,20 +119,22 @@ async function createProject(app: ReturnType<typeof createApp>, cookie: string, 
  * need an ordinary workspace member, so the fixture demotes them explicitly.
  */
 async function demoteToWorkspaceMember(
-    database: ReturnType<typeof createDatabase>,
+    database: DatabaseHandle,
     access: ReturnType<typeof createAccessStore>,
     email: string
 ) {
     const workspace = await access.getDefaultWorkspace()
     expect(workspace).not.toBeNull()
     if (workspace === null) throw new Error('The default workspace fixture is missing')
-    const userId = database.$client
-        .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-        .get(email)?.id
+    const userId = (
+        await database.sql
+            .statement<{ readonly id: string }, [string]>('select id from "user" where email = ?1')
+            .get(email)
+    )?.id
     expect(userId).toBeDefined()
     if (userId === undefined) throw new Error(`The ${email} fixture is missing`)
-    database.$client
-        .query('update member set role = ?1 where organization_id = ?2 and user_id = ?3')
+    await database.sql
+        .statement('update member set role = ?1 where organization_id = ?2 and user_id = ?3')
         .run('member', workspace.organizationId, userId)
     return userId
 }
@@ -256,14 +253,14 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             // Membership authority is gone while historical attribution stays.
             expect(await access.canAccessProject(revokedProject, memberUserId)).toBe(false)
             expect(await access.getProjectMembership(revokedProject, memberUserId)).toBeNull()
-            const grants = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            const grants = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from project_user_grants where project_id = ?1 and user_id = ?2'
                 )
                 .get(revokedProject, memberUserId)
             expect(grants?.count ?? 0).toBe(0)
-            const actors = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            const actors = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from actors where project_id = ?1 and subject_id = ?2'
                 )
                 .get(revokedProject, memberUserId)
@@ -327,7 +324,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 )
             ).not.toContain(revokedProject)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })
@@ -408,7 +405,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 (await keyRequest(app, `/api/projects/${projectId}/analytics`, key)).status
             ).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })
@@ -433,7 +430,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 (await keyRequest(app, `/api/projects/${projectId}/media?view=library`, key)).status
             ).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             rmSync(mediaRoot, { recursive: true, force: true })
         }
     })

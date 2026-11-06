@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-    createWorkspaceActorStore,
-} from '@postdot/db'
-import { workspaceOf } from '@postdot/db/testing'
+import { createAccessStore, createManualStore, createWorkspaceActorStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase, workspaceOf } from '@postdot/db/testing'
 import { devtoChannelProfile } from '@postdot/devto'
 
 import { createApp } from '../../app'
@@ -60,10 +53,9 @@ async function request(
 
 describe('provider analytics routes', () => {
     it('collects known Bluesky publications, persists them, and never calls the provider on read', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         let providerCalls = 0
         let devtoCalls = 0
-        await runMigrations(database)
         const auth = createAuth(database, { baseURL, secret })
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
@@ -134,8 +126,8 @@ describe('provider analytics routes', () => {
 
         try {
             const cookie = await signUp(app, 'provider-analytics@postdot.local')
-            const user = database.$client
-                .query<{ id: string }, [string]>('select id from user where email = ?1')
+            const user = await database.sql
+                .statement<{ id: string }, [string]>('select id from "user" where email = ?1')
                 .get('provider-analytics@postdot.local')
             if (user === null || user === undefined) throw new Error('The auth user is missing')
 
@@ -171,8 +163,8 @@ describe('provider analytics routes', () => {
             if (created === null) throw new Error('The analytics publication is missing')
             const publicationId = created.publications[0]?.id
             if (publicationId === undefined) throw new Error('The publication ID is missing')
-            const actor = database.$client
-                .query<{ id: string }, [string, string]>(
+            const actor = await database.sql
+                .statement<{ id: string }, [string, string]>(
                     'select id from actors where project_id = ?1 and subject_id = ?2 limit 1'
                 )
                 .get(project.project.id, user.id)
@@ -187,8 +179,8 @@ describe('provider analytics routes', () => {
                 }
             )
             if (workspaceActor === null) throw new Error('The workspace actor is missing')
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     'insert into publisher_credentials ' +
                         '(id, workspace_id, provider_id, external_account_id, external_account_name, scopes, state, connected_by_actor_id, revision, created_at, updated_at) ' +
                         "values (?1, ?2, 'bluesky', ?3, ?4, ?5, 'revoked', ?6, 1, ?7, ?7)"
@@ -202,14 +194,14 @@ describe('provider analytics routes', () => {
                     workspaceActor.id,
                     now
                 )
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     'insert into publishers (id, workspace_id, channel_id, kind, created_at, updated_at) ' +
                         "values (?1, ?2, ?3, 'bluesky', ?4, ?4)"
                 )
                 .run('publisher-1', workspaceId, channel.id, now)
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     'insert into publisher_connections ' +
                         '(id, workspace_id, publisher_id, credential_id, destination_type, destination_id, destination_name, connected_by_actor_id, created_at, updated_at) ' +
                         "values (?1, ?2, ?3, ?4, 'account', ?5, ?6, ?7, ?8, ?8)"
@@ -224,8 +216,8 @@ describe('provider analytics routes', () => {
                     workspaceActor.id,
                     now
                 )
-            database.$client
-                .query('update publications set external_id = ?1 where id = ?2')
+            await database.sql
+                .statement('update publications set external_id = ?1 where id = ?2')
                 .run(postUri, publicationId)
 
             const collectResponse = await request(
@@ -274,11 +266,13 @@ describe('provider analytics routes', () => {
             expect(providerCalls).toBe(2)
             expect(JSON.stringify(collection)).not.toContain('credential')
             expect(
-                database.$client
-                    .query<{ access_token_ciphertext: Uint8Array | null }, [string]>(
-                        'select access_token_ciphertext from publisher_credentials where id = ?1'
-                    )
-                    .get('credential-1')?.access_token_ciphertext
+                (
+                    await database.sql
+                        .statement<{ access_token_ciphertext: Uint8Array | null }, [string]>(
+                            'select access_token_ciphertext from publisher_credentials where id = ?1'
+                        )
+                        .get('credential-1')
+                )?.access_token_ciphertext
             ).toBeNull()
 
             const readResponse = await request(
@@ -400,8 +394,8 @@ describe('provider analytics routes', () => {
             expect(devtoConnection.kind).toBe('created')
             if (devtoConnection.kind !== 'created')
                 throw new Error('The DEV.to connection was not saved')
-            database.$client
-                .query('update publications set external_id = ?1 where id = ?2')
+            await database.sql
+                .statement('update publications set external_id = ?1 where id = ?2')
                 .run('12345', devtoPublicationId)
 
             const devtoCollectResponse = await request(
@@ -471,7 +465,7 @@ describe('provider analytics routes', () => {
             expect(operationalResponse.status).toBe(200)
             expect(JSON.stringify(await operationalResponse.json())).not.toContain('followersCount')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

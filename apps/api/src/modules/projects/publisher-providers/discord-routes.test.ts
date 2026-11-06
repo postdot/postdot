@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import type { DiscordFetcher } from '@postdot/discord'
 
 import { createApp } from '../../../app'
@@ -48,8 +49,7 @@ function channelResponse(type = 0): Response {
 }
 
 async function createFixture(discordFetcher?: DiscordFetcher) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -182,7 +182,7 @@ describe('Discord publisher connection routes', () => {
             expect(duplicate.status).toBe(409)
             expect(discord.calls).toBe(2)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -209,7 +209,7 @@ describe('Discord publisher connection routes', () => {
                 error: { code: 'invalid_token' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -256,7 +256,7 @@ describe('Discord publisher connection routes', () => {
             })
             expect(discord.calls).toBe(4)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -284,7 +284,7 @@ describe('Discord publisher connection routes', () => {
                 error: { code: 'unknown_channel' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -309,7 +309,7 @@ describe('Discord publisher connection routes', () => {
                 error: { code: 'unsupported_channel' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -332,7 +332,7 @@ describe('Discord publisher connection routes', () => {
             expect(response.status).toBe(422)
             expect(discord.calls).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -355,7 +355,7 @@ describe('Discord publisher connection routes', () => {
             expect(response.status).toBe(401)
             expect(discord.calls).toBe(0)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

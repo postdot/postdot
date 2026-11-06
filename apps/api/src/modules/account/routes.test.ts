@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createUserAvatarStore, runMigrations } from '@postdot/db'
+import { createUserAvatarStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 
 import { createApp } from '../../app'
@@ -21,8 +22,7 @@ const image = Uint8Array.from(
 describe('personal account HTTP boundary', () => {
     it('updates identity, isolates avatar ownership and revokes other password sessions', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postdot-account-'))
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
+        const database = (await openTestDatabase()).database
         const storage = createLocalMediaStore({
             storeId: 'account-test',
             rootDirectory: directory,
@@ -136,7 +136,7 @@ describe('personal account HTTP boundary', () => {
                 ).user.image
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(directory, { recursive: true, force: true })
         }
     })

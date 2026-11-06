@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 
 import { BLUESKY_REQUIRED_SCOPES } from '@postdot/bluesky'
-import { closeDatabase, createDatabase, runMigrations } from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createPublisherRuntime } from './runtime'
 
 const now = 1_800_000_000_000
 
-function createUser(database: ReturnType<typeof createDatabase>) {
-    database.$client
-        .query(
+async function createUser(database: DatabaseHandle) {
+    await database.sql
+        .statement(
             `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 1, ?4, ?4)`
         )
@@ -17,7 +18,7 @@ function createUser(database: ReturnType<typeof createDatabase>) {
 }
 
 function createRuntime(
-    database: ReturnType<typeof createDatabase>,
+    database: DatabaseHandle,
     origins: { readonly apiOrigin: string; readonly webOrigin: string }
 ) {
     return createPublisherRuntime(database, {
@@ -29,9 +30,8 @@ function createRuntime(
 
 describe('publisher runtime Bluesky OAuth profiles', () => {
     it('resolves a persisted Bluesky application as an official loopback client', async () => {
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
-        createUser(database)
+        const database = (await openTestDatabase()).database
+        await createUser(database)
         const runtime = createRuntime(database, {
             apiOrigin: 'http://127.0.0.1:3000',
             webOrigin: 'http://127.0.0.1:5173',
@@ -59,14 +59,13 @@ describe('publisher runtime Bluesky OAuth profiles', () => {
             )
             expect(resolved?.clientMetadata.application_type).toBe('native')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('rejects loopback OAuth when the dashboard and API origins are not consistent', async () => {
-        const database = createDatabase(':memory:')
-        await runMigrations(database)
-        createUser(database)
+        const database = (await openTestDatabase()).database
+        await createUser(database)
         const runtime = createRuntime(database, {
             apiOrigin: 'http://localhost:3000',
             webOrigin: 'http://localhost:5173',
@@ -86,7 +85,7 @@ describe('publisher runtime Bluesky OAuth profiles', () => {
                 runtime.resolveBlueskyApplication(created.configuration.id)
             ).rejects.toThrow('same loopback IP')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

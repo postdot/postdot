@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createTaxonomyStore,
-    runMigrations,
-} from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
+import { createAccessStore, createTaxonomyStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { requiredApiKeyCapability } from '../projects/api-key-permissions'
@@ -19,8 +15,7 @@ const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
 async function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL,
@@ -78,13 +73,9 @@ async function signIn(app: ReturnType<typeof createApp>, email: string) {
     return response.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
 }
 
-async function seedExistingUser(
-    database: ReturnType<typeof createDatabase>,
-    email: string,
-    name: string
-) {
-    const credential = database.$client
-        .query<
+async function seedExistingUser(database: DatabaseHandle, email: string, name: string) {
+    const credential = await database.sql
+        .statement<
             {
                 readonly issuer: string | null
                 readonly providerId: string
@@ -101,17 +92,17 @@ async function seedExistingUser(
 
     const userId = `user-${email.split('@')[0]}`
     const timestamp = now + 1
-    database.$client
-        .query<
+    await database.sql
+        .statement<
             void,
             [id: string, name: string, email: string, createdAt: number, updatedAt: number]
         >(
-            `insert into user (id, name, email, email_verified, created_at, updated_at)
+            `insert into "user" (id, name, email, email_verified, created_at, updated_at)
              values (?1, ?2, ?3, 0, ?4, ?5)`
         )
         .run(userId, name, email, timestamp, timestamp)
-    database.$client
-        .query<
+    await database.sql
+        .statement<
             void,
             [
                 id: string,
@@ -271,7 +262,7 @@ describe('access HTTP routes', () => {
 
             expect(secondProject.project.id).not.toBe(firstProject.project.id)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -393,7 +384,7 @@ describe('access HTTP routes', () => {
             )
             expect(allowedSchedule.status).toBe(201)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -545,7 +536,7 @@ describe('access HTTP routes', () => {
                 },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -601,7 +592,7 @@ describe('access HTTP routes', () => {
             )
             expect(allowedPurgeAttempt.status).toBe(503)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -625,15 +616,15 @@ describe('access HTTP routes', () => {
             const defaultWorkspace = await access.getDefaultWorkspace()
             expect(defaultWorkspace).not.toBeNull()
             if (defaultWorkspace === null) throw new Error('The default workspace was not created')
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into instance_memberships
                      (id, user_id, role, state, created_at, updated_at)
                      values (?1, ?2, 'member', 'enabled', ?3, ?3)`
                 )
                 .run(`instance-membership:${editorUserId}`, editorUserId, now)
-            database.$client
-                .query(
+            await database.sql
+                .statement(
                     `insert into member (id, organization_id, user_id, role, created_at)
                      values (?1, ?2, ?3, 'member', ?4)`
                 )
@@ -685,7 +676,7 @@ describe('access HTTP routes', () => {
             // action ceiling failure still answers 403 while access is held.
             expect(deniedAfterRevocation.status).toBe(404)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -770,7 +761,7 @@ describe('access HTTP routes', () => {
                 }
             }
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -784,7 +775,7 @@ describe('access HTTP routes', () => {
             expect(status.status).toBe(200)
             expect(await status.json()).toEqual({ setupAvailable: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -842,7 +833,7 @@ describe('access HTTP routes', () => {
             ).toBe(403)
             expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -951,9 +942,9 @@ describe('access HTTP routes', () => {
                 membership: { userId: memberId, role: 'admin', state: 'enabled' },
             })
             expect(
-                database.$client
-                    .query<{ readonly role: string | null }, [string]>(
-                        'select role from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly role: string | null }, [string]>(
+                        'select role from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ role: 'admin' })
@@ -1007,9 +998,9 @@ describe('access HTTP routes', () => {
             })
             expect(demoted.status).toBe(200)
             expect(
-                database.$client
-                    .query<{ readonly role: string | null }, [string]>(
-                        'select role from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly role: string | null }, [string]>(
+                        'select role from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ role: 'user' })
@@ -1028,9 +1019,9 @@ describe('access HTTP routes', () => {
                 membership: { userId: memberId, role: 'member', state: 'disabled' },
             })
             expect(
-                database.$client
-                    .query<{ readonly banned: number | null }, [string]>(
-                        'select banned from user where id = ?1'
+                await database.sql
+                    .statement<{ readonly banned: number | null }, [string]>(
+                        'select banned from "user" where id = ?1'
                     )
                     .get(memberId)
             ).toEqual({ banned: 1 })
@@ -1051,7 +1042,7 @@ describe('access HTTP routes', () => {
                 state: 'enabled',
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1129,7 +1120,7 @@ describe('access HTTP routes', () => {
                 instance: { bootstrapBlocked: false },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1153,8 +1144,10 @@ describe('access HTTP routes', () => {
             const created = (await createResponse.json()) as { token: string }
 
             const inviteeCookie = await signUp(app, targetEmail)
-            const inviteeId = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const inviteeId = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(inviteeId).not.toBeNull()
 
@@ -1183,7 +1176,7 @@ describe('access HTTP routes', () => {
                 projects: [expect.objectContaining({ id: project.project.id })],
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1265,8 +1258,10 @@ describe('access HTTP routes', () => {
             expect(created.invitation).toMatchObject({ teamId: editors.id, status: 'pending' })
 
             const inviteeCookie = await signUp(app, targetEmail)
-            const inviteeId = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+            const inviteeId = await database.sql
+                .statement<{ readonly id: string }, [string]>(
+                    'select id from "user" where email = ?1'
+                )
                 .get(targetEmail)
             expect(inviteeId).not.toBeNull()
 
@@ -1286,8 +1281,8 @@ describe('access HTTP routes', () => {
                 state: 'enabled',
             })
 
-            const teamMembership = database.$client
-                .query<{ readonly count: number }, [string, string]>(
+            const teamMembership = await database.sql
+                .statement<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from team_member where team_id = ?1 and user_id = ?2'
                 )
                 .get(editors.id, inviteeId?.id ?? '')
@@ -1434,7 +1429,7 @@ describe('access HTTP routes', () => {
             )
             expect(forbiddenInvite.status).toBe(403)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1476,8 +1471,8 @@ describe('access HTTP routes', () => {
                 slug: created.workspace.slug,
                 isDefault: false,
             })
-            const teams = database.$client
-                .query<{ readonly name: string; readonly memberCount: number }, [string]>(
+            const teams = await database.sql
+                .statement<{ readonly name: string; readonly memberCount: number }, [string]>(
                     `select name, member_count as memberCount
                      from team where organization_id = ?1 order by name`
                 )
@@ -1498,7 +1493,7 @@ describe('access HTTP routes', () => {
                 ]),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

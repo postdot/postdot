@@ -16,9 +16,8 @@ import type {
     SchedulerTimers,
 } from '@postdot/core'
 import { createCustomHttpTransport } from '@postdot/custom-http'
+import type { DatabaseHandle } from '@postdot/db'
 import {
-    closeDatabase,
-    createDatabase,
     createManualStore,
     createMediaAssetStore,
     createNotificationStore,
@@ -26,9 +25,8 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
     createProviderMediaDeliveryStore,
-    runMigrations,
 } from '@postdot/db'
-import { type TestRow } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createDiscordPublisher,
@@ -259,10 +257,9 @@ function createPng(width = 4, height = 3): Uint8Array {
 
 describe('publication worker', () => {
     it('executes scheduled LinkedIn publications, persists outcomes, and projects notifications', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -453,8 +450,8 @@ describe('publication worker', () => {
                     .includes('linkedin-access-token')
             ).toBe(false)
 
-            const jobRows = database.$client
-                .query<{ state: string; runAt: number; errorMessage: string | null }, []>(`
+            const jobRows = await database.sql
+                .statement<{ state: string; runAt: number; errorMessage: string | null }, []>(`
                     select state, run_at as runAt, error_message as errorMessage
                     from jobs
                     order by run_at, id
@@ -474,7 +471,7 @@ describe('publication worker', () => {
                 )
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -494,10 +491,9 @@ describe('publication worker', () => {
         })
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The retry receiver has no port')
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -654,16 +650,15 @@ describe('publication worker', () => {
             )
         } finally {
             await receiver.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('services due projects in a round-robin order', async () => {
         let currentTime = now
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -798,23 +793,24 @@ describe('publication worker', () => {
             )
             expect(delivered.filter(text => text.startsWith('busy-'))).toHaveLength(3)
             expect(
-                database.$client
-                    .query<{ count: number }, []>(
-                        `select count(*) as count from publications where state = 'published'`
-                    )
-                    .get()?.count
+                (
+                    await database.sql
+                        .statement<{ count: number }, []>(
+                            `select count(*) as count from publications where state = 'published'`
+                        )
+                        .get()
+                )?.count
             ).toBe(4)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('uses a fresh processing time for each event in a long-running batch', async () => {
         let currentTime = now
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -901,8 +897,8 @@ describe('publication worker', () => {
             await worker.processDueEvents(now)
 
             expect(
-                database.$client
-                    .query<{ claimedAt: number; completedAt: number }, []>(`
+                await database.sql
+                    .statement<{ claimedAt: number; completedAt: number }, []>(`
                         select claimed_at as claimedAt,
                                completed_at as completedAt
                         from jobs
@@ -920,7 +916,7 @@ describe('publication worker', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -932,10 +928,9 @@ describe('publication worker', () => {
         'uploads %i LinkedIn images with durable %s handling',
         async (imageCount, failureMode) => {
             const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-image-'))
-            const database = createDatabase(':memory:')
+            const database = (await openTestDatabase()).database
 
             try {
-                await runMigrations(database)
                 const media = createMediaAssetStore(
                     database,
                     createLocalMediaStore({
@@ -1121,15 +1116,15 @@ describe('publication worker', () => {
                 expect(postAttempts).toBe(imageCount === 1 ? 1 : 0)
                 if (failureMode === 'ambiguous') {
                     expect(
-                        database.$client
-                            .query('select state from publications where project_id = ?')
+                        await database.sql
+                            .statement('select state from publications where project_id = ?')
                             .all(project.project.id)
                     ).toEqual([{ state: 'ambiguous' }])
                     expect(
-                        database.$client
-                            .query('select state from provider_media_deliveries order by rowid')
+                        await database.sql
+                            .statement('select state from provider_media_deliveries order by state')
                             .all()
-                    ).toEqual([{ state: 'uploaded' }, { state: 'ambiguous' }])
+                    ).toEqual([{ state: 'ambiguous' }, { state: 'uploaded' }])
                     await worker.processDueEvents(now + 60_000)
                     expect(uploads).toBe(2)
                     expect(postAttempts).toBe(0)
@@ -1189,7 +1184,7 @@ describe('publication worker', () => {
                     expectedImages.map(image => ({ state: 'uploaded', remoteMediaId: image.id }))
                 )
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
                 await rm(rootDirectory, { recursive: true, force: true })
             }
         }
@@ -1206,10 +1201,9 @@ describe('publication worker', () => {
                 return Response.json({ accepted: true }, { status: 201 })
             },
         })
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1309,7 +1303,7 @@ describe('publication worker', () => {
             ).toEqual([{ state: 'published' }])
         } finally {
             await receiver.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1367,10 +1361,9 @@ describe('publication worker', () => {
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The provider sandbox has no port')
         const timers = new WorkerFakeTimers()
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1596,7 +1589,7 @@ describe('publication worker', () => {
         } finally {
             releaseTimedOutRequest?.()
             await receiver.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -1612,10 +1605,9 @@ describe('publication worker', () => {
         })
         const receiverPort = receiver.port
         if (receiverPort === undefined) throw new Error('The public media receiver has no port')
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1781,17 +1773,16 @@ describe('publication worker', () => {
             ).toEqual([{ state: 'published' }])
         } finally {
             await receiver.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 
     it('rejects changed custom HTTP media bytes before making a request', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-custom-media-checksum-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1930,7 +1921,7 @@ describe('publication worker', () => {
                     .all(project.project.id)
             ).toEqual([{ state: 'failed' }])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -1951,10 +1942,9 @@ describe('publication worker', () => {
                 })
             },
         })
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -2083,7 +2073,7 @@ describe('publication worker', () => {
             ).toEqual([{ state: 'published', externalId: 'urn:li:post:refreshed' }])
         } finally {
             await provider.stop()
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
@@ -2134,7 +2124,7 @@ class WorkerFakeTimers implements SchedulerTimers {
 }
 
 async function readPublicationState(
-    database: ReturnType<typeof createDatabase>,
+    database: DatabaseHandle,
     publicationId: string
 ): Promise<string | undefined> {
     return (
@@ -2148,10 +2138,9 @@ async function readPublicationState(
 
 it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-linkedin-video-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     let clock = now
     try {
-        await runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({
@@ -2354,7 +2343,7 @@ it('releases the worker during video processing and resumes without uploading or
         })
         for (let index = 0; index < 5; index++) {
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+            expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
                 { state: 'pending', attempts: 0 },
             ])
             expect(posts).toBe(0)
@@ -2368,16 +2357,16 @@ it('releases the worker during video processing and resumes without uploading or
             finalizations: 1,
             posts: 1,
         })
-        expect(database.$client.query('select state from publications').all()).toEqual([
+        expect(await database.sql.statement('select state from publications').all()).toEqual([
             { state: 'published' },
         ])
         expect(
-            database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
         ).toEqual([{ state: 'uploaded', id: 'urn:li:video:worker' }])
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(rootDirectory, { recursive: true, force: true })
     }
 })
@@ -2391,10 +2380,9 @@ for (const scenario of [
 ] as const) {
     it(`executes native Mastodon video with durable ${scenario} handling`, async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-mastodon-video-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         let clock = now
         try {
-            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2591,7 +2579,7 @@ for (const scenario of [
                 for (let index = 0; index < 5; index++) {
                     await worker.processDueEvents(clock)
                     expect(
-                        database.$client.query('select state, attempts from jobs').all()
+                        await database.sql.statement('select state, attempts from jobs').all()
                     ).toEqual([{ state: 'pending', attempts: 0 }])
                     expect(posts).toBe(0)
                     clock += 60_000
@@ -2602,7 +2590,7 @@ for (const scenario of [
             await worker.processDueEvents(clock)
             expect(transfers).toBe(scenario === 'instance-limit' ? 0 : 1)
             expect(posts).toBe(scenario === 'processing' ? 1 : 0)
-            expect(database.$client.query('select state from publications').all()).toEqual([
+            expect(await database.sql.statement('select state from publications').all()).toEqual([
                 {
                     state:
                         scenario === 'processing'
@@ -2612,8 +2600,8 @@ for (const scenario of [
                               : 'failed',
                 },
             ])
-            const deliveries = database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            const deliveries = await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
             if (scenario === 'processing')
                 expect(deliveries).toEqual([{ state: 'uploaded', id: 'video-one' }])
@@ -2621,7 +2609,7 @@ for (const scenario of [
                 expect(deliveries).toEqual([{ state: 'ambiguous', id: null }])
             if (scenario === 'timeout') expect(transfers).toBe(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -2630,10 +2618,9 @@ for (const scenario of [
 for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
     it(`executes native Discord video with durable ${scenario} handling`, async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-discord-video-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         let clock = now
         try {
-            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2791,7 +2778,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 now: () => clock,
             })
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state from publications').all()).toEqual([
+            expect(await database.sql.statement('select state from publications').all()).toEqual([
                 {
                     state:
                         scenario === 'published'
@@ -2802,8 +2789,8 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 },
             ])
             expect(
-                database.$client
-                    .query('select state, remote_media_id as id from provider_media_deliveries')
+                await database.sql
+                    .statement('select state, remote_media_id as id from provider_media_deliveries')
                     .all()
             ).toEqual([
                 {
@@ -2820,7 +2807,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             await worker.processDueEvents(clock)
             expect(dispatches).toBe(1)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }
     })
@@ -2828,10 +2815,9 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
 
 it('resumes a durable Bluesky video job without uploading again', async () => {
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-worker-bluesky-video-'))
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     let clock = now
     try {
-        await runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({
@@ -3024,7 +3010,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         })
         for (let index = 0; index < 5; index++) {
             await worker.processDueEvents(clock)
-            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+            expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
                 { state: 'pending', attempts: 0 },
             ])
             expect(posts).toBe(0)
@@ -3036,19 +3022,19 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         statusUnavailable = true
         clock += 60 * 60_000
         await worker.processDueEvents(clock)
-        expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+        expect(await database.sql.statement('select state, attempts from jobs').all()).toEqual([
             { state: 'pending', attempts: 2 },
         ])
         statusUnavailable = false
         clock += 60 * 60_000
         await worker.processDueEvents(clock)
         expect({ uploads, checks, posts }).toEqual({ uploads: 1, checks: 1, posts: 2 })
-        expect(database.$client.query('select state from publications').all()).toEqual([
+        expect(await database.sql.statement('select state from publications').all()).toEqual([
             { state: 'published' },
         ])
         expect(
-            database.$client
-                .query('select state, remote_media_id as id from provider_media_deliveries')
+            await database.sql
+                .statement('select state, remote_media_id as id from provider_media_deliveries')
                 .all()
         ).toEqual([
             {
@@ -3057,7 +3043,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             },
         ])
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(rootDirectory, { recursive: true, force: true })
     }
 })

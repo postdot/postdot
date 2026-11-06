@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
-import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@postdot/db'
+import { createNotificationStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { INSTAGRAM_PUBLISH_PERMISSIONS } from '@postdot/instagram'
 
 import { createApp } from '../../../app'
@@ -9,8 +10,7 @@ import { createPublisherRuntime } from '../../publishers/runtime'
 
 const origin = 'https://postdot.test'
 async function fixture(configured = true, configId?: string) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let calls = 0
     const publisher = createPublisherRuntime(database, {
         apiOrigin: origin,
@@ -192,7 +192,7 @@ test('Instagram HTTP callback connects the verified account behind a TLS proxy w
             (await f.request(`${f.path}/connect`, f.owner.cookie, { method: 'POST' })).status
         ).toBe(409)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -215,7 +215,7 @@ test('Instagram HTTP callback rejects a foreign actor and a disabled issuing app
         expect(f.calls).toBe(0)
         expect(await f.publisher.credentialStore.listPublisherCredentials(f.projectId)).toEqual([])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -234,7 +234,7 @@ test('Instagram HTTP routes require authentication and report missing distinct c
         ).toBe('not_configured')
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -261,7 +261,7 @@ test('Instagram authorization cannot be started by an automation key', async () 
         )
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -281,6 +281,6 @@ test('deployment configuration selects Unified Login without storing a config ID
         expect(saved[0]!.handleResolver).toBeNull()
         expect(f.calls).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })

@@ -2,8 +2,10 @@ import { expect, it } from 'bun:test'
 
 import { createAuth } from '@postdot/auth'
 import type { Publication } from '@postdot/core'
+import type { DatabaseHandle } from '@postdot/db'
 import type { PublicationEditorState, PublicationDestinationState } from '@postdot/db'
-import { closeDatabase, createAccessStore, createDatabase, runMigrations } from '@postdot/db'
+import { createAccessStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -18,7 +20,7 @@ async function fixture(
         ) => Promise<Response>,
         cookie: string,
         context: {
-            database: ReturnType<typeof createDatabase>
+            database: DatabaseHandle
             access: ReturnType<typeof createAccessStore>
             publisher: ReturnType<typeof createPublisherRuntime>
             app: ReturnType<typeof createApp>
@@ -26,8 +28,7 @@ async function fixture(
     ) => Promise<void>,
     allowAdditionalSignups = false
 ) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     const baseURL = 'http://localhost:3000'
     const access = createAccessStore(database)
     const auth = createAuth(database, {
@@ -73,7 +74,7 @@ async function fixture(
             .join('; ')
         await run(request, cookie, { database, access, app, publisher })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 }
 
@@ -89,11 +90,11 @@ it('requires explicit scoped destination confirmation and preserves publication 
         })
         expect(channelResponse.status).toBe(201)
         const { channel } = (await channelResponse.json()) as { channel: { id: string } }
-        const actor = database.$client
-            .query<{ id: string; subjectId: string }, [string]>(
+        const actor = (await database.sql
+            .statement<{ id: string; subjectId: string }, [string]>(
                 "select id, subject_id as subjectId from actors where project_id = ? and kind = 'human' limit 1"
             )
-            .get(project.id)!
+            .get(project.id))!
         async function credential(id: string) {
             const result = await publisher.credentialStore.createPublisherCredential({
                 projectId: project.id,

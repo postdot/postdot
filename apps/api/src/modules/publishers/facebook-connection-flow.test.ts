@@ -1,16 +1,13 @@
 import { expect, test } from 'bun:test'
 
 import {
-    closeDatabase,
-    createDatabase,
-    runMigrations,
     createManualStore,
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { seedTestWorkspace } from '@postdot/db/testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '@postdot/db/testing'
 import {
     createFacebookOAuth,
     createFacebookPublisher,
@@ -29,8 +26,7 @@ async function fixture(
         readonly permissionMode?: PermissionMode
     } = {}
 ) {
-    const database = createDatabase(':memory:')
-    await runMigrations(database)
+    const database = (await openTestDatabase()).database
     let timestamp = 1_800_000_000_000
     let editor = true
     let manager = true
@@ -215,8 +211,8 @@ async function readPendingProviderState(
     f: Awaited<ReturnType<typeof fixture>>,
     selection: string
 ): Promise<Record<string, unknown>> {
-    const row = f.database.$client
-        .query<{ connectedByActorId: string }, []>(
+    const row = await f.database.sql
+        .statement<{ connectedByActorId: string }, []>(
             `select connected_by_actor_id as connectedByActorId
              from oauth_authorization_attempts
              where provider_state_ciphertext is not null`
@@ -279,7 +275,7 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
         })
         expect(JSON.stringify(pages)).not.toContain('token')
         const attempts = JSON.stringify(
-            f.database.$client.query('select * from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select * from oauth_authorization_attempts').all()
         )
         expect(attempts).not.toContain('synthetic-user-token')
         expect(attempts).not.toContain('synthetic-long-user-token')
@@ -291,17 +287,19 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
         })
         expect(JSON.stringify(result)).not.toContain('synthetic-page-token')
         expect(
-            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+            JSON.stringify(
+                await f.database.sql.statement('select * from publisher_credentials').all()
+            )
         ).not.toContain('synthetic-page-token')
         expect(
-            f.database.$client
-                .query(
+            await f.database.sql
+                .statement(
                     'select provider_state_ciphertext as secret from oauth_authorization_attempts'
                 )
                 .all()
         ).toEqual([{ secret: null }, { secret: null }])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -309,8 +307,8 @@ test('an unknown provider expiration completes the Page selection and stores onl
     const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
-        const stored = f.database.$client
-            .query<{ id: string; ciphertext: Uint8Array | null }, []>(
+        const stored = await f.database.sql
+            .statement<{ id: string; ciphertext: Uint8Array | null }, []>(
                 'select id, provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
             )
             .all()
@@ -328,8 +326,8 @@ test('an unknown provider expiration completes the Page selection and stores onl
             id: '456',
             name: 'Selected Page',
         })
-        const credentials = f.database.$client
-            .query<
+        const credentials = await f.database.sql
+            .statement<
                 {
                     id: string
                     providerId: string
@@ -363,10 +361,12 @@ test('an unknown provider expiration completes the Page selection and stores onl
             )
         ).toBe('synthetic-page-token')
         expect(
-            JSON.stringify(f.database.$client.query('select * from publisher_credentials').all())
+            JSON.stringify(
+                await f.database.sql.statement('select * from publisher_credentials').all()
+            )
         ).not.toContain('synthetic-long-user-token')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -379,12 +379,12 @@ test('an unknown provider expiration is stored as an explicit null deadline hold
         expect(state.expiresAt).toBeNull()
         expect(state.token).toBe('synthetic-long-user-token')
         const rows = JSON.stringify(
-            f.database.$client.query('select * from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select * from oauth_authorization_attempts').all()
         )
         expect(rows).not.toContain('synthetic-user-token')
         expect(rows).not.toContain('synthetic-long-user-token')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -401,7 +401,7 @@ test('an unknown provider expiration stays bound to the local attempt lifetime',
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -424,16 +424,19 @@ test('a known provider expiration shorter than the local attempt lifetime refuse
         })
         expect(f.requests).toBe(before)
         expect(
-            f.database.$client
-                .query<{ status: string }, []>('select status from oauth_authorization_attempts')
-                .all()
-                .map(row => row.status)
+            (
+                await f.database.sql
+                    .statement<{ status: string }, []>(
+                        'select status from oauth_authorization_attempts'
+                    )
+                    .all()
+            ).map(row => row.status)
         ).toEqual(['consumed', 'pending'])
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -444,8 +447,8 @@ test('a permission probe that crosses a known deadline is refused before any pen
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'invalid_attempt',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; ciphertext: Uint8Array | null }, []>(
                 `select status, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -453,11 +456,11 @@ test('a permission probe that crosses a known deadline is refused before any pen
         expect(attempts).toHaveLength(1)
         expect(attempts[0]!.status).toBe('consumed')
         expect(attempts[0]!.ciphertext).toBeNull()
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -469,8 +472,8 @@ test('a refused permission discovery creates no pending Page selection', async (
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                 `select status, context_json as context, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -480,7 +483,7 @@ test('a refused permission discovery creates no pending Page selection', async (
         expect(attempts[0]!.ciphertext).toBeNull()
         expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -492,8 +495,8 @@ test('an unknown provider expiration still refuses missing or declined publishin
             await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
                 code: 'provider_unavailable',
             })
-            const attempts = f.database.$client
-                .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+            const attempts = await f.database.sql
+                .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                     `select status, context_json as context, provider_state_ciphertext as ciphertext
                      from oauth_authorization_attempts`
                 )
@@ -503,10 +506,10 @@ test('an unknown provider expiration still refuses missing or declined publishin
             expect(attempts[0]!.ciphertext).toBeNull()
             expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
             expect(
-                f.database.$client.query('select * from publisher_credentials').all()
+                await f.database.sql.statement('select * from publisher_credentials').all()
             ).toHaveLength(0)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     }
 })
@@ -518,8 +521,8 @@ test('an unknown provider expiration refuses a revoked provider token', async ()
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        const attempts = f.database.$client
-            .query<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
+        const attempts = await f.database.sql
+            .statement<{ status: string; context: string; ciphertext: Uint8Array | null }, []>(
                 `select status, context_json as context, provider_state_ciphertext as ciphertext
                  from oauth_authorization_attempts`
             )
@@ -528,11 +531,11 @@ test('an unknown provider expiration refuses a revoked provider token', async ()
         expect(attempts[0]!.status).toBe('consumed')
         expect(attempts[0]!.ciphertext).toBeNull()
         expect(JSON.parse(attempts[0]!.context).phase).toBe('authorization')
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -551,7 +554,7 @@ test('API keys, foreign users and viewers cannot start authorization or contact 
         })
         expect(f.requests).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -577,7 +580,7 @@ test('callback state is single use and binds the exact project and channel', asy
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -595,7 +598,7 @@ test('expired or foreign pending choices never disclose Pages', async () => {
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -618,10 +621,10 @@ test('a malformed pending provider state is refused before any Graph request', a
             })
             expect(f.requests).toBe(before)
             expect(
-                f.database.$client.query('select * from publisher_credentials').all()
+                await f.database.sql.statement('select * from publisher_credentials').all()
             ).toHaveLength(0)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     }
 })
@@ -638,7 +641,7 @@ test('a legacy numeric pending provider state is still accepted', async () => {
         const pages = await f.flow.listPages(f.binding, state)
         expect(pages.pages.map(page => page.id)).toEqual(['456', '789'])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -663,11 +666,11 @@ test('current permission and Page publishing task are required; no fallback Page
                 'owner'
             )
         ).toBeNull()
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -679,16 +682,16 @@ test('a persistence rejection consumes selection and revokes only its newly crea
         await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
             code: 'conflict',
         })
-        expect(f.database.$client.query('select state from publisher_credentials').all()).toEqual([
-            { state: 'revoked' },
-        ])
+        expect(
+            await f.database.sql.statement('select state from publisher_credentials').all()
+        ).toEqual([{ state: 'revoked' }])
         const before = f.requests
         await expect(f.flow.selectPage(f.binding, pending.selection, '456')).rejects.toMatchObject({
             code: 'invalid_attempt',
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -701,14 +704,14 @@ test('concurrent Page selections persist one connection', async () => {
             f.flow.selectPage(f.binding, pending.selection, '456'),
         ])
         expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
-        expect(f.database.$client.query('select * from publisher_connections').all()).toHaveLength(
-            1
-        )
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            1
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_connections').all()
+        ).toHaveLength(1)
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(1)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -722,10 +725,10 @@ test('an expired callback is consumed as expired without exchanging its provider
         })
         expect(f.requests).toBe(0)
         expect(
-            f.database.$client.query('select status from oauth_authorization_attempts').all()
+            await f.database.sql.statement('select status from oauth_authorization_attempts').all()
         ).toEqual([{ status: 'expired' }])
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -742,11 +745,11 @@ test('loss of editor access after authorization prevents Page inspection and per
             code: 'forbidden',
         })
         expect(f.requests).toBe(before)
-        expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
-            0
-        )
+        expect(
+            await f.database.sql.statement('select * from publisher_credentials').all()
+        ).toHaveLength(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -779,7 +782,7 @@ test('an operator cannot move pending choices into another project they own', as
             (await f.flow.selectPage(f.binding, pending.selection, '456')).connection.projectId
         ).toBe(f.binding.projectId)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -796,7 +799,7 @@ test('manual channels cannot be connected through the Facebook flow', async () =
         ).rejects.toMatchObject({ code: 'conflict' })
         expect(f.requests).toBe(0)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
 
@@ -811,6 +814,6 @@ test('losing channel management preserves editor access but blocks Page selectio
         })
         expect(f.requests).toBe(before)
     } finally {
-        closeDatabase(f.database)
+        await closeTestDatabase(f.database)
     }
 })
