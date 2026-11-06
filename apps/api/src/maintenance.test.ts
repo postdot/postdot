@@ -26,7 +26,7 @@ it('runs preview maintenance only against an existing offline database and relea
         await expect(runMaintenanceCommand(['media-previews'], options)).rejects.toThrow()
         expect(await Bun.file(databaseFileName).exists()).toBe(false)
         const database = createDatabase(databaseFileName)
-        runMigrations(database)
+        await runMigrations(database)
         closeDatabase(database)
         const runtime = acquireRuntimeQuiescenceLock(databaseFileName, 'server')
         try {

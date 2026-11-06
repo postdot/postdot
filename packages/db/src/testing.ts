@@ -6,7 +6,6 @@ import {
     createDatabase,
     createPostgresDatabase,
     type DatabaseHandle,
-    type PostdotDatabase,
 } from './client'
 import { runMigrations } from './migrations'
 import { runPortableMigrations } from './sql/migrator'
@@ -167,7 +166,7 @@ export async function closeTestDatabase(database: DatabaseHandle): Promise<void>
 async function openEngineDatabase(): Promise<TestDatabase> {
     if (testEngine === 'sqlite') {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         return {
             database,
             async close() {
@@ -320,20 +319,4 @@ export async function insertRow(
             `insert into "${table}" (${columns.join(', ')}) values (${params.map((_, i) => `?${i + 1}`).join(', ')})`
         )
         .run(...params)
-}
-
-/**
- * Test fixture: an in-memory SQLite database migrated by a historical
- * Drizzle chain folder (upgrade tests). SQLite only by nature.
- */
-export function openHistoricalTestDatabase(migrationsFolder: string): PostdotDatabase {
-    const database = createDatabase(':memory:')
-    runMigrations(database, migrationsFolder)
-    openedTestDatabases.set(database, {
-        database,
-        async close() {
-            closeDatabase(database)
-        },
-    })
-    return database
 }

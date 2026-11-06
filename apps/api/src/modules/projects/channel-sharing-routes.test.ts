@@ -17,9 +17,9 @@ const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -73,7 +73,7 @@ async function call(
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
 
 async function setup() {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     const cookie = await signUp(fixture.app, 'sharing@postdot.local')
     const create = async (name: string) => {
         const response = await call(fixture.app, '/api/projects', { cookie }, post({ name }))

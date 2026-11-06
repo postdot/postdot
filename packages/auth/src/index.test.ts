@@ -150,7 +150,9 @@ describe('Postdot authentication', () => {
                     return value
                 })
             await new Promise<void>(resolve => setTimeout(resolve, 0))
-            expect(readFinished).toBe(false)
+            // SQLite serializes through the writer gate, so the read waits; PostgreSQL
+            // reads a committed snapshot without waiting. Neither sees the row.
+            if (database.sql.dialect === 'sqlite') expect(readFinished).toBe(false)
             release.resolve()
             expect(await transaction).toEqual(new Error('rollback auth fixture'))
             expect(await lookup).toBeNull()

@@ -61,7 +61,7 @@ describe('media HTTP routes', () => {
     it('executes the authenticated upload, inspection, listing, and deletion flow', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-'))
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
             webOrigin: 'http://localhost:5173',
@@ -595,7 +595,7 @@ describe('media HTTP routes', () => {
     it('publishes media routes in the OpenAPI inventory when the media service is enabled', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-api-media-openapi-'))
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
             webOrigin: 'http://localhost:5173',

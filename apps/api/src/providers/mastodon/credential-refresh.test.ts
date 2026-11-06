@@ -16,7 +16,7 @@ import { createMastodonProviderAdapter } from './worker'
 
 it('shares one renewal between publication and reply preparation and ignores stale target expiry', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const now = Date.now()
     let clock = now
     try {

@@ -37,7 +37,7 @@ async function fixture(
     } = {}
 ) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let timestamp = issuedAt
     let editor = true
     let manager = true

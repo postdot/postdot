@@ -162,7 +162,7 @@ describe('personal avatar storage', () => {
             const directory = await mkdtemp(join(tmpdir(), 'postdot-avatar-backup-'))
             const sourceFile = join(directory, 'source.sqlite')
             const database = createDatabase(sourceFile)
-            runMigrations(database)
+            await runMigrations(database)
             await addUser(database, 'owner')
             const source = createLocalMediaStore({
                 storeId: 'avatar-test',
@@ -193,7 +193,7 @@ describe('personal avatar storage', () => {
                     mediaStore: destination,
                 })
                 const restored = createDatabase(restoredFile)
-                runMigrations(restored)
+                await runMigrations(restored)
                 try {
                     const image = await createUserAvatarStore(restored, destination).open(
                         avatarUrl.split('/').at(-1)!

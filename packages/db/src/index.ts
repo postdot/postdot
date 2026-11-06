@@ -38,8 +38,7 @@ export type {
 } from './local-account-recovery'
 export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
-export { defaultMigrationsFolder, runMigrations, rehearseMigrations } from './migrations'
-export type { MigrationChecks, MigrationRehearsal } from './migrations'
+export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export {
     createEventJournalStore,
@@ -351,7 +350,6 @@ export type {
     PublisherExecutionTarget,
     PublisherStoreOptions,
 } from './publisher-store'
-export * from './schema'
 export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
 export type { UserAvatarStore } from './user-avatar-store'
 

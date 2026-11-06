@@ -73,7 +73,9 @@ try {
         ? await (
               await import('./cli-qualification-container')
           ).createContainerCliFixture(directory, image)
-        : (await import('./cli-qualification-source')).createSourceCliFixture(directory, clock)
+        : await (
+              await import('./cli-qualification-source')
+          ).createSourceCliFixture(directory, clock)
     let installSpec = packageSpec
     if (!released) {
         await child([process.execPath, 'run', '--cwd', 'packages/cli', 'build'], root)

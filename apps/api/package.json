@@ -39,8 +39,6 @@
         "@postdot/x": "workspace:*",
         "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",
-        "drizzle-orm": "0.45.3",
-        "drizzle-typebox": "^0.3.3",
         "elysia": "^2.0.0-exp.64",
         "exact-mirror": "1.2.6",
         "nodemailer": "^10.0.13",

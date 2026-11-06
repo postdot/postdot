@@ -9,7 +9,6 @@ import {
 
 import { createAccessStore } from './access-store'
 import { defineTransaction, type DatabaseHandle } from './client'
-import type { publicationFirstComments as firstComments } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 import { jsonExtractTextSql } from './sql/dialect'
 import type { SqlDialect } from './sql/port'
@@ -24,8 +23,55 @@ export interface PublicationFirstCommentStoreOptions {
     readonly policies: readonly ProviderCommentPolicy[]
 }
 
-export type PublicationFirstComment = typeof firstComments.$inferSelect
-export type PublicationFirstCommentState = PublicationFirstComment['state']
+/**
+ * Lifecycle of a prepared first comment.
+ *
+ * `waiting` means the parent publication is not confirmed yet, `pending` means
+ * the comment is armed against an exact parent receipt, `running` means a
+ * worker claimed it, `suspended` means the enabling editor lost access, and
+ * the remaining states are terminal outcomes of the send itself.
+ */
+export const publicationFirstCommentStates = [
+    'waiting',
+    'pending',
+    'running',
+    'suspended',
+    'sent',
+    'failed',
+    'ambiguous',
+    'cancelled',
+] as const
+export type PublicationFirstCommentState = (typeof publicationFirstCommentStates)[number]
+
+/** A `publication_first_comments` row. */
+export interface PublicationFirstComment {
+    id: string
+    projectId: string
+    publicationId: string
+    actorId: string
+    text: string
+    delaySeconds: number
+    state: PublicationFirstCommentState
+    providerId: string
+    instanceOrigin: string | null
+    revision: number
+    dueAt: number | null
+    rootUri: string | null
+    executionRevisionId: string | null
+    connectionId: string | null
+    credentialId: string | null
+    accountId: string | null
+    recordKey: string
+    attempts: number
+    claimToken: string | null
+    leaseExpiresAt: number | null
+    effectStartedAt: number | null
+    externalId: string | null
+    externalUrl: string | null
+    lastError: string | null
+    createdAt: number
+    updatedAt: number
+}
 
 export interface SavePublicationFirstCommentInput {
     readonly projectId: string

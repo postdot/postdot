@@ -63,7 +63,7 @@ describe('provider analytics routes', () => {
         const database = createDatabase(':memory:')
         let providerCalls = 0
         let devtoCalls = 0
-        runMigrations(database)
+        await runMigrations(database)
         const auth = createAuth(database, { baseURL, secret })
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,

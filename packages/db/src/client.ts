@@ -1,9 +1,7 @@
 import { Database } from 'bun:sqlite'
 
 import { SQL } from 'bun'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
 
-import * as schema from './schema'
 import type { SqlDatabase, SqlTransactionMode } from './sql/port'
 import { PostgresSqlDatabase } from './sql/postgres-adapter'
 import { SqliteSqlDatabase } from './sql/sqlite-adapter'
@@ -19,7 +17,12 @@ interface CommitObserverRegistration {
 const commitObservers = new WeakMap<object, CommitObserverRegistration>()
 const asyncCommitProjects = new WeakMap<object, Set<string>>()
 
-export function createDatabase(filename: string) {
+/** The SQLite profile: the port plus the raw client for SQLite-only features (backup, WAL). */
+export interface PostdotDatabase extends DatabaseHandle {
+    readonly $client: Database
+}
+
+export function createDatabase(filename: string): PostdotDatabase {
     const client = new Database(filename)
     try {
         client.run('PRAGMA busy_timeout = 5000')
@@ -31,14 +34,12 @@ export function createDatabase(filename: string) {
         client.run('PRAGMA synchronous = FULL')
         client.run('PRAGMA foreign_keys = ON')
         const sql: SqlDatabase = new SqliteSqlDatabase(client)
-        return Object.assign(drizzle({ client, schema }), { sql })
+        return { sql, $client: client }
     } catch (error) {
         client.close(true)
         throw error
     }
 }
-
-export type PostdotDatabase = ReturnType<typeof createDatabase>
 
 /**
  * Engine-neutral persistence handle (ADR-097). Stores depend only on the
@@ -167,6 +168,6 @@ export async function closePostgresDatabase(database: PostgresDatabase): Promise
 }
 
 export function closeDatabase(database: PostdotDatabase) {
-    // Finalize Drizzle prepared statements before releasing the runtime lock.
+    // Finalize prepared statements before releasing the runtime lock.
     database.$client.close(true)
 }

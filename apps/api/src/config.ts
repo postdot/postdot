@@ -15,7 +15,7 @@ export const defaultDatabaseFileName = fileURLToPath(
     new URL('../../../postdot.sqlite', import.meta.url)
 )
 const defaultMigrationsDirectory = fileURLToPath(
-    new URL('../../../packages/db/drizzle', import.meta.url)
+    new URL('../../../packages/db/migrations', import.meta.url)
 )
 const defaultWebAssetsDirectory = fileURLToPath(new URL('../../../apps/web/dist', import.meta.url))
 export const defaultMediaDirectory = fileURLToPath(new URL('../../../data/media', import.meta.url))

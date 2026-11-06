@@ -31,7 +31,7 @@ for (const photo of [false, true])
     for (const scenario of ['published', 'ambiguous', 'authentication', 'retry'] as const) {
         test(`Facebook worker persists ${photo ? 'photo' : 'text'} ${scenario} without replay`, async () => {
             const database = createDatabase(':memory:')
-            runMigrations(database)
+            await runMigrations(database)
             const directory = await mkdtemp(join(tmpdir(), 'postdot-facebook-worker-'))
             const now = 1_800_000_000_000
             let clock = now

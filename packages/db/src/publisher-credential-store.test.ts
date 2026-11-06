@@ -55,7 +55,7 @@ describe('publisher credential store', () => {
             const directory = await mkdtemp(join(tmpdir(), 'postdot-credentials-'))
             const databasePath = join(directory, 'postdot.sqlite')
             const database = createDatabase(databasePath)
-            runMigrations(database)
+            await runMigrations(database)
             let databaseClosed = false
 
             try {

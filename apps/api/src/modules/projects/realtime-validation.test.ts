@@ -200,7 +200,7 @@ describe('REALTIME-106 realtime validation', () => {
     it('keeps CLI-style writes correct with zero SSE subscribers and projects for a later browser', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             let globalRecoveryScans = 0
             const projectedProjects: string[] = []
@@ -303,7 +303,7 @@ describe('REALTIME-106 realtime validation', () => {
     it('replays disconnected commits once across cursor reconnects and continues from the last cursor', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 
@@ -362,7 +362,7 @@ describe('REALTIME-106 realtime validation', () => {
         let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             const event = await appendPublicationEvent(fixture, 'restart-event')
             const projectId = fixture.project.id
@@ -372,7 +372,7 @@ describe('REALTIME-106 realtime validation', () => {
 
             const reopened = createDatabase(temporary.filename)
             database = reopened
-            runMigrations(reopened)
+            await runMigrations(reopened)
             const journal = createEventJournalStore(reopened)
             const notifications = createNotificationStore(reopened, {
                 now: () => projectionTime,
@@ -421,7 +421,7 @@ describe('REALTIME-106 realtime validation', () => {
         let database: PostdotDatabase | undefined
         try {
             database = createDatabase(temporary.filename)
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
             const eventCount = 240
@@ -529,7 +529,7 @@ describe('REALTIME-106 realtime validation', () => {
     it('emits no signal for rollback and keeps the committed fact recoverable after observer failure', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
@@ -582,7 +582,7 @@ describe('REALTIME-106 realtime validation', () => {
     it('recovers a committed event when notification projection fails after commit', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const fixture = await createFixture(database)
             const bridge = createRealtimeBridge(fixture)
 

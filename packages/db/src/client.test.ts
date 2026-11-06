@@ -71,7 +71,7 @@ describe('database post-commit observer', () => {
     it('publishes affected projects only after a successful commit', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const first = seedProject(database, 'first')
             const second = seedProject(database, 'second')
             const observed: string[][] = []
@@ -109,7 +109,7 @@ describe('database post-commit observer', () => {
     it('does not publish a transaction that rolls back', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const project = seedProject(database, 'rollback')
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
@@ -140,7 +140,7 @@ describe('database post-commit observer', () => {
     it('publishes facts written through the manual store boundary', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
                 observed.push([...projectIds])
@@ -174,7 +174,7 @@ describe('database post-commit observer', () => {
     it('does not leak project ids from a rolled-back nested transaction', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const project = seedProject(database, 'nested')
             const observed: string[][] = []
             const clearObserver = setDatabaseCommitObserver(database, projectIds => {
@@ -210,7 +210,7 @@ describe('database post-commit observer', () => {
     it('does not turn a committed write into a failed write when the observer fails', async () => {
         const database = createDatabase(':memory:')
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const project = seedProject(database, 'observer-error')
             const errors: unknown[] = []
             const clearObserver = setDatabaseCommitObserver(

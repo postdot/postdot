@@ -97,7 +97,7 @@ content generator.
 
 ## 🏗 Stack & Architecture
 
-- **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
+- **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Bun SQLite or PostgreSQL behind Postdot's persistence port, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Host Grotesk, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
 - **Authentication boundary:** Better Auth authenticates people into Postdot and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Released alpha.1/alpha.2 connections and credentials are project-owned. From alpha.3, migration 0023 moves channels, profiles, publishers, connections and credentials to workspace ownership with explicit project attachments, per [ADR-095](.autonomos/decisions/ADR-095-workspace-channels-and-project-attachments.md) and [SPEC-009](.autonomos/specs/SPEC-009-shared-channel-workflows.md); every new project must belong to a workspace. This schema conversion is not a delivered sharing feature: the live authorization adapters, HTTP/CLI/Studio workflows and release acceptance remain under SHARE-592. The connecting actor is audit attribution, not personal secret ownership; actor departure does not revoke the connection.
@@ -109,7 +109,7 @@ content generator.
 | `apps/api/`             | Elysia API process                                         |
 | `apps/web/`             | React 19 + TanStack Router Vite SPA                        |
 | `packages/core/`        | Framework-independent domain model                         |
-| `packages/db/`          | Drizzle schema, Bun SQLite client, and migrations          |
+| `packages/db/`          | Persistence port, SQLite/PostgreSQL adapters, migrations   |
 | `packages/media/`       | Narrow object-storage contract and Bun local/S3 adapters   |
 | `packages/auth/`        | Better Auth configuration and database adapter boundary    |
 | `packages/oauth/`       | OAuth protocol mechanics for publisher-channel connections |

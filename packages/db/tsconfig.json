@@ -3,6 +3,6 @@
     "compilerOptions": {
         "types": ["bun", "node"]
     },
-    "include": ["src/**/*.ts", "drizzle.config.ts"],
-    "exclude": ["dist", "node_modules", ".turbo", "drizzle"]
+    "include": ["src/**/*.ts"],
+    "exclude": ["dist", "node_modules", ".turbo"]
 }

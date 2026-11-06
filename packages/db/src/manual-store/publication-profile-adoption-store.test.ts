@@ -36,7 +36,7 @@ const profile: ChannelProfileDefinition = {
 }
 async function fixture(filename = ':memory:', pathChange = true) {
     const database = createDatabase(filename)
-    runMigrations(database)
+    await runMigrations(database)
     const now = 1_800_000_000_000
     const store = createManualStore(database, { now: () => now })
     const project = await store.createProject({

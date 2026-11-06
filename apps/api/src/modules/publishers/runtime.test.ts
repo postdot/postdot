@@ -30,7 +30,7 @@ function createRuntime(
 describe('publisher runtime Bluesky OAuth profiles', () => {
     it('resolves a persisted Bluesky application as an official loopback client', async () => {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         createUser(database)
         const runtime = createRuntime(database, {
             apiOrigin: 'http://127.0.0.1:3000',
@@ -65,7 +65,7 @@ describe('publisher runtime Bluesky OAuth profiles', () => {
 
     it('rejects loopback OAuth when the dashboard and API origins are not consistent', async () => {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         createUser(database)
         const runtime = createRuntime(database, {
             apiOrigin: 'http://localhost:3000',

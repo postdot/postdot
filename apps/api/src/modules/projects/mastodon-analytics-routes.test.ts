@@ -15,7 +15,7 @@ import { createPublisherRuntime } from '../publishers/runtime'
 
 async function fixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const origin = 'http://localhost:3000'
     const auth = createAuth(database, {
         baseURL: origin,

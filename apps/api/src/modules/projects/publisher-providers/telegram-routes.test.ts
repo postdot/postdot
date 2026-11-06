@@ -59,9 +59,9 @@ function membershipResponse(): Response {
     })
 }
 
-function createFixture(telegramFetcher?: TelegramFetcher) {
+async function createFixture(telegramFetcher?: TelegramFetcher) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -161,7 +161,7 @@ describe('Telegram publisher connection routes', () => {
             channelResponse(),
             membershipResponse(),
         ])
-        const { app, database, publisher } = createFixture(transport.fetcher)
+        const { app, database, publisher } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram@postdot.local')
             const { projectId, channelId: localId } = await createTelegramChannel(
@@ -213,7 +213,7 @@ describe('Telegram publisher connection routes', () => {
             channelResponse(),
             membershipResponse(),
         ])
-        const { app, database, publisher } = createFixture(transport.fetcher)
+        const { app, database, publisher } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram-reconnect@postdot.local')
             const local = await createTelegramChannel(app, cookie, 'Reconnect')
@@ -242,7 +242,7 @@ describe('Telegram publisher connection routes', () => {
     })
     it('requires authentication and masks a channel from a different project before provider access', async () => {
         const transport = createTelegramFetcher([])
-        const { app, database } = createFixture(transport.fetcher)
+        const { app, database } = await createFixture(transport.fetcher)
         try {
             const cookie = await signUp(app, 'telegram-access@postdot.local')
             const first = await createTelegramChannel(app, cookie, 'First')
@@ -282,7 +282,7 @@ describe('Telegram publisher connection routes', () => {
             [jsonResponse({ ok: false, error_code: 500, description: botToken }, 500)],
         ].entries()) {
             const transport = createTelegramFetcher(responses)
-            const { app, database } = createFixture(transport.fetcher)
+            const { app, database } = await createFixture(transport.fetcher)
             try {
                 const cookie = await signUp(app, 'telegram-failure@postdot.local')
                 const local = await createTelegramChannel(app, cookie, 'Failure')

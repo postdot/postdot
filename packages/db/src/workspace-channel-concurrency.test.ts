@@ -52,7 +52,7 @@ it('serializes independent project planners against one shared cadence without p
         )
     let children: ReturnType<typeof launch>[] = []
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const manual = createManualStore(database, { now: () => now })
         const workspaceId = await seedTestWorkspace(database)
         const projects = await mapSequential(

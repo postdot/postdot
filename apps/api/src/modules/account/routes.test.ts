@@ -22,7 +22,7 @@ describe('personal account HTTP boundary', () => {
     it('updates identity, isolates avatar ownership and revokes other password sessions', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postdot-account-'))
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const storage = createLocalMediaStore({
             storeId: 'account-test',
             rootDirectory: directory,

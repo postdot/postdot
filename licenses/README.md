@@ -51,7 +51,6 @@ versions full texts with version-linked evidence.
 | ------------------------------------------------------------------------------------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `@uppy/components@2.0.0`                                                                                     | `Uppy-components.LICENSE` | npm publication commit `3582173228dc2fa797e01df58a39def1a91708d4`                                                  |
 | `@wrksz/themes@2.0.2`                                                                                        | `Themes.LICENSE`          | npm publication commit `233310f99ca22c72937f647eb216165d26e43184`                                                  |
-| `drizzle-orm@0.45.3`, `drizzle-typebox@0.3.3`                                                                | `Drizzle.LICENSE`         | release tag `0.45.3`, commit `15454dbe49d827c6081f3d0231e2e7985e517295`; sibling manifest confirms TypeBox version |
 | `mdast-util-inline-spoiler@2.1.0`, `micromark-extension-inline-spoiler@2.1.0`, `remark-inline-spoiler@2.1.0` | `Inline-spoiler.LICENSE`  | commit `fdb18a6287a7999d20c9be32ce04f91941dd9b50`; all three source manifests match                                |
 | `mime-match@1.0.2`                                                                                           | `Mime-match.LICENSE`      | complete ISC section from README at npm publication commit `6299160272c42c3d26e56ddc444567cb985908f2`              |
 | `wildcard@1.1.2`                                                                                             | `Wildcard.LICENSE`        | complete MIT section from README at npm publication commit `d844aaa3ac09f35c79036178040c85b97ce74c54`              |
@@ -60,7 +59,6 @@ The upstream sources are pinned:
 
 - `Uppy-components.LICENSE`: <https://raw.githubusercontent.com/transloadit/uppy/3582173228dc2fa797e01df58a39def1a91708d4/LICENSE>
 - `Themes.LICENSE`: <https://raw.githubusercontent.com/jakubwarkusz/themes/233310f99ca22c72937f647eb216165d26e43184/LICENSE>
-- `Drizzle.LICENSE`: <https://raw.githubusercontent.com/drizzle-team/drizzle-orm/15454dbe49d827c6081f3d0231e2e7985e517295/LICENSE>
 - `Inline-spoiler.LICENSE`: <https://raw.githubusercontent.com/hlysine/remark-inline-spoiler/fdb18a6287a7999d20c9be32ce04f91941dd9b50/LICENSE>
 - `Mime-match.LICENSE`: <https://raw.githubusercontent.com/DamonOehlman/mime-match/6299160272c42c3d26e56ddc444567cb985908f2/README.md>
 - `Wildcard.LICENSE`: <https://raw.githubusercontent.com/DamonOehlman/wildcard/d844aaa3ac09f35c79036178040c85b97ce74c54/README.md>
@@ -114,8 +112,6 @@ SHA-256 values for the retained standalone texts:
 - `Uppy-components.LICENSE`: `a0bceade78956c1954caa8dc9a8a665e78792ce94021baa15af72ffd6072b793`
 
 - `Themes.LICENSE`: `0576a0d0923e9d522619b04706ef80c124df6d4986c1defc6dd476d4a208300e`
-
-- `Drizzle.LICENSE`: `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4`
 
 - `Inline-spoiler.LICENSE`: `91b4e39053f42a5527b261482df85d8319922ab80184631b4992b8ff91add8e7`
 

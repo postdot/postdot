@@ -11,13 +11,11 @@ import {
 } from '@postdot/core'
 
 import { closeDatabase, createDatabase, type PostdotDatabase } from './client'
-import { migrationsThrough, seedLegacyScheduledChannel } from './legacy-migration-fixture'
 import { createManualStore } from './manual-store'
-import { rehearseMigrations, runMigrations } from './migrations'
+import { runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
-import { createResourceLifecycleStore } from './resource-lifecycle-store'
 
 function workspace(db: PostdotDatabase, id: string) {
     db.$client
@@ -32,7 +30,7 @@ function workspace(db: PostdotDatabase, id: string) {
 
 async function fixture(filename = ':memory:') {
     const database = createDatabase(filename)
-    runMigrations(database)
+    await runMigrations(database)
     workspace(database, 'workspace')
     const manual = createManualStore(database)
     const cipher = createPublisherCredentialCipher({
@@ -111,124 +109,6 @@ async function fixture(filename = ':memory:') {
     }
     return { database, manual, cipher, records, credentials, publishers }
 }
-
-function unchanged(db: PostdotDatabase) {
-    return [
-        'posts',
-        'publications',
-        'publication_working_drafts',
-        'publication_target_revisions',
-        'publication_revision_media',
-        'publication_execution_revisions',
-        'publication_execution_revision_media',
-        'media_assets',
-        'media_representations',
-        'jobs',
-        'audit_events',
-    ].map(table => ({
-        table,
-        rows: db.$client.query(`select * from ${table} order by rowid`).all(),
-    }))
-}
-
-it('converts preserved IDs, duplicate accounts, profiles, queued work and attribution without inventing historical events', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'postdot-channel-upgrade-'))
-    const database = createDatabase(':memory:')
-    try {
-        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 22))
-        workspace(database, 'workspace')
-        const legacy = ['first', 'second'].map(prefix =>
-            seedLegacyScheduledChannel(database, { prefix, workspaceId: 'workspace', at: 1000 })
-        )
-        const before = unchanged(database)
-        const profiles = database.$client
-            .query(
-                'select id,profile_json,profile_hash,schema_hash from channel_profile_versions order by id'
-            )
-            .all()
-        const actors = database.$client.query('select * from actors order by id').all()
-        const envelopeSql =
-            'select id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce,refresh_token_ciphertext,refresh_token_nonce,provider_session_ciphertext,provider_session_nonce from publisher_credentials order by id'
-        const envelopes = database.$client.query(envelopeSql).all()
-        const ids = (key: 'channel' | 'credential') =>
-            legacy.map(row => ({ id: row[key] })).sort((a, b) => a.id.localeCompare(b.id))
-        const verify = (db: PostdotDatabase) => {
-            expect(unchanged(db)).toEqual(before)
-            expect(
-                db.$client
-                    .query(
-                        'select id,profile_json,profile_hash,schema_hash from channel_profile_versions order by id'
-                    )
-                    .all()
-            ).toEqual(profiles)
-            expect(db.$client.query('pragma foreign_key_check').all()).toEqual([])
-            expect(db.$client.query(envelopeSql).all()).toEqual(envelopes)
-            expect(db.$client.query('select id from channels order by id').all()).toEqual(
-                ids('channel')
-            )
-            expect(
-                db.$client.query('select id from publisher_credentials order by id').all()
-            ).toEqual(ids('credential'))
-            expect(
-                db.$client.query("select count(*) as count from jobs where state='pending'").get()
-            ).toEqual({ count: 2 })
-        }
-        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(5)
-        expect(unchanged(database)).toEqual(before)
-        expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
-        expect(() =>
-            runMigrations(database, undefined, {
-                verify: db => {
-                    verify(db)
-                    throw new Error('Reject converted graph')
-                },
-            })
-        ).toThrow('Reject converted graph')
-        expect(database.$client.query('select * from actors order by id').all()).toEqual(actors)
-        expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
-        runMigrations(database, undefined, { verify })
-        expect(database.$client.query('select workspace_id from channels').all()).toEqual([
-            { workspace_id: 'workspace' },
-            { workspace_id: 'workspace' },
-        ])
-        expect(
-            database.$client
-                .query('pragma table_info(channels)')
-                .all()
-                .some((row: unknown) => (row as { name: string }).name === 'project_id')
-        ).toBe(false)
-        const attachments = database.$client
-            .query<{ origin: string; attached_at: number; attached_by_actor_id: null }, []>(
-                'select origin,attached_at,attached_by_actor_id from project_channel_attachments'
-            )
-            .all()
-        expect(attachments).toHaveLength(2)
-        expect(
-            attachments.every(
-                row =>
-                    row.origin === 'migrated' &&
-                    row.attached_at > 0 &&
-                    row.attached_by_actor_id === null
-            )
-        ).toBe(true)
-        expect(
-            database.$client
-                .query("select count(*) as count from actors where workspace_id='workspace'")
-                .get()
-        ).toEqual({ count: 2 })
-        // Each connected channel keeps its own credential even though both name one external account.
-        expect(
-            database.$client
-                .query(
-                    'select count(*) as count from project_publisher_credential_contexts where project_id = ?'
-                )
-                .get(legacy[0]!.project)
-        ).toEqual({ count: 1 })
-    } finally {
-        closeDatabase(database)
-        rmSync(directory, { recursive: true, force: true })
-    }
-})
 
 it('enforces attachment/workspace relations while retaining a shared resource after origin-project deletion', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'postdot-channel-conversion-'))
@@ -485,35 +365,6 @@ it('blocks new effects after detach while allowing an admitted effect to finaliz
     }
 })
 
-it('refuses unknown workspace ownership and rolls back every conversion change', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'postdot-channel-upgrade-'))
-    const database = createDatabase(':memory:')
-    try {
-        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 22))
-        database.$client
-            .query(
-                "insert into projects (id,name,created_at,updated_at) values ('unassigned','Unassigned',100,100)"
-            )
-            .run()
-        const before = database.$client.query('select * from projects').all()
-        expect(() => runMigrations(database)).toThrow('workspace_assignment_required')
-        expect(database.$client.query('select * from projects').all()).toEqual(before)
-        expect(
-            database.$client.query("select workspace_id from projects where id='unassigned'").get()
-        ).toEqual({ workspace_id: null })
-        expect(
-            database.$client
-                .query(
-                    "select name from sqlite_master where name like '__share_%' or name='project_channel_attachments'"
-                )
-                .all()
-        ).toEqual([])
-    } finally {
-        closeDatabase(database)
-        rmSync(directory, { recursive: true, force: true })
-    }
-})
-
 it('keeps editorial readers and content on their project context when a detached channel later changes profile', async () => {
     const f = await fixture()
     try {
@@ -636,61 +487,5 @@ it('keeps editorial readers and content on their project context when a detached
         expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
     } finally {
         closeDatabase(f.database)
-    }
-})
-
-it('retires a migrated alpha.2 managing project while another project retains its channel and credential', async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'postdot-alpha2-retirement-'))
-    const database = createDatabase(':memory:')
-    try {
-        runMigrations(database, migrationsThrough(join(directory, 'legacy'), 18))
-        workspace(database, 'workspace')
-        const source = seedLegacyScheduledChannel(database, {
-            prefix: 'source',
-            workspaceId: 'workspace',
-            at: 1000,
-        })
-        const target = seedLegacyScheduledChannel(database, {
-            prefix: 'target',
-            workspaceId: 'workspace',
-            at: 1000,
-        })
-        runMigrations(database)
-        const actor = database.$client
-            .query<{ id: string }, []>(
-                "select id from actors where workspace_id='workspace' limit 1"
-            )
-            .get()!
-        database.$client
-            .query(
-                "insert into project_channel_attachments(project_id,channel_id,workspace_id,origin,attached_by_actor_id,attached_at) values (?,?,'workspace','explicit',?,2000)"
-            )
-            .run(target.project, source.channel, actor.id)
-        const lifecycle = createResourceLifecycleStore(database)
-        await lifecycle.mutate({
-            kind: 'project',
-            id: source.project,
-            action: 'delete',
-            actorId: 'source',
-            fingerprint: (await lifecycle.impact('project', source.project))!.fingerprint,
-            confirmName: 'source',
-            cancelPending: true,
-            authorize: async () => true,
-        })
-        expect(await lifecycle.state('project', source.project)).toBe('deleted')
-        expect(
-            database.$client
-                .query('select id from publisher_credentials where id=?')
-                .get(source.credential)
-        ).toEqual({ id: source.credential })
-        expect(
-            database.$client
-                .query('select id from project_channel_contexts where project_id=? and id=?')
-                .get(target.project, source.channel)
-        ).toEqual({ id: source.channel })
-        expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
-    } finally {
-        closeDatabase(database)
-        rmSync(directory, { recursive: true, force: true })
     }
 })

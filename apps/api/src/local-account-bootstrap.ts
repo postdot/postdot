@@ -46,7 +46,7 @@ export async function runLocalAccountBootstrap(args: readonly string[]) {
             // Only initialize a new database. A refused bootstrap must not
             // silently migrate an existing installation.
             if (!existed)
-                runMigrations(database, createPostdotBootstrapConfig().POSTDOT_MIGRATIONS_DIR)
+                await runMigrations(database, createPostdotBootstrapConfig().POSTDOT_MIGRATIONS_DIR)
             const access = createAccessStore(database)
             if (
                 (await access.getInstanceState()).state !== 'claimable' ||

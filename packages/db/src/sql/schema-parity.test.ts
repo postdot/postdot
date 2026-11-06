@@ -1,15 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 
 import { closeDatabase, createDatabase } from '../client'
-import { runMigrations } from '../migrations'
-import { runPortableMigrations } from './migrator'
+import { applyLegacyChain } from './legacy-chain'
+import { loadPortableMigrations, runPortableMigrations } from './migrator'
 import { describeSchema, type SchemaDescription } from './schema-introspection'
 import { postgresTestUrl, testEngines } from './test-engines'
 
-async function portableSchema(engine: (typeof testEngines)[number]): Promise<SchemaDescription> {
+async function portableSchema(
+    engine: (typeof testEngines)[number],
+    migrations = loadPortableMigrations()
+): Promise<SchemaDescription> {
     const opened = await engine.open()
     try {
-        await runPortableMigrations(opened.database)
+        await runPortableMigrations(opened.database, migrations)
         return await describeSchema(opened.database)
     } finally {
         await opened.close()
@@ -17,15 +20,15 @@ async function portableSchema(engine: (typeof testEngines)[number]): Promise<Sch
 }
 
 describe('portable schema parity (ADR-097 §6)', () => {
-    test('the portable baseline reproduces the historical SQLite chain exactly', async () => {
-        const historical = createDatabase(':memory:')
+    test('the portable baseline reproduces the frozen legacy chain exactly', async () => {
+        const legacy = createDatabase(':memory:')
         try {
-            runMigrations(historical)
-            const expected = await describeSchema(historical)
-            const actual = await portableSchema(testEngines[0]!)
-            expect(actual).toEqual(expected)
+            applyLegacyChain(legacy.$client)
+            const expected = await describeSchema(legacy)
+            const baseline = loadPortableMigrations().slice(0, 1)
+            expect(await portableSchema(testEngines[0]!, baseline)).toEqual(expected)
         } finally {
-            closeDatabase(historical)
+            closeDatabase(legacy)
         }
     })
 

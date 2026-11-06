@@ -9,7 +9,7 @@ import { seedTestWorkspace } from './testing'
 it('archives and restores a project, then deletes its SQL data while retaining a receipt', async () => {
     const db = createDatabase(':memory:')
     try {
-        runMigrations(db)
+        await runMigrations(db)
         const manual = createManualStore(db)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(db),
@@ -68,7 +68,7 @@ it('archives and restores a project, then deletes its SQL data while retaining a
 it('cancels scheduled work explicitly and restores without rescheduling', async () => {
     const db = createDatabase(':memory:')
     try {
-        runMigrations(db)
+        await runMigrations(db)
         const manual = createManualStore(db)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(db),
@@ -148,7 +148,7 @@ it('waits for an admitted request and retries failed object deletion after resta
     const root = await mkdtemp(join(tmpdir(), 'postdot-resource-cleanup-'))
     let db = createDatabase(join(root, 'instance.sqlite'))
     try {
-        runMigrations(db)
+        await runMigrations(db)
         const manual = createManualStore(db)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(db),
@@ -205,7 +205,7 @@ it('waits for an admitted request and retries failed object deletion after resta
         expect(await storage.stat(reservation.representation.objectKey)).not.toBeNull()
         closeDatabase(db)
         db = createDatabase(join(root, 'instance.sqlite'))
-        runMigrations(db)
+        await runMigrations(db)
         const restarted = createResourceLifecycleStore(db)
         await restarted.reconcile({ ...failing, storeId: 'different-store' })
         expect(
@@ -237,7 +237,7 @@ it('waits for an admitted request and retries failed object deletion after resta
 it('permanently deletes scheduled work with selected targets through the lifecycle boundary', async () => {
     const database = createDatabase(':memory:')
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const manual = createManualStore(database)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -291,7 +291,7 @@ it('retires an image graph with derived previews and queues every object before 
     const root = await mkdtemp(join(tmpdir(), 'postdot-derived-retirement-'))
     const database = createDatabase(':memory:')
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const manual = createManualStore(database)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -370,7 +370,7 @@ it('retires an image graph with derived previews and queues every object before 
 it('rolls back retirement and retains foreign-key enforcement when a dependency survives the deletion graph', async () => {
     const database = createDatabase(':memory:')
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const manual = createManualStore(database)
         const { project } = await manual.createProject({
             workspaceId: await seedTestWorkspace(database),

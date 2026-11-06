@@ -28,7 +28,7 @@ import {
     createProviderMediaDeliveryStore,
     runMigrations,
 } from '@postdot/db'
-import { auditEvents, providerMediaDeliveries, publications } from '@postdot/db/schema'
+import { type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import {
     createDiscordPublisher,
@@ -48,7 +48,6 @@ import {
 } from '@postdot/mastodon'
 import { createLocalMediaStore } from '@postdot/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@postdot/oauth'
-import { eq } from 'drizzle-orm'
 
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
 import { blueskyPublisherConnectionPolicy } from '../../providers/bluesky/connection-policy'
@@ -263,7 +262,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -434,15 +433,11 @@ describe('publication worker', () => {
                 commentary: 'First LinkedIn publication',
             })
 
-            const publicationRows = database
-                .select({
-                    state: publications.state,
-                    externalId: publications.externalId,
-                    errorMessage: publications.errorMessage,
-                })
-                .from(publications)
-                .where(eq(publications.projectId, project.project.id))
-                .all()
+            const publicationRows = await database.sql
+                .statement<TestRow>(
+                    'select "publications"."state" as "state", "publications"."external_id" as "externalId", "publications"."error_message" as "errorMessage" from "publications" where "publications"."project_id" = ?1'
+                )
+                .all(project.project.id)
             expect(publicationRows).toContainEqual({
                 state: 'published',
                 externalId: 'urn:li:post:published',
@@ -502,7 +497,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -590,7 +585,7 @@ describe('publication worker', () => {
 
             await worker.processDueEvents(now)
             expect(attempt).toBe(1)
-            expect(readPublicationState(database, publication.id)).toBe('failed')
+            expect(await readPublicationState(database, publication.id)).toBe('failed')
 
             const retried = await manualStore.retryFailedPublication({
                 projectId: project.project.id,
@@ -604,22 +599,17 @@ describe('publication worker', () => {
 
             await worker.processDueEvents(now)
             expect(attempt).toBe(2)
-            expect(readPublicationState(database, publication.id)).toBe('published')
+            expect(await readPublicationState(database, publication.id)).toBe('published')
             expect(receivedBodies).toEqual([
                 { commentary: 'Retry this rejected publication' },
                 { commentary: 'Retry this rejected publication' },
             ])
 
-            const publicationAudit = database
-                .select({
-                    action: auditEvents.action,
-                    entityId: auditEvents.entityId,
-                    id: auditEvents.id,
-                    metadataJson: auditEvents.metadataJson,
-                })
-                .from(auditEvents)
-                .where(eq(auditEvents.entityId, publication.id))
-                .all()
+            const publicationAudit = await database.sql
+                .statement<TestRow>(
+                    'select "audit_events"."action" as "action", "audit_events"."entity_id" as "entityId", "audit_events"."id" as "id", "audit_events"."metadata_json" as "metadataJson" from "audit_events" where "audit_events"."entity_id" = ?1'
+                )
+                .all(publication.id)
             expect(publicationAudit.map(event => event.action)).toEqual(
                 expect.arrayContaining([
                     'publication.execution.failed',
@@ -673,7 +663,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -824,7 +814,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -945,7 +935,7 @@ describe('publication worker', () => {
             const database = createDatabase(':memory:')
 
             try {
-                runMigrations(database)
+                await runMigrations(database)
                 const media = createMediaAssetStore(
                     database,
                     createLocalMediaStore({
@@ -1147,11 +1137,11 @@ describe('publication worker', () => {
                 }
 
                 expect(
-                    database
-                        .select({ state: publications.state })
-                        .from(publications)
-                        .where(eq(publications.projectId, project.project.id))
-                        .all()
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                        )
+                        .all(project.project.id)
                 ).toEqual([{ state: 'ready' }])
 
                 await worker.processDueEvents(now + 1)
@@ -1183,22 +1173,17 @@ describe('publication worker', () => {
                             : { multiImage: { images: expectedImages } },
                 })
                 expect(
-                    database
-                        .select({
-                            state: publications.state,
-                            externalId: publications.externalId,
-                        })
-                        .from(publications)
-                        .where(eq(publications.projectId, project.project.id))
-                        .all()
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications" where "publications"."project_id" = ?1'
+                        )
+                        .all(project.project.id)
                 ).toEqual([{ state: 'published', externalId: 'urn:li:post:worker-image-42' }])
                 expect(
-                    database
-                        .select({
-                            state: providerMediaDeliveries.state,
-                            remoteMediaId: providerMediaDeliveries.remoteMediaId,
-                        })
-                        .from(providerMediaDeliveries)
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "provider_media_deliveries"."state" as "state", "provider_media_deliveries"."remote_media_id" as "remoteMediaId" from "provider_media_deliveries"'
+                        )
                         .all()
                 ).toEqual(
                     expectedImages.map(image => ({ state: 'uploaded', remoteMediaId: image.id }))
@@ -1224,7 +1209,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1316,11 +1301,11 @@ describe('publication worker', () => {
                 content: { commentary: 'Delivered by the custom channel' },
             })
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published' }])
         } finally {
             await receiver.stop()
@@ -1385,7 +1370,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => currentTime })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -1527,8 +1512,8 @@ describe('publication worker', () => {
             currentTime = now + 100
             await timers.fireOnly()
             expect(deliveries).toEqual([{ label: 'success', attempt: 1, status: 201 }])
-            expect(readPublicationState(database, successful.id)).toBe('published')
-            expect(readPublicationState(database, cancelled.id)).toBe('cancelled')
+            expect(await readPublicationState(database, successful.id)).toBe('published')
+            expect(await readPublicationState(database, cancelled.id)).toBe('cancelled')
 
             const retry = await createSandboxPublication('retry', now + 200)
             const retryFiveHundredThree = await createSandboxPublication(
@@ -1554,11 +1539,11 @@ describe('publication worker', () => {
                     { label: 'ambiguous', attempt: 1, status: 500 },
                 ])
             )
-            expect(readPublicationState(database, retry.id)).toBe('ready')
-            expect(readPublicationState(database, retryFiveHundredThree.id)).toBe('ready')
-            expect(readPublicationState(database, failed.id)).toBe('failed')
-            expect(readPublicationState(database, ambiguous.id)).toBe('ambiguous')
-            expect(readPublicationState(database, timeout.id)).toBe('ambiguous')
+            expect(await readPublicationState(database, retry.id)).toBe('ready')
+            expect(await readPublicationState(database, retryFiveHundredThree.id)).toBe('ready')
+            expect(await readPublicationState(database, failed.id)).toBe('failed')
+            expect(await readPublicationState(database, ambiguous.id)).toBe('ambiguous')
+            expect(await readPublicationState(database, timeout.id)).toBe('ambiguous')
             expect(timeoutRequests).toEqual([1])
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
 
@@ -1585,7 +1570,7 @@ describe('publication worker', () => {
 
             currentTime = now + 200
             await timers.fireOnly()
-            expect(readPublicationState(database, timeout.id)).toBe('published')
+            expect(await readPublicationState(database, timeout.id)).toBe('published')
             expect(timeoutRequests).toEqual([1, 2])
             expect(attempts.get('timeout')).toBe(2)
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
@@ -1604,7 +1589,7 @@ describe('publication worker', () => {
             expect(attempts.get('failed')).toBe(1)
             expect(attempts.get('ambiguous')).toBe(1)
             expect(attempts.get('timeout')).toBe(2)
-            expect(readPublicationState(database, retry.id)).toBe('published')
+            expect(await readPublicationState(database, retry.id)).toBe('published')
             expect(worker.scheduler.scheduledAt).toBeNull()
 
             await worker.stop()
@@ -1630,7 +1615,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1788,11 +1773,11 @@ describe('publication worker', () => {
             })
 
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published' }])
         } finally {
             await receiver.stop()
@@ -1806,7 +1791,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -1938,11 +1923,11 @@ describe('publication worker', () => {
 
             expect(requests).toHaveLength(0)
             expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'failed' }])
         } finally {
             closeDatabase(database)
@@ -1969,7 +1954,7 @@ describe('publication worker', () => {
         const database = createDatabase(':memory:')
 
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const manualStore = createManualStore(database, { now: () => now })
             const credentialStore = createPublisherCredentialStore(database, {
                 cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -2090,11 +2075,11 @@ describe('publication worker', () => {
                 expiresAt: now + 3_600_000,
             })
             expect(
-                database
-                    .select({ state: publications.state, externalId: publications.externalId })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications" where "publications"."project_id" = ?1'
+                    )
+                    .all(project.project.id)
             ).toEqual([{ state: 'published', externalId: 'urn:li:post:refreshed' }])
         } finally {
             await provider.stop()
@@ -2148,15 +2133,17 @@ class WorkerFakeTimers implements SchedulerTimers {
     }
 }
 
-function readPublicationState(
+async function readPublicationState(
     database: ReturnType<typeof createDatabase>,
     publicationId: string
-): string | undefined {
-    return database
-        .select({ state: publications.state })
-        .from(publications)
-        .where(eq(publications.id, publicationId))
-        .all()[0]?.state
+): Promise<string | undefined> {
+    return (
+        await database.sql
+            .statement<TestRow>(
+                'select "publications"."state" as "state" from "publications" where "publications"."id" = ?1'
+            )
+            .all(publicationId)
+    )[0]?.state
 }
 
 it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
@@ -2164,7 +2151,7 @@ it('releases the worker during video processing and resumes without uploading or
     const database = createDatabase(':memory:')
     let clock = now
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({
@@ -2407,7 +2394,7 @@ for (const scenario of [
         const database = createDatabase(':memory:')
         let clock = now
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2646,7 +2633,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
         const database = createDatabase(':memory:')
         let clock = now
         try {
-            runMigrations(database)
+            await runMigrations(database)
             const media = createMediaAssetStore(
                 database,
                 createLocalMediaStore({
@@ -2844,7 +2831,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
     const database = createDatabase(':memory:')
     let clock = now
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const media = createMediaAssetStore(
             database,
             createLocalMediaStore({

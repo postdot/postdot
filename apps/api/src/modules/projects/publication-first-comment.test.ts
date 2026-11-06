@@ -28,7 +28,7 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
             : 'https://bsky.app/profile/owner.test/post/parent'
     const accountId = provider === 'mastodon' ? '10' : did
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let clock = Date.now()
     let parentFails = false
     let commentThrows = false

@@ -19,7 +19,7 @@ describe('local account recovery command', () => {
         const originalPassword = 'original-password-123'
         const recoveredPassword = 'recovered-password-456'
         const initialDatabase = createDatabase(databaseFilename)
-        runMigrations(initialDatabase)
+        await runMigrations(initialDatabase)
         const auth = createAuth(initialDatabase, {
             baseURL,
             secret,
@@ -68,7 +68,7 @@ describe('local account recovery command', () => {
 
         const recoveredDatabase = createDatabase(databaseFilename)
         try {
-            runMigrations(recoveredDatabase)
+            await runMigrations(recoveredDatabase)
             const recoveredAuth = createAuth(recoveredDatabase, {
                 baseURL,
                 secret,
@@ -107,7 +107,7 @@ describe('local account recovery command', () => {
         const directory = await mkdtemp(join(tmpdir(), 'postdot-local-account-recovery-'))
         const databaseFilename = join(directory, 'postdot.sqlite')
         const database = createDatabase(databaseFilename)
-        runMigrations(database)
+        await runMigrations(database)
         closeDatabase(database)
         let promptCount = 0
 

@@ -18,9 +18,9 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
+async function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL,
@@ -175,7 +175,7 @@ async function bearerJsonRequest(
 
 describe('access HTTP routes', () => {
     it('creates user-owned API keys with an optional project subset', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-owner@postdot.local')
@@ -276,7 +276,7 @@ describe('access HTTP routes', () => {
     })
 
     it('enforces and updates action ceilings independently from project scope', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-actions@postdot.local')
@@ -398,7 +398,7 @@ describe('access HTTP routes', () => {
     })
 
     it('allows a manage-only API key to request approval but not schedule or approve', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'publication-approval@postdot.local')
@@ -550,7 +550,7 @@ describe('access HTTP routes', () => {
     })
 
     it('requires the separate permanent-delete capability for media purging', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const cookie = await signUp(app, 'api-key-media-actions@postdot.local')
@@ -606,7 +606,7 @@ describe('access HTTP routes', () => {
     })
 
     it("rechecks the key owner's project role after key creation", async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'api-key-role-owner@postdot.local')
@@ -690,7 +690,7 @@ describe('access HTTP routes', () => {
     })
 
     it('publishes access paths with session security and typed status responses', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const setupStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
@@ -775,7 +775,7 @@ describe('access HTTP routes', () => {
     })
 
     it('keeps setup discoverable for isolated E2E accounts without changing production defaults', async () => {
-        const { app, database } = createFixture({ allowAdditionalSignups: true })
+        const { app, database } = await createFixture({ allowAdditionalSignups: true })
 
         try {
             await signUp(app, 'e2e-bootstrap@postdot.local')
@@ -789,7 +789,7 @@ describe('access HTTP routes', () => {
     })
 
     it('requires an instance admin and forbids user API keys on instance routes', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -847,7 +847,7 @@ describe('access HTTP routes', () => {
     })
 
     it('lists and updates members only for admin sessions while preserving admin safety', async () => {
-        const { access, app, auth, database } = createFixture()
+        const { access, app, auth, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1056,7 +1056,7 @@ describe('access HTTP routes', () => {
     })
 
     it('returns invitation tokens only at creation and accepts a matching authenticated user', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1134,7 +1134,7 @@ describe('access HTTP routes', () => {
     })
 
     it('allows a pending invitation to bootstrap a new account before acceptance', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1188,7 +1188,7 @@ describe('access HTTP routes', () => {
     })
 
     it('invites and accepts a workspace group member through Better Auth', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
@@ -1439,7 +1439,7 @@ describe('access HTTP routes', () => {
     })
 
     it('lets an instance administrator create a workspace with its default groups', async () => {
-        const { access, app, database } = createFixture()
+        const { access, app, database } = await createFixture()
 
         try {
             const adminCookie = await signUp(app, 'workspace-owner@postdot.local')

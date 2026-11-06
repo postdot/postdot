@@ -10,7 +10,7 @@ import { createPublisherRuntime } from '../../publishers/runtime'
 const origin = 'https://postdot.test'
 async function fixture(configured = true) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let calls = 0
     const publisher = createPublisherRuntime(database, {
         apiOrigin: origin,

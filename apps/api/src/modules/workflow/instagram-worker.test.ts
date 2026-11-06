@@ -36,7 +36,7 @@ for (const scenario of [
 ] as const) {
     test(`Instagram worker persists ${scenario} without recreating a container or replaying a publication`, async () => {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const directory = await mkdtemp(join(tmpdir(), 'postdot-instagram-worker-'))
         let clock = 1_800_000_000_000
         const media = createMediaAssetStore(

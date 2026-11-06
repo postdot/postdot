@@ -15,7 +15,7 @@ const origin = 'http://localhost:3000'
 const now = 1_800_000_000_000
 async function fixture(scheduled = true) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, {
         baseURL: origin,

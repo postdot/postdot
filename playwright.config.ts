@@ -69,7 +69,7 @@ const apiEnvironment = {
     PORT: String(apiPort),
     DB_FILE_NAME: runtime.databaseFile,
     POSTDOT_E2E_DATA_DIRECTORY: dataDirectory,
-    POSTDOT_MIGRATIONS_DIR: resolve(rootDirectory, 'packages/db/drizzle'),
+    POSTDOT_MIGRATIONS_DIR: resolve(rootDirectory, 'packages/db/migrations'),
     POSTDOT_MEDIA_STORE: 'local',
     POSTDOT_MEDIA_DIRECTORY: mediaDirectory,
     POSTDOT_MEDIA_STORE_ID: 'e2e-local',

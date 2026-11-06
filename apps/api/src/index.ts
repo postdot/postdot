@@ -156,7 +156,7 @@ async function startServerWithRuntimeLock(
     })
     const database = createDatabase(config.database.fileName)
     dependencies.closeDatabase = () => closeDatabase(database)
-    runMigrations(database, config.database.migrationsDirectory)
+    await runMigrations(database, config.database.migrationsDirectory)
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)

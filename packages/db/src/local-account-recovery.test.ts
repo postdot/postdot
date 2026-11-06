@@ -69,7 +69,7 @@ describe('offline local account password recovery', () => {
 
         try {
             const fixture = createDatabase(databaseFilename)
-            runMigrations(fixture)
+            await runMigrations(fixture)
             seedRecoveryFixture(fixture)
             closeDatabase(fixture)
 
@@ -194,7 +194,7 @@ describe('offline local account password recovery', () => {
 
         try {
             const fixture = createDatabase(databaseFilename)
-            runMigrations(fixture)
+            await runMigrations(fixture)
             seedRecoveryFixture(fixture)
             closeDatabase(fixture)
 
@@ -236,7 +236,7 @@ describe('offline local account password recovery', () => {
 
         try {
             const fixture = createDatabase(databaseFilename)
-            runMigrations(fixture)
+            await runMigrations(fixture)
             fixture.$client
                 .query(
                     `INSERT INTO user (id, name, email, email_verified, created_at, updated_at)

@@ -85,7 +85,7 @@ describe('offline administrator bootstrap', () => {
     it('claims an initialized unclaimed database exactly once under concurrent invocations', async () => {
         await fixture(async (_directory, filename, _input, args) => {
             const database = createDatabase(filename)
-            runMigrations(database)
+            await runMigrations(database)
             closeDatabase(database)
             const results = await Promise.allSettled([
                 runLocalAccountBootstrap(args),

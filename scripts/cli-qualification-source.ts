@@ -11,9 +11,12 @@ import {
 import { createLocalMediaStore } from '../packages/media/src/index'
 import type { CliQualificationFixture } from './cli-qualification-fixture'
 
-export function createSourceCliFixture(directory: string, clock: number): CliQualificationFixture {
+export async function createSourceCliFixture(
+    directory: string,
+    clock: number
+): Promise<CliQualificationFixture> {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const media = createMediaAssetStore(
         database,
         createLocalMediaStore({

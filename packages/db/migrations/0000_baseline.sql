@@ -1737,7 +1737,7 @@ CREATE TABLE "publication_draft_adoptions" (
 	"local_content_json" text,
 	"target_revision_id" text NOT NULL,
 	"created_by_actor_id" text NOT NULL,
-	"created_at" bigint NOT NULL, "sequence" bigint DEFAULT 0 NOT NULL,
+	"created_at" bigint NOT NULL,
 	FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON UPDATE no action ON DELETE cascade DEFERRABLE INITIALLY IMMEDIATE,
 	FOREIGN KEY ("project_id","publication_id") REFERENCES "publications"("project_id","id") ON UPDATE no action ON DELETE cascade DEFERRABLE INITIALLY IMMEDIATE,
 	FOREIGN KEY ("project_id","profile_version_id") REFERENCES project_channel_profiles(project_id,profile_id) ON UPDATE no action ON DELETE restrict DEFERRABLE INITIALLY IMMEDIATE,
@@ -1750,7 +1750,6 @@ CREATE TABLE "publication_draft_adoptions" (
 
 CREATE INDEX "publication_draft_adoptions_publication_idx" ON "publication_draft_adoptions" ("project_id","publication_id");
 
-CREATE UNIQUE INDEX "publication_draft_adoptions_publication_sequence_uidx" ON "publication_draft_adoptions" ("project_id","publication_id","sequence");
 
 CREATE TABLE "publication_first_comments" (
 	"id" text PRIMARY KEY NOT NULL,

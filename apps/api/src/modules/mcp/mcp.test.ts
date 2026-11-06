@@ -19,9 +19,9 @@ const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 
-function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
+async function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -46,7 +46,7 @@ function createFixture(options: { mcp?: { enabled: boolean } } = {}) {
 type App = ReturnType<typeof createApp>
 
 async function setup() {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     const signUp = await fixture.app.handle(
         new Request(`${baseURL}/api/auth/sign-up/email`, {
             method: 'POST',
@@ -90,7 +90,7 @@ const textOf = (result: unknown) =>
 
 describe('MCP endpoint', () => {
     it('builds the tool catalog from the live OpenAPI document', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
         try {
             const document = await (await app.handle(new Request(`${baseURL}/openapi/json`))).json()
             const tools = buildMcpTools(document as Record<string, unknown>)
@@ -305,7 +305,7 @@ describe('MCP endpoint', () => {
     })
 
     it('is absent when a deployment turns it off', async () => {
-        const { app, database } = createFixture({ mcp: { enabled: false } })
+        const { app, database } = await createFixture({ mcp: { enabled: false } })
         try {
             const response = await app.handle(
                 new Request(`${baseURL}/mcp`, {

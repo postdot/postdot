@@ -32,7 +32,7 @@ function limitedProfile(limit: number): ChannelProfileDefinition {
 }
 async function fixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let now = 1_800_000_000_000
     const media = createMediaAssetStore(database, {
         storeId: 'metadata-fixture',

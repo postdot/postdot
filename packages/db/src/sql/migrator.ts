@@ -81,48 +81,81 @@ export interface PortableMigrationResult {
     readonly applied: readonly string[]
 }
 
+const createHistorySql = `create table if not exists postdot_migrations (
+    id bigint primary key not null,
+    name text not null,
+    checksum text not null,
+    applied_at bigint not null
+)`
+
+/** Records a migration as applied without running it (adoption of an equivalent schema). */
+export async function recordAppliedMigration(
+    database: DatabaseHandle,
+    migration: PortableMigration
+): Promise<void> {
+    await database.sql.exec(createHistorySql)
+    await database.sql
+        .statement<never, [number, string, string, number]>(
+            'insert into postdot_migrations (id, name, checksum, applied_at) values (?1, ?2, ?3, ?4)'
+        )
+        .run(migration.id, migration.name, migration.checksum, Date.now())
+}
+
 export async function runPortableMigrations(
     database: DatabaseHandle,
     migrations: readonly PortableMigration[] = loadPortableMigrations()
 ): Promise<PortableMigrationResult> {
     const { sql } = database
-    await sql.exec(`create table if not exists postdot_migrations (
-        id bigint primary key not null,
-        name text not null,
-        checksum text not null,
-        applied_at bigint not null
-    )`)
-    const applied: string[] = []
-    for (const migration of migrations) {
-        const done = await sql.transaction(async () => {
-            if (sql.dialect === 'postgres') {
-                // Instances racing at startup apply each migration exactly once.
-                await sql
-                    .statement<never, [number]>('select pg_advisory_xact_lock(?1)')
-                    .get(postgresMigrationLock)
-            }
-            const recorded = await sql
-                .statement<{ checksum: string }, [number]>(
-                    'select checksum from postdot_migrations where id = ?1'
-                )
-                .get(migration.id)
-            if (recorded !== null) {
-                if (recorded.checksum !== migration.checksum) {
-                    throw new Error(
-                        `Applied migration ${migration.id}_${migration.name} was modified; refusing to continue`
-                    )
+    if (sql.inTransaction()) throw new Error('Database migrations require their own transaction')
+    // SQLite table rebuilds need foreign keys disabled outside the transaction;
+    // violations are checked before each migration commits.
+    const foreignKeysWereEnabled =
+        sql.dialect === 'sqlite' &&
+        (await sql.statement<{ foreign_keys: number }>('pragma foreign_keys').get())
+            ?.foreign_keys === 1
+    if (sql.dialect === 'sqlite') await sql.exec('pragma foreign_keys = off')
+    try {
+        await sql.exec(createHistorySql)
+        const applied: string[] = []
+        for (const migration of migrations) {
+            const done = await sql.transaction(async () => {
+                if (sql.dialect === 'postgres') {
+                    // Instances racing at startup apply each migration exactly once.
+                    await sql
+                        .statement<never, [number]>('select pg_advisory_xact_lock(?1)')
+                        .get(postgresMigrationLock)
                 }
-                return false
-            }
-            await sql.exec(migrationSql(migration, sql.dialect))
-            await sql
-                .statement<never, [number, string, string, number]>(
-                    'insert into postdot_migrations (id, name, checksum, applied_at) values (?1, ?2, ?3, ?4)'
-                )
-                .run(migration.id, migration.name, migration.checksum, Date.now())
-            return true
-        }, 'immediate')
-        if (done) applied.push(`${String(migration.id).padStart(4, '0')}_${migration.name}`)
+                const recorded = await sql
+                    .statement<{ checksum: string }, [number]>(
+                        'select checksum from postdot_migrations where id = ?1'
+                    )
+                    .get(migration.id)
+                if (recorded !== null) {
+                    if (recorded.checksum !== migration.checksum) {
+                        throw new Error(
+                            `Applied migration ${migration.id}_${migration.name} was modified; refusing to continue`
+                        )
+                    }
+                    return false
+                }
+                await sql.exec(migrationSql(migration, sql.dialect))
+                if (sql.dialect === 'sqlite') {
+                    const violations = await sql.statement('pragma foreign_key_check').all()
+                    if (violations.length > 0) {
+                        throw new Error(
+                            `Migration ${migration.id}_${migration.name} would leave foreign-key violations: ${JSON.stringify(violations)}`
+                        )
+                    }
+                }
+                await recordAppliedMigration(database, migration)
+                return true
+            }, 'immediate')
+            if (done) applied.push(`${String(migration.id).padStart(4, '0')}_${migration.name}`)
+        }
+        return { applied }
+    } finally {
+        if (sql.dialect === 'sqlite') {
+            await sql.exec(`pragma foreign_keys = ${foreignKeysWereEnabled ? 'on' : 'off'}`)
+        }
     }
-    return { applied }
 }

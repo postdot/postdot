@@ -47,9 +47,9 @@ function channelResponse(type = 0): Response {
     return jsonResponse({ id: channelId, name: 'announcements', type })
 }
 
-function createFixture(discordFetcher?: DiscordFetcher) {
+async function createFixture(discordFetcher?: DiscordFetcher) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -145,7 +145,7 @@ async function connectDiscord(
 describe('Discord publisher connection routes', () => {
     it('creates a connection and never exposes the Bot token', async () => {
         const discord = createDiscordFetcher([botUserResponse(), channelResponse()])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-operator@postdot.local')
@@ -190,7 +190,7 @@ describe('Discord publisher connection routes', () => {
         const discord = createDiscordFetcher([
             jsonResponse({ message: 'Unauthorized', code: 0 }, 401),
         ])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-invalid-token@postdot.local')
@@ -220,7 +220,7 @@ describe('Discord publisher connection routes', () => {
             botUserResponse(),
             channelResponse(),
         ])
-        const { app, database, publisher } = createFixture(discord.fetcher)
+        const { app, database, publisher } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-reconnect@postdot.local')
@@ -265,7 +265,7 @@ describe('Discord publisher connection routes', () => {
             botUserResponse(),
             jsonResponse({ message: 'Unknown Channel', code: 10003 }, 404),
         ])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-unknown-channel@postdot.local')
@@ -290,7 +290,7 @@ describe('Discord publisher connection routes', () => {
 
     it('rejects unsupported channel types', async () => {
         const discord = createDiscordFetcher([botUserResponse(), channelResponse(2)])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-voice-channel@postdot.local')
@@ -315,7 +315,7 @@ describe('Discord publisher connection routes', () => {
 
     it('rejects malformed channel IDs without calling Discord', async () => {
         const discord = createDiscordFetcher([])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-malformed-channel@postdot.local')
@@ -338,7 +338,7 @@ describe('Discord publisher connection routes', () => {
 
     it('requires human session authentication', async () => {
         const discord = createDiscordFetcher([])
-        const { app, database } = createFixture(discord.fetcher)
+        const { app, database } = await createFixture(discord.fetcher)
 
         try {
             const cookie = await signUp(app, 'discord-auth-required@postdot.local')

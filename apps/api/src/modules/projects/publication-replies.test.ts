@@ -22,7 +22,7 @@ import { createPublicationRepliesService } from './publication-replies-service'
 
 async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'bluesky') {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const baseURL = 'http://localhost:3000'
     const auth = createAuth(database, {
         baseURL,

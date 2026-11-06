@@ -25,7 +25,7 @@ function gate() {
 
 async function fixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let creationTime = Date.now()
     const manual = createManualStore(database, { now: () => creationTime })
     const credentials = createPublisherCredentialStore(database, {

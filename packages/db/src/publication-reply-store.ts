@@ -8,11 +8,35 @@ import {
 
 import { createAccessStore } from './access-store'
 import { defineTransaction, type DatabaseHandle } from './client'
-import type { publicationCommentReplies as replies } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 import { mapSequential } from './sql/sequential'
 
-export type PublicationReply = typeof replies.$inferSelect
+/** A `publication_comment_replies` row. */
+export interface PublicationReply {
+    id: string
+    projectId: string
+    publicationId: string
+    actorId: string
+    rootUri: string
+    parentUri: string
+    text: string
+    connectionId: string
+    credentialId: string
+    providerId: string
+    accountId: string
+    instanceOrigin: string | null
+    recordKey: string
+    state: 'pending' | 'running' | 'sent' | 'failed' | 'ambiguous'
+    attempts: number
+    claimToken: string | null
+    leaseExpiresAt: number | null
+    effectStartedAt: number | null
+    externalId: string | null
+    externalUrl: string | null
+    lastError: string | null
+    createdAt: number
+    updatedAt: number
+}
 export type PublicationReplyWork = PublicationReply
 export type CreatePublicationReply = Pick<
     PublicationReply,

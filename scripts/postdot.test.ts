@@ -98,7 +98,7 @@ describe('machine publication workflow', () => {
             'base64'
         )
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const publisher = createPublisherRuntime(database, {
             apiOrigin: 'http://localhost:3000',
             webOrigin: 'http://localhost:5173',

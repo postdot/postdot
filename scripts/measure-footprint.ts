@@ -126,7 +126,7 @@ async function measurePublicationJobSample(
             PUBLICATION_JOB_DB: databaseFilename,
             PUBLICATION_JOB_MIGRATIONS: join(
                 import.meta.dir.replace(/\/scripts$/, ''),
-                'packages/db/drizzle'
+                'packages/db/migrations'
             ),
         },
         stderr: 'pipe',

@@ -1,23 +1,14 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-
-import type { ChannelProfileDefinition } from '@postdot/core'
 
 import { createMastodonCommentPolicy } from '../../../apps/api/src/providers/mastodon/comment-policy'
 import { providerCommentPolicies } from '../../../apps/api/src/providers/registry'
-import { type DatabaseHandle, type PostdotDatabase } from './client'
-import { runMigrations } from './migrations'
+import { type DatabaseHandle } from './client'
 import { createPublicationFirstCommentStore } from './publication-first-comment-store'
 import {
     closeTestDatabase,
     foreignKeyViolations,
     insertRow,
-    openHistoricalTestDatabase,
     openTestDatabase,
-    testEngine,
-    seedTestWorkspace,
     seedWorkspaceChannel,
     seedWorkspaceMember,
     type TestRow,
@@ -158,90 +149,11 @@ async function seedAccess(
         .run(`grant:${projectId}:${subjectId}`, projectId, subjectId, role)
 }
 
-async function seedHistoricalProjectResources(
-    database: Fixture['database'],
-    input: {
-        readonly projectId: string
-        readonly suffix: string
-        readonly provider: 'bluesky' | 'mastodon'
-        readonly channelId: string
-        readonly profileVersionId: string
-        readonly profile: ChannelProfileDefinition
-        readonly editorActorId: string
-        readonly credentialId: string
-        readonly connectionId: string
-        readonly accountId: string
-        readonly endpointUrl: string | null
-    }
-): Promise<{ readonly workspaceId: string; readonly workspaceActorId: string }> {
-    // Historical chains run on SQLite only (see the fixture's migrationsFolder).
-    const client = (database as PostdotDatabase).$client
-    // The upgrade refuses projects that never had a workspace, so the historical project has one.
-    const workspaceId = await seedTestWorkspace(database)
-    client
-        .query('update projects set workspace_id = ? where id = ?')
-        .run(workspaceId, input.projectId)
-    client
-        .query('insert into channels (id,project_id,name,profile_version_id) values (?,?,?,?)')
-        .run(input.channelId, input.projectId, `${input.provider} channel`, input.profileVersionId)
-    client
-        .query(`insert into channel_profile_versions
-            (id,project_id,channel_id,profile_id,version,origin,state,profile_json,profile_hash,schema_hash,created_by_actor_id)
-            values (?,?,?,?,?,?,'active',?,?,?,?)`)
-        .run(
-            input.profileVersionId,
-            input.projectId,
-            input.channelId,
-            input.profile.id,
-            input.profile.version,
-            input.profile.origin,
-            JSON.stringify(input.profile),
-            input.profile.profileHash,
-            input.profile.schemaHash,
-            input.editorActorId
-        )
-    client
-        .query('insert into publishers (id,project_id,channel_id,kind) values (?,?,?,?)')
-        .run(`publisher-${input.suffix}`, input.projectId, input.channelId, input.provider)
-    client
-        .query(`insert into publisher_credentials
-            (id,project_id,provider_id,external_account_id,external_account_name,scopes,state,connected_by_actor_id,encryption_version,encryption_key_id,access_token_ciphertext,access_token_nonce)
-            values (?,?,?,?,?,?,'active',?,1,'first-comment-test-key',?,?)`)
-        .run(
-            input.credentialId,
-            input.projectId,
-            input.provider,
-            input.accountId,
-            `${input.provider} operator`,
-            input.provider === 'bluesky' ? '["atproto"]' : '["read:accounts","write:statuses"]',
-            input.editorActorId,
-            Buffer.alloc(24, 3),
-            Buffer.alloc(12, 4)
-        )
-    client
-        .query(`insert into publisher_connections
-            (id,project_id,publisher_id,credential_id,endpoint_url,connected_by_actor_id)
-            values (?,?,?,?,?,?)`)
-        .run(
-            input.connectionId,
-            input.projectId,
-            `publisher-${input.suffix}`,
-            input.credentialId,
-            input.endpointUrl,
-            input.editorActorId
-        )
-    return { workspaceId, workspaceActorId: input.editorActorId }
-}
-
 async function createFixture(
     suffix = 'one',
-    provider: 'bluesky' | 'mastodon' = 'bluesky',
-    options: { readonly migrationsFolder?: string } = {}
+    provider: 'bluesky' | 'mastodon' = 'bluesky'
 ): Promise<Fixture> {
-    const database =
-        options.migrationsFolder === undefined
-            ? (await openTestDatabase()).database
-            : openHistoricalTestDatabase(options.migrationsFolder)
+    const { database } = await openTestDatabase()
 
     const projectId = `project-${suffix}`
     const editorSubjectId = 'editor-user'
@@ -292,8 +204,6 @@ async function createFixture(
     ] as const) {
         await seedAccess(database, projectId, subjectId, role)
     }
-    // Historical fixtures must name historical columns rather than infer
-    // today's actor scope columns from the ORM schema.
     const insertActor = database.sql.statement<
         never,
         [string, string, string, string]
@@ -306,73 +216,57 @@ async function createFixture(
     ])
         await insertActor.run(id!, projectId, subjectId!, displayName!)
     const profile = provider === 'bluesky' ? blueskyProfile : mastodonProfile
-    // A historical chain (project-owned columns) cannot use today's workspace-owned seeding.
-    const historical = options.migrationsFolder !== undefined
-    const owned = historical
-        ? await seedHistoricalProjectResources(database, {
-              projectId,
-              suffix,
-              provider,
-              channelId,
-              profileVersionId,
-              profile,
-              editorActorId,
-              credentialId,
-              connectionId,
-              accountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
-              endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
-          })
-        : await (async () => {
-              const seeded = await seedWorkspaceChannel(database, {
-                  projectId,
-                  channelId,
-                  name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
-                  profileVersionId,
-                  profile,
-                  createdByActorId: editorActorId,
-              })
-              for (const subjectId of [editorSubjectId, otherEditorSubjectId, viewerSubjectId])
-                  await seedWorkspaceMember(database, seeded.workspaceId, subjectId)
-              await database.sql
-                  .statement(
-                      'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
-                  )
-                  .run(`publisher-${suffix}`, seeded.workspaceId, channelId, provider)
-              await database.sql
-                  .statement(
-                      'insert into "publisher_credentials" ("id", "workspace_id", "provider_id", "external_account_id", "external_account_name", "scopes", "state", "connected_by_actor_id", "encryption_version", "encryption_key_id", "access_token_ciphertext", "access_token_nonce") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)'
-                  )
-                  .run(
-                      credentialId,
-                      seeded.workspaceId,
-                      provider,
-                      provider === 'bluesky' ? accountDid : mastodonAccountId,
-                      provider === 'bluesky' ? 'Bluesky Operator' : 'Mastodon Operator',
-                      toDbValue(
-                          'json',
-                          provider === 'bluesky' ? ['atproto'] : ['read:accounts', 'write:statuses']
-                      ),
-                      'active',
-                      seeded.workspaceActorId,
-                      1,
-                      'first-comment-test-key',
-                      Buffer.alloc(24, 3),
-                      Buffer.alloc(12, 4)
-                  )
-              await database.sql
-                  .statement(
-                      'insert into "publisher_connections" ("id", "workspace_id", "publisher_id", "credential_id", "endpoint_url", "connected_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6)'
-                  )
-                  .run(
-                      connectionId,
-                      seeded.workspaceId,
-                      `publisher-${suffix}`,
-                      credentialId,
-                      provider === 'bluesky' ? null : mastodonOrigin,
-                      seeded.workspaceActorId
-                  )
-              return seeded
-          })()
+    const owned = await (async () => {
+        const seeded = await seedWorkspaceChannel(database, {
+            projectId,
+            channelId,
+            name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
+            profileVersionId,
+            profile,
+            createdByActorId: editorActorId,
+        })
+        for (const subjectId of [editorSubjectId, otherEditorSubjectId, viewerSubjectId])
+            await seedWorkspaceMember(database, seeded.workspaceId, subjectId)
+        await database.sql
+            .statement(
+                'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+            )
+            .run(`publisher-${suffix}`, seeded.workspaceId, channelId, provider)
+        await database.sql
+            .statement(
+                'insert into "publisher_credentials" ("id", "workspace_id", "provider_id", "external_account_id", "external_account_name", "scopes", "state", "connected_by_actor_id", "encryption_version", "encryption_key_id", "access_token_ciphertext", "access_token_nonce") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)'
+            )
+            .run(
+                credentialId,
+                seeded.workspaceId,
+                provider,
+                provider === 'bluesky' ? accountDid : mastodonAccountId,
+                provider === 'bluesky' ? 'Bluesky Operator' : 'Mastodon Operator',
+                toDbValue(
+                    'json',
+                    provider === 'bluesky' ? ['atproto'] : ['read:accounts', 'write:statuses']
+                ),
+                'active',
+                seeded.workspaceActorId,
+                1,
+                'first-comment-test-key',
+                Buffer.alloc(24, 3),
+                Buffer.alloc(12, 4)
+            )
+        await database.sql
+            .statement(
+                'insert into "publisher_connections" ("id", "workspace_id", "publisher_id", "credential_id", "endpoint_url", "connected_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6)'
+            )
+            .run(
+                connectionId,
+                seeded.workspaceId,
+                `publisher-${suffix}`,
+                credentialId,
+                provider === 'bluesky' ? null : mastodonOrigin,
+                seeded.workspaceActorId
+            )
+        return seeded
+    })()
     await database.sql
         .statement(
             'insert into "posts" ("id", "project_id", "source_content", "source_revision", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5)'
@@ -2092,89 +1986,6 @@ describe('publication first comment store (mastodon)', () => {
             await closeTestDatabase(fixture.database)
         }
     })
-
-    it.skipIf(testEngine === 'postgres')(
-        'keeps historical Bluesky comments when the provider column is added',
-        async () => {
-            const folder = mkdtempSync(join(tmpdir(), 'postdot-first-comment-migration-'))
-
-            try {
-                // The committed history without the provider column.
-                const journal = JSON.parse(
-                    readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')
-                ) as { entries: { idx: number; tag: string }[] }
-                const historical = {
-                    ...journal,
-                    entries: journal.entries.filter(entry => entry.idx < 18),
-                }
-                mkdirSync(join(folder, 'meta'))
-                for (const entry of historical.entries) {
-                    writeFileSync(
-                        join(folder, `${entry.tag}.sql`),
-                        readFileSync(new URL(`../drizzle/${entry.tag}.sql`, import.meta.url))
-                    )
-                }
-                writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify(historical))
-
-                const fixture = await createFixture('historical', 'bluesky', {
-                    migrationsFolder: folder,
-                })
-
-                await fixture.database.sql
-                    .statement(
-                        `insert into publication_first_comments
-                        (id, project_id, publication_id, actor_id, text, delay_seconds, state,
-                         revision, record_key, attempts, created_at, updated_at)
-                     values (?1, ?2, ?3, ?4, ?5, ?6, 'sent', 1, ?7, 1, ?8, ?8)`
-                    )
-                    .run(
-                        'historical-comment',
-                        fixture.projectId,
-                        fixture.publicationId,
-                        fixture.editorActorId,
-                        'A historical Bluesky comment',
-                        300,
-                        'historical-comment',
-                        now
-                    )
-
-                // The provider column is added by the committed migration.
-                runMigrations(fixture.database as PostdotDatabase)
-
-                const row = await fixture.database.sql
-                    .statement<
-                        {
-                            readonly providerId: string
-                            readonly instanceOrigin: string | null
-                            readonly text: string
-                            readonly state: string
-                            readonly revision: number
-                        },
-                        [string]
-                    >(
-                        `select provider_id as providerId,
-                            instance_origin as instanceOrigin,
-                            text,
-                            state,
-                            revision
-                     from publication_first_comments
-                     where id = ?1`
-                    )
-                    .get('historical-comment')
-
-                expect(row).toEqual({
-                    providerId: 'bluesky',
-                    instanceOrigin: null,
-                    text: 'A historical Bluesky comment',
-                    state: 'sent',
-                    revision: 1,
-                })
-                expect(await foreignKeyViolations(fixture.database)).toEqual([])
-            } finally {
-                rmSync(folder, { recursive: true, force: true })
-            }
-        }
-    )
 })
 
 it('uses a synthetic provider policy while retaining access, receipt and claim fences', async () => {

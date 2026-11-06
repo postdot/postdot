@@ -24,7 +24,7 @@ async function fixture(
     allowAdditionalSignups = false
 ) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const baseURL = 'http://localhost:3000'
     const access = createAccessStore(database)
     const auth = createAuth(database, {

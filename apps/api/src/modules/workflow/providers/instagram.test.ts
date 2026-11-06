@@ -13,16 +13,13 @@ import {
     createPublisherCredentialStore,
     createPublisherCredentialCipher,
     createWorkflowStore,
-    mediaAssets,
-    mediaRepresentations,
-    publicationExecutionRevisionMedia,
-    publishers,
     runMigrations,
     type PublisherExecutionMedia,
     type PublisherCredentialRefreshContext,
     type PublisherExecutionTarget,
     type ReplacePublisherCredentialTokensInput,
 } from '@postdot/db'
+import { fromDbRow, type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace, workspaceOf } from '@postdot/db/testing'
 import {
     createInstagramOAuth,
@@ -132,7 +129,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
     const replacements: ReplacePublisherCredentialTokensInput[] = []
 
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const media = createMediaAssetStore(database, mediaStore, {
             now: () => now,
             createId: (() => {
@@ -159,15 +156,16 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             profile: instagramChannelProfile,
         })
         if (channel === null) throw new Error('Channel was not created')
-        database
-            .insert(publishers)
-            .values({
-                id: 'publisher-instagram',
-                workspaceId: await workspaceOf(database, project.project.id),
-                channelId: channel.id,
-                kind: 'instagram',
-            })
-            .run()
+        await database.sql
+            .statement(
+                'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+            )
+            .run(
+                'publisher-instagram',
+                await workspaceOf(database, project.project.id),
+                channel.id,
+                'instagram'
+            )
 
         const bytes = await decodableJpeg(120, 90)
         const reservation = await media.reserveUpload({
@@ -224,20 +222,30 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             true
         )
 
-        const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
+        const executionMedia = await database.sql
+            .statement<TestRow>(
+                'select "publication_execution_revision_media"."id" as "id", "publication_execution_revision_media"."project_id" as "projectId", "publication_execution_revision_media"."execution_revision_id" as "executionRevisionId", "publication_execution_revision_media"."target_revision_media_id" as "targetRevisionMediaId", "publication_execution_revision_media"."asset_id" as "assetId", "publication_execution_revision_media"."representation_id" as "representationId", "publication_execution_revision_media"."position" as "position", "publication_execution_revision_media"."content_path" as "contentPath", "publication_execution_revision_media"."role" as "role", "publication_execution_revision_media"."accessibility_text" as "accessibilityText", "publication_execution_revision_media"."created_at" as "createdAt" from "publication_execution_revision_media"'
+            )
+            .all()
         const executionRow = executionMedia[0]
         if (executionRow === undefined) throw new Error('Execution media was not created')
-        const representation = database
-            .select()
-            .from(mediaRepresentations)
-            .all()
+        const representation = (
+            await database.sql
+                .statement<TestRow>(
+                    'select "media_representations"."id" as "id", "media_representations"."project_id" as "projectId", "media_representations"."asset_id" as "assetId", "media_representations"."kind" as "kind", "media_representations"."source_representation_id" as "sourceRepresentationId", "media_representations"."state" as "state", "media_representations"."deletion_restore_state" as "deletionRestoreState", "media_representations"."deletion_restore_failure_code" as "deletionRestoreFailureCode", "media_representations"."deletion_restore_failure_message" as "deletionRestoreFailureMessage", "media_representations"."store_id" as "storeId", "media_representations"."object_key" as "objectKey", "media_representations"."declared_content_type" as "declaredContentType", "media_representations"."detected_content_type" as "detectedContentType", "media_representations"."detected_format" as "detectedFormat", "media_representations"."family" as "family", "media_representations"."byte_size" as "byteSize", "media_representations"."sha256" as "sha256", "media_representations"."width" as "width", "media_representations"."height" as "height", "media_representations"."duration_ms" as "durationMs", "media_representations"."page_count" as "pageCount", "media_representations"."is_animated" as "isAnimated", "media_representations"."processor_id" as "processorId", "media_representations"."processor_version" as "processorVersion", "media_representations"."recipe_json" as "recipeJson", "media_representations"."failure_code" as "failureCode", "media_representations"."failure_message" as "failureMessage", "media_representations"."created_at" as "createdAt", "media_representations"."updated_at" as "updatedAt" from "media_representations"'
+                )
+                .all()
+        )
+            .map(row => fromDbRow<TestRow>(row, { isAnimated: 'boolean', recipeJson: 'json' }))
             .find(row => row.id === executionRow.representationId)
         if (representation === undefined) throw new Error('Media representation was not created')
-        const asset = database
-            .select()
-            .from(mediaAssets)
-            .all()
-            .find(row => row.id === executionRow.assetId)
+        const asset = (
+            await database.sql
+                .statement<TestRow>(
+                    'select "media_assets"."id" as "id", "media_assets"."project_id" as "projectId", "media_assets"."original_filename" as "originalFilename", "media_assets"."default_accessibility_text" as "defaultAccessibilityText", "media_assets"."state" as "state", "media_assets"."archived_at" as "archivedAt", "media_assets"."deletion_requested_at" as "deletionRequestedAt", "media_assets"."deletion_restore_state" as "deletionRestoreState", "media_assets"."deletion_restore_failure_code" as "deletionRestoreFailureCode", "media_assets"."deletion_restore_failure_message" as "deletionRestoreFailureMessage", "media_assets"."deleted_at" as "deletedAt", "media_assets"."failure_code" as "failureCode", "media_assets"."failure_message" as "failureMessage", "media_assets"."created_by_actor_id" as "createdByActorId", "media_assets"."created_at" as "createdAt", "media_assets"."updated_at" as "updatedAt" from "media_assets"'
+                )
+                .all()
+        ).find(row => row.id === executionRow.assetId)
         if (asset === undefined) throw new Error('Media asset was not created')
         const pinned: PublisherExecutionMedia = {
             id: executionRow.id,

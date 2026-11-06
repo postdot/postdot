@@ -13,7 +13,7 @@ import { readRecoveryHold } from './recovery-hold'
 
 async function leaveCommittedWal(path: string): Promise<void> {
     const database = createDatabase(path)
-    runMigrations(database)
+    await runMigrations(database)
     database.$client.run('CREATE TABLE records (value TEXT)')
     closeDatabase(database)
     const writer = Bun.spawn(
@@ -59,7 +59,7 @@ for (const withMedia of [false, true]) {
         })
         const source = createDatabase(sourcePath)
         try {
-            runMigrations(source)
+            await runMigrations(source)
             source.$client.run('PRAGMA wal_autocheckpoint = 0')
             source.$client.run('CREATE TABLE records (value TEXT)')
             source.$client.run("INSERT INTO records VALUES ('from-backup')")
@@ -87,7 +87,7 @@ for (const withMedia of [false, true]) {
             expect(readRecoveryHold(targetPath)?.reason).toBe('restore')
             const restored = createDatabase(targetPath)
             try {
-                runMigrations(restored)
+                await runMigrations(restored)
                 expect(restored.$client.query('SELECT value FROM records').all()).toEqual([
                     { value: 'from-backup' },
                 ])
@@ -114,7 +114,7 @@ test('restore refuses an active destination reader and preserves its WAL data', 
     const source = createDatabase(sourcePath)
     let reader: Database | undefined
     try {
-        runMigrations(source)
+        await runMigrations(source)
         await leaveCommittedWal(targetPath)
         reader = new Database(targetPath)
         reader.run('BEGIN')
@@ -147,7 +147,7 @@ for (const withMedia of [false, true]) {
             maxObjectBytes: 2_000_000,
         })
         try {
-            runMigrations(source)
+            await runMigrations(source)
             await Bun.write(`${targetPath}-wal`, 'preserve-recovery-material')
             if (withMedia) {
                 await backupWithMedia({

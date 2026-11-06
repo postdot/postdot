@@ -22,9 +22,9 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const mediaRoot = mkdtempSync(join(tmpdir(), 'search-383-media-'))
     const media = createMediaAssetStore(
         database,
@@ -88,7 +88,7 @@ async function sessionRequest(
 
 describe('global dashboard search', () => {
     it('searches each post once, respects scope and live access, and treats wildcards literally', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
         try {
             const ownerCookie = await signUp(app, 'search-owner@postdot.local')
             const readerCookie = await signUp(app, 'search-reader@postdot.local')

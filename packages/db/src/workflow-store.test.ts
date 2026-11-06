@@ -1134,13 +1134,13 @@ describe('workflow store', () => {
             const directory = mkdtempSync(join(tmpdir(), 'postdot-workflow-'))
             const filename = join(directory, 'postdot.sqlite')
             const firstDatabase = createDatabase(filename)
-            runMigrations(firstDatabase)
+            await runMigrations(firstDatabase)
             let secondDatabase: PostdotDatabase | undefined
 
             try {
                 const fixture = await seedDueJob(firstDatabase)
                 secondDatabase = createDatabase(filename)
-                runMigrations(secondDatabase)
+                await runMigrations(secondDatabase)
 
                 const firstClaim = await createWorkflowStore(firstDatabase).claimNextDueJob({
                     actorId: fixture.systemActorId,
@@ -1171,7 +1171,7 @@ describe('workflow store', () => {
             const directory = mkdtempSync(join(tmpdir(), 'postdot-restart-'))
             const filename = join(directory, 'postdot.sqlite')
             const firstDatabase = createDatabase(filename)
-            runMigrations(firstDatabase)
+            await runMigrations(firstDatabase)
             let firstDatabaseOpen = true
             let reopenedDatabase: PostdotDatabase | undefined
 
@@ -1182,7 +1182,7 @@ describe('workflow store', () => {
                 firstDatabaseOpen = false
 
                 reopenedDatabase = createDatabase(filename)
-                runMigrations(reopenedDatabase)
+                await runMigrations(reopenedDatabase)
                 expect(await createWorkflowStore(reopenedDatabase).getNextEventAt()).toBe(dueAt)
             } finally {
                 if (reopenedDatabase !== undefined) {

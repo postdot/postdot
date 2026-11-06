@@ -167,7 +167,7 @@ function assertPostdotSchema(database: Database, filename: string): void {
     const migrationsTable = database
         .query<{ readonly name: string }, []>(
             `SELECT name FROM sqlite_master
-             WHERE type = 'table' AND name = '__drizzle_migrations'`
+             WHERE type = 'table' AND name IN ('postdot_migrations', '__drizzle_migrations')`
         )
         .get()
     if (migrationsTable === null || migrationsTable === undefined) {

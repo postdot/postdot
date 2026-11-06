@@ -33,9 +33,9 @@ function createDevtoFetcher(responses: readonly Response[]): {
     return { fetcher, calls }
 }
 
-function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
+async function createFixture(devtoFetcher?: DevtoFetcher, configured = false) {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -117,7 +117,7 @@ describe('DEV.to publisher connection routes', () => {
         const devto = createDevtoFetcher([
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
         ])
-        const { app, database } = createFixture(devto.fetcher)
+        const { app, database } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-operator@postdot.local')
@@ -148,7 +148,7 @@ describe('DEV.to publisher connection routes', () => {
 
     it('rejects an invalid API key without creating a credential', async () => {
         const devto = createDevtoFetcher([jsonResponse({ error: 'unauthorized' }, 401)])
-        const { app, database } = createFixture(devto.fetcher)
+        const { app, database } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-invalid@postdot.local')
@@ -172,7 +172,7 @@ describe('DEV.to publisher connection routes', () => {
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
             jsonResponse({ id: 42, username: 'postdot', name: 'Postdot' }),
         ])
-        const { app, database, publisher } = createFixture(devto.fetcher)
+        const { app, database, publisher } = await createFixture(devto.fetcher)
 
         try {
             const cookie = await signUp(app, 'devto-reconnect@postdot.local')
@@ -212,7 +212,7 @@ describe('DEV.to publisher connection routes', () => {
     })
 
     it('requires a human session to connect DEV.to', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = await createFixture()
 
         try {
             const response = await jsonRequest(
@@ -229,7 +229,7 @@ describe('DEV.to publisher connection routes', () => {
 })
 
 it('reports OAuth prerequisites without exposing configuration or mistaking failure for absence', async () => {
-    const { app, database, publisher } = createFixture()
+    const { app, database, publisher } = await createFixture()
     try {
         const cookie = await signUp(app, 'oauth-readiness@postdot.local')
         const { projectId } = await createDevtoChannel(app, cookie)
@@ -258,7 +258,7 @@ it('reports OAuth prerequisites without exposing configuration or mistaking fail
 })
 
 it('recognizes existing server OAuth configuration without returning credentials', async () => {
-    const { app, database } = createFixture(undefined, true)
+    const { app, database } = await createFixture(undefined, true)
     try {
         const cookie = await signUp(app, 'configured-readiness@postdot.local')
         const { projectId } = await createDevtoChannel(app, cookie)

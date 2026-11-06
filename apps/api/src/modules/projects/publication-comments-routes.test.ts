@@ -17,7 +17,7 @@ import { createPublisherRuntime } from '../publishers/runtime'
 for (const provider of ['bluesky', 'mastodon'] as const)
     test(`${provider}: stored reads, retention, unavailable roots, and live access`, async () => {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const baseURL = 'http://localhost:3000'
         const auth = createAuth(database, {
             baseURL,

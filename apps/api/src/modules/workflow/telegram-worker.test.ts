@@ -14,7 +14,7 @@ import {
     createPublisherCredentialStore,
     createPublisherStore,
 } from '@postdot/db'
-import { publications } from '@postdot/db/schema'
+import { type TestRow } from '@postdot/db/testing'
 import { seedTestWorkspace } from '@postdot/db/testing'
 import { createLocalMediaStore } from '@postdot/media'
 import {
@@ -48,7 +48,7 @@ for (const entry of scenarios) {
     const poll = 'poll' in entry && entry.poll
     test(`Telegram worker persists ${poll ? 'poll' : (mediaKind ?? 'text')} ${scenario} without replaying completed work`, async () => {
         const database = createDatabase(':memory:')
-        runMigrations(database)
+        await runMigrations(database)
         const now = 1_800_000_000_000
         let clock = now
         const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-telegram-worker-'))
@@ -292,9 +292,10 @@ for (const entry of scenarios) {
                     await worker.processDueEvents(clock)
                 }
                 expect(
-                    database
-                        .select({ state: publications.state, externalId: publications.externalId })
-                        .from(publications)
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."state" as "state", "publications"."external_id" as "externalId" from "publications"'
+                        )
                         .all()
                 ).toEqual([
                     {

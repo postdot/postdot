@@ -50,7 +50,7 @@ COPY . .
 RUN bunx --no-install turbo run build --filter=@postdot/api --filter=@postdot/web
 RUN mkdir -p /out/migrations /out/public
 RUN cp apps/api/dist/index.js /out/postdot.js
-RUN cp -R packages/db/drizzle/. /out/migrations/
+RUN cp -R packages/db/migrations/. /out/migrations/
 RUN cp -R apps/web/dist/. /out/public/
 
 FROM oven/bun:1.4.4-slim

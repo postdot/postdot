@@ -16,7 +16,7 @@ import { createEmailSettingsService } from './settings'
 
 it('encrypts settings, preserves or removes passwords explicitly, and reloads without falling back to deployment', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const cipher = createSecretCipher({
         domain: 'postdot.installation-email',
         keyId: 'test',
@@ -84,7 +84,7 @@ it('encrypts settings, preserves or removes passwords explicitly, and reloads wi
 
 it('applies newly saved SMTP to existing auth callbacks and keeps disabled delivery silent', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const store = createInstallationEmailSettingsStore(
         database,
         createSecretCipher({
@@ -134,7 +134,7 @@ it('applies newly saved SMTP to existing auth callbacks and keeps disabled deliv
 
 it('preserves Better Auth disabled-email responses while allowing a later configuration', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let available = false
     const auth = createAuth(database, {
         baseURL: 'http://localhost:3000',
@@ -169,7 +169,7 @@ it('preserves Better Auth disabled-email responses while allowing a later config
 
 it('blocks all SMTP delivery during recovery without contacting the transport', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     let held = true
     let sends = 0
     try {

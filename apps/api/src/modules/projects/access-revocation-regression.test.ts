@@ -21,9 +21,9 @@ const secret = 'postdot-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const mediaRoot = mkdtempSync(join(tmpdir(), 'access-309-media-'))
     const media = createMediaAssetStore(
         database,
@@ -173,7 +173,7 @@ const projectReadPaths = (projectId: string) => [
 
 describe('API key project access follows the owner current access (ACCESS-309)', () => {
     it('keeps reads while granted, hides them after removal, and preserves other projects', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-owner@postdot.local')
@@ -333,7 +333,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
     })
 
     it('keeps team-grant inherited access available to the key', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-team-owner@postdot.local')
@@ -414,7 +414,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
     })
 
     it('still hides a project for a key whose owner was never a member', async () => {
-        const { access, app, database, mediaRoot } = createFixture()
+        const { access, app, database, mediaRoot } = await createFixture()
 
         try {
             const ownerCookie = await signUp(app, 'access-309-outsider-owner@postdot.local')

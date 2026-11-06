@@ -17,7 +17,7 @@ import { classifySmtpFailure, createNotificationEmailRuntime } from './email-run
 
 async function fixture() {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     database.$client.exec(
         "insert into user (id, name, email, email_verified, created_at, updated_at) values ('owner', 'Owner', 'owner@example.test', 1, 1, 1)"
     )

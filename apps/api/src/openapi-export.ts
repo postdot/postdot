@@ -16,7 +16,7 @@ export async function exportOpenAPISchema(): Promise<OpenAPIV3.Document> {
     const directory = await mkdtemp(join(tmpdir(), 'postdot-openapi-'))
     const database = createDatabase(':memory:')
     try {
-        runMigrations(database)
+        await runMigrations(database)
         const origin = 'http://postdot.invalid'
         const auth = createAuth(database, {
             baseURL: origin,

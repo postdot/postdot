@@ -19,7 +19,7 @@ import { restoreCredentialBlueskySession } from './credential-session'
 
 it('coordinates the real SDK across sessions and persists implicit later renewals before releasing ownership', async () => {
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     try {
         const project = await createManualStore(database).createProject({
             workspaceId: await seedTestWorkspace(database),

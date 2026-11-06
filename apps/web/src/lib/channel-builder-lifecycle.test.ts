@@ -23,7 +23,7 @@ test('persists mapped builder edits through draft review and guarded activation'
     const origin = 'http://localhost:3000'
     const now = 1_800_000_000_000
     const database = createDatabase(':memory:')
-    runMigrations(database)
+    await runMigrations(database)
     const access = createAccessStore(database)
     const auth = createAuth(database, {
         baseURL: origin,

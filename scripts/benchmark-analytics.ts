@@ -3,15 +3,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
-    actors,
     closeDatabase,
     createAnalyticsStore,
     createDatabase,
-    publishers,
-    projects,
     runMigrations,
 } from '../packages/db/src'
-import { seedTestWorkspace, seedWorkspaceChannel } from '../packages/db/src/testing'
+import { insertRow, seedTestWorkspace, seedWorkspaceChannel } from '../packages/db/src/testing'
 
 const benchmarkBaseTime = 1_800_000_000_000
 const benchmarkScales = [1_000, 5_000, 20_000]
@@ -168,30 +165,24 @@ async function seedDatabase(
     const to = benchmarkBaseTime + publicationCount * 10 + 20
 
     try {
-        runMigrations(database)
-        database
-            .insert(projects)
-            .values({
-                id: projectId,
-                name: 'Analytics benchmark project',
-                timeZone: 'UTC',
-                workspaceId: await seedTestWorkspace(database),
-                createdAt: from,
-                updatedAt: from,
-            })
-            .run()
-        database
-            .insert(actors)
-            .values({
-                id: actorId,
-                projectId,
-                kind: 'human',
-                subjectId,
-                displayName: 'Analytics benchmark operator',
-                createdAt: from,
-                updatedAt: from,
-            })
-            .run()
+        await runMigrations(database)
+        await insertRow(database, 'projects', {
+            id: projectId,
+            name: 'Analytics benchmark project',
+            timeZone: 'UTC',
+            workspaceId: await seedTestWorkspace(database),
+            createdAt: from,
+            updatedAt: from,
+        })
+        await insertRow(database, 'actors', {
+            id: actorId,
+            projectId,
+            kind: 'human',
+            subjectId,
+            displayName: 'Analytics benchmark operator',
+            createdAt: from,
+            updatedAt: from,
+        })
         const owned = await seedWorkspaceChannel(database, {
             projectId,
             channelId,
@@ -200,17 +191,14 @@ async function seedDatabase(
             profile: benchmarkProfile,
             createdByActorId: actorId,
         })
-        database
-            .insert(publishers)
-            .values({
-                id: publisherId,
-                workspaceId: owned.workspaceId,
-                channelId,
-                kind: 'benchmark-provider',
-                createdAt: from,
-                updatedAt: from,
-            })
-            .run()
+        await insertRow(database, 'publishers', {
+            id: publisherId,
+            workspaceId: owned.workspaceId,
+            channelId,
+            kind: 'benchmark-provider',
+            createdAt: from,
+            updatedAt: from,
+        })
 
         const client = database.$client
         const insertPost = client.query(
