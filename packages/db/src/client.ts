@@ -3,6 +3,8 @@ import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 
 import * as schema from './schema'
+import type { SqlDatabase, SqlTransactionMode } from './sql/port'
+import { SqliteSqlDatabase } from './sql/sqlite-adapter'
 
 export type DatabaseCommitObserver = (projectIds: readonly string[]) => void
 export type DatabaseCommitErrorHandler = (error: unknown) => void
@@ -25,6 +27,7 @@ interface TransactionState {
 
 const commitObservers = new WeakMap<object, CommitObserverRegistration>()
 const transactionStates = new WeakMap<object, TransactionState>()
+const asyncCommitProjects = new WeakMap<object, Set<string>>()
 
 export function createDatabase(filename: string) {
     const client = new Database(filename)
@@ -37,7 +40,8 @@ export function createDatabase(filename: string) {
         }
         client.run('PRAGMA synchronous = FULL')
         client.run('PRAGMA foreign_keys = ON')
-        return drizzle({ client, schema })
+        const sql: SqlDatabase = new SqliteSqlDatabase(client)
+        return Object.assign(drizzle({ client, schema }), { sql })
     } catch (error) {
         client.close(true)
         throw error
@@ -71,6 +75,23 @@ export function setDatabaseCommitObserver(
  * database tests and maintenance commands keep the same behavior.
  */
 export function recordDatabaseCommitProject(database: PostdotDatabase, projectId: string): void {
+    const scope = database.sql.transactionScope()
+    if (scope !== undefined) {
+        const registration = commitObservers.get(database)
+        if (registration === undefined) return
+        let projects = asyncCommitProjects.get(scope)
+        if (projects === undefined) {
+            const recorded = new Set<string>()
+            projects = recorded
+            asyncCommitProjects.set(scope, recorded)
+            // Published once, after the outermost commit. A project recorded
+            // by a savepoint that later rolled back still produces a wakeup;
+            // wakeups are hints and readers re-read the durable journal.
+            database.sql.afterCommit(() => publishCommittedProjects(registration, [...recorded]))
+        }
+        projects.add(projectId)
+        return
+    }
     const state = transactionStates.get(database)
     state?.frames.at(-1)?.add(projectId)
 }
@@ -85,7 +106,23 @@ export function createDatabaseTransaction<Args extends unknown[], Result>(
     database: PostdotDatabase,
     callback: (...args: Args) => Result
 ): DatabaseTransaction<Args, Result> {
-    const transaction = database.$client.transaction(callback)
+    const legacy = database.$client.transaction(callback)
+    const sqlite = database.sql as SqliteSqlDatabase
+    const guard =
+        (operation: (...args: Args) => Result) =>
+        (...args: Args): Result => {
+            // Transitional (DB-609): a synchronous transaction must not start
+            // while an async transaction owns the shared connection.
+            if (sqlite.busy) {
+                throw new Error('Synchronous transaction attempted while the SQLite writer is busy')
+            }
+            return operation(...args)
+        }
+    const transaction = Object.assign(guard(legacy), {
+        deferred: guard(legacy.deferred),
+        immediate: guard(legacy.immediate),
+        exclusive: guard(legacy.exclusive),
+    })
 
     const execute = (operation: (...args: Args) => Result, args: Args): Result => {
         const registration = commitObservers.get(database)
@@ -143,6 +180,34 @@ function handleCommitObserverError(registration: CommitObserverRegistration, err
         return
     }
     console.error('[postdot-db] post-commit observer failed', error)
+}
+
+export type AsyncDatabaseTransaction<Args extends unknown[], Result> = {
+    (...args: Args): Promise<Result>
+    deferred: (...args: Args) => Promise<Result>
+    immediate: (...args: Args) => Promise<Result>
+    exclusive: (...args: Args) => Promise<Result>
+}
+
+/**
+ * Declares an asynchronous transaction (ADR-097). Statements awaited inside
+ * `callback` run on the transaction bound to the async context; nested
+ * transactions become savepoints, and commit observers fire only after the
+ * outermost commit. `callback` must not perform external I/O.
+ */
+export function defineTransaction<Args extends unknown[], Result>(
+    database: PostdotDatabase,
+    callback: (...args: Args) => Promise<Result>
+): AsyncDatabaseTransaction<Args, Result> {
+    const run =
+        (mode: SqlTransactionMode) =>
+        (...args: Args): Promise<Result> =>
+            database.sql.transaction(() => callback(...args), mode)
+    return Object.assign(run('deferred'), {
+        deferred: run('deferred'),
+        immediate: run('immediate'),
+        exclusive: run('exclusive'),
+    })
 }
 
 export function closeDatabase(database: PostdotDatabase) {

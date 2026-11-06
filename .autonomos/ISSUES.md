@@ -1990,3 +1990,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Source: owner direction, 2026-11-02.
 
 - Resolution: Resolved (2026-11-03). Implemented asynchronous on-demand lazy loading for non-base language catalogs (`fr`, `es`, `de`) via `scripts/i18n-split-locales.ts` and `apps/web/src/lib/i18n-store.ts`. Non-base translations are decoupled into standalone dynamic chunks (`dist/assets/{fr,es,de}-*.js`), preventing linear $O(N)$ bundle growth as new languages are added. The initial anonymous `/login` JavaScript footprint dropped from ~174.3 KiB gzip to 163.70 KiB gzip (raw bytes 506,200, strictly below the 180 KiB budget in `scripts/measure-footprint.ts`). Added asynchronous catalog loader with immediate synchronous fallback to base English during streaming and instant re-render upon completion. Verified across 300 web tests, 100% catalog coverage, `bun run check:quick`, and Playwright E2E suites.
+
+## [ISSUE-194] Offer PostgreSQL alongside SQLite with an explicit instance topology
+
+- Type: proposal
+- Status: open
+- Priority: high — owner direction for deployment standardization and a future hosted offer
+- Evidence: Recent deployment work showed that the SQLite profile (single writer, file-level backup/restore, sidecar runtime lock) prevents rolling releases and multiple instances. Some operators would prefer a standard PostgreSQL deployment. A hosted offer would need the same capabilities.
+- Impact: Without a server-database profile, Postdot can only run as one instance per database, which may read as amateur to operators with standard deployment practices.
+- Desired outcome: One image chooses SQLite (default) or PostgreSQL at runtime. SQLite or local media make the deployment single-instance by construction. PostgreSQL with S3 allows several instances. SQLite ↔ PostgreSQL and local ↔ S3 transfers are planned, documented and verifiable, never automatic. Compatibility with alpha databases and the existing migration chain is not required (no production users).
+- Related: ADR-003, ADR-005, ADR-049, ADR-053, ADR-068, ADR-089, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md)
+- Tasks: DB-609 (phase 0), DB-610, DB-611, DB-612, DB-613
+- Source: owner direction, 2026-11-06.

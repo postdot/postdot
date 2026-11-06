@@ -2,15 +2,25 @@ export {
     closeDatabase,
     createDatabase,
     createDatabaseTransaction,
+    defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
 } from './client'
 export type {
+    AsyncDatabaseTransaction,
     DatabaseCommitErrorHandler,
     DatabaseCommitObserver,
     DatabaseTransaction,
     PostdotDatabase,
 } from './client'
+export type {
+    SqlDatabase,
+    SqlParams,
+    SqlRunResult,
+    SqlStatement,
+    SqlTransactionMode,
+    SqlValue,
+} from './sql/port'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 export { recoverLocalAccountPassword } from './local-account-recovery'
 export type {

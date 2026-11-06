@@ -12,7 +12,7 @@ const sourceContent = (text: string) => ({
 })
 
 describe('publication draft lifecycle store', () => {
-    it('duplicates a draft as a new draft and deletes the original post when it is orphaned', () => {
+    it('duplicates a draft as a new draft and deletes the original post when it is orphaned', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -50,14 +50,14 @@ describe('publication draft lifecycle store', () => {
             const publication = created?.publications[0]
             expect(publication).toMatchObject({ state: 'draft', deliveryMode: 'manual' })
             if (publication === undefined) throw new Error('Draft publication was not created')
-            const tag = taxonomy.createTag({
+            const tag = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Reusable',
             })
             expect(tag).not.toBeNull()
             if (tag === null) throw new Error('Publication tag was not created')
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',

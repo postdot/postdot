@@ -100,6 +100,14 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+### Storage profiles — ISSUE-194, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md) (proposed), branch `feat/postgres-storage-profiles`
+
+- [/] **[DB-609]** Make persistence asynchronous behind a port with ambient transactions (phase 0) `Priority: 🟠` `Complexity: XL` — SQLite only, no behaviour change: `bun:sqlite` behind an async writer gate, `AsyncLocalStorage` transactions, savepoints, post-commit observers; convert every store and API caller. [Worklog](worklogs/2026-11-06-DB-609.md).
+- [ ] **[DB-610]** Isolate dialect fragments and regenerate the SQLite baseline (phase 1) `Priority: 🟠` `Complexity: L` — Portable `?N` SQL audit, one dialect module, one generated baseline plus explicit triggers/views/expression-index extras, replacing the 27-file chain (owner: no compatibility required).
+- [ ] **[DB-611]** Add the PostgreSQL profile with engine parity (phase 2) `Priority: 🟠` `Complexity: XL` — `POSTDOT_DATABASE_URL`, `Bun.SQL` adapter, pg schema/baseline/extras, Better Auth adapter, same db/API suites on both engines in CI.
+- [ ] **[DB-612]** Enforce instance topology and multi-instance coordination (phase 3) `Priority: 🟠` `Complexity: L` — Single instance by construction for SQLite or local media; PostgreSQL+S3: advisory-locked migrations, `SKIP LOCKED` claims, cross-instance wakeup, database-backed refresh coordination, expand/contract migration policy, PostgreSQL runbook.
+- [ ] **[DB-613]** Transfer data between profiles (phase 4) `Priority: 🔵` `Complexity: L` — Offline logical export/import SQLite ↔ PostgreSQL and checksummed local ↔ S3 media copy, documented and tested in both directions.
+
 - [x] **[SITE-599]** Publish the approved landing illustrations `Priority: 🟠` `Complexity: S` `Completed: 2026-10-30` — Owner authorizes shipping the frozen UX-416 result unchanged through the existing documentation deployment workflow. Isolate unrelated local application commits and authentication design. [Evidence](worklogs/2026-10-29-SITE-599.md).
 
 - [x] **[WEB-600]** Copy an internal publication link from Queue and publication details `Priority: 🔵` `Complexity: S` `Completed: 2026-10-30` — Owner accepts a small copy-link action for existing project members; retain normal authorization, localize feedback and provide a fallback if clipboard access fails.

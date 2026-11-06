@@ -382,7 +382,7 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('filters publication summaries by all selected project-scoped tag IDs', () => {
+    it('filters publication summaries by all selected project-scoped tag IDs', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
@@ -427,25 +427,25 @@ describe('manual workflow store', () => {
             expect(firstPublication).toBeDefined()
             expect(secondPublication).toBeDefined()
 
-            const alpha = taxonomy.createTag({
+            const alpha = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Alpha',
             })
-            const beta = taxonomy.createTag({
+            const beta = await taxonomy.createTag({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Beta',
             })
             expect(alpha).not.toBeNull()
             expect(beta).not.toBeNull()
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: firstPublication?.id ?? '',
                 subjectId: 'user-1',
                 tagIds: [beta?.id ?? '', alpha?.id ?? ''],
             })
-            taxonomy.replacePublicationTags({
+            await taxonomy.replacePublicationTags({
                 projectId: project.project.id,
                 publicationId: secondPublication?.id ?? '',
                 subjectId: 'user-1',
@@ -458,7 +458,7 @@ describe('manual workflow store', () => {
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const foreignTag = taxonomy.createTag({
+            const foreignTag = await taxonomy.createTag({
                 projectId: otherProject.project.id,
                 subjectId: 'user-1',
                 name: 'Foreign',
