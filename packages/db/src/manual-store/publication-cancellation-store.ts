@@ -6,7 +6,7 @@ import {
     type Publication,
 } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type { CancelPublicationsInput } from '../manual-store'
 import { mapSequential } from '../sql/sequential'
 import { toActor, toPublication } from './mappers'
@@ -52,7 +52,7 @@ export interface PublicationCancellationStoreOptions {
 }
 
 export function createPublicationCancellationStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationCancellationStoreOptions
 ) {
     const sql = database.sql

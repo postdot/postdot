@@ -6,7 +6,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from '../client'
+import type { DatabaseHandle } from '../client'
 import { invalidProfileError, parseJsonObject } from './content-codec'
 import type {
     ProfileImpactTargetRow,
@@ -39,7 +39,7 @@ export interface ChannelProfileImpactResult {
 }
 
 export function createChannelProfileImpactAssessor(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelProfileImpactAssessorOptions
 ) {
     const sql = database.sql

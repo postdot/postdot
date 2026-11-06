@@ -6,7 +6,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from '../client'
+import type { DatabaseHandle } from '../client'
 import type {
     ChannelProfileState,
     ChannelProfileVersion,
@@ -67,7 +67,7 @@ export interface ChannelProfileReadStoreHandle {
 }
 
 export function createChannelProfileReadStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelProfileReadStoreOptions
 ): ChannelProfileReadStoreHandle {
     const loadDraftProfileStatement = database.sql.statement<

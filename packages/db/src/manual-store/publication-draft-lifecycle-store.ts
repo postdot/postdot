@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, type Publication } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { toActor } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
@@ -63,7 +63,7 @@ export type DuplicateDraftPublicationResult =
     | { readonly kind: 'not_draft' }
 
 export function createPublicationDraftLifecycleStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationDraftLifecycleStoreOptions
 ) {
     const sql = database.sql

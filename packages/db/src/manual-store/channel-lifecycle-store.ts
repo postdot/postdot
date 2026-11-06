@@ -5,7 +5,7 @@ import {
     type Channel,
 } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ChannelRow } from './rows'
 
@@ -69,7 +69,7 @@ export interface ChannelLifecycleStoreOptions {
 }
 
 export function createChannelLifecycleStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ChannelLifecycleStoreOptions
 ) {
     const sql = database.sql

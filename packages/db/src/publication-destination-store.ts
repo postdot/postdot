@@ -1,7 +1,7 @@
 import { DomainInvariantError, requireTimestamp } from '@postdot/core'
 
 import { readChannelDestination } from './channel-destination'
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { jsonExtractIntSql } from './sql/dialect'
 
@@ -19,7 +19,7 @@ export interface PublicationDestinationState {
 }
 
 export function createPublicationDestinationStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: {
         createId?: () => string
         now: () => number

@@ -9,7 +9,7 @@ import {
     type PublicationState,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { jsonExtractTextSql } from './sql/dialect'
 
 const analyticsContractVersion = 1
@@ -454,7 +454,7 @@ interface HistoricalAccumulator {
 }
 
 export function createAnalyticsStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: AnalyticsStoreOptions = {}
 ) {
     const sql = database.sql

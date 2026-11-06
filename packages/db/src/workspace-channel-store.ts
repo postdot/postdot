@@ -9,7 +9,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore, validateCadence, type ChannelCadence } from './channel-cadence'
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { normalizeCreationProfile } from './manual-store/channel-profile-definition'
 import { invalidProfileError } from './manual-store/content-codec'
@@ -106,7 +106,7 @@ export type MutationResult =
 
 /** Canonical workspace schema only. Wired into the runtime when its ownership migration is activated. */
 export function createWorkspaceChannelStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: { readonly now?: () => number; readonly createId?: () => string } = {}
 ) {
     const sql = database.sql

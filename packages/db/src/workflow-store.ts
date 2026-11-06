@@ -15,7 +15,7 @@ import {
 
 import { cadenceEligibleAtSql, createChannelCadenceStore } from './channel-cadence'
 import { readChannelDestination, publicationDestinationConfirmed } from './channel-destination'
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import {
     automaticExecutionAuditActions,
     serializeAutomaticExecutionAuditMetadata,
@@ -98,7 +98,7 @@ const claimedJobColumns = `
 `
 
 export function createWorkflowStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: { publicMediaUrlAvailable?: boolean } = {}
 ) {
     const cadence = createChannelCadenceStore(database)

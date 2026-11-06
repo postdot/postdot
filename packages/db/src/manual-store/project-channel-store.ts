@@ -10,7 +10,7 @@ import {
     type Project,
 } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import { createWorkspaceActorStore } from '../workspace-actor-store'
 import { createWorkspaceChannelStore } from '../workspace-channel-store'
 import { parseProfile } from './content-codec'
@@ -60,7 +60,7 @@ export interface ProjectChannelStoreOptions {
 }
 
 export function createProjectChannelStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ProjectChannelStoreOptions
 ) {
     const sql = database.sql

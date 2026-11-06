@@ -1,6 +1,6 @@
 import { requireNonBlank, requireTimestamp, type WorkspaceActor } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 
 interface WorkspaceActorStoreOptions {
     readonly now?: () => number
@@ -9,7 +9,7 @@ interface WorkspaceActorStoreOptions {
 
 /** Internal attribution only. An actor record is never an authorization grant. */
 export function createWorkspaceActorStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: WorkspaceActorStoreOptions = {}
 ) {
     const sql = database.sql

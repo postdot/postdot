@@ -9,7 +9,7 @@ import {
     type UserNotification,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
@@ -101,7 +101,7 @@ export interface NotificationStoreOptions {
 }
 
 export function createNotificationStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: NotificationStoreOptions = {}
 ) {
     const sql = database.sql

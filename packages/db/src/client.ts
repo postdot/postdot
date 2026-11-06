@@ -1,9 +1,11 @@
 import { Database } from 'bun:sqlite'
 
+import { SQL } from 'bun'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 
 import * as schema from './schema'
 import type { SqlDatabase, SqlTransactionMode } from './sql/port'
+import { PostgresSqlDatabase } from './sql/postgres-adapter'
 import { SqliteSqlDatabase } from './sql/sqlite-adapter'
 
 export type DatabaseCommitObserver = (projectIds: readonly string[]) => void
@@ -39,13 +41,22 @@ export function createDatabase(filename: string) {
 export type PostdotDatabase = ReturnType<typeof createDatabase>
 
 /**
+ * Engine-neutral persistence handle (ADR-097). Stores depend only on the
+ * port; the SQLite database (`createDatabase`) and the PostgreSQL database
+ * (`createPostgresDatabase`) both satisfy it.
+ */
+export interface DatabaseHandle {
+    readonly sql: SqlDatabase
+}
+
+/**
  * Installs the process-local callback used after a transaction that appended
  * project facts has committed. The callback is deliberately not part of the
  * transaction: a realtime wakeup must never be able to make a committed
  * database write look failed.
  */
 export function setDatabaseCommitObserver(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     observer: DatabaseCommitObserver,
     onError?: DatabaseCommitErrorHandler
 ): () => void {
@@ -63,7 +74,7 @@ export function setDatabaseCommitObserver(
  * database tests and maintenance commands keep the same behavior, and outside
  * a transaction, as before: facts are always appended transactionally.
  */
-export function recordDatabaseCommitProject(database: PostdotDatabase, projectId: string): void {
+export function recordDatabaseCommitProject(database: DatabaseHandle, projectId: string): void {
     const registration = commitObservers.get(database)
     const scope = database.sql.transactionScope()
     if (registration === undefined || scope === undefined) return
@@ -107,14 +118,6 @@ function handleCommitObserverError(registration: CommitObserverRegistration, err
     console.error('[postdot-db] post-commit observer failed', error)
 }
 
-/**
- * Executes a synchronous Drizzle query against the shared SQLite connection
- * without bypassing the writer gate or the current async transaction.
- */
-export function runSync<T>(database: PostdotDatabase, query: () => T): Promise<T> {
-    return (database.sql as SqliteSqlDatabase).runNative(query)
-}
-
 export type DatabaseTransaction<Args extends unknown[], Result> = {
     (...args: Args): Promise<Result>
     deferred: (...args: Args) => Promise<Result>
@@ -129,7 +132,7 @@ export type DatabaseTransaction<Args extends unknown[], Result> = {
  * outermost commit. `callback` must not perform external I/O.
  */
 export function defineTransaction<Args extends unknown[], Result>(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     callback: (...args: Args) => Promise<Result>
 ): DatabaseTransaction<Args, Result> {
     const run =
@@ -141,6 +144,26 @@ export function defineTransaction<Args extends unknown[], Result>(
         immediate: run('immediate'),
         exclusive: run('exclusive'),
     })
+}
+
+export interface PostgresDatabase extends DatabaseHandle {
+    readonly sql: PostgresSqlDatabase
+}
+
+/**
+ * Opens the PostgreSQL profile (ADR-097) on Bun's built-in client. `int8`
+ * values are read as BigInt and normalized to numbers by the adapter.
+ */
+export function createPostgresDatabase(
+    url: string,
+    options: { readonly max?: number } = {}
+): PostgresDatabase {
+    const client = new SQL(url, { bigint: true, max: options.max ?? 10 })
+    return { sql: new PostgresSqlDatabase(client) }
+}
+
+export async function closePostgresDatabase(database: PostgresDatabase): Promise<void> {
+    await database.sql.close()
 }
 
 export function closeDatabase(database: PostdotDatabase) {

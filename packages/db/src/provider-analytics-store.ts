@@ -15,7 +15,7 @@ import {
     type ProviderAnalyticsSubjectType,
 } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 
 const defaultObservationLimit = 100
 const maximumObservationLimit = 500
@@ -115,7 +115,7 @@ interface KnownProviderContentRow {
 }
 
 export function createProviderAnalyticsStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ProviderAnalyticsStoreOptions = {}
 ) {
     const sql = database.sql

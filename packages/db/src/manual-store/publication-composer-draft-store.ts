@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import { canonicalJson, parseJsonObject } from './content-codec'
 import type { ActorRow } from './rows'
 
@@ -47,7 +47,7 @@ export interface PublicationComposerDraftStoreOptions {
 }
 
 export function createPublicationComposerDraftStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationComposerDraftStoreOptions
 ) {
     const sql = database.sql

@@ -21,7 +21,7 @@ import {
 } from '@postdot/core'
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@postdot/media'
 
-import { defineTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import {
     generateImagePreviews,
@@ -480,7 +480,7 @@ const intentColumns = `
 `
 
 export function createMediaAssetStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     mediaStore: MediaStore,
     options: MediaAssetStoreOptions = {}
 ) {
@@ -2822,7 +2822,7 @@ function buildReservation(
  * owns project data independently of any current member (retained target
  * reassessment). It performs no access check by design.
  */
-export function createSystemMediaReader(database: PostdotDatabase) {
+export function createSystemMediaReader(database: DatabaseHandle) {
     const sql = database.sql
     const loadAsset = sql.statement<MediaAssetRow, [string, string]>(`
         select ${mediaListAssetColumns}

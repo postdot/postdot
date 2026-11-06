@@ -222,16 +222,6 @@ export class SqliteSqlDatabase implements SqlDatabase {
         }
     }
 
-    /**
-     * Runs synchronous native work (Drizzle query builder on the shared
-     * connection) under the writer gate, or directly inside the transaction
-     * bound to the current async context. Transitional for the SQLite
-     * profile (ADR-097, DB-609); engine-neutral code uses statements.
-     */
-    runNative<T>(operation: () => T): Promise<T> {
-        return this.#execute(operation)
-    }
-
     #execute<T>(operation: () => T): Promise<T> {
         if (this.#currentFrame() !== undefined) {
             try {

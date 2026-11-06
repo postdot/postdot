@@ -6,7 +6,7 @@ import {
     type Publication,
 } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type {
     DueManualPublication,
     PublishManualPublicationInput,
@@ -42,7 +42,7 @@ export interface PublicationOutcomeStoreOptions {
 }
 
 export function createPublicationOutcomeStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationOutcomeStoreOptions
 ) {
     const sql = database.sql

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 
 import { DomainInvariantError } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { scalarMaxSql } from './sql/dialect'
 import type { SqlDialect } from './sql/port'
 import { mapSequential } from './sql/sequential'
@@ -75,7 +75,7 @@ export function cadenceEligibleAtSql(dialect: SqlDialect): string {
     )
 }
 
-export function createChannelCadenceStore(database: PostdotDatabase) {
+export function createChannelCadenceStore(database: DatabaseHandle) {
     const sql = database.sql
     const get = async (channelId: string): Promise<ChannelCadence | null> =>
         await sql

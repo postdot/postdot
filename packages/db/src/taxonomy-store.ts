@@ -10,7 +10,7 @@ import {
     type ProjectTag,
 } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
 import { isUniqueConstraintError } from './sql/dialect'
@@ -144,7 +144,7 @@ function sortTagIds(tags: ReadonlyMap<string, TaxonomyTagRow>, tagIds: readonly 
     })
 }
 
-export function createTaxonomyStore(database: PostdotDatabase, options: TaxonomyStoreOptions = {}) {
+export function createTaxonomyStore(database: DatabaseHandle, options: TaxonomyStoreOptions = {}) {
     const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

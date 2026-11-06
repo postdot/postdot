@@ -1,20 +1,20 @@
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 
-// The server owns one SQLite connection. Separate store facades share its queue;
+// Separate store facades over one database share its queue (keyed by the port);
 // independent credentials never wait for each other's network operation.
-const queues = new WeakMap<PostdotDatabase['$client'], Map<string, Promise<void>>>()
+const queues = new WeakMap<object, Map<string, Promise<void>>>()
 
 export async function coordinatePublisherCredentialRefresh<T>(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     credentialId: string,
     operation: () => Promise<T>,
     signal?: AbortSignal
 ): Promise<T> {
     signal?.throwIfAborted()
-    let queue = queues.get(database.$client)
+    let queue = queues.get(database.sql)
     if (!queue) {
         queue = new Map()
-        queues.set(database.$client, queue)
+        queues.set(database.sql, queue)
     }
     const previous = queue.get(credentialId) ?? Promise.resolve()
     let release!: () => void

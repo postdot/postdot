@@ -20,7 +20,7 @@ import {
     sameDestination,
     type ChannelDestinationIdentity,
 } from './channel-destination'
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { jsonExtractIntSql } from './sql/dialect'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
@@ -258,7 +258,7 @@ function credentialFields(row: CredentialRow) {
     } as const
 }
 
-export function createPublisherStore(database: PostdotDatabase, options: PublisherStoreOptions) {
+export function createPublisherStore(database: DatabaseHandle, options: PublisherStoreOptions) {
     const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())

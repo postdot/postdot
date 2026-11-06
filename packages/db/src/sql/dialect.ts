@@ -313,7 +313,10 @@ export function deferForeignKeysSql(dialect: SqlDialect): string {
 export function isUniqueConstraintError(error: unknown): boolean {
     if (!(error instanceof Error)) return false
     const code = (error as { readonly code?: unknown }).code
+    // Bun.SQL reports the PostgreSQL SQLSTATE in `errno`.
+    const errno = (error as { readonly errno?: unknown }).errno
     if (
+        errno === '23505' ||
         code === '23505' ||
         code === 'SQLITE_CONSTRAINT_UNIQUE' ||
         code === 'SQLITE_CONSTRAINT_PRIMARYKEY'

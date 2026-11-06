@@ -1,9 +1,9 @@
 import type { Publication } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 
 export async function publicationHasAttempt(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     projectId: string,
     publicationId: string
 ): Promise<boolean> {
@@ -25,7 +25,7 @@ export interface PublicationMovement {
     requestedScheduledAt: number | null
 }
 export async function readPublicationMovement(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     publication: Pick<Publication, 'id' | 'projectId' | 'state' | 'scheduledAt'>,
     now: number
 ): Promise<PublicationMovement> {

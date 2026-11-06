@@ -12,7 +12,7 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore } from '../channel-cadence'
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
     canonicalJson,
@@ -163,7 +163,7 @@ export interface PublicationPromotionStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationPromotionStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationPromotionStoreOptions
 ) {
     const cadence = createChannelCadenceStore(database)

@@ -6,7 +6,7 @@ import {
     type ProviderMediaDeliveryState,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 
 export interface ProviderMediaDelivery {
     readonly id: string
@@ -95,7 +95,7 @@ const deliveryColumns = `
 `
 
 export function createProviderMediaDeliveryStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: { readonly now?: () => number; readonly createId?: () => string } = {}
 ) {
     const sql = database.sql

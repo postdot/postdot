@@ -5,7 +5,7 @@ import {
     type ProviderApplicationFields,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
@@ -149,7 +149,7 @@ function envelope(row: ProviderApplicationRow): EncryptedSecretEnvelope | null {
 }
 
 export function createProviderApplicationStore<const Id extends string>(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: ProviderApplicationStoreOptions<Id>
 ) {
     function policy(id: string): ProviderApplicationPolicy<Id> {

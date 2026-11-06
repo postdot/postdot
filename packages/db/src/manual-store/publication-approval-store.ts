@@ -6,7 +6,7 @@ import {
 } from '@postdot/core'
 import type { Publication } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import type { ActorRow } from './rows'
 
@@ -94,7 +94,7 @@ function toApprovalRequest(row: ApprovalRequestDbRow): PublicationApprovalReques
 }
 
 export function createPublicationApprovalStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationApprovalStoreOptions
 ) {
     const sql = database.sql

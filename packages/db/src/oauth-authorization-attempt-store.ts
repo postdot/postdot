@@ -1,6 +1,6 @@
 import { requireNonBlank, requireTimestamp } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import type {
     EncryptedPublisherSecret,
     PublisherCredentialCipher,
@@ -275,7 +275,7 @@ function providerStateEnvelope(row: AuthorizationAttemptRow): EncryptedPublisher
 }
 
 export function createAuthorizationAttemptStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: AuthorizationAttemptStoreOptions
 ) {
     const sql = database.sql

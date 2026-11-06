@@ -9,7 +9,7 @@ import {
     type DomainEvent,
 } from '@postdot/core'
 
-import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { auditEventSequenceHighWaterSql } from './sql/dialect'
 
 const cursorPrefix = 'event-sequence:'
@@ -80,7 +80,7 @@ interface EventJournalRow {
 }
 
 export function createEventJournalStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: EventJournalStoreOptions = {}
 ) {
     const sql = database.sql

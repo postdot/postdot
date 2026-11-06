@@ -9,7 +9,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from '../client'
 import type { CreatePostInput, CreatedPost, PublicationEditorState } from '../manual-store'
 import { publicationHasAttempt, readPublicationMovement } from '../publication-move-state'
 import { invalidProfileError, parseProfile } from './content-codec'
@@ -30,7 +30,7 @@ export interface MovePublicationInput {
     cadenceConfirmation?: string
 }
 export function createPublicationMoveStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: {
         now: () => number
         createId: () => string

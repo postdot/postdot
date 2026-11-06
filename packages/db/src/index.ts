@@ -1,6 +1,8 @@
 export {
     closeDatabase,
+    closePostgresDatabase,
     createDatabase,
+    createPostgresDatabase,
     defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
@@ -9,7 +11,9 @@ export type {
     DatabaseCommitErrorHandler,
     DatabaseCommitObserver,
     DatabaseTransaction,
+    DatabaseHandle,
     PostdotDatabase,
+    PostgresDatabase,
 } from './client'
 export type {
     SqlCommitScope,

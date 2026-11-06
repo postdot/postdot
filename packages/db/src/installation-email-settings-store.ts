@@ -1,4 +1,4 @@
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import type { SecretCipher } from './encrypted-secret-crypto'
 
 const context = { recordId: 'default', purpose: ['smtp-configuration'] } as const
@@ -11,7 +11,7 @@ interface InstallationEmailSettingsRow {
 }
 
 export function createInstallationEmailSettingsStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     cipher: SecretCipher
 ) {
     const sql = database.sql

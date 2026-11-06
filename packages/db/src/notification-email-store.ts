@@ -1,5 +1,5 @@
 import { createAccessStore } from './access-store'
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import {
     createEventJournalStore,
@@ -14,7 +14,7 @@ import {
 const transportId = 'email'
 const kinds = ['publication_failed', 'publication_ambiguous'] as const
 
-export function createNotificationEmailStore(database: PostdotDatabase) {
+export function createNotificationEmailStore(database: DatabaseHandle) {
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
     const deliveries = createNotificationDeliveryStore(database, {

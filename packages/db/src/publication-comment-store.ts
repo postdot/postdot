@@ -1,7 +1,7 @@
 import { requireNonBlank, requireTimestamp } from '@postdot/core'
 
 import { createAccessStore } from './access-store'
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 
 export interface PublicationCommentRecord {
     readonly snapshotJson: string | null
@@ -18,7 +18,7 @@ interface CommentIdentity {
     readonly externalUrl?: string
 }
 
-export function createPublicationCommentStore(database: PostdotDatabase) {
+export function createPublicationCommentStore(database: DatabaseHandle) {
     const access = createAccessStore(database)
     const publication = database.sql.statement<
         { id: string },

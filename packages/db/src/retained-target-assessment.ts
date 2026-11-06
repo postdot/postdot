@@ -1,6 +1,6 @@
 import type { ValidationIssue } from '@postdot/core'
 
-import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { assessChannelProfileChangeAsync } from './manual-store/channel-profile-impact'
 import { parseJsonObject, parseProfile } from './manual-store/content-codec'
@@ -10,7 +10,7 @@ import { createSystemMediaReader } from './media-asset-store'
 
 /** Reassess the immutable selected target, never the mutable working draft. */
 export function createRetainedTargetAssessor(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     publicMediaUrlAvailable = false
 ) {
     const sql = database.sql

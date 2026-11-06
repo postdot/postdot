@@ -8,7 +8,7 @@ import {
 } from '@postdot/core'
 
 import { createAccessStore } from './access-store'
-import { defineTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 import type { publicationFirstComments as firstComments } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 import { jsonExtractTextSql } from './sql/dialect'
@@ -206,7 +206,7 @@ function buildNativeReceiptProof(dialect: SqlDialect): string {
 }
 
 export function createPublicationFirstCommentStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationFirstCommentStoreOptions
 ) {
     const db = database.sql

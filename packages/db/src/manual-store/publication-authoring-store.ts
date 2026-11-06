@@ -10,7 +10,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { defineTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type DatabaseHandle } from '../client'
 import type {
     PublicationWorkingDraft,
     RebasePublicationDraftInput,
@@ -42,7 +42,7 @@ export interface PublicationAuthoringStoreOptions extends PublicationPromotionDe
 }
 
 export function createPublicationAuthoringStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: PublicationAuthoringStoreOptions
 ) {
     const sql = database.sql

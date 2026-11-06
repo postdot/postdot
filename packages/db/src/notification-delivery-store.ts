@@ -13,7 +13,7 @@ import {
     type PersistedEffectOutcome,
 } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
@@ -166,7 +166,7 @@ export interface NotificationDeliveryStoreOptions {
 }
 
 export function createNotificationDeliveryStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: NotificationDeliveryStoreOptions = {}
 ) {
     const sql = database.sql

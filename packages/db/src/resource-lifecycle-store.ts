@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type { MediaStore } from '@postdot/media'
 
-import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { defineTransaction, recordDatabaseCommitProject, type DatabaseHandle } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { deferForeignKeysSql } from './sql/dialect'
 import { everySequential, mapSequential } from './sql/sequential'
@@ -30,7 +30,7 @@ type LifecycleRow = {
 }
 const activity = new WeakMap<object, { requests: Map<string, number>; writes: number }>()
 
-export function createResourceLifecycleStore(database: PostdotDatabase) {
+export function createResourceLifecycleStore(database: DatabaseHandle) {
     const sql = database.sql
     const live = activity.get(database) ?? { requests: new Map<string, number>(), writes: 0 }
     activity.set(database, live)

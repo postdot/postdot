@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { requireNonBlank } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import type { DatabaseHandle } from './client'
 import { defineTransaction } from './client'
 import { nowMillisSql } from './sql/dialect'
 
@@ -416,7 +416,7 @@ function selectBestProjectMembership(
     }, null)
 }
 
-export function createAccessStore(database: PostdotDatabase, options: AccessStoreOptions = {}) {
+export function createAccessStore(database: DatabaseHandle, options: AccessStoreOptions = {}) {
     const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? randomUUID

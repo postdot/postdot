@@ -1,4 +1,4 @@
-import type { PostdotDatabase } from '../client'
+import type { DatabaseHandle } from '../client'
 import { containsCaseInsensitiveSql, jsonExtractTextSql } from '../sql/dialect'
 
 export interface SearchResult {
@@ -12,7 +12,7 @@ export interface SearchResult {
 }
 
 /** Callers supply the live authorized project set, never historical actors. */
-export function createSearchStore(database: PostdotDatabase) {
+export function createSearchStore(database: DatabaseHandle) {
     const dialect = database.sql.dialect
     return {
         async search(projectIds: readonly string[], query: string): Promise<SearchResult[]> {

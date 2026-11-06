@@ -7,7 +7,7 @@ import {
 } from '@postdot/core'
 
 import { createAccessStore } from './access-store'
-import { defineTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type DatabaseHandle } from './client'
 import type { publicationCommentReplies as replies } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 import { mapSequential } from './sql/sequential'
@@ -63,7 +63,7 @@ interface ReplyActorRow {
 }
 
 export function createPublicationReplyStore(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     options: { readonly policies: readonly ProviderCommentPolicy[] }
 ) {
     const sql = database.sql
