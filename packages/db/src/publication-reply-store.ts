@@ -113,7 +113,7 @@ export function createPublicationReplyStore(
                 and resource_id = publication_comment_replies.project_id
                 and state <> 'active'
           )
-          and (?1 is null or project_id = ?1)
+          and (cast(?1 as text) is null or project_id = ?1)
         order by created_at asc, id asc
         limit 1
     `)
@@ -258,7 +258,7 @@ export function createPublicationReplyStore(
         where project_id = ?1
           and publication_id = ?2
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or created_at < ?3
               or (created_at = ?3 and id < ?4)
           )
@@ -319,7 +319,7 @@ export function createPublicationReplyStore(
             where p.project_id = ?1 and p.id = ?2 and p.state = 'published' and p.external_id = ?3
               and c.id = ?4 and c.credential_id = ?5 and b.kind = ?7 and k.provider_id = ?7
               and k.external_account_id = ?6 and k.state = 'active'
-              and (?8 is null or c.endpoint_url = ?8)
+              and (cast(?8 as text) is null or c.endpoint_url = ?8)
         `)
                 .get(
                     row.projectId,

@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 const now = 1_800_000_000_000
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const store = createManualStore(database, { now: () => now })
     const project = await store.createProject({
         workspaceId: await seedTestWorkspace(database),
@@ -94,7 +91,7 @@ describe('publication composer draft store', () => {
                 })
             ).rejects.toThrow('changed after revision 1')
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -117,7 +114,7 @@ describe('publication composer draft store', () => {
                 )?.content
             ).toEqual(draft)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -159,7 +156,7 @@ describe('publication composer draft store', () => {
                 })
             ).toBe(false)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })
@@ -222,6 +219,6 @@ it('refuses stale discard and reused revisions after the draft was recreated', a
             recreated
         )
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

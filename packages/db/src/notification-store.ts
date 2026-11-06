@@ -215,7 +215,7 @@ export function createNotificationStore(
         where project_id = ?1 and recipient_actor_id = ?2
           and (?3 = 1 or archived_at is null)
           and (
-              ?4 is null
+              cast(?4 as bigint) is null
               or created_at < ?4
               or (created_at = ?4 and id < ?5)
           )
@@ -234,10 +234,10 @@ export function createNotificationStore(
     >(`
         select ${notificationColumns} from notifications
         where recipient_user_id = ?1
-          and (?2 is null or project_id = ?2)
+          and (cast(?2 as text) is null or project_id = ?2)
           and (?3 = 1 or archived_at is null)
           and (
-              ?4 is null
+              cast(?4 as bigint) is null
               or created_at < ?4
               or (created_at = ?4 and id < ?5)
           )
@@ -256,7 +256,7 @@ export function createNotificationStore(
         [userId: string, projectId: string | null]
     >(`
         select count(*) as count from notifications
-        where recipient_user_id = ?1 and (?2 is null or project_id = ?2)
+        where recipient_user_id = ?1 and (cast(?2 as text) is null or project_id = ?2)
           and read_at is null and archived_at is null
     `)
     const loadNotificationStatement = sql.statement<

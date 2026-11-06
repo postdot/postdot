@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
 import { createTaxonomyStore } from '../taxonomy-store'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 const sourceContent = (text: string) => ({
     body: { text, format: 'plain_text' as const },
@@ -13,10 +11,9 @@ const sourceContent = (text: string) => ({
 
 describe('publication draft lifecycle store', () => {
     it('duplicates a draft as a new draft and deletes the original post when it is orphaned', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const now = 1_800_000_000_000
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
@@ -111,7 +108,7 @@ describe('publication draft lifecycle store', () => {
                 })
             ).toEqual({ kind: 'not_found' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

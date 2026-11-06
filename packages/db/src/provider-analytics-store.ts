@@ -267,9 +267,9 @@ export function createProviderAnalyticsStore(
         from provider_analytics_observations
         where project_id = ?1
           and provider = ?2
-          and (?3 is null or subject_type = ?3)
-          and (?4 is null or provider_subject_id = ?4)
-          and (?5 is null or postdot_entity_id = ?5)
+          and (cast(?3 as text) is null or subject_type = ?3)
+          and (cast(?4 as text) is null or provider_subject_id = ?4)
+          and (cast(?5 as text) is null or postdot_entity_id = ?5)
         order by fetched_at desc, id desc
         limit ?6
     `

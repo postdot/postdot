@@ -472,7 +472,7 @@ export function createPublicationFirstCommentStore(
                 and state <> 'active'
           )
           and due_at <= ?1
-          and (?2 is null or project_id = ?2)
+          and (cast(?2 as text) is null or project_id = ?2)
         order by due_at asc, id asc
         limit 1
     `)

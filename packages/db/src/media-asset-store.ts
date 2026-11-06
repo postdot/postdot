@@ -325,31 +325,31 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
     const cursorCondition = {
         newest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or media_assets.created_at < ?5
               or (media_assets.created_at = ?5 and media_assets.id < ?6)
           )`,
         oldest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or media_assets.created_at > ?5
               or (media_assets.created_at = ?5 and media_assets.id > ?6)
           )`,
         name_asc: `
           and (
-              ?5 is null
+              cast(?5 as text) is null
               or lower(media_assets.original_filename) > ?5
               or (lower(media_assets.original_filename) = ?5 and media_assets.id > ?6)
           )`,
         name_desc: `
           and (
-              ?5 is null
+              cast(?5 as text) is null
               or lower(media_assets.original_filename) < ?5
               or (lower(media_assets.original_filename) = ?5 and media_assets.id < ?6)
           )`,
         largest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or coalesce(original_representation.byte_size, -1) < ?5
               or (
                   coalesce(original_representation.byte_size, -1) = ?5
@@ -358,7 +358,7 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
           )`,
         smallest: `
           and (
-              ?5 is null
+              cast(?5 as bigint) is null
               or coalesce(original_representation.byte_size, -1) > ?5
               or (
                   coalesce(original_representation.byte_size, -1) = ?5
@@ -385,9 +385,9 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
-          and (?3 is null or original_representation.family = ?3)
-          and (?4 is null or media_assets.created_at >= ?4)
+          and (cast(?2 as text) is null or media_assets.original_filename like ?2 escape '\\')
+          and (cast(?3 as text) is null or original_representation.family = ?3)
+          and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
           ${cursorCondition}
         order by ${orderBy}
         limit ?7
@@ -544,9 +544,9 @@ export function createMediaAssetStore(
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
-          and (?3 is null or original_representation.family = ?3)
-          and (?4 is null or media_assets.created_at >= ?4)
+          and (cast(?2 as text) is null or media_assets.original_filename like ?2 escape '\\')
+          and (cast(?3 as text) is null or original_representation.family = ?3)
+          and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
     `)
     const listTrashAssetsStatement = sql.statement<MediaAssetRow, MediaTrashListStatementParams>(`
         select ${mediaListAssetColumns}
@@ -554,9 +554,9 @@ export function createMediaAssetStore(
         where media_assets.project_id = ?1
           and media_assets.state = 'deletion_requested'
           and media_assets.deletion_requested_at > ?2
-          and (?3 is null or media_assets.original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or media_assets.original_filename like ?3 escape '\\')
           and (
-              ?4 is null
+              cast(?4 as bigint) is null
               or media_assets.deletion_requested_at < ?4
               or (media_assets.deletion_requested_at = ?4 and media_assets.id < ?5)
           )
@@ -572,7 +572,7 @@ export function createMediaAssetStore(
         where project_id = ?1
           and state = 'deletion_requested'
           and deletion_requested_at > ?2
-          and (?3 is null or original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or original_filename like ?3 escape '\\')
     `)
     const loadRepresentationStatement = sql.statement<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
@@ -1981,7 +1981,7 @@ export function createMediaAssetStore(
                 .statement<{ id: string; projectId: string }, [string | null]>(`
                 select media_assets.id, media_assets.project_id as projectId from media_assets
                 where media_assets.state = 'ready' and media_assets.archived_at is null
-                  and (?1 is null or media_assets.project_id = ?1)
+                  and (cast(?1 as text) is null or media_assets.project_id = ?1)
                   and exists (select 1 from media_representations r
                     where r.project_id = media_assets.project_id and r.asset_id = media_assets.id
                       and r.kind = 'original' and r.state = 'ready' and coalesce(r.is_animated, 0) = 0

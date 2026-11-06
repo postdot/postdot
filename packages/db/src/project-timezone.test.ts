@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
-import { seedTestWorkspace } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from './testing'
 
 describe('project scheduling timezone', () => {
     it('persists a validated timezone and records an owner change without moving data', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const created = await store.createProject({
                 workspaceId: await seedTestWorkspace(database),
@@ -39,15 +36,14 @@ describe('project scheduling timezone', () => {
                 metadataJson: JSON.stringify({ from: 'America/New_York', to: 'Europe/Paris' }),
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('defaults new projects to UTC and rejects invalid or unauthorized changes', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
             const created = await store.createProject({
                 workspaceId: await seedTestWorkspace(database),
@@ -72,7 +68,7 @@ describe('project scheduling timezone', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })

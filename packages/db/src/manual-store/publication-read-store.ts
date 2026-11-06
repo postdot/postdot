@@ -265,7 +265,7 @@ export function createPublicationReadStore(
               )
           )
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or (
                   ?3 = 0
                   and (
@@ -295,9 +295,9 @@ export function createPublicationReadStore(
                   )
               )
           )
-          and (?7 is null or publications.scheduled_at >= ?7)
-          and (?8 is null or publications.scheduled_at < ?8)
-          and (?9 is null or publications.state = ?9)
+          and (cast(?7 as bigint) is null or publications.scheduled_at >= ?7)
+          and (cast(?8 as bigint) is null or publications.scheduled_at < ?8)
+          and (cast(?9 as text) is null or publications.state = ?9)
         order by
             case when publications.scheduled_at is null then 1 else 0 end,
             publications.scheduled_at,
@@ -393,16 +393,16 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or ${lastActivityAtSql} < ?3
               or (
                   ${lastActivityAtSql} = ?3
                   and publications.id > ?4
               )
           )
-          and (?5 is null or publications.scheduled_at >= ?5)
-          and (?6 is null or publications.scheduled_at < ?6)
-          and (?7 is null or publications.state = ?7)
+          and (cast(?5 as bigint) is null or publications.scheduled_at >= ?5)
+          and (cast(?6 as bigint) is null or publications.scheduled_at < ?6)
+          and (cast(?7 as text) is null or publications.state = ?7)
         order by ${lastActivityAtSql} desc,
                  publications.id
         limit ?8
@@ -425,16 +425,16 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or ${lastActivityAtSql} > ?3
               or (
                   ${lastActivityAtSql} = ?3
                   and publications.id > ?4
               )
           )
-          and (?5 is null or publications.scheduled_at >= ?5)
-          and (?6 is null or publications.scheduled_at < ?6)
-          and (?7 is null or publications.state = ?7)
+          and (cast(?5 as bigint) is null or publications.scheduled_at >= ?5)
+          and (cast(?6 as bigint) is null or publications.scheduled_at < ?6)
+          and (cast(?7 as text) is null or publications.state = ?7)
         order by ${lastActivityAtSql},
                  publications.id
         limit ?8
@@ -457,13 +457,13 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or publications.created_at < ?3
               or (publications.created_at = ?3 and publications.id > ?4)
           )
-          and (?5 is null or publications.scheduled_at >= ?5)
-          and (?6 is null or publications.scheduled_at < ?6)
-          and (?7 is null or publications.state = ?7)
+          and (cast(?5 as bigint) is null or publications.scheduled_at >= ?5)
+          and (cast(?6 as bigint) is null or publications.scheduled_at < ?6)
+          and (cast(?7 as text) is null or publications.state = ?7)
         order by publications.created_at desc, publications.id
         limit ?8
     `)
@@ -485,13 +485,13 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or publications.created_at > ?3
               or (publications.created_at = ?3 and publications.id > ?4)
           )
-          and (?5 is null or publications.scheduled_at >= ?5)
-          and (?6 is null or publications.scheduled_at < ?6)
-          and (?7 is null or publications.state = ?7)
+          and (cast(?5 as bigint) is null or publications.scheduled_at >= ?5)
+          and (cast(?6 as bigint) is null or publications.scheduled_at < ?6)
+          and (cast(?7 as text) is null or publications.state = ?7)
         order by publications.created_at, publications.id
         limit ?8
     `)
@@ -515,7 +515,7 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or (
                   ?3 = 0
                   and (
@@ -545,9 +545,9 @@ export function createPublicationReadStore(
                   )
               )
           )
-          and (?7 is null or publications.scheduled_at >= ?7)
-          and (?8 is null or publications.scheduled_at < ?8)
-          and (?9 is null or publications.state = ?9)
+          and (cast(?7 as bigint) is null or publications.scheduled_at >= ?7)
+          and (cast(?8 as bigint) is null or publications.scheduled_at < ?8)
+          and (cast(?9 as text) is null or publications.state = ?9)
         order by case when publications.scheduled_at is null then 1 else 0 end,
                  publications.scheduled_at,
                  ${lastActivityAtSql} desc,
@@ -574,7 +574,7 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonJoins}
         ${publicationSummaryCommonFilter}
           and (
-              ?3 is null
+              cast(?3 as bigint) is null
               or (
                   ?3 = 0
                   and (
@@ -604,9 +604,9 @@ export function createPublicationReadStore(
                   )
               )
           )
-          and (?7 is null or publications.scheduled_at >= ?7)
-          and (?8 is null or publications.scheduled_at < ?8)
-          and (?9 is null or publications.state = ?9)
+          and (cast(?7 as bigint) is null or publications.scheduled_at >= ?7)
+          and (cast(?8 as bigint) is null or publications.scheduled_at < ?8)
+          and (cast(?9 as text) is null or publications.state = ?9)
         order by case when publications.scheduled_at is null then 1 else 0 end,
                  publications.scheduled_at desc,
                  ${lastActivityAtSql} desc,
@@ -654,8 +654,8 @@ export function createPublicationReadStore(
                       where matching_publications.publicationId = publications.id
                   )
               )
-              and (?3 is null or publications.scheduled_at >= ?3)
-              and (?4 is null or publications.scheduled_at < ?4)
+              and (cast(?3 as bigint) is null or publications.scheduled_at >= ?3)
+              and (cast(?4 as bigint) is null or publications.scheduled_at < ?4)
         )
         select count(*) as total,
                coalesce(sum(case when delivery_mode = 'manual' then 1 else 0 end), 0) as manual,

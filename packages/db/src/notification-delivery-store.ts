@@ -337,7 +337,7 @@ export function createNotificationDeliveryStore(
     >(`
         select id, effect_started_at as effectStartedAt, created_at as createdAt
         from notification_deliveries
-        where state = 'running' and lease_expires_at <= ?1 and (?2 is null or transport_id = ?2)
+        where state = 'running' and lease_expires_at <= ?1 and (cast(?2 as text) is null or transport_id = ?2)
         order by lease_expires_at, id
     `)
     const requeueExpiredDeliveryStatement = sql.statement<
@@ -375,7 +375,7 @@ export function createNotificationDeliveryStore(
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = d.project_id and state <> 'active')
               and d.next_attempt_at <= ?3
               and destination.state = 'active'
-              and (?4 is null or d.transport_id = ?4)
+              and (cast(?4 as text) is null or d.transport_id = ?4)
             order by d.next_attempt_at, d.created_at, d.id
             limit 1
         )
@@ -441,7 +441,7 @@ export function createNotificationDeliveryStore(
         inner join notification_destinations destination
             on destination.project_id = d.project_id and destination.id = d.destination_id
         where d.state in ('pending', 'running') and destination.state = 'active'
-          and (?1 is null or d.transport_id = ?1)
+          and (cast(?1 as text) is null or d.transport_id = ?1)
     `)
 
     const projectTransaction = defineTransaction(

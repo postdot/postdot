@@ -1,28 +1,36 @@
 import type { ChannelProfileDefinition } from '@postdot/core'
 
-import type { PostdotDatabase } from './client'
+import {
+    closeDatabase,
+    closePostgresDatabase,
+    createDatabase,
+    createPostgresDatabase,
+    type DatabaseHandle,
+} from './client'
+import { runMigrations } from './migrations'
+import { runPortableMigrations } from './sql/migrator'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
 /** Test fixture: an idempotent workspace row so projects can be created under the required ownership boundary. */
 export async function seedTestWorkspace(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     id = 'test-workspace'
 ): Promise<string> {
     await database.sql
         .statement(
-            'insert or ignore into organization(id,name,slug,created_at) values (?1,?1,?1,1)'
+            'insert into organization(id,name,slug,created_at) values (?1,?1,?1,1) on conflict do nothing'
         )
         .run(id)
     await database.sql
         .statement(
-            'insert or ignore into workspaces(id,organization_id,name,slug,created_at,updated_at) values (?1,?1,?1,?1,1,1)'
+            'insert into workspaces(id,organization_id,name,slug,created_at,updated_at) values (?1,?1,?1,?1,1,1) on conflict do nothing'
         )
         .run(id)
     return id
 }
 
 /** Test fixture: the workspace that owns a project, for rows that are workspace-scoped. */
-export async function workspaceOf(database: PostdotDatabase, projectId: string): Promise<string> {
+export async function workspaceOf(database: DatabaseHandle, projectId: string): Promise<string> {
     const row = await database.sql
         .statement<{ workspaceId: string | null }, [string]>(
             'select workspace_id as workspaceId from projects where id = ?'
@@ -34,7 +42,7 @@ export async function workspaceOf(database: PostdotDatabase, projectId: string):
 
 /** Test fixture: a workspace-owned channel with its first attachment and managing project. */
 export async function seedWorkspaceChannel(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     input: {
         readonly projectId: string
         readonly channelId: string
@@ -112,14 +120,77 @@ export async function seedWorkspaceChannel(
 
 /** Test fixture: workspace membership, required before project grants take effect for a workspace project. */
 export async function seedWorkspaceMember(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     workspaceId: string,
     userId: string
 ): Promise<void> {
     await database.sql
         .statement(
-            `insert or ignore into member (id, organization_id, user_id, role, created_at)
-             select ?1, organization_id, ?2, 'member', 1 from workspaces where id = ?3`
+            `insert into member (id, organization_id, user_id, role, created_at)
+             select ?1, organization_id, ?2, 'member', 1 from workspaces where id = ?3 on conflict do nothing`
         )
         .run(`member:${workspaceId}:${userId}`, userId, workspaceId)
+}
+
+/** Engine selected for the test run: `POSTDOT_TEST_ENGINE=postgres` with `POSTDOT_TEST_POSTGRES_URL`. */
+export const testEngine: 'sqlite' | 'postgres' =
+    process.env.POSTDOT_TEST_ENGINE === 'postgres' ? 'postgres' : 'sqlite'
+
+export interface TestDatabase {
+    readonly database: DatabaseHandle
+    close(): Promise<void>
+}
+
+/**
+ * Test fixture: a migrated, empty database on the selected engine (ADR-097).
+ * SQLite uses an in-memory database migrated by the current chain; PostgreSQL
+ * creates and later drops a disposable database migrated by the portable
+ * migrations.
+ */
+export async function openTestDatabase(): Promise<TestDatabase> {
+    const opened = await openEngineDatabase()
+    openedTestDatabases.set(opened.database, opened)
+    return opened
+}
+
+const openedTestDatabases = new WeakMap<DatabaseHandle, TestDatabase>()
+
+/** Closes a database returned by `openTestDatabase` (drops it on PostgreSQL). */
+export async function closeTestDatabase(database: DatabaseHandle): Promise<void> {
+    const opened = openedTestDatabases.get(database)
+    if (opened === undefined) throw new Error('Not a database opened by openTestDatabase')
+    openedTestDatabases.delete(database)
+    await opened.close()
+}
+
+async function openEngineDatabase(): Promise<TestDatabase> {
+    if (testEngine === 'sqlite') {
+        const database = createDatabase(':memory:')
+        runMigrations(database)
+        return {
+            database,
+            async close() {
+                closeDatabase(database)
+            },
+        }
+    }
+    const url = process.env.POSTDOT_TEST_POSTGRES_URL
+    if (url === undefined) {
+        throw new Error('POSTDOT_TEST_ENGINE=postgres requires POSTDOT_TEST_POSTGRES_URL')
+    }
+    const name = `postdot_test_${crypto.randomUUID().replaceAll('-', '')}`
+    const admin = createPostgresDatabase(url, { max: 1 })
+    await admin.sql.exec(`create database ${name}`)
+    const target = new URL(url)
+    target.pathname = `/${name}`
+    const database = createPostgresDatabase(target.toString(), { max: 4 })
+    await runPortableMigrations(database)
+    return {
+        database,
+        async close() {
+            await closePostgresDatabase(database)
+            await admin.sql.exec(`drop database if exists ${name} with (force)`)
+            await closePostgresDatabase(admin)
+        },
+    }
 }

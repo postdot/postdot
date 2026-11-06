@@ -24,7 +24,7 @@ export function createPublicationCommentStore(database: DatabaseHandle) {
         { id: string },
         [string, string, string, string | null]
     >(
-        "select id from publications where project_id = ?1 and id = ?2 and external_id = ?3 and (?4 is null or external_url = ?4) and state = 'published'"
+        "select id from publications where project_id = ?1 and id = ?2 and external_id = ?3 and (cast(?4 as text) is null or external_url = ?4) and state = 'published'"
     )
     const read = database.sql.statement<PublicationCommentRecord, [string, string, string]>(
         'select snapshot_json as snapshotJson, last_attempt_at as lastAttemptAt, last_error as lastError from publication_comment_snapshots where project_id = ?1 and publication_id = ?2 and root_uri = ?3'

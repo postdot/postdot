@@ -6,15 +6,12 @@ import {
     createManualChannelProfile,
 } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 test('draft save owns fingerprints, preserves historical work and guards concurrent edits across channels', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = await store.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -134,6 +131,6 @@ test('draft save owns fingerprints, preserves historical work and guards concurr
         expect(unchanged.profile.profileHash).toBe(profileHash)
         expect(unchanged.profile.schemaHash).toBe(schemaHash)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

@@ -2,10 +2,8 @@ import { expect, test } from 'bun:test'
 
 import { ChannelProfileValidationError, type ChannelProfileDefinition } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
-import { runMigrations } from '../migrations'
-import { seedTestWorkspace } from '../testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace } from '../testing'
 
 function customBase(): Record<string, unknown> {
     return {
@@ -33,9 +31,8 @@ function customBase(): Record<string, unknown> {
 }
 
 test('custom creation derives fingerprints, replaces legacy values and preserves identity', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = await store.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -92,14 +89,13 @@ test('custom creation derives fingerprints, replaces legacy values and preserves
         expect(againStored.schemaHash).toBe(stored.schemaHash)
         expect(againStored.profileHash).toBe(stored.profileHash)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 test('custom creation reuses templates with altered schemas and keeps built-ins intact', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = await store.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -146,14 +142,13 @@ test('custom creation reuses templates with altered schemas and keeps built-ins 
         expect(builtinStored.origin).toBe('built_in')
         expect(builtinStored.id).toBe('manual-message')
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 test('custom creation preserves normalized issues and creates nothing on refusal', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = await store.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -213,14 +208,13 @@ test('custom creation preserves normalized issues and creates nothing on refusal
         expect(control.id).toBeDefined()
         expect(await count()).toBe(1)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 test('channel lists summarize the active execution without exposing its configuration', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
         const { project } = await store.createProject({
             workspaceId: await seedTestWorkspace(database),
@@ -281,6 +275,6 @@ test('channel lists summarize the active execution without exposing its configur
                 .execution
         ).toEqual({ kind: 'built_in', contractId: 'devto' })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })

@@ -430,7 +430,7 @@ export function createPublisherCredentialStore(
             updated_at = ?1
         where id = ?3
           and state != 'revoked'
-          and (?4 is null or revision = ?4)
+          and (cast(?4 as bigint) is null or revision = ?4)
           and exists (
               select 1
               from project_publisher_credential_contexts as visible

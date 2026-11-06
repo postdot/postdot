@@ -216,7 +216,9 @@ export function jsonEachTextFromSql(
     if (dialect === 'sqlite') {
         return `json_each(${jsonArrayParamSql}) as ${alias}`
     }
-    return `jsonb_array_elements_text((${jsonArrayParamSql})::jsonb) as ${alias}(value)`
+    // Bound as text first: a parameter inferred as jsonb would be JSON-encoded
+    // again by the driver, turning the array into a string scalar.
+    return `jsonb_array_elements_text(((${jsonArrayParamSql})::text)::jsonb) as ${alias}(value)`
 }
 
 /**
