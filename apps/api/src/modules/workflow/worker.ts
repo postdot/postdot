@@ -18,7 +18,7 @@ import {
     createProviderMediaDeliveryStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
-    type PostdotDatabase,
+    type DatabaseHandle,
     type MediaAssetStore,
     type PublisherExecutionTarget,
 } from '@postdot/db'
@@ -48,7 +48,7 @@ export interface PublicationWorkerOptions {
         getNextEventAt(): Promise<number | null>
         processDueEvent(projectId: string): Promise<boolean>
     }
-    readonly database: PostdotDatabase
+    readonly database: DatabaseHandle
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
     readonly media?: MediaAssetStore

@@ -171,3 +171,37 @@ export function closeDatabase(database: PostdotDatabase) {
     // Finalize prepared statements before releasing the runtime lock.
     database.$client.close(true)
 }
+
+/** Arbitrary constant identifying the Postdot server instance lock. */
+const postgresInstanceLock = 7_310_201_612
+
+export interface PostgresInstanceLock {
+    /** Releases the lock by closing its dedicated session. */
+    close(): Promise<void>
+}
+
+/**
+ * Holds the single-server guarantee on PostgreSQL, as the runtime lock file
+ * does for SQLite: realtime fan-out and runtime coordination are in-process,
+ * so a second server on the same database is refused (ADR-097 §5) until
+ * multi-instance coordination exists. The lock lives on a dedicated session
+ * and disappears with it, including when the process dies.
+ */
+export async function acquirePostgresInstanceLock(url: string): Promise<PostgresInstanceLock> {
+    const client = new SQL(url, { max: 1, idleTimeout: 0 })
+    try {
+        const [row] = (await client.unsafe('select pg_try_advisory_lock($1) as acquired', [
+            postgresInstanceLock,
+        ])) as { acquired: boolean }[]
+        if (row?.acquired !== true) {
+            throw new Error(
+                'Another Postdot server is already using this PostgreSQL database. ' +
+                    'Running several instances is not supported yet; stop the other server first.'
+            )
+        }
+    } catch (error) {
+        await client.close()
+        throw error
+    }
+    return { close: () => client.close() }
+}

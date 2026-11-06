@@ -60,6 +60,8 @@ const environmentDefinitions = {
     }),
     PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
     POSTDOT_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
+    POSTDOT_DATABASE_URL: env.optionalString({ minLength: 1 }),
+    POSTDOT_DATABASE_POOL_SIZE: env.integer({ defaultValue: 10, minimum: 1, maximum: 100 }),
     POSTDOT_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
     ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
@@ -113,15 +115,63 @@ export interface PostdotLoggingConfig {
     readonly pretty: boolean
 }
 
+/**
+ * The persistence profile chosen at startup (ADR-097): SQLite in one file, or
+ * PostgreSQL when `POSTDOT_DATABASE_URL` is set. One image serves both.
+ */
+export type PostdotDatabaseConfig =
+    | {
+          readonly engine: 'sqlite'
+          readonly fileName: string
+          readonly migrationsDirectory: string
+      }
+    | {
+          readonly engine: 'postgres'
+          readonly url: string
+          readonly poolSize: number
+          readonly migrationsDirectory: string
+      }
+
+/** Rejects ambiguous profiles: a PostgreSQL URL and a SQLite file cannot both be meant. */
+export function createDatabaseConfig(
+    source: EnvironmentSource,
+    values: {
+        readonly DB_FILE_NAME: string
+        readonly POSTDOT_DATABASE_URL: string | undefined
+        readonly POSTDOT_DATABASE_POOL_SIZE: number
+        readonly POSTDOT_MIGRATIONS_DIR: string
+    }
+): PostdotDatabaseConfig {
+    const url = values.POSTDOT_DATABASE_URL
+    if (url === undefined) {
+        return {
+            engine: 'sqlite',
+            fileName: values.DB_FILE_NAME,
+            migrationsDirectory: values.POSTDOT_MIGRATIONS_DIR,
+        }
+    }
+    if (!/^postgres(?:ql)?:\/\//.test(url)) {
+        throw new Error('POSTDOT_DATABASE_URL must be a postgres:// or postgresql:// URL')
+    }
+    if (source.DB_FILE_NAME !== undefined) {
+        throw new Error(
+            'DB_FILE_NAME and POSTDOT_DATABASE_URL select different databases; set only one'
+        )
+    }
+    return {
+        engine: 'postgres',
+        url,
+        poolSize: values.POSTDOT_DATABASE_POOL_SIZE,
+        migrationsDirectory: values.POSTDOT_MIGRATIONS_DIR,
+    }
+}
+
 export interface PostdotConfig {
     readonly environment: PostdotEnvironment['NODE_ENV']
     readonly server: {
         readonly port: number
     }
-    readonly database: {
-        readonly fileName: string
-        readonly migrationsDirectory: string
-    }
+    readonly database: PostdotDatabaseConfig
     readonly media: {
         readonly driver: 'local' | 's3'
         readonly directory: string
@@ -213,6 +263,13 @@ export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env
 export function createPostdotMaintenanceConfig(
     source: EnvironmentSource = Bun.env
 ): PostdotMaintenanceConfig {
+    if (source.POSTDOT_DATABASE_URL !== undefined) {
+        throw new Error(
+            'This maintenance command works on the SQLite profile. With PostgreSQL ' +
+                '(POSTDOT_DATABASE_URL), back up and restore the database with pg_dump/pg_restore ' +
+                'and the media with the storage tooling.'
+        )
+    }
     const environment = createEnvironment(mediaEnvironmentDefinitions, source)
     return {
         databaseFileName: environment.DB_FILE_NAME,
@@ -296,10 +353,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
         server: {
             port: environment.PORT,
         },
-        database: {
-            fileName: environment.DB_FILE_NAME,
-            migrationsDirectory: environment.POSTDOT_MIGRATIONS_DIR,
-        },
+        database: createDatabaseConfig(source, environment),
         media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,

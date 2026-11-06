@@ -1,5 +1,5 @@
 import type { SchedulerState } from '@postdot/core'
-import type { PostdotDatabase } from '@postdot/db'
+import type { DatabaseHandle } from '@postdot/db'
 import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
@@ -53,7 +53,7 @@ type HealthRuntime = {
 }
 
 export interface HealthRoutesOptions {
-    readonly database: PostdotDatabase
+    readonly database: DatabaseHandle
     readonly runtime?: HealthRuntime
 }
 
@@ -127,7 +127,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
         )
 }
 
-async function readDatabaseStatus(database: PostdotDatabase): Promise<'ok' | 'failed'> {
+async function readDatabaseStatus(database: DatabaseHandle): Promise<'ok' | 'failed'> {
     try {
         await database.sql.statement('select 1').get()
         return 'ok'

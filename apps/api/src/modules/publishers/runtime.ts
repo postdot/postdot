@@ -5,7 +5,7 @@ import {
     createPublisherStore,
     createProviderApplicationStore,
     createSecretCipher,
-    type PostdotDatabase,
+    type DatabaseHandle,
 } from '@postdot/db'
 import { validateReturnPath } from '@postdot/oauth'
 
@@ -24,10 +24,7 @@ export interface PublisherRuntimeBaseOptions {
     readonly createId?: () => string
 }
 export type PublisherRuntimeOptions = PublisherRuntimeBaseOptions & ProviderRuntimeOptions
-export function createPublisherRuntime(
-    database: PostdotDatabase,
-    options: PublisherRuntimeOptions
-) {
+export function createPublisherRuntime(database: DatabaseHandle, options: PublisherRuntimeOptions) {
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const cipher = createPublisherCredentialCipher({

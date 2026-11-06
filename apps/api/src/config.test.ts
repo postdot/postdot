@@ -40,6 +40,7 @@ describe('Postdot configuration', () => {
                 port: 3100,
             },
             database: {
+                engine: 'sqlite',
                 fileName: ':memory:',
                 migrationsDirectory: '/tmp/postdot-migrations',
             },
@@ -104,6 +105,41 @@ describe('Postdot configuration', () => {
             web: { origin: 'http://localhost:5173' },
             logging: { enabled: true, level: 'info', pretty: true },
         })
+    })
+
+    it('selects PostgreSQL when a database URL is configured', () => {
+        const base = {
+            BETTER_AUTH_SECRET: secret,
+            POSTDOT_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            POSTDOT_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+        expect(
+            createPostdotConfig({
+                ...base,
+                POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal:5432/postdot',
+                POSTDOT_DATABASE_POOL_SIZE: '4',
+            }).database
+        ).toEqual({
+            engine: 'postgres',
+            url: 'postgres://postdot@db.internal:5432/postdot',
+            poolSize: 4,
+            migrationsDirectory: expect.any(String),
+        })
+        expect(() =>
+            createPostdotConfig({
+                ...base,
+                POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal/postdot',
+                DB_FILE_NAME: './postdot.sqlite',
+            })
+        ).toThrow('set only one')
+        expect(() =>
+            createPostdotConfig({ ...base, POSTDOT_DATABASE_URL: 'mysql://db.internal/postdot' })
+        ).toThrow('postgres:// or postgresql://')
+        expect(() =>
+            createPostdotMaintenanceConfig({
+                POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal/postdot',
+            })
+        ).toThrow('pg_dump')
     })
 
     it('keeps Prometheus metrics disabled by default and requires a dedicated token to enable them', () => {

@@ -1,4 +1,5 @@
 export {
+    acquirePostgresInstanceLock,
     closeDatabase,
     closePostgresDatabase,
     createDatabase,
@@ -14,6 +15,7 @@ export type {
     DatabaseHandle,
     PostdotDatabase,
     PostgresDatabase,
+    PostgresInstanceLock,
 } from './client'
 export type {
     SqlCommitScope,

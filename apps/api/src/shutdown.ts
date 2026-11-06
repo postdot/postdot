@@ -30,7 +30,7 @@ export interface ShutdownDependencies {
     readonly stopRealtime: () => Promise<void> | void
     readonly clearCommitObserver: () => void
     readonly stopServer: () => Promise<void> | void
-    readonly closeDatabase: () => void
+    readonly closeDatabase: () => Promise<void> | void
     /** Returns true when no runtime marker remains after the call. */
     readonly releaseRuntimeLock: () => boolean
     readonly exit: (code: ShutdownExitCode) => void
@@ -112,7 +112,7 @@ export function createShutdownHandler(
             log('drain failed', JSON.stringify(describeShutdownError(step, error)))
         }
         try {
-            dependencies.closeDatabase()
+            await dependencies.closeDatabase()
         } catch (error) {
             exitCode = 2
             log(

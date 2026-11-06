@@ -6,8 +6,9 @@ import {
     setDatabaseCommitObserver,
     type DatabaseHandle,
 } from '../client'
+import { acquirePostgresInstanceLock } from '../client'
 import { isUniqueConstraintError } from './dialect'
-import { testEngines, type OpenedTestDatabase } from './test-engines'
+import { postgresTestUrl, testEngines, type OpenedTestDatabase } from './test-engines'
 
 /** Behaviour every persistence engine must provide identically (ADR-097). */
 for (const engine of testEngines) {
@@ -212,3 +213,18 @@ for (const engine of testEngines) {
         })
     })
 }
+
+describe.skipIf(postgresTestUrl === undefined)('PostgreSQL instance lock', () => {
+    test('refuses a second server on the same database until the first releases', async () => {
+        const first = await acquirePostgresInstanceLock(postgresTestUrl!)
+        try {
+            await expect(acquirePostgresInstanceLock(postgresTestUrl!)).rejects.toThrow(
+                'Another Postdot server'
+            )
+        } finally {
+            await first.close()
+        }
+        const again = await acquirePostgresInstanceLock(postgresTestUrl!)
+        await again.close()
+    })
+})

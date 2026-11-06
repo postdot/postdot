@@ -13,7 +13,7 @@ import {
     createPublicationCommentStore,
     createAccessStore,
     createTaxonomyStore,
-    type PostdotDatabase,
+    type DatabaseHandle,
     type ManualStoreOptions,
     type MediaAssetStore,
     type NotificationStore,
@@ -73,7 +73,7 @@ import { recoveryBlocksRequest, type RecoveryService } from './recovery'
 
 export interface PostdotAppOptions {
     readonly auth: PostdotAuth
-    readonly database: PostdotDatabase
+    readonly database: DatabaseHandle
     readonly publisher: PublisherRuntime
     readonly avatars?: UserAvatarStore
     readonly accountOrigins?: readonly string[]

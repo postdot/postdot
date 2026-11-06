@@ -186,7 +186,7 @@ Graceful stop has 30 seconds to drain. If a forced termination leaves a runtime
 lock, verify that no process uses the database before removing only its exact
 `.runtime.lock` marker; never remove a live process's lock.
 
-## Optional email and S3
+## Optional email, S3 and PostgreSQL
 
 ### Email delivery
 
@@ -238,6 +238,33 @@ Compose passes `.env` to both the server and maintenance commands. SQLite still
 uses the persistent `/data` volume when media uses S3. After configuration, upload
 an image through Media, reopen it, restart the container and verify that it remains
 available. Configuration validation alone does not prove storage compatibility.
+
+### PostgreSQL database
+
+SQLite in the `/data` volume is the default and needs no setup. The same image can
+instead use an existing PostgreSQL server (PostgreSQL 18 is the tested version) for a **new
+installation**. Create an empty database and a user that owns it, then set:
+
+```dotenv
+POSTDOT_DATABASE_URL=postgres://postdot:replace-with-password@db.example.com:5432/postdot
+# Optional: connections kept open by the server (default 10).
+# POSTDOT_DATABASE_POOL_SIZE=10
+```
+
+Do not set `DB_FILE_NAME` at the same time: Postdot refuses to start when both
+name a database. At startup Postdot applies its migrations to the PostgreSQL
+database; restarting it is safe.
+
+One server runs per database. A second server started against the same PostgreSQL
+database stops with an error instead of sharing it. Media stored locally still
+needs the `/data` volume; use S3-compatible storage if the server should keep no
+local state.
+
+With PostgreSQL, the `backup` and `restore` commands below do not apply: they work
+on the SQLite file. Back up the database with your PostgreSQL tooling (for example
+`pg_dump`) together with the media storage, and keep the encryption key separately
+as described below. Moving an existing instance between SQLite and PostgreSQL is
+not supported yet.
 
 ## Backup and restoration
 

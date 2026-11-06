@@ -11,8 +11,11 @@ import {
     createSecretCipher,
 } from '@postdot/db'
 import {
+    acquirePostgresInstanceLock,
     closeDatabase,
+    closePostgresDatabase,
     createDatabase,
+    createPostgresDatabase,
     createAccessStore,
     createMediaAssetStore,
     createUserAvatarStore,
@@ -20,11 +23,18 @@ import {
     acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
     runMigrations,
+    type DatabaseHandle,
+    type PostgresInstanceLock,
 } from '@postdot/db'
 import { createMastodonThreadReader, createMastodonAnalyticsReader } from '@postdot/mastodon'
 
 import { createApp } from './app'
-import { createPostdotConfig, createPostdotMaintenanceConfig, decodeHexKey } from './config'
+import {
+    createPostdotConfig,
+    createPostdotMaintenanceConfig,
+    decodeHexKey,
+    type PostdotConfig,
+} from './config'
 import { printMaintenanceHelp, runMaintenanceCommand } from './maintenance'
 import { createPostdotAuthEmailDelivery } from './modules/email/delivery'
 import { createEmailSettingsService } from './modules/email/settings'
@@ -133,29 +143,66 @@ async function startServer(config = createPostdotConfig()) {
     process.once('SIGTERM', () => requestShutdown('SIGTERM'))
     process.once('SIGHUP', () => requestShutdown('SIGHUP'))
 
-    const lock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
-    runtimeLock = lock
+    if (config.database.engine === 'sqlite') {
+        const lock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
+        runtimeLock = lock
+        try {
+            await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested)
+        } catch (error) {
+            lock.release()
+            throw error
+        }
+        return
+    }
+    // PostgreSQL: the single-server guarantee is a session lock that ends with
+    // its connection, closed after the database pool at shutdown.
+    const lock = await acquirePostgresInstanceLock(config.database.url)
     try {
-        await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested)
+        await startServerWithRuntimeLock(config, dependencies, () => shutdownRequested, lock)
     } catch (error) {
-        lock.release()
+        await lock.close()
         throw error
+    }
+}
+
+async function openConfiguredDatabase(
+    database: PostdotConfig['database'],
+    instanceLock: PostgresInstanceLock | undefined
+): Promise<{ readonly database: DatabaseHandle; readonly close: () => Promise<void> | void }> {
+    if (database.engine === 'sqlite') {
+        const opened = createDatabase(database.fileName)
+        return { database: opened, close: () => closeDatabase(opened) }
+    }
+    const opened = createPostgresDatabase(database.url, { max: database.poolSize })
+    return {
+        database: opened,
+        close: async () => {
+            await closePostgresDatabase(opened)
+            await instanceLock?.close()
+        },
     }
 }
 
 async function startServerWithRuntimeLock(
     config: ReturnType<typeof createPostdotConfig>,
     dependencies: MutableShutdownDependencies,
-    shutdownRequested: () => boolean
+    shutdownRequested: () => boolean,
+    instanceLock?: PostgresInstanceLock
 ) {
     let resumeRuntimes: (() => Promise<void>) | undefined
-    const recovery = createRecoveryService(config.database.fileName, () => {
-        void resumeRuntimes?.().catch(error =>
-            console.error('[postdot-recovery] runtime resume failed', error)
-        )
-    })
-    const database = createDatabase(config.database.fileName)
-    dependencies.closeDatabase = () => closeDatabase(database)
+    // Recovery holds are written by the SQLite restore command; PostgreSQL is
+    // restored with its own tooling and never starts in a recovery hold.
+    const recovery = createRecoveryService(
+        config.database.engine === 'sqlite' ? config.database.fileName : null,
+        () => {
+            void resumeRuntimes?.().catch(error =>
+                console.error('[postdot-recovery] runtime resume failed', error)
+            )
+        }
+    )
+    const opened = await openConfiguredDatabase(config.database, instanceLock)
+    const database = opened.database
+    dependencies.closeDatabase = opened.close
     await runMigrations(database, config.database.migrationsDirectory)
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
