@@ -12,6 +12,7 @@ import { publicationDestinationConfirmed } from '../channel-destination'
 import { defineTransaction, type PostdotDatabase } from '../client'
 import type { RetryFailedPublicationInput, RetryFailedPublicationResult } from '../manual-store'
 import { createRetainedTargetAssessor } from '../retained-target-assessment'
+import { jsonExtractIntSql } from '../sql/dialect'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
 
@@ -267,7 +268,7 @@ export function createPublicationRetryStore(
             }
             const previousExecution = await sql
                 .statement<{ revision: number | null; expected: number }, [string, string]>(`
-                select json_extract(e.destination_snapshot_json, '$.revision') as revision,
+                select ${jsonExtractIntSql(sql.dialect, 'e.destination_snapshot_json', ['revision'])} as revision,
                        p.confirmed_destination_revision as expected
                 from publications p join publication_execution_revisions e on e.project_id = p.project_id and e.publication_id = p.id
                 where p.project_id = ? and e.job_id = ?

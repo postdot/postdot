@@ -15,6 +15,7 @@ import { normalizeCreationProfile } from './manual-store/channel-profile-definit
 import { invalidProfileError } from './manual-store/content-codec'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
+import { scalarMaxSql } from './sql/dialect'
 import { filterSequential, mapSequential, someSequential } from './sql/sequential'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
@@ -549,7 +550,7 @@ export function createWorkspaceChannelStore(
                 )
             await sql
                 .statement(
-                    `update channel_cadence set last_effect_at=nullif(max(coalesce(last_effect_at,0),coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?),0)),0) where channel_id=?`
+                    `update channel_cadence set last_effect_at=nullif(${scalarMaxSql(sql.dialect, 'coalesce(last_effect_at,0)', 'coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?),0)')},0) where channel_id=?`
                 )
                 .run(row.id, row.id)
             await sql

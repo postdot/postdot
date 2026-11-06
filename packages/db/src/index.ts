@@ -409,3 +409,4 @@ export * from './channel-cadence'
 
 export type { MovePublicationInput } from './manual-store/publication-move-store'
 export { everySequential, filterSequential, mapSequential, someSequential } from './sql/sequential'
+export { isResourceReadOnlyTriggerError, isUniqueConstraintError } from './sql/dialect'

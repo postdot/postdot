@@ -4,6 +4,7 @@ import type { MediaStore } from '@postdot/media'
 
 import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
+import { deferForeignKeysSql } from './sql/dialect'
 import { everySequential, mapSequential } from './sql/sequential'
 
 export type ResourceKind = 'project' | 'workspace'
@@ -334,7 +335,7 @@ export function createResourceLifecycleStore(database: PostdotDatabase) {
                     actorId,
                     id,
                     actor,
-                    (await rows<{ name: string }>('select name from user where id = ?', actor))[0]
+                    (await rows<{ name: string }>('select name from "user" where id = ?', actor))[0]
                         ?.name ?? actor,
                     Date.now(),
                     Date.now()
@@ -502,7 +503,7 @@ export function createResourceLifecycleStore(database: PostdotDatabase) {
                 )
                 for (const object of objects)
                     await run(
-                        'insert or ignore into resource_cleanup_objects (id, project_id, workspace_id, store_id, object_key, attempts, updated_at) values (?, ?, ?, ?, ?, 0, ?)',
+                        'insert into resource_cleanup_objects (id, project_id, workspace_id, store_id, object_key, attempts, updated_at) values (?, ?, ?, ?, ?, 0, ?) on conflict do nothing',
                         createHash('sha256')
                             .update(
                                 JSON.stringify([
@@ -520,7 +521,7 @@ export function createResourceLifecycleStore(database: PostdotDatabase) {
                     )
                 // Original/derived media can cascade in either order. Keep FK enforcement
                 // enabled, but validate the complete graph at the outer transaction commit.
-                await run('pragma defer_foreign_keys = on')
+                await run(deferForeignKeysSql(sql.dialect))
                 await run('delete from projects where id = ?', item.resource_id)
                 if (
                     !(await count(
@@ -561,7 +562,7 @@ export function createResourceLifecycleStore(database: PostdotDatabase) {
                         item.resource_id
                     )
                 )[0]
-                await run('pragma defer_foreign_keys = on')
+                await run(deferForeignKeysSql(sql.dialect))
                 await run('delete from workspaces where id = ?', item.resource_id)
                 if (workspace)
                     await run('delete from organization where id = ?', workspace.organization_id)

@@ -162,7 +162,7 @@ export function createProviderAnalyticsStore(
         ]
     >(
         String.raw`
-        insert or ignore into provider_analytics_observations (
+        insert into provider_analytics_observations (
             id,
             project_id,
             provider,
@@ -187,6 +187,7 @@ export function createProviderAnalyticsStore(
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
             ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20
         )
+        on conflict do nothing
     `
     )
     const observationKeyStatement = sql.statement<

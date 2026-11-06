@@ -1,4 +1,5 @@
 import type { PostdotDatabase } from '../client'
+import { containsCaseInsensitiveSql, jsonExtractTextSql } from '../sql/dialect'
 
 export interface SearchResult {
     readonly kind: 'post' | 'channel' | 'project' | 'media'
@@ -12,6 +13,7 @@ export interface SearchResult {
 
 /** Callers supply the live authorized project set, never historical actors. */
 export function createSearchStore(database: PostdotDatabase) {
+    const dialect = database.sql.dialect
     return {
         async search(projectIds: readonly string[], query: string): Promise<SearchResult[]> {
             return database.sql.transaction(async () => {
@@ -30,13 +32,13 @@ export function createSearchStore(database: PostdotDatabase) {
                     const active = kind === 'channel' ? "and item.attachment_state = 'active'" : ''
                     const title =
                         kind === 'post'
-                            ? "coalesce(json_extract(item.source_content, '$.headline'), item.title, '')"
+                            ? `coalesce(${jsonExtractTextSql(dialect, 'item.source_content', ['headline'])}, item.title, '')`
                             : 'item.name'
                     const matchingTitle =
                         kind === 'post' ? `${title} || ' ' || coalesce(item.title, '')` : title
                     const body =
                         kind === 'post'
-                            ? "coalesce(json_extract(item.source_content, '$.body.text'), '')"
+                            ? `coalesce(${jsonExtractTextSql(dialect, 'item.source_content', ['body', 'text'])}, '')`
                             : "''"
                     const projectColumn = kind === 'project' ? 'item.id' : 'item.project_id'
                     const join =
@@ -50,7 +52,7 @@ export function createSearchStore(database: PostdotDatabase) {
                            ${title} as title, substr(${body}, 1, 180) as description
                     from ${table} item ${join}
                     where ${projectColumn} in (${parameters}) ${active}
-                      and (instr(lower(${matchingTitle}), lower(?)) > 0 or instr(lower(${body}), lower(?)) > 0)
+                      and (${containsCaseInsensitiveSql(dialect, matchingTitle, '?')} or ${containsCaseInsensitiveSql(dialect, body, '?')})
                     order by item.updated_at desc, item.id asc limit 10
                 `)
                         .all(...projectIds, needle, needle)
@@ -67,8 +69,8 @@ export function createSearchStore(database: PostdotDatabase) {
                 from media_assets item join projects project on project.id = item.project_id
                 where item.project_id in (${parameters}) and item.state = 'ready'
                   and item.archived_at is null
-                  and (instr(lower(item.original_filename), lower(?)) > 0
-                    or instr(lower(coalesce(item.default_accessibility_text, '')), lower(?)) > 0)
+                  and (${containsCaseInsensitiveSql(dialect, 'item.original_filename', '?')}
+                    or ${containsCaseInsensitiveSql(dialect, "coalesce(item.default_accessibility_text, '')", '?')})
                 order by item.updated_at desc, item.id asc limit 10
             `)
                     .all(...projectIds, needle, needle)

@@ -4,6 +4,7 @@ import { requireNonBlank } from '@postdot/core'
 
 import type { PostdotDatabase } from './client'
 import { defineTransaction } from './client'
+import { nowMillisSql } from './sql/dialect'
 
 export const accessInstanceId = 'default'
 export const defaultInvitationTtlMs = 7 * 24 * 60 * 60 * 1_000
@@ -504,7 +505,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                members.created_at as createdAt
         from workspaces
         inner join member as members on members.organization_id = workspaces.organization_id
-        inner join user as users on users.id = members.user_id
+        inner join "user" as users on users.id = members.user_id
         where workspaces.id = ?1
           and members.user_id = ?2
     `)
@@ -584,7 +585,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                    and workspace_members.user_id = team_members.user_id
                 where team_members.team_id = ?1
             ),
-            updated_at = cast(unixepoch('subsecond') * 1000 as integer)
+            updated_at = ${nowMillisSql(sql.dialect)}
         where id = ?1
     `)
     const listWorkspaceTeamMembersStatement = sql.statement<
@@ -650,7 +651,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
             updated_at = excluded.updated_at
     `)
     const ensureTestAdminUserStatement = sql.statement<void, [userId: string]>(`
-        update user
+        update "user"
         set role = 'admin',
             banned = 0,
             ban_reason = null,
@@ -663,7 +664,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
     >(`
         select invitations.id
         from invitation as invitations
-        inner join user as users on lower(users.email) = lower(invitations.email)
+        inner join "user" as users on lower(users.email) = lower(invitations.email)
         where users.id = ?1
           and invitations.status = 'pending'
           and invitations.expires_at > ?2
@@ -681,7 +682,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         where memberships.user_id = ?1
     `)
     const listInstanceMembershipsStatement = sql.statement<InstanceMembershipRow, []>(`
@@ -696,16 +697,16 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         order by memberships.created_at, memberships.id
     `)
     const countEnabledInstanceAdminsStatement = sql.statement<{ readonly count: number }, []>(`
         select count(*) as count
         from instance_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
+        inner join "user" as users on users.id = memberships.user_id
         where memberships.state = 'enabled'
           and (users.banned is null or users.banned = 0)
-          and instr(',' || coalesce(users.role, memberships.role) || ',', ',admin,') > 0
+          and (',' || coalesce(users.role, memberships.role) || ',') like '%,admin,%'
     `)
     const updateInstanceMembershipStatement = sql.statement<
         { readonly changes: number },
@@ -737,7 +738,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                grants.updated_at as updatedAt
         from projects
         inner join project_user_grants as grants on grants.project_id = projects.id
-        inner join user as users
+        inner join "user" as users
             on users.id = grants.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -772,7 +773,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                grants.updated_at as updatedAt
         from projects
         inner join project_user_grants as grants on grants.project_id = projects.id
-        inner join user as users
+        inner join "user" as users
             on users.id = grants.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -813,7 +814,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join member as workspace_members
             on workspace_members.organization_id = workspaces.organization_id
            and workspace_members.user_id = team_members.user_id
-        inner join user as users
+        inner join "user" as users
             on users.id = team_members.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -844,7 +845,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
         inner join member as workspace_members
             on workspace_members.organization_id = workspaces.organization_id
            and workspace_members.user_id = team_members.user_id
-        inner join user as users
+        inner join "user" as users
             on users.id = team_members.user_id
            and (users.banned is null or users.banned = 0)
         inner join instance_memberships
@@ -1106,7 +1107,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
     >(`
         select team_members.user_id as userId, users.name as displayName
         from team_member as team_members
-        inner join user as users on users.id = team_members.user_id
+        inner join "user" as users on users.id = team_members.user_id
         where team_members.team_id = ?1
     `)
     const listProjectTeamGrantProjectsForMemberStatement = sql.statement<
@@ -1837,7 +1838,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 )
                 const identity = await sql
                     .statement<{ readonly name: string }, [userId: string]>(
-                        'select name from user where id = ?1'
+                        'select name from "user" where id = ?1'
                     )
                     .get(userId)
                 if (identity !== null)
@@ -1988,7 +1989,7 @@ export function createAccessStore(database: PostdotDatabase, options: AccessStor
                 )
                 const user = await sql
                     .statement<{ readonly name: string }, [userId: string]>(
-                        'select name from user where id = ?1'
+                        'select name from "user" where id = ?1'
                     )
                     .get(userId)
                 if (user !== null)

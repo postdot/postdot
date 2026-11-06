@@ -173,7 +173,7 @@ it('converts preserved IDs, duplicate accounts, profiles, queued work and attrib
                 db.$client.query("select count(*) as count from jobs where state='pending'").get()
             ).toEqual({ count: 2 })
         }
-        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(4)
+        expect(rehearseMigrations(database, undefined, { verify }).pending).toHaveLength(5)
         expect(unchanged(database)).toEqual(before)
         expect(database.$client.query('select project_id from channels').all()).toHaveLength(2)
         expect(() =>

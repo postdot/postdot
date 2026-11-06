@@ -13,6 +13,7 @@ import type {
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
 } from '../manual-store'
+import { jsonExtractTextSql } from '../sql/dialect'
 import { parseJsonObject } from './content-codec'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, DuePublicationRow, PublicationRow } from './rows'
@@ -67,7 +68,7 @@ export function createPublicationOutcomeStore(
         { readonly provider: string | null },
         [projectId: string, publicationId: string]
     >(`
-        select json_extract(audit_events.metadata_json, '$.provider') as provider
+        select ${jsonExtractTextSql(sql.dialect, 'audit_events.metadata_json', ['provider'])} as provider
         from audit_events
         where audit_events.project_id = ?1
           and audit_events.entity_type = 'publication'

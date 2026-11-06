@@ -212,7 +212,7 @@ export function createWorkflowStore(
     const nextEventStatement = sql.statement<{ eventAt: number | null }, []>(`
         select min(event_at) as eventAt
         from (
-            select ${cadenceEligibleAtSql} as event_at
+            select ${cadenceEligibleAtSql(sql.dialect)} as event_at
             from jobs
             inner join publications
                 on publications.project_id = jobs.project_id
@@ -281,14 +281,14 @@ export function createWorkflowStore(
                and actors.kind = 'system'
             where jobs.state = 'pending'
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
-              and ${cadenceEligibleAtSql} <= ?3
+              and ${cadenceEligibleAtSql(sql.dialect)} <= ?3
               and publications.state in ('scheduled', 'ready')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
               and channel_profiles.state <> 'disabled'
-            order by ${cadenceEligibleAtSql}, jobs.id
+            order by ${cadenceEligibleAtSql(sql.dialect)}, jobs.id
             limit 1
         )
           and state = 'pending'
@@ -570,7 +570,7 @@ export function createWorkflowStore(
             const eligibleAt = await cadence.eligibleAt(runningJob.publicationId, runningJob.runAt)
             if (eligibleAt > now) {
                 await sql
-                    .statement(`update jobs set state='pending', attempts=max(0,attempts-1),
+                    .statement(`update jobs set state='pending', attempts=(case when attempts > 0 then attempts - 1 else 0 end),
                     claim_token=null,claimed_by_actor_id=null,claimed_at=null,lease_expires_at=null,
                     started_at=null,updated_at=? where id=?`)
                     .run(now, jobId)
@@ -959,7 +959,7 @@ export function createWorkflowStore(
                     if (input.outcome.type === 'deferred') {
                         await sql
                             .statement(
-                                'update jobs set attempts = max(0, attempts - 1) where id = ?1'
+                                'update jobs set attempts = (case when attempts > 0 then attempts - 1 else 0 end) where id = ?1'
                             )
                             .run(job.id)
                     }

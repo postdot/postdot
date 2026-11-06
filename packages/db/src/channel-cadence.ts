@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto'
 import { DomainInvariantError } from '@postdot/core'
 
 import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { scalarMaxSql } from './sql/dialect'
+import type { SqlDialect } from './sql/port'
 import { mapSequential } from './sql/sequential'
 
 export interface ChannelCadence {
@@ -45,18 +47,33 @@ export function cadencePeriod(at: number, timeZone: string) {
     return { day, week: date.toISOString().slice(0, 10) }
 }
 
-/** SQL expression shared by discovery and claim, before a worker slot is occupied. */
-export const cadenceEligibleAtSql = `max(jobs.run_at, coalesce((
+/**
+ * SQL expression shared by discovery and claim, before a worker slot is
+ * occupied. On SQLite it renders the same `max(...)` expression as the
+ * planning index of migration 0024, so that index stays usable.
+ */
+export function cadenceEligibleAtSql(dialect: SqlDialect): string {
+    const lastEffectAt = scalarMaxSql(
+        dialect,
+        'coalesce(r.last_effect_at, 0)',
+        `coalesce((
+        select max(p.published_at) from publications p where p.channel_id = publications.channel_id
+        and p.state = 'published'
+    ), 0)`
+    )
+    return scalarMaxSql(
+        dialect,
+        'jobs.run_at',
+        `coalesce((
     select case when r.minimum_interval_ms is null or exists (
         select 1 from publication_cadence_overrides o
         where o.publication_id = publications.id and o.rules_revision = r.revision
           and o.scheduled_at = publications.scheduled_at
-    ) then 0 else case when r.last_effect_at is null and not exists (select 1 from publications p where p.channel_id=publications.channel_id and p.state='published') then 0 else max(coalesce(r.last_effect_at, 0), coalesce((
-        select max(p.published_at) from publications p where p.channel_id = publications.channel_id
-        and p.state = 'published'
-    ), 0)) + r.minimum_interval_ms end end
+    ) then 0 else case when r.last_effect_at is null and not exists (select 1 from publications p where p.channel_id=publications.channel_id and p.state='published') then 0 else ${lastEffectAt} + r.minimum_interval_ms end end
     from channel_cadence r where r.channel_id = publications.channel_id
-), 0))`
+), 0)`
+    )
+}
 
 export function createChannelCadenceStore(database: PostdotDatabase) {
     const sql = database.sql
@@ -82,7 +99,10 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
             if (!row || row.scheduledAt === null) return null
             const rules = await get(row.channelId)
             const eligibleAt = (await sql
-                .statement<{ at: number }, [number, string]>(`select ${cadenceEligibleAtSql} as at
+                .statement<
+                    { at: number },
+                    [number, string]
+                >(`select ${cadenceEligibleAtSql(sql.dialect)} as at
             from (select ?1 as run_at) jobs join publications on publications.id=?2`)
                 .get(row.runAt, publicationId))!.at
             return {
@@ -299,7 +319,7 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                 (
                     await sql
                         .statement<{ at: number }, [number, string]>(`
-                select ${cadenceEligibleAtSql} as at from (select ?1 as run_at) jobs
+                select ${cadenceEligibleAtSql(sql.dialect)} as at from (select ?1 as run_at) jobs
                 join publications on publications.id=?2
             `)
                         .get(runAt, publicationId)

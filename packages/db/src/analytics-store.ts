@@ -10,6 +10,7 @@ import {
 } from '@postdot/core'
 
 import type { PostdotDatabase } from './client'
+import { jsonExtractTextSql } from './sql/dialect'
 
 const analyticsContractVersion = 1
 const supportedEventVersion = 1
@@ -562,7 +563,7 @@ export function createAnalyticsStore(
                     'publication.execution.ambiguity_recovered',
                     'publication.execution.cancelled'
                 )
-                and json_extract(audit_events.metadata_json, '$.jobId') = jobs.id
+                and ${jsonExtractTextSql(sql.dialect, 'audit_events.metadata_json', ['jobId'])} = jobs.id
               order by audit_events.sequence desc
               limit 1
           ) = 'publication.execution.retry_scheduled'

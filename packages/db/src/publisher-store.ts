@@ -21,6 +21,7 @@ import {
     type ChannelDestinationIdentity,
 } from './channel-destination'
 import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { jsonExtractIntSql } from './sql/dialect'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export interface PublisherConnectionDestination {
@@ -450,7 +451,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and jobs.state = 'running'
           and jobs.effect_started_at is not null
           and publications.state = 'publishing'
-          and (execution.destination_snapshot_json is null or json_extract(execution.destination_snapshot_json, '$.revision') = channels.destination_revision)
+          and (execution.destination_snapshot_json is null or ${jsonExtractIntSql(sql.dialect, 'execution.destination_snapshot_json', ['revision'])} = channels.destination_revision)
         limit 1
     `)
     const listPublisherExecutionMediaStatement = sql.statement<

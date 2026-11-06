@@ -1857,8 +1857,15 @@ export const publicationDraftAdoptions = sqliteTable(
         targetRevisionId: text('target_revision_id').notNull(),
         createdByActorId: text('created_by_actor_id').notNull(),
         createdAt: integer('created_at').notNull(),
+        /** Insertion order within the publication; portable tie-break for equal `createdAt`. */
+        sequence: integer('sequence').notNull().default(0),
     },
     table => [
+        uniqueIndex('publication_draft_adoptions_publication_sequence_uidx').on(
+            table.projectId,
+            table.publicationId,
+            table.sequence
+        ),
         index('publication_draft_adoptions_publication_idx').on(
             table.projectId,
             table.publicationId

@@ -10,6 +10,7 @@ import {
 } from '@postdot/core'
 
 import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { auditEventSequenceHighWaterSql } from './sql/dialect'
 
 const cursorPrefix = 'event-sequence:'
 const defaultReadLimit = 100
@@ -185,11 +186,9 @@ export function createEventJournalStore(
         order by sequence
         limit ?2
     `)
-    const latestSequenceStatement = sql.statement<{ readonly sequence: number | null }, []>(`
-        select seq as sequence
-        from sqlite_sequence
-        where name = 'audit_events'
-    `)
+    const latestSequenceStatement = sql.statement<{ readonly sequence: number | null }, []>(
+        auditEventSequenceHighWaterSql(sql.dialect)
+    )
 
     return {
         async append(input: AppendDomainEventInput): Promise<EventJournalEntry> {

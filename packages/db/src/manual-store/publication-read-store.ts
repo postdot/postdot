@@ -13,6 +13,7 @@ import type {
     PublicationWorkingDraft,
 } from '../manual-store'
 import { readPublicationMovement } from '../publication-move-state'
+import { jsonEachTextFromSql, jsonGroupArrayTextSql, scalarMaxSql } from '../sql/dialect'
 import {
     toPost,
     toProfileVersion,
@@ -120,6 +121,13 @@ export function createPublicationReadStore(
     options: PublicationReadStoreOptions
 ): PublicationReadStoreHandle {
     const sql = database.sql
+    // Null-propagating like SQLite's scalar max: a missing working draft yields null.
+    const lastActivityAtSql = scalarMaxSql(
+        sql.dialect,
+        'publications.updated_at',
+        'posts.updated_at',
+        'working_drafts.updated_at'
+    )
 
     const loadPostStatement = sql.statement<PostRow, [projectId: string, postId: string]>(`
         select id,
@@ -196,8 +204,8 @@ export function createPublicationReadStore(
         ]
     >(`
         with selected_tag_ids as (
-            select value as tagId
-            from json_each(?2)
+            select selected_tag.value as tagId
+            from ${jsonEachTextFromSql(sql.dialect, '?2', 'selected_tag')}
         ),
         matching_publications as (
             select assignments.publication_id as publicationId
@@ -221,7 +229,7 @@ export function createPublicationReadStore(
                target_revisions.source_revision as targetSourceRevision,
                target_revisions.content_json as targetContentJson,
                coalesce((
-                   select json_group_array(ordered_tags.tagId)
+                   select ${jsonGroupArrayTextSql(sql.dialect, 'ordered_tags.tagId')}
                    from (
                        select assignments.tag_id as tagId
                        from publication_tags as assignments
@@ -300,8 +308,8 @@ export function createPublicationReadStore(
 
     const publicationSummaryCommonCtes = `
         with selected_tag_ids as (
-            select value as tagId
-            from json_each(?2)
+            select selected_tag.value as tagId
+            from ${jsonEachTextFromSql(sql.dialect, '?2', 'selected_tag')}
         ),
         matching_publications as (
             select assignments.publication_id as publicationId
@@ -327,7 +335,7 @@ export function createPublicationReadStore(
                target_revisions.source_revision as targetSourceRevision,
                target_revisions.content_json as targetContentJson,
                coalesce((
-                   select json_group_array(ordered_tags.tagId)
+                   select ${jsonGroupArrayTextSql(sql.dialect, 'ordered_tags.tagId')}
                    from (
                        select assignments.tag_id as tagId
                        from publication_tags as assignments
@@ -386,16 +394,16 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonFilter}
           and (
               ?3 is null
-              or max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?3
+              or ${lastActivityAtSql} < ?3
               or (
-                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?3
+                  ${lastActivityAtSql} = ?3
                   and publications.id > ?4
               )
           )
           and (?5 is null or publications.scheduled_at >= ?5)
           and (?6 is null or publications.scheduled_at < ?6)
           and (?7 is null or publications.state = ?7)
-        order by max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+        order by ${lastActivityAtSql} desc,
                  publications.id
         limit ?8
     `)
@@ -418,16 +426,16 @@ export function createPublicationReadStore(
         ${publicationSummaryCommonFilter}
           and (
               ?3 is null
-              or max(publications.updated_at, posts.updated_at, working_drafts.updated_at) > ?3
+              or ${lastActivityAtSql} > ?3
               or (
-                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?3
+                  ${lastActivityAtSql} = ?3
                   and publications.id > ?4
               )
           )
           and (?5 is null or publications.scheduled_at >= ?5)
           and (?6 is null or publications.scheduled_at < ?6)
           and (?7 is null or publications.state = ?7)
-        order by max(publications.updated_at, posts.updated_at, working_drafts.updated_at),
+        order by ${lastActivityAtSql},
                  publications.id
         limit ?8
     `)
@@ -516,9 +524,9 @@ export function createPublicationReadStore(
                       or (
                           publications.scheduled_at = ?4
                           and (
-                              max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                              ${lastActivityAtSql} < ?5
                               or (
-                                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                                  ${lastActivityAtSql} = ?5
                                   and publications.id > ?6
                               )
                           )
@@ -529,9 +537,9 @@ export function createPublicationReadStore(
                   ?3 = 1
                   and publications.scheduled_at is null
                   and (
-                      max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                      ${lastActivityAtSql} < ?5
                       or (
-                          max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                          ${lastActivityAtSql} = ?5
                           and publications.id > ?6
                       )
                   )
@@ -542,7 +550,7 @@ export function createPublicationReadStore(
           and (?9 is null or publications.state = ?9)
         order by case when publications.scheduled_at is null then 1 else 0 end,
                  publications.scheduled_at,
-                 max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+                 ${lastActivityAtSql} desc,
                  publications.id
         limit ?10
     `)
@@ -575,9 +583,9 @@ export function createPublicationReadStore(
                       or (
                           publications.scheduled_at = ?4
                           and (
-                              max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                              ${lastActivityAtSql} < ?5
                               or (
-                                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                                  ${lastActivityAtSql} = ?5
                                   and publications.id > ?6
                               )
                           )
@@ -588,9 +596,9 @@ export function createPublicationReadStore(
                   ?3 = 1
                   and publications.scheduled_at is null
                   and (
-                      max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                      ${lastActivityAtSql} < ?5
                       or (
-                          max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                          ${lastActivityAtSql} = ?5
                           and publications.id > ?6
                       )
                   )
@@ -601,7 +609,7 @@ export function createPublicationReadStore(
           and (?9 is null or publications.state = ?9)
         order by case when publications.scheduled_at is null then 1 else 0 end,
                  publications.scheduled_at desc,
-                 max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+                 ${lastActivityAtSql} desc,
                  publications.id
         limit ?10
     `)
@@ -610,8 +618,8 @@ export function createPublicationReadStore(
         [projectId: string, tagIdsJson: string, from: number | null, to: number | null]
     >(`
         with selected_tag_ids as (
-            select value as tagId
-            from json_each(?2)
+            select selected_tag.value as tagId
+            from ${jsonEachTextFromSql(sql.dialect, '?2', 'selected_tag')}
         ),
         matching_publications as (
             select assignments.publication_id as publicationId

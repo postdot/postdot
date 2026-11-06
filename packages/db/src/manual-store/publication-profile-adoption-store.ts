@@ -149,8 +149,8 @@ export function createPublicationProfileAdoptionStore(
         const snapshotId = options.createId()
         await sql
             .statement(`insert into publication_draft_adoptions
-            (id, project_id, publication_id, profile_version_id, adopted_profile_version_id, snapshot_json, local_content_json, target_revision_id, created_by_actor_id, created_at)
-            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`)
+            (id, project_id, publication_id, profile_version_id, adopted_profile_version_id, snapshot_json, local_content_json, target_revision_id, created_by_actor_id, created_at, sequence)
+            values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, coalesce((select max(previous.sequence) from publication_draft_adoptions as previous where previous.project_id = ?2 and previous.publication_id = ?3), 0) + 1)`)
             .run(
                 snapshotId,
                 input.projectId,
@@ -286,7 +286,7 @@ export function createPublicationProfileAdoptionStore(
                         >(`
                 select id, snapshot_json as snapshotJson, local_content_json as localContentJson,
                 adopted_profile_version_id as adoptedProfileVersionId, target_revision_id as targetRevisionId, created_at as createdAt
-                from publication_draft_adoptions where project_id = ?1 and publication_id = ?2 order by created_at desc, rowid desc
+                from publication_draft_adoptions where project_id = ?1 and publication_id = ?2 order by created_at desc, sequence desc
             `)
                         .all(projectId, publicationId)
                 ).map(row => ({

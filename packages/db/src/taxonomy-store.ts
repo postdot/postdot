@@ -13,6 +13,7 @@ import {
 import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
+import { isUniqueConstraintError } from './sql/dialect'
 
 interface TaxonomyCategoryRow {
     readonly id: string
@@ -121,10 +122,6 @@ function toProjectTag(row: TaxonomyTagRow): ProjectTag {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
-}
-
-function isUniqueConstraintError(error: unknown): boolean {
-    return error instanceof Error && /unique constraint failed/i.test(error.message)
 }
 
 function taxonomyConflict(kind: 'category' | 'tag', name: string): DomainInvariantError {

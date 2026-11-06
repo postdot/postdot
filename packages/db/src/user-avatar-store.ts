@@ -35,7 +35,7 @@ export function createUserAvatarStore(database: PostdotDatabase, storage: MediaS
             .statement(`UPDATE user_avatars SET state = 'retired', updated_at = ?
             WHERE (state = 'pending' AND created_at < ?)
             OR (state = 'ready' AND NOT EXISTS
-                (SELECT 1 FROM user WHERE user.id = user_avatars.user_id
+                (SELECT 1 FROM "user" WHERE user.id = user_avatars.user_id
                  AND user.image = '/api/account/avatars/' || user_avatars.id))`)
             .run(now, now - abandonedUploadMs)
         const rows = await sql
@@ -119,7 +119,7 @@ export function createUserAvatarStore(database: PostdotDatabase, storage: MediaS
                         )
                         .run(Date.now(), id)
                     const updated = await sql
-                        .statement('UPDATE user SET image = ?, updated_at = ? WHERE id = ?')
+                        .statement('UPDATE "user" SET image = ?, updated_at = ? WHERE id = ?')
                         .run(url(id), Date.now(), userId)
                     if (updated.changes !== 1) throw new Error('Avatar owner is unavailable')
                 }, 'immediate')
@@ -138,7 +138,7 @@ export function createUserAvatarStore(database: PostdotDatabase, storage: MediaS
         async remove(userId: string) {
             await sql.transaction(async () => {
                 await sql
-                    .statement('UPDATE user SET image = NULL, updated_at = ? WHERE id = ?')
+                    .statement('UPDATE "user" SET image = NULL, updated_at = ? WHERE id = ?')
                     .run(Date.now(), userId)
                 await sql
                     .statement(

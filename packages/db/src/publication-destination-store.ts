@@ -3,6 +3,7 @@ import { DomainInvariantError, requireTimestamp } from '@postdot/core'
 import { readChannelDestination } from './channel-destination'
 import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
+import { jsonExtractIntSql } from './sql/dialect'
 
 export interface PublicationDestinationState {
     readonly revision: number
@@ -147,7 +148,7 @@ export function createPublicationDestinationStore(
                 select j.id, j.run_at as runAt from jobs j
                 join publication_execution_revisions e on e.project_id = j.project_id and e.job_id = j.id
                 where j.project_id = ? and j.publication_id = ? and j.state = 'pending'
-                  and coalesce(json_extract(e.destination_snapshot_json, '$.revision'), 0) <> ?
+                  and coalesce(${jsonExtractIntSql(sql.dialect, 'e.destination_snapshot_json', ['revision'])}, 0) <> ?
             `)
                 .get(input.projectId, input.publicationId, row.revision)
             const replacementJobId =

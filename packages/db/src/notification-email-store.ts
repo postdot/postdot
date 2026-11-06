@@ -29,7 +29,7 @@ export function createNotificationEmailStore(database: PostdotDatabase) {
         },
     })
     const account = database.sql.statement<{ email: string; verified: number }, [string]>(
-        'select email, email_verified as verified from user where id = ?1 and coalesce(banned, 0) = 0'
+        'select email, email_verified as verified from "user" where id = ?1 and coalesce(banned, 0) = 0'
     )
     const recipient = database.sql.statement<{ userId: string; state: string }, [string, string]>(`
         select a.subject_id as userId, d.state from notification_destinations d

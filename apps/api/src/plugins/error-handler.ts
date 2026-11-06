@@ -1,8 +1,8 @@
-import { SQLiteError } from 'bun:sqlite'
 import { randomUUID } from 'node:crypto'
 
 import { DomainInvariantError } from '@postdot/core'
 import { CadenceConflictError, ResourceLifecycleError } from '@postdot/db'
+import { isResourceReadOnlyTriggerError } from '@postdot/db'
 import { MediaStoreError } from '@postdot/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
 import type { Logger } from 'pino'
@@ -24,10 +24,7 @@ export function createErrorHandler(logger?: Logger) {
     })
 
     app.error('global', ({ error, request, path, route, set }) => {
-        if (
-            error instanceof ResourceLifecycleError ||
-            (error instanceof SQLiteError && error.message === 'resource_read_only')
-        ) {
+        if (error instanceof ResourceLifecycleError || isResourceReadOnlyTriggerError(error)) {
             set.status = 409
             return {
                 error: {

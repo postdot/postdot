@@ -31,6 +31,11 @@ import {
     type ImagePreviewVariant,
 } from './image-previews'
 import { createMp4Inspection } from './mp4-inspection'
+import {
+    jsonContainsTextScalarSql,
+    jsonExtractJsonTextSql,
+    jsonExtractTextSql,
+} from './sql/dialect'
 import type { SqlDatabase } from './sql/port'
 import { mapSequential } from './sql/sequential'
 
@@ -697,10 +702,9 @@ export function createMediaAssetStore(
                null as scheduledAt,
                null as channelName,
                'source' as location
-        from posts, json_tree(posts.source_content) as content
+        from posts
         where posts.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'posts.source_content', '?2')}
     `)
     const listDraftUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
@@ -716,7 +720,7 @@ export function createMediaAssetStore(
         from (
             select project_id, publication_id, content_json from publication_working_drafts
             union all
-            select project_id, publication_id, json_extract(snapshot_json, '$.content') from publication_draft_adoptions
+            select project_id, publication_id, ${jsonExtractJsonTextSql(sql.dialect, 'snapshot_json', ['content'])} from publication_draft_adoptions
             union all
             select project_id, publication_id, local_content_json from publication_draft_adoptions where local_content_json is not null
         ) as drafts
@@ -729,10 +733,8 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(drafts.content_json) as content
         where drafts.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'drafts.content_json', '?2')}
     `)
     const listTargetUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
@@ -781,10 +783,8 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(target_revisions.content_json) as content
         where target_revisions.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'target_revisions.content_json', '?2')}
     `)
     const listExecutionUsageStatement = sql.statement<MediaAssetUsageRow, [string, string]>(`
         select distinct
@@ -833,10 +833,8 @@ export function createMediaAssetStore(
         inner join project_channel_contexts as channels
             on channels.project_id = publications.project_id
            and channels.id = publications.channel_id
-        , json_tree(execution_revisions.content_json) as content
         where execution_revisions.project_id = ?1
-          and content.type = 'text'
-          and content.value = ?2
+          and ${jsonContainsTextScalarSql(sql.dialect, 'execution_revisions.content_json', '?2')}
     `)
     const countAuditUsageStatement = sql.statement<{ count: number }, [string, string]>(`
         select count(*) as count
@@ -1952,7 +1950,7 @@ export function createMediaAssetStore(
                     and r.kind = 'original' and r.state = 'ready' and r.family = 'video')
                 and not exists (select 1 from media_representations r where r.asset_id = a.id
                     and r.processor_id = 'postdot-video-poster' and r.processor_version = '1' and r.state = 'failed')
-                and (select count(distinct json_extract(r.recipe_json, '$.variant')) from media_representations r
+                and (select count(distinct ${jsonExtractTextSql(sql.dialect, 'r.recipe_json', ['variant'])}) from media_representations r
                     where r.asset_id = a.id and r.processor_id = 'postdot-image-preview'
                     and r.processor_version = '1' and r.state = 'ready') < 2
             `)
@@ -3028,19 +3026,19 @@ async function hasMediaReference(
     projectId: string,
     assetId: string
 ): Promise<boolean> {
+    const sources = [
+        ['publication_draft_adoptions', 'snapshot_json'],
+        ['publication_draft_adoptions', 'local_content_json'],
+        ['posts', 'source_content'],
+        ['publication_working_drafts', 'content_json'],
+        ['publication_target_revisions', 'content_json'],
+        ['publication_execution_revisions', 'content_json'],
+    ] as const
     const queries = [
-        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.snapshot_json)
-         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.local_content_json)
-         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from posts, json_tree(posts.source_content)
-         where posts.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_working_drafts, json_tree(publication_working_drafts.content_json)
-         where publication_working_drafts.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_target_revisions, json_tree(publication_target_revisions.content_json)
-         where publication_target_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
-        `select 1 as found from publication_execution_revisions, json_tree(publication_execution_revisions.content_json)
-         where publication_execution_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
+        ...sources.map(
+            ([table, column]) =>
+                `select 1 as found from ${table} where ${table}.project_id = ?1 and ${jsonContainsTextScalarSql(sql.dialect, `${table}.${column}`, '?2')} limit 1`
+        ),
         `select 1 as found from publication_revision_media
          where publication_revision_media.project_id = ?1
            and publication_revision_media.asset_id = ?2 limit 1`,
