@@ -108,13 +108,10 @@ export function createChannelLifecycleStore(
         where channels.project_id = ?1
           and channels.id = ?2
     `)
-    const loadActiveWorkStatement = sql.statement<
-        { readonly found: number },
-        [projectId: string, channelId: string]
-    >(`
+    const loadActiveWorkStatement = sql.statement<{ readonly found: number }, [channelId: string]>(`
         select 1 as found
         from publications
-        where channel_id = ?2
+        where channel_id = ?1
           and state in ('scheduled', 'ready', 'publishing', 'ambiguous')
         union all
         select 1 as found
@@ -122,27 +119,27 @@ export function createChannelLifecycleStore(
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
-        where publications.channel_id = ?2
+        where publications.channel_id = ?1
           and jobs.state in ('pending', 'running')
         limit 1
     `)
     const loadPendingAuthorizationStatement = sql.statement<
         { readonly found: number },
-        [projectId: string, channelId: string]
+        [channelId: string]
     >(`
         select 1 as found
         from oauth_authorization_attempts
-        where channel_id = ?2
+        where channel_id = ?1
           and status = 'pending'
         limit 1
     `)
     const loadPublicationReferenceStatement = sql.statement<
         { readonly found: number },
-        [projectId: string, channelId: string]
+        [channelId: string]
     >(`
         select 1 as found
         from publications
-        where channel_id = ?2
+        where channel_id = ?1
         limit 1
     `)
     const loadPublisherReferenceStatement = sql.statement<
@@ -421,10 +418,7 @@ export function createChannelLifecycleStore(
             }
 
             const blockers: ChannelLifecycleBlockerCode[] = []
-            if (
-                (await loadPublicationReferenceStatement.get(input.projectId, input.channelId)) !==
-                null
-            ) {
+            if ((await loadPublicationReferenceStatement.get(input.channelId)) !== null) {
                 blockers.push('publications')
             }
             if (
@@ -433,10 +427,7 @@ export function createChannelLifecycleStore(
             ) {
                 blockers.push('publisher')
             }
-            if (
-                (await loadPendingAuthorizationStatement.get(input.projectId, input.channelId)) !==
-                null
-            ) {
+            if ((await loadPendingAuthorizationStatement.get(input.channelId)) !== null) {
                 blockers.push('pending_authorization')
             }
             if (
@@ -486,10 +477,10 @@ export function createChannelLifecycleStore(
         channelId: string
     ): Promise<ChannelLifecycleBlockerCode[]> {
         const blockers: ChannelLifecycleBlockerCode[] = []
-        if ((await loadActiveWorkStatement.get(projectId, channelId)) !== null) {
+        if ((await loadActiveWorkStatement.get(channelId)) !== null) {
             blockers.push('active_work')
         }
-        if ((await loadPendingAuthorizationStatement.get(projectId, channelId)) !== null) {
+        if ((await loadPendingAuthorizationStatement.get(channelId)) !== null) {
             blockers.push('pending_authorization')
         }
         return blockers

@@ -1,6 +1,7 @@
 import type { Database, SQLQueryBindings, Statement } from 'bun:sqlite'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
+import { normalizeStatementSql } from './dialect'
 import type {
     SqlCommitScope,
     SqlDatabase,
@@ -75,9 +76,10 @@ export class SqliteSqlDatabase implements SqlDatabase {
     statement<Row = unknown, Params extends SqlParams = SqlParams>(
         text: string
     ): SqlStatement<Row, Params> {
+        const normalizedText = normalizeStatementSql(text, 'sqlite')
         let prepared: Statement<Row, SQLQueryBindings[]> | undefined
         const resolve = () => {
-            prepared ??= this.#client.query<Row, SQLQueryBindings[]>(text)
+            prepared ??= this.#client.query<Row, SQLQueryBindings[]>(normalizedText)
             return prepared
         }
         const bindings = (params: Params) => params as unknown as SQLQueryBindings[]

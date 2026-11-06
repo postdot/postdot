@@ -6,17 +6,17 @@ import {
     type ExternalEffectExecutorStore,
     type ProviderCommentPolicy,
 } from '@postdot/core'
-import { and, asc, eq, gt, inArray, lte, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
-import { defineTransaction, type PostdotDatabase, runSync } from './client'
-import { actors, publicationFirstComments as firstComments } from './domain-schema'
+import { defineTransaction, type PostdotDatabase } from './client'
+import type { publicationFirstComments as firstComments } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
+import { jsonExtractTextSql } from './sql/dialect'
+import type { SqlDialect } from './sql/port'
 
 /** Longest relative delay a prepared comment may wait after parent confirmation. */
 export const firstCommentMaximumDelaySeconds = 604_800
 const editableStates = ['waiting', 'pending', 'suspended'] as const
-const reconcilableStates = ['waiting', 'pending'] as const
 
 /** Persisted provider identities are accepted only through the installed policy registry. */
 export type PublicationFirstCommentProvider = string
@@ -130,6 +130,41 @@ interface PublisherRow {
     readonly kind: string
 }
 
+interface FirstCommentActorRow {
+    readonly id: string
+    readonly subjectId: string | null
+    readonly displayName: string
+}
+
+const firstCommentColumns = `
+    id,
+    project_id as "projectId",
+    publication_id as "publicationId",
+    actor_id as "actorId",
+    text,
+    delay_seconds as "delaySeconds",
+    state,
+    provider_id as "providerId",
+    instance_origin as "instanceOrigin",
+    revision,
+    due_at as "dueAt",
+    root_uri as "rootUri",
+    execution_revision_id as "executionRevisionId",
+    connection_id as "connectionId",
+    credential_id as "credentialId",
+    account_id as "accountId",
+    record_key as "recordKey",
+    attempts,
+    claim_token as "claimToken",
+    lease_expires_at as "leaseExpiresAt",
+    effect_started_at as "effectStartedAt",
+    external_id as "externalId",
+    external_url as "externalUrl",
+    last_error as "lastError",
+    created_at as "createdAt",
+    updated_at as "updatedAt"
+`
+
 /**
  * A native parent receipt exists only when the publication was delivered by a
  * succeeded automatic job whose completion is the recorded publication time,
@@ -139,60 +174,64 @@ interface PublisherRow {
  * the publication, so removing a connection cannot hide a delivery that already
  * happened.
  */
-const nativeReceiptProof = `
-    exists (
-        select 1
-        from publications as proof_publications
-        inner join jobs as proof_jobs
-            on proof_jobs.project_id = proof_publications.project_id
-           and proof_jobs.publication_id = proof_publications.id
-           and proof_jobs.state = 'succeeded'
-           and proof_jobs.completed_at = proof_publications.published_at
-        inner join publication_execution_revisions as proof_executions
-            on proof_executions.project_id = proof_jobs.project_id
-           and proof_executions.job_id = proof_jobs.id
-           and proof_executions.publication_id = proof_publications.id
-           and proof_executions.delivery_mode = 'automatic'
-        inner join project_channel_profile_contexts as proof_profiles
-            on proof_profiles.project_id = proof_executions.project_id
-           and proof_profiles.id = proof_executions.profile_version_id
-        where proof_publications.project_id = publication_first_comments.project_id
-          and proof_publications.id = publication_first_comments.publication_id
-          and proof_publications.state = 'published'
-          and proof_publications.delivery_mode = 'automatic'
-          and proof_publications.published_at is not null
-          and proof_profiles.state <> 'disabled'
-          and proof_profiles.origin = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = publication_first_comments.provider_id
-    )
-`
+function buildNativeReceiptProof(dialect: SqlDialect): string {
+    return `
+        exists (
+            select 1
+            from publications as proof_publications
+            inner join jobs as proof_jobs
+                on proof_jobs.project_id = proof_publications.project_id
+               and proof_jobs.publication_id = proof_publications.id
+               and proof_jobs.state = 'succeeded'
+               and proof_jobs.completed_at = proof_publications.published_at
+            inner join publication_execution_revisions as proof_executions
+                on proof_executions.project_id = proof_jobs.project_id
+               and proof_executions.job_id = proof_jobs.id
+               and proof_executions.publication_id = proof_publications.id
+               and proof_executions.delivery_mode = 'automatic'
+            inner join project_channel_profile_contexts as proof_profiles
+                on proof_profiles.project_id = proof_executions.project_id
+               and proof_profiles.id = proof_executions.profile_version_id
+            where proof_publications.project_id = publication_first_comments.project_id
+              and proof_publications.id = publication_first_comments.publication_id
+              and proof_publications.state = 'published'
+              and proof_publications.delivery_mode = 'automatic'
+              and proof_publications.published_at is not null
+              and proof_profiles.state <> 'disabled'
+              and proof_profiles.origin = 'built_in'
+              and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'kind'])} = 'built_in'
+              and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'contractId'])} = publication_first_comments.provider_id
+        )
+    `
+}
 
 export function createPublicationFirstCommentStore(
     database: PostdotDatabase,
     options: PublicationFirstCommentStoreOptions
 ) {
     const db = database.sql
+    const dialect = db.dialect
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
+    const nativeReceiptProof = buildNativeReceiptProof(dialect)
 
     const loadPublicationStatement = db.statement<PublicationRow, [string, string]>(`
         select id,
-               project_id as projectId,
-               channel_id as channelId,
+               project_id as "projectId",
+               channel_id as "channelId",
                state,
-               delivery_mode as deliveryMode,
-               published_at as publishedAt,
-               external_id as externalId,
-               external_url as externalUrl
+               delivery_mode as "deliveryMode",
+               published_at as "publishedAt",
+               external_id as "externalId",
+               external_url as "externalUrl"
         from publications
         where project_id = ?1
           and id = ?2
     `)
     const loadNativeReceiptStatement = db.statement<NativeReceiptRow, [string, string, string]>(`
-        select proof_executions.id as executionRevisionId,
-               proof_publications.external_id as externalId,
-               proof_publications.published_at as publishedAt
+        select proof_executions.id as "executionRevisionId",
+               proof_publications.external_id as "externalId",
+               proof_publications.published_at as "publishedAt"
         from publications as proof_publications
         inner join jobs as proof_jobs
             on proof_jobs.project_id = proof_publications.project_id
@@ -214,8 +253,8 @@ export function createPublicationFirstCommentStore(
           and proof_publications.published_at is not null
           and proof_profiles.state <> 'disabled'
           and proof_profiles.origin = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-          and json_extract(proof_profiles.profile_json, '$.execution.contractId') = ?3
+          and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'kind'])} = 'built_in'
+          and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'contractId'])} = ?3
         order by proof_jobs.completed_at desc, proof_executions.created_at desc
         limit 1
     `)
@@ -223,12 +262,12 @@ export function createPublicationFirstCommentStore(
         ReceiptIdentityRow,
         [string, string, string]
     >(`
-        select proof_connections.id as connectionId,
-               proof_connections.endpoint_url as endpointUrl,
-               proof_credentials.id as credentialId,
-               proof_credentials.external_account_id as accountId,
+        select proof_connections.id as "connectionId",
+               proof_connections.endpoint_url as "endpointUrl",
+               proof_credentials.id as "credentialId",
+               proof_credentials.external_account_id as "accountId",
                proof_credentials.scopes as scopes,
-               proof_credentials.state as credentialState
+               proof_credentials.state as "credentialState"
         from project_publisher_contexts as proof_publishers
         inner join project_publisher_connection_contexts as proof_connections
             on proof_connections.project_id = proof_publishers.project_id
@@ -245,9 +284,9 @@ export function createPublicationFirstCommentStore(
         PinnedReceiptRow,
         [string, string, string, string]
     >(`
-        select proof_executions.id as executionRevisionId,
-               proof_publications.external_id as externalId,
-               proof_publications.published_at as publishedAt
+        select proof_executions.id as "executionRevisionId",
+               proof_publications.external_id as "externalId",
+               proof_publications.published_at as "publishedAt"
         from publication_execution_revisions as proof_executions
         inner join jobs as proof_jobs
             on proof_jobs.project_id = proof_executions.project_id
@@ -263,8 +302,8 @@ export function createPublicationFirstCommentStore(
            and proof_profiles.id = proof_executions.profile_version_id
            and proof_profiles.state <> 'disabled'
            and proof_profiles.origin = 'built_in'
-           and json_extract(proof_profiles.profile_json, '$.execution.kind') = 'built_in'
-           and json_extract(proof_profiles.profile_json, '$.execution.contractId') = ?4
+           and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'kind'])} = 'built_in'
+           and ${jsonExtractTextSql(dialect, 'proof_profiles.profile_json', ['execution', 'contractId'])} = ?4
         where proof_executions.project_id = ?1
           and proof_executions.id = ?2
           and proof_executions.publication_id = ?3
@@ -272,8 +311,8 @@ export function createPublicationFirstCommentStore(
     `)
     const loadCredentialStatement = db.statement<CredentialRow, [string, string]>(`
         select id,
-               provider_id as providerId,
-               external_account_id as externalAccountId,
+               provider_id as "providerId",
+               external_account_id as "externalAccountId",
                scopes,
                state
         from project_publisher_credential_contexts as publisher_credentials
@@ -282,16 +321,16 @@ export function createPublicationFirstCommentStore(
     `)
     const loadConnectionStatement = db.statement<ConnectionRow, [string, string]>(`
         select id,
-               publisher_id as publisherId,
-               credential_id as credentialId,
-               endpoint_url as endpointUrl
+               publisher_id as "publisherId",
+               credential_id as "credentialId",
+               endpoint_url as "endpointUrl"
         from project_publisher_connection_contexts as publisher_connections
         where project_id = ?1
           and id = ?2
     `)
     const loadPublisherStatement = db.statement<PublisherRow, [string, string]>(`
         select id,
-               channel_id as channelId,
+               channel_id as "channelId",
                kind
         from project_publisher_contexts as publishers
         where project_id = ?1
@@ -301,7 +340,7 @@ export function createPublicationFirstCommentStore(
         { readonly contractId: string },
         [string, string]
     >(`
-        select json_extract(channel_profile_versions.profile_json, '$.execution.contractId') as contractId
+        select ${jsonExtractTextSql(dialect, 'channel_profile_versions.profile_json', ['execution', 'contractId'])} as "contractId"
         from project_channel_contexts as channels
         inner join project_channel_profile_contexts as channel_profile_versions
             on channel_profile_versions.project_id = channels.project_id
@@ -310,10 +349,10 @@ export function createPublicationFirstCommentStore(
           and channels.id = ?2
           and channel_profile_versions.state <> 'disabled'
           and channel_profile_versions.origin = 'built_in'
-          and json_extract(channel_profile_versions.profile_json, '$.execution.kind') = 'built_in'
+          and ${jsonExtractTextSql(dialect, 'channel_profile_versions.profile_json', ['execution', 'kind'])} = 'built_in'
     `)
     const nextEventStatement = db.statement<{ readonly eventAt: number | null }, [number]>(`
-        select min(event_at) as eventAt
+        select min(event_at) as "eventAt"
         from (
             select due_at as event_at
             from publication_first_comments
@@ -331,71 +370,270 @@ export function createPublicationFirstCommentStore(
             where state = 'waiting'
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = publication_first_comments.project_id and state <> 'active')
               and ${nativeReceiptProof}
+        ) as events
+    `)
+    const loadFirstCommentStatement = db.statement<
+        PublicationFirstComment,
+        [projectId: string, publicationId: string]
+    >(`
+        select ${firstCommentColumns}
+        from publication_first_comments
+        where project_id = ?1
+          and publication_id = ?2
+    `)
+    const loadFirstCommentByIdStatement = db.statement<PublicationFirstComment, [id: string]>(`
+        select ${firstCommentColumns}
+        from publication_first_comments
+        where id = ?1
+    `)
+    const loadActorByIdStatement = db.statement<
+        FirstCommentActorRow,
+        [projectId: string, actorId: string]
+    >(`
+        select id,
+               subject_id as "subjectId",
+               display_name as "displayName"
+        from actors
+        where project_id = ?1
+          and id = ?2
+    `)
+    const loadActorBySubjectStatement = db.statement<
+        FirstCommentActorRow,
+        [projectId: string, subjectId: string]
+    >(`
+        select id,
+               subject_id as "subjectId",
+               display_name as "displayName"
+        from actors
+        where project_id = ?1
+          and subject_id = ?2
+        limit 1
+    `)
+    const transitionFirstCommentStatement = db.statement<
+        PublicationFirstComment,
+        [
+            state: PublicationFirstCommentState,
+            dueAt: number | null,
+            rootUri: string | null,
+            instanceOrigin: string | null,
+            executionRevisionId: string | null,
+            connectionId: string | null,
+            credentialId: string | null,
+            accountId: string | null,
+            claimToken: string | null,
+            leaseExpiresAt: number | null,
+            effectStartedAt: number | null,
+            externalId: string | null,
+            externalUrl: string | null,
+            lastError: string | null,
+            updatedAt: number,
+            id: string,
+            expectedState: PublicationFirstCommentState,
+        ]
+    >(`
+        update publication_first_comments
+        set state = ?1,
+            due_at = ?2,
+            root_uri = ?3,
+            instance_origin = ?4,
+            execution_revision_id = ?5,
+            connection_id = ?6,
+            credential_id = ?7,
+            account_id = ?8,
+            claim_token = ?9,
+            lease_expires_at = ?10,
+            effect_started_at = ?11,
+            external_id = ?12,
+            external_url = ?13,
+            last_error = ?14,
+            updated_at = ?15
+        where id = ?16
+          and state = ?17
+        returning ${firstCommentColumns}
+    `)
+    const listExpiredClaimsStatement = db.statement<PublicationFirstComment, [now: number]>(`
+        select ${firstCommentColumns}
+        from publication_first_comments
+        where state = 'running'
+          and lease_expires_at <= ?1
+    `)
+    const selectNextDueCommentStatement = db.statement<
+        PublicationFirstComment,
+        [now: number, projectId: string | null]
+    >(`
+        select ${firstCommentColumns}
+        from publication_first_comments
+        where state = 'pending'
+          and not exists (
+              select 1
+              from resource_lifecycles
+              where kind = 'project'
+                and resource_id = publication_first_comments.project_id
+                and state <> 'active'
+          )
+          and due_at <= ?1
+          and (?2 is null or project_id = ?2)
+        order by due_at asc, id asc
+        limit 1
+    `)
+    const claimPendingCommentStatement = db.statement<
+        PublicationFirstComment,
+        [
+            attempts: number,
+            claimToken: string,
+            leaseExpiresAt: number,
+            updatedAt: number,
+            id: string,
+        ]
+    >(`
+        update publication_first_comments
+        set state = 'running',
+            attempts = ?1,
+            claim_token = ?2,
+            lease_expires_at = ?3,
+            effect_started_at = null,
+            updated_at = ?4
+        where id = ?5
+          and state = 'pending'
+        returning ${firstCommentColumns}
+    `)
+    const renewClaimStatement = db.statement<
+        { readonly id: string },
+        [leaseExpiresAt: number, id: string, claimToken: string, now: number]
+    >(`
+        update publication_first_comments
+        set lease_expires_at = ?1
+        where id = ?2
+          and claim_token = ?3
+          and state = 'running'
+          and lease_expires_at > ?4
+          and lease_expires_at <= ?1
+        returning id
+    `)
+    const insertFirstCommentStatement = db.statement<
+        void,
+        [
+            id: string,
+            projectId: string,
+            publicationId: string,
+            actorId: string,
+            text: string,
+            delaySeconds: number,
+            state: PublicationFirstCommentState,
+            providerId: string,
+            instanceOrigin: string | null,
+            revision: number,
+            dueAt: number | null,
+            rootUri: string | null,
+            executionRevisionId: string | null,
+            connectionId: string | null,
+            credentialId: string | null,
+            accountId: string | null,
+            recordKey: string,
+            attempts: number,
+            claimToken: string | null,
+            leaseExpiresAt: number | null,
+            effectStartedAt: number | null,
+            externalId: string | null,
+            externalUrl: string | null,
+            lastError: string | null,
+            createdAt: number,
+            updatedAt: number,
+        ]
+    >(`
+        insert into publication_first_comments (
+            id,
+            project_id,
+            publication_id,
+            actor_id,
+            text,
+            delay_seconds,
+            state,
+            provider_id,
+            instance_origin,
+            revision,
+            due_at,
+            root_uri,
+            execution_revision_id,
+            connection_id,
+            credential_id,
+            account_id,
+            record_key,
+            attempts,
+            claim_token,
+            lease_expires_at,
+            effect_started_at,
+            external_id,
+            external_url,
+            last_error,
+            created_at,
+            updated_at
+        ) values (
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26
         )
     `)
+    const updateSavedCommentStatement = db.statement<
+        PublicationFirstComment,
+        [
+            text: string,
+            delaySeconds: number,
+            actorId: string,
+            state: PublicationFirstCommentState,
+            dueAt: number | null,
+            nextRevision: number,
+            updatedAt: number,
+            id: string,
+            expectedRevision: number,
+        ]
+    >(`
+        update publication_first_comments
+        set text = ?1,
+            delay_seconds = ?2,
+            actor_id = ?3,
+            state = ?4,
+            due_at = ?5,
+            revision = ?6,
+            updated_at = ?7,
+            last_error = null
+        where id = ?8
+          and revision = ?9
+          and state in ('waiting', 'pending', 'suspended')
+        returning ${firstCommentColumns}
+    `)
+    const cancelFirstCommentStatement = db.statement<
+        PublicationFirstComment,
+        [nextRevision: number, updatedAt: number, id: string, expectedRevision: number]
+    >(`
+        update publication_first_comments
+        set state = 'cancelled',
+            claim_token = null,
+            lease_expires_at = null,
+            revision = ?1,
+            updated_at = ?2,
+            last_error = null
+        where id = ?3
+          and revision = ?4
+          and state in ('waiting', 'pending', 'suspended')
+        returning ${firstCommentColumns}
+    `)
+    const listReconcilableCommentsStatement = db.statement<PublicationFirstComment, []>(`
+        select ${firstCommentColumns}
+        from publication_first_comments
+        where state in ('waiting', 'pending')
+        order by created_at asc, id asc
+    `)
 
-    async function row(
-        projectId: string,
-        publicationId: string
-    ): Promise<PublicationFirstComment | null> {
-        return (
-            (await runSync(database, () =>
-                database
-                    .select()
-                    .from(firstComments)
-                    .where(
-                        and(
-                            eq(firstComments.projectId, projectId),
-                            eq(firstComments.publicationId, publicationId)
-                        )
-                    )
-                    .get()
-            )) ?? null
-        )
-    }
-    async function rowById(id: string): Promise<PublicationFirstComment | null> {
-        return (
-            (await runSync(database, () =>
-                database.select().from(firstComments).where(eq(firstComments.id, id)).get()
-            )) ?? null
-        )
-    }
-    async function actorOf(rowValue: PublicationFirstComment) {
-        return (
-            (await runSync(database, () =>
-                database
-                    .select()
-                    .from(actors)
-                    .where(
-                        and(
-                            eq(actors.projectId, rowValue.projectId),
-                            eq(actors.id, rowValue.actorId)
-                        )
-                    )
-                    .get()
-            )) ?? null
-        )
-    }
-    async function actorForSubject(projectId: string, subjectId: string) {
-        return (
-            (await runSync(database, () =>
-                database
-                    .select()
-                    .from(actors)
-                    .where(and(eq(actors.projectId, projectId), eq(actors.subjectId, subjectId)))
-                    .get()
-            )) ?? null
-        )
-    }
+    const row = (projectId: string, publicationId: string) =>
+        loadFirstCommentStatement.get(projectId, publicationId)
+    const rowById = (id: string) => loadFirstCommentByIdStatement.get(id)
+    const actorOf = (rowValue: PublicationFirstComment) =>
+        loadActorByIdStatement.get(rowValue.projectId, rowValue.actorId)
+    const actorForSubject = (projectId: string, subjectId: string) =>
+        loadActorBySubjectStatement.get(projectId, subjectId)
+
     async function hasEditorAccess(projectId: string, actorId: string): Promise<boolean> {
-        const actor = await runSync(database, () =>
-            database
-                .select()
-                .from(actors)
-                .where(and(eq(actors.projectId, projectId), eq(actors.id, actorId)))
-                .get()
-        )
-        if (actor === undefined || actor === null || actor.subjectId === null) return false
+        const actor = await loadActorByIdStatement.get(projectId, actorId)
+        if (actor === null || actor.subjectId === null) return false
         return access.canAccessProject(projectId, actor.subjectId, 'editor')
     }
 
@@ -546,15 +784,25 @@ export function createPublicationFirstCommentStore(
         at: number,
         payload: Readonly<Record<string, unknown>> = {}
     ): Promise<PublicationFirstComment | null> {
-        const updated = await runSync(database, () =>
-            database
-                .update(firstComments)
-                .set(values)
-                .where(
-                    and(eq(firstComments.id, rowValue.id), eq(firstComments.state, rowValue.state))
-                )
-                .returning()
-                .get()
+        const next: PublicationFirstComment = { ...rowValue, ...values }
+        const updated = await transitionFirstCommentStatement.get(
+            next.state,
+            next.dueAt,
+            next.rootUri,
+            next.instanceOrigin,
+            next.executionRevisionId,
+            next.connectionId,
+            next.credentialId,
+            next.accountId,
+            next.claimToken,
+            next.leaseExpiresAt,
+            next.effectStartedAt,
+            next.externalId,
+            next.externalUrl,
+            next.lastError,
+            next.updatedAt,
+            rowValue.id,
+            rowValue.state
         )
         if (updated === null) return null
         await event(updated, name, at, payload)
@@ -564,18 +812,7 @@ export function createPublicationFirstCommentStore(
     const deliveries: ExternalEffectExecutorStore<PublicationFirstComment> = {
         recoverExpiredClaims(now) {
             return defineTransaction(database, async () => {
-                const expired = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(firstComments)
-                        .where(
-                            and(
-                                eq(firstComments.state, 'running'),
-                                lte(firstComments.leaseExpiresAt, now)
-                            )
-                        )
-                        .all()
-                )
+                const expired = await listExpiredClaimsStatement.all(now)
                 const requeuedJobIds: string[] = [],
                     ambiguousJobIds: string[] = []
                 for (const expiredRow of expired) {
@@ -605,45 +842,17 @@ export function createPublicationFirstCommentStore(
         },
         claimNextDueJob(input) {
             return defineTransaction(database, async () => {
-                const due = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(firstComments)
-                        .where(
-                            and(
-                                eq(firstComments.state, 'pending'),
-                                sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${firstComments.projectId} and state <> 'active')`,
-                                lte(firstComments.dueAt, input.now),
-                                input.projectId === undefined
-                                    ? undefined
-                                    : eq(firstComments.projectId, input.projectId)
-                            )
-                        )
-                        .orderBy(asc(firstComments.dueAt), asc(firstComments.id))
-                        .get()
+                const due = await selectNextDueCommentStatement.get(
+                    input.now,
+                    input.projectId ?? null
                 )
-                if (due === undefined || due === null) return null
-                return (
-                    (await runSync(database, () =>
-                        database
-                            .update(firstComments)
-                            .set({
-                                state: 'running',
-                                attempts: due.attempts + 1,
-                                claimToken: input.claimToken,
-                                leaseExpiresAt: input.leaseExpiresAt,
-                                effectStartedAt: null,
-                                updatedAt: input.now,
-                            })
-                            .where(
-                                and(
-                                    eq(firstComments.id, due.id),
-                                    eq(firstComments.state, 'pending')
-                                )
-                            )
-                            .returning()
-                            .get()
-                    )) ?? null
+                if (due === null) return null
+                return claimPendingCommentStatement.get(
+                    due.attempts + 1,
+                    input.claimToken,
+                    input.leaseExpiresAt,
+                    input.now,
+                    due.id
                 )
             })()
         },
@@ -652,25 +861,12 @@ export function createPublicationFirstCommentStore(
             const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
             if (expiry <= at) return false
             return (
-                (await runSync(database, () =>
-                    database
-                        .update(firstComments)
-                        .set({ leaseExpiresAt: expiry })
-                        .where(
-                            and(
-                                eq(firstComments.id, requireNonBlank(input.jobId, 'jobId')),
-                                eq(
-                                    firstComments.claimToken,
-                                    requireNonBlank(input.claimToken, 'claimToken')
-                                ),
-                                eq(firstComments.state, 'running'),
-                                gt(firstComments.leaseExpiresAt, at),
-                                lte(firstComments.leaseExpiresAt, expiry)
-                            )
-                        )
-                        .returning({ id: firstComments.id })
-                        .get()
-                )) != null
+                (await renewClaimStatement.get(
+                    expiry,
+                    requireNonBlank(input.jobId, 'jobId'),
+                    requireNonBlank(input.claimToken, 'claimToken'),
+                    at
+                )) !== null
             )
         },
         startExternalEffect(jobId, claimToken, now) {
@@ -814,7 +1010,7 @@ export function createPublicationFirstCommentStore(
             publicationId: string,
             subjectId: string
         ): Promise<PublicationFirstCommentView | null> {
-            return database.sql.transaction(async () => {
+            return db.transaction(async () => {
                 if (!(await access.canAccessProject(projectId, subjectId, 'viewer'))) return null
                 const current = await row(projectId, publicationId)
                 if (current === null) return null
@@ -845,7 +1041,7 @@ export function createPublicationFirstCommentStore(
          * frozen.
          */
         async canConfigure(projectId: string, publicationId: string): Promise<boolean> {
-            return database.sql.transaction(async () => {
+            return db.transaction(async () => {
                 const publication = await loadPublicationStatement.get(projectId, publicationId)
                 if (publication === null) return false
                 const existing = await row(projectId, publicationId)
@@ -874,7 +1070,7 @@ export function createPublicationFirstCommentStore(
         async save(
             input: SavePublicationFirstCommentInput
         ): Promise<PublicationFirstCommentMutation> {
-            return database.sql.transaction(async () => {
+            return db.transaction(async () => {
                 const projectId = requireNonBlank(input.projectId, 'projectId')
                 const publicationId = requireNonBlank(input.publicationId, 'publicationId')
                 const subjectId = requireNonBlank(input.subjectId, 'subjectId')
@@ -945,8 +1141,33 @@ export function createPublicationFirstCommentStore(
                                 createdAt: now,
                                 updatedAt: now,
                             }
-                            await runSync(database, () =>
-                                database.insert(firstComments).values(created).run()
+                            await insertFirstCommentStatement.run(
+                                created.id,
+                                created.projectId,
+                                created.publicationId,
+                                created.actorId,
+                                created.text,
+                                created.delaySeconds,
+                                created.state,
+                                created.providerId,
+                                created.instanceOrigin,
+                                created.revision,
+                                created.dueAt,
+                                created.rootUri,
+                                created.executionRevisionId,
+                                created.connectionId,
+                                created.credentialId,
+                                created.accountId,
+                                created.recordKey,
+                                created.attempts,
+                                created.claimToken,
+                                created.leaseExpiresAt,
+                                created.effectStartedAt,
+                                created.externalId,
+                                created.externalUrl,
+                                created.lastError,
+                                created.createdAt,
+                                created.updatedAt
                             )
                             await event(created, 'publication_first_comment.requested', now, {
                                 text,
@@ -986,28 +1207,16 @@ export function createPublicationFirstCommentStore(
                                   existing.dueAt
                               )
                             : null
-                        const updated = await runSync(database, () =>
-                            database
-                                .update(firstComments)
-                                .set({
-                                    text,
-                                    delaySeconds,
-                                    actorId: actor.id,
-                                    state: armed ? 'pending' : 'waiting',
-                                    dueAt,
-                                    revision: existing.revision + 1,
-                                    updatedAt: now,
-                                    lastError: null,
-                                })
-                                .where(
-                                    and(
-                                        eq(firstComments.id, existing.id),
-                                        eq(firstComments.revision, existing.revision),
-                                        inArray(firstComments.state, [...editableStates])
-                                    )
-                                )
-                                .returning()
-                                .get()
+                        const updated = await updateSavedCommentStatement.get(
+                            text,
+                            delaySeconds,
+                            actor.id,
+                            armed ? 'pending' : 'waiting',
+                            dueAt,
+                            existing.revision + 1,
+                            now,
+                            existing.id,
+                            existing.revision
                         )
                         if (updated === null) return { kind: 'conflict' }
                         await event(updated, 'publication_first_comment.enabled', now, { text })
@@ -1020,7 +1229,7 @@ export function createPublicationFirstCommentStore(
         async cancel(
             input: CancelPublicationFirstCommentInput
         ): Promise<PublicationFirstCommentMutation> {
-            return database.sql.transaction(async () => {
+            return db.transaction(async () => {
                 const projectId = requireNonBlank(input.projectId, 'projectId')
                 const publicationId = requireNonBlank(input.publicationId, 'publicationId')
                 const subjectId = requireNonBlank(input.subjectId, 'subjectId')
@@ -1045,26 +1254,11 @@ export function createPublicationFirstCommentStore(
                         }
                         if (!isEditableState(existing.state)) return { kind: 'conflict' }
                         if (existing.revision !== expectedRevision) return { kind: 'conflict' }
-                        const updated = await runSync(database, () =>
-                            database
-                                .update(firstComments)
-                                .set({
-                                    state: 'cancelled',
-                                    claimToken: null,
-                                    leaseExpiresAt: null,
-                                    revision: existing.revision + 1,
-                                    updatedAt: now,
-                                    lastError: null,
-                                })
-                                .where(
-                                    and(
-                                        eq(firstComments.id, existing.id),
-                                        eq(firstComments.revision, expectedRevision),
-                                        inArray(firstComments.state, [...editableStates])
-                                    )
-                                )
-                                .returning()
-                                .get()
+                        const updated = await cancelFirstCommentStatement.get(
+                            existing.revision + 1,
+                            now,
+                            existing.id,
+                            expectedRevision
                         )
                         if (updated === null) return { kind: 'conflict' }
                         await event(updated, 'publication_first_comment.cancelled', now)
@@ -1085,14 +1279,7 @@ export function createPublicationFirstCommentStore(
         async reconcile(now: number): Promise<void> {
             const timestamp = requireTimestamp(now, 'now')
             await defineTransaction(database, async () => {
-                const rows = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(firstComments)
-                        .where(inArray(firstComments.state, [...reconcilableStates]))
-                        .orderBy(asc(firstComments.createdAt), asc(firstComments.id))
-                        .all()
-                )
+                const rows = await listReconcilableCommentsStatement.all()
                 for (const current of rows) {
                     const publication = await loadPublicationStatement.get(
                         current.projectId,
@@ -1244,7 +1431,7 @@ export function createPublicationFirstCommentStore(
         },
 
         async claimCurrent(rowValue: PublicationFirstComment, now = Date.now()): Promise<boolean> {
-            return database.sql.transaction(async () => {
+            return db.transaction(async () => {
                 const current = await rowById(rowValue.id)
                 if (current === null) return false
                 if (current.state !== 'running') return false

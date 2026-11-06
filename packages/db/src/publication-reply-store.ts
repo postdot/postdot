@@ -5,11 +5,10 @@ import {
     requireTimestamp,
     type ProviderCommentPolicy,
 } from '@postdot/core'
-import { and, asc, desc, eq, gt, lt, lte, or, sql } from 'drizzle-orm'
 
 import { createAccessStore } from './access-store'
-import { defineTransaction, type PostdotDatabase, runSync } from './client'
-import { actors, publicationCommentReplies as replies } from './domain-schema'
+import { defineTransaction, type PostdotDatabase } from './client'
+import type { publicationCommentReplies as replies } from './domain-schema'
 import { createEventJournalStore } from './event-journal-store'
 import { mapSequential } from './sql/sequential'
 
@@ -31,27 +30,259 @@ export type CreatePublicationReply = Pick<
     | 'recordKey'
 > & { subjectId: string; now: number }
 
+const replyColumns = `
+    id,
+    project_id as "projectId",
+    publication_id as "publicationId",
+    actor_id as "actorId",
+    root_uri as "rootUri",
+    parent_uri as "parentUri",
+    text,
+    connection_id as "connectionId",
+    credential_id as "credentialId",
+    provider_id as "providerId",
+    account_id as "accountId",
+    instance_origin as "instanceOrigin",
+    record_key as "recordKey",
+    state,
+    attempts,
+    claim_token as "claimToken",
+    lease_expires_at as "leaseExpiresAt",
+    effect_started_at as "effectStartedAt",
+    external_id as "externalId",
+    external_url as "externalUrl",
+    last_error as "lastError",
+    created_at as "createdAt",
+    updated_at as "updatedAt"
+`
+
+interface ReplyActorRow {
+    readonly id: string
+    readonly subjectId: string | null
+    readonly displayName: string
+}
+
 export function createPublicationReplyStore(
     database: PostdotDatabase,
     options: { readonly policies: readonly ProviderCommentPolicy[] }
 ) {
+    const sql = database.sql
     const access = createAccessStore(database)
     const journal = createEventJournalStore(database)
-    const get = async (id: string) =>
-        (await runSync(database, () =>
-            database.select().from(replies).where(eq(replies.id, id)).get()
-        )) ?? null
-    async function actor(row: PublicationReply) {
-        return (
-            (await runSync(database, () =>
-                database
-                    .select()
-                    .from(actors)
-                    .where(and(eq(actors.projectId, row.projectId), eq(actors.id, row.actorId)))
-                    .get()
-            )) ?? null
+
+    const getReplyStatement = sql.statement<PublicationReply, [id: string]>(`
+        select ${replyColumns}
+        from publication_comment_replies
+        where id = ?1
+    `)
+    const loadActorStatement = sql.statement<ReplyActorRow, [projectId: string, actorId: string]>(`
+        select id,
+               subject_id as "subjectId",
+               display_name as "displayName"
+        from actors
+        where project_id = ?1
+          and id = ?2
+    `)
+    const loadActorBySubjectStatement = sql.statement<
+        { readonly id: string },
+        [projectId: string, subjectId: string]
+    >(`
+        select id
+        from actors
+        where project_id = ?1
+          and subject_id = ?2
+        limit 1
+    `)
+    const listExpiredClaimsStatement = sql.statement<PublicationReply, [cutoff: number]>(`
+        select ${replyColumns}
+        from publication_comment_replies
+        where state = 'running'
+          and lease_expires_at < ?1
+    `)
+    const selectNextDueReplyStatement = sql.statement<
+        PublicationReply,
+        [projectId: string | null]
+    >(`
+        select ${replyColumns}
+        from publication_comment_replies
+        where state = 'pending'
+          and not exists (
+              select 1
+              from resource_lifecycles
+              where kind = 'project'
+                and resource_id = publication_comment_replies.project_id
+                and state <> 'active'
+          )
+          and (?1 is null or project_id = ?1)
+        order by created_at asc, id asc
+        limit 1
+    `)
+    const claimPendingReplyStatement = sql.statement<
+        PublicationReply,
+        [
+            attempts: number,
+            claimToken: string,
+            leaseExpiresAt: number,
+            updatedAt: number,
+            id: string,
+        ]
+    >(`
+        update publication_comment_replies
+        set state = 'running',
+            attempts = ?1,
+            claim_token = ?2,
+            lease_expires_at = ?3,
+            effect_started_at = null,
+            updated_at = ?4
+        where id = ?5
+          and state = 'pending'
+        returning ${replyColumns}
+    `)
+    const renewClaimStatement = sql.statement<
+        { readonly id: string },
+        [leaseExpiresAt: number, id: string, claimToken: string, now: number]
+    >(`
+        update publication_comment_replies
+        set lease_expires_at = ?1
+        where id = ?2
+          and claim_token = ?3
+          and state = 'running'
+          and lease_expires_at > ?4
+          and lease_expires_at <= ?1
+        returning id
+    `)
+    const markClaimStartedStatement = sql.statement<
+        PublicationReply,
+        [effectStartedAt: number, updatedAt: number, id: string, claimToken: string]
+    >(`
+        update publication_comment_replies
+        set effect_started_at = ?1,
+            updated_at = ?2
+        where id = ?3
+          and state = 'running'
+          and claim_token = ?4
+        returning ${replyColumns}
+    `)
+    const finishClaimStatement = sql.statement<
+        PublicationReply,
+        [
+            state: PublicationReply['state'],
+            updatedAt: number,
+            externalId: string | null,
+            externalUrl: string | null,
+            lastError: string | null,
+            id: string,
+            claimToken: string,
+        ]
+    >(`
+        update publication_comment_replies
+        set state = ?1,
+            claim_token = null,
+            lease_expires_at = null,
+            updated_at = ?2,
+            external_id = ?3,
+            external_url = ?4,
+            last_error = ?5
+        where id = ?6
+          and state = 'running'
+          and claim_token = ?7
+        returning ${replyColumns}
+    `)
+    const insertReplyStatement = sql.statement<
+        void,
+        [
+            id: string,
+            projectId: string,
+            publicationId: string,
+            actorId: string,
+            rootUri: string,
+            parentUri: string,
+            text: string,
+            connectionId: string,
+            credentialId: string,
+            providerId: string,
+            accountId: string,
+            instanceOrigin: string | null,
+            recordKey: string,
+            state: PublicationReply['state'],
+            attempts: number,
+            claimToken: string | null,
+            leaseExpiresAt: number | null,
+            effectStartedAt: number | null,
+            externalId: string | null,
+            externalUrl: string | null,
+            lastError: string | null,
+            createdAt: number,
+            updatedAt: number,
+        ]
+    >(`
+        insert into publication_comment_replies (
+            id,
+            project_id,
+            publication_id,
+            actor_id,
+            root_uri,
+            parent_uri,
+            text,
+            connection_id,
+            credential_id,
+            provider_id,
+            account_id,
+            instance_origin,
+            record_key,
+            state,
+            attempts,
+            claim_token,
+            lease_expires_at,
+            effect_started_at,
+            external_id,
+            external_url,
+            last_error,
+            created_at,
+            updated_at
+        ) values (
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23
         )
-    }
+    `)
+    const listRepliesStatement = sql.statement<
+        PublicationReply,
+        [
+            projectId: string,
+            publicationId: string,
+            anchorCreatedAt: number | null,
+            anchorId: string | null,
+        ]
+    >(`
+        select ${replyColumns}
+        from publication_comment_replies
+        where project_id = ?1
+          and publication_id = ?2
+          and (
+              ?3 is null
+              or created_at < ?3
+              or (created_at = ?3 and id < ?4)
+          )
+        order by created_at desc, id desc
+        limit 51
+    `)
+    const nextEventAtStatement = sql.statement<{ readonly at: number | null }, []>(`
+        select min(case when state = 'pending' then created_at else lease_expires_at end) as "at"
+        from publication_comment_replies
+        where (
+            state = 'pending'
+            and not exists (
+                select 1
+                from resource_lifecycles
+                where kind = 'project'
+                  and resource_id = publication_comment_replies.project_id
+                  and state <> 'active'
+            )
+        ) or state = 'running'
+    `)
+
+    const get = (id: string) => getReplyStatement.get(id)
+    const actor = (row: PublicationReply) => loadActorStatement.get(row.projectId, row.actorId)
+
     async function event(row: PublicationReply, name: string, at: number) {
         await journal.append({
             projectId: row.projectId,
@@ -76,7 +307,7 @@ export function createPublicationReplyStore(
         const externalId = policy.publicationId(row.rootUri)
         if (externalId === null) return false
         return (
-            (await database.sql
+            (await sql
                 .statement<
                     { id: string },
                     [string, string, string, string, string, string, string, string | null]
@@ -102,49 +333,26 @@ export function createPublicationReplyStore(
                 )) !== null
         )
     }
-    async function updateClaim(id: string, token: string, values: Partial<PublicationReply>) {
-        return (
-            (await runSync(database, () =>
-                database
-                    .update(replies)
-                    .set(values)
-                    .where(
-                        and(
-                            eq(replies.id, id),
-                            eq(replies.state, 'running'),
-                            eq(replies.claimToken, token)
-                        )
-                    )
-                    .returning()
-                    .get()
-            )) ?? null
-        )
-    }
+
     const deliveries: ExternalEffectExecutorStore<PublicationReplyWork> = {
         recoverExpiredClaims(now) {
             return defineTransaction(database, async () => {
-                const expired = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(replies)
-                        .where(
-                            and(eq(replies.state, 'running'), lt(replies.leaseExpiresAt, now + 1))
-                        )
-                        .all()
-                )
+                const expired = await listExpiredClaimsStatement.all(now + 1)
                 const requeuedJobIds: string[] = [],
                     ambiguousJobIds: string[] = []
                 for (const row of expired) {
                     const uncertain = row.effectStartedAt !== null
-                    const updated = await updateClaim(row.id, row.claimToken!, {
-                        state: uncertain ? 'ambiguous' : 'pending',
-                        claimToken: null,
-                        leaseExpiresAt: null,
-                        updatedAt: now,
-                        lastError: uncertain
+                    const updated = await finishClaimStatement.get(
+                        uncertain ? 'ambiguous' : 'pending',
+                        now,
+                        row.externalId,
+                        row.externalUrl,
+                        uncertain
                             ? 'The process stopped before the reply outcome was confirmed'
                             : null,
-                    })
+                        row.id,
+                        row.claimToken!
+                    )
                     if (!updated) continue
                     ;(uncertain ? ambiguousJobIds : requeuedJobIds).push(row.id)
                     await event(
@@ -158,39 +366,14 @@ export function createPublicationReplyStore(
         },
         claimNextDueJob(input) {
             return defineTransaction(database, async () => {
-                const row = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(replies)
-                        .where(
-                            and(
-                                eq(replies.state, 'pending'),
-                                sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${replies.projectId} and state <> 'active')`,
-                                input.projectId === undefined
-                                    ? undefined
-                                    : eq(replies.projectId, input.projectId)
-                            )
-                        )
-                        .orderBy(asc(replies.createdAt), asc(replies.id))
-                        .get()
-                )
+                const row = await selectNextDueReplyStatement.get(input.projectId ?? null)
                 if (!row) return null
-                return (
-                    (await runSync(database, () =>
-                        database
-                            .update(replies)
-                            .set({
-                                state: 'running',
-                                attempts: row.attempts + 1,
-                                claimToken: input.claimToken,
-                                leaseExpiresAt: input.leaseExpiresAt,
-                                effectStartedAt: null,
-                                updatedAt: input.now,
-                            })
-                            .where(and(eq(replies.id, row.id), eq(replies.state, 'pending')))
-                            .returning()
-                            .get()
-                    )) ?? null
+                return claimPendingReplyStatement.get(
+                    row.attempts + 1,
+                    input.claimToken,
+                    input.leaseExpiresAt,
+                    input.now,
+                    row.id
                 )
             })()
         },
@@ -199,25 +382,12 @@ export function createPublicationReplyStore(
             const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
             if (expiry <= at) return false
             return (
-                (await runSync(database, () =>
-                    database
-                        .update(replies)
-                        .set({ leaseExpiresAt: expiry })
-                        .where(
-                            and(
-                                eq(replies.id, requireNonBlank(input.jobId, 'jobId')),
-                                eq(
-                                    replies.claimToken,
-                                    requireNonBlank(input.claimToken, 'claimToken')
-                                ),
-                                eq(replies.state, 'running'),
-                                gt(replies.leaseExpiresAt, at),
-                                lte(replies.leaseExpiresAt, expiry)
-                            )
-                        )
-                        .returning({ id: replies.id })
-                        .get()
-                )) != null
+                (await renewClaimStatement.get(
+                    expiry,
+                    requireNonBlank(input.jobId, 'jobId'),
+                    requireNonBlank(input.claimToken, 'claimToken'),
+                    at
+                )) !== null
             )
         },
         startExternalEffect(id, token, now) {
@@ -231,20 +401,19 @@ export function createPublicationReplyStore(
                 )
                     return false
                 if (!(await eligible(row))) {
-                    const failed = await updateClaim(id, token, {
-                        state: 'failed',
-                        claimToken: null,
-                        leaseExpiresAt: null,
-                        updatedAt: now,
-                        lastError: 'The original account or editor access is no longer available',
-                    })
+                    const failed = await finishClaimStatement.get(
+                        'failed',
+                        now,
+                        row.externalId,
+                        row.externalUrl,
+                        'The original account or editor access is no longer available',
+                        id,
+                        token
+                    )
                     if (failed) await event(failed, 'publication_reply.failed', now)
                     return false
                 }
-                const updated = await updateClaim(id, token, {
-                    effectStartedAt: now,
-                    updatedAt: now,
-                })
+                const updated = await markClaimStartedStatement.get(now, now, id, token)
                 if (updated) await event(updated, 'publication_reply.started', now)
                 return updated !== null
             })()
@@ -259,16 +428,15 @@ export function createPublicationReplyStore(
                         : outcome.type === 'ambiguous' || outcome.type === 'deferred'
                           ? 'ambiguous'
                           : 'failed'
-                const row = await updateClaim(input.jobId, input.claimToken, {
+                const row = await finishClaimStatement.get(
                     state,
-                    claimToken: null,
-                    leaseExpiresAt: null,
-                    updatedAt: input.completedAt,
-                    externalId: outcome.type === 'published' ? (outcome.externalId ?? null) : null,
-                    externalUrl:
-                        outcome.type === 'published' ? (outcome.externalUrl ?? null) : null,
-                    lastError: outcome.type === 'published' ? null : outcome.errorMessage,
-                })
+                    input.completedAt,
+                    outcome.type === 'published' ? (outcome.externalId ?? null) : null,
+                    outcome.type === 'published' ? (outcome.externalUrl ?? null) : null,
+                    outcome.type === 'published' ? null : outcome.errorMessage,
+                    input.jobId,
+                    input.claimToken
+                )
                 if (!row) return null
                 await event(row, `publication_reply.${state}`, input.completedAt)
                 return state === 'sent' ? 'published' : state
@@ -280,7 +448,7 @@ export function createPublicationReplyStore(
         get,
         eligible,
         async claimCurrent(row: PublicationReply, now = Date.now()): Promise<boolean> {
-            return database.sql.transaction(async () => {
+            return sql.transaction(async () => {
                 const current = await get(row.id)
                 return (
                     current !== null &&
@@ -292,7 +460,7 @@ export function createPublicationReplyStore(
             }, 'immediate')
         },
         async create(input: CreatePublicationReply): Promise<PublicationReply | null> {
-            return database.sql.transaction(async () => {
+            return sql.transaction(async () => {
                 requireTimestamp(input.now, 'reply creation time')
                 requireNonBlank(input.text, 'reply text')
                 return defineTransaction(database, async () => {
@@ -300,17 +468,9 @@ export function createPublicationReplyStore(
                         !(await access.canAccessProject(input.projectId, input.subjectId, 'editor'))
                     )
                         return null
-                    const author = await runSync(database, () =>
-                        database
-                            .select()
-                            .from(actors)
-                            .where(
-                                and(
-                                    eq(actors.projectId, input.projectId),
-                                    eq(actors.subjectId, input.subjectId)
-                                )
-                            )
-                            .get()
+                    const author = await loadActorBySubjectStatement.get(
+                        input.projectId,
+                        input.subjectId
                     )
                     if (!author) return null
                     const existing = await get(input.id)
@@ -338,14 +498,38 @@ export function createPublicationReplyStore(
                         updatedAt: input.now,
                     }
                     if (!(await eligible(row))) return null
-                    await runSync(database, () => database.insert(replies).values(row).run())
+                    await insertReplyStatement.run(
+                        row.id,
+                        row.projectId,
+                        row.publicationId,
+                        row.actorId,
+                        row.rootUri,
+                        row.parentUri,
+                        row.text,
+                        row.connectionId,
+                        row.credentialId,
+                        row.providerId,
+                        row.accountId,
+                        row.instanceOrigin,
+                        row.recordKey,
+                        row.state,
+                        row.attempts,
+                        row.claimToken,
+                        row.leaseExpiresAt,
+                        row.effectStartedAt,
+                        row.externalId,
+                        row.externalUrl,
+                        row.lastError,
+                        row.createdAt,
+                        row.updatedAt
+                    )
                     await event(row, 'publication_reply.requested', input.now)
                     return row
                 })()
             }, 'immediate')
         },
         async list(projectId: string, publicationId: string, subjectId: string, before?: string) {
-            return database.sql.transaction(async () => {
+            return sql.transaction(async () => {
                 if (!(await access.canAccessProject(projectId, subjectId, 'viewer'))) return null
                 const anchor = before ? await get(before) : null
                 if (
@@ -355,28 +539,11 @@ export function createPublicationReplyStore(
                         anchor.publicationId !== publicationId)
                 )
                     return null
-                const rows = await runSync(database, () =>
-                    database
-                        .select()
-                        .from(replies)
-                        .where(
-                            and(
-                                eq(replies.projectId, projectId),
-                                eq(replies.publicationId, publicationId),
-                                anchor
-                                    ? or(
-                                          lt(replies.createdAt, anchor.createdAt),
-                                          and(
-                                              eq(replies.createdAt, anchor.createdAt),
-                                              lt(replies.id, anchor.id)
-                                          )
-                                      )
-                                    : undefined
-                            )
-                        )
-                        .orderBy(desc(replies.createdAt), desc(replies.id))
-                        .limit(51)
-                        .all()
+                const rows = await listRepliesStatement.all(
+                    projectId,
+                    publicationId,
+                    anchor?.createdAt ?? null,
+                    anchor?.id ?? null
                 )
                 const page = rows.slice(0, 50)
                 return {
@@ -396,29 +563,7 @@ export function createPublicationReplyStore(
             }, 'deferred')
         },
         async getNextEventAt(): Promise<number | null> {
-            return (
-                (
-                    await runSync(database, () =>
-                        database
-                            .select({
-                                at: sql<
-                                    number | null
-                                >`min(case when ${replies.state} = 'pending' then ${replies.createdAt} else ${replies.leaseExpiresAt} end)`,
-                            })
-                            .from(replies)
-                            .where(
-                                or(
-                                    and(
-                                        eq(replies.state, 'pending'),
-                                        sql`not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = ${replies.projectId} and state <> 'active')`
-                                    ),
-                                    eq(replies.state, 'running')
-                                )
-                            )
-                            .get()
-                    )
-                )?.at ?? null
-            )
+            return (await nextEventAtStatement.get())?.at ?? null
         },
     }
 }

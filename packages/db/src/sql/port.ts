@@ -11,7 +11,7 @@ export type SqlValue = string | number | bigint | boolean | null | Uint8Array
 
 export type SqlParams = readonly SqlValue[]
 
-export type SqlDialect = 'sqlite'
+export type SqlDialect = 'sqlite' | 'postgres'
 
 export interface SqlRunResult {
     readonly changes: number

@@ -199,7 +199,7 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                                 [string, number, number]
                             >(`
                     select p.id, coalesce(p.published_at,p.scheduled_at,p.updated_at) as at,p.state,p.updated_at as updatedAt, (select max(e.sequence) from audit_events e where e.entity_id=p.id and e.project_id=p.project_id) as journalRevision
-                    from publications p where p.channel_id=?
+                    from publications p where p.channel_id=?1
                     and p.state in ('scheduled','ready','publishing','published','ambiguous')
                     and coalesce(p.published_at,p.scheduled_at,p.updated_at) between ?2 and ?3
                     and (p.state in ('published','ambiguous') or exists (
