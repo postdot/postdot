@@ -1,7 +1,5 @@
-import { createAccessStore, type AccessStore, type PostdotDatabase } from '@postdot/db'
-import * as schema from '@postdot/db/schema'
+import { createAccessStore, type AccessStore, type DatabaseHandle } from '@postdot/db'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
-import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { hashPassword } from 'better-auth/crypto'
 
 import {
@@ -10,6 +8,7 @@ import {
     type PostdotAuthPluginHooks,
     type PostdotAuthPlugins,
 } from './plugins'
+import { postdotSqlAdapter } from './sql-adapter'
 
 export type { PostdotAuthInvitationOptions, PostdotOrganizationInvitationEmail } from './plugins'
 export { postdotUserApiKeyConfigId } from './plugins'
@@ -354,7 +353,7 @@ export type PostdotAuth = Auth<PostdotAuthOptions> & {
 }
 
 export function createAuth(
-    database: PostdotDatabase,
+    database: DatabaseHandle,
     runtimeOptions: PostdotAuthRuntimeOptions = {}
 ): PostdotAuth {
     const {
@@ -384,7 +383,7 @@ export function createAuth(
 
     return betterAuth({
         ...betterAuthOptions,
-        database: createGatedAuthAdapter(database),
+        database: postdotSqlAdapter(database),
         hooks: {
             before: async context => {
                 // Better Auth exposes `path` on the runtime middleware context,
@@ -599,64 +598,4 @@ export function createAuth(
             },
         },
     }) as unknown as PostdotAuth
-}
-
-/**
- * Runs Better Auth transactions through the persistence port (ADR-097): they
- * become atomic across awaits, serialized with Postdot's writer gate, and
- * hooks that call Postdot stores join the same transaction. Drizzle's own
- * bun:sqlite transaction committed as soon as the async callback first
- * yielded. Individual adapter operations are gated below as well.
- */
-function withGatedTransactions(database: PostdotDatabase): PostdotDatabase {
-    const gated: PostdotDatabase = new Proxy(database, {
-        get(target, property, receiver) {
-            if (property === 'transaction') {
-                return <T>(operation: (transaction: PostdotDatabase) => Promise<T>) =>
-                    target.sql.transaction(() => operation(gated))
-            }
-            return Reflect.get(target, property, receiver) as unknown
-        },
-    })
-    return gated
-}
-
-/** All Better Auth persistence shares the same isolation boundary as Postdot stores. */
-function createGatedAuthAdapter(database: PostdotDatabase): ReturnType<typeof drizzleAdapter> {
-    const factory = drizzleAdapter(withGatedTransactions(database), {
-        provider: 'sqlite',
-        schema,
-        transaction: true,
-    })
-    const operations = new Set([
-        'create',
-        'findOne',
-        'findMany',
-        'count',
-        'update',
-        'updateMany',
-        'delete',
-        'deleteMany',
-        'consumeOne',
-        'incrementOne',
-    ])
-    return options => {
-        const adapter = factory(options)
-        return new Proxy(adapter, {
-            get(target, property, receiver) {
-                const operation = Reflect.get(target, property, receiver) as unknown
-                if (
-                    typeof property !== 'string' ||
-                    !operations.has(property) ||
-                    typeof operation !== 'function'
-                ) {
-                    return operation
-                }
-                return (...args: unknown[]) =>
-                    database.sql.transaction(
-                        async () => Reflect.apply(operation, target, args) as Promise<unknown>
-                    )
-            },
-        })
-    }
 }

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
-import {
-    closeDatabase,
-    createAccessStore,
-    createDatabase,
-    createManualStore,
-    runMigrations,
-} from '@postdot/db'
+import { createAccessStore, createManualStore } from '@postdot/db'
+import { closeTestDatabase, openTestDatabase } from '@postdot/db/testing'
 import { verifyPassword } from 'better-auth/crypto'
 
 import {
@@ -22,7 +17,7 @@ import {
 const baseURL = 'http://localhost:3000'
 const secret = 'postdot-test-secret-with-at-least-32-characters'
 
-function createFixture(
+async function createFixture(
     options: Pick<
         PostdotAuthRuntimeOptions,
         | 'allowAdditionalSignups'
@@ -34,8 +29,7 @@ function createFixture(
         | 'sendPasswordResetEmail'
     > = {}
 ) {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const { database } = await openTestDatabase()
     const access = createAccessStore(database)
 
     return {
@@ -60,7 +54,7 @@ function createFixture(
 describe('Postdot authentication', () => {
     for (const fixtureMode of [false, true]) {
         it(`keeps the production member cap while allowing the shared fixture population (fixture mode ${fixtureMode})`, async () => {
-            const { auth, access, database } = createFixture({
+            const { auth, access, database } = await createFixture({
                 allowAdditionalSignups: fixtureMode,
             })
             const signup = (email: string) =>
@@ -79,19 +73,19 @@ describe('Postdot authentication', () => {
                 const owner = await signup('limit-owner@postdot.local')
                 expect(owner.status).toBe(200)
                 const workspace = (await access.getDefaultWorkspace())!
-                database.$client.transaction(() => {
+                await database.sql.transaction(async () => {
                     for (let index = 0; index < 100; index++) {
                         const id = `limit-member-${index}`
-                        database.$client
-                            .query(`insert into user (id, name, email, email_verified, created_at, updated_at)
+                        await database.sql
+                            .statement(`insert into "user" (id, name, email, email_verified, created_at, updated_at)
                             values (?1, ?1, ?2, 0, 0, 0)`)
                             .run(id, `${id}@postdot.local`)
-                        database.$client
-                            .query(`insert into member (id, organization_id, user_id, role, created_at)
+                        await database.sql
+                            .statement(`insert into member (id, organization_id, user_id, role, created_at)
                             values (?1, ?2, ?1, 'member', 0)`)
                             .run(id, workspace.organizationId)
                     }
-                })()
+                })
                 const invitation = await auth.api.createInvitation({
                     body: {
                         organizationId: workspace.organizationId,
@@ -121,13 +115,13 @@ describe('Postdot authentication', () => {
                         code: 'ORGANIZATION_MEMBERSHIP_LIMIT_REACHED',
                     })
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         })
     }
 
     it('keeps auth reads outside an uncommitted Postdot transaction', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
         const entered = Promise.withResolvers<void>()
         const release = Promise.withResolvers<void>()
         let transaction: Promise<unknown> | undefined
@@ -138,7 +132,7 @@ describe('Postdot authentication', () => {
                 .transaction(async () => {
                     await database.sql
                         .statement(`
-                    insert into user (id, name, email, email_verified, created_at, updated_at)
+                    insert into "user" (id, name, email, email_verified, created_at, updated_at)
                     values ('rolled-back', 'Uncommitted', 'uncommitted@example.com', 0, 0, 0)
                 `)
                         .run()
@@ -163,7 +157,7 @@ describe('Postdot authentication', () => {
         } finally {
             release.resolve()
             await Promise.allSettled([transaction, lookup])
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
@@ -177,7 +171,7 @@ describe('Postdot authentication', () => {
     })
 
     it('exposes Better Auth through its standard health endpoint', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
 
         try {
             const response = await auth.handler(new Request(`${baseURL}/api/auth/ok`))
@@ -185,12 +179,12 @@ describe('Postdot authentication', () => {
             expect(response.status).toBe(200)
             expect(await response.json()).toEqual({ ok: true })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('creates an email account and resolves its session through HTTP', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
 
         try {
             const signUpResponse = await auth.handler(
@@ -235,12 +229,12 @@ describe('Postdot authentication', () => {
             }
             expect(sessionBody.user.email).toBe('operator@postdot.local')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('gives the bootstrap account admin capabilities and supports user API keys', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
         const headers = {
             'content-type': 'application/json',
             origin: baseURL,
@@ -262,8 +256,10 @@ describe('Postdot authentication', () => {
 
             const signUpBody = (await signUpResponse.json()) as { user: { id: string } }
             expect(
-                database.$client
-                    .query<{ role: string | null }, [string]>('select role from user where id = ?1')
+                await database.sql
+                    .statement<{ role: string | null }, [string]>(
+                        'select role from "user" where id = ?1'
+                    )
                     .get(signUpBody.user.id)
             ).toEqual({ role: 'admin' })
 
@@ -354,12 +350,12 @@ describe('Postdot authentication', () => {
                 referenceId: signUpBody.user.id,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('uses organization invitations with Better Auth roles and expiry', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
         const headers = {
             'content-type': 'application/json',
             origin: baseURL,
@@ -451,13 +447,13 @@ describe('Postdot authentication', () => {
                 member: { organizationId: organization.id, role: 'editor' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('forwards optional organization invitation delivery through a deployment hook', async () => {
         const deliveries: PostdotOrganizationInvitationEmail[] = []
-        const { auth, database } = createFixture({
+        const { auth, database } = await createFixture({
             organizationInvitationURL: ({ id, organizationId }) =>
                 `https://app.example.test/invitations/${id}?organizationId=${organizationId}`,
             sendOrganizationInvitationEmail: delivery => {
@@ -515,14 +511,14 @@ describe('Postdot authentication', () => {
             })
             expect(deliveries[0]?.expiresAt).toEqual(invitation.expiresAt)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('forwards account verification and password reset delivery through deployment hooks', async () => {
         const verificationDeliveries: PostdotAuthVerificationEmail[] = []
         const resetDeliveries: PostdotAuthVerificationEmail[] = []
-        const { auth, database } = createFixture({
+        const { auth, database } = await createFixture({
             sendEmailVerificationOnSignUp: true,
             sendEmailVerification: delivery => {
                 verificationDeliveries.push(delivery)
@@ -577,13 +573,13 @@ describe('Postdot authentication', () => {
             expect(resetDeliveries[0]?.url).toContain('/api/auth/reset-password/')
             expect(signUp.user.id).toBeTruthy()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('returns the same reset response for known and unknown email addresses', async () => {
         const deliveries: PostdotAuthVerificationEmail[] = []
-        const { auth, database } = createFixture({
+        const { auth, database } = await createFixture({
             sendPasswordResetEmail: delivery => {
                 deliveries.push(delivery)
             },
@@ -627,12 +623,12 @@ describe('Postdot authentication', () => {
             expect(deliveries).toHaveLength(1)
             expect(deliveries[0]?.user.email).toBe('reset-owner@postdot.local')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('keeps email reset unavailable when the instance has no mail transport', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
         const headers = {
             'content-type': 'application/json',
             origin: baseURL,
@@ -666,12 +662,12 @@ describe('Postdot authentication', () => {
             expect(response.status).toBe(400)
             expect(await response.json()).toMatchObject({ code: 'RESET_PASSWORD_DISABLED' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('turns a workspace project invitation into a Postdot project grant', async () => {
-        const { access, auth, database, manualStore } = createFixture({
+        const { access, auth, database, manualStore } = await createFixture({
             allowAdditionalSignups: true,
         })
         const headers = {
@@ -728,8 +724,8 @@ describe('Postdot authentication', () => {
             // The additional-signup fixture gives the second account a
             // default workspace membership. Remove it so this test exercises
             // the real invitation acceptance path.
-            database.$client
-                .query('delete from member where organization_id = ?1 and user_id = ?2')
+            await database.sql
+                .statement('delete from member where organization_id = ?1 and user_id = ?2')
                 .run(workspace.organizationId, member.user.id)
 
             const invitation = await auth.api.createInvitation({
@@ -766,12 +762,12 @@ describe('Postdot authentication', () => {
             // current workspace membership and therefore becomes unavailable.
             expect(await access.canAccessProject(project.project.id, member.user.id)).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('closes public signup after bootstrap while keeping the first account usable', async () => {
-        const { auth, database } = createFixture()
+        const { auth, database } = await createFixture()
         const headers = {
             'content-type': 'application/json',
             origin: baseURL,
@@ -823,12 +819,12 @@ describe('Postdot authentication', () => {
                 user: { email: 'first@postdot.local' },
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('exposes only the email and password strategy', () => {
-        const { database } = createFixture()
+    it('exposes only the email and password strategy', async () => {
+        const { database } = await createFixture()
         const configured = createAuth(database, { baseURL, secret })
 
         try {
@@ -841,7 +837,7 @@ describe('Postdot authentication', () => {
             )
             expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 })
