@@ -35,8 +35,8 @@ export function createUserAvatarStore(database: DatabaseHandle, storage: MediaSt
             .statement(`UPDATE user_avatars SET state = 'retired', updated_at = ?
             WHERE (state = 'pending' AND created_at < ?)
             OR (state = 'ready' AND NOT EXISTS
-                (SELECT 1 FROM "user" WHERE user.id = user_avatars.user_id
-                 AND user.image = '/api/account/avatars/' || user_avatars.id))`)
+                (SELECT 1 FROM "user" WHERE "user".id = user_avatars.user_id
+                 AND "user".image = '/api/account/avatars/' || user_avatars.id))`)
             .run(now, now - abandonedUploadMs)
         const rows = await sql
             .statement<AvatarRow, []>(`SELECT id, user_id as userId,

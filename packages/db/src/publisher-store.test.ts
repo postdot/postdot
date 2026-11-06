@@ -5,22 +5,23 @@ import { join } from 'node:path'
 
 import type { ChannelProfileDefinition } from '@postdot/core'
 
-import { closeDatabase, createDatabase } from './client'
+import { type PostdotDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
 import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
+import { describeSchema } from './sql/schema-introspection'
 import {
-    jobs,
-    posts,
-    publisherConnections,
-    publisherCredentials,
-    publicationTargetRevisions,
-    publications,
-    publishers,
-} from './schema'
-import { seedTestWorkspace } from './testing'
+    closeTestDatabase,
+    foreignKeyViolations,
+    fromDbRow,
+    openTestDatabase,
+    seedTestWorkspace,
+    testEngine,
+    type TestRow,
+    toDbValue,
+} from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
@@ -60,8 +61,7 @@ const sourceContent = (text: string) => ({
 })
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const manualStore = createManualStore(database, { now: () => now })
     const credentialStore = createPublisherCredentialStore(database, {
         cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
@@ -169,11 +169,13 @@ describe('publisher connection store', () => {
 
             // Attribution is the workspace actor snapshot of the connecting project actor.
             expect(
-                fixture.database.$client
-                    .query<{ origin: string }, [string]>(
-                        'select origin_actor_id as origin from actors where id = ?'
-                    )
-                    .get(result.connection.connectedByActorId)?.origin
+                (
+                    await fixture.database.sql
+                        .statement<{ origin: string }, [string]>(
+                            'select origin_actor_id as origin from actors where id = ?'
+                        )
+                        .get(result.connection.connectedByActorId)
+                )?.origin
             ).toBe(fixture.project.actor.id)
             expect(result.connection).toMatchObject({
                 credentialId: credential.id,
@@ -191,18 +193,29 @@ describe('publisher connection store', () => {
             })
             expect(result.connection).not.toHaveProperty('accessToken')
             expect(result.connection).not.toHaveProperty('refreshToken')
-            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
-            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
             expect(
-                fixture.database.$client
-                    .query<{ table: string }, []>(
-                        `pragma foreign_key_list('publisher_connections')`
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publishers"."id" as "id", "publishers"."workspace_id" as "workspaceId", "publishers"."channel_id" as "channelId", "publishers"."kind" as "kind", "publishers"."created_at" as "createdAt", "publishers"."updated_at" as "updatedAt" from "publishers"'
                     )
                     .all()
-                    .map(row => row.table)
+            ).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_connections"."id" as "id", "publisher_connections"."workspace_id" as "workspaceId", "publisher_connections"."publisher_id" as "publisherId", "publisher_connections"."credential_id" as "credentialId", "publisher_connections"."endpoint_url" as "endpointUrl", "publisher_connections"."authentication_json" as "authenticationJson", "publisher_connections"."destination_type" as "destinationType", "publisher_connections"."destination_id" as "destinationId", "publisher_connections"."destination_name" as "destinationName", "publisher_connections"."connected_by_actor_id" as "connectedByActorId", "publisher_connections"."created_at" as "createdAt", "publisher_connections"."updated_at" as "updatedAt" from "publisher_connections"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { authenticationJson: 'json' }))
+            ).toHaveLength(1)
+            expect(
+                (
+                    await describeSchema(fixture.database)
+                ).tables.publisher_connections!.foreignKeys.map(key => /->(\w+)\(/.exec(key)![1])
             ).not.toContain('account')
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -245,7 +258,7 @@ describe('publisher connection store', () => {
                 },
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -281,7 +294,7 @@ describe('publisher connection store', () => {
                 })
             ).toEqual({ kind: 'invalid_connection' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -342,7 +355,7 @@ describe('publisher connection store', () => {
                 })
             ).toEqual({ kind: 'credential_unavailable' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -365,8 +378,22 @@ describe('publisher connection store', () => {
             expect(await fixture.publisherStore.createPublisherConnection(input)).toEqual({
                 kind: 'publisher_exists',
             })
-            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
-            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
+            expect(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publishers"."id" as "id", "publishers"."workspace_id" as "workspaceId", "publishers"."channel_id" as "channelId", "publishers"."kind" as "kind", "publishers"."created_at" as "createdAt", "publishers"."updated_at" as "updatedAt" from "publishers"'
+                    )
+                    .all()
+            ).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_connections"."id" as "id", "publisher_connections"."workspace_id" as "workspaceId", "publisher_connections"."publisher_id" as "publisherId", "publisher_connections"."credential_id" as "credentialId", "publisher_connections"."endpoint_url" as "endpointUrl", "publisher_connections"."authentication_json" as "authenticationJson", "publisher_connections"."destination_type" as "destinationType", "publisher_connections"."destination_id" as "destinationId", "publisher_connections"."destination_name" as "destinationName", "publisher_connections"."connected_by_actor_id" as "connectedByActorId", "publisher_connections"."created_at" as "createdAt", "publisher_connections"."updated_at" as "updatedAt" from "publisher_connections"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { authenticationJson: 'json' }))
+            ).toHaveLength(1)
 
             expect(
                 await fixture.publisherStore.listPublisherConnections(
@@ -400,12 +427,27 @@ describe('publisher connection store', () => {
                     'user-1'
                 )
             ).toEqual([])
-            expect(fixture.database.select().from(publishers).all()).toEqual([])
-            expect(fixture.database.select().from(publisherConnections).all()).toEqual([])
             expect(
-                fixture.database
-                    .select({ state: publisherCredentials.state })
-                    .from(publisherCredentials)
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publishers"."id" as "id", "publishers"."workspace_id" as "workspaceId", "publishers"."channel_id" as "channelId", "publishers"."kind" as "kind", "publishers"."created_at" as "createdAt", "publishers"."updated_at" as "updatedAt" from "publishers"'
+                    )
+                    .all()
+            ).toEqual([])
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_connections"."id" as "id", "publisher_connections"."workspace_id" as "workspaceId", "publisher_connections"."publisher_id" as "publisherId", "publisher_connections"."credential_id" as "credentialId", "publisher_connections"."endpoint_url" as "endpointUrl", "publisher_connections"."authentication_json" as "authenticationJson", "publisher_connections"."destination_type" as "destinationType", "publisher_connections"."destination_id" as "destinationId", "publisher_connections"."destination_name" as "destinationName", "publisher_connections"."connected_by_actor_id" as "connectedByActorId", "publisher_connections"."created_at" as "createdAt", "publisher_connections"."updated_at" as "updatedAt" from "publisher_connections"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { authenticationJson: 'json' }))
+            ).toEqual([])
+            expect(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publisher_credentials"."state" as "state" from "publisher_credentials"'
+                    )
                     .all()
             ).toEqual([{ state: 'revoked' }])
             await expect(
@@ -415,7 +457,7 @@ describe('publisher connection store', () => {
                 )
             ).resolves.toBeNull()
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -474,20 +516,36 @@ describe('publisher connection store', () => {
                 externalAccountId: 'member-43',
                 state: 'active',
             })
-            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
-            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
             expect(
-                fixture.database
-                    .select({ id: publisherCredentials.id, state: publisherCredentials.state })
-                    .from(publisherCredentials)
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "publishers"."id" as "id", "publishers"."workspace_id" as "workspaceId", "publishers"."channel_id" as "channelId", "publishers"."kind" as "kind", "publishers"."created_at" as "createdAt", "publishers"."updated_at" as "updatedAt" from "publishers"'
+                    )
                     .all()
-                    .sort((left, right) => left.state.localeCompare(right.state))
+            ).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_connections"."id" as "id", "publisher_connections"."workspace_id" as "workspaceId", "publisher_connections"."publisher_id" as "publisherId", "publisher_connections"."credential_id" as "credentialId", "publisher_connections"."endpoint_url" as "endpointUrl", "publisher_connections"."authentication_json" as "authenticationJson", "publisher_connections"."destination_type" as "destinationType", "publisher_connections"."destination_id" as "destinationId", "publisher_connections"."destination_name" as "destinationName", "publisher_connections"."connected_by_actor_id" as "connectedByActorId", "publisher_connections"."created_at" as "createdAt", "publisher_connections"."updated_at" as "updatedAt" from "publisher_connections"'
+                        )
+                        .all()
+                ).map(row => fromDbRow<TestRow>(row, { authenticationJson: 'json' }))
+            ).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "publisher_credentials"."id" as "id", "publisher_credentials"."state" as "state" from "publisher_credentials"'
+                        )
+                        .all()
+                ).sort((left, right) => left.state.localeCompare(right.state))
             ).toEqual([
                 { id: replacementCredential.id, state: 'active' },
                 { id: staleCredential.id, state: 'revoked' },
             ])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -509,7 +567,13 @@ describe('publisher connection store', () => {
                 ],
             })
             expect(post?.publications[0]?.state).toBe('scheduled')
-            expect(fixture.database.select().from(jobs).all()).toEqual([])
+            expect(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toEqual([])
 
             const connection = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
@@ -519,10 +583,24 @@ describe('publisher connection store', () => {
                 credentialId: credential.id,
             })
             expect(connection.kind).toBe('created')
-            expect(fixture.database.select().from(jobs).all()).toHaveLength(1)
-            expect(fixture.database.select().from(jobs).all()[0]?.runAt).toBe(now)
+            expect(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                    )
+                    .all()
+            ).toHaveLength(1)
+            expect(
+                (
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                        )
+                        .all()
+                )[0]?.runAt
+            ).toBe(now)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -540,51 +618,54 @@ describe('publisher connection store', () => {
             })
             expect(connection.kind).toBe('created')
 
-            fixture.database
-                .insert(posts)
-                .values({
-                    id: 'post-1',
-                    projectId: fixture.project.project.id,
-                    sourceContent: sourceContent('Active publication'),
-                    sourceRevision: 1,
-                    createdByActorId: fixture.project.actor.id,
-                })
-                .run()
-            fixture.database
-                .insert(publications)
-                .values({
-                    id: 'publication-1',
-                    projectId: fixture.project.project.id,
-                    postId: 'post-1',
-                    channelId: fixture.channel.id,
-                    targetRevisionId: 'target-1',
-                    deliveryMode: 'automatic',
-                    reviewState: 'compatible',
-                    state: 'scheduled',
-                    scheduledAt: now,
-                    createdByActorId: fixture.project.actor.id,
-                    scheduledByActorId: fixture.project.actor.id,
-                    stateChangedByActorId: fixture.project.actor.id,
-                })
-                .run()
-            fixture.database
-                .insert(publicationTargetRevisions)
-                .values({
-                    id: 'target-1',
-                    projectId: fixture.project.project.id,
-                    publicationId: 'publication-1',
-                    sequence: 1,
-                    profileVersionId: fixture.channel.profileVersionId,
-                    sourceRevision: 1,
-                    deliveryMode: 'automatic',
-                    contentJson: { commentary: 'Active publication' },
-                    contentHash: 'sha256:active-content',
-                    profileHash: linkedinProfile.profileHash,
-                    schemaHash: linkedinProfile.schemaHash,
-                    validationIssuesJson: [],
-                    createdByActorId: fixture.project.actor.id,
-                })
-                .run()
+            await fixture.database.sql
+                .statement(
+                    'insert into "posts" ("id", "project_id", "source_content", "source_revision", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5)'
+                )
+                .run(
+                    'post-1',
+                    fixture.project.project.id,
+                    toDbValue('json', sourceContent('Active publication')),
+                    1,
+                    fixture.project.actor.id
+                )
+            await fixture.database.sql
+                .statement(
+                    'insert into "publications" ("id", "project_id", "post_id", "channel_id", "target_revision_id", "delivery_mode", "review_state", "state", "scheduled_at", "created_by_actor_id", "scheduled_by_actor_id", "state_changed_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)'
+                )
+                .run(
+                    'publication-1',
+                    fixture.project.project.id,
+                    'post-1',
+                    fixture.channel.id,
+                    'target-1',
+                    'automatic',
+                    'compatible',
+                    'scheduled',
+                    now,
+                    fixture.project.actor.id,
+                    fixture.project.actor.id,
+                    fixture.project.actor.id
+                )
+            await fixture.database.sql
+                .statement(
+                    'insert into "publication_target_revisions" ("id", "project_id", "publication_id", "sequence", "profile_version_id", "source_revision", "delivery_mode", "content_json", "content_hash", "profile_hash", "schema_hash", "validation_issues_json", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)'
+                )
+                .run(
+                    'target-1',
+                    fixture.project.project.id,
+                    'publication-1',
+                    1,
+                    fixture.channel.profileVersionId,
+                    1,
+                    'automatic',
+                    toDbValue('json', { commentary: 'Active publication' }),
+                    'sha256:active-content',
+                    linkedinProfile.profileHash,
+                    linkedinProfile.schemaHash,
+                    toDbValue('json', []),
+                    fixture.project.actor.id
+                )
 
             expect(
                 await fixture.publisherStore.disconnectPublisherConnection({
@@ -594,7 +675,7 @@ describe('publisher connection store', () => {
                 })
             ).toEqual({ kind: 'active_work' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })
@@ -685,7 +766,15 @@ describe('confirmed publisher destination', () => {
     it('holds scheduled work for a changed destination and resumes only after explicit confirmation', async () => {
         const f = await scenario()
         try {
-            const targets = f.database.select().from(publicationTargetRevisions).all()
+            const targets = (
+                await f.database.sql
+                    .statement<TestRow>(
+                        'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                    )
+                    .all()
+            ).map(row =>
+                fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+            )
             expect((await f.replace()).kind).toBe('created')
             expect(await f.state()).toMatchObject({
                 revision: 1,
@@ -702,14 +791,24 @@ describe('confirmed publisher destination', () => {
                 (await f.publisherStore.getPublisherExecutionTarget(job.id, 'claim'))
                     ?.externalAccountId
             ).toBe('member-43')
-            expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(targets)
+            expect(
+                (
+                    await f.database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
+                )
+            ).toEqual(targets)
             expect((await f.state()).history[0]?.destination).toMatchObject({
                 externalAccountId: 'member-43',
                 revision: 1,
             })
             expect(JSON.stringify(await f.state())).not.toContain('fresh-token')
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('rechecks a claim acquired before replacement without losing its scheduled work', async () => {
@@ -718,14 +817,22 @@ describe('confirmed publisher destination', () => {
             const job = (await f.claim())!
             await f.replace()
             expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(false)
-            expect(f.database.select().from(jobs).all()[0]?.state).toBe('pending')
+            expect(
+                (
+                    await f.database.sql
+                        .statement<TestRow>(
+                            'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs"'
+                        )
+                        .all()
+                )[0]?.state
+            ).toBe('pending')
             expect((await f.state()).history).toEqual([])
             await f.confirm()
             const next = (await f.claim('next'))!
             expect(next.id).toBe(job.id)
             expect(await f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('does not require confirmation for reauthorization of the same account', async () => {
@@ -737,7 +844,7 @@ describe('confirmed publisher destination', () => {
             const job = (await f.claim())!
             expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('preserves the executed identity and refuses to resolve a new account for an old effect', async () => {
@@ -760,7 +867,7 @@ describe('confirmed publisher destination', () => {
             ).toBe('published')
             expect((await f.state()).history).toEqual(before)
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('suppresses automatic retries across a changed destination and preserves old execution when explicitly retried', async () => {
@@ -808,7 +915,7 @@ describe('confirmed publisher destination', () => {
                 (await f.state()).history.map(row => row.destination?.externalAccountId).sort()
             ).toEqual(['member-42', 'member-43'])
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('keeps generations monotonic through disconnect and distinguishes fresh work', async () => {
@@ -847,7 +954,7 @@ describe('confirmed publisher destination', () => {
                 })
             ).rejects.toThrow()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
     it('does not forget a changed destination when the original account is restored', async () => {
@@ -862,80 +969,107 @@ describe('confirmed publisher destination', () => {
             })
             expect(await f.claim()).toBeNull()
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
-    it('preserves data when applying destination-identity SQL to the prior column shape', async () => {
-        const f = await scenario()
-        const folder = mkdtempSync(join(tmpdir(), 'postdot-destination-sql-'))
-        try {
-            const job = (await f.claim())!
-            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
-            expect(
-                await f.workflow.completeExternalEffect({
-                    jobId: job.id,
-                    claimToken: 'claim',
-                    completedAt: now,
-                    outcome: { type: 'published', externalId: 'kept-receipt' },
-                })
-            ).toBe('published')
-            const originalTargets = f.database.select().from(publicationTargetRevisions).all()
-            const before = f.database.$client
-                .query(
-                    'select content_json, content_hash, profile_hash, target_revision_id from publication_execution_revisions'
+    it.skipIf(testEngine === 'postgres')(
+        'preserves data when applying destination-identity SQL to the prior column shape',
+        async () => {
+            const f = await scenario()
+            const folder = mkdtempSync(join(tmpdir(), 'postdot-destination-sql-'))
+            try {
+                const job = (await f.claim())!
+                expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+                expect(
+                    await f.workflow.completeExternalEffect({
+                        jobId: job.id,
+                        claimToken: 'claim',
+                        completedAt: now,
+                        outcome: { type: 'published', externalId: 'kept-receipt' },
+                    })
+                ).toBe('published')
+                const originalTargets = (
+                    await f.database.sql
+                        .statement<TestRow>(
+                            'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                        )
+                        .all()
+                ).map(row =>
+                    fromDbRow<TestRow>(row, { contentJson: 'json', validationIssuesJson: 'json' })
                 )
-                .all()
-            // Construct exactly the additive migration's previous column shape in this owned in-memory fixture.
-            f.database.$client.run('alter table channels drop column destination_revision')
-            f.database.$client.run('alter table channels drop column destination_identity_json')
-            f.database.$client.run(
-                'alter table publications drop column confirmed_destination_revision'
-            )
-            f.database.$client.run(
-                'alter table publication_execution_revisions drop column destination_snapshot_json'
-            )
-            // Exercise this additive SQL in isolation. Later migrations may
-            // already exist; never mistake the newest journal entry for this one.
-            const journal = JSON.parse(
-                readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
-            ) as { entries: { idx: number; tag: string; when: number }[] }
-            const entry = journal.entries.find(
-                row => row.tag === '0020_channel_destination_identity'
-            )!
-            mkdirSync(join(folder, 'meta'))
-            copyFileSync(
-                join(defaultMigrationsFolder, `${entry.tag}.sql`),
-                join(folder, `${entry.tag}.sql`)
-            )
-            writeFileSync(
-                join(folder, 'meta/_journal.json'),
-                JSON.stringify({
-                    version: '7',
-                    dialect: 'sqlite',
-                    entries: [
-                        { ...entry, when: Math.max(...journal.entries.map(row => row.when)) + 1 },
-                    ],
-                })
-            )
-            runMigrations(f.database, folder)
-            expect(f.database.$client.query('pragma foreign_key_check').all()).toEqual([])
-            expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(
-                originalTargets
-            )
-            expect(
-                f.database.$client
-                    .query(
+                const before = await f.database.sql
+                    .statement(
                         'select content_json, content_hash, profile_hash, target_revision_id from publication_execution_revisions'
                     )
                     .all()
-            ).toEqual(before)
-            expect((await f.state()).history[0]?.destination).toBeNull()
-            expect((await f.state()).requiresConfirmation).toBe(false)
-        } finally {
-            closeDatabase(f.database)
-            rmSync(folder, { recursive: true, force: true })
+                // Construct exactly the additive migration's previous column shape in this owned in-memory fixture.
+                await f.database.sql.exec('alter table channels drop column destination_revision')
+                await f.database.sql.exec(
+                    'alter table channels drop column destination_identity_json'
+                )
+                await f.database.sql.exec(
+                    'alter table publications drop column confirmed_destination_revision'
+                )
+                await f.database.sql.exec(
+                    'alter table publication_execution_revisions drop column destination_snapshot_json'
+                )
+                // Exercise this additive SQL in isolation. Later migrations may
+                // already exist; never mistake the newest journal entry for this one.
+                const journal = JSON.parse(
+                    readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
+                ) as { entries: { idx: number; tag: string; when: number }[] }
+                const entry = journal.entries.find(
+                    row => row.tag === '0020_channel_destination_identity'
+                )!
+                mkdirSync(join(folder, 'meta'))
+                copyFileSync(
+                    join(defaultMigrationsFolder, `${entry.tag}.sql`),
+                    join(folder, `${entry.tag}.sql`)
+                )
+                writeFileSync(
+                    join(folder, 'meta/_journal.json'),
+                    JSON.stringify({
+                        version: '7',
+                        dialect: 'sqlite',
+                        entries: [
+                            {
+                                ...entry,
+                                when: Math.max(...journal.entries.map(row => row.when)) + 1,
+                            },
+                        ],
+                    })
+                )
+                runMigrations(f.database as PostdotDatabase, folder)
+                expect(await foreignKeyViolations(f.database)).toEqual([])
+                expect(
+                    (
+                        await f.database.sql
+                            .statement<TestRow>(
+                                'select "publication_target_revisions"."id" as "id", "publication_target_revisions"."project_id" as "projectId", "publication_target_revisions"."publication_id" as "publicationId", "publication_target_revisions"."sequence" as "sequence", "publication_target_revisions"."profile_version_id" as "profileVersionId", "publication_target_revisions"."source_revision" as "sourceRevision", "publication_target_revisions"."delivery_mode" as "deliveryMode", "publication_target_revisions"."media_reference_count" as "mediaReferenceCount", "publication_target_revisions"."content_json" as "contentJson", "publication_target_revisions"."content_hash" as "contentHash", "publication_target_revisions"."profile_hash" as "profileHash", "publication_target_revisions"."schema_hash" as "schemaHash", "publication_target_revisions"."validation_issues_json" as "validationIssuesJson", "publication_target_revisions"."created_by_actor_id" as "createdByActorId", "publication_target_revisions"."created_at" as "createdAt" from "publication_target_revisions"'
+                            )
+                            .all()
+                    ).map(row =>
+                        fromDbRow<TestRow>(row, {
+                            contentJson: 'json',
+                            validationIssuesJson: 'json',
+                        })
+                    )
+                ).toEqual(originalTargets)
+                expect(
+                    await f.database.sql
+                        .statement(
+                            'select content_json, content_hash, profile_hash, target_revision_id from publication_execution_revisions'
+                        )
+                        .all()
+                ).toEqual(before)
+                expect((await f.state()).history[0]?.destination).toBeNull()
+                expect((await f.state()).requiresConfirmation).toBe(false)
+            } finally {
+                await closeTestDatabase(f.database)
+                rmSync(folder, { recursive: true, force: true })
+            }
         }
-    })
+    )
     it('creates a fresh execution job when a pending automatic retry is reconfirmed for another destination', async () => {
         const f = await scenario()
         try {
@@ -960,11 +1094,11 @@ describe('confirmed publisher destination', () => {
             await f.confirm()
             const next = (await f.claim('next', now + 10))!
             expect(next.id).not.toBe(old.id)
-            const confirmation = f.database.$client
-                .query<{ metadata: string }, []>(
+            const confirmation = (await f.database.sql
+                .statement<{ metadata: string }, []>(
                     "select metadata_json as metadata from audit_events where action = 'publication.destination_confirmed' order by sequence desc limit 1"
                 )
-                .get()!
+                .get())!
             expect(JSON.parse(confirmation.metadata)).toMatchObject({
                 replacedJobId: old.id,
                 replacementJobId: next.id,
@@ -978,7 +1112,7 @@ describe('confirmed publisher destination', () => {
                 history[0]
             )
         } finally {
-            closeDatabase(f.database)
+            await closeTestDatabase(f.database)
         }
     })
 })

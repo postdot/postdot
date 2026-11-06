@@ -36,7 +36,8 @@ import {
     jsonExtractJsonTextSql,
     jsonExtractTextSql,
 } from './sql/dialect'
-import type { SqlDatabase } from './sql/port'
+import { likeCaseInsensitiveSql } from './sql/dialect'
+import type { SqlDatabase, SqlDialect } from './sql/port'
 import { mapSequential } from './sql/sequential'
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000
@@ -321,7 +322,7 @@ type MediaTrashListStatementParams = [
     limit: number,
 ]
 
-function mediaListStatementSql(sort: MediaAssetListSort): string {
+function mediaListStatementSql(sort: MediaAssetListSort, dialect: SqlDialect): string {
     const cursorCondition = {
         newest: `
           and (
@@ -385,7 +386,7 @@ function mediaListStatementSql(sort: MediaAssetListSort): string {
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (cast(?2 as text) is null or media_assets.original_filename like ?2 escape '\\')
+          and (cast(?2 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(dialect)} ?2 escape '\\')
           and (cast(?3 as text) is null or original_representation.family = ?3)
           and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
           ${cursorCondition}
@@ -513,22 +514,22 @@ export function createMediaAssetStore(
     `)
     const listAssetsStatements = {
         newest: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('newest')
+            mediaListStatementSql('newest', sql.dialect)
         ),
         oldest: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('oldest')
+            mediaListStatementSql('oldest', sql.dialect)
         ),
         name_asc: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('name_asc')
+            mediaListStatementSql('name_asc', sql.dialect)
         ),
         name_desc: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('name_desc')
+            mediaListStatementSql('name_desc', sql.dialect)
         ),
         largest: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('largest')
+            mediaListStatementSql('largest', sql.dialect)
         ),
         smallest: sql.statement<MediaAssetRow, MediaListStatementParams>(
-            mediaListStatementSql('smallest')
+            mediaListStatementSql('smallest', sql.dialect)
         ),
     } satisfies Record<MediaAssetListSort, Awaited<ReturnType<typeof sql.statement>>>
     const countAssetsStatement = sql.statement<
@@ -544,7 +545,7 @@ export function createMediaAssetStore(
         where media_assets.project_id = ?1
           and media_assets.state <> 'deleted'
           and media_assets.archived_at is null
-          and (cast(?2 as text) is null or media_assets.original_filename like ?2 escape '\\')
+          and (cast(?2 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?2 escape '\\')
           and (cast(?3 as text) is null or original_representation.family = ?3)
           and (cast(?4 as bigint) is null or media_assets.created_at >= ?4)
     `)
@@ -554,7 +555,7 @@ export function createMediaAssetStore(
         where media_assets.project_id = ?1
           and media_assets.state = 'deletion_requested'
           and media_assets.deletion_requested_at > ?2
-          and (cast(?3 as text) is null or media_assets.original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or media_assets.original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?3 escape '\\')
           and (
               cast(?4 as bigint) is null
               or media_assets.deletion_requested_at < ?4
@@ -572,7 +573,7 @@ export function createMediaAssetStore(
         where project_id = ?1
           and state = 'deletion_requested'
           and deletion_requested_at > ?2
-          and (cast(?3 as text) is null or original_filename like ?3 escape '\\')
+          and (cast(?3 as text) is null or original_filename ${likeCaseInsensitiveSql(sql.dialect)} ?3 escape '\\')
     `)
     const loadRepresentationStatement = sql.statement<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}

@@ -109,7 +109,7 @@ describe('SQL dialect module', () => {
             'json_each(?2) as tag_elements'
         )
         expect(jsonEachTextFromSql('postgres', '?2', 'tag_elements')).toBe(
-            'jsonb_array_elements_text((?2)::jsonb) as tag_elements(value)'
+            'jsonb_array_elements_text(((?2)::text)::jsonb) as tag_elements(value)'
         )
 
         expect(jsonGroupArrayTextSql('sqlite', 'ordered_tags.tag_id')).toBe(

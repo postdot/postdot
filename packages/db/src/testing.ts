@@ -6,6 +6,7 @@ import {
     createDatabase,
     createPostgresDatabase,
     type DatabaseHandle,
+    type PostdotDatabase,
 } from './client'
 import { runMigrations } from './migrations'
 import { runPortableMigrations } from './sql/migrator'
@@ -251,4 +252,88 @@ export async function dropRejectingTrigger(database: DatabaseHandle, name: strin
         await database.sql.exec(`drop trigger ${name}`)
     }
     rejectingTriggers.get(database)!.delete(name)
+}
+
+/** Test fixture: column encodings Drizzle used to apply (JSON text, 0/1 flags, epoch milliseconds). */
+export type ColumnMode = 'json' | 'boolean' | 'timestamp'
+
+export function toDbValue(mode: ColumnMode, value: unknown): string | number | null {
+    if (value === null || value === undefined) return null
+    if (mode === 'json') return JSON.stringify(value)
+    if (mode === 'boolean') return value ? 1 : 0
+    return value instanceof Date ? value.getTime() : (value as number)
+}
+
+export function fromDbRow<Row = Record<string, unknown>>(
+    row: Record<string, unknown>,
+    modes: Readonly<Record<string, ColumnMode>>
+): Row {
+    const decoded: Record<string, unknown> = { ...row }
+    for (const [field, mode] of Object.entries(modes)) {
+        const value = decoded[field]
+        if (value === null || value === undefined) continue
+        decoded[field] =
+            mode === 'json'
+                ? JSON.parse(value as string)
+                : mode === 'boolean'
+                  ? value === 1 || value === true
+                  : new Date(value as number)
+    }
+    return decoded as Row
+}
+
+/** Test fixture: a row read by raw SQL in assertions, typed loosely like Drizzle's inferred rows. */
+// oxlint-disable-next-line typescript/no-explicit-any
+export type TestRow = Record<string, any>
+
+/**
+ * Test fixture: inserts one row from camelCase fields (columns are their
+ * snake_case form), skipping undefined values like Drizzle did and encoding
+ * dates, booleans and JSON objects as stored.
+ */
+export async function insertRow(
+    database: DatabaseHandle,
+    table: string,
+    values: object | readonly object[]
+): Promise<void> {
+    if (Array.isArray(values)) {
+        for (const row of values as readonly object[]) await insertRow(database, table, row)
+        return
+    }
+    const entries = Object.entries(values).filter(([, value]) => value !== undefined)
+    const columns = entries.map(
+        ([field]) => `"${field.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`)}"`
+    )
+    const params = entries.map(([, value]) =>
+        value instanceof Date
+            ? value.getTime()
+            : typeof value === 'boolean'
+              ? value
+                  ? 1
+                  : 0
+              : value !== null && typeof value === 'object' && !(value instanceof Uint8Array)
+                ? JSON.stringify(value)
+                : value
+    ) as (string | number | bigint | Uint8Array | null)[]
+    await database.sql
+        .statement(
+            `insert into "${table}" (${columns.join(', ')}) values (${params.map((_, i) => `?${i + 1}`).join(', ')})`
+        )
+        .run(...params)
+}
+
+/**
+ * Test fixture: an in-memory SQLite database migrated by a historical
+ * Drizzle chain folder (upgrade tests). SQLite only by nature.
+ */
+export function openHistoricalTestDatabase(migrationsFolder: string): PostdotDatabase {
+    const database = createDatabase(':memory:')
+    runMigrations(database, migrationsFolder)
+    openedTestDatabases.set(database, {
+        database,
+        async close() {
+            closeDatabase(database)
+        },
+    })
+    return database
 }

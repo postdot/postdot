@@ -246,6 +246,14 @@ export function jsonContainsTextScalarSql(
 }
 
 /**
+ * Case-insensitive `LIKE` operator. SQLite's `LIKE` already ignores ASCII
+ * case; PostgreSQL's is case-sensitive and needs `ILIKE`.
+ */
+export function likeCaseInsensitiveSql(dialect: SqlDialect): string {
+    return dialect === 'sqlite' ? 'like' : 'ilike'
+}
+
+/**
  * Case-insensitive substring match without `LIKE` wildcard interpretation.
  */
 export function containsCaseInsensitiveSql(

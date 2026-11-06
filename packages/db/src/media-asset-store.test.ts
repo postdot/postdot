@@ -5,13 +5,11 @@ import { join } from 'node:path'
 
 import { createLocalMediaStore } from '@postdot/media'
 
-import { closeDatabase, createDatabase } from './client'
+import { type DatabaseHandle } from './client'
 import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
 import { createMediaAssetStore, type MediaAssetStoreOptions } from './media-asset-store'
-import { runMigrations } from './migrations'
-import { actors, posts, projects } from './schema'
-import { seedTestWorkspace } from './testing'
+import { closeTestDatabase, openTestDatabase, seedTestWorkspace, toDbValue } from './testing'
 
 const now = 1_800_000_000_000
 
@@ -34,27 +32,17 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
     return new Blob([bytes]).stream()
 }
 
-async function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
+async function seedProject(database: DatabaseHandle, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
-    database
-        .insert(projects)
-        .values({
-            id: projectId,
-            name: `Project ${suffix}`,
-            workspaceId: await seedTestWorkspace(database),
-        })
-        .run()
-    database
-        .insert(actors)
-        .values({
-            id: actorId,
-            projectId,
-            kind: 'human',
-            subjectId: `subject-${suffix}`,
-            displayName: `Editor ${suffix}`,
-        })
-        .run()
+    await database.sql
+        .statement('insert into "projects" ("id", "name", "workspace_id") values (?1, ?2, ?3)')
+        .run(projectId, `Project ${suffix}`, await seedTestWorkspace(database))
+    await database.sql
+        .statement(
+            'insert into "actors" ("id", "project_id", "kind", "subject_id", "display_name") values (?1, ?2, ?3, ?4, ?5)'
+        )
+        .run(actorId, projectId, 'human', `subject-${suffix}`, `Editor ${suffix}`)
     return { projectId, subjectId: `subject-${suffix}`, actorId }
 }
 
@@ -68,7 +56,7 @@ interface MediaFixtureOptions {
 
 async function withFixture<T>(
     callback: (fixture: {
-        database: ReturnType<typeof createDatabase>
+        database: DatabaseHandle
         media: ReturnType<typeof createMediaAssetStore>
         rootDirectory: string
         store: ReturnType<typeof createLocalMediaStore>
@@ -79,8 +67,7 @@ async function withFixture<T>(
     options: MediaFixtureOptions = {}
 ): Promise<T> {
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-media-assets-'))
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
     const project = await seedProject(database, 'media')
     const store = createLocalMediaStore({
         storeId: 'local-default',
@@ -108,7 +95,7 @@ async function withFixture<T>(
             ...project,
         })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
         await rm(rootDirectory, { recursive: true, force: true })
     }
 }
@@ -390,10 +377,11 @@ describe('project media lifecycle', () => {
             const initial = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
             for (const item of initial.representations.filter(item => item.kind === 'derived'))
                 await store.delete(item.objectKey)
-            database.$client.run(
-                "delete from media_representations where asset_id = ? and kind = 'derived'",
-                [reservation.asset.id]
-            )
+            await database.sql
+                .statement(
+                    "delete from media_representations where asset_id = ? and kind = 'derived'"
+                )
+                .run(reservation.asset.id)
             expect(await media.generateMissingImagePreviews({ dryRun: true })).toEqual({
                 eligible: 1,
                 generated: 0,
@@ -649,27 +637,25 @@ describe('project media lifecycle', () => {
             const timestamp = now
             const checksum = 'a'.repeat(64)
 
-            database.$client.run('begin')
-            try {
+            await database.sql.transaction(async () => {
                 for (let index = 0; index < 1_000; index += 1) {
                     const assetId = `large-asset-${String(index).padStart(4, '0')}`
                     const createdAt = timestamp - index
-                    database.$client.run(
-                        `insert into media_assets (
+                    await database.sql
+                        .statement(`insert into media_assets (
                             id, project_id, original_filename, default_accessibility_text,
                             state, created_by_actor_id, created_at, updated_at
-                        ) values (?, ?, ?, null, 'ready', ?, ?, ?)`,
-                        [assetId, projectId, `${assetId}.png`, actorId, createdAt, createdAt]
-                    )
-                    database.$client.run(
-                        `insert into media_representations (
+                        ) values (?, ?, ?, null, 'ready', ?, ?, ?)`)
+                        .run(assetId, projectId, `${assetId}.png`, actorId, createdAt, createdAt)
+                    await database.sql
+                        .statement(`insert into media_representations (
                             id, project_id, asset_id, kind, state, store_id, object_key,
                             declared_content_type, detected_content_type, detected_format,
                             family, byte_size, sha256, width, height, is_animated,
                             created_at, updated_at
                         ) values (?, ?, ?, 'original', 'ready', ?, ?, 'image/png', 'image/png',
-                                  'png', 'image', 128, ?, 16, 16, 0, ?, ?)`,
-                        [
+                                  'png', 'image', 128, ?, 16, 16, 0, ?, ?)`)
+                        .run(
                             `large-representation-${String(index).padStart(4, '0')}`,
                             projectId,
                             assetId,
@@ -677,15 +663,10 @@ describe('project media lifecycle', () => {
                             `large/${assetId}.png`,
                             checksum,
                             createdAt,
-                            createdAt,
-                        ]
-                    )
+                            createdAt
+                        )
                 }
-                database.$client.run('commit')
-            } catch (error) {
-                database.$client.run('rollback')
-                throw error
-            }
+            })
 
             const seenAssetIds = new Set<string>()
             let cursor: string | undefined
@@ -1007,22 +988,25 @@ describe('project media lifecycle', () => {
             expect(
                 await media.getAsset(projectId, reservation?.asset.id ?? '', 'another-subject')
             ).toBeNull()
-            database
-                .insert(posts)
-                .values({
-                    id: 'post-media-request-reference',
+            await database.sql
+                .statement(
+                    'insert into "posts" ("id", "project_id", "source_content", "created_by_actor_id") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'post-media-request-reference',
                     projectId,
-                    sourceContent: {
+                    toDbValue('json', {
                         body: { text: 'Referenced before deletion', format: 'plain_text' },
                         media: [{ assetId: reservation?.asset.id ?? '' }],
-                    },
-                    createdByActorId: actorId,
-                })
-                .run()
+                    }),
+                    actorId
+                )
             expect(
                 await media.requestDeletion(projectId, reservation?.asset.id ?? '', subjectId)
             ).toEqual({ kind: 'blocked', reason: 'referenced' })
-            database.$client.run('delete from posts where id = ?', ['post-media-request-reference'])
+            await database.sql
+                .statement('delete from posts where id = ?')
+                .run('post-media-request-reference')
 
             const requested = await media.requestDeletion(
                 projectId,
@@ -1034,28 +1018,28 @@ describe('project media lifecycle', () => {
                 now
             )
 
-            database.$client.run(
-                `insert into media_backup_fences (id, owner_id, expires_at, created_at, updated_at)
-                 values (1, 'backup-test', ?, ?, ?)`,
-                [now + 1_000, now, now]
-            )
+            await database.sql
+                .statement(`insert into media_backup_fences (id, owner_id, expires_at, created_at, updated_at)
+                 values (1, 'backup-test', ?, ?, ?)`)
+                .run(now + 1_000, now, now)
             await expect(
                 media.permanentlyDeleteAsset(projectId, reservation?.asset.id ?? '', subjectId, now)
             ).resolves.toEqual({ kind: 'blocked', reason: 'backup_in_progress' })
-            database.$client.run('delete from media_backup_fences where id = 1')
+            await database.sql.exec('delete from media_backup_fences where id = 1')
 
-            database
-                .insert(posts)
-                .values({
-                    id: 'post-media-reference',
+            await database.sql
+                .statement(
+                    'insert into "posts" ("id", "project_id", "source_content", "created_by_actor_id") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'post-media-reference',
                     projectId,
-                    sourceContent: {
+                    toDbValue('json', {
                         body: { text: 'Referenced media', format: 'plain_text' },
                         media: [{ assetId: reservation?.asset.id ?? '' }],
-                    },
-                    createdByActorId: actorId,
-                })
-                .run()
+                    }),
+                    actorId
+                )
             const blocked = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
@@ -1064,7 +1048,9 @@ describe('project media lifecycle', () => {
             )
             expect(blocked).toEqual({ kind: 'blocked', reason: 'referenced' })
 
-            database.$client.run('delete from posts where id = ?', ['post-media-reference'])
+            await database.sql
+                .statement('delete from posts where id = ?')
+                .run('post-media-reference')
             const deleted = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
@@ -1253,8 +1239,8 @@ describe('optional video posters', () => {
                 )
                 expect(preview!.representation.detectedContentType).toBe('image/webp')
                 expect(
-                    database.$client
-                        .query(
+                    await database.sql
+                        .statement(
                             "select count(*) as count from audit_events where action = 'project.media_previews.updated'"
                         )
                         .get()

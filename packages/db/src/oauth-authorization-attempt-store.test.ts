@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
 import { createAuthorizationAttemptStore } from './oauth-authorization-attempt-store'
 import { createPublisherCredentialCipher } from './publisher-credential-crypto'
-import { actors, oauthAuthorizationAttempts } from './schema'
-import { seedTestWorkspace } from './testing'
+import {
+    closeTestDatabase,
+    fromDbRow,
+    openTestDatabase,
+    seedTestWorkspace,
+    type TestRow,
+} from './testing'
 
 const now = 1_800_000_000_000
 const codeVerifier = 'a'.repeat(43)
@@ -16,8 +19,7 @@ async function stateDigest(value: string): Promise<Uint8Array> {
 }
 
 async function createFixture() {
-    const database = createDatabase(':memory:')
-    runMigrations(database)
+    const database = (await openTestDatabase()).database
 
     let timestamp = now
     let sequence = 0
@@ -106,8 +108,8 @@ it('reads a bound pending provider phase without consuming it or exposing the PK
         expect(first).toMatchObject({ kind: 'ready', providerState: input.providerState })
         expect(Object.keys(first)).not.toContain('codeVerifier')
         expect(await fixture.store.readPendingAuthorizationProviderState(binding)).toEqual(first)
-        const raw = fixture.database.$client
-            .query('select * from oauth_authorization_attempts')
+        const raw = await fixture.database.sql
+            .statement('select * from oauth_authorization_attempts')
             .get()
         expect(JSON.stringify(raw)).not.toContain(input.providerState)
         expect(await fixture.store.consumeAuthorizationAttempt(binding)).toMatchObject({
@@ -118,14 +120,14 @@ it('reads a bound pending provider phase without consuming it or exposing the PK
             kind: 'already_used',
         })
         expect(
-            fixture.database.$client
-                .query(
+            await fixture.database.sql
+                .statement(
                     'select provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
                 )
                 .get()
         ).toEqual({ ciphertext: null })
     } finally {
-        closeDatabase(fixture.database)
+        await closeTestDatabase(fixture.database)
     }
 })
 
@@ -142,14 +144,14 @@ it('expired pending provider inspection erases the encrypted state instead of re
             kind: 'expired',
         })
         expect(
-            fixture.database.$client
-                .query(
+            await fixture.database.sql
+                .statement(
                     'select provider_state_ciphertext as ciphertext from oauth_authorization_attempts'
                 )
                 .get()
         ).toEqual({ ciphertext: null })
     } finally {
-        closeDatabase(fixture.database)
+        await closeTestDatabase(fixture.database)
     }
 })
 
@@ -171,7 +173,7 @@ describe('OAuth authorization attempt store', () => {
             )
             expect(result).toEqual({ kind: 'not_found' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -199,7 +201,14 @@ describe('OAuth authorization attempt store', () => {
             expect(result.attempt).not.toHaveProperty('state')
             expect(result.attempt).not.toHaveProperty('codeVerifier')
 
-            const stored = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            const stored = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                    )
+                    .get()
+            )
             expect(stored?.stateDigest).toEqual(Buffer.from(input.stateDigest))
             expect(stored?.stateDigest).not.toEqual(Buffer.from('raw-state-value'))
             expect(
@@ -209,7 +218,7 @@ describe('OAuth authorization attempt store', () => {
             expect(JSON.stringify(stored)).not.toContain('raw-state-value')
             expect(JSON.stringify(stored)).not.toContain(codeVerifier)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -224,7 +233,14 @@ describe('OAuth authorization attempt store', () => {
             })
 
             expect(result.kind).toBe('created')
-            const stored = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            const stored = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                    )
+                    .get()
+            )
             expect(stored).toMatchObject({
                 pkceEncryptionVersion: null,
                 pkceEncryptionKeyId: null,
@@ -240,7 +256,7 @@ describe('OAuth authorization attempt store', () => {
             })
             expect(consumed).toMatchObject({ kind: 'consumed', codeVerifier: null })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -260,7 +276,14 @@ describe('OAuth authorization attempt store', () => {
             const created = await fixture.store.createAuthorizationAttempt(input)
             expect(created.kind).toBe('created')
 
-            const stored = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            const stored = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                    )
+                    .get()
+            )
             expect(stored?.providerStateEncryptionVersion).toBe(1)
             expect(stored?.providerStateEncryptionKeyId).toBe('primary')
             expect(stored?.providerStateCiphertext?.byteLength ?? 0).toBeGreaterThan(16)
@@ -275,7 +298,14 @@ describe('OAuth authorization attempt store', () => {
             })
             expect(consumed).toMatchObject({ kind: 'consumed', providerState })
 
-            const consumedRow = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            const consumedRow = (row =>
+                row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' }))(
+                await fixture.database.sql
+                    .statement<TestRow>(
+                        'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                    )
+                    .get()
+            )
             expect(consumedRow).toMatchObject({
                 providerStateEncryptionVersion: null,
                 providerStateEncryptionKeyId: null,
@@ -283,7 +313,7 @@ describe('OAuth authorization attempt store', () => {
                 providerStateNonce: null,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -306,7 +336,15 @@ describe('OAuth authorization attempt store', () => {
             expect(consumed.codeVerifier).toBe(codeVerifier)
             expect(consumed.attempt.returnPath).toBe(input.returnPath)
 
-            expect(fixture.database.select().from(oauthAuthorizationAttempts).get()).toMatchObject({
+            expect(
+                (row => (row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' })))(
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                        )
+                        .get()
+                )
+            ).toMatchObject({
                 status: 'consumed',
                 completedAt: now,
                 pkceEncryptionVersion: null,
@@ -323,7 +361,7 @@ describe('OAuth authorization attempt store', () => {
                 })
             ).toEqual({ kind: 'already_used' })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -331,16 +369,11 @@ describe('OAuth authorization attempt store', () => {
         const fixture = await createFixture()
 
         try {
-            fixture.database
-                .insert(actors)
-                .values({
-                    id: 'other-actor',
-                    projectId: fixture.project.project.id,
-                    kind: 'human',
-                    subjectId: 'user-2',
-                    displayName: 'Other Operator',
-                })
-                .run()
+            await fixture.database.sql
+                .statement(
+                    'insert into "actors" ("id", "project_id", "kind", "subject_id", "display_name") values (?1, ?2, ?3, ?4, ?5)'
+                )
+                .run('other-actor', fixture.project.project.id, 'human', 'user-2', 'Other Operator')
             const input = await createAttemptInput(fixture, 'bound-state')
             await fixture.store.createAuthorizationAttempt(input)
 
@@ -371,7 +404,7 @@ describe('OAuth authorization attempt store', () => {
                 ).kind
             ).toBe('consumed')
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -391,7 +424,15 @@ describe('OAuth authorization attempt store', () => {
                     callbackUri: first.callbackUri,
                 })
             ).toEqual({ kind: 'expired' })
-            expect(fixture.database.select().from(oauthAuthorizationAttempts).get()).toMatchObject({
+            expect(
+                (row => (row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' })))(
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                        )
+                        .get()
+                )
+            ).toMatchObject({
                 status: 'expired',
                 pkceVerifierCiphertext: null,
                 pkceVerifierNonce: null,
@@ -403,7 +444,7 @@ describe('OAuth authorization attempt store', () => {
             expect(await fixture.store.expireAuthorizationAttempts()).toBe(1)
             expect(await fixture.store.expireAuthorizationAttempts()).toBe(0)
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -429,7 +470,7 @@ describe('OAuth authorization attempt store', () => {
             ])
             expect(results.map(result => result.kind).sort()).toEqual(['already_used', 'consumed'])
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -456,12 +497,20 @@ describe('OAuth authorization attempt store', () => {
                     callbackUri: input.callbackUri,
                 })
             ).rejects.toMatchObject({ code: 'decryption_failed' })
-            expect(fixture.database.select().from(oauthAuthorizationAttempts).get()).toMatchObject({
+            expect(
+                (row => (row === null ? undefined : fromDbRow<TestRow>(row, { scopes: 'json' })))(
+                    await fixture.database.sql
+                        .statement<TestRow>(
+                            'select "oauth_authorization_attempts"."id" as "id", "oauth_authorization_attempts"."project_id" as "projectId", "oauth_authorization_attempts"."channel_id" as "channelId", "oauth_authorization_attempts"."provider_id" as "providerId", "oauth_authorization_attempts"."connected_by_actor_id" as "connectedByActorId", "oauth_authorization_attempts"."provider_application_id" as "providerApplicationId", "oauth_authorization_attempts"."callback_uri" as "callbackUri", "oauth_authorization_attempts"."scopes" as "scopes", "oauth_authorization_attempts"."return_path" as "returnPath", "oauth_authorization_attempts"."context_json" as "contextJson", "oauth_authorization_attempts"."state_digest" as "stateDigest", "oauth_authorization_attempts"."status" as "status", "oauth_authorization_attempts"."pkce_encryption_version" as "pkceEncryptionVersion", "oauth_authorization_attempts"."pkce_encryption_key_id" as "pkceEncryptionKeyId", "oauth_authorization_attempts"."pkce_verifier_ciphertext" as "pkceVerifierCiphertext", "oauth_authorization_attempts"."pkce_verifier_nonce" as "pkceVerifierNonce", "oauth_authorization_attempts"."provider_state_encryption_version" as "providerStateEncryptionVersion", "oauth_authorization_attempts"."provider_state_encryption_key_id" as "providerStateEncryptionKeyId", "oauth_authorization_attempts"."provider_state_ciphertext" as "providerStateCiphertext", "oauth_authorization_attempts"."provider_state_nonce" as "providerStateNonce", "oauth_authorization_attempts"."expires_at" as "expiresAt", "oauth_authorization_attempts"."completed_at" as "completedAt", "oauth_authorization_attempts"."created_at" as "createdAt", "oauth_authorization_attempts"."updated_at" as "updatedAt" from "oauth_authorization_attempts"'
+                        )
+                        .get()
+                )
+            ).toMatchObject({
                 status: 'consumed',
                 pkceVerifierCiphertext: null,
             })
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 
@@ -497,7 +546,7 @@ describe('OAuth authorization attempt store', () => {
                 ).kind
             ).toBe('not_found')
         } finally {
-            closeDatabase(fixture.database)
+            await closeTestDatabase(fixture.database)
         }
     })
 })

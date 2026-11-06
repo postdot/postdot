@@ -6,14 +6,17 @@ import { join } from 'node:path'
 import type { ChannelProfileDefinition } from '@postdot/core'
 import { createLocalMediaStore } from '@postdot/media'
 
-import { closeDatabase, createDatabase } from './client'
 import { previewFixturePng } from './image-preview-fixture'
 import { createManualStore } from './manual-store'
 import { createMediaAssetStore } from './media-asset-store'
-import { runMigrations } from './migrations'
 import { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
-import { publishers, publicationExecutionRevisionMedia, publicationRevisionMedia } from './schema'
-import { seedTestWorkspace, workspaceOf } from './testing'
+import {
+    closeTestDatabase,
+    openTestDatabase,
+    seedTestWorkspace,
+    type TestRow,
+    workspaceOf,
+} from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const now = 1_800_000_000_000
@@ -80,7 +83,7 @@ const profile: ChannelProfileDefinition = {
 describe('provider media delivery store', () => {
     it('pins revision media before the effect boundary and persists delivery retries', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'postdot-provider-media-'))
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         const mediaStore = createLocalMediaStore({
             storeId: 'local-default',
             rootDirectory: join(directory, 'media'),
@@ -88,7 +91,6 @@ describe('provider media delivery store', () => {
         })
 
         try {
-            runMigrations(database)
             const media = createMediaAssetStore(database, mediaStore, {
                 now: () => now,
                 createId: (() => {
@@ -110,15 +112,16 @@ describe('provider media delivery store', () => {
                 profile,
             })
             if (channel === null) throw new Error('Channel was not created')
-            database
-                .insert(publishers)
-                .values({
-                    id: 'publisher-1',
-                    workspaceId: await workspaceOf(database, project.project.id),
-                    channelId: channel.id,
-                    kind: 'media-provider',
-                })
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+                )
+                .run(
+                    'publisher-1',
+                    await workspaceOf(database, project.project.id),
+                    channel.id,
+                    'media-provider'
+                )
 
             const bytes = previewFixturePng(4, 3)
             const reservation = await media.reserveUpload({
@@ -160,10 +163,20 @@ describe('provider media delivery store', () => {
             if (created === null) throw new Error('Publication was not created')
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('Publication was not created')
-            const targetMedia = database.select().from(publicationRevisionMedia).all()
+            const targetMedia = await database.sql
+                .statement<TestRow>(
+                    'select "publication_revision_media"."id" as "id", "publication_revision_media"."project_id" as "projectId", "publication_revision_media"."target_revision_id" as "targetRevisionId", "publication_revision_media"."asset_id" as "assetId", "publication_revision_media"."representation_id" as "representationId", "publication_revision_media"."position" as "position", "publication_revision_media"."content_path" as "contentPath", "publication_revision_media"."role" as "role", "publication_revision_media"."accessibility_text" as "accessibilityText", "publication_revision_media"."created_at" as "createdAt" from "publication_revision_media"'
+                )
+                .all()
             expect(targetMedia).toHaveLength(1)
             expect(targetMedia[0]?.targetRevisionId ?? null).toBe(publication.targetRevisionId)
-            expect(database.select().from(publicationExecutionRevisionMedia).all()).toEqual([])
+            expect(
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publication_execution_revision_media"."id" as "id", "publication_execution_revision_media"."project_id" as "projectId", "publication_execution_revision_media"."execution_revision_id" as "executionRevisionId", "publication_execution_revision_media"."target_revision_media_id" as "targetRevisionMediaId", "publication_execution_revision_media"."asset_id" as "assetId", "publication_execution_revision_media"."representation_id" as "representationId", "publication_execution_revision_media"."position" as "position", "publication_execution_revision_media"."content_path" as "contentPath", "publication_execution_revision_media"."role" as "role", "publication_execution_revision_media"."accessibility_text" as "accessibilityText", "publication_execution_revision_media"."created_at" as "createdAt" from "publication_execution_revision_media"'
+                    )
+                    .all()
+            ).toEqual([])
 
             const workflow = createWorkflowStore(database)
             const systemActorId = await workflow.ensureSystemActor(project.project.id, now)
@@ -177,7 +190,11 @@ describe('provider media delivery store', () => {
             if (claimed === null) throw new Error('Job was not claimed')
             expect(await workflow.startExternalEffect(claimed.id, 'claim-1', now + 1)).toBe(true)
 
-            const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
+            const executionMedia = await database.sql
+                .statement<TestRow>(
+                    'select "publication_execution_revision_media"."id" as "id", "publication_execution_revision_media"."project_id" as "projectId", "publication_execution_revision_media"."execution_revision_id" as "executionRevisionId", "publication_execution_revision_media"."target_revision_media_id" as "targetRevisionMediaId", "publication_execution_revision_media"."asset_id" as "assetId", "publication_execution_revision_media"."representation_id" as "representationId", "publication_execution_revision_media"."position" as "position", "publication_execution_revision_media"."content_path" as "contentPath", "publication_execution_revision_media"."role" as "role", "publication_execution_revision_media"."accessibility_text" as "accessibilityText", "publication_execution_revision_media"."created_at" as "createdAt" from "publication_execution_revision_media"'
+                )
+                .all()
             expect(executionMedia).toHaveLength(1)
             expect(executionMedia[0]?.assetId).toBe(reservation.asset.id)
             expect(executionMedia[0]?.representationId).toBe(reservation.representation.id)
@@ -365,7 +382,7 @@ describe('provider media delivery store', () => {
                 await media.requestDeletion(project.project.id, reservation.asset.id, 'subject-1')
             ).toEqual({ kind: 'blocked', reason: 'referenced' })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
             await rm(directory, { recursive: true, force: true })
         }
     })

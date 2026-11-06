@@ -121,7 +121,7 @@ export function recoverLocalAccountPassword(
 function findRecoverableCredential(database: Database, email: string): RecoverableCredential {
     const users = database
         .query<{ readonly id: string }, [email: string]>(
-            'SELECT id FROM user WHERE lower(email) = lower(?1)'
+            'SELECT id FROM "user" WHERE lower(email) = lower(?1)'
         )
         .all(email)
 

@@ -8,44 +8,45 @@ import {
     NextEventScheduler,
     processNextWorkflowEvent,
 } from '@postdot/core'
-import { eq } from 'drizzle-orm'
 
 import type { PostdotDatabase } from './client'
-import { closeDatabase, createDatabase } from './client'
+import { closeDatabase, createDatabase, type DatabaseHandle } from './client'
 import { runMigrations } from './migrations'
 import { createResourceLifecycleStore } from './resource-lifecycle-store'
 import {
-    auditEvents,
-    actors,
-    channelProfileVersions,
-    jobs,
-    posts,
-    projects,
-    publicationExecutionRevisions,
-    publicationTargetRevisions,
-    publications,
-    publishers,
-} from './schema'
-import { seedWorkspaceChannel, workspaceOf } from './testing'
+    closeTestDatabase,
+    dropRejectingTrigger,
+    foreignKeyViolations,
+    fromDbRow,
+    insertRow,
+    installRejectingTrigger,
+    openTestDatabase,
+    seedWorkspaceChannel,
+    testEngine,
+    type TestRow,
+    toDbValue,
+    workspaceOf,
+} from './testing'
 import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
 
-function executionAuditEvents(database: PostdotDatabase, publicationId: string) {
-    return database
-        .select()
-        .from(auditEvents)
-        .where(eq(auditEvents.entityId, publicationId))
-        .all()
-        .filter(event => event.action.startsWith('publication.execution.'))
+async function executionAuditEvents(database: DatabaseHandle, publicationId: string) {
+    return (
+        await database.sql
+            .statement<TestRow>(
+                'select "audit_events"."sequence" as "sequence", "audit_events"."id" as "id", "audit_events"."project_id" as "projectId", "audit_events"."workspace_id" as "workspaceId", "audit_events"."actor_id" as "actorId", "audit_events"."action" as "action", "audit_events"."entity_type" as "entityType", "audit_events"."entity_id" as "entityId", "audit_events"."metadata_json" as "metadataJson", "audit_events"."event_version" as "eventVersion", "audit_events"."correlation_id" as "correlationId", "audit_events"."causation_id" as "causationId", "audit_events"."created_at" as "createdAt" from "audit_events" where "audit_events"."entity_id" = ?1'
+            )
+            .all(publicationId)
+    ).filter(event => event.action.startsWith('publication.execution.'))
 }
 
-function executionAuditActions(database: PostdotDatabase, publicationId: string) {
-    return executionAuditEvents(database, publicationId).map(event => event.action)
+async function executionAuditActions(database: DatabaseHandle, publicationId: string) {
+    return (await executionAuditEvents(database, publicationId)).map(event => event.action)
 }
 
-function executionAuditMetadata(database: PostdotDatabase, publicationId: string) {
-    return executionAuditEvents(database, publicationId).map(event =>
+async function executionAuditMetadata(database: DatabaseHandle, publicationId: string) {
+    return (await executionAuditEvents(database, publicationId)).map(event =>
         JSON.parse(event.metadataJson!)
     )
 }
@@ -78,7 +79,7 @@ const testProfile = {
     execution: { kind: 'built_in' as const, contractId: 'test', revision: 'v1' },
 }
 
-async function seedDueJob(database: PostdotDatabase, suffix = 'one') {
+async function seedDueJob(database: DatabaseHandle, suffix = 'one') {
     const projectId = `project-${suffix}`
     const humanActorId = `human-${suffix}`
     const systemActorId = `system-${suffix}`
@@ -89,27 +90,23 @@ async function seedDueJob(database: PostdotDatabase, suffix = 'one') {
     const profileVersionId = `profile-${suffix}`
     const targetRevisionId = `target-${suffix}`
 
-    database
-        .insert(projects)
-        .values({ id: projectId, name: `Project ${suffix}` })
-        .run()
-    database
-        .insert(actors)
-        .values([
-            {
-                id: humanActorId,
-                projectId,
-                kind: 'human',
-                displayName: `Editor ${suffix}`,
-            },
-            {
-                id: systemActorId,
-                projectId,
-                kind: 'system',
-                displayName: `Worker ${suffix}`,
-            },
-        ])
-        .run()
+    await database.sql
+        .statement('insert into "projects" ("id", "name") values (?1, ?2)')
+        .run(projectId, `Project ${suffix}`)
+    await insertRow(database, 'actors', [
+        {
+            id: humanActorId,
+            projectId,
+            kind: 'human',
+            displayName: `Editor ${suffix}`,
+        },
+        {
+            id: systemActorId,
+            projectId,
+            kind: 'system',
+            displayName: `Worker ${suffix}`,
+        },
+    ])
     await seedWorkspaceChannel(database, {
         projectId,
         channelId: channelId,
@@ -118,73 +115,67 @@ async function seedDueJob(database: PostdotDatabase, suffix = 'one') {
         profile: testProfile,
         createdByActorId: humanActorId,
     })
-    database
-        .insert(publishers)
-        .values({
-            id: `publisher-${suffix}`,
-            workspaceId: await workspaceOf(database, projectId),
-            channelId,
-            kind: 'test',
-        })
-        .run()
-    database
-        .insert(posts)
-        .values({
-            id: postId,
+    await database.sql
+        .statement(
+            'insert into "publishers" ("id", "workspace_id", "channel_id", "kind") values (?1, ?2, ?3, ?4)'
+        )
+        .run(`publisher-${suffix}`, await workspaceOf(database, projectId), channelId, 'test')
+    await database.sql
+        .statement(
+            'insert into "posts" ("id", "project_id", "source_content", "source_revision", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5)'
+        )
+        .run(
+            postId,
             projectId,
-            sourceContent: {
+            toDbValue('json', {
                 body: { text: `Post ${suffix}`, format: 'plain_text' },
                 media: [],
-            },
-            sourceRevision: 1,
-            createdByActorId: humanActorId,
-        })
-        .run()
-    database
-        .insert(publications)
-        .values({
-            id: publicationId,
+            }),
+            1,
+            humanActorId
+        )
+    await database.sql
+        .statement(
+            'insert into "publications" ("id", "project_id", "post_id", "channel_id", "target_revision_id", "delivery_mode", "review_state", "state", "scheduled_at", "created_by_actor_id", "scheduled_by_actor_id", "state_changed_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)'
+        )
+        .run(
+            publicationId,
             projectId,
             postId,
             channelId,
             targetRevisionId,
-            deliveryMode: 'automatic',
-            reviewState: 'compatible',
-            state: 'scheduled',
-            scheduledAt: dueAt,
-            createdByActorId: humanActorId,
-            scheduledByActorId: humanActorId,
-            stateChangedByActorId: humanActorId,
-        })
-        .run()
-    database
-        .insert(publicationTargetRevisions)
-        .values({
-            id: targetRevisionId,
+            'automatic',
+            'compatible',
+            'scheduled',
+            dueAt,
+            humanActorId,
+            humanActorId,
+            humanActorId
+        )
+    await database.sql
+        .statement(
+            'insert into "publication_target_revisions" ("id", "project_id", "publication_id", "sequence", "profile_version_id", "source_revision", "delivery_mode", "content_json", "content_hash", "profile_hash", "schema_hash", "validation_issues_json", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)'
+        )
+        .run(
+            targetRevisionId,
             projectId,
             publicationId,
-            sequence: 1,
+            1,
             profileVersionId,
-            sourceRevision: 1,
-            deliveryMode: 'automatic',
-            contentJson: { body: `Publication ${suffix}` },
-            contentHash: `sha256:target-${suffix}`,
-            profileHash: testProfile.profileHash,
-            schemaHash: testProfile.schemaHash,
-            validationIssuesJson: [],
-            createdByActorId: humanActorId,
-        })
-        .run()
-    database
-        .insert(jobs)
-        .values({
-            id: jobId,
-            projectId,
-            publicationId,
-            state: 'pending',
-            runAt: dueAt,
-        })
-        .run()
+            1,
+            'automatic',
+            toDbValue('json', { body: `Publication ${suffix}` }),
+            `sha256:target-${suffix}`,
+            testProfile.profileHash,
+            testProfile.schemaHash,
+            toDbValue('json', []),
+            humanActorId
+        )
+    await database.sql
+        .statement(
+            'insert into "jobs" ("id", "project_id", "publication_id", "state", "run_at") values (?1, ?2, ?3, ?4, ?5)'
+        )
+        .run(jobId, projectId, publicationId, 'pending', dueAt)
 
     return {
         projectId,
@@ -199,9 +190,8 @@ async function seedDueJob(database: PostdotDatabase, suffix = 'one') {
 
 describe('workflow store', () => {
     it('renews only the current unexpired claim without shortening or resurrecting its lease', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
             await store.claimNextDueJob({
@@ -230,17 +220,18 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('never claims work for a manual channel', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'manual')
-            database.delete(publishers).where(eq(publishers.channelId, 'channel-manual')).run()
+            await database.sql
+                .statement('delete from "publishers" where "publishers"."channel_id" = ?1')
+                .run('channel-manual')
 
             expect(
                 await createWorkflowStore(database).claimNextDueJob({
@@ -252,21 +243,20 @@ describe('workflow store', () => {
             ).toBeNull()
             expect(await createWorkflowStore(database).getNextEventAt()).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('does not wake or claim work for a disabled target profile', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'disabled')
-            database
-                .update(channelProfileVersions)
-                .set({ state: 'disabled' })
-                .where(eq(channelProfileVersions.id, fixture.profileVersionId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "channel_profile_versions" set "state" = ?1 where "channel_profile_versions"."id" = ?2'
+                )
+                .run('disabled', fixture.profileVersionId)
 
             const store = createWorkflowStore(database)
             expect(await store.getNextEventAt()).toBeNull()
@@ -279,15 +269,14 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('fails closed when a target profile is disabled after claiming and before the effect boundary', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'disabled-after-claim')
             const store = createWorkflowStore(database)
             expect(
@@ -299,11 +288,11 @@ describe('workflow store', () => {
                 })
             ).not.toBeNull()
 
-            database
-                .update(channelProfileVersions)
-                .set({ state: 'disabled' })
-                .where(eq(channelProfileVersions.id, fixture.profileVersionId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "channel_profile_versions" set "state" = ?1 where "channel_profile_versions"."id" = ?2'
+                )
+                .run('disabled', fixture.profileVersionId)
 
             expect(
                 await store.startExternalEffect(
@@ -313,40 +302,54 @@ describe('workflow store', () => {
                 )
             ).toBe(false)
             expect(
-                database.$client.query('select state from jobs where id = ?').get(fixture.jobId)
+                await database.sql
+                    .statement('select state from jobs where id = ?')
+                    .get(fixture.jobId)
             ).toEqual({ state: 'cancelled' })
             expect(
-                database.$client
-                    .query('select review_state from publications where id = ?')
+                await database.sql
+                    .statement('select review_state from publications where id = ?')
                     .get(fixture.publicationId)
             ).toEqual({ review_state: 'review_required' })
             expect(
-                database
-                    .select()
-                    .from(publicationExecutionRevisions)
-                    .where(eq(publicationExecutionRevisions.jobId, fixture.jobId))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_execution_revisions"."id" as "id", "publication_execution_revisions"."project_id" as "projectId", "publication_execution_revisions"."job_id" as "jobId", "publication_execution_revisions"."publication_id" as "publicationId", "publication_execution_revisions"."destination_snapshot_json" as "destinationSnapshotJson", "publication_execution_revisions"."target_revision_id" as "targetRevisionId", "publication_execution_revisions"."profile_version_id" as "profileVersionId", "publication_execution_revisions"."delivery_mode" as "deliveryMode", "publication_execution_revisions"."media_reference_count" as "mediaReferenceCount", "publication_execution_revisions"."content_json" as "contentJson", "publication_execution_revisions"."content_hash" as "contentHash", "publication_execution_revisions"."profile_hash" as "profileHash", "publication_execution_revisions"."schema_hash" as "schemaHash", "publication_execution_revisions"."created_at" as "createdAt" from "publication_execution_revisions" where "publication_execution_revisions"."job_id" = ?1'
+                        )
+                        .all(fixture.jobId)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, {
+                        destinationSnapshotJson: 'json',
+                        contentJson: 'json',
+                    })
+                )
             ).toEqual([])
-            expect(database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()).toEqual([
-                expect.objectContaining({ state: 'cancelled', effectStartedAt: null }),
-            ])
             expect(
-                database
-                    .select()
-                    .from(publications)
-                    .where(eq(publications.id, fixture.publicationId))
-                    .all()
+                await database.sql
+                    .statement<TestRow>(
+                        'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                    )
+                    .all(fixture.jobId)
+            ).toEqual([expect.objectContaining({ state: 'cancelled', effectStartedAt: null })])
+            expect(
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                        )
+                        .all(fixture.publicationId)
+                ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             ).toEqual([expect.objectContaining({ state: 'scheduled' })])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('claims one due job atomically and fences stale workers', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
 
@@ -392,20 +395,26 @@ describe('workflow store', () => {
                 true
             )
 
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.effectStartedAt).toBe(dueAt + 1)
             expect(publication?.state).toBe('publishing')
             expect(publication?.stateChangedByActorId).toBe(fixture.systemActorId)
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
             ])
-            expect(executionAuditMetadata(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditMetadata(database, fixture.publicationId)).toEqual([
                 {
                     fromState: 'pending',
                     toState: 'running',
@@ -430,15 +439,14 @@ describe('workflow store', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('chooses the nearest pending run or running lease expiry', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const first = await seedDueJob(database, 'first')
             const store = createWorkflowStore(database)
 
@@ -452,22 +460,19 @@ describe('workflow store', () => {
             expect(await store.getNextEventAt()).toBe(dueAt + 60_000)
 
             const second = await seedDueJob(database, 'second')
-            database
-                .update(jobs)
-                .set({ runAt: dueAt + 30_000 })
-                .where(eq(jobs.id, second.jobId))
-                .run()
+            await database.sql
+                .statement('update "jobs" set "run_at" = ?1 where "jobs"."id" = ?2')
+                .run(dueAt + 30_000, second.jobId)
             expect(await store.getNextEventAt()).toBe(dueAt + 30_000)
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('requeues an expired claim when no external effect started', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
             await store.claimNextDueJob({
@@ -482,22 +487,30 @@ describe('workflow store', () => {
                 ambiguousJobIds: [],
             })
 
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('pending')
             expect(job?.attempts).toBe(1)
             expect(job?.claimToken).toBeNull()
             expect(job?.runAt).toBe(dueAt + 60_000)
             expect(publication?.state).toBe('scheduled')
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.claim_recovered',
             ])
-            expect(executionAuditMetadata(database, fixture.publicationId)[1]).toMatchObject({
+            expect(
+                (await executionAuditMetadata(database, fixture.publicationId))[1]
+            ).toMatchObject({
                 fromState: 'running',
                 toState: 'pending',
                 recoveredAt: dueAt + 60_000,
@@ -507,15 +520,14 @@ describe('workflow store', () => {
                 attempt: 1,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('marks the publication ambiguous after an expired effect boundary', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
             await store.claimNextDueJob({
@@ -531,12 +543,18 @@ describe('workflow store', () => {
                 ambiguousJobIds: [fixture.jobId],
             })
 
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('failed')
             expect(job?.claimToken).toBeNull()
             expect(job?.errorMessage).toContain('external-effect boundary')
@@ -550,12 +568,14 @@ describe('workflow store', () => {
                     outcome: { type: 'published' },
                 })
             ).toBeNull()
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
                 'publication.execution.ambiguity_recovered',
             ])
-            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+            expect(
+                (await executionAuditMetadata(database, fixture.publicationId))[2]
+            ).toMatchObject({
                 fromState: 'publishing',
                 toState: 'ambiguous',
                 recoveredAt: dueAt + 60_000,
@@ -564,23 +584,22 @@ describe('workflow store', () => {
                 jobId: fixture.jobId,
                 attempt: 1,
             })
-            expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+            expect(await foreignKeyViolations(database)).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('fails closed when the persisted media index disagrees with the target revision', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'media-mismatch')
-            database
-                .update(publicationTargetRevisions)
-                .set({ mediaReferenceCount: 1 })
-                .where(eq(publicationTargetRevisions.id, fixture.targetRevisionId))
-                .run()
+            await database.sql
+                .statement(
+                    'update "publication_target_revisions" set "media_reference_count" = ?1 where "publication_target_revisions"."id" = ?2'
+                )
+                .run(1, fixture.targetRevisionId)
             const store = createWorkflowStore(database)
             await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
@@ -593,31 +612,43 @@ describe('workflow store', () => {
                 store.startExternalEffect(fixture.jobId, 'claim-media-mismatch', dueAt + 1)
             ).rejects.toThrow('inconsistent media reference counts')
             expect(
-                database
-                    .select()
-                    .from(publicationExecutionRevisions)
-                    .where(eq(publicationExecutionRevisions.jobId, fixture.jobId))
-                    .all()
+                (
+                    await database.sql
+                        .statement<TestRow>(
+                            'select "publication_execution_revisions"."id" as "id", "publication_execution_revisions"."project_id" as "projectId", "publication_execution_revisions"."job_id" as "jobId", "publication_execution_revisions"."publication_id" as "publicationId", "publication_execution_revisions"."destination_snapshot_json" as "destinationSnapshotJson", "publication_execution_revisions"."target_revision_id" as "targetRevisionId", "publication_execution_revisions"."profile_version_id" as "profileVersionId", "publication_execution_revisions"."delivery_mode" as "deliveryMode", "publication_execution_revisions"."media_reference_count" as "mediaReferenceCount", "publication_execution_revisions"."content_json" as "contentJson", "publication_execution_revisions"."content_hash" as "contentHash", "publication_execution_revisions"."profile_hash" as "profileHash", "publication_execution_revisions"."schema_hash" as "schemaHash", "publication_execution_revisions"."created_at" as "createdAt" from "publication_execution_revisions" where "publication_execution_revisions"."job_id" = ?1'
+                        )
+                        .all(fixture.jobId)
+                ).map(row =>
+                    fromDbRow<TestRow>(row, {
+                        destinationSnapshotJson: 'json',
+                        contentJson: 'json',
+                    })
+                )
             ).toEqual([])
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('running')
             expect(job?.effectStartedAt).toBeNull()
             expect(publication?.state).toBe('scheduled')
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('persists a confirmed external result and fences duplicate completion', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'success')
             const store = createWorkflowStore(database)
             await store.claimNextDueJob({
@@ -649,12 +680,18 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
 
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('succeeded')
             expect(job?.completedAt).toBe(dueAt + 2)
             expect(job?.claimToken).toBeNull()
@@ -662,12 +699,14 @@ describe('workflow store', () => {
             expect(publication?.publishedAt).toBe(dueAt + 2)
             expect(publication?.publishedByActorId).toBe(fixture.systemActorId)
             expect(publication?.externalId).toBe('remote-success')
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
                 'publication.execution.succeeded',
             ])
-            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+            expect(
+                (await executionAuditMetadata(database, fixture.publicationId))[2]
+            ).toMatchObject({
                 fromState: 'publishing',
                 toState: 'published',
                 outcome: 'published',
@@ -679,26 +718,25 @@ describe('workflow store', () => {
                 attempt: 1,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('rolls back execution transitions when their audit event cannot be persisted', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'audit-rollback')
             const store = createWorkflowStore(database)
 
-            database.$client.run(`
-                create temp trigger fail_workflow_claim_audit
-                before insert on audit_events
-                when NEW.action = 'publication.execution.claimed'
-                begin
-                    select raise(abort, 'workflow claim audit failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_workflow_claim_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action = 'publication.execution.claimed'",
+                message: 'workflow claim audit failure',
+            })
 
             await expect(
                 store.claimNextDueJob({
@@ -708,16 +746,16 @@ describe('workflow store', () => {
                     leaseExpiresAt: dueAt + 60_000,
                 })
             ).rejects.toThrow('workflow claim audit failure')
-            const [unclaimedJob] = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.id, fixture.jobId))
-                .all()
+            const [unclaimedJob] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
             expect(unclaimedJob?.state).toBe('pending')
             expect(unclaimedJob?.attempts).toBe(0)
-            expect(executionAuditEvents(database, fixture.publicationId)).toEqual([])
+            expect(await executionAuditEvents(database, fixture.publicationId)).toEqual([])
 
-            database.$client.run('drop trigger fail_workflow_claim_audit')
+            await dropRejectingTrigger(database, 'fail_workflow_claim_audit')
             expect(
                 await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
@@ -730,14 +768,14 @@ describe('workflow store', () => {
                 await store.startExternalEffect(fixture.jobId, 'claim-audit-rollback', dueAt + 1)
             ).toBe(true)
 
-            database.$client.run(`
-                create temp trigger fail_workflow_completion_audit
-                before insert on audit_events
-                when NEW.action = 'publication.execution.succeeded'
-                begin
-                    select raise(abort, 'workflow completion audit failure');
-                end
-            `)
+            await installRejectingTrigger(database, {
+                name: 'fail_workflow_completion_audit',
+                table: 'audit_events',
+                timing: 'before',
+                event: 'insert',
+                when: "NEW.action = 'publication.execution.succeeded'",
+                message: 'workflow completion audit failure',
+            })
 
             await expect(
                 store.completeExternalEffect({
@@ -748,33 +786,34 @@ describe('workflow store', () => {
                 })
             ).rejects.toThrow('workflow completion audit failure')
 
-            const [runningJob] = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.id, fixture.jobId))
-                .all()
-            const [publishingPublication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [runningJob] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publishingPublication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(runningJob?.state).toBe('running')
             expect(runningJob?.effectStartedAt).toBe(dueAt + 1)
             expect(publishingPublication?.state).toBe('publishing')
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('retries only a known no-effect failure and stops at the policy limit', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'retry')
             const store = createWorkflowStore(database)
             const retryPolicy = createExponentialRetryPolicy({
@@ -800,55 +839,68 @@ describe('workflow store', () => {
                 })
 
             expect((await process()).outcome).toBe('retry_scheduled')
-            let [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            let [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            let [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            let [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('pending')
             expect(job?.attempts).toBe(1)
             expect(job?.runAt).toBe(dueAt + 1_000)
             expect(publication?.state).toBe('ready')
 
-            database
-                .insert(publicationTargetRevisions)
-                .values({
-                    id: 'replacement-target-retry',
-                    projectId: fixture.projectId,
-                    publicationId: fixture.publicationId,
-                    sequence: 2,
-                    profileVersionId: fixture.profileVersionId,
-                    sourceRevision: 1,
-                    deliveryMode: 'automatic',
-                    contentJson: { body: 'Replacement target must not be retried' },
-                    contentHash: 'sha256:replacement-target',
-                    profileHash: testProfile.profileHash,
-                    schemaHash: testProfile.schemaHash,
-                    validationIssuesJson: [],
-                    createdByActorId: fixture.humanActorId,
-                })
-                .run()
-            database
-                .update(publications)
-                .set({ targetRevisionId: 'replacement-target-retry' })
-                .where(eq(publications.id, fixture.publicationId))
-                .run()
+            await database.sql
+                .statement(
+                    'insert into "publication_target_revisions" ("id", "project_id", "publication_id", "sequence", "profile_version_id", "source_revision", "delivery_mode", "content_json", "content_hash", "profile_hash", "schema_hash", "validation_issues_json", "created_by_actor_id") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)'
+                )
+                .run(
+                    'replacement-target-retry',
+                    fixture.projectId,
+                    fixture.publicationId,
+                    2,
+                    fixture.profileVersionId,
+                    1,
+                    'automatic',
+                    toDbValue('json', { body: 'Replacement target must not be retried' }),
+                    'sha256:replacement-target',
+                    testProfile.profileHash,
+                    testProfile.schemaHash,
+                    toDbValue('json', []),
+                    fixture.humanActorId
+                )
+            await database.sql
+                .statement(
+                    'update "publications" set "target_revision_id" = ?1 where "publications"."id" = ?2'
+                )
+                .run('replacement-target-retry', fixture.publicationId)
 
             currentTime = dueAt + 1_000
             expect((await process()).outcome).toBe('failed')
-            ;[job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            ;[publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            ;[job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            ;[publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('failed')
             expect(job?.attempts).toBe(2)
             expect(job?.errorMessage).toContain('rejected')
             expect(publication?.state).toBe('failed')
             expect(await store.getNextEventAt()).toBeNull()
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
                 'publication.execution.retry_scheduled',
@@ -857,11 +909,11 @@ describe('workflow store', () => {
                 'publication.execution.failed',
             ])
             expect(
-                executionAuditEvents(database, fixture.publicationId).every(
+                (await executionAuditEvents(database, fixture.publicationId)).every(
                     event => event.eventVersion === 1 && event.correlationId === fixture.jobId
                 )
             ).toBe(true)
-            const retryAuditMetadata = executionAuditMetadata(database, fixture.publicationId)
+            const retryAuditMetadata = await executionAuditMetadata(database, fixture.publicationId)
             expect(retryAuditMetadata[2]).toMatchObject({
                 outcome: 'retryable_failure',
                 effectOccurred: false,
@@ -877,8 +929,8 @@ describe('workflow store', () => {
                 toState: 'failed',
             })
             expect(
-                database.$client
-                    .query<{ targetRevisionId: string; contentJson: string }, []>(
+                await database.sql
+                    .statement<{ targetRevisionId: string; contentJson: string }, []>(
                         `select target_revision_id as targetRevisionId, content_json as contentJson
                          from publication_execution_revisions`
                     )
@@ -890,15 +942,14 @@ describe('workflow store', () => {
                 },
             ])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('treats an exception after the effect boundary as ambiguous', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'exception')
             const store = createWorkflowStore(database)
             const result = await processNextWorkflowEvent({
@@ -918,36 +969,43 @@ describe('workflow store', () => {
             })
 
             expect(result.outcome).toBe('ambiguous')
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('failed')
             expect(publication?.state).toBe('ambiguous')
             expect(publication?.errorMessage).toContain('response lost')
-            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+            expect(await executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
                 'publication.execution.ambiguous',
             ])
-            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+            expect(
+                (await executionAuditMetadata(database, fixture.publicationId))[2]
+            ).toMatchObject({
                 outcome: 'ambiguous',
                 toState: 'ambiguous',
                 errorMessage: 'External effect threw after its durable boundary: response lost',
                 attempt: 1,
             })
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('cancels pending work atomically but never claims a running effect was prevented', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const pending = await seedDueJob(database, 'cancel-pending')
             const running = await seedDueJob(database, 'cancel-running')
             const store = createWorkflowStore(database)
@@ -970,44 +1028,45 @@ describe('workflow store', () => {
                 await store.cancelPendingJob(running.jobId, running.humanActorId, dueAt + 2)
             ).toBe(false)
 
-            const [cancelledJob] = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.id, pending.jobId))
-                .all()
-            const [cancelledPublication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, pending.publicationId))
-                .all()
-            const [runningJob] = database
-                .select()
-                .from(jobs)
-                .where(eq(jobs.id, running.jobId))
-                .all()
+            const [cancelledJob] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(pending.jobId)
+            const [cancelledPublication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(pending.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
+            const [runningJob] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(running.jobId)
             expect(cancelledJob?.state).toBe('cancelled')
             expect(cancelledJob?.completedAt).toBe(dueAt)
             expect(cancelledPublication?.state).toBe('cancelled')
             expect(cancelledPublication?.stateChangedByActorId).toBe(pending.humanActorId)
             expect(runningJob?.state).toBe('running')
-            expect(executionAuditActions(database, pending.publicationId)).toEqual([
+            expect(await executionAuditActions(database, pending.publicationId)).toEqual([
                 'publication.execution.cancelled',
             ])
-            expect(executionAuditActions(database, running.publicationId)).toEqual([
+            expect(await executionAuditActions(database, running.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
             ])
-            expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+            expect(await foreignKeyViolations(database)).toEqual([])
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
     it('runs one durable publication from a scheduler wake and returns to empty state', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
 
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database, 'scheduled-execution')
             const store = createWorkflowStore(database)
             let wake: (() => void | Promise<void>) | undefined
@@ -1047,88 +1106,101 @@ describe('workflow store', () => {
             if (wake === undefined) throw new Error('Scheduler did not arm its timer')
             await wake()
 
-            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
-            const [publication] = database
-                .select()
-                .from(publications)
-                .where(eq(publications.id, fixture.publicationId))
-                .all()
+            const [job] = await database.sql
+                .statement<TestRow>(
+                    'select "jobs"."id" as "id", "jobs"."project_id" as "projectId", "jobs"."publication_id" as "publicationId", "jobs"."state" as "state", "jobs"."run_at" as "runAt", "jobs"."attempts" as "attempts", "jobs"."claim_token" as "claimToken", "jobs"."claimed_by_actor_id" as "claimedByActorId", "jobs"."claimed_at" as "claimedAt", "jobs"."lease_expires_at" as "leaseExpiresAt", "jobs"."effect_started_at" as "effectStartedAt", "jobs"."started_at" as "startedAt", "jobs"."completed_at" as "completedAt", "jobs"."error_message" as "errorMessage", "jobs"."created_at" as "createdAt", "jobs"."updated_at" as "updatedAt" from "jobs" where "jobs"."id" = ?1'
+                )
+                .all(fixture.jobId)
+            const [publication] = (
+                await database.sql
+                    .statement<TestRow>(
+                        'select "publications"."id" as "id", "publications"."project_id" as "projectId", "publications"."post_id" as "postId", "publications"."channel_id" as "channelId", "publications"."confirmed_destination_revision" as "confirmedDestinationRevision", "publications"."target_revision_id" as "targetRevisionId", "publications"."delivery_mode" as "deliveryMode", "publications"."review_state" as "reviewState", "publications"."state" as "state", "publications"."scheduled_at" as "scheduledAt", "publications"."published_at" as "publishedAt", "publications"."external_id" as "externalId", "publications"."external_url" as "externalUrl", "publications"."error_message" as "errorMessage", "publications"."created_by_actor_id" as "createdByActorId", "publications"."scheduled_by_actor_id" as "scheduledByActorId", "publications"."state_changed_by_actor_id" as "stateChangedByActorId", "publications"."published_by_actor_id" as "publishedByActorId", "publications"."last_assessed_profile_version_id" as "lastAssessedProfileVersionId", "publications"."profile_assessment_issues_json" as "profileAssessmentIssuesJson", "publications"."created_at" as "createdAt", "publications"."updated_at" as "updatedAt" from "publications" where "publications"."id" = ?1'
+                    )
+                    .all(fixture.publicationId)
+            ).map(row => fromDbRow<TestRow>(row, { profileAssessmentIssuesJson: 'json' }))
             expect(job?.state).toBe('succeeded')
             expect(publication?.state).toBe('published')
             expect(await store.getNextEventAt()).toBeNull()
             expect(scheduler.state).toBe('started')
             expect(scheduler.scheduledAt).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
 
-    it('prevents two database connections from claiming the same job', async () => {
-        const directory = mkdtempSync(join(tmpdir(), 'postdot-workflow-'))
-        const filename = join(directory, 'postdot.sqlite')
-        const firstDatabase = createDatabase(filename)
-        let secondDatabase: PostdotDatabase | undefined
-
-        try {
+    it.skipIf(testEngine === 'postgres')(
+        'prevents two database connections from claiming the same job',
+        async () => {
+            const directory = mkdtempSync(join(tmpdir(), 'postdot-workflow-'))
+            const filename = join(directory, 'postdot.sqlite')
+            const firstDatabase = createDatabase(filename)
             runMigrations(firstDatabase)
-            const fixture = await seedDueJob(firstDatabase)
-            secondDatabase = createDatabase(filename)
+            let secondDatabase: PostdotDatabase | undefined
 
-            const firstClaim = await createWorkflowStore(firstDatabase).claimNextDueJob({
-                actorId: fixture.systemActorId,
-                claimToken: 'claim-one',
-                now: dueAt,
-                leaseExpiresAt: dueAt + 60_000,
-            })
-            const secondClaim = await createWorkflowStore(secondDatabase).claimNextDueJob({
-                actorId: fixture.systemActorId,
-                claimToken: 'claim-two',
-                now: dueAt,
-                leaseExpiresAt: dueAt + 60_000,
-            })
+            try {
+                const fixture = await seedDueJob(firstDatabase)
+                secondDatabase = createDatabase(filename)
+                runMigrations(secondDatabase)
 
-            expect(firstClaim?.id).toBe(fixture.jobId)
-            expect(secondClaim).toBeNull()
-        } finally {
-            if (secondDatabase !== undefined) closeDatabase(secondDatabase)
-            closeDatabase(firstDatabase)
-            rmSync(directory, { recursive: true, force: true })
-        }
-    })
+                const firstClaim = await createWorkflowStore(firstDatabase).claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-one',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+                const secondClaim = await createWorkflowStore(secondDatabase).claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-two',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
 
-    it('reconstructs the next event after the database is reopened', async () => {
-        const directory = mkdtempSync(join(tmpdir(), 'postdot-restart-'))
-        const filename = join(directory, 'postdot.sqlite')
-        const firstDatabase = createDatabase(filename)
-        let firstDatabaseOpen = true
-        let reopenedDatabase: PostdotDatabase | undefined
-
-        try {
-            runMigrations(firstDatabase)
-            await seedDueJob(firstDatabase, 'restart')
-            expect(await createWorkflowStore(firstDatabase).getNextEventAt()).toBe(dueAt)
-            closeDatabase(firstDatabase)
-            firstDatabaseOpen = false
-
-            reopenedDatabase = createDatabase(filename)
-            expect(await createWorkflowStore(reopenedDatabase).getNextEventAt()).toBe(dueAt)
-        } finally {
-            if (reopenedDatabase !== undefined) {
-                closeDatabase(reopenedDatabase)
-            }
-            if (firstDatabaseOpen) {
+                expect(firstClaim?.id).toBe(fixture.jobId)
+                expect(secondClaim).toBeNull()
+            } finally {
+                if (secondDatabase !== undefined) closeDatabase(secondDatabase)
                 closeDatabase(firstDatabase)
+                rmSync(directory, { recursive: true, force: true })
             }
-            rmSync(directory, { recursive: true, force: true })
         }
-    })
+    )
+
+    it.skipIf(testEngine === 'postgres')(
+        'reconstructs the next event after the database is reopened',
+        async () => {
+            const directory = mkdtempSync(join(tmpdir(), 'postdot-restart-'))
+            const filename = join(directory, 'postdot.sqlite')
+            const firstDatabase = createDatabase(filename)
+            runMigrations(firstDatabase)
+            let firstDatabaseOpen = true
+            let reopenedDatabase: PostdotDatabase | undefined
+
+            try {
+                await seedDueJob(firstDatabase, 'restart')
+                expect(await createWorkflowStore(firstDatabase).getNextEventAt()).toBe(dueAt)
+                closeDatabase(firstDatabase)
+                firstDatabaseOpen = false
+
+                reopenedDatabase = createDatabase(filename)
+                runMigrations(reopenedDatabase)
+                expect(await createWorkflowStore(reopenedDatabase).getNextEventAt()).toBe(dueAt)
+            } finally {
+                if (reopenedDatabase !== undefined) {
+                    closeDatabase(reopenedDatabase)
+                }
+                if (firstDatabaseOpen) {
+                    closeDatabase(firstDatabase)
+                }
+                rmSync(directory, { recursive: true, force: true })
+            }
+        }
+    )
 })
 
 describe('project retirement effect fencing', () => {
     it('cancels an owned pre-effect claim before it can cross the network boundary', async () => {
-        const database = createDatabase(':memory:')
+        const database = (await openTestDatabase()).database
         try {
-            runMigrations(database)
             const fixture = await seedDueJob(database)
             const workflow = createWorkflowStore(database)
             expect(
@@ -1163,14 +1235,13 @@ describe('project retirement effect fencing', () => {
                 })
             ).toBeNull()
         } finally {
-            closeDatabase(database)
+            await closeTestDatabase(database)
         }
     })
     for (const retry of [false, true])
         it(`persists an already-started ${retry ? 'retryable failure' : 'success'} before retiring`, async () => {
-            const database = createDatabase(':memory:')
+            const database = (await openTestDatabase()).database
             try {
-                runMigrations(database)
                 const fixture = await seedDueJob(database)
                 const workflow = createWorkflowStore(database)
                 await workflow.claimNextDueJob({
@@ -1224,24 +1295,25 @@ describe('project retirement effect fencing', () => {
                 }
                 await lifecycle.reconcile(storage)
                 expect(await lifecycle.state('project', fixture.projectId)).toBe('archived')
-                expect(database.$client.query('select state from publications').get()).toEqual({
+                expect(
+                    await database.sql.statement('select state from publications').get()
+                ).toEqual({
                     state: retry ? 'cancelled' : 'published',
                 })
             } finally {
-                closeDatabase(database)
+                await closeTestDatabase(database)
             }
         })
 })
 
 it('paces overdue work before claim, persists timing across store restart and lets another channel run', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const a = await seedDueJob(database, 'paced')
         const b = await seedDueJob(database, 'eligible')
         const channelId = 'channel-paced'
-        database.$client
-            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
+        await database.sql
+            .statement(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
             values (?,1,'UTC',1000,?,?,?)`)
             .run(channelId, dueAt - 100, a.humanActorId, dueAt)
         const store = createWorkflowStore(database)
@@ -1277,24 +1349,23 @@ it('paces overdue work before claim, persists timing across store restart and le
         ).toBe(a.jobId)
         expect(await store.startExternalEffect(a.jobId, 'on-time', dueAt + 900)).toBe(true)
         expect(
-            database.$client
-                .query('select scheduled_at from publications where id=?')
+            await database.sql
+                .statement('select scheduled_at from publications where id=?')
                 .get(a.publicationId)
         ).toEqual({ scheduled_at: dueAt })
         expect(
-            database.$client
-                .query('select last_effect_at from channel_cadence where channel_id=?')
+            await database.sql
+                .statement('select last_effect_at from channel_cadence where channel_id=?')
                 .get(channelId)
         ).toEqual({ last_effect_at: dueAt + 900 })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('rechecks spacing at the effect boundary and defers without consuming an attempt', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const a = await seedDueJob(database, 'boundary')
         const store = createWorkflowStore(database)
         expect(
@@ -1305,29 +1376,28 @@ it('rechecks spacing at the effect boundary and defers without consuming an atte
                 leaseExpiresAt: dueAt + 2000,
             })
         ).not.toBeNull()
-        database.$client
-            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
+        await database.sql
+            .statement(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
             values ('channel-boundary',1,'UTC',1000,?,?,?)`)
             .run(dueAt, a.humanActorId, dueAt)
         expect(await store.startExternalEffect(a.jobId, 'claimed', dueAt + 1)).toBe(false)
         expect(
-            database.$client
-                .query('select state,attempts,effect_started_at from jobs where id=?')
+            await database.sql
+                .statement('select state,attempts,effect_started_at from jobs where id=?')
                 .get(a.jobId)
         ).toEqual({ state: 'pending', attempts: 0, effect_started_at: null })
         expect(await store.getNextEventAt()).toBe(dueAt + 1000)
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
 
 it('paces actual retries after restart and keeps the original requested schedule', async () => {
-    const database = createDatabase(':memory:')
+    const database = (await openTestDatabase()).database
     try {
-        runMigrations(database)
         const f = await seedDueJob(database, 'retry-paced')
-        database.$client
-            .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,updated_by_actor_id,updated_at)
+        await database.sql
+            .statement(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,updated_by_actor_id,updated_at)
             values ('channel-retry-paced',1,'UTC',1000,?,?)`)
             .run(f.humanActorId, dueAt)
         const store = createWorkflowStore(database)
@@ -1375,11 +1445,11 @@ it('paces actual retries after restart and keeps the original requested schedule
         ).toBe(2)
         expect(await restarted.startExternalEffect(f.jobId, 'retry', dueAt + 1000)).toBe(true)
         expect(
-            database.$client
-                .query('select scheduled_at from publications where id=?')
+            await database.sql
+                .statement('select scheduled_at from publications where id=?')
                 .get(f.publicationId)
         ).toEqual({ scheduled_at: dueAt })
     } finally {
-        closeDatabase(database)
+        await closeTestDatabase(database)
     }
 })
