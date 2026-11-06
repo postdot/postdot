@@ -20,11 +20,7 @@ import {
     sameDestination,
     type ChannelDestinationIdentity,
 } from './channel-destination'
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export interface PublisherConnectionDestination {
@@ -262,11 +258,11 @@ function credentialFields(row: CredentialRow) {
 }
 
 export function createPublisherStore(database: PostdotDatabase, options: PublisherStoreOptions) {
-    const client = database.$client
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
 
-    const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
+    const loadProjectStatement = sql.statement<ProjectRow, [projectId: string]>(`
         select id,
                name,
                time_zone as timeZone,
@@ -277,7 +273,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         from projects
         where id = ?1
     `)
-    const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
+    const loadActorStatement = sql.statement<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
                project_id as projectId,
                kind,
@@ -292,7 +288,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         order by created_at, id
         limit 1
     `)
-    const loadChannelStatement = client.query<ChannelRow, [projectId: string, channelId: string]>(`
+    const loadChannelStatement = sql.statement<ChannelRow, [projectId: string, channelId: string]>(`
         select channels.id,
                channels.project_id as projectId,
                channels.name,
@@ -311,7 +307,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         where channels.project_id = ?1
           and channels.id = ?2
     `)
-    const loadChannelProfileStatement = client.query<
+    const loadChannelProfileStatement = sql.statement<
         ChannelProfileRow,
         [projectId: string, profileVersionId: string]
     >(`
@@ -321,7 +317,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and id = ?2
           and state <> 'disabled'
     `)
-    const loadCredentialStatement = client.query<
+    const loadCredentialStatement = sql.statement<
         CredentialRow,
         [projectId: string, credentialId: string]
     >(`
@@ -335,7 +331,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         where project_id = ?1
           and id = ?2
     `)
-    const loadPublisherForChannelStatement = client.query<
+    const loadPublisherForChannelStatement = sql.statement<
         PublisherRow,
         [projectId: string, channelId: string]
     >(`
@@ -366,7 +362,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         publisher_connections.created_at as createdAt,
         publisher_connections.updated_at as updatedAt
     `
-    const listPublisherConnectionsStatement = client.query<
+    const listPublisherConnectionsStatement = sql.statement<
         PublisherConnectionRow,
         [projectId: string]
     >(`
@@ -381,7 +377,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         where publisher_connections.project_id = ?1
         order by publisher_connections.created_at, publisher_connections.id
     `)
-    const loadPublisherConnectionStatement = client.query<
+    const loadPublisherConnectionStatement = sql.statement<
         PublisherConnectionRow,
         [projectId: string, channelId: string]
     >(`
@@ -397,7 +393,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and publishers.channel_id = ?2
         limit 1
     `)
-    const loadPublisherExecutionTargetStatement = client.query<
+    const loadPublisherExecutionTargetStatement = sql.statement<
         PublisherExecutionTargetRow,
         [jobId: string, claimToken: string]
     >(`
@@ -457,7 +453,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and (execution.destination_snapshot_json is null or json_extract(execution.destination_snapshot_json, '$.revision') = channels.destination_revision)
         limit 1
     `)
-    const listPublisherExecutionMediaStatement = client.query<
+    const listPublisherExecutionMediaStatement = sql.statement<
         PublisherExecutionMedia,
         [projectId: string, executionRevisionId: string]
     >(`
@@ -494,7 +490,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and execution_media.execution_revision_id = ?2
         order by execution_media.position, execution_media.id
     `)
-    const listUnqueuedScheduledPublicationsStatement = client.query<
+    const listUnqueuedScheduledPublicationsStatement = sql.statement<
         ScheduledPublicationRow,
         [channelId: string]
     >(`
@@ -516,7 +512,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           )
         order by publications.scheduled_at, publications.id
     `)
-    const loadActiveWorkStatement = client.query<{ id: string }, [channelId: string]>(`
+    const loadActiveWorkStatement = sql.statement<{ id: string }, [channelId: string]>(`
         select publications.id
         from publications
         where publications.channel_id = ?1
@@ -533,7 +529,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and jobs.state in ('pending', 'running')
         limit 1
     `)
-    const insertPublisherStatement = client.query<
+    const insertPublisherStatement = sql.statement<
         void,
         [id: string, projectId: string, channelId: string, kind: string, timestamp: number]
     >(`
@@ -541,7 +537,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             id, workspace_id, channel_id, kind, created_at, updated_at
         ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?5)
     `)
-    const insertConnectionStatement = client.query<
+    const insertConnectionStatement = sql.statement<
         void,
         [
             id: string,
@@ -572,7 +568,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             updated_at
         ) values (?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
     `)
-    const insertJobStatement = client.query<
+    const insertJobStatement = sql.statement<
         void,
         [id: string, projectId: string, publicationId: string, runAt: number, timestamp: number]
     >(`
@@ -586,7 +582,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             updated_at
         ) values (?1, ?2, ?3, 'pending', ?4, ?5, ?5)
     `)
-    const insertAuditEventStatement = client.query<
+    const insertAuditEventStatement = sql.statement<
         void,
         [
             id: string,
@@ -610,7 +606,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
-    const activeAttachmentStatement = client.query<
+    const activeAttachmentStatement = sql.statement<
         { found: number },
         [projectId: string, channelId: string]
     >(`
@@ -621,7 +617,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           and state = 'active'
     `)
     const workspaceActors = createWorkspaceActorStore(database, { now, createId })
-    const deletePublisherStatement = client.query<
+    const deletePublisherStatement = sql.statement<
         { changes: number },
         [projectId: string, publisherId: string]
     >(`
@@ -635,12 +631,12 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
           )
     `)
 
-    const createPublisherConnectionTransaction = createDatabaseTransaction(
+    const createPublisherConnectionTransaction = defineTransaction(
         database,
-        (input: CreatePublisherConnectionInput): CreatePublisherConnectionResult => {
-            const projectRow = loadProjectStatement.get(input.projectId)
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const channelRow = loadChannelStatement.get(input.projectId, input.channelId)
+        async (input: CreatePublisherConnectionInput): Promise<CreatePublisherConnectionResult> => {
+            const projectRow = await loadProjectStatement.get(input.projectId)
+            const actorRow = await loadActorStatement.get(input.projectId, input.subjectId)
+            const channelRow = await loadChannelStatement.get(input.projectId, input.channelId)
             if (projectRow === null || actorRow === null || channelRow === null) {
                 return { kind: 'not_found' }
             }
@@ -652,18 +648,21 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             }
             // A detached project keeps historical reads but cannot change the connection.
             if (
-                activeAttachmentStatement.get(input.projectId, input.channelId) === null ||
+                (await activeAttachmentStatement.get(input.projectId, input.channelId)) === null ||
                 projectRow.workspaceId === null
             ) {
                 return { kind: 'not_found' }
             }
-            const workspaceActor = workspaceActors.ensureFromProjectActor({
+            const workspaceActor = await workspaceActors.ensureFromProjectActor({
                 workspaceId: projectRow.workspaceId,
                 projectActorId: actorRow.id,
             })
             if (workspaceActor === null) return { kind: 'not_found' }
 
-            const credentialRow = loadCredentialStatement.get(input.projectId, input.credentialId)
+            const credentialRow = await loadCredentialStatement.get(
+                input.projectId,
+                input.credentialId
+            )
             if (credentialRow === null || credentialRow.providerId !== input.kind) {
                 return { kind: 'invalid_credential' }
             }
@@ -678,7 +677,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             )
             if (!connectionSettings.valid) return { kind: 'invalid_connection' }
 
-            const profileRow = loadChannelProfileStatement.get(
+            const profileRow = await loadChannelProfileStatement.get(
                 input.projectId,
                 channelRow.profileVersionId
             )
@@ -693,14 +692,16 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                 return { kind: 'incompatible_profile' }
             }
 
-            const storedIdentity = client
-                .query<{ json: string | null }, [string, string]>(
-                    'select destination_identity_json as json from project_channel_contexts as channels where project_id = ? and id = ?'
-                )
-                .get(input.projectId, input.channelId)?.json
+            const storedIdentity = (
+                await sql
+                    .statement<{ json: string | null }, [string, string]>(
+                        'select destination_identity_json as json from project_channel_contexts as channels where project_id = ? and id = ?'
+                    )
+                    .get(input.projectId, input.channelId)
+            )?.json
             const previousIdentity: ChannelDestinationIdentity | null = storedIdentity
                 ? JSON.parse(storedIdentity)
-                : readChannelDestination(database, input.projectId, input.channelId)
+                : await readChannelDestination(database, input.projectId, input.channelId)
             const nextIdentity = destinationIdentity({
                 providerId: credentialRow.providerId,
                 externalAccountId: credentialRow.externalAccountId,
@@ -710,7 +711,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                 destinationName: connectionSettings.destination?.name ?? null,
                 endpointUrl: connectionSettings.endpointUrl,
             })
-            const existingConnection = loadPublisherConnectionStatement.get(
+            const existingConnection = await loadPublisherConnectionStatement.get(
                 input.projectId,
                 input.channelId
             )
@@ -727,7 +728,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                     return { kind: 'publisher_exists' }
                 }
 
-                const deleted = deletePublisherStatement.run(
+                const deleted = await deletePublisherStatement.run(
                     input.projectId,
                     existingConnection.publisherId
                 )
@@ -741,8 +742,8 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                 }
             }
 
-            client
-                .query(
+            await sql
+                .statement(
                     `update channels set destination_identity_json = ?, destination_revision = destination_revision + ? where id = ? and exists (select 1 from project_channel_contexts as visible where visible.project_id = ? and visible.id = channels.id)`
                 )
                 .run(
@@ -767,14 +768,14 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             })
             const connectionId = createId()
 
-            insertPublisherStatement.run(
+            await insertPublisherStatement.run(
                 publisher.id,
                 publisher.projectId,
                 publisher.channelId,
                 publisher.kind,
                 timestamp
             )
-            insertConnectionStatement.run(
+            await insertConnectionStatement.run(
                 connectionId,
                 publisher.projectId,
                 publisher.id,
@@ -790,10 +791,10 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                 timestamp
             )
             // The connection is common: scheduled work in every attached project becomes executable.
-            for (const publication of listUnqueuedScheduledPublicationsStatement.all(
+            for (const publication of await listUnqueuedScheduledPublicationsStatement.all(
                 publisher.channelId
             )) {
-                insertJobStatement.run(
+                await insertJobStatement.run(
                     createId(),
                     publication.projectId,
                     publication.id,
@@ -802,7 +803,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
                 )
             }
             recordDatabaseCommitProject(database, project.id)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 createId(),
                 project.id,
                 actor.id,
@@ -837,29 +838,38 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
         }
     )
 
-    const disconnectPublisherConnectionTransaction = createDatabaseTransaction(
+    const disconnectPublisherConnectionTransaction = defineTransaction(
         database,
-        (input: DisconnectPublisherConnectionInput): DisconnectPublisherConnectionResult => {
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const connection = loadPublisherConnectionStatement.get(
+        async (
+            input: DisconnectPublisherConnectionInput
+        ): Promise<DisconnectPublisherConnectionResult> => {
+            const actorRow = await loadActorStatement.get(input.projectId, input.subjectId)
+            const connection = await loadPublisherConnectionStatement.get(
                 input.projectId,
                 input.channelId
             )
             if (actorRow === null || connection === null) return { kind: 'not_found' }
 
-            if (loadActiveWorkStatement.get(input.channelId) !== null) {
+            if ((await loadActiveWorkStatement.get(input.channelId)) !== null) {
                 return { kind: 'active_work' }
             }
 
             const timestamp = requireTimestamp(now(), 'now')
-            const identity = readChannelDestination(database, input.projectId, input.channelId)
+            const identity = await readChannelDestination(
+                database,
+                input.projectId,
+                input.channelId
+            )
             if (identity !== null)
-                client
-                    .query(
+                await sql
+                    .statement(
                         'update channels set destination_identity_json = coalesce(destination_identity_json, ?) where id = ? and exists (select 1 from project_channel_contexts as visible where visible.project_id = ? and visible.id = channels.id)'
                     )
                     .run(JSON.stringify(identity), input.channelId, input.projectId)
-            const deleted = deletePublisherStatement.run(input.projectId, connection.publisherId)
+            const deleted = await deletePublisherStatement.run(
+                input.projectId,
+                connection.publisherId
+            )
             if (deleted.changes < 1) return { kind: 'not_found' }
 
             options.credentialRevoker.revokePublisherCredentialIfUnreferenced(
@@ -868,7 +878,7 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             )
 
             recordDatabaseCommitProject(database, input.projectId)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 createId(),
                 input.projectId,
                 actorRow.id,
@@ -884,102 +894,117 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
     )
 
     return {
-        hasChannelAccess(projectId: string, channelId: string, subjectId: string): boolean {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedChannelId = requireNonBlank(channelId, 'channelId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+        async hasChannelAccess(
+            projectId: string,
+            channelId: string,
+            subjectId: string
+        ): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedChannelId = requireNonBlank(channelId, 'channelId')
+                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
 
-            return (
-                loadActorStatement.get(normalizedProjectId, normalizedSubjectId) !== null &&
-                loadChannelStatement.get(normalizedProjectId, normalizedChannelId) !== null
-            )
+                return (
+                    (await loadActorStatement.get(normalizedProjectId, normalizedSubjectId)) !==
+                        null &&
+                    (await loadChannelStatement.get(normalizedProjectId, normalizedChannelId)) !==
+                        null
+                )
+            }, 'deferred')
         },
 
-        getProjectActorId(projectId: string, subjectId: string): string | null {
-            const actor = loadActorStatement.get(
+        async getProjectActorId(projectId: string, subjectId: string): Promise<string | null> {
+            const actor = await loadActorStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(subjectId, 'subjectId')
             )
             return actor?.id ?? null
         },
 
-        hasPublisherForChannel(projectId: string, channelId: string): boolean {
+        async hasPublisherForChannel(projectId: string, channelId: string): Promise<boolean> {
             return (
-                loadPublisherForChannelStatement.get(
+                (await loadPublisherForChannelStatement.get(
                     requireNonBlank(projectId, 'projectId'),
                     requireNonBlank(channelId, 'channelId')
-                ) !== null
+                )) !== null
             )
         },
 
-        getPublisherConnection(
+        async getPublisherConnection(
             projectId: string,
             channelId: string,
             subjectId: string
-        ): PublisherConnection | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedChannelId = requireNonBlank(channelId, 'channelId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
-                return null
-            }
+        ): Promise<PublisherConnection | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedChannelId = requireNonBlank(channelId, 'channelId')
+                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+                if (
+                    (await loadActorStatement.get(normalizedProjectId, normalizedSubjectId)) ===
+                    null
+                ) {
+                    return null
+                }
 
-            const connection = loadPublisherConnectionStatement.get(
-                normalizedProjectId,
-                normalizedChannelId
-            )
-            return connection === null ? null : toPublisherConnection(connection)
+                const connection = await loadPublisherConnectionStatement.get(
+                    normalizedProjectId,
+                    normalizedChannelId
+                )
+                return connection === null ? null : toPublisherConnection(connection)
+            }, 'deferred')
         },
 
-        getPublisherExecutionTarget(
+        async getPublisherExecutionTarget(
             jobId: string,
             claimToken: string
-        ): PublisherExecutionTarget | null {
-            const row = loadPublisherExecutionTargetStatement.get(
-                requireNonBlank(jobId, 'jobId'),
-                requireNonBlank(claimToken, 'claimToken')
-            )
-            if (row === null) return null
-            const media = listPublisherExecutionMediaStatement.all(
-                row.projectId,
-                row.executionRevisionId
-            )
-            if (media.length !== row.mediaReferenceCount) {
-                throw new Error(
-                    `Execution revision ${row.executionRevisionId} has incomplete media references`
+        ): Promise<PublisherExecutionTarget | null> {
+            return database.sql.transaction(async () => {
+                const row = await loadPublisherExecutionTargetStatement.get(
+                    requireNonBlank(jobId, 'jobId'),
+                    requireNonBlank(claimToken, 'claimToken')
                 )
-            }
-            return {
-                jobId: row.jobId,
-                projectId: row.projectId,
-                publicationId: row.publicationId,
-                scheduledAt: row.scheduledAt,
-                executionRevisionId: row.executionRevisionId,
-                profileVersionId: row.profileVersionId,
-                mediaReferenceCount: row.mediaReferenceCount,
-                profile: parseProfile(row.profileJson),
-                content: parseJsonObject(row.contentJson),
-                publisherId: row.publisherId,
-                channelId: row.channelId,
-                channelName: row.channelName,
-                kind: row.kind,
-                credentialId: row.credentialId,
-                externalAccountId: row.externalAccountId,
-                destination: parseDestination(row),
-                providerId: row.providerId,
-                providerApplicationId: row.providerApplicationId,
-                credentialState: row.credentialState,
-                credentialExpiresAt: row.credentialExpiresAt,
-                endpointUrl: row.endpointUrl,
-                authentication: parseAuthentication(row.authenticationJson),
-                attempt: row.attempt,
-                media,
-            }
+                if (row === null) return null
+                const media = await listPublisherExecutionMediaStatement.all(
+                    row.projectId,
+                    row.executionRevisionId
+                )
+                if (media.length !== row.mediaReferenceCount) {
+                    throw new Error(
+                        `Execution revision ${row.executionRevisionId} has incomplete media references`
+                    )
+                }
+                return {
+                    jobId: row.jobId,
+                    projectId: row.projectId,
+                    publicationId: row.publicationId,
+                    scheduledAt: row.scheduledAt,
+                    executionRevisionId: row.executionRevisionId,
+                    profileVersionId: row.profileVersionId,
+                    mediaReferenceCount: row.mediaReferenceCount,
+                    profile: parseProfile(row.profileJson),
+                    content: parseJsonObject(row.contentJson),
+                    publisherId: row.publisherId,
+                    channelId: row.channelId,
+                    channelName: row.channelName,
+                    kind: row.kind,
+                    credentialId: row.credentialId,
+                    externalAccountId: row.externalAccountId,
+                    destination: parseDestination(row),
+                    providerId: row.providerId,
+                    providerApplicationId: row.providerApplicationId,
+                    credentialState: row.credentialState,
+                    credentialExpiresAt: row.credentialExpiresAt,
+                    endpointUrl: row.endpointUrl,
+                    authentication: parseAuthentication(row.authenticationJson),
+                    attempt: row.attempt,
+                    media,
+                }
+            }, 'deferred')
         },
 
-        createPublisherConnection(
+        async createPublisherConnection(
             input: CreatePublisherConnectionInput
-        ): CreatePublisherConnectionResult {
+        ): Promise<CreatePublisherConnectionResult> {
             return createPublisherConnectionTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -990,24 +1015,29 @@ export function createPublisherStore(database: PostdotDatabase, options: Publish
             })
         },
 
-        listPublisherConnections(
+        async listPublisherConnections(
             projectId: string,
             subjectId: string
-        ): PublisherConnection[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
-                return null
-            }
+        ): Promise<PublisherConnection[] | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+                if (
+                    (await loadActorStatement.get(normalizedProjectId, normalizedSubjectId)) ===
+                    null
+                ) {
+                    return null
+                }
 
-            return listPublisherConnectionsStatement
-                .all(normalizedProjectId)
-                .map(toPublisherConnection)
+                return (await listPublisherConnectionsStatement.all(normalizedProjectId)).map(
+                    toPublisherConnection
+                )
+            }, 'deferred')
         },
 
-        disconnectPublisherConnection(
+        async disconnectPublisherConnection(
             input: DisconnectPublisherConnectionInput
-        ): DisconnectPublisherConnectionResult {
+        ): Promise<DisconnectPublisherConnectionResult> {
             return disconnectPublisherConnectionTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

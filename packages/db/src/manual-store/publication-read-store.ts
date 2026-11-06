@@ -36,10 +36,16 @@ import { publicationColumns } from './sql-fragments'
 
 export interface PublicationReadStoreOptions {
     readonly now?: () => number
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
-    readonly loadProfile: (projectId: string, profileId: string) => ProfileRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly loadChannel: (
+        projectId: string,
+        channelId: string
+    ) => Promise<PublicationChannelRow | null>
+    readonly loadProfile: (projectId: string, profileId: string) => Promise<ProfileRow | null>
 }
 
 export interface PublicationReadStoreApi {
@@ -47,22 +53,22 @@ export interface PublicationReadStoreApi {
         projectId: string,
         publicationId: string,
         subjectId: string
-    ) => PublicationWorkingDraft | null
+    ) => Promise<PublicationWorkingDraft | null>
     readonly getPublicationEditorState: (
         projectId: string,
         publicationId: string,
         subjectId: string
-    ) => PublicationEditorState | null
+    ) => Promise<PublicationEditorState | null>
     readonly listPublicationSummaries: (
         projectId: string,
         subjectId: string,
         filter?: PublicationTagFilter
-    ) => PublicationSummary[] | null
+    ) => Promise<PublicationSummary[] | null>
     readonly listPublicationSummaryPage: (
         projectId: string,
         subjectId: string,
         options?: PublicationSummaryPageOptions
-    ) => PublicationSummaryPage | null
+    ) => Promise<PublicationSummaryPage | null>
 }
 
 export interface PublicationSummaryPageOptions {
@@ -103,16 +109,19 @@ export interface PublicationSummaryPage {
 
 export interface PublicationReadStoreHandle {
     readonly api: PublicationReadStoreApi
-    readonly loadWorkingDraft: (projectId: string, publicationId: string) => WorkingDraftRow | null
+    readonly loadWorkingDraft: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<WorkingDraftRow | null>
 }
 
 export function createPublicationReadStore(
     database: PostdotDatabase,
     options: PublicationReadStoreOptions
 ): PublicationReadStoreHandle {
-    const client = database.$client
+    const sql = database.sql
 
-    const loadPostStatement = client.query<PostRow, [projectId: string, postId: string]>(`
+    const loadPostStatement = sql.statement<PostRow, [projectId: string, postId: string]>(`
         select id,
                project_id as projectId,
                title,
@@ -125,7 +134,7 @@ export function createPublicationReadStore(
         where project_id = ?1
           and id = ?2
     `)
-    const loadWorkingDraftStatement = client.query<
+    const loadWorkingDraftStatement = sql.statement<
         WorkingDraftRow,
         [projectId: string, publicationId: string]
     >(`
@@ -147,7 +156,7 @@ export function createPublicationReadStore(
         where project_id = ?1
           and publication_id = ?2
     `)
-    const loadTargetRevisionStatement = client.query<
+    const loadTargetRevisionStatement = sql.statement<
         TargetRevisionRow,
         [projectId: string, targetRevisionId: string, publicationId: string]
     >(`
@@ -171,7 +180,7 @@ export function createPublicationReadStore(
           and id = ?2
           and publication_id = ?3
     `)
-    const listPublicationSummaryPageStatement = client.query<
+    const listPublicationSummaryPageStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -358,7 +367,7 @@ export function createPublicationReadStore(
               )
           )
     `
-    const listPublicationSummaryUpdatedDescStatement = client.query<
+    const listPublicationSummaryUpdatedDescStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -390,7 +399,7 @@ export function createPublicationReadStore(
                  publications.id
         limit ?8
     `)
-    const listPublicationSummaryUpdatedAscStatement = client.query<
+    const listPublicationSummaryUpdatedAscStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -422,7 +431,7 @@ export function createPublicationReadStore(
                  publications.id
         limit ?8
     `)
-    const listPublicationSummaryCreatedDescStatement = client.query<
+    const listPublicationSummaryCreatedDescStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -450,7 +459,7 @@ export function createPublicationReadStore(
         order by publications.created_at desc, publications.id
         limit ?8
     `)
-    const listPublicationSummaryCreatedAscStatement = client.query<
+    const listPublicationSummaryCreatedAscStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -478,7 +487,7 @@ export function createPublicationReadStore(
         order by publications.created_at, publications.id
         limit ?8
     `)
-    const listPublicationSummaryScheduledAscStatement = client.query<
+    const listPublicationSummaryScheduledAscStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -537,7 +546,7 @@ export function createPublicationReadStore(
                  publications.id
         limit ?10
     `)
-    const listPublicationSummaryScheduledDescStatement = client.query<
+    const listPublicationSummaryScheduledDescStatement = sql.statement<
         PublicationSummaryRow,
         [
             projectId: string,
@@ -596,7 +605,7 @@ export function createPublicationReadStore(
                  publications.id
         limit ?10
     `)
-    const listPublicationSummaryCountsStatement = client.query<
+    const listPublicationSummaryCountsStatement = sql.statement<
         PublicationSummaryCounts,
         [projectId: string, tagIdsJson: string, from: number | null, to: number | null]
     >(`
@@ -648,295 +657,319 @@ export function createPublicationReadStore(
         from visible_publications
     `)
 
-    const loadWorkingDraft = (projectId: string, publicationId: string) =>
-        loadWorkingDraftStatement.get(projectId, publicationId)
+    const loadWorkingDraft = async (projectId: string, publicationId: string) =>
+        await loadWorkingDraftStatement.get(projectId, publicationId)
 
-    const listPublicationSummaryPage = (
+    const listPublicationSummaryPage = async (
         projectId: string,
         subjectId: string,
         pageOptions: PublicationSummaryPageOptions = {}
-    ): PublicationSummaryPage | null => {
-        const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-        const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-        if (options.loadActor(normalizedProjectId, normalizedSubjectId) === null) return null
+    ): Promise<PublicationSummaryPage | null> => {
+        return database.sql.transaction(async () => {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+            if ((await options.loadActor(normalizedProjectId, normalizedSubjectId)) === null)
+                return null
 
-        const limit = pageOptions.limit ?? 100
-        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
-            throw new DomainInvariantError(
-                'invalid_input',
-                'publication list limit must be between 1 and 100'
-            )
-        }
+            const limit = pageOptions.limit ?? 100
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'publication list limit must be between 1 and 100'
+                )
+            }
 
-        const from = normalizeOptionalTimestamp(pageOptions.from, 'from')
-        const to = normalizeOptionalTimestamp(pageOptions.to, 'to')
-        if (from !== null && to !== null && to <= from) {
-            throw new DomainInvariantError(
-                'invalid_input',
-                'publication list range must have a to timestamp after from'
-            )
-        }
+            const from = normalizeOptionalTimestamp(pageOptions.from, 'from')
+            const to = normalizeOptionalTimestamp(pageOptions.to, 'to')
+            if (from !== null && to !== null && to <= from) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'publication list range must have a to timestamp after from'
+                )
+            }
 
-        const sort = pageOptions.sort ?? 'queue'
-        const state = pageOptions.state ?? null
-        const cursor = parsePublicationCursor(pageOptions.cursor)
-        if (cursor !== null && cursor.sort !== sort) {
-            throw new DomainInvariantError(
-                'invalid_input',
-                'publication cursor does not match the requested sort'
-            )
-        }
-        const normalizedFilter = createPublicationTagFilter(pageOptions.filter?.tagIds ?? [])
-        const tagIdsJson = JSON.stringify(normalizedFilter.tagIds)
-        let rows: PublicationSummaryRow[]
-        if (sort === 'queue') {
-            const queueCursor = cursor?.sort === 'queue' ? cursor : null
-            rows = listPublicationSummaryPageStatement.all(
+            const sort = pageOptions.sort ?? 'queue'
+            const state = pageOptions.state ?? null
+            const cursor = parsePublicationCursor(pageOptions.cursor)
+            if (cursor !== null && cursor.sort !== sort) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'publication cursor does not match the requested sort'
+                )
+            }
+            const normalizedFilter = createPublicationTagFilter(pageOptions.filter?.tagIds ?? [])
+            const tagIdsJson = JSON.stringify(normalizedFilter.tagIds)
+            let rows: PublicationSummaryRow[]
+            if (sort === 'queue') {
+                const queueCursor = cursor?.sort === 'queue' ? cursor : null
+                rows = await listPublicationSummaryPageStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    queueCursor?.scheduledAt === null ? 1 : queueCursor === null ? null : 0,
+                    queueCursor?.scheduledAt ?? null,
+                    queueCursor?.updatedAt ?? null,
+                    queueCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else if (sort === 'updated_desc') {
+                const sortedCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryUpdatedDescStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    sortedCursor?.primary ?? null,
+                    sortedCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else if (sort === 'updated_asc') {
+                const sortedCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryUpdatedAscStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    sortedCursor?.primary ?? null,
+                    sortedCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else if (sort === 'created_desc') {
+                const sortedCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryCreatedDescStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    sortedCursor?.primary ?? null,
+                    sortedCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else if (sort === 'created_asc') {
+                const sortedCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryCreatedAscStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    sortedCursor?.primary ?? null,
+                    sortedCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else if (sort === 'scheduled_asc') {
+                const scheduledCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryScheduledAscStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    scheduledCursor === null ? null : scheduledCursor.bucket,
+                    scheduledCursor?.scheduledAt ?? null,
+                    scheduledCursor?.updatedAt ?? null,
+                    scheduledCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            } else {
+                const scheduledCursor = cursor?.sort === sort ? cursor : null
+                rows = await listPublicationSummaryScheduledDescStatement.all(
+                    normalizedProjectId,
+                    tagIdsJson,
+                    scheduledCursor === null ? null : scheduledCursor.bucket,
+                    scheduledCursor?.scheduledAt ?? null,
+                    scheduledCursor?.updatedAt ?? null,
+                    scheduledCursor?.id ?? null,
+                    from,
+                    to,
+                    state,
+                    limit + 1
+                )
+            }
+            const summary = await listPublicationSummaryCountsStatement.get(
                 normalizedProjectId,
                 tagIdsJson,
-                queueCursor?.scheduledAt === null ? 1 : queueCursor === null ? null : 0,
-                queueCursor?.scheduledAt ?? null,
-                queueCursor?.updatedAt ?? null,
-                queueCursor?.id ?? null,
                 from,
-                to,
-                state,
-                limit + 1
+                to
             )
-        } else if (sort === 'updated_desc') {
-            const sortedCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryUpdatedDescStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                sortedCursor?.primary ?? null,
-                sortedCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        } else if (sort === 'updated_asc') {
-            const sortedCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryUpdatedAscStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                sortedCursor?.primary ?? null,
-                sortedCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        } else if (sort === 'created_desc') {
-            const sortedCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryCreatedDescStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                sortedCursor?.primary ?? null,
-                sortedCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        } else if (sort === 'created_asc') {
-            const sortedCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryCreatedAscStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                sortedCursor?.primary ?? null,
-                sortedCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        } else if (sort === 'scheduled_asc') {
-            const scheduledCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryScheduledAscStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                scheduledCursor === null ? null : scheduledCursor.bucket,
-                scheduledCursor?.scheduledAt ?? null,
-                scheduledCursor?.updatedAt ?? null,
-                scheduledCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        } else {
-            const scheduledCursor = cursor?.sort === sort ? cursor : null
-            rows = listPublicationSummaryScheduledDescStatement.all(
-                normalizedProjectId,
-                tagIdsJson,
-                scheduledCursor === null ? null : scheduledCursor.bucket,
-                scheduledCursor?.scheduledAt ?? null,
-                scheduledCursor?.updatedAt ?? null,
-                scheduledCursor?.id ?? null,
-                from,
-                to,
-                state,
-                limit + 1
-            )
-        }
-        const summary = listPublicationSummaryCountsStatement.get(
-            normalizedProjectId,
-            tagIdsJson,
-            from,
-            to
-        )
-        if (summary === null) {
-            throw new DomainInvariantError(
-                'invalid_input',
-                `Publication summary counts are unavailable for project ${normalizedProjectId}`
-            )
-        }
-        const hasMore = rows.length > limit
-        const pageRows = rows.slice(0, limit)
-        const lastRow = hasMore ? pageRows.at(-1) : undefined
-        const publications = pageRows.map(toPublicationSummary)
-        const lastPublication = publications.at(-1)
+            if (summary === null) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication summary counts are unavailable for project ${normalizedProjectId}`
+                )
+            }
+            const hasMore = rows.length > limit
+            const pageRows = rows.slice(0, limit)
+            const lastRow = hasMore ? pageRows.at(-1) : undefined
+            const publications = pageRows.map(toPublicationSummary)
+            const lastPublication = publications.at(-1)
 
-        return {
-            publications,
-            nextCursor:
-                lastRow === undefined || lastPublication === undefined
-                    ? null
-                    : encodeNextPublicationCursor(sort, lastRow, lastPublication),
-            summary,
-        }
+            return {
+                publications,
+                nextCursor:
+                    lastRow === undefined || lastPublication === undefined
+                        ? null
+                        : encodeNextPublicationCursor(sort, lastRow, lastPublication),
+                summary,
+            }
+        }, 'deferred')
     }
 
-    const listPublicationSummaries = (
+    const listPublicationSummaries = async (
         projectId: string,
         subjectId: string,
         filter?: PublicationTagFilter
-    ): PublicationSummary[] | null => {
-        const publications: PublicationSummary[] = []
-        let cursor: string | null = null
+    ): Promise<PublicationSummary[] | null> => {
+        return database.sql.transaction(async () => {
+            const publications: PublicationSummary[] = []
+            let cursor: string | null = null
 
-        do {
-            const page = listPublicationSummaryPage(projectId, subjectId, {
-                cursor,
-                filter,
-            })
-            if (page === null) return null
-            publications.push(...page.publications)
-            cursor = page.nextCursor
-        } while (cursor !== null)
+            do {
+                const page = await listPublicationSummaryPage(projectId, subjectId, {
+                    cursor,
+                    filter,
+                })
+                if (page === null) return null
+                publications.push(...page.publications)
+                cursor = page.nextCursor
+            } while (cursor !== null)
 
-        return publications
+            return publications
+        }, 'deferred')
     }
 
     return {
         loadWorkingDraft,
         api: {
-            getPublicationWorkingDraft(
+            async getPublicationWorkingDraft(
                 projectId: string,
                 publicationId: string,
                 subjectId: string
-            ): PublicationWorkingDraft | null {
-                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-                const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
-                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-                if (options.loadActor(normalizedProjectId, normalizedSubjectId) === null)
-                    return null
+            ): Promise<PublicationWorkingDraft | null> {
+                return database.sql.transaction(async () => {
+                    const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                    const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
+                    const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+                    if (
+                        (await options.loadActor(normalizedProjectId, normalizedSubjectId)) === null
+                    )
+                        return null
 
-                const draft = loadWorkingDraft(normalizedProjectId, normalizedPublicationId)
-                return draft === null ? null : toWorkingDraft(draft)
+                    const draft = await loadWorkingDraft(
+                        normalizedProjectId,
+                        normalizedPublicationId
+                    )
+                    return draft === null ? null : toWorkingDraft(draft)
+                }, 'deferred')
             },
 
-            getPublicationEditorState(
+            async getPublicationEditorState(
                 projectId: string,
                 publicationId: string,
                 subjectId: string
-            ): PublicationEditorState | null {
-                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-                const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
-                const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-                if (options.loadActor(normalizedProjectId, normalizedSubjectId) === null) {
-                    return null
-                }
+            ): Promise<PublicationEditorState | null> {
+                return database.sql.transaction(async () => {
+                    const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                    const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
+                    const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+                    if (
+                        (await options.loadActor(normalizedProjectId, normalizedSubjectId)) === null
+                    ) {
+                        return null
+                    }
 
-                const publicationRow = options.loadPublication(
-                    normalizedProjectId,
-                    normalizedPublicationId
-                )
-                const draftRow = loadWorkingDraft(normalizedProjectId, normalizedPublicationId)
-                if (publicationRow === null || draftRow === null) return null
-
-                const postRow = loadPostStatement.get(normalizedProjectId, publicationRow.postId)
-                const channelRow = options.loadChannel(
-                    normalizedProjectId,
-                    publicationRow.channelId
-                )
-                const profileRow = options.loadProfile(
-                    normalizedProjectId,
-                    draftRow.profileVersionId
-                )
-                if (
-                    postRow === null ||
-                    channelRow === null ||
-                    profileRow === null ||
-                    profileRow.channelId !== channelRow.id
-                ) {
-                    throw new DomainInvariantError(
-                        'invalid_input',
-                        `Publication ${normalizedPublicationId} has incomplete editor state`
+                    const publicationRow = await options.loadPublication(
+                        normalizedProjectId,
+                        normalizedPublicationId
                     )
-                }
-
-                const selectedTarget =
-                    publicationRow.targetRevisionId === null
-                        ? null
-                        : loadTargetRevisionStatement.get(
-                              normalizedProjectId,
-                              publicationRow.targetRevisionId,
-                              normalizedPublicationId
-                          )
-                if (publicationRow.targetRevisionId !== null && selectedTarget === null) {
-                    throw new DomainInvariantError(
-                        'invalid_input',
-                        `Publication ${normalizedPublicationId} points to a missing target revision`
+                    const draftRow = await loadWorkingDraft(
+                        normalizedProjectId,
+                        normalizedPublicationId
                     )
-                }
+                    if (publicationRow === null || draftRow === null) return null
 
-                return {
-                    publication: toPublication(publicationRow),
-                    post: toPost(postRow),
-                    channel: toChannel(channelRow),
-                    profile: toProfileVersion(profileRow),
-                    draft: toWorkingDraft(draftRow),
-                    movement: readPublicationMovement(
-                        database,
-                        toPublication(publicationRow),
-                        (options.now ?? Date.now)()
-                    ),
-                    adoptionCount:
-                        client
-                            .query<{ count: number }, [string, string]>(
-                                'select count(*) as count from publication_draft_adoptions where project_id = ?1 and publication_id = ?2'
-                            )
-                            .get(normalizedProjectId, normalizedPublicationId)?.count ?? 0,
-                    selectedTargetProfile:
-                        selectedTarget === null
+                    const postRow = await loadPostStatement.get(
+                        normalizedProjectId,
+                        publicationRow.postId
+                    )
+                    const channelRow = await options.loadChannel(
+                        normalizedProjectId,
+                        publicationRow.channelId
+                    )
+                    const profileRow = await options.loadProfile(
+                        normalizedProjectId,
+                        draftRow.profileVersionId
+                    )
+                    if (
+                        postRow === null ||
+                        channelRow === null ||
+                        profileRow === null ||
+                        profileRow.channelId !== channelRow.id
+                    ) {
+                        throw new DomainInvariantError(
+                            'invalid_input',
+                            `Publication ${normalizedPublicationId} has incomplete editor state`
+                        )
+                    }
+
+                    const selectedTarget =
+                        publicationRow.targetRevisionId === null
                             ? null
-                            : (() => {
-                                  const owned = options.loadProfile(
-                                      normalizedProjectId,
-                                      selectedTarget.profileVersionId
-                                  )
-                                  if (owned === null)
-                                      throw new DomainInvariantError(
-                                          'invalid_input',
-                                          'Selected target profile unavailable'
+                            : await loadTargetRevisionStatement.get(
+                                  normalizedProjectId,
+                                  publicationRow.targetRevisionId,
+                                  normalizedPublicationId
+                              )
+                    if (publicationRow.targetRevisionId !== null && selectedTarget === null) {
+                        throw new DomainInvariantError(
+                            'invalid_input',
+                            `Publication ${normalizedPublicationId} points to a missing target revision`
+                        )
+                    }
+
+                    return {
+                        publication: toPublication(publicationRow),
+                        post: toPost(postRow),
+                        channel: toChannel(channelRow),
+                        profile: toProfileVersion(profileRow),
+                        draft: toWorkingDraft(draftRow),
+                        movement: await readPublicationMovement(
+                            database,
+                            toPublication(publicationRow),
+                            (options.now ?? Date.now)()
+                        ),
+                        adoptionCount:
+                            (
+                                await sql
+                                    .statement<{ count: number }, [string, string]>(
+                                        'select count(*) as count from publication_draft_adoptions where project_id = ?1 and publication_id = ?2'
+                                    )
+                                    .get(normalizedProjectId, normalizedPublicationId)
+                            )?.count ?? 0,
+                        selectedTargetProfile:
+                            selectedTarget === null
+                                ? null
+                                : await (async () => {
+                                      const owned = await options.loadProfile(
+                                          normalizedProjectId,
+                                          selectedTarget.profileVersionId
                                       )
-                                  return toProfileVersion(owned)
-                              })(),
-                    selectedTarget:
-                        selectedTarget === null ? null : toTargetRevision(selectedTarget),
-                }
+                                      if (owned === null)
+                                          throw new DomainInvariantError(
+                                              'invalid_input',
+                                              'Selected target profile unavailable'
+                                          )
+                                      return toProfileVersion(owned)
+                                  })(),
+                        selectedTarget:
+                            selectedTarget === null ? null : toTargetRevision(selectedTarget),
+                    }
+                }, 'deferred')
             },
 
             listPublicationSummaries,

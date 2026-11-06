@@ -161,7 +161,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
         performReply: production
             ? undefined
             : async work => {
-                  expect(service.store.get(work.id)?.effectStartedAt).not.toBeNull()
+                  expect((await service.store.get(work.id))?.effectStartedAt).not.toBeNull()
                   effects.push(work.id)
                   if (mode === 'throw') throw new Error('secret diagnostic')
                   if (mode === 'failed')
@@ -223,21 +223,21 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
     })
     const { project } = (await made.json()) as { project: { id: string } }
     const manual = createManualStore(database)
-    const channel = manual.createChannel({
+    const channel = (await manual.createChannel({
         projectId: project.id,
         subjectId: owner.id,
         name: 'Bluesky',
         profile: provider === 'bluesky' ? blueskyChannelProfile : mastodonChannelProfile,
-    })!
-    const created = manual.createPost({
+    }))!
+    const created = (await manual.createPost({
         projectId: project.id,
         subjectId: owner.id,
         sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
         publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
-    })!
+    }))!
     const publicationId = created.publications[0]!.id
-    const editor = manual.getPublicationEditorState(project.id, publicationId, owner.id)!
-    manual.promotePublicationDraft({
+    const editor = (await manual.getPublicationEditorState(project.id, publicationId, owner.id))!
+    await manual.promotePublicationDraft({
         projectId: project.id,
         publicationId,
         subjectId: owner.id,
@@ -261,7 +261,7 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
         database.$client
             .query('update publications set external_url = ?1 where id = ?2')
             .run('https://social.example/@owner/100', publicationId)
-    const actorId = publisher.publisherStore.getProjectActorId(project.id, owner.id)!
+    const actorId = (await publisher.publisherStore.getProjectActorId(project.id, owner.id))!
     const credential = await publisher.credentialStore.createPublisherCredential({
         projectId: project.id,
         connectedByActorId: actorId,
@@ -290,14 +290,16 @@ async function fixture(production = false, provider: 'bluesky' | 'mastodon' = 'b
     })
     if (credential.kind !== 'created') throw new Error('Fixture credential was not created')
     expect(
-        publisher.publisherStore.createPublisherConnection({
-            projectId: project.id,
-            channelId: channel.id,
-            subjectId: owner.id,
-            kind: provider,
-            ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
-            credentialId: credential.credential.id,
-        }).kind
+        (
+            await publisher.publisherStore.createPublisherConnection({
+                projectId: project.id,
+                channelId: channel.id,
+                subjectId: owner.id,
+                kind: provider,
+                ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
+                credentialId: credential.credential.id,
+            })
+        ).kind
     ).toBe('created')
     database.$client
         .query(
@@ -389,12 +391,12 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             const viewer = await f.signup('reply-viewer@postdot.local')
             await f.request('/api/projects', viewer.cookie)
             const access = createAccessStore(f.database)
-            access.updateInstanceMembership({
+            await access.updateInstanceMembership({
                 actorUserId: f.owner.id,
                 userId: viewer.id,
                 role: 'member',
             })
-            access.grantProjectUserAccess({
+            await access.grantProjectUserAccess({
                 projectId: f.project.id,
                 userId: viewer.id,
                 role: 'viewer',
@@ -451,29 +453,29 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
             const body = f.body()
             await f.request(f.path, f.owner.cookie, body)
             const at = Date.now()
-            f.service.store.deliveries.claimNextDueJob({
+            await f.service.store.deliveries.claimNextDueJob({
                 actorId: 'test-worker',
                 claimToken: 'old',
                 now: at,
                 leaseExpiresAt: at + 10,
             })
-            expect(f.service.store.deliveries.recoverExpiredClaims(at + 11).requeuedJobIds).toEqual(
-                [body.requestId]
-            )
-            f.service.store.deliveries.claimNextDueJob({
+            expect(
+                (await f.service.store.deliveries.recoverExpiredClaims(at + 11)).requeuedJobIds
+            ).toEqual([body.requestId])
+            await f.service.store.deliveries.claimNextDueJob({
                 actorId: 'test-worker',
                 claimToken: 'new',
                 now: at + 12,
                 leaseExpiresAt: at + 20,
             })
             expect(
-                f.service.store.deliveries.startExternalEffect(body.requestId, 'new', at + 13)
+                await f.service.store.deliveries.startExternalEffect(body.requestId, 'new', at + 13)
             ).toBe(true)
             expect(
-                f.service.store.deliveries.recoverExpiredClaims(at + 21).ambiguousJobIds
+                (await f.service.store.deliveries.recoverExpiredClaims(at + 21)).ambiguousJobIds
             ).toEqual([body.requestId])
             expect(
-                f.service.store.deliveries.completeExternalEffect({
+                await f.service.store.deliveries.completeExternalEffect({
                     jobId: body.requestId,
                     claimToken: 'new',
                     completedAt: at + 22,
@@ -493,7 +495,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
         try {
             const body = f.body()
             expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
-            const row = f.service.store.get(body.requestId)!
+            const row = (await f.service.store.get(body.requestId))!
             f.database.$client
                 .query(
                     "update publisher_credentials set state = 'reconnect_required' where id = ?1"
@@ -501,7 +503,7 @@ for (const provider of ['bluesky', 'mastodon'] as const) {
                 .run(row.credentialId)
             await f.worker.processDueEvents(Date.now())
             expect(f.effects).toHaveLength(0)
-            expect(f.service.store.get(body.requestId)?.state).toBe('failed')
+            expect((await f.service.store.get(body.requestId))?.state).toBe('failed')
             for (const table of ['posts', 'publications'])
                 expect(
                     f.database.$client
@@ -547,12 +549,12 @@ test('prepares live references, verifies granted scope, persists refresh and rec
         expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
         await f.worker.processDueEvents(Date.now())
         expect(
-            f.service.store.list(f.project.id, f.path.split('/')[5]!, f.owner.id)!.replies[0]!
-                .lastError
+            (await f.service.store.list(f.project.id, f.path.split('/')[5]!, f.owner.id))!
+                .replies[0]!.lastError
         ).toBeNull()
         expect(f.effects).toHaveLength(1)
         expect(
-            f.publisher.credentialStore.getPublisherCredential(f.project.id, f.credentialId)
+            (await f.publisher.credentialStore.getPublisherCredential(f.project.id, f.credentialId))
                 ?.expiresAt
         ).toBe(Date.parse('2027-10-20T10:00:00.000Z'))
         f.setPermission(false)
@@ -570,7 +572,8 @@ test('prepares live references, verifies granted scope, persists refresh and rec
         expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
         await f.worker.processDueEvents(Date.now())
         expect(f.effects).toHaveLength(1)
-        const rows = f.service.store.list(f.project.id, f.path.split('/')[5]!, f.owner.id)!.replies
+        const rows = (await f.service.store.list(f.project.id, f.path.split('/')[5]!, f.owner.id))!
+            .replies
         expect(rows.filter(reply => reply.state === 'sent')).toHaveLength(1)
         expect(rows.filter(reply => reply.state === 'failed')).toHaveLength(2)
     } finally {
@@ -586,7 +589,7 @@ test('Mastodon refuses a different live account and rechecks the original instan
         expect((await f.request(f.path, f.owner.cookie, first)).status).toBe(200)
         f.setPermission(false)
         await f.worker.processDueEvents(Date.now())
-        expect(f.service.store.get(first.requestId)?.state).toBe('failed')
+        expect((await f.service.store.get(first.requestId))?.state).toBe('failed')
         expect(f.effects).toHaveLength(0)
         f.setPermission(true)
         const second = f.body()
@@ -599,7 +602,7 @@ test('Mastodon refuses a different live account and rechecks the original instan
                 .run(f.credentialId)
         )
         await f.worker.processDueEvents(Date.now())
-        expect(f.service.store.get(second.requestId)?.state).toBe('failed')
+        expect((await f.service.store.get(second.requestId))?.state).toBe('failed')
         expect(f.effects).toHaveLength(0)
         expect(await (await f.request(f.path, f.owner.cookie)).json()).toMatchObject({
             provider: 'mastodon',
@@ -620,7 +623,7 @@ test('refreshes an expired Mastodon token through the original controlled transp
         const body = f.body()
         expect((await f.request(f.path, f.owner.cookie, body)).status).toBe(200)
         await f.worker.processDueEvents(Date.now())
-        expect(f.service.store.get(body.requestId)?.state).toBe('sent')
+        expect((await f.service.store.get(body.requestId))?.state).toBe('sent')
         const secrets = await f.publisher.credentialStore.resolvePublisherCredentialSecrets(
             f.project.id,
             f.credentialId
@@ -641,7 +644,7 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
         const store = f.service.store.deliveries
         const at = Date.now()
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: 'worker',
                 claimToken: 'other',
                 now: at,
@@ -649,16 +652,16 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
                 projectId: 'foreign-project',
             })
         ).toBeNull()
-        const work = store.claimNextDueJob({
+        const work = (await store.claimNextDueJob({
             actorId: 'worker',
             claimToken: 'owner',
             now: at,
             leaseExpiresAt: at + 90,
             projectId: f.project.id,
-        })!
+        }))!
         expect(work).not.toBeNull()
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'stale',
                 now: at + 30,
@@ -666,7 +669,7 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
             })
         ).toBe(false)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 30,
@@ -674,25 +677,25 @@ test('reply renewal is project-scoped, token-fenced and cannot revive an expired
             })
         ).toBe(false)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 30,
                 leaseExpiresAt: at + 120,
             })
         ).toBe(true)
-        expect(store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
+        expect(await store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 120,
                 leaseExpiresAt: at + 210,
             })
         ).toBe(false)
-        expect(store.recoverExpiredClaims(at + 120).ambiguousJobIds).toEqual([work.id])
+        expect((await store.recoverExpiredClaims(at + 120)).ambiguousJobIds).toEqual([work.id])
         expect(
-            store.completeExternalEffect({
+            await store.completeExternalEffect({
                 jobId: work.id,
                 claimToken: 'owner',
                 completedAt: at + 121,
@@ -711,30 +714,32 @@ test('persists an already-sent reply while retirement waits, without admitting a
         expect((await f.request(f.path, f.owner.cookie, f.body())).status).toBe(200)
         const store = f.service.store.deliveries
         const at = Date.now()
-        const work = store.claimNextDueJob({
+        const work = (await store.claimNextDueJob({
             actorId: 'worker',
             claimToken: 'owner',
             now: at,
             leaseExpiresAt: at + 60_000,
             projectId: f.project.id,
-        })!
+        }))!
         expect(work).not.toBeNull()
-        expect(store.startExternalEffect(work.id, 'owner', at + 1)).toBe(true)
+        expect(await store.startExternalEffect(work.id, 'owner', at + 1)).toBe(true)
         const lifecycle = createResourceLifecycleStore(f.database)
-        const preview = lifecycle.impact('project', f.project.id)!
+        const preview = (await lifecycle.impact('project', f.project.id))!
         expect(
-            lifecycle.mutate({
-                kind: 'project',
-                id: f.project.id,
-                action: 'archive',
-                actorId: f.owner.id,
-                fingerprint: preview.fingerprint,
-                cancelPending: true,
-                authorize: () => true,
-            }).state
+            (
+                await lifecycle.mutate({
+                    kind: 'project',
+                    id: f.project.id,
+                    action: 'archive',
+                    actorId: f.owner.id,
+                    fingerprint: preview.fingerprint,
+                    cancelPending: true,
+                    authorize: async () => true,
+                })
+            ).state
         ).toBe('archiving')
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 2,
@@ -742,7 +747,7 @@ test('persists an already-sent reply while retirement waits, without admitting a
             })
         ).toBe(true)
         expect(
-            store.completeExternalEffect({
+            await store.completeExternalEffect({
                 jobId: work.id,
                 claimToken: 'owner',
                 completedAt: at + 3,
@@ -750,7 +755,7 @@ test('persists an already-sent reply while retirement waits, without admitting a
             })
         ).toBe('published')
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: 'worker',
                 claimToken: 'next',
                 now: at + 4,

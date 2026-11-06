@@ -10,6 +10,7 @@ import {
 } from '@postdot/core'
 
 import type { PostdotDatabase } from './client'
+import { defineTransaction } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
 const projectionName = 'in-app-notifications-v1'
@@ -103,22 +104,22 @@ export function createNotificationStore(
     database: PostdotDatabase,
     options: NotificationStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const journal = createEventJournalStore(database)
     const createId = options.createId ?? (() => crypto.randomUUID())
     const now = options.now ?? Date.now
 
-    const listProjectIdsStatement = client.query<{ readonly id: string }, []>(`
+    const listProjectIdsStatement = sql.statement<{ readonly id: string }, []>(`
         select id from projects order by created_at, id
     `)
-    const listUserProjectIdsStatement = client.query<{ readonly id: string }, [userId: string]>(`
+    const listUserProjectIdsStatement = sql.statement<{ readonly id: string }, [userId: string]>(`
         select distinct project_id as id from actors
         where subject_id = ?1
           and project_id is not null
           and kind in ('human', 'agent', 'api_token')
         order by project_id
     `)
-    const listProjectUserIdsStatement = client.query<
+    const listProjectUserIdsStatement = sql.statement<
         { readonly userId: string },
         [projectId: string]
     >(`
@@ -128,7 +129,7 @@ export function createNotificationStore(
           and subject_id is not null
         order by subject_id
     `)
-    const loadHumanActorStatement = client.query<
+    const loadHumanActorStatement = sql.statement<
         HumanActorRow,
         [projectId: string, subjectId: string]
     >(`
@@ -136,30 +137,30 @@ export function createNotificationStore(
         where project_id = ?1 and subject_id = ?2 and kind = 'human'
         order by created_at, id limit 1
     `)
-    const listHumanActorsStatement = client.query<HumanActorRow, [projectId: string]>(`
+    const listHumanActorsStatement = sql.statement<HumanActorRow, [projectId: string]>(`
         select id, subject_id as userId from actors
         where project_id = ?1 and kind = 'human' and subject_id is not null
         order by created_at, id
     `)
-    const loadUserPreferenceStatement = client.query<
+    const loadUserPreferenceStatement = sql.statement<
         PreferenceRow,
         [userId: string, kind: NotificationKind]
     >(`
         select in_app_enabled as enabled from notification_user_preferences
         where user_id = ?1 and kind = ?2
     `)
-    const loadPreferenceStatement = client.query<
+    const loadPreferenceStatement = sql.statement<
         PreferenceRow,
         [projectId: string, actorId: string, kind: NotificationKind]
     >(`
         select in_app_enabled as enabled from notification_preferences
         where project_id = ?1 and recipient_actor_id = ?2 and kind = ?3
     `)
-    const loadCursorStatement = client.query<CursorRow, [projectId: string, projection: string]>(`
+    const loadCursorStatement = sql.statement<CursorRow, [projectId: string, projection: string]>(`
         select cursor from notification_projection_cursors
         where project_id = ?1 and projection = ?2
     `)
-    const insertNotificationStatement = client.query<
+    const insertNotificationStatement = sql.statement<
         { readonly changes: number },
         [
             id: string,
@@ -182,7 +183,7 @@ export function createNotificationStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
         on conflict(recipient_user_id, project_id, source_event_id) do nothing
     `)
-    const upsertCursorStatement = client.query<
+    const upsertCursorStatement = sql.statement<
         void,
         [id: string, projectId: string, projection: string, cursor: string, timestamp: number]
     >(`
@@ -199,7 +200,7 @@ export function createNotificationStore(
         subject_id as subjectId, title, body, read_at as readAt,
         archived_at as archivedAt, created_at as createdAt
     `
-    const listNotificationsStatement = client.query<
+    const listNotificationsStatement = sql.statement<
         NotificationRow,
         [
             projectId: string,
@@ -220,7 +221,7 @@ export function createNotificationStore(
           )
         order by created_at desc, id desc limit ?6
     `)
-    const listUserNotificationsStatement = client.query<
+    const listUserNotificationsStatement = sql.statement<
         NotificationRow,
         [
             userId: string,
@@ -242,7 +243,7 @@ export function createNotificationStore(
           )
         order by created_at desc, id desc limit ?6
     `)
-    const countUnreadStatement = client.query<
+    const countUnreadStatement = sql.statement<
         { readonly count: number },
         [projectId: string, actorId: string]
     >(`
@@ -250,7 +251,7 @@ export function createNotificationStore(
         where project_id = ?1 and recipient_actor_id = ?2
           and read_at is null and archived_at is null
     `)
-    const countUnreadForUserStatement = client.query<
+    const countUnreadForUserStatement = sql.statement<
         { readonly count: number },
         [userId: string, projectId: string | null]
     >(`
@@ -258,56 +259,56 @@ export function createNotificationStore(
         where recipient_user_id = ?1 and (?2 is null or project_id = ?2)
           and read_at is null and archived_at is null
     `)
-    const loadNotificationStatement = client.query<
+    const loadNotificationStatement = sql.statement<
         NotificationRow,
         [id: string, projectId: string, actorId: string]
     >(`
         select ${notificationColumns} from notifications
         where id = ?1 and project_id = ?2 and recipient_actor_id = ?3
     `)
-    const markReadStatement = client.query<
+    const markReadStatement = sql.statement<
         void,
         [readAt: number, id: string, projectId: string, actorId: string]
     >(`
         update notifications set read_at = coalesce(read_at, ?1)
         where id = ?2 and project_id = ?3 and recipient_actor_id = ?4
     `)
-    const archiveStatement = client.query<
+    const archiveStatement = sql.statement<
         void,
         [archivedAt: number, id: string, projectId: string, actorId: string]
     >(`
         update notifications set archived_at = coalesce(archived_at, ?1)
         where id = ?2 and project_id = ?3 and recipient_actor_id = ?4
     `)
-    const loadUserNotificationStatement = client.query<
+    const loadUserNotificationStatement = sql.statement<
         NotificationRow,
         [id: string, userId: string]
     >(`
         select ${notificationColumns} from notifications
         where id = ?1 and recipient_user_id = ?2
     `)
-    const markUserNotificationReadStatement = client.query<
+    const markUserNotificationReadStatement = sql.statement<
         void,
         [readAt: number, id: string, userId: string]
     >(`
         update notifications set read_at = coalesce(read_at, ?1)
         where id = ?2 and recipient_user_id = ?3
     `)
-    const archiveUserNotificationStatement = client.query<
+    const archiveUserNotificationStatement = sql.statement<
         void,
         [archivedAt: number, id: string, userId: string]
     >(`
         update notifications set archived_at = coalesce(archived_at, ?1)
         where id = ?2 and recipient_user_id = ?3
     `)
-    const listPreferencesStatement = client.query<
+    const listPreferencesStatement = sql.statement<
         { readonly kind: NotificationKind; readonly enabled: number },
         [projectId: string, actorId: string]
     >(`
         select kind, in_app_enabled as enabled from notification_preferences
         where project_id = ?1 and recipient_actor_id = ?2
     `)
-    const upsertPreferenceStatement = client.query<
+    const upsertPreferenceStatement = sql.statement<
         void,
         [
             id: string,
@@ -324,14 +325,14 @@ export function createNotificationStore(
         on conflict(project_id, recipient_actor_id, kind) do update set
             in_app_enabled = excluded.in_app_enabled, updated_at = excluded.updated_at
     `)
-    const listUserPreferencesStatement = client.query<
+    const listUserPreferencesStatement = sql.statement<
         { readonly kind: NotificationKind; readonly enabled: number },
         [userId: string]
     >(`
         select kind, in_app_enabled as enabled from notification_user_preferences
         where user_id = ?1
     `)
-    const upsertUserPreferenceStatement = client.query<
+    const upsertUserPreferenceStatement = sql.statement<
         void,
         [id: string, userId: string, kind: NotificationKind, enabled: number, timestamp: number]
     >(`
@@ -342,14 +343,16 @@ export function createNotificationStore(
             in_app_enabled = excluded.in_app_enabled, updated_at = excluded.updated_at
     `)
 
-    const projectTransaction = client.transaction(
-        (projectId: string, limit: number): ProjectNotificationsResult => {
-            const storedCursor = loadCursorStatement.get(projectId, projectionName)?.cursor ?? null
+    const projectTransaction = defineTransaction(
+        database,
+        async (projectId: string, limit: number): Promise<ProjectNotificationsResult> => {
+            const storedCursor =
+                (await loadCursorStatement.get(projectId, projectionName))?.cursor ?? null
             const after = storedCursor === null ? null : parseEventJournalCursor(storedCursor)
-            const events = journal.readAfter({ projectId, after, limit })
+            const events = await journal.readAfter({ projectId, after, limit })
             if (events.length === 0) return { scanned: 0, created: 0, hasMore: false }
 
-            const recipients = listHumanActorsStatement.all(projectId)
+            const recipients = await listHumanActorsStatement.all(projectId)
             let created = 0
             for (const event of events) {
                 const template = projectNotificationTemplate(event)
@@ -357,8 +360,8 @@ export function createNotificationStore(
 
                 for (const recipient of recipients) {
                     const preference =
-                        loadUserPreferenceStatement.get(recipient.userId, template.kind) ??
-                        loadPreferenceStatement.get(projectId, recipient.id, template.kind)
+                        (await loadUserPreferenceStatement.get(recipient.userId, template.kind)) ??
+                        (await loadPreferenceStatement.get(projectId, recipient.id, template.kind))
                     if (preference?.enabled === 0) continue
 
                     const notification = createUserNotification({
@@ -374,19 +377,21 @@ export function createNotificationStore(
                         body: template.body,
                         createdAt: event.occurredAt,
                     })
-                    created += insertNotificationStatement.run(
-                        notification.id,
-                        projectId,
-                        notification.recipientUserId,
-                        recipient.id,
-                        notification.sourceEventId,
-                        notification.kind,
-                        notification.severity,
-                        notification.subject.type,
-                        notification.subject.id,
-                        notification.title,
-                        notification.body,
-                        notification.createdAt
+                    created += (
+                        await insertNotificationStatement.run(
+                            notification.id,
+                            projectId,
+                            notification.recipientUserId,
+                            recipient.id,
+                            notification.sourceEventId,
+                            notification.kind,
+                            notification.severity,
+                            notification.subject.type,
+                            notification.subject.id,
+                            notification.title,
+                            notification.body,
+                            notification.createdAt
+                        )
                     ).changes
                 }
             }
@@ -395,7 +400,7 @@ export function createNotificationStore(
             if (cursor === undefined) {
                 throw new DomainInvariantError('invalid_input', 'notification cursor is missing')
             }
-            upsertCursorStatement.run(
+            await upsertCursorStatement.run(
                 createId(),
                 projectId,
                 projectionName,
@@ -406,28 +411,31 @@ export function createNotificationStore(
         }
     )
 
-    function resolveHumanActor(projectId: string, subjectId: string): HumanActorRow | null {
-        return loadHumanActorStatement.get(
+    async function resolveHumanActor(
+        projectId: string,
+        subjectId: string
+    ): Promise<HumanActorRow | null> {
+        return await loadHumanActorStatement.get(
             requireNonBlank(projectId, 'projectId'),
             requireNonBlank(subjectId, 'subjectId')
         )
     }
 
     return {
-        listProjectIds(): readonly string[] {
-            return listProjectIdsStatement.all().map(row => row.id)
+        async listProjectIds(): Promise<readonly string[]> {
+            return (await listProjectIdsStatement.all()).map(row => row.id)
         },
 
-        listProjectIdsForUser(userId: string): readonly string[] {
-            return listUserProjectIdsStatement
-                .all(requireNonBlank(userId, 'userId'))
-                .map(row => row.id)
+        async listProjectIdsForUser(userId: string): Promise<readonly string[]> {
+            return (await listUserProjectIdsStatement.all(requireNonBlank(userId, 'userId'))).map(
+                row => row.id
+            )
         },
 
-        listUserIdsForProjects(projectIds: readonly string[]): readonly string[] {
+        async listUserIdsForProjects(projectIds: readonly string[]): Promise<readonly string[]> {
             const users = new Set<string>()
             for (const projectId of projectIds) {
-                for (const row of listProjectUserIdsStatement.all(
+                for (const row of await listProjectUserIdsStatement.all(
                     requireNonBlank(projectId, 'projectId')
                 )) {
                     users.add(row.userId)
@@ -436,7 +444,10 @@ export function createNotificationStore(
             return [...users].sort()
         },
 
-        project(projectId: string, limit = defaultProjectionLimit): ProjectNotificationsResult {
+        async project(
+            projectId: string,
+            limit = defaultProjectionLimit
+        ): Promise<ProjectNotificationsResult> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumProjectionLimit) {
                 throw new DomainInvariantError(
@@ -447,7 +458,7 @@ export function createNotificationStore(
             return projectTransaction.immediate(normalizedProjectId, limit)
         },
 
-        listForUser(input: ListUserNotificationsInput): NotificationInboxPage {
+        async listForUser(input: ListUserNotificationsInput): Promise<NotificationInboxPage> {
             const userId = requireNonBlank(input.userId, 'userId')
             const projectId =
                 input.projectId === undefined || input.projectId === null
@@ -461,7 +472,7 @@ export function createNotificationStore(
                 )
             }
             const before = parseNotificationCursor(input.before)
-            const rows = listUserNotificationsStatement.all(
+            const rows = await listUserNotificationsStatement.all(
                 userId,
                 projectId,
                 input.includeArchived === true ? 1 : 0,
@@ -479,130 +490,187 @@ export function createNotificationStore(
             }
         },
 
-        list(input: ListNotificationsInput): NotificationInboxPage | null {
-            const actor = resolveHumanActor(input.projectId, input.subjectId)
-            if (actor === null) return null
-            const limit = input.limit ?? defaultListLimit
-            if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumListLimit) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `notification list limit must be between 1 and ${maximumListLimit}`
+        async list(input: ListNotificationsInput): Promise<NotificationInboxPage | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(input.projectId, input.subjectId)
+                if (actor === null) return null
+                const limit = input.limit ?? defaultListLimit
+                if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumListLimit) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        `notification list limit must be between 1 and ${maximumListLimit}`
+                    )
+                }
+                const before = parseNotificationCursor(input.before)
+                const rows = await listNotificationsStatement.all(
+                    input.projectId,
+                    actor.id,
+                    input.includeArchived === true ? 1 : 0,
+                    before?.createdAt ?? null,
+                    before?.id ?? null,
+                    limit + 1
                 )
-            }
-            const before = parseNotificationCursor(input.before)
-            const rows = listNotificationsStatement.all(
-                input.projectId,
-                actor.id,
-                input.includeArchived === true ? 1 : 0,
-                before?.createdAt ?? null,
-                before?.id ?? null,
-                limit + 1
-            )
-            const hasMore = rows.length > limit
-            const items = rows.slice(0, limit).map(toNotification)
-            const last = hasMore ? items.at(-1) : undefined
-            return {
-                items,
-                nextCursor:
-                    last === undefined ? null : encodeNotificationCursor(last.createdAt, last.id),
-            }
+                const hasMore = rows.length > limit
+                const items = rows.slice(0, limit).map(toNotification)
+                const last = hasMore ? items.at(-1) : undefined
+                return {
+                    items,
+                    nextCursor:
+                        last === undefined
+                            ? null
+                            : encodeNotificationCursor(last.createdAt, last.id),
+                }
+            }, 'deferred')
         },
 
-        countUnread(projectId: string, subjectId: string): number | null {
-            const actor = resolveHumanActor(projectId, subjectId)
-            if (actor === null) return null
-            return countUnreadStatement.get(projectId, actor.id)?.count ?? 0
+        async countUnread(projectId: string, subjectId: string): Promise<number | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(projectId, subjectId)
+                if (actor === null) return null
+                return (await countUnreadStatement.get(projectId, actor.id))?.count ?? 0
+            }, 'immediate')
         },
 
-        countUnreadForUser(userId: string, projectId?: string | null): number {
+        async countUnreadForUser(userId: string, projectId?: string | null): Promise<number> {
             const normalizedUserId = requireNonBlank(userId, 'userId')
             const normalizedProjectId =
                 projectId === undefined || projectId === null
                     ? null
                     : requireNonBlank(projectId, 'projectId')
             return (
-                countUnreadForUserStatement.get(normalizedUserId, normalizedProjectId)?.count ?? 0
+                (await countUnreadForUserStatement.get(normalizedUserId, normalizedProjectId))
+                    ?.count ?? 0
             )
         },
 
-        markRead(
+        async markRead(
             projectId: string,
             notificationId: string,
             subjectId: string
-        ): UserNotification | null {
-            const actor = resolveHumanActor(projectId, subjectId)
-            if (actor === null) return null
-            const id = requireNonBlank(notificationId, 'notificationId')
-            const existing = loadNotificationStatement.get(id, projectId, actor.id)
-            if (existing === null) return null
-            markReadStatement.run(
-                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
-                id,
-                projectId,
-                actor.id
-            )
-            const row = loadNotificationStatement.get(id, projectId, actor.id)
-            return row === null ? null : toNotification(row)
+        ): Promise<UserNotification | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(projectId, subjectId)
+                if (actor === null) return null
+                const id = requireNonBlank(notificationId, 'notificationId')
+                const existing = await loadNotificationStatement.get(id, projectId, actor.id)
+                if (existing === null) return null
+                await markReadStatement.run(
+                    Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                    id,
+                    projectId,
+                    actor.id
+                )
+                const row = await loadNotificationStatement.get(id, projectId, actor.id)
+                return row === null ? null : toNotification(row)
+            }, 'immediate')
         },
 
-        archive(
+        async archive(
             projectId: string,
             notificationId: string,
             subjectId: string
-        ): UserNotification | null {
-            const actor = resolveHumanActor(projectId, subjectId)
-            if (actor === null) return null
-            const id = requireNonBlank(notificationId, 'notificationId')
-            const existing = loadNotificationStatement.get(id, projectId, actor.id)
-            if (existing === null) return null
-            archiveStatement.run(
-                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
-                id,
-                projectId,
-                actor.id
-            )
-            const row = loadNotificationStatement.get(id, projectId, actor.id)
-            return row === null ? null : toNotification(row)
+        ): Promise<UserNotification | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(projectId, subjectId)
+                if (actor === null) return null
+                const id = requireNonBlank(notificationId, 'notificationId')
+                const existing = await loadNotificationStatement.get(id, projectId, actor.id)
+                if (existing === null) return null
+                await archiveStatement.run(
+                    Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                    id,
+                    projectId,
+                    actor.id
+                )
+                const row = await loadNotificationStatement.get(id, projectId, actor.id)
+                return row === null ? null : toNotification(row)
+            }, 'immediate')
         },
 
-        markReadForUser(notificationId: string, userId: string): UserNotification | null {
-            const normalizedUserId = requireNonBlank(userId, 'userId')
-            const id = requireNonBlank(notificationId, 'notificationId')
-            const existing = loadUserNotificationStatement.get(id, normalizedUserId)
-            if (existing === null) return null
-            markUserNotificationReadStatement.run(
-                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
-                id,
-                normalizedUserId
-            )
-            const row = loadUserNotificationStatement.get(id, normalizedUserId)
-            return row === null ? null : toNotification(row)
+        async markReadForUser(
+            notificationId: string,
+            userId: string
+        ): Promise<UserNotification | null> {
+            return database.sql.transaction(async () => {
+                const normalizedUserId = requireNonBlank(userId, 'userId')
+                const id = requireNonBlank(notificationId, 'notificationId')
+                const existing = await loadUserNotificationStatement.get(id, normalizedUserId)
+                if (existing === null) return null
+                await markUserNotificationReadStatement.run(
+                    Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                    id,
+                    normalizedUserId
+                )
+                const row = await loadUserNotificationStatement.get(id, normalizedUserId)
+                return row === null ? null : toNotification(row)
+            }, 'immediate')
         },
 
-        archiveForUser(notificationId: string, userId: string): UserNotification | null {
-            const normalizedUserId = requireNonBlank(userId, 'userId')
-            const id = requireNonBlank(notificationId, 'notificationId')
-            const existing = loadUserNotificationStatement.get(id, normalizedUserId)
-            if (existing === null) return null
-            archiveUserNotificationStatement.run(
-                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
-                id,
-                normalizedUserId
-            )
-            const row = loadUserNotificationStatement.get(id, normalizedUserId)
-            return row === null ? null : toNotification(row)
+        async archiveForUser(
+            notificationId: string,
+            userId: string
+        ): Promise<UserNotification | null> {
+            return database.sql.transaction(async () => {
+                const normalizedUserId = requireNonBlank(userId, 'userId')
+                const id = requireNonBlank(notificationId, 'notificationId')
+                const existing = await loadUserNotificationStatement.get(id, normalizedUserId)
+                if (existing === null) return null
+                await archiveUserNotificationStatement.run(
+                    Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                    id,
+                    normalizedUserId
+                )
+                const row = await loadUserNotificationStatement.get(id, normalizedUserId)
+                return row === null ? null : toNotification(row)
+            }, 'immediate')
         },
 
-        listPreferences(
+        async listPreferences(
             projectId: string,
             subjectId: string
-        ): readonly NotificationPreference[] | null {
-            const actor = resolveHumanActor(projectId, subjectId)
-            if (actor === null) return null
+        ): Promise<readonly NotificationPreference[] | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(projectId, subjectId)
+                if (actor === null) return null
+                const explicit = new Map(
+                    (await listPreferencesStatement.all(projectId, actor.id)).map(
+                        row => [row.kind, row.enabled === 1] as const
+                    )
+                )
+                return notificationKinds.map(kind => ({
+                    kind,
+                    inAppEnabled: explicit.get(kind) ?? true,
+                }))
+            }, 'deferred')
+        },
+
+        async updatePreference(
+            input: UpdateNotificationPreferenceInput
+        ): Promise<NotificationPreference | null> {
+            return database.sql.transaction(async () => {
+                const actor = await resolveHumanActor(input.projectId, input.subjectId)
+                if (actor === null) return null
+                if (!notificationKinds.includes(input.kind)) {
+                    throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
+                }
+                await upsertPreferenceStatement.run(
+                    createId(),
+                    input.projectId,
+                    actor.id,
+                    input.kind,
+                    input.inAppEnabled ? 1 : 0,
+                    requireTimestamp(now(), 'now')
+                )
+                return { kind: input.kind, inAppEnabled: input.inAppEnabled }
+            }, 'immediate')
+        },
+
+        async listUserPreferences(userId: string): Promise<readonly NotificationPreference[]> {
+            const normalizedUserId = requireNonBlank(userId, 'userId')
             const explicit = new Map(
-                listPreferencesStatement
-                    .all(projectId, actor.id)
-                    .map(row => [row.kind, row.enabled === 1] as const)
+                (await listUserPreferencesStatement.all(normalizedUserId)).map(
+                    row => [row.kind, row.enabled === 1] as const
+                )
             )
             return notificationKinds.map(kind => ({
                 kind,
@@ -610,42 +678,14 @@ export function createNotificationStore(
             }))
         },
 
-        updatePreference(input: UpdateNotificationPreferenceInput): NotificationPreference | null {
-            const actor = resolveHumanActor(input.projectId, input.subjectId)
-            if (actor === null) return null
-            if (!notificationKinds.includes(input.kind)) {
-                throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
-            }
-            upsertPreferenceStatement.run(
-                createId(),
-                input.projectId,
-                actor.id,
-                input.kind,
-                input.inAppEnabled ? 1 : 0,
-                requireTimestamp(now(), 'now')
-            )
-            return { kind: input.kind, inAppEnabled: input.inAppEnabled }
-        },
-
-        listUserPreferences(userId: string): readonly NotificationPreference[] {
-            const normalizedUserId = requireNonBlank(userId, 'userId')
-            const explicit = new Map(
-                listUserPreferencesStatement
-                    .all(normalizedUserId)
-                    .map(row => [row.kind, row.enabled === 1] as const)
-            )
-            return notificationKinds.map(kind => ({
-                kind,
-                inAppEnabled: explicit.get(kind) ?? true,
-            }))
-        },
-
-        updateUserPreference(input: UpdateUserNotificationPreferenceInput): NotificationPreference {
+        async updateUserPreference(
+            input: UpdateUserNotificationPreferenceInput
+        ): Promise<NotificationPreference> {
             const userId = requireNonBlank(input.userId, 'userId')
             if (!notificationKinds.includes(input.kind)) {
                 throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
             }
-            upsertUserPreferenceStatement.run(
+            await upsertUserPreferenceStatement.run(
                 createId(),
                 userId,
                 input.kind,

@@ -124,7 +124,7 @@ test('Instagram application migration preserves existing encrypted configuration
         expect((await applications.resolveProviderApplication('facebook'))?.clientSecret).toBe(
             'existing-facebook-encrypted-secret'
         )
-        expect(attempts.getAuthorizationAttempt(stateDigest)?.providerApplicationId).toBe(
+        expect((await attempts.getAuthorizationAttempt(stateDigest))?.providerApplicationId).toBe(
             saved.configuration.id
         )
         expect(

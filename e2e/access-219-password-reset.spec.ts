@@ -161,7 +161,7 @@ test('opts into project outcome email through the preferences and real SMTP rela
             const db = createDatabase(file);
 
                 const actor = db.$client.query('select id from actors where project_id = ?1 and subject_id = ?2').get(projectId,userId);
-                createEventJournalStore(db).append({id: crypto.randomUUID(), projectId, actorId: actor.id,
+                await createEventJournalStore(db).append({id: crypto.randomUUID(), projectId, actorId: actor.id,
                     name: 'publication.execution.failed', version: 1, subject: {type: 'publication',id: 'fixture-publication'}, occurredAt: Date.now()});
 
             closeDatabase(db);`,

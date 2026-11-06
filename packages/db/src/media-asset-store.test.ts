@@ -34,7 +34,7 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
     return new Blob([bytes]).stream()
 }
 
-function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
+async function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
     database
@@ -42,7 +42,7 @@ function seedProject(database: ReturnType<typeof createDatabase>, suffix: string
         .values({
             id: projectId,
             name: `Project ${suffix}`,
-            workspaceId: seedTestWorkspace(database),
+            workspaceId: await seedTestWorkspace(database),
         })
         .run()
     database
@@ -81,7 +81,7 @@ async function withFixture<T>(
     const rootDirectory = await mkdtemp(join(tmpdir(), 'postdot-media-assets-'))
     const database = createDatabase(':memory:')
     runMigrations(database)
-    const project = seedProject(database, 'media')
+    const project = await seedProject(database, 'media')
     const store = createLocalMediaStore({
         storeId: 'local-default',
         rootDirectory,
@@ -118,7 +118,7 @@ describe('project media lifecycle', () => {
         let current = now
         await withFixture(
             async ({ media, projectId, subjectId }) => {
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: 'recoverable.png',
@@ -139,17 +139,17 @@ describe('project media lifecycle', () => {
                 })
                 expect(finalized.kind).toBe('ready')
 
-                expect(media.requestDeletion(projectId, reservation.asset.id, subjectId).kind).toBe(
-                    'requested'
-                )
-                expect(media.listAssetsPage({ projectId, subjectId })?.items).toEqual([])
-                expect(media.listAssetsPage({ projectId, subjectId })?.trashCount).toBe(1)
+                expect(
+                    (await media.requestDeletion(projectId, reservation.asset.id, subjectId)).kind
+                ).toBe('requested')
+                expect((await media.listAssetsPage({ projectId, subjectId }))?.items).toEqual([])
+                expect((await media.listAssetsPage({ projectId, subjectId }))?.trashCount).toBe(1)
 
-                const trash = media.listAssetsPage({ projectId, subjectId, view: 'trash' })
+                const trash = await media.listAssetsPage({ projectId, subjectId, view: 'trash' })
                 expect(trash).toMatchObject({ total: 1, trashCount: 1, retentionMs: 60_000 })
                 expect(trash?.items[0]?.asset.state).toBe('deletion_requested')
 
-                const restored = media.restoreDeletion(
+                const restored = await media.restoreDeletion(
                     projectId,
                     reservation.asset.id,
                     subjectId,
@@ -159,20 +159,24 @@ describe('project media lifecycle', () => {
                 expect(restored.kind === 'restored' ? restored.media.asset.state : null).toBe(
                     'ready'
                 )
-                expect(media.listAssetsPage({ projectId, subjectId })?.items).toHaveLength(1)
-                expect(media.listAssetsPage({ projectId, subjectId, view: 'trash' })?.total).toBe(0)
+                expect((await media.listAssetsPage({ projectId, subjectId }))?.items).toHaveLength(
+                    1
+                )
+                expect(
+                    (await media.listAssetsPage({ projectId, subjectId, view: 'trash' }))?.total
+                ).toBe(0)
 
-                media.requestDeletion(projectId, reservation.asset.id, subjectId)
+                await media.requestDeletion(projectId, reservation.asset.id, subjectId)
                 current += 60_000
                 expect(
-                    media.restoreDeletion(projectId, reservation.asset.id, subjectId, current)
+                    await media.restoreDeletion(projectId, reservation.asset.id, subjectId, current)
                 ).toEqual({ kind: 'expired' })
-                expect(media.listAssetsPage({ projectId, subjectId, view: 'trash' })).toMatchObject(
-                    {
-                        total: 0,
-                        trashCount: 0,
-                    }
-                )
+                expect(
+                    await media.listAssetsPage({ projectId, subjectId, view: 'trash' })
+                ).toMatchObject({
+                    total: 0,
+                    trashCount: 0,
+                })
             },
             { now: () => current, deletionGracePeriodMs: 60_000 }
         )
@@ -181,13 +185,13 @@ describe('project media lifecycle', () => {
     it('stores two private previews under one asset and purges all bytes with the original', async () => {
         await withFixture(async ({ media, projectId, subjectId, store }) => {
             const bytes = previewFixturePng()
-            const reservation = media.reserveUpload({
+            const reservation = (await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'large.png',
                 expectedSize: bytes.length,
                 contentType: 'image/png',
-            })!
+            }))!
             await media.upload({
                 projectId,
                 subjectId,
@@ -203,8 +207,8 @@ describe('project media lifecycle', () => {
                     })
                 ).kind
             ).toBe('ready')
-            const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
-            expect(media.listAssetsPage({ projectId, subjectId })?.total).toBe(1)
+            const asset = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
+            expect((await media.listAssetsPage({ projectId, subjectId }))?.total).toBe(1)
             expect(asset.representations).toHaveLength(3)
             const derived = asset.representations.filter(item => item.kind === 'derived')
             expect(derived.map(item => item.width).sort((a, b) => a! - b!)).toEqual([256, 768])
@@ -239,8 +243,10 @@ describe('project media lifecycle', () => {
             // A missing optional preview does not take a usable original out of service.
             await store.delete(derived[0]!.objectKey)
             await media.reconcile()
-            expect(media.getAsset(projectId, asset.asset.id, subjectId)?.asset.state).toBe('ready')
-            expect(media.requestDeletion(projectId, asset.asset.id, subjectId).kind).toBe(
+            expect((await media.getAsset(projectId, asset.asset.id, subjectId))?.asset.state).toBe(
+                'ready'
+            )
+            expect((await media.requestDeletion(projectId, asset.asset.id, subjectId)).kind).toBe(
                 'requested'
             )
             expect(
@@ -259,13 +265,13 @@ describe('project media lifecycle', () => {
     it('waits for a preview write before purging an import deleted during generation', async () => {
         await withFixture(async ({ media, projectId, subjectId, store }) => {
             const bytes = previewFixturePng(4, 3)
-            const reservation = media.reserveUpload({
+            const reservation = (await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'race.png',
                 expectedSize: bytes.length,
                 contentType: 'image/png',
-            })!
+            }))!
             await media.upload({
                 projectId,
                 subjectId,
@@ -294,30 +300,30 @@ describe('project media lifecycle', () => {
                 intentId: reservation.intent.id,
             })
             await reached
-            const snapshot = media.getAsset(projectId, reservation.asset.id, subjectId)!
-            expect(media.requestDeletion(projectId, reservation.asset.id, subjectId).kind).toBe(
-                'requested'
-            )
+            const snapshot = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
+            expect(
+                (await media.requestDeletion(projectId, reservation.asset.id, subjectId)).kind
+            ).toBe('requested')
             const purging = media.permanentlyDeleteAsset(projectId, reservation.asset.id, subjectId)
             release()
             await finalizing
             expect((await purging).kind).toBe('deleted')
             for (const item of snapshot.representations)
                 expect(await store.stat(item.objectKey)).toBeNull()
-            expect(media.getAsset(projectId, reservation.asset.id, subjectId)).toBeNull()
+            expect(await media.getAsset(projectId, reservation.asset.id, subjectId)).toBeNull()
         })
     })
 
     it('preserves the original and tracks cleanup when preview storage fails after writing bytes', async () => {
         await withFixture(async ({ media, projectId, subjectId, store }) => {
             const bytes = previewFixturePng(4, 3)
-            const reservation = media.reserveUpload({
+            const reservation = (await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'failure.png',
                 expectedSize: bytes.length,
                 contentType: 'image/png',
-            })!
+            }))!
             await media.upload({
                 projectId,
                 subjectId,
@@ -339,7 +345,7 @@ describe('project media lifecycle', () => {
                     })
                 ).kind
             ).toBe('ready')
-            const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            const asset = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
             expect(asset.representations.find(item => item.kind === 'derived')?.state).toBe(
                 'failed'
             )
@@ -353,7 +359,7 @@ describe('project media lifecycle', () => {
             expect(new Uint8Array(await new Response(fallback!.stream).arrayBuffer())).toEqual(
                 new Uint8Array(bytes)
             )
-            expect(media.requestDeletion(projectId, asset.asset.id, subjectId).kind).toBe(
+            expect((await media.requestDeletion(projectId, asset.asset.id, subjectId)).kind).toBe(
                 'requested'
             )
             expect(
@@ -367,13 +373,13 @@ describe('project media lifecycle', () => {
     it('backfills legacy images without duplicates and repairs only the missing stored variant', async () => {
         await withFixture(async ({ media, projectId, subjectId, store, database }) => {
             const bytes = previewFixturePng(40, 30)
-            const reservation = media.reserveUpload({
+            const reservation = (await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'legacy.png',
                 expectedSize: bytes.length,
                 contentType: 'image/png',
-            })!
+            }))!
             await media.upload({
                 projectId,
                 subjectId,
@@ -381,7 +387,7 @@ describe('project media lifecycle', () => {
                 source: streamOf(bytes),
             })
             await media.finalizeUpload({ projectId, subjectId, intentId: reservation.intent.id })
-            const initial = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            const initial = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
             for (const item of initial.representations.filter(item => item.kind === 'derived'))
                 await store.delete(item.objectKey)
             database.$client.run(
@@ -395,7 +401,7 @@ describe('project media lifecycle', () => {
                 failed: 0,
             })
             expect(
-                media.getAsset(projectId, reservation.asset.id, subjectId)?.representations
+                (await media.getAsset(projectId, reservation.asset.id, subjectId))?.representations
             ).toHaveLength(1)
             expect(
                 await media.generateMissingImagePreviews({ projectId: 'other-project' })
@@ -406,7 +412,7 @@ describe('project media lifecycle', () => {
                 alreadyReady: 0,
                 failed: 0,
             })
-            const filled = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            const filled = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
             expect(filled.representations).toHaveLength(3)
             expect(await media.generateMissingImagePreviews()).toEqual({
                 eligible: 1,
@@ -415,7 +421,7 @@ describe('project media lifecycle', () => {
                 failed: 0,
             })
             expect(
-                media.getAsset(projectId, reservation.asset.id, subjectId)?.representations
+                (await media.getAsset(projectId, reservation.asset.id, subjectId))?.representations
             ).toEqual(filled.representations)
             const previews = filled.representations.filter(item => item.kind === 'derived')
             await store.delete(previews[0]!.objectKey)
@@ -425,7 +431,7 @@ describe('project media lifecycle', () => {
                 alreadyReady: 0,
                 failed: 0,
             })
-            const repaired = media.getAsset(projectId, reservation.asset.id, subjectId)!
+            const repaired = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
             expect(repaired.representations.find(item => item.id === previews[0]!.id)?.state).toBe(
                 'failed'
             )
@@ -448,7 +454,7 @@ describe('project media lifecycle', () => {
             expect(new Uint8Array(await new Response(original!.stream).arrayBuffer())).toEqual(
                 new Uint8Array(bytes)
             )
-            media.requestDeletion(projectId, reservation.asset.id, subjectId)
+            await media.requestDeletion(projectId, reservation.asset.id, subjectId)
             expect((await media.generateMissingImagePreviews()).eligible).toBe(0)
         })
     })
@@ -456,7 +462,7 @@ describe('project media lifecycle', () => {
     it('reserves, streams, verifies, and finalizes an immutable representation', async () => {
         await withFixture(async ({ media, projectId, subjectId }) => {
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'cover.png',
@@ -504,7 +510,7 @@ describe('project media lifecycle', () => {
 
     it('does not trust a declared MIME type and records invalid bytes as failed', async () => {
         await withFixture(async ({ media, projectId, subjectId }) => {
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'not-really-an-image.png',
@@ -538,7 +544,7 @@ describe('project media lifecycle', () => {
     it('supports a separately uploaded object through the same finalizer', async () => {
         await withFixture(async ({ media, store, projectId, subjectId }) => {
             const bytes = createPng(8, 5)
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'direct.png',
@@ -566,7 +572,7 @@ describe('project media lifecycle', () => {
     it('lists media with a stable cursor and literal filename search', async () => {
         await withFixture(async ({ media, projectId, subjectId }) => {
             async function createReady(filename: string) {
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: filename,
@@ -596,7 +602,7 @@ describe('project media lifecycle', () => {
             await createReady('Beta cover.png')
             await createReady('gamma.png')
 
-            const firstPage = media.listAssetsPage({ projectId, subjectId, limit: 2 })
+            const firstPage = await media.listAssetsPage({ projectId, subjectId, limit: 2 })
             expect(firstPage).not.toBeNull()
             expect(firstPage?.items.map(item => item.asset.originalFilename)).toEqual([
                 'gamma.png',
@@ -605,7 +611,7 @@ describe('project media lifecycle', () => {
             expect(firstPage?.total).toBe(3)
             expect(firstPage?.nextCursor).not.toBeNull()
 
-            const secondPage = media.listAssetsPage({
+            const secondPage = await media.listAssetsPage({
                 projectId,
                 subjectId,
                 cursor: firstPage?.nextCursor,
@@ -616,7 +622,7 @@ describe('project media lifecycle', () => {
             ])
             expect(secondPage?.nextCursor).toBeNull()
 
-            const searched = media.listAssetsPage({
+            const searched = await media.listAssetsPage({
                 projectId,
                 subjectId,
                 search: 'BETA',
@@ -625,16 +631,16 @@ describe('project media lifecycle', () => {
                 'Beta cover.png',
             ])
 
-            const wildcardSearch = media.listAssetsPage({
+            const wildcardSearch = await media.listAssetsPage({
                 projectId,
                 subjectId,
                 search: '%',
             })
             expect(wildcardSearch?.items).toEqual([])
 
-            expect(() =>
+            await expect(
                 media.listAssetsPage({ projectId, subjectId, cursor: 'invalid-cursor' })
-            ).toThrow()
+            ).rejects.toThrow()
         })
     })
 
@@ -685,7 +691,7 @@ describe('project media lifecycle', () => {
             let cursor: string | undefined
             let pageCount = 0
             while (pageCount < 100) {
-                const page = media.listAssetsPage({
+                const page = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     cursor,
@@ -713,7 +719,7 @@ describe('project media lifecycle', () => {
         await withFixture(
             async ({ media, projectId, subjectId }) => {
                 async function createReady(filename: string, bytes = createPng()) {
-                    const reservation = media.reserveUpload({
+                    const reservation = await media.reserveUpload({
                         projectId,
                         subjectId,
                         originalFilename: filename,
@@ -745,7 +751,7 @@ describe('project media lifecycle', () => {
                 await createReady('middle.png')
                 currentTime = now
 
-                const byName = media.listAssetsPage({
+                const byName = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     limit: 2,
@@ -757,7 +763,7 @@ describe('project media lifecycle', () => {
                 ])
                 expect(byName?.total).toBe(3)
                 expect(byName?.nextCursor).not.toBeNull()
-                const byNameSecondPage = media.listAssetsPage({
+                const byNameSecondPage = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     cursor: byName?.nextCursor,
@@ -768,7 +774,7 @@ describe('project media lifecycle', () => {
                     'zulu.png',
                 ])
 
-                const largest = media.listAssetsPage({
+                const largest = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     sort: 'largest',
@@ -779,14 +785,14 @@ describe('project media lifecycle', () => {
                     'zulu.png',
                 ])
 
-                const recent = media.listAssetsPage({
+                const recent = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     date: 'last_7_days',
                 })
                 expect(recent?.items.map(item => item.asset.originalFilename)).toEqual(['zulu.png'])
                 expect(recent?.total).toBe(1)
-                const month = media.listAssetsPage({
+                const month = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     date: 'last_30_days',
@@ -795,27 +801,27 @@ describe('project media lifecycle', () => {
                     'zulu.png',
                     'alpha.png',
                 ])
-                const images = media.listAssetsPage({
+                const images = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     family: 'image',
                 })
                 expect(images?.items).toHaveLength(3)
-                const documents = media.listAssetsPage({
+                const documents = await media.listAssetsPage({
                     projectId,
                     subjectId,
                     family: 'document',
                 })
                 expect(documents?.items).toEqual([])
 
-                expect(() =>
+                await expect(
                     media.listAssetsPage({
                         projectId,
                         subjectId,
                         cursor: byName?.nextCursor,
                         sort: 'oldest',
                     })
-                ).toThrow()
+                ).rejects.toThrow()
             },
             { now: () => currentTime }
         )
@@ -824,7 +830,7 @@ describe('project media lifecycle', () => {
     it('summarizes source, active, and historical media usage', async () => {
         await withFixture(async ({ database, media, projectId, subjectId }) => {
             async function createReady(filename: string) {
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: filename,
@@ -853,14 +859,14 @@ describe('project media lifecycle', () => {
             const activeAsset = await createReady('active.png')
             const historyAsset = await createReady('history.png')
             const manual = createManualStore(database, { now: () => now, media })
-            const channel = manual.createChannel({
+            const channel = await manual.createChannel({
                 projectId,
                 subjectId,
                 name: 'Usage destination',
             })
             if (channel === null) throw new Error('The usage channel was not created')
 
-            const activePost = manual.createPost({
+            const activePost = await manual.createPost({
                 projectId,
                 subjectId,
                 title: 'Active launch',
@@ -884,7 +890,7 @@ describe('project media lifecycle', () => {
                 throw new Error('The active publication was not created')
             }
 
-            const historyPost = manual.createPost({
+            const historyPost = await manual.createPost({
                 projectId,
                 subjectId,
                 title: 'Historical launch',
@@ -908,7 +914,7 @@ describe('project media lifecycle', () => {
                 throw new Error('The historical publication was not created')
             }
             expect(
-                manual.publishManualPublication({
+                await manual.publishManualPublication({
                     projectId,
                     publicationId: historyPublication.id,
                     subjectId,
@@ -916,7 +922,11 @@ describe('project media lifecycle', () => {
                 })
             ).toMatchObject({ state: 'published' })
 
-            const activeUsage = media.getAssetUsage(projectId, activeAsset.asset.id, subjectId)
+            const activeUsage = await media.getAssetUsage(
+                projectId,
+                activeAsset.asset.id,
+                subjectId
+            )
             expect(activeUsage).toMatchObject({
                 assetId: activeAsset.asset.id,
                 history: [],
@@ -947,7 +957,11 @@ describe('project media lifecycle', () => {
                 ],
             })
 
-            const historyUsage = media.getAssetUsage(projectId, historyAsset.asset.id, subjectId)
+            const historyUsage = await media.getAssetUsage(
+                projectId,
+                historyAsset.asset.id,
+                subjectId
+            )
             expect(historyUsage).toMatchObject({
                 assetId: historyAsset.asset.id,
                 active: [],
@@ -972,7 +986,7 @@ describe('project media lifecycle', () => {
     it('keeps project access and deletion references fail-closed', async () => {
         await withFixture(async ({ database, media, projectId, subjectId, actorId }) => {
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'referenced.png',
@@ -991,7 +1005,7 @@ describe('project media lifecycle', () => {
             })
 
             expect(
-                media.getAsset(projectId, reservation?.asset.id ?? '', 'another-subject')
+                await media.getAsset(projectId, reservation?.asset.id ?? '', 'another-subject')
             ).toBeNull()
             database
                 .insert(posts)
@@ -1006,11 +1020,11 @@ describe('project media lifecycle', () => {
                 })
                 .run()
             expect(
-                media.requestDeletion(projectId, reservation?.asset.id ?? '', subjectId)
+                await media.requestDeletion(projectId, reservation?.asset.id ?? '', subjectId)
             ).toEqual({ kind: 'blocked', reason: 'referenced' })
             database.$client.run('delete from posts where id = ?', ['post-media-request-reference'])
 
-            const requested = media.requestDeletion(
+            const requested = await media.requestDeletion(
                 projectId,
                 reservation?.asset.id ?? '',
                 subjectId
@@ -1058,14 +1072,16 @@ describe('project media lifecycle', () => {
                 now
             )
             expect(deleted.kind).toBe('deleted')
-            expect(media.getAsset(projectId, reservation?.asset.id ?? '', subjectId)).toBeNull()
+            expect(
+                await media.getAsset(projectId, reservation?.asset.id ?? '', subjectId)
+            ).toBeNull()
         })
     })
 
     it('marks a ready asset failed when reconciliation finds its object missing', async () => {
         await withFixture(async ({ media, store, projectId, subjectId }) => {
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId,
                 subjectId,
                 originalFilename: 'missing.png',
@@ -1092,7 +1108,7 @@ describe('project media lifecycle', () => {
                 missingObjects: 1,
                 deletedAssets: 0,
             })
-            expect(media.getAsset(projectId, reservation.asset.id, subjectId)).toMatchObject({
+            expect(await media.getAsset(projectId, reservation.asset.id, subjectId)).toMatchObject({
                 asset: { state: 'failed', failureCode: 'storage_missing' },
                 representations: [{ state: 'failed', failureCode: 'storage_missing' }],
             })
@@ -1103,7 +1119,7 @@ describe('project media lifecycle', () => {
         let current = now
         await withFixture(
             async ({ media, store, projectId, subjectId }) => {
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: 'expired.png',
@@ -1125,7 +1141,9 @@ describe('project media lifecycle', () => {
                     deletedAssets: 0,
                 })
                 expect(await store.stat(reservation.representation.objectKey)).toBeNull()
-                expect(media.getAsset(projectId, reservation.asset.id, subjectId)).toMatchObject({
+                expect(
+                    await media.getAsset(projectId, reservation.asset.id, subjectId)
+                ).toMatchObject({
                     asset: { state: 'failed', failureCode: 'upload_expired' },
                     representations: [{ state: 'failed', failureCode: 'upload_expired' }],
                 })
@@ -1137,7 +1155,7 @@ describe('project media lifecycle', () => {
     it('can delete an incomplete or failed asset without inventing inspection facts', async () => {
         await withFixture(
             async ({ media, projectId, subjectId }) => {
-                const reservation = media.reserveUpload({
+                const reservation = await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: 'incomplete.png',
@@ -1145,13 +1163,17 @@ describe('project media lifecycle', () => {
                 expect(reservation).not.toBeNull()
                 if (reservation === null) throw new Error('Reservation was not created')
 
-                const requested = media.requestDeletion(projectId, reservation.asset.id, subjectId)
+                const requested = await media.requestDeletion(
+                    projectId,
+                    reservation.asset.id,
+                    subjectId
+                )
                 expect(requested.kind).toBe('requested')
                 if (requested.kind !== 'requested') return
                 expect(requested.media.asset.archivedAt).toBe(now)
                 expect(requested.media.representations[0]?.state).toBe('deletion_requested')
                 expect(
-                    media.restoreDeletion(projectId, reservation.asset.id, subjectId, now)
+                    await media.restoreDeletion(projectId, reservation.asset.id, subjectId, now)
                 ).toEqual({
                     kind: 'not_restorable',
                 })
@@ -1179,13 +1201,13 @@ describe('optional video posters', () => {
                         new URL('./fixtures/video-h264.mp4', import.meta.url)
                     ).arrayBuffer()
                 )
-                const reservation = media.reserveUpload({
+                const reservation = (await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: 'video.mp4',
                     contentType: 'video/mp4',
                     expectedSize: bytes.length,
-                })!
+                }))!
                 await media.upload({
                     projectId,
                     subjectId,
@@ -1200,15 +1222,15 @@ describe('optional video posters', () => {
                 expect(result.kind).toBe('ready')
                 expect(signalled).toBe(1)
                 expect(decoded).toBe(0)
-                expect(media.listPendingVideoPreviews()).toEqual([
+                expect(await media.listPendingVideoPreviews()).toEqual([
                     { projectId, id: reservation.asset.id },
                 ])
                 expect(await media.generateVideoPreviews(projectId, reservation.asset.id)).toBe(
                     true
                 )
                 expect(decoded).toBe(1)
-                expect(media.listPendingVideoPreviews()).toEqual([])
-                const asset = media.getAsset(projectId, reservation.asset.id, subjectId)!
+                expect(await media.listPendingVideoPreviews()).toEqual([])
+                const asset = (await media.getAsset(projectId, reservation.asset.id, subjectId))!
                 expect(
                     asset.representations.filter(
                         item => item.kind === 'derived' && item.state === 'ready'
@@ -1266,13 +1288,13 @@ describe('optional video posters', () => {
                         new URL('./fixtures/video-h264.mp4', import.meta.url)
                     ).arrayBuffer()
                 )
-                const reservation = media.reserveUpload({
+                const reservation = (await media.reserveUpload({
                     projectId,
                     subjectId,
                     originalFilename: 'video.mp4',
                     contentType: 'video/mp4',
                     expectedSize: bytes.length,
-                })!
+                }))!
                 await media.upload({
                     projectId,
                     subjectId,
@@ -1291,9 +1313,9 @@ describe('optional video posters', () => {
                 expect(await media.generateVideoPreviews(projectId, reservation.asset.id)).toBe(
                     false
                 )
-                expect(media.listPendingVideoPreviews()).toEqual([])
+                expect(await media.listPendingVideoPreviews()).toEqual([])
                 expect(
-                    media.getAsset(projectId, reservation.asset.id, subjectId)!.asset.state
+                    (await media.getAsset(projectId, reservation.asset.id, subjectId))!.asset.state
                 ).toBe('ready')
                 expect(
                     await media.openAssetContent(projectId, reservation.asset.id, subjectId)

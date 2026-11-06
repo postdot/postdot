@@ -9,16 +9,13 @@ import {
 } from '@postdot/core'
 
 import { createChannelCadenceStore, validateCadence, type ChannelCadence } from './channel-cadence'
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 import { normalizeCreationProfile } from './manual-store/channel-profile-definition'
 import { invalidProfileError } from './manual-store/content-codec'
 import { toProject } from './manual-store/project-channel-mappers'
 import type { ProjectRow } from './manual-store/rows'
+import { filterSequential, mapSequential, someSequential } from './sql/sequential'
 import { createWorkspaceActorStore } from './workspace-actor-store'
 
 export type ChannelProjectAction =
@@ -32,11 +29,12 @@ export type ChannelProjectAction =
 export type ChannelManagementIntent = 'manage_channels' | 'share_channels'
 
 /** Request-bound adapter to the common live authorization path; never an actor-derived grant. */
+/** Request-bound authorization port; decisions may read persistence (ADR-097). */
 export interface ChannelAccessPolicy {
-    authorizeProject(projectId: string, action: ChannelProjectAction): boolean
-    authorizeWorkspace(workspaceId: string, action: ChannelManagementIntent): boolean
+    authorizeProject(projectId: string, action: ChannelProjectAction): Promise<boolean>
+    authorizeWorkspace(workspaceId: string, action: ChannelManagementIntent): Promise<boolean>
     /** Includes the sharing capability and key scope for every affected/context project. */
-    authorizeSharing(projectIds: readonly string[]): boolean
+    authorizeSharing(projectIds: readonly string[]): Promise<boolean>
 }
 
 export interface WorkspaceChannelContext {
@@ -110,50 +108,51 @@ export function createWorkspaceChannelStore(
     database: PostdotDatabase,
     options: { readonly now?: () => number; readonly createId?: () => string } = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const journal = createEventJournalStore(database, { createId })
     const compiler = new ChannelProfileCompiler()
-    const project = client.query<ProjectRow, [string]>(
+    const project = sql.statement<ProjectRow, [string]>(
         `select id,name,time_zone as timeZone,workspace_id as workspaceId,primary_category_id as primaryCategoryId,created_at as createdAt,updated_at as updatedAt from projects where id=?`
     )
-    const channel = client.query<ChannelRecord, [string]>(
+    const channel = sql.statement<ChannelRecord, [string]>(
         `select c.id,c.workspace_id as workspaceId,c.name,c.profile_version_id as profileVersionId,p.profile_id as profileId,c.state,c.archived_at as archivedAt,c.revision,c.created_at as createdAt,c.updated_at as updatedAt from channels c join channel_profile_versions p on p.workspace_id=c.workspace_id and p.channel_id=c.id and p.id=c.profile_version_id where c.id=?`
     )
-    const manager = client.query<{ projectId: string; name: string }, [string]>(
+    const manager = sql.statement<{ projectId: string; name: string }, [string]>(
         `select m.project_id as projectId,p.name from channel_managers m join projects p on p.id=m.project_id where m.channel_id=?`
     )
-    const attachment = client.query<
+    const attachment = sql.statement<
         { state: 'active' | 'detached'; revision: number },
         [string, string]
     >(`select state,revision from project_channel_attachments where project_id=? and channel_id=?`)
-    const validActor = client.query<{ id: string }, [string, string]>(
+    const validActor = sql.statement<{ id: string }, [string, string]>(
         `select id from actors where workspace_id=? and id=?`
     )
-    const lifecycle = client.query<{ state: string }, [string, string]>(
+    const lifecycle = sql.statement<{ state: string }, [string, string]>(
         `select state from resource_lifecycles where kind=? and resource_id=?`
     )
-    const isActive = (kind: 'workspace' | 'project', id: string) => {
-        const value = lifecycle.get(kind, id)
+    const isActive = async (kind: 'workspace' | 'project', id: string) => {
+        const value = await lifecycle.get(kind, id)
         return value === null || value.state === 'active'
     }
-    const manages = (
+    const manages = async (
         ctx: WorkspaceChannelContext,
         row: ChannelRecord,
         intent: ChannelManagementIntent
     ) => {
-        if (!isActive('workspace', row.workspaceId)) return false
-        if (ctx.authorization.authorizeWorkspace(row.workspaceId, intent) === true) return true
-        const managing = manager.get(row.id)
+        if (!(await isActive('workspace', row.workspaceId))) return false
+        if ((await ctx.authorization.authorizeWorkspace(row.workspaceId, intent)) === true)
+            return true
+        const managing = await manager.get(row.id)
         return (
             managing !== null &&
-            isActive('project', managing.projectId) &&
-            ctx.authorization.authorizeProject(managing.projectId, intent) === true
+            (await isActive('project', managing.projectId)) &&
+            (await ctx.authorization.authorizeProject(managing.projectId, intent)) === true
         )
     }
-    const affected = (ctx: WorkspaceChannelContext, row: ChannelRecord, target: string) => {
-        const source = manager.get(row.id)?.projectId
+    const affected = async (ctx: WorkspaceChannelContext, row: ChannelRecord, target: string) => {
+        const source = (await manager.get(row.id))?.projectId
         return [
             ...new Set(
                 [ctx.contextProjectId, source, target].filter(
@@ -162,8 +161,8 @@ export function createWorkspaceChannelStore(
             ),
         ].sort()
     }
-    const allowedActor = (ctx: WorkspaceChannelContext, row: ChannelRecord) =>
-        validActor.get(row.workspaceId, requireNonBlank(ctx.actorId, 'actorId')) !== null
+    const allowedActor = async (ctx: WorkspaceChannelContext, row: ChannelRecord) =>
+        (await validActor.get(row.workspaceId, requireNonBlank(ctx.actorId, 'actorId'))) !== null
     const validateRevision = (revision: number) => {
         if (!Number.isSafeInteger(revision) || revision < 1)
             throw new DomainInvariantError(
@@ -171,7 +170,7 @@ export function createWorkspaceChannelStore(
                 'Expected channel revision must be a positive safe integer'
             )
     }
-    const record = (
+    const record = async (
         ctx: WorkspaceChannelContext,
         row: ChannelRecord,
         name: string,
@@ -179,7 +178,7 @@ export function createWorkspaceChannelStore(
         timestamp: number,
         payload: Readonly<Record<string, unknown>> = {}
     ) => {
-        journal.appendWorkspace({
+        await journal.appendWorkspace({
             workspaceId: row.workspaceId,
             actorId: ctx.actorId,
             name,
@@ -190,28 +189,30 @@ export function createWorkspaceChannelStore(
         })
         recordDatabaseCommitProject(database, projectId)
     }
-    const bump = (row: ChannelRecord, timestamp: number) => {
-        const result = client
-            .query('update channels set revision=revision+1,updated_at=? where id=? and revision=?')
+    const bump = async (row: ChannelRecord, timestamp: number) => {
+        const result = await sql
+            .statement(
+                'update channels set revision=revision+1,updated_at=? where id=? and revision=?'
+            )
             .run(timestamp, row.id, row.revision)
         if (result.changes !== 1)
             throw new Error('Channel revision changed inside its write transaction')
         return row.revision + 1
     }
 
-    const create = createDatabaseTransaction(
+    const create = defineTransaction(
         database,
-        (
+        async (
             ctx: WorkspaceChannelContext,
             input: { projectId: string; name: string; profile?: ChannelProfileDefinition }
         ) => {
-            const target = project.get(input.projectId)
+            const target = await project.get(input.projectId)
             if (
                 !target?.workspaceId ||
-                ctx.authorization.authorizeProject(target.id, 'create_channels') !== true ||
-                !isActive('project', target.id) ||
-                !isActive('workspace', target.workspaceId) ||
-                !validActor.get(target.workspaceId, ctx.actorId)
+                (await ctx.authorization.authorizeProject(target.id, 'create_channels')) !== true ||
+                !(await isActive('project', target.id)) ||
+                !(await isActive('workspace', target.workspaceId)) ||
+                !(await validActor.get(target.workspaceId, ctx.actorId))
             )
                 return { kind: 'not_found' } as const
             const compiled = compiler.compile(
@@ -228,8 +229,8 @@ export function createWorkspaceChannelStore(
                 profileVersionId: createId(),
                 now: timestamp,
             })
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into channels (id,workspace_id,name,profile_version_id,created_at,updated_at) values (?,?,?,?,?,?)`
                 )
                 .run(
@@ -240,8 +241,8 @@ export function createWorkspaceChannelStore(
                     timestamp,
                     timestamp
                 )
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into channel_profile_versions (id,workspace_id,channel_id,profile_id,version,origin,state,profile_json,profile_hash,schema_hash,created_by_actor_id,created_at,updated_at) values (?,?,?,?,?,?,'active',?,?,?,?,?,?)`
                 )
                 .run(
@@ -258,69 +259,70 @@ export function createWorkspaceChannelStore(
                     timestamp,
                     timestamp
                 )
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into project_channel_attachments (project_id,channel_id,workspace_id,origin,attached_by_actor_id,attached_at) values (?,?,?,'explicit',?,?)`
                 )
                 .run(target.id, value.id, target.workspaceId, ctx.actorId, timestamp)
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into channel_managers (channel_id,project_id,workspace_id) values (?,?,?)`
                 )
                 .run(value.id, target.id, target.workspaceId)
-            const saved = channel.get(value.id)!
-            record(ctx, saved, 'channel.created', target.id, timestamp)
+            const saved = (await channel.get(value.id))!
+            await record(ctx, saved, 'channel.created', target.id, timestamp)
             return { kind: 'created', channel: saved } as const
         }
     )
 
-    const attach = createDatabaseTransaction(
+    const attach = defineTransaction(
         database,
-        (
+        async (
             ctx: WorkspaceChannelContext,
             input: { channelId: string; projectId: string; expectedRevision: number }
-        ): MutationResult => {
-            const row = channel.get(input.channelId),
-                target = project.get(input.projectId)
+        ): Promise<MutationResult> => {
+            const row = await channel.get(input.channelId),
+                target = await project.get(input.projectId)
             if (
                 !row ||
                 row.state !== 'active' ||
                 target?.workspaceId !== row.workspaceId ||
-                !isActive('project', target.id) ||
-                !isActive('workspace', row.workspaceId) ||
-                !allowedActor(ctx, row) ||
-                !manages(ctx, row, 'share_channels') ||
-                ctx.authorization.authorizeProject(target.id, 'attach_channels') !== true ||
-                ctx.authorization.authorizeSharing(affected(ctx, row, target.id)) !== true
+                !(await isActive('project', target.id)) ||
+                !(await isActive('workspace', row.workspaceId)) ||
+                !(await allowedActor(ctx, row)) ||
+                !(await manages(ctx, row, 'share_channels')) ||
+                (await ctx.authorization.authorizeProject(target.id, 'attach_channels')) !== true ||
+                (await ctx.authorization.authorizeSharing(await affected(ctx, row, target.id))) !==
+                    true
             )
                 return { kind: 'not_found' }
             validateRevision(input.expectedRevision)
             if (input.expectedRevision !== row.revision)
                 return { kind: 'stale', revision: row.revision }
-            const existing = attachment.get(target.id, row.id)
+            const existing = await attachment.get(target.id, row.id)
             if (existing?.state === 'active') return { kind: 'unchanged', revision: row.revision }
             const timestamp = requireTimestamp(now(), 'now')
             if (existing)
-                client
-                    .query(
+                await sql
+                    .statement(
                         `update project_channel_attachments set state='active',detached_at=NULL,revision=revision+1 where project_id=? and channel_id=?`
                     )
                     .run(target.id, row.id)
             else
-                client
-                    .query(
+                await sql
+                    .statement(
                         `insert into project_channel_attachments(project_id,channel_id,workspace_id,origin,attached_by_actor_id,attached_at) values (?,?,?,'explicit',?,?)`
                     )
                     .run(target.id, row.id, row.workspaceId, ctx.actorId, timestamp)
-            const revision = bump(row, timestamp)
-            record(ctx, row, 'channel.project_attached', target.id, timestamp)
+            const revision = await bump(row, timestamp)
+            await record(ctx, row, 'channel.project_attached', target.id, timestamp)
             return { kind: 'changed', revision }
         }
     )
 
-    const detach = createDatabaseTransaction(
+    const detach = defineTransaction(
         database,
-        (
+        async (
             ctx: WorkspaceChannelContext,
             input: {
                 channelId: string
@@ -328,21 +330,22 @@ export function createWorkspaceChannelStore(
                 expectedRevision: number
                 lastAttachment?: 'archive'
             }
-        ): MutationResult => {
-            const row = channel.get(input.channelId),
-                target = project.get(input.projectId)
+        ): Promise<MutationResult> => {
+            const row = await channel.get(input.channelId),
+                target = await project.get(input.projectId)
             if (
                 !row ||
                 target?.workspaceId !== row.workspaceId ||
-                !isActive('project', target.id) ||
-                !isActive('workspace', row.workspaceId) ||
-                !allowedActor(ctx, row) ||
+                !(await isActive('project', target.id)) ||
+                !(await isActive('workspace', row.workspaceId)) ||
+                !(await allowedActor(ctx, row)) ||
                 !(
-                    ctx.authorization.authorizeProject(target.id, 'withdraw_channels') === true ||
-                    manages(ctx, row, 'share_channels')
+                    (await ctx.authorization.authorizeProject(target.id, 'withdraw_channels')) ===
+                        true || (await manages(ctx, row, 'share_channels'))
                 ) ||
-                ctx.authorization.authorizeSharing(
-                    ctx.authorization.authorizeProject(target.id, 'withdraw_channels') === true
+                (await ctx.authorization.authorizeSharing(
+                    (await ctx.authorization.authorizeProject(target.id, 'withdraw_channels')) ===
+                        true
                         ? [
                               ...new Set(
                                   [ctx.contextProjectId, target.id].filter(
@@ -350,77 +353,82 @@ export function createWorkspaceChannelStore(
                                   )
                               ),
                           ].sort()
-                        : affected(ctx, row, target.id)
-                ) !== true
+                        : await affected(ctx, row, target.id)
+                )) !== true
             )
                 return { kind: 'not_found' }
-            const existing = attachment.get(target.id, row.id)
+            const existing = await attachment.get(target.id, row.id)
             if (!existing) return { kind: 'not_found' }
             validateRevision(input.expectedRevision)
             if (input.expectedRevision !== row.revision)
                 return { kind: 'stale', revision: row.revision }
             if (existing.state === 'detached') return { kind: 'unchanged', revision: row.revision }
             const last =
-                client
-                    .query<{ present: number }, [string, string]>(
-                        "select exists(select 1 from project_channel_attachments where channel_id=? and project_id<>? and state='active') as present"
-                    )
-                    .get(row.id, target.id)?.present !== 1
+                (
+                    await sql
+                        .statement<{ present: number }, [string, string]>(
+                            "select exists(select 1 from project_channel_attachments where channel_id=? and project_id<>? and state='active') as present"
+                        )
+                        .get(row.id, target.id)
+                )?.present !== 1
             const archive = last && row.state === 'active'
             if (archive && input.lastAttachment !== 'archive')
                 return { kind: 'retirement_required', revision: row.revision }
             const timestamp = requireTimestamp(now(), 'now')
-            client
-                .query(
+            await sql
+                .statement(
                     `update project_channel_attachments set state='detached',detached_at=?,revision=revision+1 where project_id=? and channel_id=?`
                 )
                 .run(timestamp, target.id, row.id)
             if (archive)
-                client
-                    .query("update channels set state='archived',archived_at=? where id=?")
+                await sql
+                    .statement("update channels set state='archived',archived_at=? where id=?")
                     .run(timestamp, row.id)
-            const revision = bump(row, timestamp)
-            record(ctx, row, 'channel.project_detached', target.id, timestamp)
-            if (archive) record(ctx, row, 'channel.archived', target.id, timestamp)
+            const revision = await bump(row, timestamp)
+            await record(ctx, row, 'channel.project_detached', target.id, timestamp)
+            if (archive) await record(ctx, row, 'channel.archived', target.id, timestamp)
             return { kind: 'changed', revision }
         }
     )
 
-    const transfer = createDatabaseTransaction(
+    const transfer = defineTransaction(
         database,
-        (
+        async (
             ctx: WorkspaceChannelContext,
             input: { channelId: string; projectId: string; expectedRevision: number }
-        ): MutationResult => {
-            const row = channel.get(input.channelId),
-                target = project.get(input.projectId)
+        ): Promise<MutationResult> => {
+            const row = await channel.get(input.channelId),
+                target = await project.get(input.projectId)
             if (
                 !row ||
                 target?.workspaceId !== row.workspaceId ||
-                !isActive('workspace', row.workspaceId) ||
-                !isActive('project', target.id) ||
-                !allowedActor(ctx, row) ||
-                !manages(ctx, row, 'share_channels') ||
-                ctx.authorization.authorizeProject(target.id, 'accept_channel_management') !==
+                !(await isActive('workspace', row.workspaceId)) ||
+                !(await isActive('project', target.id)) ||
+                !(await allowedActor(ctx, row)) ||
+                !(await manages(ctx, row, 'share_channels')) ||
+                (await ctx.authorization.authorizeProject(
+                    target.id,
+                    'accept_channel_management'
+                )) !== true ||
+                (await ctx.authorization.authorizeSharing(await affected(ctx, row, target.id))) !==
                     true ||
-                ctx.authorization.authorizeSharing(affected(ctx, row, target.id)) !== true ||
-                attachment.get(target.id, row.id)?.state !== 'active'
+                (await attachment.get(target.id, row.id))?.state !== 'active'
             )
                 return { kind: 'not_found' }
             validateRevision(input.expectedRevision)
             if (input.expectedRevision !== row.revision)
                 return { kind: 'stale', revision: row.revision }
-            const previousManager = manager.get(row.id)
+            const previousManager = await manager.get(row.id)
             if (previousManager?.projectId === target.id)
                 return { kind: 'unchanged', revision: row.revision }
             const timestamp = requireTimestamp(now(), 'now')
-            client
-                .query(
+            await sql
+                .statement(
                     `insert into channel_managers(channel_id,project_id,workspace_id) values (?,?,?) on conflict(channel_id) do update set project_id=excluded.project_id,workspace_id=excluded.workspace_id`
                 )
                 .run(row.id, target.id, row.workspaceId)
-            const revision = bump(row, timestamp)
-            record(ctx, row, 'channel.management_transferred', target.id, timestamp, {
+            const revision = await bump(row, timestamp)
+            await record(ctx, row, 'channel.management_transferred', target.id, timestamp, {
                 fromProjectId: previousManager?.projectId ?? null,
                 toProjectId: target.id,
             })
@@ -428,28 +436,29 @@ export function createWorkspaceChannelStore(
         }
     )
 
-    const readable = (ctx: WorkspaceChannelContext, row: ChannelRecord) =>
-        ctx.authorization.authorizeWorkspace(row.workspaceId, 'manage_channels') === true ||
-        ctx.authorization.authorizeWorkspace(row.workspaceId, 'share_channels') === true ||
-        manages(ctx, row, 'manage_channels') ||
-        manages(ctx, row, 'share_channels') ||
-        client
-            .query<{ projectId: string }, [string]>(
-                "select project_id as projectId from project_channel_attachments where channel_id=? and state='active'"
-            )
-            .all(row.id)
-            .some(
-                value =>
-                    ctx.authorization.authorizeProject(value.projectId, 'read_channels') === true
-            )
+    const readable = async (ctx: WorkspaceChannelContext, row: ChannelRecord) =>
+        (await ctx.authorization.authorizeWorkspace(row.workspaceId, 'manage_channels')) === true ||
+        (await ctx.authorization.authorizeWorkspace(row.workspaceId, 'share_channels')) === true ||
+        (await manages(ctx, row, 'manage_channels')) ||
+        (await manages(ctx, row, 'share_channels')) ||
+        (await someSequential(
+            await sql
+                .statement<{ projectId: string }, [string]>(
+                    "select project_id as projectId from project_channel_attachments where channel_id=? and state='active'"
+                )
+                .all(row.id),
+            async value =>
+                (await ctx.authorization.authorizeProject(value.projectId, 'read_channels')) ===
+                true
+        ))
 
-    const describe = (
+    const describe = async (
         ctx: WorkspaceChannelContext,
         row: ChannelRecord,
         shared: boolean,
         contextProjectId?: string
-    ): WorkspaceChannelView => {
-        const managing = manager.get(row.id)
+    ): Promise<WorkspaceChannelView> => {
+        const managing = await manager.get(row.id)
         const projects =
             contextProjectId === undefined
                 ? [
@@ -459,24 +468,24 @@ export function createWorkspaceChannelStore(
                           )
                       ),
                   ].sort()
-                : affected(ctx, row, contextProjectId)
+                : await affected(ctx, row, contextProjectId)
         return {
             ...row,
             shared,
-            canManage: manages(ctx, row, 'manage_channels'),
+            canManage: await manages(ctx, row, 'manage_channels'),
             canShare:
-                manages(ctx, row, 'share_channels') &&
-                ctx.authorization.authorizeSharing(projects) === true,
+                (await manages(ctx, row, 'share_channels')) &&
+                (await ctx.authorization.authorizeSharing(projects)) === true,
             management:
                 managing === null
                     ? { kind: 'workspace' }
                     : {
                           kind: 'project',
                           project:
-                              ctx.authorization.authorizeProject(
+                              (await ctx.authorization.authorizeProject(
                                   managing.projectId,
                                   'read_channels'
-                              ) === true
+                              )) === true
                                   ? { id: managing.projectId, name: managing.name }
                                   : null,
                       },
@@ -484,9 +493,9 @@ export function createWorkspaceChannelStore(
     }
 
     const cadence = createChannelCadenceStore(database)
-    const configureCadence = createDatabaseTransaction(
+    const configureCadence = defineTransaction(
         database,
-        (
+        async (
             ctx: WorkspaceChannelContext,
             input: {
                 channelId: string
@@ -497,25 +506,25 @@ export function createWorkspaceChannelStore(
                 minimumIntervalMs: number | null
             }
         ) => {
-            const row = channel.get(input.channelId)
+            const row = await channel.get(input.channelId)
             if (
                 !row ||
-                !allowedActor(ctx, row) ||
-                !manages(ctx, row, 'manage_channels') ||
+                !(await allowedActor(ctx, row)) ||
+                !(await manages(ctx, row, 'manage_channels')) ||
                 row.state !== 'active'
             )
                 return null
-            const current = cadence.get(row.id)
+            const current = await cadence.get(row.id)
             if ((current?.revision ?? 0) !== input.expectedRevision)
                 throw new DomainInvariantError(
                     'write_conflict',
                     'The cadence changed; reload it and retry'
                 )
-            const defaults = manager.get(row.id)
+            const defaults = await manager.get(row.id)
             const timeZone =
                 input.timeZone ??
                 current?.timeZone ??
-                (defaults ? project.get(defaults.projectId)?.timeZone : undefined) ??
+                (defaults ? (await project.get(defaults.projectId))?.timeZone : undefined) ??
                 'UTC'
             const value = {
                 timeZone,
@@ -524,8 +533,8 @@ export function createWorkspaceChannelStore(
                 minimumIntervalMs: input.minimumIntervalMs,
             }
             validateCadence(value)
-            client
-                .query(`insert into channel_cadence (channel_id,revision,time_zone,daily_max,weekly_max,minimum_interval_ms,updated_by_actor_id,updated_at)
+            await sql
+                .statement(`insert into channel_cadence (channel_id,revision,time_zone,daily_max,weekly_max,minimum_interval_ms,updated_by_actor_id,updated_at)
             values (?,1,?,?,?,?,?,?) on conflict(channel_id) do update set revision=revision+1,time_zone=excluded.time_zone,
             daily_max=excluded.daily_max,weekly_max=excluded.weekly_max,minimum_interval_ms=excluded.minimum_interval_ms,
             updated_by_actor_id=excluded.updated_by_actor_id,updated_at=excluded.updated_at`)
@@ -538,17 +547,17 @@ export function createWorkspaceChannelStore(
                     ctx.actorId,
                     now()
                 )
-            client
-                .query(
+            await sql
+                .statement(
                     `update channel_cadence set last_effect_at=nullif(max(coalesce(last_effect_at,0),coalesce((select max(j.effect_started_at) from jobs j join publications p on p.id=j.publication_id where p.channel_id=?),0)),0) where channel_id=?`
                 )
                 .run(row.id, row.id)
-            client
-                .query(
+            await sql
+                .statement(
                     'delete from publication_cadence_overrides where publication_id in (select id from publications where channel_id=?)'
                 )
                 .run(row.id)
-            record(
+            await record(
                 ctx,
                 row,
                 'channel.cadence_updated',
@@ -556,69 +565,93 @@ export function createWorkspaceChannelStore(
                 now(),
                 value
             )
-            for (const item of client
-                .query<{ projectId: string }, [string]>(
+            for (const item of await sql
+                .statement<{ projectId: string }, [string]>(
                     "select project_id as projectId from project_channel_attachments where channel_id=? and state='active'"
                 )
                 .all(row.id))
                 recordDatabaseCommitProject(database, item.projectId)
-            return cadence.get(row.id)!
+            return (await cadence.get(row.id))!
         }
     )
 
-    const projectActor = client.query<{ id: string }, [string, string]>(
+    const projectActor = sql.statement<{ id: string }, [string, string]>(
         `select id from actors where project_id=? and subject_id=? and kind in ('human','agent','api_token') order by created_at,id limit 1`
     )
     const workspaceActors = createWorkspaceActorStore(database, { now, createId })
 
     return {
         /** Workspace binding only; each mutation still checks its own live authority. */
-        isWorkspaceChannel(
+        async isWorkspaceChannel(
             ctx: WorkspaceChannelContext,
             workspaceId: string,
             channelId: string
-        ): boolean {
-            const row = channel.get(channelId)
-            return row !== null && row.workspaceId === workspaceId && allowedActor(ctx, row)
+        ): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                const row = await channel.get(channelId)
+                return (
+                    row !== null &&
+                    row.workspaceId === workspaceId &&
+                    (await allowedActor(ctx, row))
+                )
+            }, 'deferred')
         },
-        workspaceContextFor(input: {
+        async workspaceContextFor(input: {
             workspaceId: string
             subjectId: string
             displayName: string
             authorization: ChannelAccessPolicy
-        }): WorkspaceChannelContext | null {
-            const workspaceId = requireNonBlank(input.workspaceId, 'workspaceId')
-            const rows = client
-                .query<{ id: string }, [string]>('select id from projects where workspace_id=?')
-                .all(workspaceId)
-            if (
-                !input.authorization.authorizeWorkspace(workspaceId, 'manage_channels') &&
-                !input.authorization.authorizeWorkspace(workspaceId, 'share_channels') &&
-                !rows.some(row =>
-                    [
-                        'read_channels',
-                        'manage_channels',
-                        'share_channels',
-                        'withdraw_channels',
-                    ].some(action =>
-                        input.authorization.authorizeProject(row.id, action as ChannelProjectAction)
+        }): Promise<WorkspaceChannelContext | null> {
+            return database.sql.transaction(async () => {
+                const workspaceId = requireNonBlank(input.workspaceId, 'workspaceId')
+                const rows = await sql
+                    .statement<{ id: string }, [string]>(
+                        'select id from projects where workspace_id=?'
                     )
+                    .all(workspaceId)
+                if (
+                    !(await input.authorization.authorizeWorkspace(
+                        workspaceId,
+                        'manage_channels'
+                    )) &&
+                    !(await input.authorization.authorizeWorkspace(
+                        workspaceId,
+                        'share_channels'
+                    )) &&
+                    !(await someSequential(rows, row =>
+                        someSequential(
+                            [
+                                'read_channels',
+                                'manage_channels',
+                                'share_channels',
+                                'withdraw_channels',
+                            ],
+                            action =>
+                                input.authorization.authorizeProject(
+                                    row.id,
+                                    action as ChannelProjectAction
+                                )
+                        )
+                    ))
                 )
-            )
-                return null
-            const actor = workspaceActors.ensureForSubject(input)
-            return { actorId: actor.id, authorization: input.authorization }
+                    return null
+                const actor = await workspaceActors.ensureForSubject(input)
+                return { actorId: actor.id, authorization: input.authorization }
+            }, 'immediate')
         },
-        getCadence(
+        async getCadence(
             ctx: WorkspaceChannelContext,
             channelId: string
-        ): { rules: ChannelCadence | null; canManage: boolean } | null {
-            const row = channel.get(channelId)
-            if (!row || !allowedActor(ctx, row) || !readable(ctx, row)) return null
-            return {
-                rules: cadence.get(channelId),
-                canManage: manages(ctx, row, 'manage_channels'),
-            }
+        ): Promise<{ rules: ChannelCadence | null; canManage: boolean } | null> {
+            return database.sql.transaction(async () => {
+                const row = await channel.get(channelId)
+                if (!row || !(await allowedActor(ctx, row)) || !(await readable(ctx, row)))
+                    return null
+                return {
+                    rules: await cadence.get(channelId),
+                    canManage: await manages(ctx, row, 'manage_channels'),
+                }
+            }, 'deferred')
         },
         configureCadence(
             ctx: WorkspaceChannelContext,
@@ -630,29 +663,33 @@ export function createWorkspaceChannelStore(
          * Resolve the request's attribution actor from a live project actor. The result carries no grant:
          * every operation still asks the supplied policy port.
          */
-        contextFor(input: {
+        async contextFor(input: {
             readonly subjectId: string
             readonly contextProjectId: string
             readonly authorization: ChannelAccessPolicy
-        }): WorkspaceChannelContext | null {
-            const contextProject = project.get(requireNonBlank(input.contextProjectId, 'projectId'))
-            if (!contextProject?.workspaceId) return null
-            const actor = projectActor.get(
-                contextProject.id,
-                requireNonBlank(input.subjectId, 'subjectId')
-            )
-            if (!actor) return null
-            const attribution = workspaceActors.ensureFromProjectActor({
-                workspaceId: contextProject.workspaceId,
-                projectActorId: actor.id,
-            })
-            return attribution
-                ? {
-                      actorId: attribution.id,
-                      contextProjectId: contextProject.id,
-                      authorization: input.authorization,
-                  }
-                : null
+        }): Promise<WorkspaceChannelContext | null> {
+            return database.sql.transaction(async () => {
+                const contextProject = await project.get(
+                    requireNonBlank(input.contextProjectId, 'projectId')
+                )
+                if (!contextProject?.workspaceId) return null
+                const actor = await projectActor.get(
+                    contextProject.id,
+                    requireNonBlank(input.subjectId, 'subjectId')
+                )
+                if (!actor) return null
+                const attribution = await workspaceActors.ensureFromProjectActor({
+                    workspaceId: contextProject.workspaceId,
+                    projectActorId: actor.id,
+                })
+                return attribution
+                    ? {
+                          actorId: attribution.id,
+                          contextProjectId: contextProject.id,
+                          authorization: input.authorization,
+                      }
+                    : null
+            }, 'immediate')
         },
         create(
             ctx: WorkspaceChannelContext,
@@ -664,86 +701,97 @@ export function createWorkspaceChannelStore(
                 name: requireNonBlank(input.name, 'name'),
             })
         },
-        listProject(
+        async listProject(
             ctx: WorkspaceChannelContext,
             projectId: string,
             includeDetached = false
-        ): readonly ProjectChannelView[] | null {
-            const id = requireNonBlank(projectId, 'projectId')
-            if (ctx.authorization.authorizeProject(id, 'read_channels') !== true) return null
-            const target = project.get(id)
-            if (!target?.workspaceId) return null
-            const rows = client
-                .query<
-                    {
-                        id: string
-                        attachmentState: 'active' | 'detached'
-                        attachmentRevision: number
-                        profileId: string
-                        shared: number
-                    },
-                    [string, number]
-                >(`select c.id,a.state as attachmentState,a.revision as attachmentRevision,p.profile_id as profileId,
+        ): Promise<readonly ProjectChannelView[] | null> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(projectId, 'projectId')
+                if ((await ctx.authorization.authorizeProject(id, 'read_channels')) !== true)
+                    return null
+                const target = await project.get(id)
+                if (!target?.workspaceId) return null
+                const rows = await sql
+                    .statement<
+                        {
+                            id: string
+                            attachmentState: 'active' | 'detached'
+                            attachmentRevision: number
+                            profileId: string
+                            shared: number
+                        },
+                        [string, number]
+                    >(`select c.id,a.state as attachmentState,a.revision as attachmentRevision,p.profile_id as profileId,
                 exists(select 1 from project_channel_attachments other where other.channel_id=c.id and other.state='active' limit 1 offset 1) as shared
                 from project_channel_attachments a join channels c on c.workspace_id=a.workspace_id and c.id=a.channel_id join channel_profile_versions p on p.workspace_id=c.workspace_id and p.channel_id=c.id and p.id=c.profile_version_id
                 where a.project_id=?1 and (?2=1 or a.state='active') order by c.created_at,c.id`)
-                .all(id, includeDetached ? 1 : 0)
-            return rows.map(value => {
-                const row = channel.get(value.id)!
-                return {
-                    ...describe(ctx, row, value.shared === 1, id),
-                    projectId: id,
-                    attachmentState: value.attachmentState,
-                    attachmentRevision: value.attachmentRevision,
-                    canWithdraw:
-                        value.attachmentState === 'active' &&
-                        isActive('workspace', row.workspaceId) &&
-                        isActive('project', id) &&
-                        (ctx.authorization.authorizeProject(id, 'withdraw_channels') === true
-                            ? ctx.authorization.authorizeSharing(
-                                  [
-                                      ...new Set(
-                                          [ctx.contextProjectId, id].filter(
-                                              (value): value is string => value !== undefined
-                                          )
-                                      ),
-                                  ].sort()
-                              ) === true
-                            : manages(ctx, row, 'share_channels') &&
-                              ctx.authorization.authorizeSharing(affected(ctx, row, id)) === true),
-                }
-            })
+                    .all(id, includeDetached ? 1 : 0)
+                return mapSequential(rows, async value => {
+                    const row = (await channel.get(value.id))!
+                    return {
+                        ...(await describe(ctx, row, value.shared === 1, id)),
+                        projectId: id,
+                        attachmentState: value.attachmentState,
+                        attachmentRevision: value.attachmentRevision,
+                        canWithdraw:
+                            value.attachmentState === 'active' &&
+                            (await isActive('workspace', row.workspaceId)) &&
+                            (await isActive('project', id)) &&
+                            ((await ctx.authorization.authorizeProject(id, 'withdraw_channels')) ===
+                            true
+                                ? (await ctx.authorization.authorizeSharing(
+                                      [
+                                          ...new Set(
+                                              [ctx.contextProjectId, id].filter(
+                                                  (value): value is string => value !== undefined
+                                              )
+                                          ),
+                                      ].sort()
+                                  )) === true
+                                : (await manages(ctx, row, 'share_channels')) &&
+                                  (await ctx.authorization.authorizeSharing(
+                                      await affected(ctx, row, id)
+                                  )) === true),
+                    }
+                })
+            }, 'deferred')
         },
         /**
          * Time already taken on the channels this project uses by OTHER attached projects.
          * Drafts, cancelled and definitely failed work occupy nothing and are never reported.
          */
-        occupancy(
+        async occupancy(
             ctx: WorkspaceChannelContext,
             projectId: string,
             range: { readonly from: number; readonly to: number }
-        ): readonly ChannelOccupancyItem[] | null {
-            const id = requireNonBlank(projectId, 'projectId')
-            if (ctx.authorization.authorizeProject(id, 'read_channels') !== true) return null
-            if (
-                !Number.isSafeInteger(range.from) ||
-                !Number.isSafeInteger(range.to) ||
-                range.to <= range.from
-            )
-                throw new DomainInvariantError('invalid_input', 'The occupancy range is invalid')
-            const rows = client
-                .query<
-                    {
-                        publicationId: string
-                        projectId: string
-                        projectName: string
-                        channelId: string
-                        state: ChannelOccupancyItem['state']
-                        at: number
-                        title: string | null
-                    },
-                    [string, number, number]
-                >(`select p.id as publicationId,p.project_id as projectId,pr.name as projectName,p.channel_id as channelId,p.state,
+        ): Promise<readonly ChannelOccupancyItem[] | null> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(projectId, 'projectId')
+                if ((await ctx.authorization.authorizeProject(id, 'read_channels')) !== true)
+                    return null
+                if (
+                    !Number.isSafeInteger(range.from) ||
+                    !Number.isSafeInteger(range.to) ||
+                    range.to <= range.from
+                )
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'The occupancy range is invalid'
+                    )
+                const rows = await sql
+                    .statement<
+                        {
+                            publicationId: string
+                            projectId: string
+                            projectName: string
+                            channelId: string
+                            state: ChannelOccupancyItem['state']
+                            at: number
+                            title: string | null
+                        },
+                        [string, number, number]
+                    >(`select p.id as publicationId,p.project_id as projectId,pr.name as projectName,p.channel_id as channelId,p.state,
                     case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end as at,
                     post.title as title
                     from publications p
@@ -757,15 +805,19 @@ export function createWorkspaceChannelStore(
                       and (case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end) >= ?2
                       and (case when p.state='published' then coalesce(p.published_at,p.scheduled_at) else p.scheduled_at end) < ?3
                     order by at,p.id limit 500`)
-                .all(id, range.from, range.to)
-            return rows
-                .filter(row => isActive('project', row.projectId))
-                .map(row => ({
+                    .all(id, range.from, range.to)
+                const visible = await filterSequential(rows, row =>
+                    isActive('project', row.projectId)
+                )
+                return mapSequential(visible, async row => ({
                     channelId: row.channelId,
                     at: row.at,
                     state: row.state,
                     project:
-                        ctx.authorization.authorizeProject(row.projectId, 'read_channels') === true
+                        (await ctx.authorization.authorizeProject(
+                            row.projectId,
+                            'read_channels'
+                        )) === true
                             ? {
                                   id: row.projectId,
                                   name: row.projectName,
@@ -774,56 +826,68 @@ export function createWorkspaceChannelStore(
                               }
                             : null,
                 }))
+            }, 'immediate')
         },
-        listWorkspace(
+        async listWorkspace(
             ctx: WorkspaceChannelContext,
             workspaceId: string,
             includeArchived = false
-        ): readonly WorkspaceChannelView[] {
-            const id = requireNonBlank(workspaceId, 'workspaceId')
-            const values = client
-                .query<{ id: string; shared: number }, [string, number]>(
-                    `select c.id,exists(select 1 from project_channel_attachments a where a.channel_id=c.id and a.state='active' limit 1 offset 1) as shared from channels c where c.workspace_id=? and (?=1 or c.state='active') order by c.created_at,c.id`
-                )
-                .all(id, includeArchived ? 1 : 0)
-            return values.flatMap(value => {
-                const row = channel.get(value.id)
-                if (!row) return []
-                return readable(ctx, row) ? [describe(ctx, row, value.shared === 1)] : []
-            })
+        ): Promise<readonly WorkspaceChannelView[]> {
+            return database.sql.transaction(async () => {
+                const id = requireNonBlank(workspaceId, 'workspaceId')
+                const values = await sql
+                    .statement<{ id: string; shared: number }, [string, number]>(
+                        `select c.id,exists(select 1 from project_channel_attachments a where a.channel_id=c.id and a.state='active' limit 1 offset 1) as shared from channels c where c.workspace_id=? and (?=1 or c.state='active') order by c.created_at,c.id`
+                    )
+                    .all(id, includeArchived ? 1 : 0)
+                const views = await mapSequential(values, async value => {
+                    const row = await channel.get(value.id)
+                    if (!row) return []
+                    return (await readable(ctx, row))
+                        ? [await describe(ctx, row, value.shared === 1)]
+                        : []
+                })
+                return views.flat()
+            }, 'deferred')
         },
-        listProjectUsages(
+        async listProjectUsages(
             ctx: WorkspaceChannelContext,
             channelId: string,
             includeDetached = false
-        ):
+        ): Promise<
             | readonly {
                   readonly projectId: string
                   readonly name: string
                   readonly state: 'active' | 'detached'
                   readonly revision: number
               }[]
-            | null {
-            const row = channel.get(requireNonBlank(channelId, 'channelId'))
-            if (!row || !readable(ctx, row)) return null
-            return client
-                .query<
-                    {
-                        projectId: string
-                        name: string
-                        state: 'active' | 'detached'
-                        revision: number
-                    },
-                    [string, number]
-                >(
-                    `select a.project_id as projectId,p.name,a.state,a.revision from project_channel_attachments a join projects p on p.workspace_id=a.workspace_id and p.id=a.project_id where a.channel_id=? and (?=1 or a.state='active') order by p.name,p.id`
+            | null
+        > {
+            return database.sql.transaction(async () => {
+                const row = await channel.get(requireNonBlank(channelId, 'channelId'))
+                if (!row || !(await readable(ctx, row))) return null
+                const usages = await sql
+                    .statement<
+                        {
+                            projectId: string
+                            name: string
+                            state: 'active' | 'detached'
+                            revision: number
+                        },
+                        [string, number]
+                    >(
+                        `select a.project_id as projectId,p.name,a.state,a.revision from project_channel_attachments a join projects p on p.workspace_id=a.workspace_id and p.id=a.project_id where a.channel_id=? and (?=1 or a.state='active') order by p.name,p.id`
+                    )
+                    .all(row.id, includeDetached ? 1 : 0)
+                return filterSequential(
+                    usages,
+                    async value =>
+                        (await ctx.authorization.authorizeProject(
+                            value.projectId,
+                            'read_channels'
+                        )) === true
                 )
-                .all(row.id, includeDetached ? 1 : 0)
-                .filter(
-                    value =>
-                        ctx.authorization.authorizeProject(value.projectId, 'read_channels') ===
-                        true
-                )
+            }, 'deferred')
         },
         attach(
             ctx: WorkspaceChannelContext,

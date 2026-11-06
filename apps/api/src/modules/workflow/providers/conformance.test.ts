@@ -468,8 +468,12 @@ function fixtureCredentialRefresh(
                               projectId,
                               credentialId,
                           }),
-                      markReconnectRequired: () =>
-                          port.markPublisherCredentialReconnectRequired(projectId, credentialId),
+                      markReconnectRequired: async () => {
+                          await port.markPublisherCredentialReconnectRequired(
+                              projectId,
+                              credentialId
+                          )
+                      },
                   }
         )
     }
@@ -500,7 +504,7 @@ function createCredentialPort(input: {
         async replacePublisherCredentialTokens() {
             return { kind: 'conflict' }
         },
-        markPublisherCredentialReconnectRequired() {
+        async markPublisherCredentialReconnectRequired() {
             reconnectCalls += 1
         },
     }
@@ -760,7 +764,7 @@ describe('built-in provider adapter conformance', () => {
                         },
                     }
                 },
-                markPublisherCredentialReconnectRequired() {},
+                async markPublisherCredentialReconnectRequired() {},
             }
 
             const adapter = createXProviderAdapter({
@@ -814,7 +818,7 @@ describe('built-in provider adapter conformance', () => {
                 async replacePublisherCredentialTokens() {
                     return { kind: 'conflict' }
                 },
-                markPublisherCredentialReconnectRequired() {
+                async markPublisherCredentialReconnectRequired() {
                     markedReconnect = true
                 },
             }
@@ -856,7 +860,7 @@ describe('built-in provider adapter conformance', () => {
             let publishedTweet = false
 
             const mockMediaDeliveryStore: ProviderMediaDeliveryPort = {
-                reserve(input) {
+                async reserve(input) {
                     reserved = true
                     return {
                         id: 'delivery-1',
@@ -877,7 +881,7 @@ describe('built-in provider adapter conformance', () => {
                         updatedAt: input.at ?? now,
                     }
                 },
-                start(input) {
+                async start(input) {
                     started = true
                     return {
                         id: input.deliveryId,
@@ -898,7 +902,7 @@ describe('built-in provider adapter conformance', () => {
                         updatedAt: input.at ?? now,
                     }
                 },
-                recordRemoteMediaId(input) {
+                async recordRemoteMediaId(input) {
                     recordedCheckpoint = true
                     expect(input.remoteMediaId).toBe('x-media-remote-123')
                     return {
@@ -920,7 +924,7 @@ describe('built-in provider adapter conformance', () => {
                         updatedAt: input.at ?? now,
                     }
                 },
-                complete(input) {
+                async complete(input) {
                     completed = true
                     completedExpiry = input.remoteMediaExpiresAt
                     return {
@@ -942,10 +946,10 @@ describe('built-in provider adapter conformance', () => {
                         updatedAt: input.at ?? now,
                     }
                 },
-                fail() {
+                async fail() {
                     return null
                 },
-                retry() {
+                async retry() {
                     return null
                 },
             }
@@ -1065,7 +1069,7 @@ describe('built-in provider adapter conformance', () => {
             let uploads = 0
             let publishedMediaIds: readonly string[] | undefined
             const freshStore: ProviderMediaDeliveryPort = {
-                reserve(input) {
+                async reserve(input) {
                     return {
                         id: 'delivery-fresh',
                         projectId: input.projectId,
@@ -1094,10 +1098,10 @@ describe('built-in provider adapter conformance', () => {
                 complete() {
                     throw new Error('fresh checkpoints must not complete again')
                 },
-                fail() {
+                async fail() {
                     return null
                 },
-                retry() {
+                async retry() {
                     return null
                 },
             }
@@ -1145,7 +1149,7 @@ describe('built-in provider adapter conformance', () => {
         it('requires reconciliation when the provider media expiry has passed', async () => {
             let dispatched = false
             const staleStore: ProviderMediaDeliveryPort = {
-                reserve(input) {
+                async reserve(input) {
                     return {
                         id: 'delivery-stale',
                         projectId: input.projectId,
@@ -1165,19 +1169,19 @@ describe('built-in provider adapter conformance', () => {
                         updatedAt: now - 1_000,
                     }
                 },
-                start() {
+                async start() {
                     return null
                 },
-                recordRemoteMediaId() {
+                async recordRemoteMediaId() {
                     return null
                 },
-                complete() {
+                async complete() {
                     return null
                 },
-                fail() {
+                async fail() {
                     return null
                 },
-                retry() {
+                async retry() {
                     return null
                 },
             }
@@ -1246,18 +1250,18 @@ describe('built-in provider adapter conformance', () => {
                 updatedAt: now,
             }
             const retryStore: ProviderMediaDeliveryPort = {
-                reserve() {
+                async reserve() {
                     return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
                 },
-                start() {
+                async start() {
                     row.state = 'uploading'
                     return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
                 },
-                recordRemoteMediaId(input) {
+                async recordRemoteMediaId(input) {
                     row.remoteMediaId = input.remoteMediaId
                     return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
                 },
-                complete(input) {
+                async complete(input) {
                     row.state = 'uploaded'
                     row.remoteMediaId = input.remoteMediaId
                     return {
@@ -1267,11 +1271,11 @@ describe('built-in provider adapter conformance', () => {
                         completedAt: now,
                     }
                 },
-                fail(input) {
+                async fail(input) {
                     row.state = input.ambiguous === true ? 'ambiguous' : 'failed'
                     return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
                 },
-                retry() {
+                async retry() {
                     row.state = 'pending'
                     return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
                 },

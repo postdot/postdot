@@ -172,13 +172,13 @@ function createReadyMedia(
     }
 }
 
-function createApprovalDraft(
+async function createApprovalDraft(
     database: ReturnType<typeof createDatabase>,
     store: ReturnType<typeof createManualStore>,
     projectId: string,
     suffix: string
 ) {
-    const channel = store.createChannel({
+    const channel = await store.createChannel({
         projectId,
         subjectId: 'user-1',
         name: `Approval Channel ${suffix}`,
@@ -190,13 +190,13 @@ function createApprovalDraft(
         .insert(publishers)
         .values({
             id: `approval-publisher-${suffix}`,
-            workspaceId: workspaceOf(database, projectId),
+            workspaceId: await workspaceOf(database, projectId),
             channelId: channel.id,
             kind: 'future-provider',
         })
         .run()
 
-    const created = store.createPost({
+    const created = await store.createPost({
         projectId,
         subjectId: 'user-1',
         sourceContent: sourceContent(`Approval source ${suffix}`),
@@ -213,7 +213,7 @@ function createApprovalDraft(
     return publication
 }
 
-function activateApprovalProfileLimit(
+async function activateApprovalProfileLimit(
     store: ReturnType<typeof createManualStore>,
     projectId: string,
     channelId: string,
@@ -238,7 +238,7 @@ function activateApprovalProfileLimit(
             })),
         },
     }
-    const draft = store.createChannelProfileDraft({
+    const draft = await store.createChannelProfileDraft({
         projectId,
         channelId,
         subjectId: 'user-1',
@@ -266,7 +266,7 @@ function snapshotApprovalState(database: ReturnType<typeof createDatabase>) {
 }
 
 describe('manual workflow store', () => {
-    it('creates a project, tracks manual publications, and records attribution', () => {
+    it('creates a project, tracks manual publications, and records attribution', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
@@ -280,18 +280,18 @@ describe('manual workflow store', () => {
                 })(),
             })
 
-            const createdProject = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const createdProject = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Postdot Launch',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const manualChannel = store.createChannel({
+            const manualChannel = await store.createChannel({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 name: 'Custom Manual Destination',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 name: 'Secondary Destination',
@@ -300,7 +300,7 @@ describe('manual workflow store', () => {
             expect(manualChannel).not.toBeNull()
             expect(secondChannel).not.toBeNull()
 
-            const createdPost = store.createPost({
+            const createdPost = await store.createPost({
                 projectId: createdProject.project.id,
                 subjectId: 'user-1',
                 title: 'Postdot is ready',
@@ -329,11 +329,15 @@ describe('manual workflow store', () => {
                 'draft',
             ])
             expect(createdPost?.publications[0]?.targetRevisionId).not.toBeNull()
-            expect(store.listProjects('user-1')).toHaveLength(1)
-            expect(store.listProjects('other-user')).toEqual([])
-            expect(store.listChannels(createdProject.project.id, 'other-user')).toBeNull()
+            expect(await store.listProjects('user-1')).toHaveLength(1)
+            expect(await store.listProjects('other-user')).toEqual([])
+            expect(await store.listChannels(createdProject.project.id, 'other-user')).toBeNull()
 
-            const due = store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+            const due = await store.listDueManualPublications(
+                createdProject.project.id,
+                'user-1',
+                now
+            )
             expect(due).toHaveLength(1)
             expect(due?.[0]).toMatchObject({
                 channelName: 'Custom Manual Destination',
@@ -345,7 +349,7 @@ describe('manual workflow store', () => {
                 state: 'scheduled',
             })
 
-            const published = store.publishManualPublication({
+            const published = await store.publishManualPublication({
                 projectId: createdProject.project.id,
                 publicationId: due?.[0]?.id ?? '',
                 subjectId: 'user-1',
@@ -359,12 +363,11 @@ describe('manual workflow store', () => {
                 state: 'published',
             })
             expect(
-                store.listDueManualPublications(createdProject.project.id, 'user-1', now)
+                await store.listDueManualPublications(createdProject.project.id, 'user-1', now)
             ).toEqual([])
 
             expect(
-                store
-                    .listAuditEvents(createdProject.project.id, 'user-1')
+                (await store.listAuditEvents(createdProject.project.id, 'user-1'))
                     ?.map(event => event.action)
                     .sort()
             ).toEqual([
@@ -390,23 +393,23 @@ describe('manual workflow store', () => {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First destination',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second destination',
             })
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'Queue filter source',
@@ -452,8 +455,8 @@ describe('manual workflow store', () => {
                 tagIds: [alpha?.id ?? ''],
             })
 
-            const otherProject = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const otherProject = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Other Queue Filter Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -465,9 +468,9 @@ describe('manual workflow store', () => {
             })
 
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1')
-                    ?.map(publication => ({ id: publication.id, tagIds: publication.tagIds }))
+                (await store.listPublicationSummaries(project.project.id, 'user-1'))?.map(
+                    publication => ({ id: publication.id, tagIds: publication.tagIds })
+                )
             ).toEqual(
                 expect.arrayContaining([
                     { id: firstPublication?.id, tagIds: [alpha?.id, beta?.id] },
@@ -475,46 +478,50 @@ describe('manual workflow store', () => {
                 ])
             )
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1', {
+                (
+                    await store.listPublicationSummaries(project.project.id, 'user-1', {
                         tagIds: [beta?.id ?? '', alpha?.id ?? ''],
                     })
-                    ?.map(publication => publication.id)
+                )?.map(publication => publication.id)
             ).toEqual([firstPublication?.id ?? ''])
             expect(
-                store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                    filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
-                })?.summary
+                (
+                    await store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                        filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
+                    })
+                )?.summary
             ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 })
             expect(
-                store.listPublicationSummaries(project.project.id, 'user-1', {
+                await store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
                 })
             ).toEqual([])
             expect(
-                store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                    filter: { tagIds: [foreignTag?.id ?? ''] },
-                })?.summary
+                (
+                    await store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                        filter: { tagIds: [foreignTag?.id ?? ''] },
+                    })
+                )?.summary
             ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 })
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('pages publication summaries without dropping the tail and supports scheduled ranges', () => {
+    it('pages publication summaries without dropping the tail and supports scheduled ranges', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Publication Pagination Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Pagination destination',
@@ -523,7 +530,7 @@ describe('manual workflow store', () => {
             if (channel === null) throw new Error('The pagination channel was not created')
 
             for (let index = 0; index < 100; index += 1) {
-                store.createPost({
+                await store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     title: `Scheduled ${index}`,
@@ -537,7 +544,7 @@ describe('manual workflow store', () => {
                     ],
                 })
             }
-            const unscheduled = store.createPost({
+            const unscheduled = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'Unscheduled tail',
@@ -548,7 +555,7 @@ describe('manual workflow store', () => {
                     },
                 ],
             })
-            const firstPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const firstPage = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 100,
             })
             expect(firstPage?.publications).toHaveLength(100)
@@ -561,18 +568,24 @@ describe('manual workflow store', () => {
                 draft: 1,
             })
 
-            const secondPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
-                cursor: firstPage?.nextCursor,
-                limit: 100,
-            })
+            const secondPage = await store.listPublicationSummaryPage(
+                project.project.id,
+                'user-1',
+                {
+                    cursor: firstPage?.nextCursor,
+                    limit: 100,
+                }
+            )
             expect(secondPage?.publications.map(publication => publication.id)).toEqual([
                 unscheduled?.publications[0]?.id ?? '',
             ])
             expect(secondPage?.nextCursor).toBeNull()
             expect(secondPage?.summary).toEqual(firstPage?.summary)
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(101)
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(
+                101
+            )
 
-            const range = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const range = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 from: now + 10 * 60_000,
                 to: now + 11 * 60_000,
                 limit: 1,
@@ -589,7 +602,7 @@ describe('manual workflow store', () => {
                 draft: 0,
             })
 
-            const drafts = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const drafts = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 state: 'draft',
                 sort: 'updated_desc',
             })
@@ -598,34 +611,34 @@ describe('manual workflow store', () => {
             ])
             expect(drafts?.summary.draft).toBe(1)
 
-            const soonest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const soonest = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 1,
                 sort: 'scheduled_asc',
             })
             expect(soonest?.publications[0]?.postTitle).toBe('Scheduled 0')
-            const latest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+            const latest = await store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 limit: 1,
                 sort: 'scheduled_desc',
             })
             expect(latest?.publications[0]?.postTitle).toBe('Scheduled 99')
 
-            expect(() =>
+            await expect(
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     cursor: 'publication-v1:invalid',
                 })
-            ).toThrow('publication cursor is invalid')
-            expect(() =>
+            ).rejects.toThrow('publication cursor is invalid')
+            await expect(
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     from: now + 1,
                     to: now,
                 })
-            ).toThrow('publication list range')
+            ).rejects.toThrow('publication list range')
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('rolls back publication outcomes when their audit persistence fails', () => {
+    it('rolls back publication outcomes when their audit persistence fails', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
         let triggerInstalled = false
@@ -633,20 +646,20 @@ describe('manual workflow store', () => {
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Outcome Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Manual Channel',
             })
             if (channel === null) throw new Error('The outcome rollback channel was not created')
 
-            const manualPublication = store.createPost({
+            const manualPublication = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The manual publication must remain due'),
@@ -666,14 +679,14 @@ describe('manual workflow store', () => {
             `)
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.publishManualPublication({
                     projectId: project.project.id,
                     publicationId: manualPublicationId,
                     subjectId: 'user-1',
                     externalId: 'manual-outcome-1',
                 })
-            ).toThrow('forced publication outcome failure')
+            ).rejects.toThrow('forced publication outcome failure')
             expect(
                 database
                     .select({
@@ -693,7 +706,7 @@ describe('manual workflow store', () => {
                     .all()
             ).toHaveLength(0)
 
-            const ambiguousPublication = store.createPost({
+            const ambiguousPublication = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The ambiguous publication must remain unresolved'),
@@ -708,7 +721,7 @@ describe('manual workflow store', () => {
                 .where(eq(publications.id, ambiguousPublicationId))
                 .run()
 
-            expect(() =>
+            await expect(
                 store.reconcileAmbiguousPublication({
                     projectId: project.project.id,
                     publicationId: ambiguousPublicationId,
@@ -716,7 +729,7 @@ describe('manual workflow store', () => {
                     resolution: 'published',
                     externalId: 'ambiguous-outcome-1',
                 })
-            ).toThrow('forced publication outcome failure')
+            ).rejects.toThrow('forced publication outcome failure')
             expect(
                 database
                     .select({
@@ -748,27 +761,27 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('rolls back an invalid post instead of leaving partial records', () => {
+    it('rolls back an invalid post instead of leaving partial records', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: sourceContent('This must not persist'),
                     publications: [{ channelId: 'missing-channel' }],
                 })
-            ).toThrow('does not belong to project')
+            ).rejects.toThrow('does not belong to project')
             expect(database.$client.query('select count(*) as count from posts').get()).toEqual({
                 count: 0,
             })
@@ -782,7 +795,7 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('rolls back all creation records when a late persistence effect fails', () => {
+    it('rolls back all creation records when a late persistence effect fails', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
         let triggerInstalled = false
@@ -790,22 +803,22 @@ describe('manual workflow store', () => {
         try {
             runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Creation Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Media Channel',
@@ -827,7 +840,7 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'creation-rollback-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
@@ -843,7 +856,7 @@ describe('manual workflow store', () => {
             `)
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
@@ -863,7 +876,7 @@ describe('manual workflow store', () => {
                         },
                     ],
                 })
-            ).toThrow('forced publication creation failure')
+            ).rejects.toThrow('forced publication creation failure')
 
             expect(database.select().from(posts).all()).toHaveLength(0)
             expect(database.select().from(publications).all()).toHaveLength(0)
@@ -892,19 +905,19 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('creates durable work for an automated channel', () => {
+    it('creates durable work for an automated channel', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Automatic Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -915,13 +928,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-1',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel?.id ?? '',
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('This belongs to PUB-09'),
@@ -940,20 +953,20 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('requeues a failed automatic publication without changing its target', () => {
+    it('requeues a failed automatic publication without changing its target', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -965,13 +978,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'retry-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Retry this publication'),
@@ -1016,7 +1029,7 @@ describe('manual workflow store', () => {
                 .where(eq(jobs.id, job.id))
                 .run()
 
-            const retried = store.retryFailedPublication({
+            const retried = await store.retryFailedPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1067,7 +1080,7 @@ describe('manual workflow store', () => {
             )
 
             expect(
-                store.retryFailedPublication({
+                await store.retryFailedPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
@@ -1078,32 +1091,32 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('reschedules and cancels a publication group atomically with automatic jobs', () => {
+    it('reschedules and cancels a publication group atomically with automatic jobs', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Bulk scheduling project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First channel',
                 profile: automaticTestProfile,
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second channel',
                 profile: automaticTestProfile,
             })
-            const draftChannel = store.createChannel({
+            const draftChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Draft channel',
@@ -1118,26 +1131,26 @@ describe('manual workflow store', () => {
                 .values([
                     {
                         id: 'bulk-scheduling-publisher-1',
-                        workspaceId: workspaceOf(database, project.project.id),
+                        workspaceId: await workspaceOf(database, project.project.id),
                         channelId: firstChannel.id,
                         kind: 'future-provider',
                     },
                     {
                         id: 'bulk-scheduling-publisher-2',
-                        workspaceId: workspaceOf(database, project.project.id),
+                        workspaceId: await workspaceOf(database, project.project.id),
                         channelId: secondChannel.id,
                         kind: 'future-provider',
                     },
                     {
                         id: 'bulk-scheduling-publisher-3',
-                        workspaceId: workspaceOf(database, project.project.id),
+                        workspaceId: await workspaceOf(database, project.project.id),
                         channelId: draftChannel.id,
                         kind: 'future-provider',
                     },
                 ])
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Bulk scheduling source'),
@@ -1165,7 +1178,7 @@ describe('manual workflow store', () => {
                 throw new Error('The bulk scheduling publications are missing')
             }
 
-            const rescheduled = store.reschedulePublications({
+            const rescheduled = await store.reschedulePublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 scheduledAt: now + 120_000,
@@ -1190,15 +1203,15 @@ describe('manual workflow store', () => {
                 { action: 'publication.rescheduled', entityId: secondPublication.id },
             ])
 
-            expect(() =>
+            await expect(
                 store.reschedulePublications({
                     projectId: project.project.id,
                     publicationIds: [firstPublication.id, draftPublication.id],
                     scheduledAt: now + 180_000,
                     subjectId: 'user-1',
                 })
-            ).toThrow('Cannot reschedule a draft publication')
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+            ).rejects.toThrow('Cannot reschedule a draft publication')
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
                         id: firstPublication.id,
@@ -1241,14 +1254,14 @@ describe('manual workflow store', () => {
                 })
                 .where(eq(jobs.id, firstJob.id))
                 .run()
-            expect(() =>
+            await expect(
                 store.cancelPublications({
                     projectId: project.project.id,
                     publicationIds: [firstPublication.id, secondPublication.id],
                     subjectId: 'user-1',
                 })
-            ).toThrow('while its job is running')
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+            ).rejects.toThrow('while its job is running')
+            expect(await store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({ id: firstPublication.id, state: 'scheduled' }),
                     expect.objectContaining({ id: secondPublication.id, state: 'scheduled' }),
@@ -1271,7 +1284,7 @@ describe('manual workflow store', () => {
                 .where(eq(jobs.id, firstJob.id))
                 .run()
 
-            const cancelled = store.cancelPublications({
+            const cancelled = await store.cancelPublications({
                 projectId: project.project.id,
                 publicationIds: [firstPublication.id, secondPublication.id],
                 subjectId: 'user-1',
@@ -1313,20 +1326,20 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('keeps the selected target stable until a draft is promoted', () => {
+    it('keeps the selected target stable until a draft is promoted', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Revision Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1338,13 +1351,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'revision-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Initial revision'),
@@ -1365,7 +1378,7 @@ describe('manual workflow store', () => {
             const initialJob = database.select().from(jobs).all()[0]
             if (initialJob === undefined) throw new Error('The initial job is missing')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1390,16 +1403,16 @@ describe('manual workflow store', () => {
                 { id: initialJob.id, state: 'pending', runAt: now + 60_000 },
             ])
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                     expectedRevision: 2,
                 })
-            ).toThrow('must include sourceContent or targetContent')
+            ).rejects.toThrow('must include sourceContent or targetContent')
 
-            const editor = store.getPublicationEditorState(
+            const editor = await store.getPublicationEditorState(
                 project.project.id,
                 publication.id,
                 'user-1'
@@ -1415,7 +1428,9 @@ describe('manual workflow store', () => {
                     content: { body: 'Initial revision' },
                 },
             })
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
+            expect(
+                await store.listPublicationSummaries(project.project.id, 'user-1')
+            ).toMatchObject([
                 {
                     id: publication.id,
                     draftRevision: 2,
@@ -1424,7 +1439,7 @@ describe('manual workflow store', () => {
                 },
             ])
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1432,15 +1447,15 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Stale editor write' },
                 })
-            ).toThrow('changed after revision 1')
+            ).rejects.toThrow('changed after revision 1')
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 revision: 2,
                 content: { body: 'Edited target' },
             })
 
-            const promoted = store.promotePublicationDraft({
+            const promoted = await store.promotePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1457,11 +1472,11 @@ describe('manual workflow store', () => {
                     runAt: now + 120_000,
                 }),
             ])
-            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
-                { id: publication.id, draftDiffersFromTarget: false },
-            ])
+            expect(
+                await store.listPublicationSummaries(project.project.id, 'user-1')
+            ).toMatchObject([{ id: publication.id, draftDiffersFromTarget: false }])
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1469,13 +1484,13 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: now + 180_000,
                 })
-            ).toThrow('changed after revision 1')
+            ).rejects.toThrow('changed after revision 1')
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('rolls back a promotion when a late persistence effect fails', () => {
+    it('rolls back a promotion when a late persistence effect fails', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
         let triggerInstalled = false
@@ -1483,13 +1498,13 @@ describe('manual workflow store', () => {
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Promotion Rollback Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1501,13 +1516,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'promotion-rollback-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Rollback source'),
@@ -1533,7 +1548,7 @@ describe('manual workflow store', () => {
             `)
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1541,7 +1556,7 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('forced publication promotion failure')
+            ).rejects.toThrow('forced publication promotion failure')
 
             expect(
                 database
@@ -1584,20 +1599,20 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('keeps invalid drafts editable but blocks their promotion', () => {
+    it('keeps invalid drafts editable but blocks their promotion', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Review Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Automatic Channel',
@@ -1605,7 +1620,7 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The review test channel was not created')
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Reviewable content'),
@@ -1615,7 +1630,7 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('The review publication is missing')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -1624,7 +1639,7 @@ describe('manual workflow store', () => {
             })
             expect(saved?.reviewState).toBe('review_required')
             expect(saved?.validationIssues.length).toBeGreaterThan(0)
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -1632,27 +1647,27 @@ describe('manual workflow store', () => {
                     expectedRevision: 2,
                     scheduledAt: now + 60_000,
                 })
-            ).toThrow('Publication target content is invalid')
+            ).rejects.toThrow('Publication target content is invalid')
             expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('blocks an ordinary promotion that satisfies only the superseded profile', () => {
+    it('blocks an ordinary promotion that satisfies only the superseded profile', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Superseded Profile Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Automatic Channel',
@@ -1665,13 +1680,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'superseded-profile-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Superseded profile source'),
@@ -1734,7 +1749,7 @@ describe('manual workflow store', () => {
                     ],
                 },
             }
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1742,7 +1757,7 @@ describe('manual workflow store', () => {
             })
             if (profileDraft === null) throw new Error('The active profile draft was not created')
 
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -1779,7 +1794,7 @@ describe('manual workflow store', () => {
             expect(invalidJob).toEqual([expect.objectContaining({ state: 'cancelled' })])
 
             const rescuedInvalidContent = { body: 'this target remains too long for v2' }
-            const savedInvalidDraft = store.savePublicationDraft({
+            const savedInvalidDraft = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: invalidPublication.id,
                 subjectId: 'user-1',
@@ -1794,7 +1809,7 @@ describe('manual workflow store', () => {
                 content: rescuedInvalidContent,
             })
 
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: invalidPublication.id,
@@ -1802,7 +1817,9 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 180_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
 
             const invalidPublicationRow = database
                 .select()
@@ -1819,7 +1836,7 @@ describe('manual workflow store', () => {
                 lastAssessedProfileVersionId: profileDraft.id,
             })
             expect(
-                store.getPublicationWorkingDraft(
+                await store.getPublicationWorkingDraft(
                     project.project.id,
                     invalidPublication.id,
                     'user-1'
@@ -1846,7 +1863,7 @@ describe('manual workflow store', () => {
                     .all()
             ).toEqual(invalidJob)
 
-            const promoted = store.promotePublicationDraft({
+            const promoted = await store.promotePublicationDraft({
                 projectId: project.project.id,
                 publicationId: unscheduledCompatiblePublication.id,
                 subjectId: 'user-1',
@@ -1897,15 +1914,15 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('blocks ordinary promotion when the active profile narrows media support', () => {
+    it('blocks ordinary promotion when the active profile narrows media support', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const setupStore = createManualStore(database, { now: () => now })
-            const project = setupStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await setupStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Active Media Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -1921,18 +1938,18 @@ describe('manual workflow store', () => {
                 .values({ ...readyRepresentation, recipeJson: null })
                 .run()
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1'
                         ? createReadyMedia(currentProjectId, now, project.actor.id)
                         : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Channel',
@@ -1945,7 +1962,7 @@ describe('manual workflow store', () => {
                 body: 'Media target',
                 media: [{ assetId: 'asset-1' }],
             }
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Active media source'),
@@ -1971,14 +1988,14 @@ describe('manual workflow store', () => {
                 throw new Error('The initial media target revision is missing')
             }
 
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
                 profile: createMediaProfile(2, ['video'], ['video/mp4']),
             })
             if (profileDraft === null) throw new Error('The active media draft was not created')
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -1987,7 +2004,7 @@ describe('manual workflow store', () => {
             })
             if (activated === null) throw new Error('The active media profile was not activated')
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2000,7 +2017,7 @@ describe('manual workflow store', () => {
                 reviewState: 'compatible',
                 content: targetContent,
             })
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -2008,9 +2025,11 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 revision: 3,
                 profileVersionId: originalProfileVersionId,
@@ -2042,20 +2061,20 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('blocks ordinary automatic promotion when the execution contract changes', () => {
+    it('blocks ordinary automatic promotion when the execution contract changes', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Execution Contract Promotion Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Automatic Channel',
@@ -2070,14 +2089,14 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'execution-contract-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
             const targetContent = { body: 'short target' }
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Execution contract source'),
@@ -2104,7 +2123,7 @@ describe('manual workflow store', () => {
                 throw new Error('The initial execution target revision is missing')
             }
 
-            const profileDraft = store.createChannelProfileDraft({
+            const profileDraft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2122,7 +2141,7 @@ describe('manual workflow store', () => {
             if (profileDraft === null) {
                 throw new Error('The execution contract draft was not created')
             }
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: profileDraft.id,
@@ -2136,7 +2155,7 @@ describe('manual workflow store', () => {
                 database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
             ).toEqual([expect.objectContaining({ state: 'cancelled' })])
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2149,7 +2168,7 @@ describe('manual workflow store', () => {
                 reviewState: 'compatible',
                 content: targetContent,
             })
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -2157,7 +2176,9 @@ describe('manual workflow store', () => {
                     expectedRevision: 3,
                     scheduledAt: now + 120_000,
                 })
-            ).toThrow('Publication target content is incompatible with the active channel profile')
+            ).rejects.toThrow(
+                'Publication target content is incompatible with the active channel profile'
+            )
             expect(
                 database
                     .select()
@@ -2185,29 +2206,29 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('rejects an invalid scheduled media target before persisting the publication', () => {
+    it('rejects an invalid scheduled media target before persisting the publication', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     _projectId: string,
                     _assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Scheduled Media Validation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Scheduled Media Channel',
@@ -2219,13 +2240,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'scheduled-media-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
                 .run()
 
-            expect(() =>
+            await expect(
                 store.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
@@ -2242,7 +2263,7 @@ describe('manual workflow store', () => {
                         },
                     ],
                 })
-            ).toThrow('Media asset missing-asset is not available for publication')
+            ).rejects.toThrow('Media asset missing-asset is not available for publication')
 
             expect(database.select().from(posts).all()).toEqual([])
             expect(database.select().from(publications).all()).toEqual([])
@@ -2253,20 +2274,20 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('versions a channel profile and re-assesses persisted work on activation', () => {
+    it('versions a channel profile and re-assesses persisted work on activation', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Profile Lifecycle Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Versioned Channel',
@@ -2278,13 +2299,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'profile-lifecycle-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'future-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Profile lifecycle source'),
@@ -2333,7 +2354,7 @@ describe('manual workflow store', () => {
                 },
             }
 
-            const draft = store.createChannelProfileDraft({
+            const draft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2342,7 +2363,7 @@ describe('manual workflow store', () => {
             expect(draft).toMatchObject({ state: 'draft', version: 2, revision: 1 })
             if (draft === null) throw new Error('The profile draft was not created')
 
-            const preview = store.previewChannelProfileActivation({
+            const preview = await store.previewChannelProfileActivation({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2357,7 +2378,7 @@ describe('manual workflow store', () => {
                 'review_required',
             ])
 
-            const activated = store.activateChannelProfile({
+            const activated = await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2437,7 +2458,7 @@ describe('manual workflow store', () => {
                     .sort()
             ).toEqual(['cancelled', 'pending'])
             expect(
-                store.getChannelProfileState(project.project.id, channel.id, 'user-1')
+                await store.getChannelProfileState(project.project.id, channel.id, 'user-1')
             ).toMatchObject({
                 active: { id: draft.id, state: 'active' },
                 draft: null,
@@ -2447,24 +2468,24 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('revalidates pinned media representations when a profile narrows media support', () => {
+    it('revalidates pinned media representations when a profile narrows media support', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     currentProjectId: string,
                     assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Media Profile Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
@@ -2480,7 +2501,7 @@ describe('manual workflow store', () => {
                 .values({ ...readyRepresentation, recipeJson: null })
                 .run()
             const profile = createMediaProfile(1, ['image'], ['image/jpeg'])
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Channel',
@@ -2492,13 +2513,13 @@ describe('manual workflow store', () => {
                 .insert(publishers)
                 .values({
                     id: 'media-profile-publisher',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
                 .run()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2521,7 +2542,7 @@ describe('manual workflow store', () => {
             const publication = created.publications[0]
             if (publication === undefined) throw new Error('The media publication is missing')
 
-            const draft = store.createChannelProfileDraft({
+            const draft = await store.createChannelProfileDraft({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -2529,7 +2550,7 @@ describe('manual workflow store', () => {
             })
             if (draft === null) throw new Error('The media profile draft was not created')
 
-            const preview = store.previewChannelProfileActivation({
+            const preview = await store.previewChannelProfileActivation({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2547,7 +2568,7 @@ describe('manual workflow store', () => {
                 })
             )
 
-            store.activateChannelProfile({
+            await store.activateChannelProfile({
                 projectId: project.project.id,
                 channelId: channel.id,
                 profileVersionId: draft.id,
@@ -2561,29 +2582,29 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('surfaces media capability issues while drafts are created and autosaved', () => {
+    it('surfaces media capability issues while drafts are created and autosaved', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const media = {
-                getAsset(
+                async getAsset(
                     _projectId: string,
                     _assetId: string,
                     _subjectId: string
-                ): MediaAssetReference | null {
+                ): Promise<MediaAssetReference | null> {
                     return null
                 },
             }
             const store = createManualStore(database, { now: () => now, media })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Draft Media Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Media Draft Channel',
@@ -2591,7 +2612,7 @@ describe('manual workflow store', () => {
             })
             if (channel === null) throw new Error('The media draft channel was not created')
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2614,13 +2635,13 @@ describe('manual workflow store', () => {
 
             expect(publication).toMatchObject({ reviewState: 'review_required' })
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                await store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
             ).toMatchObject({
                 reviewState: 'review_required',
                 validationIssues: [expect.objectContaining({ code: 'profile.media_incompatible' })],
             })
 
-            const saved = store.savePublicationDraft({
+            const saved = await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -2640,25 +2661,25 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('fences concurrent source edits across publication drafts', () => {
+    it('fences concurrent source edits across publication drafts', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Shared Source Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const firstChannel = store.createChannel({
+            const firstChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'First Channel',
             })
-            const secondChannel = store.createChannel({
+            const secondChannel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Second Channel',
@@ -2667,7 +2688,7 @@ describe('manual workflow store', () => {
                 throw new Error('The shared source channels were not created')
             }
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Initial source'),
@@ -2681,17 +2702,19 @@ describe('manual workflow store', () => {
             }
 
             expect(
-                store.savePublicationDraft({
-                    projectId: project.project.id,
-                    publicationId: firstPublication.id,
-                    subjectId: 'user-1',
-                    expectedRevision: 1,
-                    sourceContent: sourceContent('First editor source'),
-                    targetContent: { body: 'First editor target', media: [] },
-                })?.sourceRevision
+                (
+                    await store.savePublicationDraft({
+                        projectId: project.project.id,
+                        publicationId: firstPublication.id,
+                        subjectId: 'user-1',
+                        expectedRevision: 1,
+                        sourceContent: sourceContent('First editor source'),
+                        targetContent: { body: 'First editor target', media: [] },
+                    })
+                )?.sourceRevision
             ).toBe(2)
 
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2699,7 +2722,7 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Second editor target', media: [] },
                 })
-            ).toThrow('changed after this publication draft was loaded')
+            ).rejects.toThrow('changed after this publication draft was loaded')
 
             expect(database.select().from(posts).all()).toMatchObject([
                 {
@@ -2708,7 +2731,11 @@ describe('manual workflow store', () => {
                 },
             ])
             expect(
-                store.getPublicationWorkingDraft(project.project.id, secondPublication.id, 'user-1')
+                await store.getPublicationWorkingDraft(
+                    project.project.id,
+                    secondPublication.id,
+                    'user-1'
+                )
             ).toMatchObject({
                 revision: 1,
                 sourceRevision: 1,
@@ -2716,7 +2743,7 @@ describe('manual workflow store', () => {
                 content: { body: 'Initial source', media: [] },
             })
 
-            const rebased = store.rebasePublicationDraft({
+            const rebased = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2729,7 +2756,7 @@ describe('manual workflow store', () => {
                 content: { body: 'Initial source', media: [] },
             })
 
-            const idempotentRebase = store.rebasePublicationDraft({
+            const idempotentRebase = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2737,11 +2764,11 @@ describe('manual workflow store', () => {
             })
             expect(idempotentRebase).toMatchObject({ revision: 2, sourceRevision: 2 })
             expect(
-                store
-                    .listAuditEvents(project.project.id, 'user-1')
-                    ?.filter(event => event.action === 'publication.draft.rebased')
+                (await store.listAuditEvents(project.project.id, 'user-1'))?.filter(
+                    event => event.action === 'publication.draft.rebased'
+                )
             ).toHaveLength(1)
-            expect(() =>
+            await expect(
                 store.savePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2749,13 +2776,13 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     targetContent: { body: 'Stale copy', media: [] },
                 })
-            ).toThrow('changed after revision 1')
-            const before = store.getPublicationEditorState(
+            ).rejects.toThrow('changed after revision 1')
+            const before = await store.getPublicationEditorState(
                 project.project.id,
                 secondPublication.id,
                 'user-1'
             )
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2764,11 +2791,15 @@ describe('manual workflow store', () => {
                     expectedSourceRevision: 1,
                     replaceContent: true,
                 })
-            ).toThrow('source changed during destination review')
+            ).rejects.toThrow('source changed during destination review')
             expect(
-                store.getPublicationEditorState(project.project.id, secondPublication.id, 'user-1')
+                await store.getPublicationEditorState(
+                    project.project.id,
+                    secondPublication.id,
+                    'user-1'
+                )
             ).toEqual(before)
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2776,8 +2807,8 @@ describe('manual workflow store', () => {
                     expectedRevision: 2,
                     replaceContent: true,
                 })
-            ).toThrow('requires its expected revision')
-            const applied = store.rebasePublicationDraft({
+            ).rejects.toThrow('requires its expected revision')
+            const applied = await store.rebasePublicationDraft({
                 projectId: project.project.id,
                 publicationId: secondPublication.id,
                 subjectId: 'user-1',
@@ -2791,14 +2822,14 @@ describe('manual workflow store', () => {
                 content: { body: 'First editor source', media: [] },
                 reviewState: 'compatible',
             })
-            const after = store.getPublicationEditorState(
+            const after = await store.getPublicationEditorState(
                 project.project.id,
                 secondPublication.id,
                 'user-1'
             )
             expect(after?.publication).toEqual(before?.publication)
             expect(after?.selectedTarget).toEqual(before?.selectedTarget)
-            expect(() =>
+            await expect(
                 store.rebasePublicationDraft({
                     projectId: project.project.id,
                     publicationId: secondPublication.id,
@@ -2807,26 +2838,26 @@ describe('manual workflow store', () => {
                     expectedSourceRevision: 2,
                     replaceContent: true,
                 })
-            ).toThrow('changed after revision 2')
+            ).rejects.toThrow('changed after revision 2')
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('reconciles an ambiguous publication with explicit operator attribution', () => {
+    it('reconciles an ambiguous publication with explicit operator attribution', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Reconciliation Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Manual Channel',
@@ -2834,7 +2865,7 @@ describe('manual workflow store', () => {
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The test channel was not created')
 
-            const publishedCandidate = store.createPost({
+            const publishedCandidate = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The provider may have accepted this post'),
@@ -2849,7 +2880,7 @@ describe('manual workflow store', () => {
                 .where(eq(publications.id, publishedCandidateId))
                 .run()
 
-            const reconciledPublished = store.reconcileAmbiguousPublication({
+            const reconciledPublished = await store.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: publishedCandidateId,
                 subjectId: 'user-1',
@@ -2866,7 +2897,7 @@ describe('manual workflow store', () => {
                 },
             })
 
-            const failedCandidate = store.createPost({
+            const failedCandidate = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('The provider did not publish this post'),
@@ -2880,7 +2911,7 @@ describe('manual workflow store', () => {
                 .where(eq(publications.id, failedCandidateId))
                 .run()
 
-            const reconciledFailed = store.reconcileAmbiguousPublication({
+            const reconciledFailed = await store.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: failedCandidateId,
                 subjectId: 'user-1',
@@ -2895,7 +2926,7 @@ describe('manual workflow store', () => {
                 },
             })
             expect(
-                store.reconcileAmbiguousPublication({
+                await store.reconcileAmbiguousPublication({
                     projectId: project.project.id,
                     publicationId: failedCandidateId,
                     subjectId: 'user-1',
@@ -2904,9 +2935,9 @@ describe('manual workflow store', () => {
                 })
             ).toEqual({ kind: 'not_ambiguous' })
             expect(
-                store
-                    .listAuditEvents(project.project.id, 'user-1')
-                    ?.filter(event => event.action === 'publication.reconciled')
+                (await store.listAuditEvents(project.project.id, 'user-1'))?.filter(
+                    event => event.action === 'publication.reconciled'
+                )
             ).toHaveLength(2)
         } finally {
             closeDatabase(database)
@@ -2915,23 +2946,23 @@ describe('manual workflow store', () => {
 
     it.each(['submission', 'approval'] as const)(
         'refuses incompatible ordinary %s without changing persisted work',
-        operation => {
+        async operation => {
             const database = createDatabase(':memory:')
             const now = 1_800_000_000_000
             try {
                 runMigrations(database)
                 const store = createManualStore(database, { now: () => now })
-                const { project } = store.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const { project } = await store.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'Active Profile Approval',
                     subjectId: 'user-1',
                     displayName: 'Operator',
                 })
                 const projectId = project.id
-                const publication = createApprovalDraft(database, store, projectId, operation)
+                const publication = await createApprovalDraft(database, store, projectId, operation)
                 const oldRequest =
                     operation === 'approval'
-                        ? store.submitPublicationForApproval({
+                        ? await store.submitPublicationForApproval({
                               projectId,
                               publicationId: publication.id,
                               subjectId: 'user-1',
@@ -2940,8 +2971,8 @@ describe('manual workflow store', () => {
                           })
                         : null
                 const requestRow = database.select().from(publicationApprovalRequests).get()
-                activateApprovalProfileLimit(store, projectId, publication.channelId, 10)
-                const saved = store.savePublicationDraft({
+                await activateApprovalProfileLimit(store, projectId, publication.channelId, 10)
+                const saved = await store.savePublicationDraft({
                     projectId,
                     publicationId: publication.id,
                     subjectId: 'user-1',
@@ -2985,7 +3016,7 @@ describe('manual workflow store', () => {
                     'Publication target content is incompatible with the active channel profile'
                 )
                 if (operation === 'approval') {
-                    expect(() => approve(true)).toThrow(
+                    await expect(approve(true)).rejects.toThrow(
                         'Publication target content is incompatible with the active channel profile'
                     )
                 }
@@ -2996,48 +3027,49 @@ describe('manual workflow store', () => {
         }
     )
 
-    it('supersedes pre-activation approval but accepts a fresh compatible old-profile request', () => {
+    it('supersedes pre-activation approval but accepts a fresh compatible old-profile request', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const { project } = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const { project } = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Compatible Profile Approval',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
             const projectId = project.id
-            const publication = createApprovalDraft(database, store, projectId, 'compatible')
+            const publication = await createApprovalDraft(database, store, projectId, 'compatible')
             const input = { projectId, publicationId: publication.id, subjectId: 'user-1' }
-            const oldProfile = store.getPublicationWorkingDraft(
-                projectId,
-                publication.id,
-                'user-1'
+            const oldProfile = (
+                await store.getPublicationWorkingDraft(projectId, publication.id, 'user-1')
             )?.profileVersionId
-            const old = store.submitPublicationForApproval({
+            const old = await store.submitPublicationForApproval({
                 ...input,
                 expectedDraftRevision: 1,
                 proposedScheduledAt: now + 60_000,
             })
             if (old === null) throw new Error('The original approval request is missing')
-            activateApprovalProfileLimit(store, projectId, publication.channelId, 100)
-            expect(store.listPendingPublicationApprovalRequests(projectId, 'user-1')).toEqual([])
-            expect(() =>
+            await activateApprovalProfileLimit(store, projectId, publication.channelId, 100)
+            expect(await store.listPendingPublicationApprovalRequests(projectId, 'user-1')).toEqual(
+                []
+            )
+            await expect(
                 store.approvePublicationApprovalRequest({ ...input, requestId: old.id })
-            ).toThrow('superseded')
-            const fresh = store.submitPublicationForApproval({
+            ).rejects.toThrow('superseded')
+            const fresh = await store.submitPublicationForApproval({
                 ...input,
                 expectedDraftRevision: 2,
                 proposedScheduledAt: now + 60_000,
             })
             if (fresh === null) throw new Error('The fresh approval request is missing')
             expect(
-                store.approvePublicationApprovalRequest({ ...input, requestId: fresh.id })
+                await store.approvePublicationApprovalRequest({ ...input, requestId: fresh.id })
             ).toMatchObject({ state: 'scheduled', reviewState: 'compatible' })
             expect(
-                store.getPublicationEditorState(projectId, publication.id, 'user-1')?.selectedTarget
+                (await store.getPublicationEditorState(projectId, publication.id, 'user-1'))
+                    ?.selectedTarget
             ).toMatchObject({ profileVersionId: oldProfile })
             expect(database.select().from(jobs).all()).toEqual([
                 expect.objectContaining({ state: 'pending' }),
@@ -3047,22 +3079,27 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('holds a proposed schedule as a draft until an approver confirms it', () => {
+    it('holds a proposed schedule as a draft until an approver confirms it', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'first')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'first'
+            )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3086,7 +3123,7 @@ describe('manual workflow store', () => {
             ).toEqual({ state: 'draft', scheduledAt: null })
             expect(database.select().from(jobs).all()).toEqual([])
             expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(1)
-            expect(() =>
+            await expect(
                 store.promotePublicationDraft({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3094,10 +3131,10 @@ describe('manual workflow store', () => {
                     expectedRevision: 1,
                     scheduledAt: proposedScheduledAt,
                 })
-            ).toThrow('awaiting approval')
+            ).rejects.toThrow('awaiting approval')
             expect(database.select().from(jobs).all()).toEqual([])
 
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3124,23 +3161,30 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('requires a new time or explicit immediate approval after a proposal expires', () => {
+    it('requires a new time or explicit immediate approval after a proposal expires', async () => {
         const database = createDatabase(':memory:')
         let now = 1_800_000_000_000
         let advanceClock = false
 
         try {
             runMigrations(database)
-            const store = createManualStore(database, { now: () => (advanceClock ? now++ : now) })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const store = createManualStore(database, {
+                now: () => (advanceClock ? now++ : now),
+            })
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Overdue Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'overdue')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'overdue'
+            )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3150,17 +3194,17 @@ describe('manual workflow store', () => {
             if (request === null) throw new Error('The approval request was not created')
             now = proposedScheduledAt + 1
 
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     requestId: request.id,
                     subjectId: 'user-1',
                 })
-            ).toThrow('choose a new time or explicitly publish now')
+            ).rejects.toThrow('choose a new time or explicitly publish now')
             expect(database.select().from(jobs).all()).toEqual([])
 
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3169,12 +3213,12 @@ describe('manual workflow store', () => {
                     publishNow: true,
                     scheduledAt: now,
                 })
-            ).toThrow('Choose either an explicit schedule or publish now, not both')
+            ).rejects.toThrow('Choose either an explicit schedule or publish now, not both')
             expect(database.select().from(jobs).all()).toEqual([])
 
             advanceClock = true
             const executionTime = now + 1
-            const approvedNow = store.approvePublicationApprovalRequest({
+            const approvedNow = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3190,27 +3234,27 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('accepts an explicitly chosen new future time after a proposal expires', () => {
+    it('accepts an explicitly chosen new future time after a proposal expires', async () => {
         const database = createDatabase(':memory:')
         let now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Overdue Reschedule Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(
+            const publication = await createApprovalDraft(
                 database,
                 store,
                 project.project.id,
                 'overdue-new-time'
             )
             const proposedScheduledAt = now + 60_000
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3221,7 +3265,7 @@ describe('manual workflow store', () => {
             now = proposedScheduledAt + 1
             const newScheduledAt = now + 120_000
 
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3237,21 +3281,26 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('does not accept a second approval decision for a completed request', () => {
+    it('does not accept a second approval decision for a completed request', async () => {
         const database = createDatabase(':memory:')
         let now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Repeated Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'repeat')
-            const request = store.submitPublicationForApproval({
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'repeat'
+            )
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3259,7 +3308,7 @@ describe('manual workflow store', () => {
                 proposedScheduledAt: now + 60_000,
             })
             if (request === null) throw new Error('The approval request was not created')
-            const approved = store.approvePublicationApprovalRequest({
+            const approved = await store.approvePublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3267,7 +3316,7 @@ describe('manual workflow store', () => {
             })
             expect(approved?.state).toBe('scheduled')
             now += 1
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3275,27 +3324,32 @@ describe('manual workflow store', () => {
                     subjectId: 'user-1',
                     publishNow: true,
                 })
-            ).toThrow('Cannot approve an approval request in the approved state')
+            ).rejects.toThrow('Cannot approve an approval request in the approved state')
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('invalidates a pending approval when the submitted draft is edited', () => {
+    it('invalidates a pending approval when the submitted draft is edited', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Edited Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'edited')
-            const request = store.submitPublicationForApproval({
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'edited'
+            )
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3304,7 +3358,7 @@ describe('manual workflow store', () => {
             })
             if (request === null) throw new Error('The approval request was not created')
 
-            store.savePublicationDraft({
+            await store.savePublicationDraft({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3319,21 +3373,21 @@ describe('manual workflow store', () => {
                     .where(eq(publicationApprovalRequests.id, request.id))
                     .get()
             ).toEqual({ state: 'superseded' })
-            expect(() =>
+            await expect(
                 store.approvePublicationApprovalRequest({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     requestId: request.id,
                     subjectId: 'user-1',
                 })
-            ).toThrow('Cannot approve an approval request in the superseded state')
+            ).rejects.toThrow('Cannot approve an approval request in the superseded state')
             expect(database.select().from(jobs).all()).toEqual([])
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('keeps rejection editable and rolls back failed approval-request persistence', () => {
+    it('keeps rejection editable and rolls back failed approval-request persistence', async () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
         let triggerInstalled = false
@@ -3341,13 +3395,18 @@ describe('manual workflow store', () => {
         try {
             runMigrations(database)
             const store = createManualStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Rejected Approval Project',
                 subjectId: 'user-1',
                 displayName: 'Operator',
             })
-            const publication = createApprovalDraft(database, store, project.project.id, 'rejected')
+            const publication = await createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'rejected'
+            )
 
             database.$client.run(`
                 create temp trigger fail_approval_request_audit
@@ -3359,7 +3418,7 @@ describe('manual workflow store', () => {
             `)
             triggerInstalled = true
 
-            expect(() =>
+            await expect(
                 store.submitPublicationForApproval({
                     projectId: project.project.id,
                     publicationId: publication.id,
@@ -3367,7 +3426,7 @@ describe('manual workflow store', () => {
                     expectedDraftRevision: 1,
                     proposedScheduledAt: now + 60_000,
                 })
-            ).toThrow('forced approval request failure')
+            ).rejects.toThrow('forced approval request failure')
             expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
             expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(0)
             expect(database.select().from(jobs).all()).toEqual([])
@@ -3384,7 +3443,7 @@ describe('manual workflow store', () => {
 
             database.$client.run('drop trigger fail_approval_request_audit')
             triggerInstalled = false
-            const request = store.submitPublicationForApproval({
+            const request = await store.submitPublicationForApproval({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -3392,7 +3451,7 @@ describe('manual workflow store', () => {
                 proposedScheduledAt: now + 60_000,
             })
             if (request === null) throw new Error('The approval request was not created')
-            const rejected = store.rejectPublicationApprovalRequest({
+            const rejected = await store.rejectPublicationApprovalRequest({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 requestId: request.id,
@@ -3412,8 +3471,13 @@ describe('manual workflow store', () => {
             ).toEqual({ state: 'draft', scheduledAt: null })
             expect(database.select().from(jobs).all()).toEqual([])
             expect(
-                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
-                    ?.revision
+                (
+                    await store.getPublicationWorkingDraft(
+                        project.project.id,
+                        publication.id,
+                        'user-1'
+                    )
+                )?.revision
             ).toBe(1)
         } finally {
             if (triggerInstalled) database.$client.run('drop trigger fail_approval_request_audit')

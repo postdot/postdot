@@ -69,18 +69,18 @@ for (const scenario of [
             now: () => clock,
         })
         try {
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Instagram worker',
                 subjectId: 'operator',
                 displayName: 'Operator',
-            })!
-            const channel = store.createChannel({
+            }))!
+            const channel = (await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 name: 'Images',
                 profile: instagramChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -98,27 +98,29 @@ for (const scenario of [
             })
             if (credential.kind !== 'created') throw new Error('Expected credential')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'operator',
-                    kind: 'instagram',
-                    credentialId: credential.credential.id,
-                    destination: { type: 'account', id: '123456', name: 'studio_test' },
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'operator',
+                        kind: 'instagram',
+                        credentialId: credential.credential.id,
+                        destination: { type: 'account', id: '123456', name: 'studio_test' },
+                    })
+                ).kind
             ).toBe('created')
             const bytes = new Uint8Array(
                 await Bun.file(
                     new URL('../../../../../e2e/fixtures/instagram-square.jpg', import.meta.url)
                 ).arrayBuffer()
             )
-            const upload = media.reserveUpload({
+            const upload = (await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 originalFilename: 'square.jpg',
                 contentType: 'image/jpeg',
                 expectedSize: bytes.length,
-            })!
+            }))!
             expect(
                 await media.upload({
                     projectId: project.project.id,
@@ -135,7 +137,7 @@ for (const scenario of [
                 })
             ).toMatchObject({ kind: 'ready' })
             const references = [{ assetId: upload.asset.id, accessibilityText: 'A blue square' }]
-            const post = store.createPost({
+            const post = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 sourceContent: {

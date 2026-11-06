@@ -145,7 +145,11 @@ export function createInstagramConnectionFlow(options: {
     readonly publishers: ReturnType<typeof createPublisherStore>
     readonly channels: Pick<ReturnType<typeof createManualStore>, 'listChannels'>
     readonly access: Pick<ReturnType<typeof createAccessStore>, 'canAccessProject'>
-    readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+    readonly canManageChannel: (
+        projectId: string,
+        channelId: string,
+        userId: string
+    ) => Promise<boolean>
     readonly oauth: ReturnType<typeof createInstagramOAuth>
     /** The Instagram provider application configuration that issues the token. */
     readonly applicationId: string
@@ -170,31 +174,42 @@ export function createInstagramConnectionFlow(options: {
     async function assertApplicationAvailable() {
         if (!(await options.applicationAvailable())) return fail('provider_unavailable')
     }
-    function authorizeActor(binding: Binding) {
+    async function authorizeActor(binding: Binding) {
         if (binding.authMethod !== 'session') return fail('forbidden')
         if (
-            !options.publishers.hasChannelAccess(
+            !(await options.publishers.hasChannelAccess(
                 binding.projectId,
                 binding.channelId,
                 binding.subjectId
-            )
+            ))
         )
             return fail('not_found')
         if (
-            !options.access.canAccessProject(binding.projectId, binding.subjectId, 'editor') ||
-            !options.canManageChannel(binding.projectId, binding.channelId, binding.subjectId)
+            !(await options.access.canAccessProject(
+                binding.projectId,
+                binding.subjectId,
+                'editor'
+            )) ||
+            !(await options.canManageChannel(
+                binding.projectId,
+                binding.channelId,
+                binding.subjectId
+            ))
         )
             return fail('forbidden')
-        const channel = options.channels
-            .listChannels(binding.projectId, binding.subjectId)
-            ?.find(value => value.id === binding.channelId)
+        const channel = (
+            await options.channels.listChannels(binding.projectId, binding.subjectId)
+        )?.find(value => value.id === binding.channelId)
         if (!channel || channel.state !== 'active') return fail('not_found')
         // The built-in Instagram profile is the only channel that publishes
         // through this contract. Its image-v1 revision belongs to the Instagram
         // package, which owns the publishing behaviour.
         if (channel.execution.kind !== 'built_in' || channel.execution.contractId !== 'instagram')
             return fail('conflict')
-        const actorId = options.publishers.getProjectActorId(binding.projectId, binding.subjectId)
+        const actorId = await options.publishers.getProjectActorId(
+            binding.projectId,
+            binding.subjectId
+        )
         if (!actorId) return fail('not_found')
         return { actorId }
     }
@@ -203,8 +218,8 @@ export function createInstagramConnectionFlow(options: {
      * connection that is already active is never replaced. The pinned
      * replacement is the connection this authorization may replace.
      */
-    function assertNoActiveConnection(binding: Binding, pinnedConnectionId?: string) {
-        const connection = options.publishers.getPublisherConnection(
+    async function assertNoActiveConnection(binding: Binding, pinnedConnectionId?: string) {
+        const connection = await options.publishers.getPublisherConnection(
             binding.projectId,
             binding.channelId,
             binding.subjectId
@@ -249,8 +264,8 @@ export function createInstagramConnectionFlow(options: {
     }
     return {
         async start(binding: Binding, returnPath: string) {
-            const { actorId } = authorizeActor(binding)
-            const connection = assertNoActiveConnection(binding)
+            const { actorId } = await authorizeActor(binding)
+            const connection = await assertNoActiveConnection(binding)
             await assertApplicationAvailable()
             const request = await options.oauth.createAuthorizationRequest()
             const result = await options.attempts.createAuthorizationAttempt({
@@ -287,9 +302,9 @@ export function createInstagramConnectionFlow(options: {
             if (parameters.searchParams.getAll('state').length !== 1) return fail('invalid_attempt')
             const state = parameters.searchParams.get('state') ?? ''
             const stateDigest = await digest(state)
-            const { actorId } = authorizeActor(binding)
+            const { actorId } = await authorizeActor(binding)
             const attempt = verifyAttempt(
-                options.attempts.getAuthorizationAttempt(stateDigest),
+                await options.attempts.getAuthorizationAttempt(stateDigest),
                 binding,
                 actorId
             )
@@ -302,7 +317,7 @@ export function createInstagramConnectionFlow(options: {
             })
             if (consumed.kind !== 'consumed') return fail('invalid_attempt')
             const replacement = readPinnedReplacement(attempt.context)
-            assertNoActiveConnection(binding)
+            await assertNoActiveConnection(binding)
             const prepared = await options.oauth.complete({ parameters, expectedState: state })
             const result = asRecord(prepared)
             if (result === null) return fail('provider_unavailable')
@@ -314,11 +329,11 @@ export function createInstagramConnectionFlow(options: {
                 return fail('provider_unavailable')
             // The provider exchange is asynchronous: the actor, the channel and
             // the issuing application are rechecked before anything is stored.
-            authorizeActor(binding)
-            assertNoActiveConnection(binding)
+            await authorizeActor(binding)
+            await assertNoActiveConnection(binding)
             await assertApplicationAvailable()
-            authorizeActor(binding)
-            assertNoActiveConnection(binding)
+            await authorizeActor(binding)
+            await assertNoActiveConnection(binding)
             const issuedAt = now()
             const expiresAt =
                 token.expiresInSeconds === null ? null : issuedAt + token.expiresInSeconds * 1000
@@ -355,8 +370,8 @@ export function createInstagramConnectionFlow(options: {
             const created = saved.kind === 'created'
             if (saved.kind === 'already_exists') {
                 await assertApplicationAvailable()
-                authorizeActor(binding)
-                assertNoActiveConnection(binding)
+                await authorizeActor(binding)
+                await assertNoActiveConnection(binding)
                 // A reused credential carries the token and the application that
                 // issued it, never the metadata of another application.
                 const replaced = await options.credentials.replacePublisherCredentialTokens({
@@ -371,7 +386,7 @@ export function createInstagramConnectionFlow(options: {
                 })
                 if (replaced.kind !== 'updated') {
                     if (created)
-                        options.credentials.revokePublisherCredential(
+                        await options.credentials.revokePublisherCredential(
                             binding.projectId,
                             credentialId
                         )
@@ -383,16 +398,19 @@ export function createInstagramConnectionFlow(options: {
             // actor/connection checks, so its await cannot leave stale access.
             try {
                 await assertApplicationAvailable()
-                authorizeActor(binding)
-                assertNoActiveConnection(binding, replacement?.id)
+                await authorizeActor(binding)
+                await assertNoActiveConnection(binding, replacement?.id)
             } catch (error) {
                 if (created)
-                    options.credentials.revokePublisherCredential(binding.projectId, credentialId)
+                    await options.credentials.revokePublisherCredential(
+                        binding.projectId,
+                        credentialId
+                    )
                 throw error
             }
             let connected
             try {
-                connected = options.publishers.createPublisherConnection({
+                connected = await options.publishers.createPublisherConnection({
                     projectId: binding.projectId,
                     channelId: binding.channelId,
                     subjectId: binding.subjectId,
@@ -403,14 +421,20 @@ export function createInstagramConnectionFlow(options: {
                 })
             } catch {
                 if (created)
-                    options.credentials.revokePublisherCredential(binding.projectId, credentialId)
+                    await options.credentials.revokePublisherCredential(
+                        binding.projectId,
+                        credentialId
+                    )
                 return fail('conflict')
             }
             if (connected.kind !== 'created') {
                 // A newly created credential that no channel references is
                 // revoked; an existing project credential is left untouched.
                 if (created)
-                    options.credentials.revokePublisherCredential(binding.projectId, credentialId)
+                    await options.credentials.revokePublisherCredential(
+                        binding.projectId,
+                        credentialId
+                    )
                 return fail('conflict')
             }
             return { connection: connected.connection, returnPath: attempt.returnPath }

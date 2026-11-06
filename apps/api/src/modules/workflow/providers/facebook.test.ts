@@ -99,15 +99,15 @@ function fixture(
     let opens = 0
     let changed = false
     const ledger: ProviderMediaDeliveryPort = {
-        reserve: () => state,
-        retry: () => (state = { ...state, state: 'pending' }),
-        start: () => (state = { ...state, state: 'uploading', attempts: state.attempts + 1 }),
-        complete: input =>
+        reserve: async () => state,
+        retry: async () => (state = { ...state, state: 'pending' }),
+        start: async () => (state = { ...state, state: 'uploading', attempts: state.attempts + 1 }),
+        complete: async input =>
             (state = { ...state, state: 'uploaded', remoteMediaId: input.remoteMediaId }),
         recordRemoteMediaId: () => {
             throw new Error('Unexpected intermediate checkpoint')
         },
-        fail: input =>
+        fail: async input =>
             (state = {
                 ...state,
                 state: input.ambiguous ? 'ambiguous' : 'failed',
@@ -138,7 +138,7 @@ function fixture(
                 providerSession: null,
             }),
             replacePublisherCredentialTokens: async () => ({ kind: 'conflict' }),
-            markPublisherCredentialReconnectRequired: () => {
+            markPublisherCredentialReconnectRequired: async () => {
                 reconnects++
             },
         },
@@ -263,7 +263,7 @@ test('a missing post identity or failed checkpoint cannot replay a published pho
     expect((await missing.adapter.execute(missing.input)).type).toBe('ambiguous')
     expect(missing.sends).toBe(1)
     const failed = fixture(true)
-    failed.input.providerMediaDeliveryStore.complete = () => null
+    failed.input.providerMediaDeliveryStore.complete = async () => null
     expect((await failed.adapter.execute(failed.input)).type).toBe('ambiguous')
     expect(failed.state.state).toBe('uploading')
     expect((await failed.adapter.execute(failed.input)).type).toBe('ambiguous')

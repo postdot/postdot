@@ -100,7 +100,7 @@ async function executeDevtoPublication(input: {
     }
 
     if (outcome.type === 'permanent_failure' && outcome.code === 'authentication_required') {
-        execution.credentials.markPublisherCredentialReconnectRequired(
+        await execution.credentials.markPublisherCredentialReconnectRequired(
             target.projectId,
             target.credentialId
         )

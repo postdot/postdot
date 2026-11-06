@@ -32,7 +32,7 @@ export function createFacebookRuntime({
             configured === null &&
             applicationId !== null &&
             (applicationId !== undefined ||
-                providerApplicationStore.hasProviderApplication('facebook'))
+                (await providerApplicationStore.hasProviderApplication('facebook')))
         )
             return undefined
         const credentials = configured ?? options.facebook

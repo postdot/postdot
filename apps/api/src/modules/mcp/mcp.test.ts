@@ -76,13 +76,13 @@ async function setup() {
     return { ...fixture, json, project, apiKey }
 }
 
-function connect(app: App, token: string) {
+async function connect(app: App, token: string) {
     const client = new Client({ name: 'mcp-test', version: '1.0.0' })
     const transport = new StreamableHTTPClientTransport(new URL(`${baseURL}/mcp`), {
         requestInit: { headers: { authorization: `Bearer ${token}` } },
         fetch: (input, init) => app.handle(new Request(input as string, init)),
     })
-    return { client, connected: client.connect(transport) }
+    return { client, connected: await client.connect(transport) }
 }
 
 const textOf = (result: unknown) =>
@@ -188,7 +188,7 @@ describe('MCP endpoint', () => {
                 projectIds: [first],
                 actionAccess: ['project:read'],
             })
-            const reader = connect(f.app, readOnly)
+            const reader = await connect(f.app, readOnly)
             await reader.connected
             const listed = (await reader.client.listTools()).tools
             expect(listed.length).toBeGreaterThan(10)
@@ -216,7 +216,7 @@ describe('MCP endpoint', () => {
             ).rejects.toThrow()
             await reader.client.close()
 
-            const full = connect(f.app, await f.apiKey({ name: 'Full', projectIds: null }))
+            const full = await connect(f.app, await f.apiKey({ name: 'Full', projectIds: null }))
             await full.connected
             const created = await full.client.callTool({
                 name: 'create_project_channel',
@@ -249,7 +249,7 @@ describe('MCP endpoint', () => {
                     await f.json(`/api/projects/${project}/channels`, { name: 'Destination' })
                 ).json()) as { channel: { id: string } }
             ).channel.id
-            const { client, connected } = connect(
+            const { client, connected } = await connect(
                 f.app,
                 await f.apiKey({ name: 'Publisher', projectIds: null })
             )

@@ -167,7 +167,7 @@ function seedAccess(
         .run()
 }
 
-function seedHistoricalProjectResources(
+async function seedHistoricalProjectResources(
     database: Fixture['database'],
     input: {
         readonly projectId: string
@@ -182,10 +182,10 @@ function seedHistoricalProjectResources(
         readonly accountId: string
         readonly endpointUrl: string | null
     }
-): { readonly workspaceId: string; readonly workspaceActorId: string } {
+): Promise<{ readonly workspaceId: string; readonly workspaceActorId: string }> {
     const client = database.$client
     // The upgrade refuses projects that never had a workspace, so the historical project has one.
-    const workspaceId = seedTestWorkspace(database)
+    const workspaceId = await seedTestWorkspace(database)
     client
         .query('update projects set workspace_id = ? where id = ?')
         .run(workspaceId, input.projectId)
@@ -241,11 +241,11 @@ function seedHistoricalProjectResources(
     return { workspaceId, workspaceActorId: input.editorActorId }
 }
 
-function createFixture(
+async function createFixture(
     suffix = 'one',
     provider: 'bluesky' | 'mastodon' = 'bluesky',
     options: { readonly migrationsFolder?: string } = {}
-): Fixture {
+): Promise<Fixture> {
     const database = createDatabase(':memory:')
     if (options.migrationsFolder === undefined) runMigrations(database)
     else runMigrations(database, options.migrationsFolder)
@@ -316,7 +316,7 @@ function createFixture(
     // A historical chain (project-owned columns) cannot use today's workspace-owned seeding.
     const historical = options.migrationsFolder !== undefined
     const owned = historical
-        ? seedHistoricalProjectResources(database, {
+        ? await seedHistoricalProjectResources(database, {
               projectId,
               suffix,
               provider,
@@ -329,8 +329,8 @@ function createFixture(
               accountId: provider === 'bluesky' ? accountDid : mastodonAccountId,
               endpointUrl: provider === 'bluesky' ? null : mastodonOrigin,
           })
-        : (() => {
-              const seeded = seedWorkspaceChannel(database, {
+        : await (async () => {
+              const seeded = await seedWorkspaceChannel(database, {
                   projectId,
                   channelId,
                   name: provider === 'bluesky' ? 'Bluesky channel' : 'Mastodon channel',
@@ -339,7 +339,7 @@ function createFixture(
                   createdByActorId: editorActorId,
               })
               for (const subjectId of [editorSubjectId, otherEditorSubjectId, viewerSubjectId])
-                  seedWorkspaceMember(database, seeded.workspaceId, subjectId)
+                  await seedWorkspaceMember(database, seeded.workspaceId, subjectId)
               database
                   .insert(publishers)
                   .values({
@@ -572,22 +572,22 @@ function journalActions(fixture: Fixture): string[] {
 }
 
 describe('publication first comment store', () => {
-    it('keeps mutations project-scoped and editor-gated', () => {
-        const fixture = createFixture('permissions')
+    it('keeps mutations project-scoped and editor-gated', async () => {
+        const fixture = await createFixture('permissions')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
 
-            expect(saveComment(fixture, { subjectId: fixture.viewerSubjectId })).toEqual({
+            expect(await saveComment(fixture, { subjectId: fixture.viewerSubjectId })).toEqual({
                 kind: 'not_found',
             })
-            expect(saveComment(fixture, { subjectId: fixture.outsiderSubjectId })).toEqual({
+            expect(await saveComment(fixture, { subjectId: fixture.outsiderSubjectId })).toEqual({
                 kind: 'not_found',
             })
             expect(
-                store.cancel({
+                await store.cancel({
                     projectId: fixture.projectId,
                     publicationId: fixture.publicationId,
                     subjectId: fixture.viewerSubjectId,
@@ -596,21 +596,21 @@ describe('publication first comment store', () => {
                 })
             ).toEqual({ kind: 'not_found' })
             expect(
-                store.get(fixture.projectId, fixture.publicationId, fixture.outsiderSubjectId)
+                await store.get(fixture.projectId, fixture.publicationId, fixture.outsiderSubjectId)
             ).toBeNull()
 
-            const created = saveComment(fixture)
+            const created = await saveComment(fixture)
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
 
             expect(
-                store.get(fixture.projectId, fixture.publicationId, fixture.viewerSubjectId)
+                await store.get(fixture.projectId, fixture.publicationId, fixture.viewerSubjectId)
             ).toMatchObject({ id: created.firstComment.id, state: 'waiting' })
             expect(
-                store.get(fixture.projectId, fixture.publicationId, fixture.outsiderSubjectId)
+                await store.get(fixture.projectId, fixture.publicationId, fixture.outsiderSubjectId)
             ).toBeNull()
             expect(
-                store.view(fixture.projectId, fixture.publicationId, fixture.viewerSubjectId)
+                await store.view(fixture.projectId, fixture.publicationId, fixture.viewerSubjectId)
             ).toEqual({
                 id: created.firstComment.id,
                 text: 'Thanks for the update',
@@ -624,15 +624,15 @@ describe('publication first comment store', () => {
                 lastError: null,
                 authorName: 'Enabling Editor',
             })
-            expect(store.canManage(fixture.projectId, fixture.editorSubjectId)).toBe(true)
-            expect(store.canManage(fixture.projectId, fixture.viewerSubjectId)).toBe(false)
+            expect(await store.canManage(fixture.projectId, fixture.editorSubjectId)).toBe(true)
+            expect(await store.canManage(fixture.projectId, fixture.viewerSubjectId)).toBe(false)
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('rejects ineligible publications and invalid content', () => {
-        const manual = createFixture('ineligible')
+    it('rejects ineligible publications and invalid content', async () => {
+        const manual = await createFixture('ineligible')
 
         try {
             manual.database
@@ -641,9 +641,9 @@ describe('publication first comment store', () => {
                 .where(eq(publications.id, manual.publicationId))
                 .run()
 
-            expect(saveComment(manual)).toEqual({ kind: 'conflict' })
+            expect(await saveComment(manual)).toEqual({ kind: 'conflict' })
             expect(
-                createPublicationFirstCommentStore(manual.database, {
+                await createPublicationFirstCommentStore(manual.database, {
                     policies: providerCommentPolicies,
                 }).canConfigure(manual.projectId, manual.publicationId)
             ).toBe(false)
@@ -651,51 +651,51 @@ describe('publication first comment store', () => {
             closeDatabase(manual.database)
         }
 
-        const fixture = createFixture('content')
+        const fixture = await createFixture('content')
 
         try {
-            expect(() => saveComment(fixture, { text: '   ' })).toThrow('must not be blank')
-            expect(() => saveComment(fixture, { delaySeconds: 604_801 })).toThrow(
+            await expect(saveComment(fixture, { text: '   ' })).rejects.toThrow('must not be blank')
+            await expect(saveComment(fixture, { delaySeconds: 604_801 })).rejects.toThrow(
                 'delaySeconds must be an integer between 0 and 604800'
             )
-            expect(() => saveComment(fixture, { delaySeconds: -1 })).toThrow(
+            await expect(saveComment(fixture, { delaySeconds: -1 })).rejects.toThrow(
                 'delaySeconds must be an integer between 0 and 604800'
             )
-            expect(() => saveComment(fixture, { text: 'a'.repeat(3_001) })).toThrow(
+            await expect(saveComment(fixture, { text: 'a'.repeat(3_001) })).rejects.toThrow(
                 'must not exceed 3000 UTF-16 code units'
             )
-            expect(() => saveComment(fixture, { text: 'e\u0301'.repeat(301) })).toThrow(
+            await expect(saveComment(fixture, { text: 'e\u0301'.repeat(301) })).rejects.toThrow(
                 'must not exceed 300 graphemes'
             )
-            expect(saveComment(fixture, { text: 'e\u0301'.repeat(300) }).kind).toBe('saved')
+            expect((await saveComment(fixture, { text: 'e\u0301'.repeat(300) })).kind).toBe('saved')
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('arms only a natively confirmed parent and keeps the chosen due time', () => {
-        const fixture = createFixture('native')
+    it('arms only a natively confirmed parent and keeps the chosen due time', async () => {
+        const fixture = await createFixture('native')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            const created = saveComment(fixture, { delaySeconds: 300 })
+            const created = await saveComment(fixture, { delaySeconds: 300 })
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
 
-            store.reconcile(now)
+            await store.reconcile(now)
             expect(readRow(fixture)).toMatchObject({ state: 'waiting', dueAt: null })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
 
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
 
             // A confirmed parent must wake the worker so the comment is armed
             // on the next tick instead of waiting for a timer that never fires.
-            expect(store.getNextEventAt()).not.toBeNull()
+            expect(await store.getNextEventAt()).not.toBeNull()
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
 
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
@@ -707,10 +707,10 @@ describe('publication first comment store', () => {
                 executionRevisionId: fixture.executionRevisionId,
                 revision: 1,
             })
-            expect(store.getNextEventAt()).toBe(publishedAt + 300_000)
+            expect(await store.getNextEventAt()).toBe(publishedAt + 300_000)
 
             expect(
-                store.deliveries.claimNextDueJob({
+                await store.deliveries.claimNextDueJob({
                     actorId: fixture.editorActorId,
                     claimToken: 'claim-too-early',
                     now: publishedAt + 299_999,
@@ -718,7 +718,7 @@ describe('publication first comment store', () => {
                 })
             ).toBeNull()
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-due',
                 now: publishedAt + 300_000,
@@ -735,28 +735,28 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('keeps an overdue comment due after downtime without resetting its delay', () => {
-        const fixture = createFixture('overdue')
+    it('keeps an overdue comment due after downtime without resetting its delay', async () => {
+        const fixture = await createFixture('overdue')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture, { delaySeconds: 3_600 })
+            await saveComment(fixture, { delaySeconds: 3_600 })
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
 
             const restartedAt = publishedAt + 10 * 3_600_000
-            store.reconcile(restartedAt)
+            await store.reconcile(restartedAt)
 
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
                 dueAt: publishedAt + 3_600_000,
             })
-            expect(store.getNextEventAt()).toBe(publishedAt + 3_600_000)
+            expect(await store.getNextEventAt()).toBe(publishedAt + 3_600_000)
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-overdue',
                 now: restartedAt,
@@ -768,48 +768,48 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('never arms a manual, failed or reconciled parent receipt', () => {
-        const manual = createFixture('manual')
+    it('never arms a manual, failed or reconciled parent receipt', async () => {
+        const manual = await createFixture('manual')
 
         try {
             const store = createPublicationFirstCommentStore(manual.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(manual)
+            await saveComment(manual)
             publishNatively(manual, { publishedAt: now + 1, deliveryMode: 'manual' })
 
-            store.reconcile(now + 2)
+            await store.reconcile(now + 2)
             expect(readRow(manual)).toMatchObject({ state: 'waiting', dueAt: null })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(manual.database)
         }
 
-        const failed = createFixture('failed')
+        const failed = await createFixture('failed')
 
         try {
             const store = createPublicationFirstCommentStore(failed.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(failed)
+            await saveComment(failed)
             publishNatively(failed, { publishedAt: now + 1, jobState: 'failed' })
 
-            store.reconcile(now + 2)
+            await store.reconcile(now + 2)
             expect(readRow(failed)).toMatchObject({ state: 'waiting', dueAt: null })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(failed.database)
         }
     })
 
-    it('cancels unsent work when the parent publication is cancelled', () => {
-        const fixture = createFixture('parent-cancelled')
+    it('cancels unsent work when the parent publication is cancelled', async () => {
+        const fixture = await createFixture('parent-cancelled')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             fixture.database
                 .update(publications)
                 .set({
@@ -821,30 +821,37 @@ describe('publication first comment store', () => {
                 .where(eq(publications.id, fixture.publicationId))
                 .run()
 
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             expect(readRow(fixture)).toMatchObject({ state: 'cancelled' })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('refuses to create a comment for a revision that was never issued', () => {
-        const fixture = createFixture('stale-create')
+    it('refuses to create a comment for a revision that was never issued', async () => {
+        const fixture = await createFixture('stale-create')
 
         try {
-            expect(saveComment(fixture, { expectedRevision: 1 })).toEqual({ kind: 'conflict' })
-            expect(saveComment(fixture, { expectedRevision: 3 })).toEqual({ kind: 'conflict' })
+            expect(await saveComment(fixture, { expectedRevision: 1 })).toEqual({
+                kind: 'conflict',
+            })
+            expect(await saveComment(fixture, { expectedRevision: 3 })).toEqual({
+                kind: 'conflict',
+            })
             expect(readRow(fixture)).toBeUndefined()
             expect(fixture.database.select().from(publicationFirstComments).all()).toHaveLength(0)
 
-            const created = saveComment(fixture, { expectedRevision: 0 })
+            const created = await saveComment(fixture, { expectedRevision: 0 })
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
             expect(created.firstComment.revision).toBe(1)
 
             // A duplicated create is the same request and never a second row.
-            const retried = saveComment(fixture, { expectedRevision: 0, recordKey: 'other-key' })
+            const retried = await saveComment(fixture, {
+                expectedRevision: 0,
+                recordKey: 'other-key',
+            })
             expect(retried.kind).toBe('saved')
             if (retried.kind !== 'saved') return
             expect(retried.firstComment.id).toBe(created.firstComment.id)
@@ -855,51 +862,51 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('fails a confirmed parent whose connection is gone instead of spinning', () => {
-        const fixture = createFixture('missing-connection')
+    it('fails a confirmed parent whose connection is gone instead of spinning', async () => {
+        const fixture = await createFixture('missing-connection')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
 
             // The receipt is confirmed, so the worker must wake up for it even
             // though the comment is still waiting.
-            expect(store.getNextEventAt(now)).toBe(now)
+            expect(await store.getNextEventAt(now)).toBe(now)
 
             fixture.database
                 .delete(publisherConnections)
                 .where(eq(publisherConnections.id, fixture.connectionId))
                 .run()
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original connection is no longer available',
             })
             // A terminal comment leaves the schedule instead of waking the
             // worker forever.
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(fixture)).toMatchObject({ state: 'failed' })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('rejects a replaced account instead of arming a confirmed receipt', () => {
-        const fixture = createFixture('replaced-account')
+    it('rejects a replaced account instead of arming a confirmed receipt', async () => {
+        const fixture = await createFixture('replaced-account')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
 
@@ -909,7 +916,7 @@ describe('publication first comment store', () => {
                 .where(eq(publisherCredentials.id, fixture.credentialId))
                 .run()
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The confirmed publication does not belong to the connected account',
@@ -918,23 +925,23 @@ describe('publication first comment store', () => {
                 connectionId: null,
                 credentialId: null,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('revalidates the pinned receipt and refuses a changed parent', () => {
-        const fixture = createFixture('changed-parent')
+    it('revalidates the pinned receipt and refuses a changed parent', async () => {
+        const fixture = await createFixture('changed-parent')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
                 rootUri,
@@ -950,7 +957,7 @@ describe('publication first comment store', () => {
                 .where(eq(publications.id, fixture.publicationId))
                 .run()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The confirmed parent publication changed',
@@ -960,23 +967,23 @@ describe('publication first comment store', () => {
                 credentialId: fixture.credentialId,
                 executionRevisionId: fixture.executionRevisionId,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('fails a comment whose succeeded delivery is no longer confirmed', () => {
-        const fixture = createFixture('lost-receipt')
+    it('fails a comment whose succeeded delivery is no longer confirmed', async () => {
+        const fixture = await createFixture('lost-receipt')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({ state: 'pending' })
 
             fixture.database
@@ -985,32 +992,32 @@ describe('publication first comment store', () => {
                 .where(eq(jobs.id, fixture.jobId))
                 .run()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The confirmed publication receipt is no longer available',
                 rootUri,
                 accountId: accountDid,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('freezes the configuration capability with a terminal row', () => {
-        const fixture = createFixture('capability')
+    it('freezes the configuration capability with a terminal row', async () => {
+        const fixture = await createFixture('capability')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
+            expect(await store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
 
-            saveComment(fixture)
-            expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
+            await saveComment(fixture)
+            expect(await store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
 
-            const cancelled = store.cancel({
+            const cancelled = await store.cancel({
                 projectId: fixture.projectId,
                 publicationId: fixture.publicationId,
                 subjectId: fixture.editorSubjectId,
@@ -1021,8 +1028,10 @@ describe('publication first comment store', () => {
 
             // The publication is still scheduled, but the terminal row can no
             // longer be configured and the store refuses to save it.
-            expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(false)
-            expect(saveComment(fixture, { expectedRevision: 2, text: 'Another attempt' })).toEqual({
+            expect(await store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(false)
+            expect(
+                await saveComment(fixture, { expectedRevision: 2, text: 'Another attempt' })
+            ).toEqual({
                 kind: 'conflict',
             })
         } finally {
@@ -1030,15 +1039,15 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('re-enables a suspended comment instead of swallowing the request', () => {
-        const fixture = createFixture('suspended-enable')
+    it('re-enables a suspended comment instead of swallowing the request', async () => {
+        const fixture = await createFixture('suspended-enable')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
-            const edited = saveComment(fixture, {
+            await saveComment(fixture)
+            const edited = await saveComment(fixture, {
                 expectedRevision: 1,
                 text: 'An edited comment',
             })
@@ -1053,11 +1062,11 @@ describe('publication first comment store', () => {
                     )
                 )
                 .run()
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             expect(readRow(fixture)).toMatchObject({ state: 'suspended', revision: 2 })
 
             // A stale request with other content can never re-enable the work.
-            const staleChange = saveComment(fixture, {
+            const staleChange = await saveComment(fixture, {
                 subjectId: fixture.otherEditorSubjectId,
                 expectedRevision: 1,
                 text: 'A different comment',
@@ -1067,16 +1076,18 @@ describe('publication first comment store', () => {
 
             // A delayed duplicate must not lift a later access suspension.
             expect(
-                saveComment(fixture, {
-                    subjectId: fixture.otherEditorSubjectId,
-                    expectedRevision: 1,
-                    text: 'An edited comment',
-                }).kind
+                (
+                    await saveComment(fixture, {
+                        subjectId: fixture.otherEditorSubjectId,
+                        expectedRevision: 1,
+                        text: 'An edited comment',
+                    })
+                ).kind
             ).toBe('conflict')
             expect(readRow(fixture)).toMatchObject({ state: 'suspended', revision: 2 })
 
             // The explicit enable reviews the current revision and re-attributes it.
-            const reenabled = saveComment(fixture, {
+            const reenabled = await saveComment(fixture, {
                 subjectId: fixture.otherEditorSubjectId,
                 expectedRevision: 2,
                 text: 'An edited comment',
@@ -1096,15 +1107,15 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('returns the same row for a retried save and refuses a stale revision', () => {
-        const fixture = createFixture('save')
+    it('returns the same row for a retried save and refuses a stale revision', async () => {
+        const fixture = await createFixture('save')
 
         try {
-            const created = saveComment(fixture, { recordKey: 'first-key' })
+            const created = await saveComment(fixture, { recordKey: 'first-key' })
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
 
-            const retried = saveComment(fixture, { recordKey: 'another-key' })
+            const retried = await saveComment(fixture, { recordKey: 'another-key' })
             expect(retried.kind).toBe('saved')
             if (retried.kind !== 'saved') return
             expect(retried.firstComment.id).toBe(created.firstComment.id)
@@ -1119,8 +1130,8 @@ describe('publication first comment store', () => {
                     .all()
             ).toHaveLength(1)
 
-            expect(saveComment(fixture, { expectedRevision: 7 }).kind).toBe('conflict')
-            const edited = saveComment(fixture, {
+            expect((await saveComment(fixture, { expectedRevision: 7 })).kind).toBe('conflict')
+            const edited = await saveComment(fixture, {
                 expectedRevision: 1,
                 text: 'An edited comment',
                 delaySeconds: 1_800,
@@ -1139,19 +1150,19 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('serializes cancellation against a worker claim', () => {
-        const fixture = createFixture('cancel')
+    it('serializes cancellation against a worker claim', async () => {
+        const fixture = await createFixture('cancel')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-cancel-race',
                 now: dueAt,
@@ -1160,7 +1171,7 @@ describe('publication first comment store', () => {
             expect(claimed).not.toBeNull()
 
             expect(
-                store.cancel({
+                await store.cancel({
                     projectId: fixture.projectId,
                     publicationId: fixture.publicationId,
                     subjectId: fixture.editorSubjectId,
@@ -1173,17 +1184,17 @@ describe('publication first comment store', () => {
             closeDatabase(fixture.database)
         }
 
-        const cancelled = createFixture('cancel-before-claim')
+        const cancelled = await createFixture('cancel-before-claim')
 
         try {
             const store = createPublicationFirstCommentStore(cancelled.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(cancelled)
+            await saveComment(cancelled)
             publishNatively(cancelled, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
 
-            const cancelledRow = store.cancel({
+            const cancelledRow = await store.cancel({
                 projectId: cancelled.projectId,
                 publicationId: cancelled.publicationId,
                 subjectId: cancelled.editorSubjectId,
@@ -1192,7 +1203,7 @@ describe('publication first comment store', () => {
             })
             expect(cancelledRow.kind).toBe('saved')
             expect(
-                store.deliveries.claimNextDueJob({
+                await store.deliveries.claimNextDueJob({
                     actorId: cancelled.editorActorId,
                     claimToken: 'claim-after-cancel',
                     now: now + 1 + 300_000,
@@ -1204,16 +1215,16 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('suspends work when the enabling editor loses access and never resumes it alone', () => {
-        const fixture = createFixture('suspend')
+    it('suspends work when the enabling editor loses access and never resumes it alone', async () => {
+        const fixture = await createFixture('suspend')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
 
             fixture.database
                 .delete(projectUserGrants)
@@ -1225,16 +1236,16 @@ describe('publication first comment store', () => {
                 )
                 .run()
 
-            store.reconcile(now + 2)
+            await store.reconcile(now + 2)
             expect(readRow(fixture)).toMatchObject({
                 state: 'suspended',
                 lastError: 'The enabling editor no longer has editor access',
             })
 
-            store.reconcile(now + 3)
+            await store.reconcile(now + 3)
             expect(readRow(fixture)).toMatchObject({ state: 'suspended' })
 
-            const reenabled = store.save({
+            const reenabled = await store.save({
                 projectId: fixture.projectId,
                 publicationId: fixture.publicationId,
                 subjectId: fixture.otherEditorSubjectId,
@@ -1269,16 +1280,16 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('fails closed instead of rebinding a replaced account', () => {
-        const fixture = createFixture('rebind')
+    it('fails closed instead of rebinding a replaced account', async () => {
+        const fixture = await createFixture('rebind')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
 
             fixture.database
                 .update(publisherCredentials)
@@ -1286,58 +1297,58 @@ describe('publication first comment store', () => {
                 .where(eq(publisherCredentials.id, fixture.credentialId))
                 .run()
 
-            store.reconcile(now + 2)
+            await store.reconcile(now + 2)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original account is no longer available',
                 accountId: accountDid,
                 connectionId: fixture.connectionId,
             })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
 
-        const disconnected = createFixture('disconnected')
+        const disconnected = await createFixture('disconnected')
 
         try {
             const store = createPublicationFirstCommentStore(disconnected.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(disconnected)
+            await saveComment(disconnected)
             publishNatively(disconnected, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
 
             disconnected.database
                 .delete(publisherConnections)
                 .where(eq(publisherConnections.id, disconnected.connectionId))
                 .run()
 
-            store.reconcile(now + 2)
+            await store.reconcile(now + 2)
             expect(readRow(disconnected)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original connection is no longer available',
                 accountId: accountDid,
             })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(disconnected.database)
         }
     })
 
-    it('recovers an expired claim without an effect and keeps the send identity', () => {
-        const fixture = createFixture('recovery')
+    it('recovers an expired claim without an effect and keeps the send identity', async () => {
+        const fixture = await createFixture('recovery')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-recovery',
                 now: dueAt,
@@ -1347,7 +1358,7 @@ describe('publication first comment store', () => {
             if (claimed === null) return
             expect(claimed.recordKey).toBe('comment1')
 
-            expect(store.deliveries.recoverExpiredClaims(dueAt + leaseDuration)).toEqual({
+            expect(await store.deliveries.recoverExpiredClaims(dueAt + leaseDuration)).toEqual({
                 requeuedJobIds: [claimed.id],
                 ambiguousJobIds: [],
             })
@@ -1359,7 +1370,7 @@ describe('publication first comment store', () => {
                 attempts: 1,
             })
 
-            const reclaimed = store.deliveries.claimNextDueJob({
+            const reclaimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-recovery-second',
                 now: dueAt + leaseDuration,
@@ -1368,13 +1379,13 @@ describe('publication first comment store', () => {
             expect(reclaimed).not.toBeNull()
             if (reclaimed === null) return
             expect(
-                store.deliveries.startExternalEffect(
+                await store.deliveries.startExternalEffect(
                     reclaimed.id,
                     'claim-recovery-second',
                     dueAt + leaseDuration + 1
                 )
             ).toBe(true)
-            expect(store.deliveries.recoverExpiredClaims(dueAt + 2 * leaseDuration)).toEqual({
+            expect(await store.deliveries.recoverExpiredClaims(dueAt + 2 * leaseDuration)).toEqual({
                 requeuedJobIds: [],
                 ambiguousJobIds: [reclaimed.id],
             })
@@ -1384,19 +1395,19 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('keeps an uncertain outcome ambiguous and never sends a terminal comment again', () => {
-        const fixture = createFixture('ambiguity')
+    it('keeps an uncertain outcome ambiguous and never sends a terminal comment again', async () => {
+        const fixture = await createFixture('ambiguity')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-ambiguous',
                 now: dueAt,
@@ -1405,10 +1416,10 @@ describe('publication first comment store', () => {
             expect(claimed).not.toBeNull()
             if (claimed === null) return
             expect(
-                store.deliveries.startExternalEffect(claimed.id, 'claim-ambiguous', dueAt + 1)
+                await store.deliveries.startExternalEffect(claimed.id, 'claim-ambiguous', dueAt + 1)
             ).toBe(true)
             expect(
-                store.deliveries.completeExternalEffect({
+                await store.deliveries.completeExternalEffect({
                     jobId: claimed.id,
                     claimToken: 'claim-ambiguous',
                     completedAt: dueAt + 2,
@@ -1423,7 +1434,7 @@ describe('publication first comment store', () => {
                 lastError: 'The provider response was lost',
             })
             expect(
-                store.deliveries.claimNextDueJob({
+                await store.deliveries.claimNextDueJob({
                     actorId: fixture.editorActorId,
                     claimToken: 'claim-after-ambiguous',
                     now: dueAt + 3,
@@ -1431,7 +1442,7 @@ describe('publication first comment store', () => {
                 })
             ).toBeNull()
             expect(
-                store.deliveries.completeExternalEffect({
+                await store.deliveries.completeExternalEffect({
                     jobId: claimed.id,
                     claimToken: 'claim-ambiguous',
                     completedAt: dueAt + 4,
@@ -1443,19 +1454,19 @@ describe('publication first comment store', () => {
         }
     })
 
-    it('records a confirmed send and freezes the comment', () => {
-        const fixture = createFixture('sent')
+    it('records a confirmed send and freezes the comment', async () => {
+        const fixture = await createFixture('sent')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-sent',
                 now: dueAt,
@@ -1463,11 +1474,11 @@ describe('publication first comment store', () => {
             })
             expect(claimed).not.toBeNull()
             if (claimed === null) return
-            expect(store.deliveries.startExternalEffect(claimed.id, 'claim-sent', dueAt + 1)).toBe(
-                true
-            )
             expect(
-                store.deliveries.completeExternalEffect({
+                await store.deliveries.startExternalEffect(claimed.id, 'claim-sent', dueAt + 1)
+            ).toBe(true)
+            expect(
+                await store.deliveries.completeExternalEffect({
                     jobId: claimed.id,
                     claimToken: 'claim-sent',
                     completedAt: dueAt + 2,
@@ -1484,34 +1495,36 @@ describe('publication first comment store', () => {
                 externalId: 'at://did:plc:bluesky-operator/app.bsky.feed.post/comment1',
                 lastError: null,
             })
-            expect(saveComment(fixture, { expectedRevision: 1, text: 'Another attempt' })).toEqual({
+            expect(
+                await saveComment(fixture, { expectedRevision: 1, text: 'Another attempt' })
+            ).toEqual({
                 kind: 'conflict',
             })
             // A retried identical save of the sent comment is the same request,
             // so the terminal row is returned instead of reopening the comment.
-            const retried = saveComment(fixture, { expectedRevision: 0 })
+            const retried = await saveComment(fixture, { expectedRevision: 0 })
             expect(retried.kind).toBe('saved')
             if (retried.kind !== 'saved') return
             expect(retried.firstComment).toMatchObject({ state: 'sent', revision: 1 })
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('suspends a claimed comment whose enabling editor lost access before the effect', () => {
-        const fixture = createFixture('claim-suspend')
+    it('suspends a claimed comment whose enabling editor lost access before the effect', async () => {
+        const fixture = await createFixture('claim-suspend')
 
         try {
             const store = createPublicationFirstCommentStore(fixture.database, {
                 policies: providerCommentPolicies,
             })
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-suspend',
                 now: dueAt,
@@ -1530,7 +1543,7 @@ describe('publication first comment store', () => {
                 .run()
 
             expect(
-                store.deliveries.startExternalEffect(claimed!.id, 'claim-suspend', dueAt + 1)
+                await store.deliveries.startExternalEffect(claimed!.id, 'claim-suspend', dueAt + 1)
             ).toBe(false)
             expect(readRow(fixture)).toMatchObject({
                 state: 'suspended',
@@ -1543,8 +1556,8 @@ describe('publication first comment store', () => {
 })
 
 describe('publication first comment store (mastodon)', () => {
-    it('prepares a Mastodon comment without any publisher connection', () => {
-        const fixture = createFixture('mastodon-prepare', 'mastodon')
+    it('prepares a Mastodon comment without any publisher connection', async () => {
+        const fixture = await createFixture('mastodon-prepare', 'mastodon')
 
         try {
             fixture.database
@@ -1553,9 +1566,9 @@ describe('publication first comment store (mastodon)', () => {
                 .run()
 
             const store = createStore(fixture)
-            expect(store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
+            expect(await store.canConfigure(fixture.projectId, fixture.publicationId)).toBe(true)
 
-            const created = saveComment(fixture)
+            const created = await saveComment(fixture)
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
             expect(created.firstComment).toMatchObject({
@@ -1569,27 +1582,27 @@ describe('publication first comment store (mastodon)', () => {
                 credentialId: null,
                 accountId: null,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('arms a native Mastodon receipt and binds the publishing instance', () => {
-        const fixture = createFixture('mastodon-native', 'mastodon')
+    it('arms a native Mastodon receipt and binds the publishing instance', async () => {
+        const fixture = await createFixture('mastodon-native', 'mastodon')
 
         try {
             const store = createStore(fixture)
-            saveComment(fixture, { delaySeconds: 300 })
+            await saveComment(fixture, { delaySeconds: 300 })
 
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
 
             // The confirmed receipt must wake the worker even though the
             // comment is still waiting.
-            expect(store.getNextEventAt(now)).toBe(now)
+            expect(await store.getNextEventAt(now)).toBe(now)
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
 
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
@@ -1603,7 +1616,7 @@ describe('publication first comment store (mastodon)', () => {
                 dueAt: publishedAt + 300_000,
                 revision: 1,
             })
-            expect(store.getNextEventAt(now)).toBe(publishedAt + 300_000)
+            expect(await store.getNextEventAt(now)).toBe(publishedAt + 300_000)
             expect(journalActions(fixture)).toEqual([
                 'publication_first_comment.requested',
                 'publication_first_comment.armed',
@@ -1614,12 +1627,12 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('refuses a parent that belongs to another instance', () => {
-        const fixture = createFixture('mastodon-instance', 'mastodon')
+    it('refuses a parent that belongs to another instance', async () => {
+        const fixture = await createFixture('mastodon-instance', 'mastodon')
 
         try {
             const store = createStore(fixture)
-            saveComment(fixture)
+            await saveComment(fixture)
 
             const publishedAt = now + 1_000
             // The same numeric status and account exist on another instance.
@@ -1629,7 +1642,7 @@ describe('publication first comment store (mastodon)', () => {
                 permalink: `https://other.example/@owner/${mastodonStatusId}`,
             })
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original connection is no longer available',
@@ -1638,21 +1651,21 @@ describe('publication first comment store (mastodon)', () => {
                 accountId: null,
                 connectionId: null,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('fails a replaced account and a credential that cannot write statuses', () => {
-        const replaced = createFixture('mastodon-replaced', 'mastodon')
+    it('fails a replaced account and a credential that cannot write statuses', async () => {
+        const replaced = await createFixture('mastodon-replaced', 'mastodon')
 
         try {
             const store = createStore(replaced)
-            saveComment(replaced)
+            await saveComment(replaced)
             const publishedAt = now + 1_000
             publishNatively(replaced, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(replaced)).toMatchObject({
                 state: 'pending',
                 accountId: mastodonAccountId,
@@ -1664,21 +1677,21 @@ describe('publication first comment store (mastodon)', () => {
                 .where(eq(publisherCredentials.id, replaced.credentialId))
                 .run()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(replaced)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original account is no longer available',
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(replaced.database)
         }
 
-        const scoped = createFixture('mastodon-scope', 'mastodon')
+        const scoped = await createFixture('mastodon-scope', 'mastodon')
 
         try {
             const store = createStore(scoped)
-            saveComment(scoped)
+            await saveComment(scoped)
             scoped.database
                 .update(publisherCredentials)
                 .set({ scopes: ['read:accounts'] })
@@ -1688,25 +1701,25 @@ describe('publication first comment store (mastodon)', () => {
             const publishedAt = now + 1_000
             publishNatively(scoped, { publishedAt })
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(scoped)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original account is no longer available',
                 rootUri: null,
                 accountId: null,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(scoped.database)
         }
     })
 
-    it('fails closed without a reference parser instead of waiting for one', () => {
-        const fixture = createFixture('mastodon-parser', 'mastodon')
+    it('fails closed without a reference parser instead of waiting for one', async () => {
+        const fixture = await createFixture('mastodon-parser', 'mastodon')
 
         try {
             const store = createStore(fixture, { withParser: false })
-            const saved = store.save({
+            const saved = await store.save({
                 projectId: fixture.projectId,
                 publicationId: fixture.publicationId,
                 subjectId: fixture.editorSubjectId,
@@ -1720,9 +1733,9 @@ describe('publication first comment store (mastodon)', () => {
 
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            expect(store.getNextEventAt(now)).toBe(now)
+            expect(await store.getNextEventAt(now)).toBe(now)
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'failed',
                 lastError: 'The confirmed publication could not be resolved',
@@ -1732,21 +1745,21 @@ describe('publication first comment store (mastodon)', () => {
             })
             // The terminal comment leaves the schedule instead of waking the
             // worker forever.
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('stops the timer when the receipt or the connection disappears', () => {
-        const receipt = createFixture('mastodon-receipt', 'mastodon')
+    it('stops the timer when the receipt or the connection disappears', async () => {
+        const receipt = await createFixture('mastodon-receipt', 'mastodon')
 
         try {
             const store = createStore(receipt)
-            saveComment(receipt)
+            await saveComment(receipt)
             const publishedAt = now + 1_000
             publishNatively(receipt, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(receipt)).toMatchObject({ state: 'pending' })
 
             receipt.database
@@ -1755,24 +1768,24 @@ describe('publication first comment store (mastodon)', () => {
                 .where(eq(jobs.id, receipt.jobId))
                 .run()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(receipt)).toMatchObject({
                 state: 'failed',
                 lastError: 'The confirmed publication receipt is no longer available',
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(receipt.database)
         }
 
-        const connection = createFixture('mastodon-connection', 'mastodon')
+        const connection = await createFixture('mastodon-connection', 'mastodon')
 
         try {
             const store = createStore(connection)
-            saveComment(connection)
+            await saveComment(connection)
             const publishedAt = now + 1_000
             publishNatively(connection, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(connection)).toMatchObject({ state: 'pending' })
 
             connection.database
@@ -1780,36 +1793,36 @@ describe('publication first comment store (mastodon)', () => {
                 .where(eq(publisherConnections.id, connection.connectionId))
                 .run()
 
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(connection)).toMatchObject({
                 state: 'failed',
                 lastError: 'The original connection is no longer available',
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(connection.database)
         }
     })
 
-    it('accepts the conservative 500 unit reply envelope', () => {
-        const fixture = createFixture('mastodon-text', 'mastodon')
+    it('accepts the conservative 500 unit reply envelope', async () => {
+        const fixture = await createFixture('mastodon-text', 'mastodon')
 
         try {
             // Mastodon keeps its own envelope, so a comment that the Bluesky
             // grapheme limit would refuse is accepted here.
-            expect(saveComment(fixture, { text: 'a'.repeat(400) }).kind).toBe('saved')
-            expect(() => saveComment(fixture, { text: 'a'.repeat(501) })).toThrow(
+            expect((await saveComment(fixture, { text: 'a'.repeat(400) })).kind).toBe('saved')
+            await expect(saveComment(fixture, { text: 'a'.repeat(501) })).rejects.toThrow(
                 'must not exceed 500 UTF-16 code units'
             )
-            expect(() => saveComment(fixture, { text: '   ' })).toThrow('must not be blank')
+            await expect(saveComment(fixture, { text: '   ' })).rejects.toThrow('must not be blank')
         } finally {
             closeDatabase(fixture.database)
         }
 
-        const bluesky = createFixture('bluesky-text')
+        const bluesky = await createFixture('bluesky-text')
 
         try {
-            expect(() => saveComment(bluesky, { text: 'a'.repeat(400) })).toThrow(
+            await expect(saveComment(bluesky, { text: 'a'.repeat(400) })).rejects.toThrow(
                 'must not exceed 300 graphemes'
             )
         } finally {
@@ -1817,15 +1830,15 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('re-enables a suspended Mastodon comment from the current revision', () => {
-        const fixture = createFixture('mastodon-suspend', 'mastodon')
+    it('re-enables a suspended Mastodon comment from the current revision', async () => {
+        const fixture = await createFixture('mastodon-suspend', 'mastodon')
 
         try {
             const store = createStore(fixture)
-            saveComment(fixture)
+            await saveComment(fixture)
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
                 instanceOrigin: mastodonOrigin,
@@ -1841,19 +1854,21 @@ describe('publication first comment store (mastodon)', () => {
                     )
                 )
                 .run()
-            store.reconcile(publishedAt + 1)
+            await store.reconcile(publishedAt + 1)
             expect(readRow(fixture)).toMatchObject({ state: 'suspended', revision: 1 })
 
             // A stale revision can never lift the suspension.
             expect(
-                saveComment(fixture, {
-                    subjectId: fixture.otherEditorSubjectId,
-                    expectedRevision: 0,
-                    text: 'An edited comment',
-                }).kind
+                (
+                    await saveComment(fixture, {
+                        subjectId: fixture.otherEditorSubjectId,
+                        expectedRevision: 0,
+                        text: 'An edited comment',
+                    })
+                ).kind
             ).toBe('conflict')
 
-            const reenabled = saveComment(fixture, {
+            const reenabled = await saveComment(fixture, {
                 subjectId: fixture.otherEditorSubjectId,
                 expectedRevision: 1,
                 text: 'An edited comment',
@@ -1876,17 +1891,17 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('keeps the claim fence, the cancellation and the uncertainty of a send', () => {
-        const fixture = createFixture('mastodon-fence', 'mastodon')
+    it('keeps the claim fence, the cancellation and the uncertainty of a send', async () => {
+        const fixture = await createFixture('mastodon-fence', 'mastodon')
 
         try {
             const store = createStore(fixture)
-            saveComment(fixture)
+            await saveComment(fixture)
             publishNatively(fixture, { publishedAt: now + 1 })
-            store.reconcile(now + 1)
+            await store.reconcile(now + 1)
             const dueAt = now + 1 + 300_000
 
-            const claimed = store.deliveries.claimNextDueJob({
+            const claimed = await store.deliveries.claimNextDueJob({
                 actorId: fixture.editorActorId,
                 claimToken: 'claim-mastodon',
                 now: dueAt,
@@ -1897,7 +1912,7 @@ describe('publication first comment store (mastodon)', () => {
 
             // A cancellation cannot take a claimed comment.
             expect(
-                store.cancel({
+                await store.cancel({
                     projectId: fixture.projectId,
                     publicationId: fixture.publicationId,
                     subjectId: fixture.editorSubjectId,
@@ -1907,10 +1922,10 @@ describe('publication first comment store (mastodon)', () => {
             ).toEqual({ kind: 'conflict' })
 
             expect(
-                store.deliveries.startExternalEffect(claimed.id, 'claim-mastodon', dueAt + 1)
+                await store.deliveries.startExternalEffect(claimed.id, 'claim-mastodon', dueAt + 1)
             ).toBe(true)
             expect(
-                store.deliveries.completeExternalEffect({
+                await store.deliveries.completeExternalEffect({
                     jobId: claimed.id,
                     claimToken: 'claim-mastodon',
                     completedAt: dueAt + 2,
@@ -1925,7 +1940,7 @@ describe('publication first comment store (mastodon)', () => {
                 lastError: 'The provider response was lost',
             })
             expect(
-                store.deliveries.claimNextDueJob({
+                await store.deliveries.claimNextDueJob({
                     actorId: fixture.editorActorId,
                     claimToken: 'claim-after-ambiguous',
                     now: dueAt + 3,
@@ -1936,12 +1951,12 @@ describe('publication first comment store (mastodon)', () => {
             closeDatabase(fixture.database)
         }
 
-        const cancelled = createFixture('mastodon-cancel', 'mastodon')
+        const cancelled = await createFixture('mastodon-cancel', 'mastodon')
 
         try {
             const store = createStore(cancelled)
-            saveComment(cancelled)
-            const cancelledRow = store.cancel({
+            await saveComment(cancelled)
+            const cancelledRow = await store.cancel({
                 projectId: cancelled.projectId,
                 publicationId: cancelled.publicationId,
                 subjectId: cancelled.editorSubjectId,
@@ -1950,7 +1965,7 @@ describe('publication first comment store (mastodon)', () => {
             })
             expect(cancelledRow.kind).toBe('saved')
             expect(
-                store.deliveries.claimNextDueJob({
+                await store.deliveries.claimNextDueJob({
                     actorId: cancelled.editorActorId,
                     claimToken: 'claim-after-cancel',
                     now: now + 1 + 300_000,
@@ -1962,11 +1977,11 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('pins the provider and refuses an edit that would change it', () => {
-        const fixture = createFixture('mastodon-provider', 'mastodon')
+    it('pins the provider and refuses an edit that would change it', async () => {
+        const fixture = await createFixture('mastodon-provider', 'mastodon')
 
         try {
-            const created = saveComment(fixture)
+            const created = await saveComment(fixture)
             expect(created.kind).toBe('saved')
             if (created.kind !== 'saved') return
             expect(created.firstComment.providerId).toBe('mastodon')
@@ -1984,7 +1999,7 @@ describe('publication first comment store (mastodon)', () => {
                 .run()
 
             expect(
-                saveComment(fixture, { expectedRevision: 1, text: 'An edited comment' })
+                await saveComment(fixture, { expectedRevision: 1, text: 'An edited comment' })
             ).toEqual({ kind: 'conflict' })
             expect(readRow(fixture)).toMatchObject({
                 providerId: 'mastodon',
@@ -1996,19 +2011,19 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('never arms a receipt produced by another provider', () => {
-        const fixture = createFixture('mastodon-wrong-receipt', 'mastodon')
+    it('never arms a receipt produced by another provider', async () => {
+        const fixture = await createFixture('mastodon-wrong-receipt', 'mastodon')
 
         try {
             const store = createStore(fixture)
-            saveComment(fixture)
+            await saveComment(fixture)
 
             const blueskyProfileVersionId = 'profile-bluesky-wrong-receipt'
             fixture.database
                 .insert(channelProfileVersions)
                 .values({
                     id: blueskyProfileVersionId,
-                    workspaceId: workspaceOf(fixture.database, fixture.projectId),
+                    workspaceId: await workspaceOf(fixture.database, fixture.projectId),
                     channelId: fixture.channelId,
                     profileId: blueskyProfile.id,
                     version: 3,
@@ -2029,21 +2044,21 @@ describe('publication first comment store (mastodon)', () => {
                 .where(eq(publicationExecutionRevisions.id, fixture.executionRevisionId))
                 .run()
 
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
             expect(readRow(fixture)).toMatchObject({
                 state: 'waiting',
                 rootUri: null,
                 instanceOrigin: null,
                 accountId: null,
             })
-            expect(store.getNextEventAt(now)).toBeNull()
+            expect(await store.getNextEventAt(now)).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('leaves Bluesky comments untouched by the Mastodon parser', () => {
-        const fixture = createFixture('bluesky-parser')
+    it('leaves Bluesky comments untouched by the Mastodon parser', async () => {
+        const fixture = await createFixture('bluesky-parser')
 
         try {
             let parserCalls = 0
@@ -2057,7 +2072,7 @@ describe('publication first comment store (mastodon)', () => {
                         : policy
                 ),
             })
-            store.save({
+            await store.save({
                 projectId: fixture.projectId,
                 publicationId: fixture.publicationId,
                 subjectId: fixture.editorSubjectId,
@@ -2069,7 +2084,7 @@ describe('publication first comment store (mastodon)', () => {
             })
             const publishedAt = now + 1_000
             publishNatively(fixture, { publishedAt })
-            store.reconcile(publishedAt)
+            await store.reconcile(publishedAt)
 
             expect(readRow(fixture)).toMatchObject({
                 state: 'pending',
@@ -2084,7 +2099,7 @@ describe('publication first comment store (mastodon)', () => {
         }
     })
 
-    it('keeps historical Bluesky comments when the provider column is added', () => {
+    it('keeps historical Bluesky comments when the provider column is added', async () => {
         const folder = mkdtempSync(join(tmpdir(), 'postdot-first-comment-migration-'))
 
         try {
@@ -2105,7 +2120,7 @@ describe('publication first comment store (mastodon)', () => {
             }
             writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify(historical))
 
-            const fixture = createFixture('historical', 'bluesky', {
+            const fixture = await createFixture('historical', 'bluesky', {
                 migrationsFolder: folder,
             })
 
@@ -2165,8 +2180,8 @@ describe('publication first comment store (mastodon)', () => {
     })
 })
 
-it('uses a synthetic provider policy while retaining access, receipt and claim fences', () => {
-    const fixture = createFixture('synthetic-policy')
+it('uses a synthetic provider policy while retaining access, receipt and claim fences', async () => {
+    const fixture = await createFixture('synthetic-policy')
     try {
         const baseline = providerCommentPolicies.find(policy => policy.id === 'bluesky')!
         const policy = {
@@ -2196,10 +2211,10 @@ it('uses a synthetic provider policy while retaining access, receipt and claim f
             recordKey: 'synthetic-key',
             now,
         }
-        expect(store.save({ ...input, subjectId: fixture.viewerSubjectId })).toEqual({
+        expect(await store.save({ ...input, subjectId: fixture.viewerSubjectId })).toEqual({
             kind: 'not_found',
         })
-        const saved = store.save(input)
+        const saved = await store.save(input)
         expect(saved.kind).toBe('saved')
         expect(readRow(fixture)).toMatchObject({
             providerId: 'synthetic',
@@ -2207,14 +2222,14 @@ it('uses a synthetic provider policy while retaining access, receipt and claim f
             state: 'waiting',
         })
         publishNatively(fixture, { publishedAt: now + 1 })
-        store.reconcile(now + 1)
+        await store.reconcile(now + 1)
         expect(readRow(fixture)).toMatchObject({
             providerId: 'synthetic',
             state: 'pending',
             rootUri,
             accountId: accountDid,
         })
-        const claim = store.deliveries.claimNextDueJob({
+        const claim = await store.deliveries.claimNextDueJob({
             actorId: fixture.editorActorId,
             claimToken: 'synthetic-claim',
             now: now + 1,
@@ -2222,9 +2237,9 @@ it('uses a synthetic provider policy while retaining access, receipt and claim f
         })
         expect(claim).not.toBeNull()
         if (!claim) return
-        expect(store.claimCurrent(claim, now + 2)).toBe(true)
+        expect(await store.claimCurrent(claim, now + 2)).toBe(true)
         fixture.database.update(publisherCredentials).set({ state: 'reconnect_required' }).run()
-        expect(store.claimCurrent(claim, now + 3)).toBe(false)
+        expect(await store.claimCurrent(claim, now + 3)).toBe(false)
         expect(fixture.database.$client.query('pragma foreign_key_check').all()).toEqual([])
     } finally {
         closeDatabase(fixture.database)

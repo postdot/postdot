@@ -12,7 +12,7 @@ import {
     type WorkspaceChannelContext,
 } from './workspace-channel-store'
 
-function fixture() {
+async function fixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
     for (const id of ['workspace', 'foreign']) {
@@ -26,44 +26,44 @@ function fixture() {
             .run(id, id, id, id)
     }
     const manual = createManualStore(database)
-    const source = manual.createProject({
+    const source = await manual.createProject({
         name: 'Confidential source',
         subjectId: 'operator',
         displayName: 'Operator',
         workspaceId: 'workspace',
     })
-    const target = manual.createProject({
+    const target = await manual.createProject({
         name: 'Target',
         subjectId: 'operator',
         displayName: 'Operator',
         workspaceId: 'workspace',
     })
-    const other = manual.createProject({
+    const other = await manual.createProject({
         name: 'Other',
         subjectId: 'operator',
         displayName: 'Operator',
         workspaceId: 'workspace',
     })
-    const foreign = manual.createProject({
+    const foreign = await manual.createProject({
         name: 'Foreign',
         subjectId: 'operator',
         displayName: 'Operator',
         workspaceId: 'foreign',
     })
-    const seed = manual.createChannel({
+    const seed = (await manual.createChannel({
         projectId: source.project.id,
         subjectId: 'operator',
         name: 'Seed',
-    })!
-    manual.createChannel({
+    }))!
+    await manual.createChannel({
         projectId: foreign.project.id,
         subjectId: 'operator',
         name: 'Foreign destination',
     })
-    const actor = createWorkspaceActorStore(database).ensureFromProjectActor({
+    const actor = (await createWorkspaceActorStore(database).ensureFromProjectActor({
         workspaceId: 'workspace',
         projectActorId: source.actor.id,
-    })!
+    }))!
     const roles = new Map([
         [source.project.id, 'owner'],
         [target.project.id, 'owner'],
@@ -85,7 +85,7 @@ function fixture() {
         const cap = (value: string) =>
             settings.capabilities === undefined || settings.capabilities.has(value)
         const authorization: ChannelAccessPolicy = {
-            authorizeProject(id, action) {
+            async authorizeProject(id, action) {
                 if (!scope(id)) return false
                 const role = grants.get(id)
                 if (!role) return false
@@ -95,7 +95,7 @@ function fixture() {
                     return role !== 'viewer' && cap('manage')
                 return role !== 'viewer' && cap('share')
             },
-            authorizeWorkspace(id, action) {
+            async authorizeWorkspace(id, action) {
                 return (
                     settings.admin === true &&
                     settings.scopes === undefined &&
@@ -103,14 +103,17 @@ function fixture() {
                     cap(action === 'manage_channels' ? 'manage' : 'share')
                 )
             },
-            authorizeSharing(ids) {
+            async authorizeSharing(ids) {
                 return cap('share') && ids.every(scope)
             },
         }
         return { actorId: actor.id, authorization, contextProjectId: settings.contextProjectId }
     }
     const ctx = context({ contextProjectId: source.project.id })
-    const created = store.create(ctx, { projectId: source.project.id, name: 'Shared destination' })
+    const created = await store.create(ctx, {
+        projectId: source.project.id,
+        name: 'Shared destination',
+    })
     if (created.kind !== 'created') throw new Error('Missing channel')
     return {
         database,
@@ -129,8 +132,8 @@ function fixture() {
     }
 }
 
-it('creates one workspace-owned channel, profile, attachment, manager and attributed fact atomically', () => {
-    const f = fixture()
+it('creates one workspace-owned channel, profile, attachment, manager and attributed fact atomically', async () => {
+    const f = await fixture()
     try {
         expect(f.channel).toMatchObject({
             workspaceId: 'workspace',
@@ -151,7 +154,7 @@ it('creates one workspace-owned channel, profile, attachment, manager and attrib
                 )
                 .get(f.channel.id)
         ).toEqual({ origin: 'explicit', attached_by_actor_id: f.actor.id })
-        const events = createEventJournalStore(f.database).readWorkspaceAfter({
+        const events = await createEventJournalStore(f.database).readWorkspaceAfter({
             workspaceId: 'workspace',
         })
         expect(
@@ -165,11 +168,11 @@ it('creates one workspace-owned channel, profile, attachment, manager and attrib
     }
 })
 
-it('shares by attachment without exposing an unreadable manager project or connection material', () => {
-    const f = fixture()
+it('shares by attachment without exposing an unreadable manager project or connection material', async () => {
+    const f = await fixture()
     try {
         expect(
-            f.store.attach(f.ctx, {
+            await f.store.attach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 1,
@@ -179,7 +182,7 @@ it('shares by attachment without exposing an unreadable manager project or conne
             roles: new Map([[f.target.project.id, 'viewer']]),
             contextProjectId: f.target.project.id,
         })
-        const view = f.store.listProject(reader, f.target.project.id)!
+        const view = (await f.store.listProject(reader, f.target.project.id))!
         expect(view).toHaveLength(1)
         expect(view[0]).toMatchObject({
             id: f.channel.id,
@@ -198,20 +201,20 @@ it('shares by attachment without exposing an unreadable manager project or conne
         expect(text).not.toContain('profileJson')
         expect(view[0]).not.toHaveProperty('projectCount')
         expect(
-            f.store.attach(reader, {
+            await f.store.attach(reader, {
                 channelId: f.channel.id,
                 projectId: f.other.project.id,
                 expectedRevision: 2,
             })
         ).toEqual({ kind: 'not_found' })
-        expect(f.store.listProject(reader, f.source.project.id)).toBeNull()
+        expect(await f.store.listProject(reader, f.source.project.id)).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('keeps sharing authority separate from connection-management capabilities and checks live project ceilings', () => {
-    const f = fixture()
+it('keeps sharing authority separate from connection-management capabilities and checks live project ceilings', async () => {
+    const f = await fixture()
     try {
         const scopes = new Set([f.source.project.id])
         const key = f.context({
@@ -220,7 +223,7 @@ it('keeps sharing authority separate from connection-management capabilities and
             contextProjectId: f.source.project.id,
         })
         expect(
-            f.store.attach(key, {
+            await f.store.attach(key, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 1,
@@ -228,14 +231,14 @@ it('keeps sharing authority separate from connection-management capabilities and
         ).toEqual({ kind: 'not_found' })
         scopes.add(f.target.project.id)
         expect(
-            f.store.attach(key, {
+            await f.store.attach(key, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 1,
             })
         ).toEqual({ kind: 'changed', revision: 2 })
         expect(
-            f.store.create(key, {
+            await f.store.create(key, {
                 projectId: f.source.project.id,
                 name: 'No management capability',
             })
@@ -246,21 +249,21 @@ it('keeps sharing authority separate from connection-management capabilities and
             contextProjectId: f.source.project.id,
         })
         expect(
-            f.store
-                .listProject(readableKey, f.source.project.id)
-                ?.find(row => row.id === f.channel.id)
+            (await f.store.listProject(readableKey, f.source.project.id))?.find(
+                row => row.id === f.channel.id
+            )
         ).toMatchObject({ canManage: false, canShare: true })
         scopes.add(f.other.project.id)
         f.roles.delete(f.source.project.id)
         expect(
-            f.store.attach(key, {
+            await f.store.attach(key, {
                 channelId: f.channel.id,
                 projectId: f.other.project.id,
                 expectedRevision: 2,
             })
         ).toEqual({ kind: 'not_found' })
         expect(
-            f.store.attach(f.ctx, {
+            await f.store.attach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.foreign.project.id,
                 expectedRevision: 2,
@@ -271,10 +274,10 @@ it('keeps sharing authority separate from connection-management capabilities and
     }
 })
 
-it('allows a project owner to withdraw its own use with only that project in scope', () => {
-    const f = fixture()
+it('allows a project owner to withdraw its own use with only that project in scope', async () => {
+    const f = await fixture()
     try {
-        f.store.attach(f.ctx, {
+        await f.store.attach(f.ctx, {
             channelId: f.channel.id,
             projectId: f.target.project.id,
             expectedRevision: 1,
@@ -285,19 +288,19 @@ it('allows a project owner to withdraw its own use with only that project in sco
             capabilities: new Set(['read', 'share']),
             contextProjectId: f.target.project.id,
         })
-        expect(f.store.listProject(owner, f.target.project.id)?.[0]).toMatchObject({
+        expect((await f.store.listProject(owner, f.target.project.id))?.[0]).toMatchObject({
             canManage: false,
             canWithdraw: true,
         })
         expect(
-            f.store.detach(owner, {
+            await f.store.detach(owner, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 2,
             })
         ).toEqual({ kind: 'changed', revision: 3 })
-        expect(f.store.listProject(owner, f.target.project.id)).toEqual([])
-        expect(f.store.listProject(owner, f.target.project.id, true)?.[0]).toMatchObject({
+        expect(await f.store.listProject(owner, f.target.project.id)).toEqual([])
+        expect((await f.store.listProject(owner, f.target.project.id, true))?.[0]).toMatchObject({
             attachmentState: 'detached',
             shared: false,
         })
@@ -311,21 +314,21 @@ it('allows a project owner to withdraw its own use with only that project in sco
     }
 })
 
-it('requires an explicit last-attachment archive choice and leaves no accidental manager behind', () => {
-    const f = fixture()
+it('requires an explicit last-attachment archive choice and leaves no accidental manager behind', async () => {
+    const f = await fixture()
     try {
         const journal = createEventJournalStore(f.database)
-        const before = journal.latestCursor()
+        const before = await journal.latestCursor()
         expect(
-            f.store.detach(f.ctx, {
+            await f.store.detach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.source.project.id,
                 expectedRevision: 1,
             })
         ).toEqual({ kind: 'retirement_required', revision: 1 })
-        expect(journal.latestCursor()).toBe(before)
+        expect(await journal.latestCursor()).toBe(before)
         expect(
-            f.store.detach(f.ctx, {
+            await f.store.detach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.source.project.id,
                 expectedRevision: 1,
@@ -343,34 +346,34 @@ it('requires an explicit last-attachment archive choice and leaves no accidental
                 .all(f.channel.id)
         ).toEqual([])
         expect(
-            journal
-                .readWorkspaceAfter({ workspaceId: 'workspace', after: before })
-                .map(event => event.name)
+            (await journal.readWorkspaceAfter({ workspaceId: 'workspace', after: before })).map(
+                event => event.name
+            )
         ).toEqual(['channel.project_detached', 'channel.archived'])
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('checks revisions and transfers management explicitly without granting it through an attachment', () => {
-    const f = fixture()
+it('checks revisions and transfers management explicitly without granting it through an attachment', async () => {
+    const f = await fixture()
     try {
-        f.store.attach(f.ctx, {
+        await f.store.attach(f.ctx, {
             channelId: f.channel.id,
             projectId: f.target.project.id,
             expectedRevision: 1,
         })
-        const before = createEventJournalStore(f.database).latestCursor()
+        const before = await createEventJournalStore(f.database).latestCursor()
         expect(
-            f.store.detach(f.ctx, {
+            await f.store.detach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 1,
             })
         ).toEqual({ kind: 'stale', revision: 2 })
-        expect(createEventJournalStore(f.database).latestCursor()).toBe(before)
+        expect(await createEventJournalStore(f.database).latestCursor()).toBe(before)
         expect(
-            f.store.transferManagement(f.ctx, {
+            await f.store.transferManagement(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.target.project.id,
                 expectedRevision: 2,
@@ -378,10 +381,12 @@ it('checks revisions and transfers management explicitly without granting it thr
         ).toEqual({ kind: 'changed', revision: 3 })
         f.roles.delete(f.target.project.id)
         expect(
-            f.store.listProject(f.ctx, f.source.project.id)?.find(row => row.id === f.channel.id)
+            (await f.store.listProject(f.ctx, f.source.project.id))?.find(
+                row => row.id === f.channel.id
+            )
         ).toMatchObject({ canManage: false, management: { kind: 'project', project: null } })
         expect(
-            f.store.attach(f.ctx, {
+            await f.store.attach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.other.project.id,
                 expectedRevision: 3,
@@ -392,11 +397,11 @@ it('checks revisions and transfers management explicitly without granting it thr
     }
 })
 
-it('rolls back resource creation and its wakeup if journal persistence fails', () => {
-    const f = fixture()
+it('rolls back resource creation and its wakeup if journal persistence fails', async () => {
+    const f = await fixture()
     try {
         const journal = createEventJournalStore(f.database)
-        journal.appendWorkspace({
+        await journal.appendWorkspace({
             id: 'collision',
             workspaceId: 'workspace',
             actorId: f.actor.id,
@@ -414,9 +419,9 @@ it('rolls back resource creation and its wakeup if journal persistence fails', (
             now: () => 1001,
             createId: () => ids[sequence++]!,
         })
-        expect(() =>
+        await expect(
             failing.create(f.ctx, { projectId: f.source.project.id, name: 'Must roll back' })
-        ).toThrow()
+        ).rejects.toThrow()
         expect(f.database.$client.query('select id from channels order by id').all()).toEqual(
             before
         )
@@ -433,19 +438,19 @@ it('rolls back resource creation and its wakeup if journal persistence fails', (
     }
 })
 
-it('filters workspace metadata per channel and keeps administration separate from project content', () => {
-    const f = fixture()
+it('filters workspace metadata per channel and keeps administration separate from project content', async () => {
+    const f = await fixture()
     try {
         const viewer = f.context({ roles: new Map([[f.target.project.id, 'viewer']]) })
-        expect(f.store.listWorkspace(viewer, 'workspace')).toEqual([])
-        f.store.attach(f.ctx, {
+        expect(await f.store.listWorkspace(viewer, 'workspace')).toEqual([])
+        await f.store.attach(f.ctx, {
             channelId: f.channel.id,
             projectId: f.target.project.id,
             expectedRevision: 1,
         })
-        const visible = f.store.listWorkspace(viewer, 'workspace')
+        const visible = await f.store.listWorkspace(viewer, 'workspace')
         expect(visible).toHaveLength(1)
-        expect(f.store.listProjectUsages(viewer, f.channel.id)).toEqual([
+        expect(await f.store.listProjectUsages(viewer, f.channel.id)).toEqual([
             { projectId: f.target.project.id, name: 'Target', state: 'active', revision: 1 },
         ])
         expect(visible[0]).toMatchObject({
@@ -456,39 +461,39 @@ it('filters workspace metadata per channel and keeps administration separate fro
         })
         expect(JSON.stringify(visible)).not.toContain(f.source.project.id)
         const admin = f.context({ roles: new Map(), admin: true })
-        expect(f.store.listProject(admin, f.source.project.id)).toBeNull()
-        expect(f.store.listProjectUsages(admin, f.channel.id)).toEqual([])
+        expect(await f.store.listProject(admin, f.source.project.id)).toBeNull()
+        expect(await f.store.listProjectUsages(admin, f.channel.id)).toEqual([])
         expect(
-            f.store.listWorkspace(admin, 'workspace').find(row => row.id === f.channel.id)
+            (await f.store.listWorkspace(admin, 'workspace')).find(row => row.id === f.channel.id)
         ).toMatchObject({ canManage: true, management: { kind: 'project', project: null } })
-        expect(f.store.listWorkspace(admin, 'foreign')).toEqual([])
+        expect(await f.store.listWorkspace(admin, 'foreign')).toEqual([])
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('preserves migrated attachment provenance and requires explicit management recovery after reattachment', () => {
-    const f = fixture()
+it('preserves migrated attachment provenance and requires explicit management recovery after reattachment', async () => {
+    const f = await fixture()
     try {
         const original = f.database.$client
             .query(
                 'select origin,attached_at,attached_by_actor_id from project_channel_attachments where project_id=? and channel_id=?'
             )
             .get(f.source.project.id, f.seed.id)
-        f.store.attach(f.ctx, {
+        await f.store.attach(f.ctx, {
             channelId: f.seed.id,
             projectId: f.target.project.id,
             expectedRevision: 1,
         })
         expect(
-            f.store.detach(f.ctx, {
+            await f.store.detach(f.ctx, {
                 channelId: f.seed.id,
                 projectId: f.source.project.id,
                 expectedRevision: 2,
             })
         ).toEqual({ kind: 'changed', revision: 3 })
         expect(
-            f.store.attach(f.ctx, {
+            await f.store.attach(f.ctx, {
                 channelId: f.seed.id,
                 projectId: f.source.project.id,
                 expectedRevision: 3,
@@ -508,7 +513,7 @@ it('preserves migrated attachment provenance and requires explicit management re
         ).toEqual([])
         const admin = f.context({ admin: true })
         expect(
-            f.store.attach(admin, {
+            await f.store.attach(admin, {
                 channelId: f.seed.id,
                 projectId: f.source.project.id,
                 expectedRevision: 3,
@@ -534,15 +539,17 @@ it('preserves migrated attachment provenance and requires explicit management re
                 .all(f.seed.id)
         ).toEqual([])
         expect(
-            f.store.transferManagement(admin, {
+            await f.store.transferManagement(admin, {
                 channelId: f.seed.id,
                 projectId: f.target.project.id,
                 expectedRevision: 4,
             })
         ).toEqual({ kind: 'changed', revision: 5 })
-        const event = createEventJournalStore(f.database)
-            .readWorkspaceAfter({ workspaceId: 'workspace' })
-            .at(-1)
+        const event = (
+            await createEventJournalStore(f.database).readWorkspaceAfter({
+                workspaceId: 'workspace',
+            })
+        ).at(-1)
         expect(event?.payload).toMatchObject({
             fromProjectId: null,
             toProjectId: f.target.project.id,
@@ -552,19 +559,19 @@ it('preserves migrated attachment provenance and requires explicit management re
     }
 })
 
-it('keeps last-retired resources available to workspace administrators without restoring project management implicitly', () => {
-    const f = fixture()
+it('keeps last-retired resources available to workspace administrators without restoring project management implicitly', async () => {
+    const f = await fixture()
     try {
-        f.store.detach(f.ctx, {
+        await f.store.detach(f.ctx, {
             channelId: f.channel.id,
             projectId: f.source.project.id,
             expectedRevision: 1,
             lastAttachment: 'archive',
         })
         expect(
-            f.store
-                .listProject(f.ctx, f.source.project.id, true)
-                ?.find(row => row.id === f.channel.id)
+            (await f.store.listProject(f.ctx, f.source.project.id, true))?.find(
+                row => row.id === f.channel.id
+            )
         ).toMatchObject({
             state: 'archived',
             canWithdraw: false,
@@ -573,26 +580,28 @@ it('keeps last-retired resources available to workspace administrators without r
         })
         const admin = f.context({ roles: new Map(), admin: true })
         expect(
-            f.store.listWorkspace(admin, 'workspace').find(row => row.id === f.channel.id)
+            (await f.store.listWorkspace(admin, 'workspace')).find(row => row.id === f.channel.id)
         ).toBeUndefined()
         expect(
-            f.store.listWorkspace(admin, 'workspace', true).find(row => row.id === f.channel.id)
+            (await f.store.listWorkspace(admin, 'workspace', true)).find(
+                row => row.id === f.channel.id
+            )
         ).toMatchObject({ state: 'archived', canManage: true, management: { kind: 'workspace' } })
-        expect(f.store.listProject(admin, f.source.project.id, true)).toBeNull()
+        expect(await f.store.listProject(admin, f.source.project.id, true)).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('withdraws from an already archived channel without repeating the archive decision or rewriting its timestamp', () => {
-    const f = fixture()
+it('withdraws from an already archived channel without repeating the archive decision or rewriting its timestamp', async () => {
+    const f = await fixture()
     try {
         f.database.$client
             .query("update channels set state='archived',archived_at=? where id=?")
             .run(f.now - 10, f.channel.id)
-        const before = createEventJournalStore(f.database).latestCursor()
+        const before = await createEventJournalStore(f.database).latestCursor()
         expect(
-            f.store.detach(f.ctx, {
+            await f.store.detach(f.ctx, {
                 channelId: f.channel.id,
                 projectId: f.source.project.id,
                 expectedRevision: 1,
@@ -604,23 +613,26 @@ it('withdraws from an already archived channel without repeating the archive dec
                 .get(f.channel.id)
         ).toEqual({ archived_at: f.now - 10 })
         expect(
-            createEventJournalStore(f.database)
-                .readWorkspaceAfter({ workspaceId: 'workspace', after: before })
-                .map(event => event.name)
+            (
+                await createEventJournalStore(f.database).readWorkspaceAfter({
+                    workspaceId: 'workspace',
+                    after: before,
+                })
+            ).map(event => event.name)
         ).toEqual(['channel.project_detached'])
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('reports only time taken by other projects, anonymously unless the project is readable', () => {
-    const f = fixture()
+it('reports only time taken by other projects, anonymously unless the project is readable', async () => {
+    const f = await fixture()
     try {
         const manual = createManualStore(f.database)
         const attach = (projectId: string, expectedRevision: number) =>
             f.store.attach(f.ctx, { channelId: f.channel.id, projectId, expectedRevision })
-        expect(attach(f.target.project.id, 1)).toEqual({ kind: 'changed', revision: 2 })
-        expect(attach(f.other.project.id, 2)).toEqual({ kind: 'changed', revision: 3 })
+        expect(await attach(f.target.project.id, 1)).toEqual({ kind: 'changed', revision: 2 })
+        expect(await attach(f.other.project.id, 2)).toEqual({ kind: 'changed', revision: 3 })
         const post = (
             project: typeof f.target,
             title: string,
@@ -634,15 +646,15 @@ it('reports only time taken by other projects, anonymously unless the project is
                 publications: publications.map(item => ({ ...item, deliveryMode: 'manual' })),
             })
         const at = Date.now() + 86_400_000
-        post(f.target, 'Visible launch', [{ channelId: f.channel.id, scheduledAt: at }])
-        post(f.target, 'Unscheduled draft', [{ channelId: f.channel.id }])
-        post(f.other, 'Confidential plan', [
+        await post(f.target, 'Visible launch', [{ channelId: f.channel.id, scheduledAt: at }])
+        await post(f.target, 'Unscheduled draft', [{ channelId: f.channel.id }])
+        await post(f.other, 'Confidential plan', [
             { channelId: f.channel.id, scheduledAt: at + 3_600_000 },
         ])
         const range = { from: at - 60_000, to: at + 7_200_000 }
 
         // A reader of the target sees that project in full and the other one anonymously.
-        const partial = f.store.occupancy(
+        const partial = (await f.store.occupancy(
             f.context({
                 roles: new Map([
                     [f.source.project.id, 'viewer'],
@@ -652,7 +664,7 @@ it('reports only time taken by other projects, anonymously unless the project is
             }),
             f.source.project.id,
             range
-        )!
+        ))!
         expect(partial.map(item => [item.at, item.state, item.project?.title ?? null])).toEqual([
             [at, 'scheduled', 'Visible launch'],
             [at + 3_600_000, 'scheduled', null],
@@ -663,14 +675,14 @@ it('reports only time taken by other projects, anonymously unless the project is
         expect(JSON.stringify(partial[1])).not.toContain(f.other.project.id)
 
         // With no other readable project every item is anonymous: drafts are neither shown nor counted.
-        const anonymous = f.store.occupancy(
+        const anonymous = (await f.store.occupancy(
             f.context({
                 roles: new Map([[f.source.project.id, 'viewer']]),
                 contextProjectId: f.source.project.id,
             }),
             f.source.project.id,
             range
-        )!
+        ))!
         expect(anonymous).toHaveLength(2)
         const text = JSON.stringify(anonymous)
         for (const secret of [
@@ -686,32 +698,32 @@ it('reports only time taken by other projects, anonymously unless the project is
 
         // Own work is never reported back, and a caller without read access learns nothing.
         expect(
-            f.store
-                .occupancy(
-                    f.context({
-                        roles: new Map([[f.target.project.id, 'viewer']]),
-                        contextProjectId: f.target.project.id,
-                    }),
-                    f.target.project.id,
-                    range
-                )!
-                .map(item => item.at)
+            (await f.store.occupancy(
+                f.context({
+                    roles: new Map([[f.target.project.id, 'viewer']]),
+                    contextProjectId: f.target.project.id,
+                }),
+                f.target.project.id,
+                range
+            ))!.map(item => item.at)
         ).toEqual([at + 3_600_000])
         expect(
-            f.store.occupancy(
+            await f.store.occupancy(
                 f.context({ roles: new Map(), contextProjectId: f.source.project.id }),
                 f.source.project.id,
                 range
             )
         ).toBeNull()
-        expect(() => f.store.occupancy(f.ctx, f.source.project.id, { from: 10, to: 10 })).toThrow()
+        await expect(
+            f.store.occupancy(f.ctx, f.source.project.id, { from: 10, to: 10 })
+        ).rejects.toThrow()
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('configures cadence only through live management, defaults the timezone and rejects stale revisions', () => {
-    const f = fixture()
+it('configures cadence only through live management, defaults the timezone and rejects stale revisions', async () => {
+    const f = await fixture()
     try {
         const input = {
             channelId: f.channel.id,
@@ -720,28 +732,31 @@ it('configures cadence only through live management, defaults the timezone and r
             weeklyMax: 5,
             minimumIntervalMs: 60000,
         }
-        expect(f.store.getCadence(f.ctx, f.channel.id)).toEqual({ rules: null, canManage: true })
+        expect(await f.store.getCadence(f.ctx, f.channel.id)).toEqual({
+            rules: null,
+            canManage: true,
+        })
         const target = f.context({
             roles: new Map([[f.target.project.id, 'owner']]),
             contextProjectId: f.target.project.id,
         })
-        expect(f.store.configureCadence(target, input)).toBeNull()
-        const saved = f.store.configureCadence(f.ctx, input)!
+        expect(await f.store.configureCadence(target, input)).toBeNull()
+        const saved = (await f.store.configureCadence(f.ctx, input))!
         expect(saved).toMatchObject({
             revision: 1,
             timeZone: f.source.project.timeZone,
             dailyMax: 2,
         })
-        expect(() => f.store.configureCadence(f.ctx, input)).toThrow('changed')
-        expect(() =>
+        await expect(f.store.configureCadence(f.ctx, input)).rejects.toThrow('changed')
+        await expect(
             f.store.configureCadence(f.ctx, {
                 ...input,
                 expectedRevision: 1,
                 timeZone: 'Invalid/Zone',
             })
-        ).toThrow('timezone')
+        ).rejects.toThrow('timezone')
         expect(
-            f.store.configureCadence(f.ctx, {
+            await f.store.configureCadence(f.ctx, {
                 ...input,
                 expectedRevision: 1,
                 dailyMax: null,
@@ -754,24 +769,24 @@ it('configures cadence only through live management, defaults the timezone and r
     }
 })
 
-it('checks planning atomically, binds confirmation to occupancy and replanning, and ignores drafts and cancellations', () => {
-    const f = fixture()
+it('checks planning atomically, binds confirmation to occupancy and replanning, and ignores drafts and cancellations', async () => {
+    const f = await fixture()
     try {
         const manual = createManualStore(f.database, { now: () => f.now })
         const projectId = f.source.project.id
         const channelId = f.channel.id
         const at = f.now + 86400000
-        const create = (scheduledAt: number | null, confirmation?: string) =>
-            manual.createPost({
+        const create = async (scheduledAt: number | null, confirmation?: string) =>
+            (await manual.createPost({
                 projectId,
                 subjectId: 'operator',
                 title: 'Private title',
                 sourceContent: { body: { format: 'plain_text', text: 'Private body' }, media: [] },
                 cadenceConfirmation: confirmation,
                 publications: [{ channelId, deliveryMode: 'manual', scheduledAt }],
-            })!
-        const first = create(at).publications[0]!
-        f.store.configureCadence(f.ctx, {
+            }))!
+        const first = (await create(at)).publications[0]!
+        await f.store.configureCadence(f.ctx, {
             channelId,
             expectedRevision: 0,
             timeZone: 'Europe/Paris',
@@ -779,10 +794,10 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
             weeklyMax: 1,
             minimumIntervalMs: null,
         })
-        create(null)
-        const capture = (action: () => unknown) => {
+        await create(null)
+        const capture = async (action: () => Promise<unknown>) => {
             try {
-                action()
+                await action()
                 throw new Error('Expected cadence conflict')
             } catch (error) {
                 expect(error).toBeInstanceOf(CadenceConflictError)
@@ -792,13 +807,13 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
         const before = f.database.$client
             .query<{ n: number }, []>('select count(*) as n from posts')
             .get()!.n
-        const conflict = capture(() => create(at))
+        const conflict = await capture(() => create(at))
         expect(conflict.warnings.map(w => w.rule)).toEqual(['daily_max', 'weekly_max'])
         expect(JSON.stringify(conflict)).not.toContain('Private')
         expect(f.database.$client.query('select count(*) as n from posts').get()).toEqual({
             n: before,
         })
-        const second = create(at, conflict.confirmation).publications[0]!
+        const second = (await create(at, conflict.confirmation)).publications[0]!
         expect(
             f.database.$client
                 .query(
@@ -806,17 +821,21 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
                 )
                 .all()
         ).toHaveLength(1)
-        const stale = capture(() => create(at, conflict.confirmation))
+        const stale = await capture(() => create(at, conflict.confirmation))
         expect(stale.confirmation).not.toBe(conflict.confirmation)
-        manual.cancelPublications({ projectId, subjectId: 'operator', publicationIds: [second.id] })
-        manual.reschedulePublications({
+        await manual.cancelPublications({
+            projectId,
+            subjectId: 'operator',
+            publicationIds: [second.id],
+        })
+        await manual.reschedulePublications({
             projectId,
             subjectId: 'operator',
             publicationIds: [first.id],
             scheduledAt: at + 8 * 86400000,
         })
-        expect(create(at).publications[0]!.scheduledAt).toBe(at)
-        const reschedule = capture(() =>
+        expect((await create(at)).publications[0]!.scheduledAt).toBe(at)
+        const reschedule = await capture(() =>
             manual.reschedulePublications({
                 projectId,
                 subjectId: 'operator',
@@ -824,7 +843,7 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
                 scheduledAt: at,
             })
         )
-        expect(() =>
+        await expect(
             manual.reschedulePublications({
                 projectId,
                 subjectId: 'operator',
@@ -832,9 +851,9 @@ it('checks planning atomically, binds confirmation to occupancy and replanning, 
                 scheduledAt: at + 1,
                 cadenceConfirmation: reschedule.confirmation,
             })
-        ).toThrow(CadenceConflictError)
+        ).rejects.toThrow(CadenceConflictError)
         expect(
-            manual.reschedulePublications({
+            await manual.reschedulePublications({
                 projectId,
                 subjectId: 'operator',
                 publicationIds: [first.id],
@@ -861,24 +880,24 @@ it('uses civil days and Monday weeks across daylight saving and year boundaries'
     )
 })
 
-it('persists an attributed single-effect spacing override and invalidates it on replanning', () => {
-    const f = fixture()
+it('persists an attributed single-effect spacing override and invalidates it on replanning', async () => {
+    const f = await fixture()
     try {
         const manual = createManualStore(f.database, { now: () => f.now })
         const projectId = f.source.project.id
         const at = f.now + 10000
-        const created = manual.createPost({
+        const created = (await manual.createPost({
             projectId,
             subjectId: 'operator',
             sourceContent: { body: { format: 'plain_text', text: 'Body' }, media: [] },
             publications: [{ channelId: f.channel.id, deliveryMode: 'manual', scheduledAt: at }],
-        })!
+        }))!
         const publication = created.publications[0]!
         // The pacing service also serves automatic work without requiring a live provider in this fixture.
         f.database.$client
             .query("update publications set delivery_mode='automatic' where id=?")
             .run(publication.id)
-        f.store.configureCadence(f.ctx, {
+        await f.store.configureCadence(f.ctx, {
             channelId: f.channel.id,
             expectedRevision: 0,
             dailyMax: null,
@@ -889,13 +908,13 @@ it('persists an attributed single-effect spacing override and invalidates it on 
             .query('update channel_cadence set last_effect_at=? where channel_id=?')
             .run(f.now, f.channel.id)
         const cadence = createChannelCadenceStore(f.database)
-        const timing = cadence.timing(projectId, publication.id)!
+        const timing = (await cadence.timing(projectId, publication.id))!
         expect(timing).toMatchObject({
             reason: 'minimum_interval',
             eligibleAt: f.now + 60000,
             scheduledAt: at,
         })
-        expect(() =>
+        await expect(
             cadence.override.immediate({
                 projectId,
                 publicationId: publication.id,
@@ -903,9 +922,9 @@ it('persists an attributed single-effect spacing override and invalidates it on 
                 now: f.now,
                 confirmation: 'stale',
             })
-        ).toThrow(CadenceConflictError)
+        ).rejects.toThrow(CadenceConflictError)
         expect(
-            cadence.override.immediate({
+            await cadence.override.immediate({
                 projectId,
                 publicationId: publication.id,
                 actorId: f.source.actor.id,
@@ -913,35 +932,39 @@ it('persists an attributed single-effect spacing override and invalidates it on 
                 confirmation: timing.confirmation,
             })
         ).toMatchObject({ reason: null, eligibleAt: at })
-        manual.reschedulePublications({
+        await manual.reschedulePublications({
             projectId,
             subjectId: 'operator',
             publicationIds: [publication.id],
             scheduledAt: at,
         })
-        expect(cadence.timing(projectId, publication.id)?.reason).toBe('minimum_interval')
-        cadence.override.immediate({
+        expect((await cadence.timing(projectId, publication.id))?.reason).toBe('minimum_interval')
+        await cadence.override.immediate({
             projectId,
             publicationId: publication.id,
             actorId: f.source.actor.id,
             now: f.now,
-            confirmation: cadence.timing(projectId, publication.id)!.confirmation,
+            confirmation: (await cadence.timing(projectId, publication.id))!.confirmation,
         })
-        cadence.recordEffect(publication.id, f.now + 1)
-        expect(cadence.timing(projectId, publication.id)?.eligibleAt).toBe(f.now + 60001)
+        await cadence.recordEffect(publication.id, f.now + 1)
+        expect((await cadence.timing(projectId, publication.id))?.eligibleAt).toBe(f.now + 60001)
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('counts shared manual work at its recorded outcome time without exposing its content', () => {
-    const f = fixture()
+it('counts shared manual work at its recorded outcome time without exposing its content', async () => {
+    const f = await fixture()
     try {
         let now = f.now
         const manual = createManualStore(f.database, { now: () => now })
         const channelId = f.channel.id
-        f.store.attach(f.ctx, { channelId, projectId: f.target.project.id, expectedRevision: 1 })
-        const hidden = manual.createPost({
+        await f.store.attach(f.ctx, {
+            channelId,
+            projectId: f.target.project.id,
+            expectedRevision: 1,
+        })
+        const hidden = (await manual.createPost({
             projectId: f.target.project.id,
             subjectId: 'operator',
             title: 'Confidential campaign',
@@ -950,16 +973,18 @@ it('counts shared manual work at its recorded outcome time without exposing its 
                 media: [],
             },
             publications: [{ channelId, deliveryMode: 'manual', scheduledAt: now }],
-        })!.publications[0]!
+        }))!.publications[0]!
         now += 8 * 86400000
         expect(
-            manual.publishManualPublication({
-                projectId: f.target.project.id,
-                publicationId: hidden.id,
-                subjectId: 'operator',
-            })?.publishedAt
+            (
+                await manual.publishManualPublication({
+                    projectId: f.target.project.id,
+                    publicationId: hidden.id,
+                    subjectId: 'operator',
+                })
+            )?.publishedAt
         ).toBe(now)
-        f.store.configureCadence(f.ctx, {
+        await f.store.configureCadence(f.ctx, {
             channelId,
             expectedRevision: 0,
             dailyMax: 1,
@@ -967,7 +992,7 @@ it('counts shared manual work at its recorded outcome time without exposing its 
             minimumIntervalMs: 60000,
         })
         try {
-            manual.createPost({
+            await manual.createPost({
                 projectId: f.source.project.id,
                 subjectId: 'operator',
                 sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
@@ -982,7 +1007,9 @@ it('counts shared manual work at its recorded outcome time without exposing its 
             expect(JSON.stringify(error)).not.toContain('Confidential')
             expect(JSON.stringify(error)).not.toContain(f.target.project.id)
         }
-        expect(createChannelCadenceStore(f.database).eligibleAt(hidden.id, now)).toBe(now + 60000)
+        expect(await createChannelCadenceStore(f.database).eligibleAt(hidden.id, now)).toBe(
+            now + 60000
+        )
     } finally {
         closeDatabase(f.database)
     }

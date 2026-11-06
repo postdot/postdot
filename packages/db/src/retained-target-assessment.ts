@@ -1,48 +1,24 @@
-import { assessChannelProfileChange, type ValidationIssue } from '@postdot/core'
-import { and, eq } from 'drizzle-orm'
+import type { ValidationIssue } from '@postdot/core'
 
 import { recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
+import { assessChannelProfileChangeAsync } from './manual-store/channel-profile-impact'
 import { parseJsonObject, parseProfile } from './manual-store/content-codec'
 import { assessPinnedTargetMedia } from './manual-store/publication-media'
 import type { TargetRevisionMediaRow } from './manual-store/rows'
-import { mediaAssets, mediaRepresentations } from './schema'
+import { createSystemMediaReader } from './media-asset-store'
 
 /** Reassess the immutable selected target, never the mutable working draft. */
 export function createRetainedTargetAssessor(
     database: PostdotDatabase,
     publicMediaUrlAvailable = false
 ) {
-    const client = database.$client
+    const sql = database.sql
     // System work owns project data independently of the original author's current membership.
-    const media = {
-        getAsset(projectId: string, assetId: string) {
-            const asset = database
-                .select()
-                .from(mediaAssets)
-                .where(and(eq(mediaAssets.projectId, projectId), eq(mediaAssets.id, assetId)))
-                .get()
-            if (!asset || asset.archivedAt !== null) return null
-            const representations = database
-                .select()
-                .from(mediaRepresentations)
-                .where(
-                    and(
-                        eq(mediaRepresentations.projectId, projectId),
-                        eq(mediaRepresentations.assetId, assetId)
-                    )
-                )
-                .all()
-                .map(row => ({
-                    ...row,
-                    recipeJson: row.recipeJson === null ? null : JSON.stringify(row.recipeJson),
-                }))
-            return { asset, representations }
-        },
-    }
-    return (projectId: string, publicationId: string, actorId: string, at: number) => {
-        const row = client
-            .query<
+    const media = createSystemMediaReader(database)
+    return async (projectId: string, publicationId: string, actorId: string, at: number) => {
+        const row = await sql
+            .statement<
                 {
                     activeId: string
                     activeJson: string
@@ -79,26 +55,28 @@ export function createRetainedTargetAssessor(
             row.ownedState !== 'disabled'
         )
             return row.reviewState === 'compatible'
-        const pinned = client
-            .query<TargetRevisionMediaRow, [string, string]>(`
+        const pinned = await sql
+            .statement<TargetRevisionMediaRow, [string, string]>(`
             select id, project_id as projectId, target_revision_id as targetRevisionId,
                    asset_id as assetId, representation_id as representationId, position,
                    content_path as contentPath, role, accessibility_text as accessibilityText
             from publication_revision_media where project_id = ? and target_revision_id = ? order by position, id
         `)
             .all(projectId, row.targetId)
-        const result = assessChannelProfileChange({
-            currentProfile: parseProfile(row.ownedJson),
-            proposedProfile: parseProfile(row.activeJson),
-            pendingTargets: [
-                {
-                    id: publicationId,
-                    kind: 'pending_target',
-                    deliveryMode: 'automatic',
-                    content: parseJsonObject(row.contentJson, 'selected target'),
-                },
-            ],
-            validateMedia: (candidate, profile) =>
+        const result = await assessChannelProfileChangeAsync(
+            {
+                currentProfile: parseProfile(row.ownedJson),
+                proposedProfile: parseProfile(row.activeJson),
+                pendingTargets: [
+                    {
+                        id: publicationId,
+                        kind: 'pending_target',
+                        deliveryMode: 'automatic',
+                        content: parseJsonObject(row.contentJson, 'selected target'),
+                    },
+                ],
+            },
+            (candidate, profile) =>
                 assessPinnedTargetMedia(
                     profile,
                     candidate.content,
@@ -107,8 +85,8 @@ export function createRetainedTargetAssessor(
                     media,
                     pinned,
                     publicMediaUrlAvailable
-                ),
-        })
+                )
+        )
         const issues: readonly ValidationIssue[] =
             row.activeState === 'disabled' || row.ownedState === 'disabled'
                 ? [
@@ -132,12 +110,12 @@ export function createRetainedTargetAssessor(
             row.reviewState !== state ||
             row.issuesJson !== json
         ) {
-            client
-                .query(
+            await sql
+                .statement(
                     `update publications set review_state = ?, profile_assessment_issues_json = ?, last_assessed_profile_version_id = ?, updated_at = ? where project_id = ? and id = ?`
                 )
                 .run(state, json, row.activeId, at, projectId, publicationId)
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 projectId,
                 actorId,
                 name: 'publication.profile_assessed',

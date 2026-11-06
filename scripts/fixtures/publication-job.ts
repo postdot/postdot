@@ -58,7 +58,7 @@ try {
         .values({
             id: 'project',
             name: 'Footprint project',
-            workspaceId: seedTestWorkspace(database),
+            workspaceId: await seedTestWorkspace(database),
         })
         .run()
     database
@@ -78,7 +78,7 @@ try {
             },
         ])
         .run()
-    const owned = seedWorkspaceChannel(database, {
+    const owned = await seedWorkspaceChannel(database, {
         projectId: 'project',
         channelId: 'channel',
         name: 'Footprint channel',

@@ -107,12 +107,12 @@ export async function restoreCredentialBlueskySession(input: {
                 },
                 async del(key) {
                     if (key === input.accountId)
-                        (active?.markReconnectRequired ?? initial.markReconnectRequired)()
+                        await (active?.markReconnectRequired ?? initial.markReconnectRequired)()
                 },
             },
         })
     } catch (error) {
-        if (!input.signal?.aborted) initial.markReconnectRequired()
+        if (!input.signal?.aborted) await initial.markReconnectRequired()
         throw error
     }
 }

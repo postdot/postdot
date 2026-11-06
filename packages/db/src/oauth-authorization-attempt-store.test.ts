@@ -15,20 +15,20 @@ async function stateDigest(value: string): Promise<Uint8Array> {
     return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))
 }
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
 
     let timestamp = now
     let sequence = 0
     const manualStore = createManualStore(database, { now: () => timestamp })
-    const project = manualStore.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manualStore.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'OAuth Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
     })
-    const channel = manualStore.createChannel({
+    const channel = await manualStore.createChannel({
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'LinkedIn',
@@ -63,7 +63,10 @@ function createFixture() {
     }
 }
 
-async function createAttemptInput(fixture: ReturnType<typeof createFixture>, state: string) {
+async function createAttemptInput(
+    fixture: Awaited<ReturnType<typeof createFixture>>,
+    state: string
+) {
     return {
         projectId: fixture.project.project.id,
         channelId: fixture.channel.id,
@@ -78,7 +81,7 @@ async function createAttemptInput(fixture: ReturnType<typeof createFixture>, sta
 }
 
 it('reads a bound pending provider phase without consuming it or exposing the PKCE verifier', async () => {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     try {
         const input = {
             ...(await createAttemptInput(fixture, 'pending-page-choice')),
@@ -127,7 +130,7 @@ it('reads a bound pending provider phase without consuming it or exposing the PK
 })
 
 it('expired pending provider inspection erases the encrypted state instead of revealing it', async () => {
-    const fixture = createFixture()
+    const fixture = await createFixture()
     try {
         const input = {
             ...(await createAttemptInput(fixture, 'expired-page-choice')),
@@ -152,10 +155,10 @@ it('expired pending provider inspection erases the encrypted state instead of re
 
 describe('OAuth authorization attempt store', () => {
     it('rejects authorization attempts for archived channels', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
-            const archived = fixture.manualStore.archiveChannel({
+            const archived = await fixture.manualStore.archiveChannel({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -173,7 +176,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('stores only a state digest and encrypted PKCE verifier', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = await createAttemptInput(fixture, 'raw-state-value')
@@ -211,7 +214,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('supports providers whose authorization flow does not use PKCE', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = await createAttemptInput(fixture, 'non-pkce-state')
@@ -242,7 +245,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('stores provider OAuth state encrypted and releases it only on a valid callback', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const providerState = JSON.stringify({
@@ -285,7 +288,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('consumes once, returns the verifier internally, and erases its envelope', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = await createAttemptInput(fixture, 'state-once')
@@ -325,7 +328,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('rejects binding mismatches without invalidating the legitimate callback', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             fixture.database
@@ -373,7 +376,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('expires pending attempts and erases verifiers before rejecting callbacks', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const first = await createAttemptInput(fixture, 'expired-on-callback')
@@ -397,15 +400,15 @@ describe('OAuth authorization attempt store', () => {
             const second = await createAttemptInput(fixture, 'expired-by-cleanup')
             await fixture.store.createAuthorizationAttempt(second)
             fixture.advance(60_000)
-            expect(fixture.store.expireAuthorizationAttempts()).toBe(1)
-            expect(fixture.store.expireAuthorizationAttempts()).toBe(0)
+            expect(await fixture.store.expireAuthorizationAttempts()).toBe(1)
+            expect(await fixture.store.expireAuthorizationAttempts()).toBe(0)
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
     it('serializes replay races and state-digest collisions', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = await createAttemptInput(fixture, 'race-state')
@@ -431,7 +434,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('fails closed after consumption when the deployment key is wrong', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const input = await createAttemptInput(fixture, 'wrong-key-state')
@@ -463,7 +466,7 @@ describe('OAuth authorization attempt store', () => {
     })
 
     it('rejects invalid bindings, return paths, state digests, and verifiers', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
 
         try {
             const valid = await createAttemptInput(fixture, 'validation-state')

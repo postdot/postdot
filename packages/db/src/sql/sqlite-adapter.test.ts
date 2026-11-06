@@ -6,7 +6,6 @@ import { join } from 'node:path'
 import {
     closeDatabase,
     createDatabase,
-    createDatabaseTransaction,
     defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
@@ -110,6 +109,7 @@ describe('SQLite persistence port', () => {
                 ])
             })
         ).rejects.toThrow('Concurrent nested transactions are not supported')
+        await Bun.sleep(5)
         expect(await values()).toEqual([])
     })
 
@@ -127,6 +127,26 @@ describe('SQLite persistence port', () => {
             )
         )
         expect(order).toEqual(['begin a', 'end a', 'begin b', 'end b', 'begin c', 'end c'])
+    })
+
+    test('drains descendants before rolling back a failed savepoint', async () => {
+        await database.sql.transaction(async () => {
+            await insert('before')
+            await expect(
+                database.sql.transaction(async () => {
+                    await Promise.all([
+                        database.sql.transaction(async () => {
+                            await Bun.sleep(1)
+                            await insert('late')
+                        }),
+                        database.sql.transaction(() => insert('racing')),
+                    ])
+                })
+            ).rejects.toThrow('Concurrent nested transactions are not supported')
+            expect(await values()).toEqual(['before'])
+            await insert('after')
+        })
+        expect(await values()).toEqual(['before', 'after'])
     })
 
     test('runs after-commit callbacks only after the outermost commit', async () => {
@@ -180,19 +200,5 @@ describe('SQLite persistence port', () => {
 
         await transaction('project-1').catch(() => undefined)
         expect(published).toHaveLength(1)
-    })
-
-    test('refuses a legacy synchronous transaction while the writer is busy', async () => {
-        const legacy = createDatabaseTransaction(database, () => {
-            database.$client.run("insert into items (v) values ('legacy')")
-        })
-        await expect(
-            database.sql.transaction(async () => {
-                await insert('async')
-                legacy.immediate()
-            })
-        ).rejects.toThrow('Synchronous transaction attempted while the SQLite writer is busy')
-        legacy.immediate()
-        expect(await values()).toEqual(['legacy'])
     })
 })

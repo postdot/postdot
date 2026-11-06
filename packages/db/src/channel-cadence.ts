@@ -2,11 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { DomainInvariantError } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
+import { mapSequential } from './sql/sequential'
 
 export interface ChannelCadence {
     channelId: string
@@ -62,66 +59,68 @@ export const cadenceEligibleAtSql = `max(jobs.run_at, coalesce((
 ), 0))`
 
 export function createChannelCadenceStore(database: PostdotDatabase) {
-    const client = database.$client
-    const get = (channelId: string): ChannelCadence | null =>
-        client
-            .query<ChannelCadence, [string]>(`
+    const sql = database.sql
+    const get = async (channelId: string): Promise<ChannelCadence | null> =>
+        await sql
+            .statement<ChannelCadence, [string]>(`
         select channel_id as channelId, revision, time_zone as timeZone, daily_max as dailyMax,
         weekly_max as weeklyMax, minimum_interval_ms as minimumIntervalMs from channel_cadence where channel_id=?
     `)
             .get(channelId)
-    const timing = (projectId: string, publicationId: string) => {
-        const row = client
-            .query<
-                { channelId: string; scheduledAt: number; state: string; runAt: number },
-                [string, string]
-            >(`
+    const timing = async (projectId: string, publicationId: string) => {
+        return database.sql.transaction(async () => {
+            const row = await sql
+                .statement<
+                    { channelId: string; scheduledAt: number; state: string; runAt: number },
+                    [string, string]
+                >(`
             select p.channel_id as channelId,p.scheduled_at as scheduledAt,p.state,
                 coalesce((select j.run_at from jobs j where j.publication_id=p.id and j.state='pending' limit 1),p.scheduled_at) as runAt
             from publications p where p.project_id=? and p.id=? and p.delivery_mode='automatic' and p.state in ('scheduled','ready')
         `)
-            .get(projectId, publicationId)
-        if (!row || row.scheduledAt === null) return null
-        const rules = get(row.channelId)
-        const eligibleAt = client
-            .query<{ at: number }, [number, string]>(`select ${cadenceEligibleAtSql} as at
+                .get(projectId, publicationId)
+            if (!row || row.scheduledAt === null) return null
+            const rules = await get(row.channelId)
+            const eligibleAt = (await sql
+                .statement<{ at: number }, [number, string]>(`select ${cadenceEligibleAtSql} as at
             from (select ?1 as run_at) jobs join publications on publications.id=?2`)
-            .get(row.runAt, publicationId)!.at
-        return {
-            scheduledAt: row.scheduledAt,
-            eligibleAt,
-            reason: eligibleAt > row.runAt ? ('minimum_interval' as const) : null,
-            confirmation: cadenceFingerprint({ publicationId, ...row, rules, eligibleAt }),
-        }
+                .get(row.runAt, publicationId))!.at
+            return {
+                scheduledAt: row.scheduledAt,
+                eligibleAt,
+                reason: eligibleAt > row.runAt ? ('minimum_interval' as const) : null,
+                confirmation: cadenceFingerprint({ publicationId, ...row, rules, eligibleAt }),
+            }
+        }, 'deferred')
     }
     return {
         get,
         timing,
-        override: createDatabaseTransaction(
+        override: defineTransaction(
             database,
-            (input: {
+            async (input: {
                 projectId: string
                 publicationId: string
                 actorId: string
                 confirmation: string
                 now: number
             }) => {
-                const current = timing(input.projectId, input.publicationId)
+                const current = await timing(input.projectId, input.publicationId)
                 if (!current || current.reason === null) return null
                 if (current.confirmation !== input.confirmation)
                     throw new CadenceConflictError(current.confirmation, [])
-                const row = client
-                    .query<{ channelId: string; state: string }, [string]>(
+                const row = (await sql
+                    .statement<{ channelId: string; state: string }, [string]>(
                         'select channel_id as channelId,state from publications where id=?'
                     )
-                    .get(input.publicationId)!
+                    .get(input.publicationId))!
                 if (!['scheduled', 'ready'].includes(row.state))
                     throw new DomainInvariantError(
                         'invalid_transition',
                         'Only pending work can override spacing'
                     )
-                const usable = client
-                    .query(`select 1 from publications p join channels c on c.id=p.channel_id
+                const usable = await sql
+                    .statement(`select 1 from publications p join channels c on c.id=p.channel_id
                     join project_channel_attachments a on a.channel_id=p.channel_id and a.project_id=p.project_id
                     where p.id=? and c.state='active' and a.state='active'
                     and not exists (select 1 from resource_lifecycles l where l.state<>'active'
@@ -132,9 +131,9 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                         'invalid_transition',
                         'The channel is unavailable for new effects'
                     )
-                const rules = get(row.channelId)!
-                client
-                    .query(`insert into publication_cadence_overrides (publication_id,rules_revision,scheduled_at,actor_id,created_at)
+                const rules = (await get(row.channelId))!
+                await sql
+                    .statement(`insert into publication_cadence_overrides (publication_id,rules_revision,scheduled_at,actor_id,created_at)
                 values (?,?,?,?,?) on conflict(publication_id) do update set rules_revision=excluded.rules_revision,scheduled_at=excluded.scheduled_at,actor_id=excluded.actor_id,created_at=excluded.created_at`)
                     .run(
                         input.publicationId,
@@ -143,8 +142,8 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                         input.actorId,
                         input.now
                     )
-                client
-                    .query(`insert into audit_events (id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at)
+                await sql
+                    .statement(`insert into audit_events (id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at)
                 values (?,?,?,'publication.cadence_spacing_overridden','publication',?,?,?)`)
                     .run(
                         crypto.randomUUID(),
@@ -164,7 +163,7 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
             }
         ),
         /** Called only inside the planning writer's immediate transaction. */
-        check(input: {
+        async check(input: {
             projectId: string
             actorId: string
             now: number
@@ -177,22 +176,28 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                 immediate?: boolean
             }[]
         }) {
-            for (const candidate of input.candidates)
-                client
-                    .query('delete from publication_cadence_overrides where publication_id=?')
-                    .run(candidate.id)
-            const warnings: CadenceWarning[] = []
-            const snapshots: unknown[] = []
-            for (const channelId of [...new Set(input.candidates.map(p => p.channelId))].sort()) {
-                if (!input.candidates.some(c => c.channelId === channelId && c.at !== null))
-                    continue
-                const rules = get(channelId)
-                if (!rules || (rules.dailyMax === null && rules.weeklyMax === null)) continue
-                const existing = client
-                    .query<
-                        { id: string; at: number; state: string; updatedAt: number },
-                        [string, number, number]
-                    >(`
+            return database.sql.transaction(async () => {
+                for (const candidate of input.candidates)
+                    await sql
+                        .statement(
+                            'delete from publication_cadence_overrides where publication_id=?'
+                        )
+                        .run(candidate.id)
+                const warnings: CadenceWarning[] = []
+                const snapshots: unknown[] = []
+                for (const channelId of [
+                    ...new Set(input.candidates.map(p => p.channelId)),
+                ].sort()) {
+                    if (!input.candidates.some(c => c.channelId === channelId && c.at !== null))
+                        continue
+                    const rules = await get(channelId)
+                    if (!rules || (rules.dailyMax === null && rules.weeklyMax === null)) continue
+                    const existing = (
+                        await sql
+                            .statement<
+                                { id: string; at: number; state: string; updatedAt: number },
+                                [string, number, number]
+                            >(`
                     select p.id, coalesce(p.published_at,p.scheduled_at,p.updated_at) as at,p.state,p.updated_at as updatedAt, (select max(e.sequence) from audit_events e where e.entity_id=p.id and e.project_id=p.project_id) as journalRevision
                     from publications p where p.channel_id=?
                     and p.state in ('scheduled','ready','publishing','published','ambiguous')
@@ -202,102 +207,117 @@ export function createChannelCadenceStore(database: PostdotDatabase) {
                         and a.project_id=p.project_id and a.state='active'
                     )) order by p.id
                 `)
-                    .all(
-                        channelId,
-                        Math.min(
-                            ...input.candidates
-                                .filter(c => c.channelId === channelId && c.at !== null)
-                                .map(c => c.at!)
-                        ) -
-                            8 * 86400000,
-                        Math.max(
-                            ...input.candidates
-                                .filter(c => c.channelId === channelId && c.at !== null)
-                                .map(c => c.at!)
-                        ) +
-                            8 * 86400000
+                            .all(
+                                channelId,
+                                Math.min(
+                                    ...input.candidates
+                                        .filter(c => c.channelId === channelId && c.at !== null)
+                                        .map(c => c.at!)
+                                ) -
+                                    8 * 86400000,
+                                Math.max(
+                                    ...input.candidates
+                                        .filter(c => c.channelId === channelId && c.at !== null)
+                                        .map(c => c.at!)
+                                ) +
+                                    8 * 86400000
+                            )
+                    ).filter(p => !input.candidates.some(c => c.id === p.id))
+                    const candidates = input.candidates.filter(
+                        p => p.channelId === channelId && p.at !== null
                     )
-                    .filter(p => !input.candidates.some(c => c.id === p.id))
-                const candidates = input.candidates.filter(
-                    p => p.channelId === channelId && p.at !== null
-                )
-                const all = [...existing, ...candidates.map(p => ({ ...p, at: p.at! }))]
-                snapshots.push({ rules, existing })
-                for (const rule of ['daily_max', 'weekly_max'] as const) {
-                    const maximum = rule === 'daily_max' ? rules.dailyMax : rules.weeklyMax
-                    if (maximum === null) continue
-                    const key = rule === 'daily_max' ? 'day' : 'week'
-                    const periods = new Set(
-                        candidates.map(p => cadencePeriod(p.at!, rules.timeZone)[key])
-                    )
-                    for (const period of [...periods].sort()) {
-                        const count = all.filter(
-                            p => cadencePeriod(p.at, rules.timeZone)[key] === period
-                        ).length
-                        if (count > maximum)
-                            warnings.push({ channelId, rule, period, maximum, count })
+                    const all = [...existing, ...candidates.map(p => ({ ...p, at: p.at! }))]
+                    snapshots.push({ rules, existing })
+                    for (const rule of ['daily_max', 'weekly_max'] as const) {
+                        const maximum = rule === 'daily_max' ? rules.dailyMax : rules.weeklyMax
+                        if (maximum === null) continue
+                        const key = rule === 'daily_max' ? 'day' : 'week'
+                        const periods = new Set(
+                            candidates.map(p => cadencePeriod(p.at!, rules.timeZone)[key])
+                        )
+                        for (const period of [...periods].sort()) {
+                            const count = all.filter(
+                                p => cadencePeriod(p.at, rules.timeZone)[key] === period
+                            ).length
+                            if (count > maximum)
+                                warnings.push({ channelId, rule, period, maximum, count })
+                        }
                     }
                 }
-            }
-            if (!warnings.length) return
-            const confirmation = cadenceFingerprint({
-                projectId: input.projectId,
-                candidates: input.candidates.map(({ actualId: _actualId, ...candidate }) =>
-                    candidate.immediate
-                        ? {
-                              ...candidate,
-                              at: cadencePeriod(candidate.at!, get(candidate.channelId)!.timeZone),
-                          }
-                        : candidate
-                ),
-                publicationRevisions: input.candidates.map(candidate =>
-                    client
-                        .query(`select p.id,p.state,p.scheduled_at,p.updated_at,p.target_revision_id,
+                if (!warnings.length) return
+                const confirmation = cadenceFingerprint({
+                    projectId: input.projectId,
+                    candidates: await mapSequential(
+                        input.candidates,
+                        async ({ actualId: _actualId, ...candidate }) =>
+                            candidate.immediate
+                                ? {
+                                      ...candidate,
+                                      at: cadencePeriod(
+                                          candidate.at!,
+                                          (await get(candidate.channelId))!.timeZone
+                                      ),
+                                  }
+                                : candidate
+                    ),
+                    publicationRevisions: await mapSequential(
+                        input.candidates,
+                        async candidate =>
+                            await sql
+                                .statement(`select p.id,p.state,p.scheduled_at,p.updated_at,p.target_revision_id,
                     (select max(e.sequence) from audit_events e where e.entity_id=p.id and e.project_id=p.project_id) as journalRevision
                     from publications p where p.project_id=? and p.id=?`)
-                        .get(input.projectId, candidate.id)
-                ),
-                snapshots,
-                warnings,
-            })
-            if (confirmation !== input.confirmation)
-                throw new CadenceConflictError(confirmation, warnings)
-            client
-                .query(`insert into audit_events (id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at)
+                                .get(input.projectId, candidate.id)
+                    ),
+                    snapshots,
+                    warnings,
+                })
+                if (confirmation !== input.confirmation)
+                    throw new CadenceConflictError(confirmation, warnings)
+                await sql
+                    .statement(`insert into audit_events (id,project_id,actor_id,action,entity_type,entity_id,metadata_json,created_at)
                 values (?,?,?,'publication.cadence_confirmed','channel',?,?,?)`)
-                .run(
-                    crypto.randomUUID(),
-                    input.projectId,
-                    input.actorId,
-                    warnings[0]!.channelId,
-                    JSON.stringify({
-                        confirmation,
-                        warnings,
-                        candidates: input.candidates.map(c => ({ ...c, id: c.actualId ?? c.id })),
-                    }),
-                    input.now
-                )
+                    .run(
+                        crypto.randomUUID(),
+                        input.projectId,
+                        input.actorId,
+                        warnings[0]!.channelId,
+                        JSON.stringify({
+                            confirmation,
+                            warnings,
+                            candidates: input.candidates.map(c => ({
+                                ...c,
+                                id: c.actualId ?? c.id,
+                            })),
+                        }),
+                        input.now
+                    )
+            }, 'immediate')
         },
-        eligibleAt(publicationId: string, runAt: number): number {
+        async eligibleAt(publicationId: string, runAt: number): Promise<number> {
             return (
-                client
-                    .query<{ at: number }, [number, string]>(`
+                (
+                    await sql
+                        .statement<{ at: number }, [number, string]>(`
                 select ${cadenceEligibleAtSql} as at from (select ?1 as run_at) jobs
                 join publications on publications.id=?2
             `)
-                    .get(runAt, publicationId)?.at ?? runAt
+                        .get(runAt, publicationId)
+                )?.at ?? runAt
             )
         },
-        recordEffect(publicationId: string, now: number) {
-            client
-                .query(
-                    `update channel_cadence set last_effect_at=? where channel_id=(select channel_id from publications where id=?)`
-                )
-                .run(now, publicationId)
-            // A spacing override admits one effect, never every retry of that publication.
-            client
-                .query('delete from publication_cadence_overrides where publication_id=?')
-                .run(publicationId)
+        async recordEffect(publicationId: string, now: number) {
+            return database.sql.transaction(async () => {
+                await sql
+                    .statement(
+                        `update channel_cadence set last_effect_at=? where channel_id=(select channel_id from publications where id=?)`
+                    )
+                    .run(now, publicationId)
+                // A spacing override admits one effect, never every retry of that publication.
+                await sql
+                    .statement('delete from publication_cadence_overrides where publication_id=?')
+                    .run(publicationId)
+            }, 'immediate')
         },
     }
 }

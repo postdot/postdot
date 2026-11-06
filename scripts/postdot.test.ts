@@ -240,7 +240,7 @@ describe('machine publication workflow', () => {
                 accessToken: 'FAKE_CLI_PUBLISHER_SECRET',
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
-            const connection = publisher.publisherStore.createPublisherConnection({
+            const connection = await publisher.publisherStore.createPublisherConnection({
                 projectId: project.id,
                 channelId: connectionChannelId,
                 subjectId: userId,

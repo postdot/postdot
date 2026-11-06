@@ -61,13 +61,13 @@ export function sameDestination(
     )
 }
 
-export function readChannelDestination(
+export async function readChannelDestination(
     database: PostdotDatabase,
     projectId: string,
     channelId: string
 ) {
-    const row = database.$client
-        .query<
+    const row = await database.sql
+        .statement<
             {
                 providerId: string
                 externalAccountId: string
@@ -92,18 +92,20 @@ export function readChannelDestination(
 }
 
 /** This predicate is shared by claim, effect admission, retry and public state reads. */
-export function publicationDestinationConfirmed(
+export async function publicationDestinationConfirmed(
     database: PostdotDatabase,
     projectId: string,
     publicationId: string
 ) {
     return (
-        database.$client
-            .query<{ confirmed: number }, [string, string]>(`
+        (
+            await database.sql
+                .statement<{ confirmed: number }, [string, string]>(`
         select p.confirmed_destination_revision = c.destination_revision as confirmed
         from publications p join project_channel_contexts c on c.project_id = p.project_id and c.id = p.channel_id
         where p.project_id = ? and p.id = ?
     `)
-            .get(projectId, publicationId)?.confirmed === 1
+                .get(projectId, publicationId)
+        )?.confirmed === 1
     )
 }

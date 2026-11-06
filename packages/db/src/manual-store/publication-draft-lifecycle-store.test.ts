@@ -20,20 +20,20 @@ describe('publication draft lifecycle store', () => {
             const now = 1_800_000_000_000
             const store = createManualStore(database, { now: () => now })
             const taxonomy = createTaxonomyStore(database, { now: () => now })
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Draft lifecycle project',
                 subjectId: 'user-1',
                 displayName: 'Draft lifecycle operator',
             })
-            const channel = store.createChannel({
+            const channel = await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Draft lifecycle channel',
             })
             expect(channel).not.toBeNull()
 
-            const created = store.createPost({
+            const created = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 title: 'A reusable draft',
@@ -64,7 +64,7 @@ describe('publication draft lifecycle store', () => {
                 tagIds: [tag.id],
             })
 
-            const duplicated = store.duplicateDraftPublication({
+            const duplicated = await store.duplicateDraftPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -78,12 +78,12 @@ describe('publication draft lifecycle store', () => {
             expect(duplicated.post.id).not.toBe(publication.postId)
             expect(duplicated.publication.id).not.toBe(publication.id)
             expect(
-                store
-                    .listPublicationSummaries(project.project.id, 'user-1')
-                    ?.find(item => item.id === duplicated.publication.id)?.tagIds
+                (await store.listPublicationSummaries(project.project.id, 'user-1'))?.find(
+                    item => item.id === duplicated.publication.id
+                )?.tagIds
             ).toEqual([tag.id])
             expect(
-                store.getPublicationEditorState(
+                await store.getPublicationEditorState(
                     project.project.id,
                     duplicated.publication.id,
                     'user-1'
@@ -94,17 +94,17 @@ describe('publication draft lifecycle store', () => {
             })
 
             expect(
-                store.deleteDraftPublication({
+                await store.deleteDraftPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
                 })
             ).toEqual({ kind: 'deleted', postDeleted: true })
             expect(
-                store.getPublicationEditorState(project.project.id, publication.id, 'user-1')
+                await store.getPublicationEditorState(project.project.id, publication.id, 'user-1')
             ).toBeNull()
             expect(
-                store.deleteDraftPublication({
+                await store.deleteDraftPublication({
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',

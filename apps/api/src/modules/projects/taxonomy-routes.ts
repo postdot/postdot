@@ -86,7 +86,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 },
             },
             async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -121,7 +121,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 },
             },
             async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -163,7 +163,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 },
             },
             async ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -202,7 +202,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 },
             },
             async ({ authMethod, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -253,13 +253,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     })
                 }
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -331,13 +331,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -377,13 +377,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -422,13 +422,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
             },
             async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -466,13 +466,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
             },
             async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -545,13 +545,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
             },
             async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }

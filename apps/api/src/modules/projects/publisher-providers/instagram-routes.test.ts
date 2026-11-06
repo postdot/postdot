@@ -160,17 +160,17 @@ test('Instagram HTTP callback connects the verified account behind a TLS proxy w
         expect(location.origin).toBe(origin)
         expect(location.searchParams.get('publisher')).toBe('connected')
         expect(location.toString()).not.toContain('synthetic-')
-        const connections = f.publisher.publisherStore.listPublisherConnections(
+        const connections = (await f.publisher.publisherStore.listPublisherConnections(
             f.projectId,
             f.owner.id
-        )!
+        ))!
         expect(connections).toHaveLength(1)
         expect(connections[0]!.destination).toEqual({
             type: 'account',
             id: '5678',
             name: 'studio_test',
         })
-        const credentials = f.publisher.credentialStore.listPublisherCredentials(f.projectId)
+        const credentials = await f.publisher.credentialStore.listPublisherCredentials(f.projectId)
         expect(credentials).toHaveLength(1)
         expect(credentials[0]).toMatchObject({
             providerApplicationId: f.applicationId,
@@ -213,7 +213,7 @@ test('Instagram HTTP callback rejects a foreign actor and a disabled issuing app
             'invalid_callback'
         )
         expect(f.calls).toBe(0)
-        expect(f.publisher.credentialStore.listPublisherCredentials(f.projectId)).toEqual([])
+        expect(await f.publisher.credentialStore.listPublisherCredentials(f.projectId)).toEqual([])
     } finally {
         closeDatabase(f.database)
     }
@@ -275,7 +275,9 @@ test('deployment configuration selects Unified Login without storing a config ID
         expect(authorization.searchParams.get('config_id')).toBe('123456789')
         expect(authorization.searchParams.has('scope')).toBe(false)
         const saved =
-            f.publisher.providerApplicationStore.listProviderApplicationConfigurations('instagram')
+            await f.publisher.providerApplicationStore.listProviderApplicationConfigurations(
+                'instagram'
+            )
         expect(saved[0]!.handleResolver).toBeNull()
         expect(f.calls).toBe(0)
     } finally {

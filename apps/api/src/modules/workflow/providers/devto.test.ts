@@ -60,7 +60,7 @@ function createCredentials() {
         async replacePublisherCredentialTokens() {
             return { kind: 'conflict' }
         },
-        markPublisherCredentialReconnectRequired() {
+        async markPublisherCredentialReconnectRequired() {
             reconnectCalls += 1
         },
     }

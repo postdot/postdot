@@ -123,12 +123,12 @@ async function createProject(app: ReturnType<typeof createApp>, cookie: string, 
  * Additional-signup fixtures become workspace owners. Project-surface tests
  * need an ordinary workspace member, so the fixture demotes them explicitly.
  */
-function demoteToWorkspaceMember(
+async function demoteToWorkspaceMember(
     database: ReturnType<typeof createDatabase>,
     access: ReturnType<typeof createAccessStore>,
     email: string
 ) {
-    const workspace = access.getDefaultWorkspace()
+    const workspace = await access.getDefaultWorkspace()
     expect(workspace).not.toBeNull()
     if (workspace === null) throw new Error('The default workspace fixture is missing')
     const userId = database.$client
@@ -179,17 +179,17 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             const ownerCookie = await signUp(app, 'access-309-owner@postdot.local')
             const memberCookie = await signUp(app, 'access-309-member@postdot.local')
             const retainedCookie = await signUp(app, 'access-309-retained@postdot.local')
-            const memberUserId = demoteToWorkspaceMember(
+            const memberUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-member@postdot.local'
             )
-            const retainedUserId = demoteToWorkspaceMember(
+            const retainedUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-retained@postdot.local'
             )
-            const memberWorkspaceId = access.getProjectWorkspaceId(
+            const memberWorkspaceId = await access.getProjectWorkspaceId(
                 await createProject(app, ownerCookie, 'Placeholder')
             )
             expect(memberWorkspaceId).not.toBeNull()
@@ -197,13 +197,13 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             const revokedProject = await createProject(app, ownerCookie, 'Revoked project')
             const retainedProject = await createProject(app, ownerCookie, 'Retained project')
             for (const projectId of [revokedProject, retainedProject]) {
-                expect(access.getProjectWorkspaceId(projectId)).toBe(memberWorkspaceId)
+                expect(await access.getProjectWorkspaceId(projectId)).toBe(memberWorkspaceId)
             }
 
             // The fixture is an ordinary workspace member, so the project list
             // is driven by project membership alone.
-            expect(access.canManageWorkspace(memberWorkspaceId!, memberUserId)).toBe(false)
-            expect(access.canManageWorkspace(memberWorkspaceId!, retainedUserId)).toBe(false)
+            expect(await access.canManageWorkspace(memberWorkspaceId!, memberUserId)).toBe(false)
+            expect(await access.canManageWorkspace(memberWorkspaceId!, retainedUserId)).toBe(false)
 
             for (const [userId, role] of [
                 [memberUserId, 'editor'],
@@ -254,8 +254,8 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             expect(removal.status).toBe(200)
 
             // Membership authority is gone while historical attribution stays.
-            expect(access.canAccessProject(revokedProject, memberUserId)).toBe(false)
-            expect(access.getProjectMembership(revokedProject, memberUserId)).toBeNull()
+            expect(await access.canAccessProject(revokedProject, memberUserId)).toBe(false)
+            expect(await access.getProjectMembership(revokedProject, memberUserId)).toBeNull()
             const grants = database.$client
                 .query<{ readonly count: number }, [string, string]>(
                     'select count(*) as count from project_user_grants where project_id = ?1 and user_id = ?2'
@@ -338,12 +338,12 @@ describe('API key project access follows the owner current access (ACCESS-309)',
         try {
             const ownerCookie = await signUp(app, 'access-309-team-owner@postdot.local')
             const memberCookie = await signUp(app, 'access-309-team-member@postdot.local')
-            const memberUserId = demoteToWorkspaceMember(
+            const memberUserId = await demoteToWorkspaceMember(
                 database,
                 access,
                 'access-309-team-member@postdot.local'
             )
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The workspace fixture is incomplete')
 
@@ -373,8 +373,10 @@ describe('API key project access follows the owner current access (ACCESS-309)',
             )
             expect(teamGrant.status).toBe(201)
 
-            expect(access.getProjectMembership(projectId, memberUserId)?.role).toBe('viewer')
-            expect(access.canAccessProject(projectId, memberUserId, 'editor')).toBe(false)
+            expect((await access.getProjectMembership(projectId, memberUserId))?.role).toBe(
+                'viewer'
+            )
+            expect(await access.canAccessProject(projectId, memberUserId, 'editor')).toBe(false)
 
             const key = await createApiKey(app, memberCookie, null)
             for (const path of projectReadPaths(projectId)) {
@@ -398,7 +400,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
                 { method: 'DELETE' }
             )
             expect(removeMember.status).toBe(200)
-            expect(access.getProjectMembership(projectId, memberUserId)).toBeNull()
+            expect(await access.getProjectMembership(projectId, memberUserId)).toBeNull()
             expect((await keyRequest(app, `/api/projects/${projectId}/channels`, key)).status).toBe(
                 404
             )
@@ -417,7 +419,7 @@ describe('API key project access follows the owner current access (ACCESS-309)',
         try {
             const ownerCookie = await signUp(app, 'access-309-outsider-owner@postdot.local')
             const outsiderCookie = await signUp(app, 'access-309-outsider@postdot.local')
-            demoteToWorkspaceMember(database, access, 'access-309-outsider@postdot.local')
+            await demoteToWorkspaceMember(database, access, 'access-309-outsider@postdot.local')
             const projectId = await createProject(app, ownerCookie, 'Outsider project')
             const key = await createApiKey(app, outsiderCookie, null)
 

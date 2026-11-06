@@ -33,11 +33,11 @@ function createMediaFixture(
         return responseForUrl(url)
     }
     const media: MediaUrlImporterOptions['media'] = {
-        getUploadPolicy: () => ({
+        getUploadPolicy: async () => ({
             allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
             maxFileSize: 100,
         }),
-        reserveUpload(input) {
+        async reserveUpload(input) {
             reservedInputs.push(input)
             return reservation
         },

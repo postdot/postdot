@@ -87,49 +87,49 @@ const organizationReadFailedResponse = () =>
         },
     }) as const
 
-function projectExists(projectId: string, access: AccessStore): boolean {
-    return access.getProjectWorkspaceId(projectId) !== null
+async function projectExists(projectId: string, access: AccessStore): Promise<boolean> {
+    return (await access.getProjectWorkspaceId(projectId)) !== null
 }
 
-function getProjectWorkspace(projectId: string, access: AccessStore) {
-    const workspaceId = access.getProjectWorkspaceId(projectId)
+async function getProjectWorkspace(projectId: string, access: AccessStore) {
+    const workspaceId = await access.getProjectWorkspaceId(projectId)
     return workspaceId === null ? null : access.getWorkspace(workspaceId)
 }
 
-function canManageProject(
+async function canManageProject(
     projectId: string,
     access: AccessStore,
     authMethod: PostdotAuthenticationMethod,
     userId: string
-): boolean {
-    return authMethod === 'session' && access.canAccessProject(projectId, userId, 'owner')
+): Promise<boolean> {
+    return authMethod === 'session' && (await access.canAccessProject(projectId, userId, 'owner'))
 }
 
-function canManageProjectInvitations(
+async function canManageProjectInvitations(
     projectId: string,
     access: AccessStore,
     authMethod: PostdotAuthenticationMethod,
     userId: string
-): boolean {
-    const workspace = getProjectWorkspace(projectId, access)
+): Promise<boolean> {
+    const workspace = await getProjectWorkspace(projectId, access)
     return (
         authMethod === 'session' &&
         workspace !== null &&
-        access.canManageWorkspace(workspace.id, userId)
+        (await access.canManageWorkspace(workspace.id, userId))
     )
 }
 
-function canViewProjectAccess(
+async function canViewProjectAccess(
     projectId: string,
     access: AccessStore,
     authMethod: PostdotAuthenticationMethod,
     userId: string
-): boolean {
+): Promise<boolean> {
     if (authMethod !== 'session') return false
-    if (access.canAccessProject(projectId, userId, 'viewer')) return true
+    if (await access.canAccessProject(projectId, userId, 'viewer')) return true
 
-    const workspaceId = access.getProjectWorkspaceId(projectId)
-    return workspaceId !== null && access.canManageWorkspace(workspaceId, userId)
+    const workspaceId = await access.getProjectWorkspaceId(projectId)
+    return workspaceId !== null && (await access.canManageWorkspace(workspaceId, userId))
 }
 
 function normalizeProjectInvitationRole(value: string | null | undefined): ProjectRole {
@@ -190,10 +190,10 @@ async function listWorkspaceInvitations(
     })
 }
 
-function findProjectMember(access: AccessStore, projectId: string, memberId: string) {
-    return access
-        .listProjectMemberships(projectId)
-        .find(member => member.id === memberId || member.userId === memberId)
+async function findProjectMember(access: AccessStore, projectId: string, memberId: string) {
+    return (await access.listProjectMemberships(projectId)).find(
+        member => member.id === memberId || member.userId === memberId
+    )
 }
 
 export function registerProjectMemberRoutes<const Routes extends Record<string, unknown>>(
@@ -221,16 +221,16 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, projectMemberForbiddenResponse())
                 }
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                const membership = access.getProjectMembership(params.projectId, user.id)
+                const membership = await access.getProjectMembership(params.projectId, user.id)
                 if (membership === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project membership not found' },
@@ -258,16 +258,18 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+            async ({ authMethod, params, status, user }) => {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canViewProjectAccess(params.projectId, access, authMethod, user.id)) {
+                if (!(await canViewProjectAccess(params.projectId, access, authMethod, user.id))) {
                     return status(403, projectMemberForbiddenResponse())
                 }
-                const members = access.listProjectMemberships(params.projectId).map(toProjectMember)
+                const members = (await access.listProjectMemberships(params.projectId)).map(
+                    toProjectMember
+                )
                 return { members, total: members.length }
             }
         )
@@ -292,15 +294,22 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                if (
+                    !(await canManageProjectInvitations(
+                        params.projectId,
+                        access,
+                        authMethod,
+                        user.id
+                    ))
+                ) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
-                const workspace = getProjectWorkspace(params.projectId, access)
+                const workspace = await getProjectWorkspace(params.projectId, access)
                 if (workspace === null) return status(503, organizationReadFailedResponse())
 
                 try {
@@ -343,15 +352,22 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, body, params, request, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                if (
+                    !(await canManageProjectInvitations(
+                        params.projectId,
+                        access,
+                        authMethod,
+                        user.id
+                    ))
+                ) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
-                const workspace = getProjectWorkspace(params.projectId, access)
+                const workspace = await getProjectWorkspace(params.projectId, access)
                 if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
@@ -408,15 +424,22 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                if (
+                    !(await canManageProjectInvitations(
+                        params.projectId,
+                        access,
+                        authMethod,
+                        user.id
+                    ))
+                ) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
-                const workspace = getProjectWorkspace(params.projectId, access)
+                const workspace = await getProjectWorkspace(params.projectId, access)
                 if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
@@ -475,15 +498,22 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                if (
+                    !(await canManageProjectInvitations(
+                        params.projectId,
+                        access,
+                        authMethod,
+                        user.id
+                    ))
+                ) {
                     return status(403, workspaceAdminForbiddenResponse())
                 }
-                const workspace = getProjectWorkspace(params.projectId, access)
+                const workspace = await getProjectWorkspace(params.projectId, access)
                 if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
@@ -562,16 +592,16 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+            async ({ authMethod, body, params, status, user }) => {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProject(params.projectId, access, authMethod, user.id)) {
+                if (!(await canManageProject(params.projectId, access, authMethod, user.id))) {
                     return status(403, projectOwnerForbiddenResponse())
                 }
-                const existing = findProjectMember(access, params.projectId, params.memberId)
+                const existing = await findProjectMember(access, params.projectId, params.memberId)
                 if (existing === undefined) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project member not found' },
@@ -580,13 +610,13 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 if (existing.userId === user.id) return status(409, selfMembershipResponse())
                 if (existing.role === 'owner') return status(409, ownerMembershipResponse())
 
-                const grant = access.grantProjectUserAccess({
+                const grant = await access.grantProjectUserAccess({
                     projectId: params.projectId,
                     userId: existing.userId,
                     role: body.role,
                 })
                 if (grant === null) return status(409, organizationOperationFailedResponse())
-                const updated = access.getProjectMembership(params.projectId, existing.userId)
+                const updated = await access.getProjectMembership(params.projectId, existing.userId)
                 if (updated === null) return status(503, organizationOperationFailedResponse())
                 return { membership: toProjectMember(updated) }
             }
@@ -613,15 +643,15 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, params, status, user }) => {
-                if (!projectExists(params.projectId, access)) {
+                if (!(await projectExists(params.projectId, access))) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (!canManageProject(params.projectId, access, authMethod, user.id)) {
+                if (!(await canManageProject(params.projectId, access, authMethod, user.id))) {
                     return status(403, projectOwnerForbiddenResponse())
                 }
-                const existing = findProjectMember(access, params.projectId, params.memberId)
+                const existing = await findProjectMember(access, params.projectId, params.memberId)
                 if (existing === undefined) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project member not found' },
@@ -634,7 +664,7 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     return status(409, inheritedMembershipResponse())
                 }
 
-                if (access.removeProjectUserAccess(params.projectId, existing.userId)) {
+                if (await access.removeProjectUserAccess(params.projectId, existing.userId)) {
                     return { removed: true as const }
                 }
 

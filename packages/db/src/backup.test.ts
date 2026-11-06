@@ -129,7 +129,7 @@ describe('SQLite backup and restore', () => {
                 })(),
             })
             const bytes = previewFixturePng(4, 3)
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: 'project-1',
                 subjectId: 'subject-1',
                 originalFilename: 'backup.png',

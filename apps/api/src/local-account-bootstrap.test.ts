@@ -52,8 +52,8 @@ describe('offline administrator bootstrap', () => {
             const database = createDatabase(filename)
             try {
                 const access = createAccessStore(database)
-                expect(access.getInstanceState().state).toBe('claimed')
-                expect(access.isSignupAllowed()).toBe(false)
+                expect((await access.getInstanceState()).state).toBe('claimed')
+                expect(await access.isSignupAllowed()).toBe(false)
                 expect(
                     database.$client.query('select count(*) as count from session').get()
                 ).toEqual({ count: 0 })
@@ -98,7 +98,7 @@ describe('offline administrator bootstrap', () => {
                 expect(claimed.$client.query('select count(*) as count from user').get()).toEqual({
                     count: 1,
                 })
-                expect(createAccessStore(claimed).getInstanceState().state).toBe('claimed')
+                expect((await createAccessStore(claimed).getInstanceState()).state).toBe('claimed')
             } finally {
                 closeDatabase(claimed)
             }

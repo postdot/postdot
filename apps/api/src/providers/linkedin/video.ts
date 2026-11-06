@@ -35,7 +35,7 @@ export async function publishLinkedInVideo(input: {
     if (!commentary) return permanentFailure('The LinkedIn video commentary is unavailable')
     if (!execution.media) return permanentFailure('The LinkedIn video media service is unavailable')
     const store = execution.providerMediaDeliveryStore
-    let delivery = store.reserve({
+    let delivery = await store.reserve({
         projectId: execution.target.projectId,
         executionMediaId: item.id,
         publisherId: execution.target.publisherId,
@@ -47,7 +47,7 @@ export async function publishLinkedInVideo(input: {
             delivery.errorMessage ?? 'The LinkedIn video delivery requires reconciliation'
         )
     if (delivery.state === 'failed') {
-        const retried = store.retry({
+        const retried = await store.retry({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -56,7 +56,7 @@ export async function publishLinkedInVideo(input: {
         delivery = retried
     }
     if (delivery.state === 'pending') {
-        const started = store.start({
+        const started = await store.start({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -74,7 +74,7 @@ export async function publishLinkedInVideo(input: {
             opened = null
         }
         if (!opened) {
-            store.fail({
+            await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode: 'media_unavailable',
@@ -87,8 +87,8 @@ export async function publishLinkedInVideo(input: {
             accessToken: input.accessToken,
             destination: input.destination,
             media: { size: opened.size, stream: opened.stream },
-            onInitialized: id => {
-                const checkpoint = store.recordRemoteMediaId({
+            onInitialized: async id => {
+                const checkpoint = await store.recordRemoteMediaId({
                     projectId: delivery.projectId,
                     deliveryId: delivery.id,
                     remoteMediaId: id,
@@ -98,7 +98,7 @@ export async function publishLinkedInVideo(input: {
             },
         })
         if (uploaded.type !== 'uploaded') {
-            store.fail({
+            await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode: 'video_upload_failed',
@@ -113,7 +113,7 @@ export async function publishLinkedInVideo(input: {
             }
             return uploaded
         }
-        const completed = store.complete({
+        const completed = await store.complete({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: uploaded.remoteMediaId,
@@ -135,7 +135,7 @@ export async function publishLinkedInVideo(input: {
         return status
     if (status.type === 'waiting') {
         if (delivery.state === 'uploading')
-            store.fail({
+            await store.fail({
                 projectId: delivery.projectId,
                 deliveryId: delivery.id,
                 errorCode: 'video_transfer_unconfirmed',
@@ -148,7 +148,7 @@ export async function publishLinkedInVideo(input: {
         )
     }
     if (delivery.state === 'uploading') {
-        const completed = store.complete({
+        const completed = await store.complete({
             projectId: delivery.projectId,
             deliveryId: delivery.id,
             remoteMediaId: delivery.remoteMediaId,

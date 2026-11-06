@@ -17,13 +17,19 @@ export interface SqlRunResult {
     readonly changes: number
 }
 
-export interface SqlStatement<Row, Params extends SqlParams = []> {
+export interface SqlStatement<Row, Params extends SqlParams = SqlParams> {
     /** First row, or `null` when the statement produced none. */
     get(...params: Params): Promise<Row | null>
     all(...params: Params): Promise<Row[]>
     run(...params: Params): Promise<SqlRunResult>
     /** Rows as positional arrays, in select-list order. */
     values(...params: Params): Promise<unknown[][]>
+    /**
+     * Streams rows one at a time. The SQLite profile holds the connection
+     * until iteration ends, so consumers must not perform external I/O
+     * while iterating.
+     */
+    iterate(...params: Params): AsyncIterable<Row>
 }
 
 /**
@@ -34,9 +40,13 @@ export interface SqlStatement<Row, Params extends SqlParams = []> {
  */
 export type SqlTransactionMode = 'deferred' | 'immediate' | 'exclusive'
 
+export type SqlCommitScope = 'savepoint' | 'transaction'
+
 export interface SqlDatabase {
     readonly dialect: SqlDialect
-    statement<Row, Params extends SqlParams = []>(text: string): SqlStatement<Row, Params>
+    statement<Row = unknown, Params extends SqlParams = SqlParams>(
+        text: string
+    ): SqlStatement<Row, Params>
     /** Runs one or more statements without results (DDL, pragmas). */
     exec(text: string): Promise<void>
     /**
@@ -55,6 +65,9 @@ export interface SqlDatabase {
     /**
      * Registers a callback run once after the outermost transaction of the
      * current context commits. Outside a transaction it runs immediately.
+     * With the default `savepoint` scope the callback is discarded when the
+     * enclosing savepoint rolls back; `transaction` binds it to the outermost
+     * transaction instead.
      */
-    afterCommit(callback: () => void): void
+    afterCommit(callback: () => void, scope?: SqlCommitScope): void
 }

@@ -107,7 +107,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                     },
                 },
             },
-            ({ status }) => {
+            async ({ status }) => {
                 const checks: ReadinessChecks = {
                     ...(runtime?.recovery
                         ? {
@@ -116,7 +116,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                                   : ('normal' as const),
                           }
                         : {}),
-                    database: readDatabaseStatus(database),
+                    database: await readDatabaseStatus(database),
                     scheduler: runtime?.scheduler?.state ?? 'not_configured',
                     mediaMaintenance: runtime?.mediaMaintenance?.state ?? 'not_configured',
                     notifications: runtime?.notifications?.state ?? 'not_configured',
@@ -127,9 +127,9 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
         )
 }
 
-function readDatabaseStatus(database: PostdotDatabase): 'ok' | 'failed' {
+async function readDatabaseStatus(database: PostdotDatabase): Promise<'ok' | 'failed'> {
     try {
-        database.$client.query('select 1').get()
+        await database.sql.statement('select 1').get()
         return 'ok'
     } catch {
         return 'failed'

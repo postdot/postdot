@@ -9,7 +9,7 @@ import {
     type PublisherCredentialState,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from './client'
+import { defineTransaction, type PostdotDatabase } from './client'
 import {
     type EncryptedPublisherSecret,
     type PublisherCredentialCipher,
@@ -48,7 +48,7 @@ export interface PublisherCredentialRefreshContext {
             'projectId' | 'credentialId' | 'expectedRevision'
         >
     ): Promise<ReplacePublisherCredentialTokensResult>
-    markReconnectRequired(): void
+    markReconnectRequired(): Promise<void>
 }
 
 export interface ReplacePublisherCredentialTokensInput {
@@ -254,12 +254,12 @@ export function createPublisherCredentialStore(
     database: PostdotDatabase,
     options: PublisherCredentialStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const cipher = options.cipher
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
 
-    const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
+    const loadProjectStatement = sql.statement<ProjectRow, [projectId: string]>(`
         select id,
                name,
                time_zone as timeZone,
@@ -270,7 +270,7 @@ export function createPublisherCredentialStore(
         from projects
         where id = ?1
     `)
-    const loadActorStatement = client.query<
+    const loadActorStatement = sql.statement<
         ActorRow,
         [projectId: string, connectedByActorId: string]
     >(`
@@ -285,7 +285,7 @@ export function createPublisherCredentialStore(
         where project_id = ?1
           and id = ?2
     `)
-    const loadCredentialMetadataStatement = client.query<
+    const loadCredentialMetadataStatement = sql.statement<
         CredentialMetadataRow,
         [projectId: string, credentialId: string]
     >(`
@@ -294,7 +294,7 @@ export function createPublisherCredentialStore(
         where project_id = ?1
           and id = ?2
     `)
-    const loadCredentialByExternalAccountStatement = client.query<
+    const loadCredentialByExternalAccountStatement = sql.statement<
         CredentialMetadataRow,
         [projectId: string, providerId: string, externalAccountId: string]
     >(`
@@ -304,7 +304,7 @@ export function createPublisherCredentialStore(
           and provider_id = ?2
           and external_account_id = ?3
     `)
-    const listCredentialMetadataStatement = client.query<
+    const listCredentialMetadataStatement = sql.statement<
         CredentialMetadataRow,
         [projectId: string]
     >(`
@@ -313,7 +313,7 @@ export function createPublisherCredentialStore(
         where project_id = ?1
         order by created_at, id
     `)
-    const loadCredentialSecretsStatement = client.query<
+    const loadCredentialSecretsStatement = sql.statement<
         CredentialSecretRow,
         [projectId: string, credentialId: string]
     >(`
@@ -322,7 +322,7 @@ export function createPublisherCredentialStore(
         where project_id = ?1
           and id = ?2
     `)
-    const insertCredentialStatement = client.query<
+    const insertCredentialStatement = sql.statement<
         { changes: number },
         [
             id: string,
@@ -371,7 +371,7 @@ export function createPublisherCredentialStore(
             ?1, (select workspace_id from projects where id = ?2), ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19
         )
     `)
-    const replaceTokensStatement = client.query<
+    const replaceTokensStatement = sql.statement<
         { changes: number },
         [
             encryptionVersion: number,
@@ -415,7 +415,7 @@ export function createPublisherCredentialStore(
                 and visible.id = publisher_credentials.id
           )
     `)
-    const markReconnectRequiredStatement = client.query<
+    const markReconnectRequiredStatement = sql.statement<
         { changes: number },
         [
             timestamp: number,
@@ -438,7 +438,7 @@ export function createPublisherCredentialStore(
                 and visible.id = publisher_credentials.id
           )
     `)
-    const revokeCredentialStatement = client.query<
+    const revokeCredentialStatement = sql.statement<
         { changes: number },
         [timestamp: number, projectId: string, credentialId: string]
     >(`
@@ -464,7 +464,7 @@ export function createPublisherCredentialStore(
                 and visible.id = publisher_credentials.id
           )
     `)
-    const revokeUnreferencedCredentialStatement = client.query<
+    const revokeUnreferencedCredentialStatement = sql.statement<
         { changes: number },
         [timestamp: number, projectId: string, credentialId: string]
     >(`
@@ -497,28 +497,32 @@ export function createPublisherCredentialStore(
     `)
 
     const workspaceActors = createWorkspaceActorStore(database, { now, createId })
-    const persistCredential = createDatabaseTransaction(
+    const persistCredential = defineTransaction(
         database,
-        (
+        async (
             workspaceId: string,
             projectId: string,
             projectActorId: string,
             values: () => Parameters<typeof insertCredentialStatement.run>
-        ):
+        ): Promise<
             | { readonly kind: 'not_found' }
             | { readonly kind: 'already_exists'; readonly row: CredentialMetadataRow }
-            | { readonly kind: 'created'; readonly workspaceActorId: string } => {
-            const actor = workspaceActors.ensureFromProjectActor({ workspaceId, projectActorId })
+            | { readonly kind: 'created'; readonly workspaceActorId: string }
+        > => {
+            const actor = await workspaceActors.ensureFromProjectActor({
+                workspaceId,
+                projectActorId,
+            })
             if (actor === null) return { kind: 'not_found' }
             const args = values()
-            const existing = loadCredentialByExternalAccountStatement.get(
+            const existing = await loadCredentialByExternalAccountStatement.get(
                 projectId,
                 args[2] as string,
                 args[3] as string
             )
             if (existing !== null) return { kind: 'already_exists', row: existing }
             args[8] = actor.id
-            const inserted = insertCredentialStatement.run(...args)
+            const inserted = await insertCredentialStatement.run(...args)
             if (inserted.changes !== 1)
                 throw new Error('Publisher credential insertion did not persist a row')
             return { kind: 'created', workspaceActorId: actor.id }
@@ -538,10 +542,10 @@ export function createPublisherCredentialStore(
                 database,
                 id,
                 async () => {
-                    const row = loadCredentialSecretsStatement.get(project, id)
+                    const row = await loadCredentialSecretsStatement.get(project, id)
                     if (!row || row.state !== 'active') return operation(null)
                     const secrets = await store.resolvePublisherCredentialSecrets(project, id)
-                    const current = loadCredentialSecretsStatement.get(project, id)
+                    const current = await loadCredentialSecretsStatement.get(project, id)
                     if (
                         !secrets ||
                         !current ||
@@ -564,8 +568,12 @@ export function createPublisherCredentialStore(
                             if (result.kind === 'updated') revision++
                             return result
                         },
-                        markReconnectRequired() {
-                            store.markPublisherCredentialReconnectRequired(project, id, revision)
+                        async markReconnectRequired() {
+                            await store.markPublisherCredentialReconnectRequired(
+                                project,
+                                id,
+                                revision
+                            )
                         },
                     })
                 },
@@ -583,11 +591,11 @@ export function createPublisherCredentialStore(
             )
             const providerId = requireNonBlank(input.providerId, 'providerId')
             const externalAccountId = requireNonBlank(input.externalAccountId, 'externalAccountId')
-            const projectRow = loadProjectStatement.get(projectId)
-            const actorRow = loadActorStatement.get(projectId, connectedByActorId)
+            const projectRow = await loadProjectStatement.get(projectId)
+            const actorRow = await loadActorStatement.get(projectId, connectedByActorId)
             if (projectRow === null || actorRow === null) return { kind: 'not_found' }
 
-            const existing = loadCredentialByExternalAccountStatement.get(
+            const existing = await loadCredentialByExternalAccountStatement.get(
                 projectId,
                 providerId,
                 externalAccountId
@@ -642,7 +650,7 @@ export function createPublisherCredentialStore(
 
             // Check-and-insert is one synchronous transaction: encryption above awaited,
             // so a concurrent flow may have staged the same account in between.
-            const outcome = persistCredential.immediate(
+            const outcome = await persistCredential.immediate(
                 projectRow.workspaceId!,
                 credential.projectId,
                 connectedByActorId,
@@ -679,28 +687,28 @@ export function createPublisherCredentialStore(
             }
         },
 
-        getPublisherCredential(
+        async getPublisherCredential(
             projectId: string,
             credentialId: string
-        ): PublisherCredential | null {
-            const row = loadCredentialMetadataStatement.get(
+        ): Promise<PublisherCredential | null> {
+            const row = await loadCredentialMetadataStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(credentialId, 'credentialId')
             )
             return row === null ? null : toCredential(row)
         },
 
-        listPublisherCredentials(projectId: string): PublisherCredential[] {
-            return listCredentialMetadataStatement
-                .all(requireNonBlank(projectId, 'projectId'))
-                .map(toCredential)
+        async listPublisherCredentials(projectId: string): Promise<PublisherCredential[]> {
+            return (
+                await listCredentialMetadataStatement.all(requireNonBlank(projectId, 'projectId'))
+            ).map(toCredential)
         },
 
         async resolvePublisherCredentialSecrets(
             projectId: string,
             credentialId: string
         ): Promise<PublisherCredentialSecrets | null> {
-            const row = loadCredentialSecretsStatement.get(
+            const row = await loadCredentialSecretsStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(credentialId, 'credentialId')
             )
@@ -743,7 +751,7 @@ export function createPublisherCredentialStore(
             const credentialId = requireNonBlank(input.credentialId, 'credentialId')
             const expiresAt =
                 input.expiresAt === null ? null : requireTimestamp(input.expiresAt, 'expiresAt')
-            const row = loadCredentialSecretsStatement.get(projectId, credentialId)
+            const row = await loadCredentialSecretsStatement.get(projectId, credentialId)
             if (row === null) return { kind: 'not_found' }
             if (input.expectedRevision !== undefined && row.revision !== input.expectedRevision)
                 return { kind: 'conflict' }
@@ -821,7 +829,7 @@ export function createPublisherCredentialStore(
                           providerSessionValue
                       )
             const timestamp = requireTimestamp(now(), 'now')
-            const result = replaceTokensStatement.run(
+            const result = await replaceTokensStatement.run(
                 accessToken.version,
                 accessToken.keyId,
                 accessToken.ciphertext,
@@ -842,51 +850,54 @@ export function createPublisherCredentialStore(
             )
             if (result.changes !== 1) return { kind: 'conflict' }
 
-            const updated = loadCredentialMetadataStatement.get(projectId, credentialId)
+            const updated = await loadCredentialMetadataStatement.get(projectId, credentialId)
             if (updated === null) return { kind: 'not_found' }
             return { kind: 'updated', credential: toCredential(updated) }
         },
 
-        markPublisherCredentialReconnectRequired(
+        async markPublisherCredentialReconnectRequired(
             projectId: string,
             credentialId: string,
             expectedRevision?: number
-        ): PublisherCredential | null {
+        ): Promise<PublisherCredential | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedCredentialId = requireNonBlank(credentialId, 'credentialId')
-            markReconnectRequiredStatement.run(
+            await markReconnectRequiredStatement.run(
                 requireTimestamp(now(), 'now'),
                 normalizedProjectId,
                 normalizedCredentialId,
                 expectedRevision ?? null
             )
-            const row = loadCredentialMetadataStatement.get(
+            const row = await loadCredentialMetadataStatement.get(
                 normalizedProjectId,
                 normalizedCredentialId
             )
             return row === null ? null : toCredential(row)
         },
 
-        revokePublisherCredential(
+        async revokePublisherCredential(
             projectId: string,
             credentialId: string
-        ): PublisherCredential | null {
+        ): Promise<PublisherCredential | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const normalizedCredentialId = requireNonBlank(credentialId, 'credentialId')
-            revokeCredentialStatement.run(
+            await revokeCredentialStatement.run(
                 requireTimestamp(now(), 'now'),
                 normalizedProjectId,
                 normalizedCredentialId
             )
-            const row = loadCredentialMetadataStatement.get(
+            const row = await loadCredentialMetadataStatement.get(
                 normalizedProjectId,
                 normalizedCredentialId
             )
             return row === null ? null : toCredential(row)
         },
 
-        revokePublisherCredentialIfUnreferenced(projectId: string, credentialId: string): void {
-            revokeUnreferencedCredentialStatement.run(
+        async revokePublisherCredentialIfUnreferenced(
+            projectId: string,
+            credentialId: string
+        ): Promise<void> {
+            await revokeUnreferencedCredentialStatement.run(
                 requireTimestamp(now(), 'now'),
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(credentialId, 'credentialId')

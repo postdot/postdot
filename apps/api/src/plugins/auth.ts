@@ -30,7 +30,7 @@ export interface AuthenticatedElysiaOptions {
         projectId: string,
         userId: string,
         path: string
-    ) => boolean
+    ) => Promise<boolean>
     readonly authenticateBetterAuthProjectApiKey?: (
         token: string
     ) => Promise<UserApiKeyAuthentication | null>
@@ -54,7 +54,7 @@ export interface AuthenticatedElysiaOptions {
             readonly apiKeyProjectIds?: readonly string[] | null
             readonly apiKeyPermissions?: PostdotApiKeyPermissions
         }
-    ) => boolean
+    ) => Promise<boolean>
 }
 
 type PostdotAuthSession = NonNullable<Awaited<ReturnType<PostdotAuth['api']['getSession']>>>
@@ -119,7 +119,7 @@ export function createAuthenticatedElysia(
     options: AuthenticatedElysiaOptions = {}
 ): AuthenticatedElysiaBase {
     const releases = new WeakMap<Request, () => void>()
-    function guardResource(request: Request): boolean {
+    async function guardResource(request: Request): Promise<boolean> {
         const lifecycle = options.resourceLifecycle
         if (!lifecycle) return false
         const path = new URL(request.url).pathname
@@ -127,9 +127,9 @@ export function createAuthenticatedElysia(
         const projectId = readProjectIdFromRequest(request.url)
         const workspaceId = path.match(/^\/api\/workspaces\/([^/]+)/)?.[1]
         const state = projectId
-            ? lifecycle.projectState(projectId)
+            ? await lifecycle.projectState(projectId)
             : workspaceId
-              ? lifecycle.state('workspace', workspaceId)
+              ? await lifecycle.state('workspace', workspaceId)
               : 'active'
         const writing = request.method !== 'GET' && request.method !== 'HEAD'
         if (state === 'deleting' || state === 'deleted' || (writing && state !== 'active'))
@@ -196,7 +196,7 @@ export function createAuthenticatedElysia(
                         if (
                             projectId !== null &&
                             options.authorizeProjectAccess !== undefined &&
-                            !options.authorizeProjectAccess(
+                            !(await options.authorizeProjectAccess(
                                 projectId,
                                 authentication.ownerUserId,
                                 new URL(request.url).pathname,
@@ -206,14 +206,14 @@ export function createAuthenticatedElysia(
                                     apiKeyProjectIds: authentication.projectIds,
                                     apiKeyPermissions: authentication.permissions,
                                 }
-                            )
+                            ))
                         ) {
                             return status(404, {
                                 error: { code: 'not_found', message: 'Project not found' },
                             })
                         }
 
-                        const refusal = guardResource(request)
+                        const refusal = await guardResource(request)
                         if (refusal)
                             return status(409, {
                                 error: {
@@ -248,19 +248,19 @@ export function createAuthenticatedElysia(
                     if (
                         projectId !== null &&
                         options.authorizeProjectAccess !== undefined &&
-                        !options.authorizeProjectAccess(
+                        !(await options.authorizeProjectAccess(
                             projectId,
                             session.user.id,
                             new URL(request.url).pathname,
                             { method: request.method, authMethod: 'session' }
-                        ) &&
+                        )) &&
                         !(
                             request.method === 'GET' &&
-                            options.authorizeRetirementReceipt?.(
+                            (await options.authorizeRetirementReceipt?.(
                                 projectId,
                                 session.user.id,
                                 new URL(request.url).pathname
-                            )
+                            ))
                         )
                     ) {
                         return status(404, {
@@ -268,7 +268,7 @@ export function createAuthenticatedElysia(
                         })
                     }
 
-                    if (guardResource(request))
+                    if (await guardResource(request))
                         return status(409, {
                             error: {
                                 code: 'resource_read_only',

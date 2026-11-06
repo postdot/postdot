@@ -14,7 +14,7 @@ export async function performMastodonReply(input: {
     work: PublicationReplyWork
     publisher: PublisherRuntime
     signal: AbortSignal
-    stillEligible: () => boolean
+    stillEligible: () => Promise<boolean>
     onDispatch: () => void
     now: number
 }): Promise<ExternalEffectOutcome> {
@@ -33,7 +33,7 @@ export async function performMastodonReply(input: {
     })
     if (!context)
         return failed('The original Mastodon account or public conversation is no longer available')
-    if (signal.aborted || !input.stillEligible())
+    if (signal.aborted || !(await input.stillEligible()))
         return failed('The reply is no longer eligible for dispatch')
     input.onDispatch()
     return createMastodonPublisher({ baseUrl: origin, fetcher }).publishStatus({

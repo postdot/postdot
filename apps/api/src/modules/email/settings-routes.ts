@@ -40,8 +40,8 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id))
+            async ({ authMethod, user, status }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
                     return status(403, denied)
                 if (!service) return status(503, unavailable)
                 return service.view()
@@ -67,7 +67,7 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, user, body, status }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id))
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
                     return status(403, denied)
                 if (!service) return status(503, unavailable)
                 try {
@@ -102,7 +102,7 @@ export function registerEmailSettingsRoutes<const Routes extends Record<string, 
                 },
             },
             async ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id))
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
                     return status(403, denied)
                 if (!service) return status(503, unavailable)
                 try {

@@ -78,7 +78,7 @@ const testProfile = {
     execution: { kind: 'built_in' as const, contractId: 'test', revision: 'v1' },
 }
 
-function seedDueJob(database: PostdotDatabase, suffix = 'one') {
+async function seedDueJob(database: PostdotDatabase, suffix = 'one') {
     const projectId = `project-${suffix}`
     const humanActorId = `human-${suffix}`
     const systemActorId = `system-${suffix}`
@@ -110,7 +110,7 @@ function seedDueJob(database: PostdotDatabase, suffix = 'one') {
             },
         ])
         .run()
-    seedWorkspaceChannel(database, {
+    await seedWorkspaceChannel(database, {
         projectId,
         channelId: channelId,
         name: `Channel ${suffix}`,
@@ -122,7 +122,7 @@ function seedDueJob(database: PostdotDatabase, suffix = 'one') {
         .insert(publishers)
         .values({
             id: `publisher-${suffix}`,
-            workspaceId: workspaceOf(database, projectId),
+            workspaceId: await workspaceOf(database, projectId),
             channelId,
             kind: 'test',
         })
@@ -198,13 +198,13 @@ function seedDueJob(database: PostdotDatabase, suffix = 'one') {
 }
 
 describe('workflow store', () => {
-    it('renews only the current unexpired claim without shortening or resurrecting its lease', () => {
+    it('renews only the current unexpired claim without shortening or resurrecting its lease', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database)
+            const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'owner',
                 now: dueAt,
@@ -212,15 +212,17 @@ describe('workflow store', () => {
             })
             const renew = (token: string, now: number, leaseExpiresAt: number) =>
                 store.renewClaim({ jobId: fixture.jobId, claimToken: token, now, leaseExpiresAt })
-            expect(renew('stale', dueAt + 30, dueAt + 120)).toBe(false)
-            expect(renew('owner', dueAt + 30, dueAt + 60)).toBe(false)
-            expect(renew('owner', dueAt + 30, dueAt + 120)).toBe(true)
-            expect(store.startExternalEffect(fixture.jobId, 'owner', dueAt + 100)).toBe(true)
-            expect(renew('owner', dueAt + 120, dueAt + 210)).toBe(false)
-            expect(store.recoverExpiredClaims(dueAt + 120).ambiguousJobIds).toEqual([fixture.jobId])
-            expect(renew('owner', dueAt + 121, dueAt + 211)).toBe(false)
+            expect(await renew('stale', dueAt + 30, dueAt + 120)).toBe(false)
+            expect(await renew('owner', dueAt + 30, dueAt + 60)).toBe(false)
+            expect(await renew('owner', dueAt + 30, dueAt + 120)).toBe(true)
+            expect(await store.startExternalEffect(fixture.jobId, 'owner', dueAt + 100)).toBe(true)
+            expect(await renew('owner', dueAt + 120, dueAt + 210)).toBe(false)
+            expect((await store.recoverExpiredClaims(dueAt + 120)).ambiguousJobIds).toEqual([
+                fixture.jobId,
+            ])
+            expect(await renew('owner', dueAt + 121, dueAt + 211)).toBe(false)
             expect(
-                store.completeExternalEffect({
+                await store.completeExternalEffect({
                     jobId: fixture.jobId,
                     claimToken: 'owner',
                     completedAt: dueAt + 121,
@@ -232,34 +234,34 @@ describe('workflow store', () => {
         }
     })
 
-    it('never claims work for a manual channel', () => {
+    it('never claims work for a manual channel', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'manual')
+            const fixture = await seedDueJob(database, 'manual')
             database.delete(publishers).where(eq(publishers.channelId, 'channel-manual')).run()
 
             expect(
-                createWorkflowStore(database).claimNextDueJob({
+                await createWorkflowStore(database).claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-one',
                     now: dueAt,
                     leaseExpiresAt: dueAt + 60_000,
                 })
             ).toBeNull()
-            expect(createWorkflowStore(database).getNextEventAt()).toBeNull()
+            expect(await createWorkflowStore(database).getNextEventAt()).toBeNull()
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('does not wake or claim work for a disabled target profile', () => {
+    it('does not wake or claim work for a disabled target profile', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'disabled')
+            const fixture = await seedDueJob(database, 'disabled')
             database
                 .update(channelProfileVersions)
                 .set({ state: 'disabled' })
@@ -267,9 +269,9 @@ describe('workflow store', () => {
                 .run()
 
             const store = createWorkflowStore(database)
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-disabled',
                     now: dueAt,
@@ -281,15 +283,15 @@ describe('workflow store', () => {
         }
     })
 
-    it('fails closed when a target profile is disabled after claiming and before the effect boundary', () => {
+    it('fails closed when a target profile is disabled after claiming and before the effect boundary', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'disabled-after-claim')
+            const fixture = await seedDueJob(database, 'disabled-after-claim')
             const store = createWorkflowStore(database)
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-disabled-after-claim',
                     now: dueAt,
@@ -304,7 +306,11 @@ describe('workflow store', () => {
                 .run()
 
             expect(
-                store.startExternalEffect(fixture.jobId, 'claim-disabled-after-claim', dueAt + 1)
+                await store.startExternalEffect(
+                    fixture.jobId,
+                    'claim-disabled-after-claim',
+                    dueAt + 1
+                )
             ).toBe(false)
             expect(
                 database.$client.query('select state from jobs where id = ?').get(fixture.jobId)
@@ -336,16 +342,16 @@ describe('workflow store', () => {
         }
     })
 
-    it('claims one due job atomically and fences stale workers', () => {
+    it('claims one due job atomically and fences stale workers', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database)
+            const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
 
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'too-early',
                     now: dueAt - 1,
@@ -353,7 +359,7 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.humanActorId,
                     claimToken: 'human-claim',
                     now: dueAt,
@@ -361,7 +367,7 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
 
-            const claimed = store.claimNextDueJob({
+            const claimed = await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-one',
                 now: dueAt,
@@ -372,15 +378,19 @@ describe('workflow store', () => {
             expect(claimed?.attempts).toBe(1)
             expect(claimed?.claimedByActorId).toBe(fixture.systemActorId)
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-two',
                     now: dueAt,
                     leaseExpiresAt: dueAt + 60_000,
                 })
             ).toBeNull()
-            expect(store.startExternalEffect(fixture.jobId, 'stale-claim', dueAt + 1)).toBe(false)
-            expect(store.startExternalEffect(fixture.jobId, 'claim-one', dueAt + 1)).toBe(true)
+            expect(await store.startExternalEffect(fixture.jobId, 'stale-claim', dueAt + 1)).toBe(
+                false
+            )
+            expect(await store.startExternalEffect(fixture.jobId, 'claim-one', dueAt + 1)).toBe(
+                true
+            )
 
             const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
             const [publication] = database
@@ -424,50 +434,50 @@ describe('workflow store', () => {
         }
     })
 
-    it('chooses the nearest pending run or running lease expiry', () => {
+    it('chooses the nearest pending run or running lease expiry', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const first = seedDueJob(database, 'first')
+            const first = await seedDueJob(database, 'first')
             const store = createWorkflowStore(database)
 
-            expect(store.getNextEventAt()).toBe(dueAt)
-            store.claimNextDueJob({
+            expect(await store.getNextEventAt()).toBe(dueAt)
+            await store.claimNextDueJob({
                 actorId: first.systemActorId,
                 claimToken: 'claim-one',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
-            expect(store.getNextEventAt()).toBe(dueAt + 60_000)
+            expect(await store.getNextEventAt()).toBe(dueAt + 60_000)
 
-            const second = seedDueJob(database, 'second')
+            const second = await seedDueJob(database, 'second')
             database
                 .update(jobs)
                 .set({ runAt: dueAt + 30_000 })
                 .where(eq(jobs.id, second.jobId))
                 .run()
-            expect(store.getNextEventAt()).toBe(dueAt + 30_000)
+            expect(await store.getNextEventAt()).toBe(dueAt + 30_000)
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('requeues an expired claim when no external effect started', () => {
+    it('requeues an expired claim when no external effect started', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database)
+            const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-one',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
 
-            expect(store.recoverExpiredClaims(dueAt + 60_000)).toEqual({
+            expect(await store.recoverExpiredClaims(dueAt + 60_000)).toEqual({
                 requeuedJobIds: [fixture.jobId],
                 ambiguousJobIds: [],
             })
@@ -501,22 +511,22 @@ describe('workflow store', () => {
         }
     })
 
-    it('marks the publication ambiguous after an expired effect boundary', () => {
+    it('marks the publication ambiguous after an expired effect boundary', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database)
+            const fixture = await seedDueJob(database)
             const store = createWorkflowStore(database)
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-one',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
-            store.startExternalEffect(fixture.jobId, 'claim-one', dueAt + 1)
+            await store.startExternalEffect(fixture.jobId, 'claim-one', dueAt + 1)
 
-            expect(store.recoverExpiredClaims(dueAt + 60_000)).toEqual({
+            expect(await store.recoverExpiredClaims(dueAt + 60_000)).toEqual({
                 requeuedJobIds: [],
                 ambiguousJobIds: [fixture.jobId],
             })
@@ -533,7 +543,7 @@ describe('workflow store', () => {
             expect(publication?.state).toBe('ambiguous')
             expect(publication?.errorMessage).toContain('external-effect boundary')
             expect(
-                store.completeExternalEffect({
+                await store.completeExternalEffect({
                     jobId: fixture.jobId,
                     claimToken: 'claim-one',
                     completedAt: dueAt + 60_001,
@@ -560,28 +570,28 @@ describe('workflow store', () => {
         }
     })
 
-    it('fails closed when the persisted media index disagrees with the target revision', () => {
+    it('fails closed when the persisted media index disagrees with the target revision', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'media-mismatch')
+            const fixture = await seedDueJob(database, 'media-mismatch')
             database
                 .update(publicationTargetRevisions)
                 .set({ mediaReferenceCount: 1 })
                 .where(eq(publicationTargetRevisions.id, fixture.targetRevisionId))
                 .run()
             const store = createWorkflowStore(database)
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-media-mismatch',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
 
-            expect(() =>
+            await expect(
                 store.startExternalEffect(fixture.jobId, 'claim-media-mismatch', dueAt + 1)
-            ).toThrow('inconsistent media reference counts')
+            ).rejects.toThrow('inconsistent media reference counts')
             expect(
                 database
                     .select()
@@ -603,23 +613,23 @@ describe('workflow store', () => {
         }
     })
 
-    it('persists a confirmed external result and fences duplicate completion', () => {
+    it('persists a confirmed external result and fences duplicate completion', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'success')
+            const fixture = await seedDueJob(database, 'success')
             const store = createWorkflowStore(database)
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-success',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
-            store.startExternalEffect(fixture.jobId, 'claim-success', dueAt + 1)
+            await store.startExternalEffect(fixture.jobId, 'claim-success', dueAt + 1)
 
             expect(
-                store.completeExternalEffect({
+                await store.completeExternalEffect({
                     jobId: fixture.jobId,
                     claimToken: 'claim-success',
                     completedAt: dueAt + 2,
@@ -631,7 +641,7 @@ describe('workflow store', () => {
                 })
             ).toBe('published')
             expect(
-                store.completeExternalEffect({
+                await store.completeExternalEffect({
                     jobId: fixture.jobId,
                     claimToken: 'claim-success',
                     completedAt: dueAt + 3,
@@ -673,12 +683,12 @@ describe('workflow store', () => {
         }
     })
 
-    it('rolls back execution transitions when their audit event cannot be persisted', () => {
+    it('rolls back execution transitions when their audit event cannot be persisted', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'audit-rollback')
+            const fixture = await seedDueJob(database, 'audit-rollback')
             const store = createWorkflowStore(database)
 
             database.$client.run(`
@@ -690,14 +700,14 @@ describe('workflow store', () => {
                 end
             `)
 
-            expect(() =>
+            await expect(
                 store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-audit-rollback',
                     now: dueAt,
                     leaseExpiresAt: dueAt + 60_000,
                 })
-            ).toThrow('workflow claim audit failure')
+            ).rejects.toThrow('workflow claim audit failure')
             const [unclaimedJob] = database
                 .select()
                 .from(jobs)
@@ -709,7 +719,7 @@ describe('workflow store', () => {
 
             database.$client.run('drop trigger fail_workflow_claim_audit')
             expect(
-                store.claimNextDueJob({
+                await store.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'claim-audit-rollback',
                     now: dueAt,
@@ -717,7 +727,7 @@ describe('workflow store', () => {
                 })
             ).not.toBeNull()
             expect(
-                store.startExternalEffect(fixture.jobId, 'claim-audit-rollback', dueAt + 1)
+                await store.startExternalEffect(fixture.jobId, 'claim-audit-rollback', dueAt + 1)
             ).toBe(true)
 
             database.$client.run(`
@@ -729,14 +739,14 @@ describe('workflow store', () => {
                 end
             `)
 
-            expect(() =>
+            await expect(
                 store.completeExternalEffect({
                     jobId: fixture.jobId,
                     claimToken: 'claim-audit-rollback',
                     completedAt: dueAt + 2,
                     outcome: { type: 'published' },
                 })
-            ).toThrow('workflow completion audit failure')
+            ).rejects.toThrow('workflow completion audit failure')
 
             const [runningJob] = database
                 .select()
@@ -765,7 +775,7 @@ describe('workflow store', () => {
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'retry')
+            const fixture = await seedDueJob(database, 'retry')
             const store = createWorkflowStore(database)
             const retryPolicy = createExponentialRetryPolicy({
                 maxAttempts: 2,
@@ -837,7 +847,7 @@ describe('workflow store', () => {
             expect(job?.attempts).toBe(2)
             expect(job?.errorMessage).toContain('rejected')
             expect(publication?.state).toBe('failed')
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
             expect(executionAuditActions(database, fixture.publicationId)).toEqual([
                 'publication.execution.claimed',
                 'publication.execution.effect_started',
@@ -889,7 +899,7 @@ describe('workflow store', () => {
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'exception')
+            const fixture = await seedDueJob(database, 'exception')
             const store = createWorkflowStore(database)
             const result = await processNextWorkflowEvent({
                 store,
@@ -933,30 +943,32 @@ describe('workflow store', () => {
         }
     })
 
-    it('cancels pending work atomically but never claims a running effect was prevented', () => {
+    it('cancels pending work atomically but never claims a running effect was prevented', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const pending = seedDueJob(database, 'cancel-pending')
-            const running = seedDueJob(database, 'cancel-running')
+            const pending = await seedDueJob(database, 'cancel-pending')
+            const running = await seedDueJob(database, 'cancel-running')
             const store = createWorkflowStore(database)
 
-            expect(store.cancelPendingJob(pending.jobId, pending.humanActorId, dueAt)).toBe(true)
-            expect(store.cancelPendingJob(pending.jobId, pending.humanActorId, dueAt + 1)).toBe(
-                false
+            expect(await store.cancelPendingJob(pending.jobId, pending.humanActorId, dueAt)).toBe(
+                true
             )
+            expect(
+                await store.cancelPendingJob(pending.jobId, pending.humanActorId, dueAt + 1)
+            ).toBe(false)
 
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: running.systemActorId,
                 claimToken: 'claim-running',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
-            store.startExternalEffect(running.jobId, 'claim-running', dueAt + 1)
-            expect(store.cancelPendingJob(running.jobId, running.humanActorId, dueAt + 2)).toBe(
-                false
-            )
+            await store.startExternalEffect(running.jobId, 'claim-running', dueAt + 1)
+            expect(
+                await store.cancelPendingJob(running.jobId, running.humanActorId, dueAt + 2)
+            ).toBe(false)
 
             const [cancelledJob] = database
                 .select()
@@ -996,7 +1008,7 @@ describe('workflow store', () => {
 
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database, 'scheduled-execution')
+            const fixture = await seedDueJob(database, 'scheduled-execution')
             const store = createWorkflowStore(database)
             let wake: (() => void | Promise<void>) | undefined
             const scheduler = new NextEventScheduler({
@@ -1030,7 +1042,7 @@ describe('workflow store', () => {
                 },
             })
 
-            scheduler.start()
+            await scheduler.start()
             expect(scheduler.scheduledAt).toBe(dueAt)
             if (wake === undefined) throw new Error('Scheduler did not arm its timer')
             await wake()
@@ -1043,7 +1055,7 @@ describe('workflow store', () => {
                 .all()
             expect(job?.state).toBe('succeeded')
             expect(publication?.state).toBe('published')
-            expect(store.getNextEventAt()).toBeNull()
+            expect(await store.getNextEventAt()).toBeNull()
             expect(scheduler.state).toBe('started')
             expect(scheduler.scheduledAt).toBeNull()
         } finally {
@@ -1051,7 +1063,7 @@ describe('workflow store', () => {
         }
     })
 
-    it('prevents two database connections from claiming the same job', () => {
+    it('prevents two database connections from claiming the same job', async () => {
         const directory = mkdtempSync(join(tmpdir(), 'postdot-workflow-'))
         const filename = join(directory, 'postdot.sqlite')
         const firstDatabase = createDatabase(filename)
@@ -1059,16 +1071,16 @@ describe('workflow store', () => {
 
         try {
             runMigrations(firstDatabase)
-            const fixture = seedDueJob(firstDatabase)
+            const fixture = await seedDueJob(firstDatabase)
             secondDatabase = createDatabase(filename)
 
-            const firstClaim = createWorkflowStore(firstDatabase).claimNextDueJob({
+            const firstClaim = await createWorkflowStore(firstDatabase).claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-one',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 60_000,
             })
-            const secondClaim = createWorkflowStore(secondDatabase).claimNextDueJob({
+            const secondClaim = await createWorkflowStore(secondDatabase).claimNextDueJob({
                 actorId: fixture.systemActorId,
                 claimToken: 'claim-two',
                 now: dueAt,
@@ -1084,7 +1096,7 @@ describe('workflow store', () => {
         }
     })
 
-    it('reconstructs the next event after the database is reopened', () => {
+    it('reconstructs the next event after the database is reopened', async () => {
         const directory = mkdtempSync(join(tmpdir(), 'postdot-restart-'))
         const filename = join(directory, 'postdot.sqlite')
         const firstDatabase = createDatabase(filename)
@@ -1093,13 +1105,13 @@ describe('workflow store', () => {
 
         try {
             runMigrations(firstDatabase)
-            seedDueJob(firstDatabase, 'restart')
-            expect(createWorkflowStore(firstDatabase).getNextEventAt()).toBe(dueAt)
+            await seedDueJob(firstDatabase, 'restart')
+            expect(await createWorkflowStore(firstDatabase).getNextEventAt()).toBe(dueAt)
             closeDatabase(firstDatabase)
             firstDatabaseOpen = false
 
             reopenedDatabase = createDatabase(filename)
-            expect(createWorkflowStore(reopenedDatabase).getNextEventAt()).toBe(dueAt)
+            expect(await createWorkflowStore(reopenedDatabase).getNextEventAt()).toBe(dueAt)
         } finally {
             if (reopenedDatabase !== undefined) {
                 closeDatabase(reopenedDatabase)
@@ -1113,14 +1125,14 @@ describe('workflow store', () => {
 })
 
 describe('project retirement effect fencing', () => {
-    it('cancels an owned pre-effect claim before it can cross the network boundary', () => {
+    it('cancels an owned pre-effect claim before it can cross the network boundary', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
-            const fixture = seedDueJob(database)
+            const fixture = await seedDueJob(database)
             const workflow = createWorkflowStore(database)
             expect(
-                workflow.claimNextDueJob({
+                await workflow.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'owner',
                     now: dueAt,
@@ -1128,20 +1140,22 @@ describe('project retirement effect fencing', () => {
                 })
             ).not.toBeNull()
             const lifecycle = createResourceLifecycleStore(database)
-            const preview = lifecycle.impact('project', fixture.projectId)!
-            const archived = lifecycle.mutate({
+            const preview = (await lifecycle.impact('project', fixture.projectId))!
+            const archived = await lifecycle.mutate({
                 kind: 'project',
                 id: fixture.projectId,
                 action: 'archive',
                 actorId: 'operator',
                 fingerprint: preview.fingerprint,
                 cancelPending: true,
-                authorize: () => true,
+                authorize: async () => true,
             })
             expect(archived.state).toBe('archived')
-            expect(workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(false)
+            expect(await workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(
+                false
+            )
             expect(
-                workflow.claimNextDueJob({
+                await workflow.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'another',
                     now: dueAt + 1,
@@ -1157,30 +1171,34 @@ describe('project retirement effect fencing', () => {
             const database = createDatabase(':memory:')
             try {
                 runMigrations(database)
-                const fixture = seedDueJob(database)
+                const fixture = await seedDueJob(database)
                 const workflow = createWorkflowStore(database)
-                workflow.claimNextDueJob({
+                await workflow.claimNextDueJob({
                     actorId: fixture.systemActorId,
                     claimToken: 'owner',
                     now: dueAt,
                     leaseExpiresAt: dueAt + 60_000,
                 })
-                expect(workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(true)
+                expect(await workflow.startExternalEffect(fixture.jobId, 'owner', dueAt + 1)).toBe(
+                    true
+                )
                 const lifecycle = createResourceLifecycleStore(database)
-                const preview = lifecycle.impact('project', fixture.projectId)!
+                const preview = (await lifecycle.impact('project', fixture.projectId))!
                 expect(
-                    lifecycle.mutate({
-                        kind: 'project',
-                        id: fixture.projectId,
-                        action: 'archive',
-                        actorId: 'operator',
-                        fingerprint: preview.fingerprint,
-                        cancelPending: true,
-                        authorize: () => true,
-                    }).state
+                    (
+                        await lifecycle.mutate({
+                            kind: 'project',
+                            id: fixture.projectId,
+                            action: 'archive',
+                            actorId: 'operator',
+                            fingerprint: preview.fingerprint,
+                            cancelPending: true,
+                            authorize: async () => true,
+                        })
+                    ).state
                 ).toBe('archiving')
                 expect(
-                    workflow.completeExternalEffect({
+                    await workflow.completeExternalEffect({
                         jobId: fixture.jobId,
                         claimToken: 'owner',
                         completedAt: dueAt + 2,
@@ -1205,7 +1223,7 @@ describe('project retirement effect fencing', () => {
                     delete: async () => {},
                 }
                 await lifecycle.reconcile(storage)
-                expect(lifecycle.state('project', fixture.projectId)).toBe('archived')
+                expect(await lifecycle.state('project', fixture.projectId)).toBe('archived')
                 expect(database.$client.query('select state from publications').get()).toEqual({
                     state: retry ? 'cancelled' : 'published',
                 })
@@ -1215,12 +1233,12 @@ describe('project retirement effect fencing', () => {
         })
 })
 
-it('paces overdue work before claim, persists timing across store restart and lets another channel run', () => {
+it('paces overdue work before claim, persists timing across store restart and lets another channel run', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
-        const a = seedDueJob(database, 'paced')
-        const b = seedDueJob(database, 'eligible')
+        const a = await seedDueJob(database, 'paced')
+        const b = await seedDueJob(database, 'eligible')
         const channelId = 'channel-paced'
         database.$client
             .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
@@ -1228,32 +1246,36 @@ it('paces overdue work before claim, persists timing across store restart and le
             .run(channelId, dueAt - 100, a.humanActorId, dueAt)
         const store = createWorkflowStore(database)
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: a.systemActorId,
                 claimToken: 'early',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 2000,
             })
         ).toBeNull()
-        expect(store.getNextEventAt()).toBe(dueAt)
+        expect(await store.getNextEventAt()).toBe(dueAt)
         expect(
-            store.claimNextDueJob({
-                actorId: b.systemActorId,
-                claimToken: 'other',
-                now: dueAt,
-                leaseExpiresAt: dueAt + 2000,
-            })?.id
+            (
+                await store.claimNextDueJob({
+                    actorId: b.systemActorId,
+                    claimToken: 'other',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 2000,
+                })
+            )?.id
         ).toBe(b.jobId)
-        expect(createWorkflowStore(database).getNextEventAt()).toBe(dueAt + 900)
+        expect(await createWorkflowStore(database).getNextEventAt()).toBe(dueAt + 900)
         expect(
-            store.claimNextDueJob({
-                actorId: a.systemActorId,
-                claimToken: 'on-time',
-                now: dueAt + 900,
-                leaseExpiresAt: dueAt + 3000,
-            })?.id
+            (
+                await store.claimNextDueJob({
+                    actorId: a.systemActorId,
+                    claimToken: 'on-time',
+                    now: dueAt + 900,
+                    leaseExpiresAt: dueAt + 3000,
+                })
+            )?.id
         ).toBe(a.jobId)
-        expect(store.startExternalEffect(a.jobId, 'on-time', dueAt + 900)).toBe(true)
+        expect(await store.startExternalEffect(a.jobId, 'on-time', dueAt + 900)).toBe(true)
         expect(
             database.$client
                 .query('select scheduled_at from publications where id=?')
@@ -1269,14 +1291,14 @@ it('paces overdue work before claim, persists timing across store restart and le
     }
 })
 
-it('rechecks spacing at the effect boundary and defers without consuming an attempt', () => {
+it('rechecks spacing at the effect boundary and defers without consuming an attempt', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
-        const a = seedDueJob(database, 'boundary')
+        const a = await seedDueJob(database, 'boundary')
         const store = createWorkflowStore(database)
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: a.systemActorId,
                 claimToken: 'claimed',
                 now: dueAt,
@@ -1287,39 +1309,39 @@ it('rechecks spacing at the effect boundary and defers without consuming an atte
             .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,last_effect_at,updated_by_actor_id,updated_at)
             values ('channel-boundary',1,'UTC',1000,?,?,?)`)
             .run(dueAt, a.humanActorId, dueAt)
-        expect(store.startExternalEffect(a.jobId, 'claimed', dueAt + 1)).toBe(false)
+        expect(await store.startExternalEffect(a.jobId, 'claimed', dueAt + 1)).toBe(false)
         expect(
             database.$client
                 .query('select state,attempts,effect_started_at from jobs where id=?')
                 .get(a.jobId)
         ).toEqual({ state: 'pending', attempts: 0, effect_started_at: null })
-        expect(store.getNextEventAt()).toBe(dueAt + 1000)
+        expect(await store.getNextEventAt()).toBe(dueAt + 1000)
     } finally {
         closeDatabase(database)
     }
 })
 
-it('paces actual retries after restart and keeps the original requested schedule', () => {
+it('paces actual retries after restart and keeps the original requested schedule', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
-        const f = seedDueJob(database, 'retry-paced')
+        const f = await seedDueJob(database, 'retry-paced')
         database.$client
             .query(`insert into channel_cadence(channel_id,revision,time_zone,minimum_interval_ms,updated_by_actor_id,updated_at)
             values ('channel-retry-paced',1,'UTC',1000,?,?)`)
             .run(f.humanActorId, dueAt)
         const store = createWorkflowStore(database)
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: f.systemActorId,
                 claimToken: 'first',
                 now: dueAt,
                 leaseExpiresAt: dueAt + 2000,
             })
         ).not.toBeNull()
-        expect(store.startExternalEffect(f.jobId, 'first', dueAt)).toBe(true)
+        expect(await store.startExternalEffect(f.jobId, 'first', dueAt)).toBe(true)
         expect(
-            store.completeExternalEffect({
+            await store.completeExternalEffect({
                 jobId: f.jobId,
                 claimToken: 'first',
                 completedAt: dueAt + 10,
@@ -1332,9 +1354,9 @@ it('paces actual retries after restart and keeps the original requested schedule
             })
         ).not.toBeNull()
         const restarted = createWorkflowStore(database)
-        expect(restarted.getNextEventAt()).toBe(dueAt + 1000)
+        expect(await restarted.getNextEventAt()).toBe(dueAt + 1000)
         expect(
-            restarted.claimNextDueJob({
+            await restarted.claimNextDueJob({
                 actorId: f.systemActorId,
                 claimToken: 'too-early',
                 now: dueAt + 100,
@@ -1342,14 +1364,16 @@ it('paces actual retries after restart and keeps the original requested schedule
             })
         ).toBeNull()
         expect(
-            restarted.claimNextDueJob({
-                actorId: f.systemActorId,
-                claimToken: 'retry',
-                now: dueAt + 1000,
-                leaseExpiresAt: dueAt + 3000,
-            })?.attempts
+            (
+                await restarted.claimNextDueJob({
+                    actorId: f.systemActorId,
+                    claimToken: 'retry',
+                    now: dueAt + 1000,
+                    leaseExpiresAt: dueAt + 3000,
+                })
+            )?.attempts
         ).toBe(2)
-        expect(restarted.startExternalEffect(f.jobId, 'retry', dueAt + 1000)).toBe(true)
+        expect(await restarted.startExternalEffect(f.jobId, 'retry', dueAt + 1000)).toBe(true)
         expect(
             database.$client
                 .query('select scheduled_at from publications where id=?')

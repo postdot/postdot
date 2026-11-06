@@ -93,7 +93,7 @@ async function execute(
             !pinned.height
         )
             return permanentFailure('The pinned Facebook media is invalid or unavailable')
-        let delivery = input.providerMediaDeliveryStore.reserve({
+        let delivery = await input.providerMediaDeliveryStore.reserve({
             projectId: target.projectId,
             executionMediaId: pinned.id,
             publisherId: target.publisherId,
@@ -108,7 +108,7 @@ async function execute(
                 'The Facebook media delivery requires reconciliation before retrying'
             )
         if (delivery.state === 'failed') {
-            const retried = input.providerMediaDeliveryStore.retry({
+            const retried = await input.providerMediaDeliveryStore.retry({
                 projectId: target.projectId,
                 deliveryId: delivery.id,
                 at: input.now,
@@ -117,7 +117,7 @@ async function execute(
             delivery = retried
         }
         deliveryId = delivery.id
-        const started = input.providerMediaDeliveryStore.start({
+        const started = await input.providerMediaDeliveryStore.start({
             projectId: target.projectId,
             deliveryId,
             at: input.now,
@@ -127,7 +127,7 @@ async function execute(
         try {
             const opened = await openVerifiedPinnedMedia(input.media, target.projectId, pinned)
             if (!opened) {
-                failDelivery(input, deliveryId, false, 'media_unavailable')
+                await failDelivery(input, deliveryId, false, 'media_unavailable')
                 return permanentFailure('The pinned Facebook media changed or is unavailable')
             }
             // Preserve the inspected MIME explicitly: Bun may omit Response.blob() type.
@@ -137,12 +137,12 @@ async function execute(
             const hash = createHash('sha256')
             for await (const bytes of blob.stream()) hash.update(bytes)
             if (blob.size !== pinned.byteSize || hash.digest('hex') !== pinned.sha256) {
-                failDelivery(input, deliveryId, false, 'media_changed')
+                await failDelivery(input, deliveryId, false, 'media_changed')
                 return permanentFailure('The pinned Facebook media changed while reading')
             }
             photoInput = { blob, accessibilityText: pinned.accessibilityText ?? undefined }
         } catch {
-            failDelivery(input, deliveryId, false, 'media_read_failed')
+            await failDelivery(input, deliveryId, false, 'media_read_failed')
             return retryableFailure('The pinned Facebook media could not be read; retry is safe')
         }
     }
@@ -156,16 +156,16 @@ async function execute(
             photo: photoInput,
         })
     } catch {
-        if (deliveryId) failDelivery(input, deliveryId, true, 'unknown_result')
+        if (deliveryId) await failDelivery(input, deliveryId, true, 'unknown_result')
         return ambiguousFailure('The Facebook publication outcome is unknown')
     }
     if (outcome.type === 'published') {
         if (deliveryId) {
             if (!outcome.mediaId) {
-                failDelivery(input, deliveryId, true, 'missing_media_id')
+                await failDelivery(input, deliveryId, true, 'missing_media_id')
                 return ambiguousFailure('Facebook returned no durable media identity')
             }
-            const completed = input.providerMediaDeliveryStore.complete({
+            const completed = await input.providerMediaDeliveryStore.complete({
                 projectId: target.projectId,
                 deliveryId,
                 remoteMediaId: outcome.mediaId,
@@ -182,20 +182,21 @@ async function execute(
         }
     }
     if (outcome.code === 'authentication_required')
-        input.credentials.markPublisherCredentialReconnectRequired(
+        await input.credentials.markPublisherCredentialReconnectRequired(
             target.projectId,
             target.credentialId
         )
-    if (deliveryId) failDelivery(input, deliveryId, outcome.type === 'ambiguous', outcome.code)
+    if (deliveryId)
+        await failDelivery(input, deliveryId, outcome.type === 'ambiguous', outcome.code)
     return outcome
 }
-function failDelivery(
+async function failDelivery(
     input: BuiltInProviderExecutionInput,
     deliveryId: string,
     ambiguous: boolean,
     errorCode: string
 ) {
-    input.providerMediaDeliveryStore.fail({
+    await input.providerMediaDeliveryStore.fail({
         projectId: input.target.projectId,
         deliveryId,
         ambiguous,

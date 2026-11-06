@@ -59,9 +59,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, user, status }) => {
+            async ({ authMethod, params, user, status }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const preference = emailAlerts?.store.preferences(params.projectId, user.id)
+                const preference = await emailAlerts?.store.preferences(params.projectId, user.id)
                 if (emailAlerts && preference === null) return status(404, notFoundResponse)
                 return {
                     ...(preference ?? {
@@ -94,7 +94,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, user, body, status }) => {
+            async ({ authMethod, params, user, body, status }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
                 if (!emailAlerts || (body.enabled && !available()))
                     return status(400, {
@@ -103,7 +103,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                             message: 'Email delivery is not configured',
                         },
                     })
-                const current = emailAlerts.store.preferences(params.projectId, user.id)
+                const current = await emailAlerts.store.preferences(params.projectId, user.id)
                 if (current === null) return status(404, notFoundResponse)
                 if (body.enabled && !current.verified)
                     return status(400, {
@@ -112,11 +112,11 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                             message: 'A verified account email is required',
                         },
                     })
-                const preference = emailAlerts.store.setEnabled(
+                const preference = (await emailAlerts.store.setEnabled(
                     params.projectId,
                     user.id,
                     body.enabled
-                )!
+                ))!
                 return { ...preference, available: available() }
             }
         )
@@ -137,10 +137,10 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, query, user, status }) => {
+            async ({ authMethod, query, user, status }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
                 const projectId = query.projectId ?? null
-                const page = notifications.listForUser({
+                const page = await notifications.listForUser({
                     userId: user.id,
                     projectId,
                     before: query.before,
@@ -149,8 +149,8 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                 })
                 return {
                     notifications: page.items.map(toNotificationResponse),
-                    unreadCount: notifications.countUnreadForUser(user.id, projectId),
-                    totalUnreadCount: notifications.countUnreadForUser(user.id),
+                    unreadCount: await notifications.countUnreadForUser(user.id, projectId),
+                    totalUnreadCount: await notifications.countUnreadForUser(user.id),
                     nextCursor: page.nextCursor,
                 }
             }
@@ -173,9 +173,12 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const notification = notifications.markReadForUser(params.notificationId, user.id)
+                const notification = await notifications.markReadForUser(
+                    params.notificationId,
+                    user.id
+                )
                 return notification === null
                     ? status(404, globalNotFoundResponse)
                     : toNotificationResponse(notification)
@@ -199,9 +202,12 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const notification = notifications.archiveForUser(params.notificationId, user.id)
+                const notification = await notifications.archiveForUser(
+                    params.notificationId,
+                    user.id
+                )
                 return notification === null
                     ? status(404, globalNotFoundResponse)
                     : toNotificationResponse(notification)
@@ -223,9 +229,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
+            async ({ authMethod, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                return { preferences: [...notifications.listUserPreferences(user.id)] }
+                return { preferences: [...(await notifications.listUserPreferences(user.id))] }
             }
         )
         .patch(
@@ -274,21 +280,21 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, query, status, user }) => {
+            async ({ authMethod, params, query, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const page = notifications.list({
+                const page = await notifications.list({
                     projectId: params.projectId,
                     subjectId: user.id,
                     before: query.before,
                     limit: query.limit,
                     includeArchived: query.view === 'all',
                 })
-                const unreadCount = notifications.countUnread(params.projectId, user.id)
+                const unreadCount = await notifications.countUnread(params.projectId, user.id)
                 if (page === null || unreadCount === null) return status(404, notFoundResponse)
                 return {
                     notifications: page.items.map(toNotificationResponse),
                     unreadCount,
-                    totalUnreadCount: notifications.countUnreadForUser(user.id),
+                    totalUnreadCount: await notifications.countUnreadForUser(user.id),
                     nextCursor: page.nextCursor,
                 }
             }
@@ -311,9 +317,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const notification = notifications.markRead(
+                const notification = await notifications.markRead(
                     params.projectId,
                     params.notificationId,
                     user.id
@@ -341,9 +347,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const notification = notifications.archive(
+                const notification = await notifications.archive(
                     params.projectId,
                     params.notificationId,
                     user.id
@@ -371,9 +377,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const preferences = notifications.listPreferences(params.projectId, user.id)
+                const preferences = await notifications.listPreferences(params.projectId, user.id)
                 return preferences === null
                     ? status(404, notFoundResponse)
                     : { preferences: [...preferences] }
@@ -398,9 +404,9 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const preference = notifications.updatePreference({
+                const preference = await notifications.updatePreference({
                     projectId: params.projectId,
                     subjectId: user.id,
                     kind: params.kind,

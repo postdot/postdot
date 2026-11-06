@@ -12,14 +12,14 @@ import { seedTestWorkspace } from './testing'
 const eventTime = 1_800_000_000_000
 const operationTime = eventTime + 1_000
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
     let nextId = 0
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
-    const project = manual.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manual.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Postdot',
         subjectId: 'human-1',
         displayName: 'First human',
@@ -33,7 +33,7 @@ function createFixture() {
 }
 
 function appendPublicationEvent(
-    fixture: ReturnType<typeof createFixture>,
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     input: { readonly id: string; readonly name: string; readonly version?: number }
 ) {
     return fixture.journal.append({
@@ -48,8 +48,8 @@ function appendPublicationEvent(
 }
 
 describe('notification store', () => {
-    it('projects supported outcomes once for human actors only', () => {
-        const fixture = createFixture()
+    it('projects supported outcomes once for human actors only', async () => {
+        const fixture = await createFixture()
         try {
             fixture.database.$client.run(
                 `insert into actors (
@@ -58,21 +58,21 @@ describe('notification store', () => {
                          ('machine-1', ?1, 'api_token', 'token-1', 'Machine', 1, 1)`,
                 [fixture.project.project.id]
             )
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-succeeded',
                 name: 'publication.execution.succeeded',
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-claimed',
                 name: 'publication.execution.claimed',
             })
 
-            expect(fixture.notifications.project(fixture.project.project.id)).toEqual({
+            expect(await fixture.notifications.project(fixture.project.project.id)).toEqual({
                 scanned: 3,
                 created: 2,
                 hasMore: false,
             })
-            expect(fixture.notifications.project(fixture.project.project.id)).toEqual({
+            expect(await fixture.notifications.project(fixture.project.project.id)).toEqual({
                 scanned: 0,
                 created: 0,
                 hasMore: false,
@@ -92,54 +92,54 @@ describe('notification store', () => {
         }
     })
 
-    it('uses default preferences and suppresses only future matching items', () => {
-        const fixture = createFixture()
+    it('uses default preferences and suppresses only future matching items', async () => {
+        const fixture = await createFixture()
         try {
             expect(
-                fixture.notifications.listPreferences(fixture.project.project.id, 'human-1')
+                await fixture.notifications.listPreferences(fixture.project.project.id, 'human-1')
             ).toEqual([
                 { kind: 'publication_published', inAppEnabled: true },
                 { kind: 'publication_failed', inAppEnabled: true },
                 { kind: 'publication_ambiguous', inAppEnabled: true },
             ])
-            fixture.notifications.updatePreference({
+            await fixture.notifications.updatePreference({
                 projectId: fixture.project.project.id,
                 subjectId: 'human-1',
                 kind: 'publication_failed',
                 inAppEnabled: false,
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-failed',
                 name: 'publication.execution.failed',
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-ambiguous',
                 name: 'publication.execution.ambiguous',
             })
 
-            fixture.notifications.project(fixture.project.project.id)
+            await fixture.notifications.project(fixture.project.project.id)
             expect(
-                fixture.notifications
-                    .list({
+                (
+                    await fixture.notifications.list({
                         projectId: fixture.project.project.id,
                         subjectId: 'human-1',
                     })
-                    ?.items.map(notification => notification.kind)
+                )?.items.map(notification => notification.kind)
             ).toEqual(['publication_ambiguous'])
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('advances past unsupported versions and resumes from its durable cursor', () => {
-        const fixture = createFixture()
+    it('advances past unsupported versions and resumes from its durable cursor', async () => {
+        const fixture = await createFixture()
         try {
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-future',
                 name: 'publication.execution.succeeded',
                 version: 2,
             })
-            expect(fixture.notifications.project(fixture.project.project.id, 1)).toEqual({
+            expect(await fixture.notifications.project(fixture.project.project.id, 1)).toEqual({
                 scanned: 1,
                 created: 0,
                 hasMore: true,
@@ -149,29 +149,29 @@ describe('notification store', () => {
                 createId: () => crypto.randomUUID(),
                 now: () => operationTime,
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-supported',
                 name: 'publication.execution.succeeded',
             })
-            while (restarted.project(fixture.project.project.id, 1).hasMore) {}
+            while ((await restarted.project(fixture.project.project.id, 1)).hasMore) {}
 
             expect(
-                restarted
-                    .list({
+                (
+                    await restarted.list({
                         projectId: fixture.project.project.id,
                         subjectId: 'human-1',
                     })
-                    ?.items.map(notification => notification.sourceEventId)
+                )?.items.map(notification => notification.sourceEventId)
             ).toEqual(['event-supported'])
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('rolls back inbox writes when cursor advancement fails', () => {
-        const fixture = createFixture()
+    it('rolls back inbox writes when cursor advancement fails', async () => {
+        const fixture = await createFixture()
         try {
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-rollback',
                 name: 'publication.execution.failed',
             })
@@ -183,7 +183,9 @@ describe('notification store', () => {
                 end
             `)
 
-            expect(() => fixture.notifications.project(fixture.project.project.id)).toThrow()
+            await expect(
+                fixture.notifications.project(fixture.project.project.id)
+            ).rejects.toThrow()
             expect(
                 fixture.database.$client
                     .query<{ count: number }, []>('select count(*) as count from notifications')
@@ -191,61 +193,73 @@ describe('notification store', () => {
             ).toBe(0)
 
             fixture.database.$client.run('drop trigger reject_notification_cursor')
-            expect(fixture.notifications.project(fixture.project.project.id).created).toBe(1)
+            expect((await fixture.notifications.project(fixture.project.project.id)).created).toBe(
+                1
+            )
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('keeps read and archive transitions idempotent and project isolated', () => {
-        const fixture = createFixture()
+    it('keeps read and archive transitions idempotent and project isolated', async () => {
+        const fixture = await createFixture()
         try {
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-lifecycle',
                 name: 'publication.execution.ambiguous',
             })
-            fixture.notifications.project(fixture.project.project.id)
-            const notification = fixture.notifications.list({
-                projectId: fixture.project.project.id,
-                subjectId: 'human-1',
-            })?.items[0]
+            await fixture.notifications.project(fixture.project.project.id)
+            const notification = (
+                await fixture.notifications.list({
+                    projectId: fixture.project.project.id,
+                    subjectId: 'human-1',
+                })
+            )?.items[0]
             expect(notification).toBeDefined()
-            expect(fixture.notifications.countUnread(fixture.project.project.id, 'human-1')).toBe(1)
+            expect(
+                await fixture.notifications.countUnread(fixture.project.project.id, 'human-1')
+            ).toBe(1)
 
-            const firstRead = fixture.notifications.markRead(
+            const firstRead = await fixture.notifications.markRead(
                 fixture.project.project.id,
                 notification?.id ?? '',
                 'human-1'
             )
-            const secondRead = fixture.notifications.markRead(
+            const secondRead = await fixture.notifications.markRead(
                 fixture.project.project.id,
                 notification?.id ?? '',
                 'human-1'
             )
             expect(secondRead?.readAt).toBe(firstRead?.readAt)
-            expect(fixture.notifications.countUnread(fixture.project.project.id, 'human-1')).toBe(0)
+            expect(
+                await fixture.notifications.countUnread(fixture.project.project.id, 'human-1')
+            ).toBe(0)
 
-            const archived = fixture.notifications.archive(
+            const archived = await fixture.notifications.archive(
                 fixture.project.project.id,
                 notification?.id ?? '',
                 'human-1'
             )
             expect(archived?.archivedAt).toBe(operationTime)
             expect(
-                fixture.notifications.list({
-                    projectId: fixture.project.project.id,
-                    subjectId: 'human-1',
-                })?.items
+                (
+                    await fixture.notifications.list({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'human-1',
+                    })
+                )?.items
             ).toEqual([])
             expect(
-                fixture.notifications.list({
-                    projectId: fixture.project.project.id,
-                    subjectId: 'human-1',
-                    includeArchived: true,
-                })?.items[0]?.id
+                (
+                    await fixture.notifications.list({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'human-1',
+                        includeArchived: true,
+                    })
+                )?.items[0]?.id
             ).toBe(notification?.id)
             expect(
-                fixture.notifications.markRead(
+                await fixture.notifications.markRead(
                     fixture.project.project.id,
                     notification?.id ?? '',
                     'other-human'
@@ -256,18 +270,18 @@ describe('notification store', () => {
         }
     })
 
-    it('rejects unbounded reads and unknown project identities', () => {
-        const fixture = createFixture()
+    it('rejects unbounded reads and unknown project identities', async () => {
+        const fixture = await createFixture()
         try {
-            expect(() =>
+            await expect(
                 fixture.notifications.list({
                     projectId: fixture.project.project.id,
                     subjectId: 'human-1',
                     limit: 101,
                 })
-            ).toThrow(DomainInvariantError)
+            ).rejects.toThrow(DomainInvariantError)
             expect(
-                fixture.notifications.list({
+                await fixture.notifications.list({
                     projectId: fixture.project.project.id,
                     subjectId: 'unknown',
                 })
@@ -277,21 +291,21 @@ describe('notification store', () => {
         }
     })
 
-    it('paginates more than the default limit at one timestamp without gaps or duplicates', () => {
-        const fixture = createFixture()
+    it('paginates more than the default limit at one timestamp without gaps or duplicates', async () => {
+        const fixture = await createFixture()
         try {
             for (let index = 0; index < 55; index += 1) {
-                appendPublicationEvent(fixture, {
+                await appendPublicationEvent(fixture, {
                     id: `event-${index}`,
                     name: 'publication.execution.succeeded',
                 })
             }
-            fixture.notifications.project(fixture.project.project.id)
+            await fixture.notifications.project(fixture.project.project.id)
 
             const ids: string[] = []
             let before: string | null | undefined
             do {
-                const page = fixture.notifications.list({
+                const page = await fixture.notifications.list({
                     projectId: fixture.project.project.id,
                     subjectId: 'human-1',
                     limit: 20,
@@ -309,8 +323,8 @@ describe('notification store', () => {
         }
     })
 
-    it('rejects malformed inbox cursors', () => {
-        const fixture = createFixture()
+    it('rejects malformed inbox cursors', async () => {
+        const fixture = await createFixture()
         try {
             for (const before of [
                 'invalid',
@@ -318,29 +332,29 @@ describe('notification store', () => {
                 'notification:01:item',
                 'notification:1:',
             ]) {
-                expect(() =>
+                await expect(
                     fixture.notifications.list({
                         projectId: fixture.project.project.id,
                         subjectId: 'human-1',
                         before,
                     })
-                ).toThrow(DomainInvariantError)
+                ).rejects.toThrow(DomainInvariantError)
             }
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('builds one user inbox across projects and keeps projectless notifications supported', () => {
-        const fixture = createFixture()
+    it('builds one user inbox across projects and keeps projectless notifications supported', async () => {
+        const fixture = await createFixture()
         try {
-            const second = fixture.manual.createProject({
-                workspaceId: seedTestWorkspace(fixture.database),
+            const second = await fixture.manual.createProject({
+                workspaceId: await seedTestWorkspace(fixture.database),
                 name: 'Second project',
                 subjectId: 'human-1',
                 displayName: 'First human',
             })
-            const secondEvent = fixture.journal.append({
+            const secondEvent = await fixture.journal.append({
                 id: 'event-second-project',
                 projectId: second.project.id,
                 actorId: second.actor.id,
@@ -349,7 +363,7 @@ describe('notification store', () => {
                 subject: { type: 'publication', id: 'publication-second-project' },
                 occurredAt: eventTime + 1,
             })
-            fixture.notifications.project(second.project.id)
+            await fixture.notifications.project(second.project.id)
 
             fixture.database.$client.run(
                 `insert into notifications (
@@ -361,42 +375,47 @@ describe('notification store', () => {
                 [eventTime + 2]
             )
 
-            const page = fixture.notifications.listForUser({ userId: 'human-1' })
+            const page = await fixture.notifications.listForUser({ userId: 'human-1' })
             expect(page.items.map(item => item.sourceEventId)).toEqual([
                 'system-update-1',
                 secondEvent.id,
             ])
             expect(page.items[0]?.projectId).toBeNull()
             expect(page.items[1]?.projectId).toBe(second.project.id)
-            expect(fixture.notifications.countUnreadForUser('human-1')).toBe(2)
+            expect(await fixture.notifications.countUnreadForUser('human-1')).toBe(2)
 
-            const read = fixture.notifications.markReadForUser('global-notification', 'human-1')
+            const read = await fixture.notifications.markReadForUser(
+                'global-notification',
+                'human-1'
+            )
             expect(read?.readAt).toBe(operationTime)
-            expect(fixture.notifications.countUnreadForUser('human-1')).toBe(1)
+            expect(await fixture.notifications.countUnreadForUser('human-1')).toBe(1)
             expect(
-                fixture.notifications.markReadForUser('global-notification', 'other-user')
+                await fixture.notifications.markReadForUser('global-notification', 'other-user')
             ).toBeNull()
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('applies user preferences before project fallbacks during projection', () => {
-        const fixture = createFixture()
+    it('applies user preferences before project fallbacks during projection', async () => {
+        const fixture = await createFixture()
         try {
-            fixture.notifications.updateUserPreference({
+            await fixture.notifications.updateUserPreference({
                 userId: 'human-1',
                 kind: 'publication_failed',
                 inAppEnabled: false,
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-user-preference-failed',
                 name: 'publication.execution.failed',
             })
-            fixture.notifications.project(fixture.project.project.id)
+            await fixture.notifications.project(fixture.project.project.id)
 
-            expect(fixture.notifications.listForUser({ userId: 'human-1' }).items).toEqual([])
-            expect(fixture.notifications.listUserPreferences('human-1')).toContainEqual({
+            expect((await fixture.notifications.listForUser({ userId: 'human-1' })).items).toEqual(
+                []
+            )
+            expect(await fixture.notifications.listUserPreferences('human-1')).toContainEqual({
                 kind: 'publication_failed',
                 inAppEnabled: false,
             })

@@ -10,7 +10,7 @@ import {
     type ValidationIssue,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type PostdotDatabase } from '../client'
 import type {
     PublicationWorkingDraft,
     RebasePublicationDraftInput,
@@ -38,14 +38,14 @@ export interface PublicationAuthoringStoreOptions extends PublicationPromotionDe
         content: unknown,
         projectId: string,
         subjectId: string
-    ) => readonly ValidationIssue[]
+    ) => Promise<readonly ValidationIssue[]>
 }
 
 export function createPublicationAuthoringStore(
     database: PostdotDatabase,
     options: PublicationAuthoringStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const publicationReadStore = createPublicationReadStore(database, {
         now: options.now,
         loadActor: options.loadActor,
@@ -62,7 +62,7 @@ export function createPublicationAuthoringStore(
         ...options,
         promotePublicationDraft: publicationPromotionStore.promotePublicationDraft,
     })
-    const updatePostSourceStatement = client.query<
+    const updatePostSourceStatement = sql.statement<
         { changes: number },
         [
             sourceContentJson: string,
@@ -79,7 +79,7 @@ export function createPublicationAuthoringStore(
         where project_id = ?4
           and id = ?5
     `)
-    const updateWorkingDraftStatement = client.query<
+    const updateWorkingDraftStatement = sql.statement<
         { changes: number },
         [
             sourceRevision: number,
@@ -109,7 +109,7 @@ export function createPublicationAuthoringStore(
           and publication_id = ?10
           and revision = ?11
     `)
-    const rebaseWorkingDraftStatement = client.query<
+    const rebaseWorkingDraftStatement = sql.statement<
         { changes: number },
         [
             sourceRevision: number,
@@ -131,7 +131,7 @@ export function createPublicationAuthoringStore(
           and publication_id = ?6
           and revision = ?7
     `)
-    const supersedePendingApprovalRequestStatement = client.query<
+    const supersedePendingApprovalRequestStatement = sql.statement<
         { changes: number },
         [
             decidedByActorId: string,
@@ -150,13 +150,13 @@ export function createPublicationAuthoringStore(
           and publication_id = ?5
           and state = 'pending'
     `)
-    const supersedePendingApprovalRequest = (
+    const supersedePendingApprovalRequest = async (
         projectId: string,
         publicationId: string,
         actorId: string,
         timestamp: number
     ) => {
-        const result = supersedePendingApprovalRequestStatement.run(
+        const result = await supersedePendingApprovalRequestStatement.run(
             actorId,
             timestamp,
             timestamp,
@@ -164,7 +164,7 @@ export function createPublicationAuthoringStore(
             publicationId
         )
         if (result.changes === 1) {
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId,
                 actorId,
@@ -176,9 +176,9 @@ export function createPublicationAuthoringStore(
             })
         }
     }
-    const savePublicationDraftTransaction = createDatabaseTransaction(
+    const savePublicationDraftTransaction = defineTransaction(
         database,
-        (input: SavePublicationDraftInput): PublicationWorkingDraft | null => {
+        async (input: SavePublicationDraftInput): Promise<PublicationWorkingDraft | null> => {
             if (input.sourceContent === undefined && input.targetContent === undefined) {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -186,8 +186,11 @@ export function createPublicationAuthoringStore(
                 )
             }
 
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const publicationRow = options.loadPublication(input.projectId, input.publicationId)
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            const publicationRow = await options.loadPublication(
+                input.projectId,
+                input.publicationId
+            )
             if (actorRow === null || publicationRow === null) return null
             if (
                 ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
@@ -200,16 +203,16 @@ export function createPublicationAuthoringStore(
                 )
             }
 
-            const draftRow = loadWorkingDraft(input.projectId, input.publicationId)
-            const postRow = options.loadPostSource(input.projectId, publicationRow.postId)
+            const draftRow = await loadWorkingDraft(input.projectId, input.publicationId)
+            const postRow = await options.loadPostSource(input.projectId, publicationRow.postId)
             if (draftRow === null || postRow === null) {
                 throw new DomainInvariantError(
                     'invalid_input',
                     `Publication ${input.publicationId} has incomplete draft state`
                 )
             }
-            const channelRow = options.loadChannel(input.projectId, publicationRow.channelId)
-            const profileRow = options.loadProfile(input.projectId, draftRow.profileVersionId)
+            const channelRow = await options.loadChannel(input.projectId, publicationRow.channelId)
+            const profileRow = await options.loadProfile(input.projectId, draftRow.profileVersionId)
             if (
                 channelRow === null ||
                 profileRow === null ||
@@ -257,7 +260,7 @@ export function createPublicationAuthoringStore(
                 )
             }
             const validation = profileResult.value.validate(targetContent)
-            const mediaIssues = options.assessWorkingDraftMedia(
+            const mediaIssues = await options.assessWorkingDraftMedia(
                 profileResult.value.profile,
                 targetContent,
                 input.projectId,
@@ -279,7 +282,7 @@ export function createPublicationAuthoringStore(
             const targetContentJson = canonicalJson(targetContent)
 
             if (sourceChanged) {
-                const sourceUpdate = updatePostSourceStatement.run(
+                const sourceUpdate = await updatePostSourceStatement.run(
                     sourceContentJson,
                     sourceRevision,
                     timestamp,
@@ -294,7 +297,7 @@ export function createPublicationAuthoringStore(
                 }
             }
 
-            const draftUpdate = updateWorkingDraftStatement.run(
+            const draftUpdate = await updateWorkingDraftStatement.run(
                 sourceRevision,
                 sourceChanged ? sourceContentJson : draftRow.baseSourceContentJson,
                 targetContentJson,
@@ -313,26 +316,29 @@ export function createPublicationAuthoringStore(
                     `Publication draft ${input.publicationId} changed before it could be saved`
                 )
             }
-            supersedePendingApprovalRequest(
+            await supersedePendingApprovalRequest(
                 input.projectId,
                 input.publicationId,
                 actorRow.id,
                 timestamp
             )
 
-            const updated = loadWorkingDraft(input.projectId, input.publicationId)
+            const updated = await loadWorkingDraft(input.projectId, input.publicationId)
             if (updated === null)
                 throw new DomainInvariantError('invalid_input', 'Draft disappeared')
             return toWorkingDraft(updated)
         }
     )
 
-    const rebasePublicationDraftTransaction = createDatabaseTransaction(
+    const rebasePublicationDraftTransaction = defineTransaction(
         database,
-        (input: RebasePublicationDraftInput): PublicationWorkingDraft | null => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const publicationRow = options.loadPublication(input.projectId, input.publicationId)
-            const draftRow = loadWorkingDraft(input.projectId, input.publicationId)
+        async (input: RebasePublicationDraftInput): Promise<PublicationWorkingDraft | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            const publicationRow = await options.loadPublication(
+                input.projectId,
+                input.publicationId
+            )
+            const draftRow = await loadWorkingDraft(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null || draftRow === null) return null
             if (
                 ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
@@ -351,14 +357,14 @@ export function createPublicationAuthoringStore(
                 )
             }
 
-            const postRow = options.loadPostSource(input.projectId, publicationRow.postId)
+            const postRow = await options.loadPostSource(input.projectId, publicationRow.postId)
             if (postRow === null) {
                 throw new DomainInvariantError(
                     'invalid_input',
                     `Publication ${input.publicationId} has no source post`
                 )
             }
-            const channelRow = options.loadChannel(input.projectId, publicationRow.channelId)
+            const channelRow = await options.loadChannel(input.projectId, publicationRow.channelId)
             if (channelRow === null) {
                 throw new DomainInvariantError(
                     'invalid_input',
@@ -399,7 +405,10 @@ export function createPublicationAuthoringStore(
             const timestamp = requireTimestamp(options.now(), 'now')
             let update: { changes: number }
             if (input.replaceContent) {
-                const profileRow = options.loadProfile(input.projectId, draftRow.profileVersionId)
+                const profileRow = await options.loadProfile(
+                    input.projectId,
+                    draftRow.profileVersionId
+                )
                 if (!profileRow || profileRow.channelId !== channelRow.id) {
                     throw new DomainInvariantError('invalid_input', 'Draft profile unavailable')
                 }
@@ -413,13 +422,13 @@ export function createPublicationAuthoringStore(
                     JSON.parse(draftRow.contentJson)
                 )
                 const validation = profile.value.validate(content)
-                const mediaIssues = options.assessWorkingDraftMedia(
+                const mediaIssues = await options.assessWorkingDraftMedia(
                     profile.value.profile,
                     content,
                     input.projectId,
                     input.subjectId
                 )
-                update = updateWorkingDraftStatement.run(
+                update = await updateWorkingDraftStatement.run(
                     postRow.sourceRevision,
                     postRow.sourceContentJson,
                     canonicalJson(content),
@@ -433,7 +442,7 @@ export function createPublicationAuthoringStore(
                     input.expectedRevision
                 )
             } else {
-                update = rebaseWorkingDraftStatement.run(
+                update = await rebaseWorkingDraftStatement.run(
                     postRow.sourceRevision,
                     postRow.sourceContentJson,
                     actorRow.id,
@@ -449,13 +458,13 @@ export function createPublicationAuthoringStore(
                     `Publication draft ${input.publicationId} changed before it could be rebased`
                 )
             }
-            supersedePendingApprovalRequest(
+            await supersedePendingApprovalRequest(
                 input.projectId,
                 input.publicationId,
                 actorRow.id,
                 timestamp
             )
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actorRow.id,
@@ -470,7 +479,7 @@ export function createPublicationAuthoringStore(
                 createdAt: timestamp,
             })
 
-            const rebased = loadWorkingDraft(input.projectId, input.publicationId)
+            const rebased = await loadWorkingDraft(input.projectId, input.publicationId)
             if (rebased === null) {
                 throw new DomainInvariantError('invalid_input', 'Draft disappeared after rebase')
             }
@@ -488,7 +497,9 @@ export function createPublicationAuthoringStore(
         ...publicationPromotionStore,
         ...publicationApprovalStore,
 
-        savePublicationDraft(input: SavePublicationDraftInput): PublicationWorkingDraft | null {
+        async savePublicationDraft(
+            input: SavePublicationDraftInput
+        ): Promise<PublicationWorkingDraft | null> {
             return savePublicationDraftTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -498,7 +509,9 @@ export function createPublicationAuthoringStore(
             })
         },
 
-        rebasePublicationDraft(input: RebasePublicationDraftInput): PublicationWorkingDraft | null {
+        async rebasePublicationDraft(
+            input: RebasePublicationDraftInput
+        ): Promise<PublicationWorkingDraft | null> {
             return rebasePublicationDraftTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

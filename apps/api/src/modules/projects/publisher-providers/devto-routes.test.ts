@@ -188,7 +188,7 @@ describe('DEV.to publisher connection routes', () => {
                 connection: { credentialId: string }
             }
 
-            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+            await publisher.credentialStore.markPublisherCredentialReconnectRequired(
                 projectId,
                 initialBody.connection.credentialId
             )

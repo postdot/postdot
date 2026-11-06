@@ -56,7 +56,7 @@ export function createXRuntime({ options, providerApplicationStore }: ProviderRu
             }
         }
         if (applicationId !== undefined && applicationId !== null) return undefined
-        if (providerApplicationStore.hasProviderApplication('x')) return undefined
+        if (await providerApplicationStore.hasProviderApplication('x')) return undefined
         return x === undefined ? undefined : { applicationId: null, ...x }
     }
 

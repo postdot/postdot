@@ -108,7 +108,7 @@ it('requires explicit scoped destination confirmation and preserves publication 
             return result.credential
         }
         const first = await credential('first-account')
-        const connected = publisher.publisherStore.createPublisherConnection({
+        const connected = await publisher.publisherStore.createPublisherConnection({
             projectId: project.id,
             channelId: channel.id,
             subjectId: actor.subjectId,
@@ -133,21 +133,30 @@ it('requires explicit scoped destination confirmation and preserves publication 
         expect(postResponse.status).toBe(201)
         const publication = ((await postResponse.json()) as { publications: Publication[] })
             .publications[0]!
-        publisher.credentialStore.markPublisherCredentialReconnectRequired(project.id, first.id)
+        await publisher.credentialStore.markPublisherCredentialReconnectRequired(
+            project.id,
+            first.id
+        )
         const second = await credential('second-account')
         expect(
-            publisher.publisherStore.createPublisherConnection({
-                projectId: project.id,
-                channelId: channel.id,
-                subjectId: actor.subjectId,
-                kind: 'linkedin',
-                credentialId: second.id,
-                destination: { type: 'member', id: 'second-account', name: 'Second destination' },
-                replaceNonActiveConnection: {
-                    id: connected.connection.id,
-                    state: 'reconnect_required',
-                },
-            }).kind
+            (
+                await publisher.publisherStore.createPublisherConnection({
+                    projectId: project.id,
+                    channelId: channel.id,
+                    subjectId: actor.subjectId,
+                    kind: 'linkedin',
+                    credentialId: second.id,
+                    destination: {
+                        type: 'member',
+                        id: 'second-account',
+                        name: 'Second destination',
+                    },
+                    replaceNonActiveConnection: {
+                        id: connected.connection.id,
+                        state: 'reconnect_required',
+                    },
+                })
+            ).kind
         ).toBe('created')
         const path = `/api/projects/${project.id}/publications/${publication.id}`
         const before = (await (await request('GET', path + '/editor')).json()) as {

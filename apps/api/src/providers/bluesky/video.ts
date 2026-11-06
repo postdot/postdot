@@ -41,7 +41,7 @@ export async function publishBlueskyVideo(input: {
     }
     if (!execution.media) return permanentFailure('The Bluesky video media service is unavailable')
     const store = execution.providerMediaDeliveryStore
-    let delivery = store.reserve({
+    let delivery = await store.reserve({
         projectId: target.projectId,
         executionMediaId: item.id,
         publisherId: target.publisherId,
@@ -51,7 +51,7 @@ export async function publishBlueskyVideo(input: {
     if (delivery.state === 'ambiguous')
         return ambiguousFailure('The Bluesky video upload requires reconciliation')
     if (delivery.state === 'failed') {
-        const retried = store.retry({
+        const retried = await store.retry({
             projectId: target.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -59,10 +59,10 @@ export async function publishBlueskyVideo(input: {
         if (!retried) return permanentFailure('The Bluesky video delivery disappeared')
         delivery = retried
     }
-    const fail = (outcome: ExternalEffectOutcome) => {
+    const fail = async (outcome: ExternalEffectOutcome) => {
         if (outcome.type === 'published' || outcome.type === 'deferred') return outcome
         if (delivery.state === 'uploaded') return outcome
-        const failed = store.fail({
+        const failed = await store.fail({
             projectId: target.projectId,
             deliveryId: delivery.id,
             errorCode: outcome.type,
@@ -84,7 +84,7 @@ export async function publishBlueskyVideo(input: {
             return permanentFailure('The pinned Bluesky video could not be read')
         }
         if (!opened) return permanentFailure('The pinned Bluesky video is unavailable or changed')
-        const started = store.start({
+        const started = await store.start({
             projectId: target.projectId,
             deliveryId: delivery.id,
             at: execution.now,
@@ -97,7 +97,7 @@ export async function publishBlueskyVideo(input: {
             uploaded.type === 'ready'
                 ? JSON.stringify(uploaded.blob)
                 : JSON.stringify({ type: 'bluesky-video-job', jobId: uploaded.jobId })
-        const saved = store.recordRemoteMediaId({
+        const saved = await store.recordRemoteMediaId({
             projectId: target.projectId,
             deliveryId: delivery.id,
             remoteMediaId,
@@ -156,7 +156,7 @@ export async function publishBlueskyVideo(input: {
     const blob = readBlueskyVideoBlob(checkpoint)
     if (!blob) return ambiguousFailure('The stored Bluesky video blob is invalid')
     if (delivery.state !== 'uploaded') {
-        const completed = store.complete({
+        const completed = await store.complete({
             projectId: target.projectId,
             deliveryId: delivery.id,
             remoteMediaId: delivery.remoteMediaId!,

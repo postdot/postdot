@@ -21,8 +21,8 @@ it('coordinates the real SDK across sessions and persists implicit later renewal
     const database = createDatabase(':memory:')
     runMigrations(database)
     try {
-        const project = createManualStore(database).createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = await createManualStore(database).createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Session fixture',
             subjectId: 'owner',
             displayName: 'Owner',
@@ -237,7 +237,8 @@ it('coordinates the real SDK across sessions and persists implicit later renewal
         finishOldRenewal.resolve()
         await expect(staleRenewal).rejects.toThrow()
         expect(
-            credentials.getPublisherCredential(project.project.id, created.credential.id)?.state
+            (await credentials.getPublisherCredential(project.project.id, created.credential.id))
+                ?.state
         ).toBe('active')
         expect(
             (
@@ -252,7 +253,8 @@ it('coordinates the real SDK across sessions and persists implicit later renewal
         expect((await freshGrantSession.session.getTokenInfo()).sub).toBe(accountId)
         expect(renewals).toBe(3)
         expect(
-            credentials.getPublisherCredential(project.project.id, created.credential.id)?.state
+            (await credentials.getPublisherCredential(project.project.id, created.credential.id))
+                ?.state
         ).toBe('active')
     } finally {
         closeDatabase(database)

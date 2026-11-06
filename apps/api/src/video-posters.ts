@@ -28,7 +28,7 @@ export function createVideoPosterExtractor(
                 () => controller.abort(new DOMException('Video preview timed out', 'TimeoutError')),
                 10_000
             )
-            let child: ReturnType<typeof Bun.spawn> | undefined
+            let child: Awaited<ReturnType<typeof Bun.spawn>> | undefined
             try {
                 const opened = await new Promise<Awaited<ReturnType<MediaStore['open']>>>(
                     (resolve, reject) => {
@@ -159,7 +159,7 @@ export function createVideoPosterExtractor(
 }
 
 export function createVideoPosterRuntime(options: {
-    readonly pending: () => readonly { projectId: string; id: string }[]
+    readonly pending: () => Promise<readonly { projectId: string; id: string }[]>
     readonly generate: (projectId: string, assetId: string) => Promise<boolean>
     readonly cancel: () => void
 }) {
@@ -195,10 +195,10 @@ export function createVideoPosterRuntime(options: {
     }
     return {
         enqueue,
-        start() {
+        async start() {
             if (started) return
             started = true
-            for (const item of options.pending()) enqueue(item.projectId, item.id)
+            for (const item of await options.pending()) enqueue(item.projectId, item.id)
             wake()
         },
         async stop() {

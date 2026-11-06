@@ -32,26 +32,26 @@ function customBase(): Record<string, unknown> {
     }
 }
 
-test('custom creation derives fingerprints, replaces legacy values and preserves identity', () => {
+test('custom creation derives fingerprints, replaces legacy values and preserves identity', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-        const { project } = store.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const { project } = await store.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Creation fingerprints',
             subjectId: 'operator',
             displayName: 'Operator',
         })
         const input = { projectId: project.id, subjectId: 'operator' }
 
-        const channel = store.createChannel({
+        const channel = (await store.createChannel({
             ...input,
             name: 'Derived',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
-        const stored = store.getChannelProfileState(project.id, channel.id, 'operator')!.active
-            .profile as unknown as Record<string, unknown>
+        }))!
+        const stored = (await store.getChannelProfileState(project.id, channel.id, 'operator'))!
+            .active.profile as unknown as Record<string, unknown>
         expect(stored.id).toBe('custom-creation')
         expect(stored.version).toBe(1)
         expect(stored.origin).toBe('custom')
@@ -64,25 +64,31 @@ test('custom creation derives fingerprints, replaces legacy values and preserves
             profileHash: 'sha256:operator-chosen-abc',
             schemaHash: 'sha256:operator-chosen-schema',
         }
-        const legacyChannel = store.createChannel({
+        const legacyChannel = (await store.createChannel({
             ...input,
             name: 'Legacy replaced',
             profile: legacy as unknown as ChannelProfileDefinition,
-        })!
-        const legacyStored = store.getChannelProfileState(project.id, legacyChannel.id, 'operator')!
-            .active.profile as unknown as Record<string, unknown>
+        }))!
+        const legacyStored = (await store.getChannelProfileState(
+            project.id,
+            legacyChannel.id,
+            'operator'
+        ))!.active.profile as unknown as Record<string, unknown>
         expect(legacyStored.id).toBe('custom-legacy')
         expect(legacyStored.profileHash).not.toBe('sha256:operator-chosen-abc')
         expect(legacyStored.schemaHash).not.toBe('sha256:operator-chosen-schema')
         expect(legacyStored.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
 
-        const derivedAgain = store.createChannel({
+        const derivedAgain = (await store.createChannel({
             ...input,
             name: 'Derived again',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
-        const againStored = store.getChannelProfileState(project.id, derivedAgain.id, 'operator')!
-            .active.profile as unknown as Record<string, unknown>
+        }))!
+        const againStored = (await store.getChannelProfileState(
+            project.id,
+            derivedAgain.id,
+            'operator'
+        ))!.active.profile as unknown as Record<string, unknown>
         expect(againStored.schemaHash).toBe(stored.schemaHash)
         expect(againStored.profileHash).toBe(stored.profileHash)
     } finally {
@@ -90,50 +96,53 @@ test('custom creation derives fingerprints, replaces legacy values and preserves
     }
 })
 
-test('custom creation reuses templates with altered schemas and keeps built-ins intact', () => {
+test('custom creation reuses templates with altered schemas and keeps built-ins intact', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-        const { project } = store.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const { project } = await store.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Creation reuse',
             subjectId: 'operator',
             displayName: 'Operator',
         })
         const input = { projectId: project.id, subjectId: 'operator' }
 
-        const first = store.createChannel({
+        const first = (await store.createChannel({
             ...input,
             name: 'First',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
-        const second = store.createChannel({
+        }))!
+        const second = (await store.createChannel({
             ...input,
             name: 'Second identical',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
+        }))!
         expect(second.id).not.toBe(first.id)
 
         const altered = customBase()
         ;(
             altered.contentSchema as { properties: { body: { maxLength: number } } }
         ).properties.body.maxLength = 900
-        const third = store.createChannel({
+        const third = (await store.createChannel({
             ...input,
             name: 'Third altered',
             profile: altered as unknown as ChannelProfileDefinition,
-        })!
-        const firstStored = store.getChannelProfileState(project.id, first.id, 'operator')!.active
-            .profile as unknown as Record<string, unknown>
-        const thirdStored = store.getChannelProfileState(project.id, third.id, 'operator')!.active
-            .profile as unknown as Record<string, unknown>
+        }))!
+        const firstStored = (await store.getChannelProfileState(project.id, first.id, 'operator'))!
+            .active.profile as unknown as Record<string, unknown>
+        const thirdStored = (await store.getChannelProfileState(project.id, third.id, 'operator'))!
+            .active.profile as unknown as Record<string, unknown>
         expect(thirdStored.schemaHash).not.toBe(firstStored.schemaHash)
         expect(thirdStored.profileHash).not.toBe(firstStored.profileHash)
 
-        const builtin = store.createChannel({ ...input, name: 'Built-in default' })!
-        const builtinStored = store.getChannelProfileState(project.id, builtin.id, 'operator')!
-            .active.profile as unknown as Record<string, unknown>
+        const builtin = (await store.createChannel({ ...input, name: 'Built-in default' }))!
+        const builtinStored = (await store.getChannelProfileState(
+            project.id,
+            builtin.id,
+            'operator'
+        ))!.active.profile as unknown as Record<string, unknown>
         expect(builtinStored.origin).toBe('built_in')
         expect(builtinStored.id).toBe('manual-message')
     } finally {
@@ -141,25 +150,25 @@ test('custom creation reuses templates with altered schemas and keeps built-ins 
     }
 })
 
-test('custom creation preserves normalized issues and creates nothing on refusal', () => {
+test('custom creation preserves normalized issues and creates nothing on refusal', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-        const { project } = store.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const { project } = await store.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Creation refusal',
             subjectId: 'operator',
             displayName: 'Operator',
         })
         const input = { projectId: project.id, subjectId: 'operator' }
-        const count = () => store.listChannels(project.id, 'operator')!.length
-        expect(count()).toBe(0)
+        const count = async () => await (await store.listChannels(project.id, 'operator'))!.length
+        expect(await count()).toBe(0)
 
         const malformed = customBase()
         malformed.capabilities = null
         try {
-            store.createChannel({
+            await store.createChannel({
                 ...input,
                 name: 'Bad capabilities',
                 profile: malformed as unknown as ChannelProfileDefinition,
@@ -172,14 +181,14 @@ test('custom creation preserves normalized issues and creates nothing on refusal
                 expect.objectContaining({ path: '/capabilities', code: 'profile.object_required' })
             )
         }
-        expect(count()).toBe(0)
+        expect(await count()).toBe(0)
 
         const semantic = customBase()
         ;(
             semantic.capabilities as { textFields: Array<{ bindingId: string }> }
         ).textFields[0]!.bindingId = 'FAKE_SENTINEL_XYZ'
         try {
-            store.createChannel({
+            await store.createChannel({
                 ...input,
                 name: 'Bad binding',
                 profile: semantic as unknown as ChannelProfileDefinition,
@@ -194,41 +203,43 @@ test('custom creation preserves normalized issues and creates nothing on refusal
                 })
             )
         }
-        expect(count()).toBe(0)
+        expect(await count()).toBe(0)
 
-        const control = store.createChannel({
+        const control = (await store.createChannel({
             ...input,
             name: 'Control',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
+        }))!
         expect(control.id).toBeDefined()
-        expect(count()).toBe(1)
+        expect(await count()).toBe(1)
     } finally {
         closeDatabase(database)
     }
 })
 
-test('channel lists summarize the active execution without exposing its configuration', () => {
+test('channel lists summarize the active execution without exposing its configuration', async () => {
     const database = createDatabase(':memory:')
     try {
         runMigrations(database)
         const store = createManualStore(database, { now: () => 1_800_000_000_000 })
-        const { project } = store.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const { project } = await store.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Readiness',
             subjectId: 'operator',
             displayName: 'Operator',
         })
         const input = { projectId: project.id, subjectId: 'operator' }
-        const channel = store.createChannel({
+        const channel = (await store.createChannel({
             ...input,
             name: 'Custom manual',
             profile: customBase() as unknown as ChannelProfileDefinition,
-        })!
-        const current = () =>
-            store.listChannels(project.id, 'operator')!.find(item => item.id === channel.id)!
-        expect(current().execution).toEqual({ kind: 'manual' })
-        expect(store.listChannels(project.id, 'outsider')).toBeNull()
+        }))!
+        const current = async () =>
+            (await store.listChannels(project.id, 'operator'))!.find(
+                item => item.id === channel.id
+            )!
+        expect((await current()).execution).toEqual({ kind: 'manual' })
+        expect(await store.listChannels(project.id, 'outsider')).toBeNull()
         const nextProfile = {
             ...customBase(),
             execution: {
@@ -238,25 +249,25 @@ test('channel lists summarize the active execution without exposing its configur
                 mode: 'postdot_webhook',
             },
         } as unknown as ChannelProfileDefinition
-        const draft = store.createChannelProfileDraft({
+        const draft = (await store.createChannelProfileDraft({
             ...input,
             channelId: channel.id,
             profile: nextProfile,
-        })!
-        expect(current().execution).toEqual({ kind: 'manual' })
-        expect(current().profileVersionId).toBe(channel.profileVersionId)
-        const activated = store.activateChannelProfile({
+        }))!
+        expect((await current()).execution).toEqual({ kind: 'manual' })
+        expect((await current()).profileVersionId).toBe(channel.profileVersionId)
+        const activated = (await store.activateChannelProfile({
             ...input,
             channelId: channel.id,
             profileVersionId: draft.id,
             expectedRevision: channel.revision,
-        })!
+        }))!
         expect(activated).not.toBeNull()
-        expect(current().profileVersionId).toBe(draft.id)
-        expect(current().execution).toEqual({ kind: 'declarative_http' })
-        expect(JSON.stringify(current())).not.toContain('postdot_webhook')
-        expect(JSON.stringify(current())).not.toContain('profileJson')
-        const native = store.createChannel({
+        expect((await current()).profileVersionId).toBe(draft.id)
+        expect((await current()).execution).toEqual({ kind: 'declarative_http' })
+        expect(JSON.stringify(await current())).not.toContain('postdot_webhook')
+        expect(JSON.stringify(await current())).not.toContain('profileJson')
+        const native = (await store.createChannel({
             ...input,
             name: 'Custom native',
             profile: {
@@ -264,9 +275,9 @@ test('channel lists summarize the active execution without exposing its configur
                 id: 'custom-native',
                 execution: { kind: 'built_in', contractId: 'devto', revision: 'v1' },
             } as unknown as ChannelProfileDefinition,
-        })!
+        }))!
         expect(
-            store.listChannels(project.id, 'operator')!.find(item => item.id === native.id)!
+            (await store.listChannels(project.id, 'operator'))!.find(item => item.id === native.id)!
                 .execution
         ).toEqual({ kind: 'built_in', contractId: 'devto' })
     } finally {

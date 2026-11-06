@@ -111,7 +111,7 @@ async function execute(
                     Math.max(pinned.width / pinned.height, pinned.height / pinned.width) > 20))
         )
             return permanentFailure('The pinned Telegram media is invalid or unavailable')
-        let delivery = input.providerMediaDeliveryStore.reserve({
+        let delivery = await input.providerMediaDeliveryStore.reserve({
             projectId: target.projectId,
             executionMediaId: pinned.id,
             publisherId: target.publisherId,
@@ -126,7 +126,7 @@ async function execute(
                 'The Telegram media delivery requires reconciliation before retrying'
             )
         if (delivery.state === 'failed') {
-            const retried = input.providerMediaDeliveryStore.retry({
+            const retried = await input.providerMediaDeliveryStore.retry({
                 projectId: target.projectId,
                 deliveryId: delivery.id,
                 at: input.now,
@@ -137,18 +137,18 @@ async function execute(
         deliveries.push({ id: delivery.id })
     }
     const startedIds: string[] = []
-    const failAll = (ambiguous: boolean, code: string) => {
-        for (const id of startedIds) failDelivery(input, id, ambiguous, code)
+    const failAll = async (ambiguous: boolean, code: string) => {
+        for (const id of startedIds) await failDelivery(input, id, ambiguous, code)
     }
     for (const delivery of deliveries) {
-        const started = input.providerMediaDeliveryStore.start({
+        const started = await input.providerMediaDeliveryStore.start({
             projectId: target.projectId,
             deliveryId: delivery.id,
             at: input.now,
         })
         if (!started || started.state !== 'uploading') {
             // No request has been issued; other members can safely be retried.
-            failAll(false, 'claim_failed')
+            await failAll(false, 'claim_failed')
             return ambiguousFailure('The Telegram media delivery could not be claimed')
         }
         startedIds.push(delivery.id)
@@ -158,7 +158,7 @@ async function execute(
         try {
             const opened = await openVerifiedPinnedMedia(input.media!, target.projectId, pinned)
             if (!opened) {
-                failAll(false, 'media_unavailable')
+                await failAll(false, 'media_unavailable')
                 return permanentFailure('The pinned Telegram media changed or is unavailable')
             }
             const blob = new Blob([await new Response(opened.stream).arrayBuffer()], {
@@ -167,12 +167,12 @@ async function execute(
             const hash = createHash('sha256')
             for await (const bytes of blob.stream()) hash.update(bytes)
             if (blob.size !== pinned.byteSize || hash.digest('hex') !== pinned.sha256) {
-                failAll(false, 'media_changed')
+                await failAll(false, 'media_changed')
                 return permanentFailure('The pinned Telegram media changed while reading')
             }
             media.push({ blob, width: pinned.width!, height: pinned.height! })
         } catch {
-            failAll(false, 'media_read_failed')
+            await failAll(false, 'media_read_failed')
             return retryableFailure('The pinned Telegram media could not be read; retry is safe')
         }
     }
@@ -186,18 +186,18 @@ async function execute(
             ...(poll === undefined ? {} : { poll }),
         })
     } catch {
-        failAll(true, 'unknown_result')
+        await failAll(true, 'unknown_result')
         return ambiguousFailure('The Telegram publication outcome is unknown')
     }
     if (outcome.type === 'published') {
         const mediaIds =
             media.length > 1 ? outcome.mediaIds : outcome.mediaId ? [outcome.mediaId] : []
         if (!mediaIds || mediaIds.length !== deliveries.length || mediaIds.some(id => !id.trim())) {
-            failAll(true, 'missing_media_id')
+            await failAll(true, 'missing_media_id')
             return ambiguousFailure('Telegram returned no durable media identity')
         }
         for (const [index, delivery] of deliveries.entries()) {
-            const completed = input.providerMediaDeliveryStore.complete({
+            const completed = await input.providerMediaDeliveryStore.complete({
                 projectId: target.projectId,
                 deliveryId: delivery.id,
                 remoteMediaId: mediaIds[index]!,
@@ -214,20 +214,20 @@ async function execute(
         }
     }
     if (outcome.code === 'authentication_required')
-        input.credentials.markPublisherCredentialReconnectRequired(
+        await input.credentials.markPublisherCredentialReconnectRequired(
             target.projectId,
             target.credentialId
         )
-    failAll(outcome.type === 'ambiguous', outcome.code)
+    await failAll(outcome.type === 'ambiguous', outcome.code)
     return outcome
 }
-function failDelivery(
+async function failDelivery(
     input: BuiltInProviderExecutionInput,
     deliveryId: string,
     ambiguous: boolean,
     errorCode: string
 ) {
-    input.providerMediaDeliveryStore.fail({
+    await input.providerMediaDeliveryStore.fail({
         projectId: input.target.projectId,
         deliveryId,
         ambiguous,

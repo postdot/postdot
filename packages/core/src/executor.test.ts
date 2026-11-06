@@ -41,19 +41,21 @@ class FakeExecutorStore implements WorkflowExecutorStore {
     startSucceeds = true
     completedInput: CompleteExternalEffectInput | null = null
 
-    recoverExpiredClaims() {
+    async recoverExpiredClaims() {
         return { requeuedJobIds: [], ambiguousJobIds: [] }
     }
 
-    claimNextDueJob(): Job | null {
+    async claimNextDueJob(): Promise<Job | null> {
         return this.job
     }
 
-    startExternalEffect(): boolean {
+    async startExternalEffect(): Promise<boolean> {
         return this.startSucceeds
     }
 
-    completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome {
+    async completeExternalEffect(
+        input: CompleteExternalEffectInput
+    ): Promise<PersistedEffectOutcome> {
         this.completedInput = input
         if (input.outcome.type === 'published') return 'published'
         if (input.outcome.type === 'ambiguous') return 'ambiguous'
@@ -79,19 +81,21 @@ class FakeDeliveryStore implements ExternalEffectExecutorStore<TestDelivery> {
     }
     completedInput: CompleteExternalEffectInput | null = null
 
-    recoverExpiredClaims() {
+    async recoverExpiredClaims() {
         return { requeuedJobIds: [], ambiguousJobIds: [] }
     }
 
-    claimNextDueJob(): TestDelivery | null {
+    async claimNextDueJob(): Promise<TestDelivery | null> {
         return this.work
     }
 
-    startExternalEffect(): boolean {
+    async startExternalEffect(): Promise<boolean> {
         return true
     }
 
-    completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome {
+    async completeExternalEffect(
+        input: CompleteExternalEffectInput
+    ): Promise<PersistedEffectOutcome> {
         this.completedInput = input
         return 'published'
     }
@@ -277,6 +281,53 @@ describe('workflow executor', () => {
 })
 
 describe('active external effects', () => {
+    test('drains an in-flight heartbeat without rearming it after the effect finishes', async () => {
+        const entered = Promise.withResolvers<void>()
+        const effect = Promise.withResolvers<ExternalEffectOutcome>()
+        const renewal = Promise.withResolvers<boolean>()
+        const timers = new Map<unknown, { callback: () => void | Promise<void>; delay: number }>()
+        const store = new FakeExecutorStore()
+        let renewals = 0
+        const run = processNextWorkflowEvent({
+            store: Object.assign(store, {
+                renewClaim: () => (++renewals === 1 ? renewal.promise : Promise.resolve(true)),
+            }),
+            actorId: 'system-one',
+            createClaimToken: () => 'claim-one',
+            leaseDuration: 90,
+            retryPolicy: { nextRunAt: () => null },
+            now: () => time,
+            activeEffectPolicy: {
+                timeoutMs: 250,
+                renewalIntervalMs: 30,
+                timers: {
+                    set(callback, delay) {
+                        const handle = {}
+                        timers.set(handle, { callback, delay })
+                        return handle
+                    },
+                    clear: handle => {
+                        timers.delete(handle)
+                    },
+                },
+            },
+            performExternalEffect() {
+                entered.resolve()
+                return effect.promise
+            },
+        })
+        await entered.promise
+        const heartbeat = [...timers.values()].find(timer => timer.delay === 30)!
+        const beating = heartbeat.callback()
+        effect.resolve({ type: 'published', externalId: 'confirmed' })
+        await new Promise<void>(resolve => setTimeout(resolve, 0))
+        expect(store.completedInput).toBeNull()
+        renewal.resolve(true)
+        await beating
+        expect((await run).outcome).toBe('published')
+        expect(timers.size).toBe(0)
+    })
+
     function fixture() {
         let clock = time
         let expiry = time + 90
@@ -286,11 +337,11 @@ describe('active external effects', () => {
         let sequence = 0
         const store = new FakeExecutorStore()
         const renewableStore: WorkflowExecutorStore = {
-            recoverExpiredClaims: () => store.recoverExpiredClaims(),
-            claimNextDueJob: () => store.claimNextDueJob(),
-            startExternalEffect: () => store.startExternalEffect(),
+            recoverExpiredClaims: async () => store.recoverExpiredClaims(),
+            claimNextDueJob: async () => store.claimNextDueJob(),
+            startExternalEffect: async () => store.startExternalEffect(),
             completeExternalEffect: input => store.completeExternalEffect(input),
-            renewClaim(input) {
+            async renewClaim(input) {
                 if (!owned || input.claimToken !== 'claim-one' || input.now >= expiry) return false
                 expiry = input.leaseExpiresAt
                 renewals++
@@ -329,7 +380,11 @@ describe('active external effects', () => {
                     return effect
                 },
             })
-        const advance = (elapsed: number) => {
+        // Persistence is asynchronous: let claims, renewals and rescheduling settle
+        // around every fake timer callback.
+        const settle = () => new Promise(resolve => setTimeout(resolve, 0))
+        const advance = async (elapsed: number) => {
+            await settle()
             const until = clock + elapsed
             while (true) {
                 const next = [...scheduled].sort((a, b) => a[1].at - b[1].at)[0]
@@ -337,6 +392,7 @@ describe('active external effects', () => {
                 clock = next[1].at
                 scheduled.delete(next[0])
                 void next[1].callback()
+                await settle()
             }
             clock = until
         }
@@ -357,7 +413,7 @@ describe('active external effects', () => {
     test('renews a slow effect beyond its initial lease and clears all timers after completion', async () => {
         const f = fixture()
         const run = f.run()
-        f.advance(180)
+        await f.advance(180)
         expect(f.renewals()).toBe(6)
         expect(f.signal()?.aborted).toBe(false)
         f.release({ type: 'published', externalId: 'confirmed' })
@@ -371,7 +427,7 @@ describe('active external effects', () => {
         const run = f.run().finally(() => {
             settled = true
         })
-        f.advance(300)
+        await f.advance(300)
         await Promise.resolve()
         expect(f.signal()?.aborted).toBe(true)
         expect(settled).toBe(false)
@@ -386,7 +442,7 @@ describe('active external effects', () => {
         const f = fixture()
         const run = f.run()
         f.revoke()
-        f.advance(30)
+        await f.advance(30)
         expect(f.signal()?.aborted).toBe(true)
         f.release({ type: 'published', externalId: 'stale' })
         expect((await run).outcome).toBe('claim_lost')

@@ -44,8 +44,8 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     404: errorResponse,
                 },
             },
-            ({ params, user, status }) => {
-                const post = manualStore.getPost(params.projectId, params.postId, user.id)
+            async ({ params, user, status }) => {
+                const post = await manualStore.getPost(params.projectId, params.postId, user.id)
                 return post === null
                     ? status(404, { error: { code: 'not_found', message: 'Post not found' } })
                     : { post }
@@ -78,18 +78,22 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     422: errorResponse,
                 },
             },
-            ({ params, body, authMethod, user, status }) => {
+            async ({ params, body, authMethod, user, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const post = manualStore.savePostSource({ ...params, ...body, subjectId: user.id })
+                const post = await manualStore.savePostSource({
+                    ...params,
+                    ...body,
+                    subjectId: user.id,
+                })
                 return post === null
                     ? status(404, { error: { code: 'not_found', message: 'Post not found' } })
                     : { post }
@@ -135,19 +139,19 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                     422: errorResponse,
                 },
             },
-            ({ params, body, authMethod, user, status }) => {
+            async ({ params, body, authMethod, user, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.addPostDestinations({
+                const result = await manualStore.addPostDestinations({
                     ...params,
                     ...body,
                     subjectId: user.id,
@@ -183,15 +187,15 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                         'Omitting scheduledAt creates unscheduled destination drafts. API keys need publication:manage; supplying scheduledAt also requires publication:dispatch. Target content must match the chosen channel profile. The examples use placeholder channel IDs that must be replaced.',
                 },
             },
-            ({ apiKeyPermissions, authMethod, body, params, status, user }) => {
+            async ({ apiKeyPermissions, authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -214,7 +218,7 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                         },
                     })
                 }
-                const created = manualStore.createPost({
+                const created = await manualStore.createPost({
                     projectId: params.projectId,
                     subjectId: user.id,
                     title: body.title,

@@ -146,13 +146,13 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             // The Instagram image contract requires public media delivery.
             publicMediaUrlAvailable: true,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Instagram publication project',
             subjectId: 'subject-1',
             displayName: 'Instagram operator',
         })
-        const channel = manualStore.createChannel({
+        const channel = await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'subject-1',
             name: 'Instagram channel',
@@ -163,14 +163,14 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
             .insert(publishers)
             .values({
                 id: 'publisher-instagram',
-                workspaceId: workspaceOf(database, project.project.id),
+                workspaceId: await workspaceOf(database, project.project.id),
                 channelId: channel.id,
                 kind: 'instagram',
             })
             .run()
 
         const bytes = await decodableJpeg(120, 90)
-        const reservation = media.reserveUpload({
+        const reservation = await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'subject-1',
             originalFilename: 'photo.jpg',
@@ -191,7 +191,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         })
         expect(finalized.kind).toBe('ready')
 
-        const created = manualStore.createPost({
+        const created = await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'subject-1',
             sourceContent: {
@@ -211,16 +211,18 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
         if (publication === undefined) throw new Error('Publication was not created')
 
         const workflow = createWorkflowStore(database)
-        const systemActorId = workflow.ensureSystemActor(project.project.id, now)
+        const systemActorId = await workflow.ensureSystemActor(project.project.id, now)
         if (systemActorId === null) throw new Error('System actor was not created')
-        const claimed = workflow.claimNextDueJob({
+        const claimed = await workflow.claimNextDueJob({
             actorId: systemActorId,
             claimToken: 'claim-instagram',
             now,
             leaseExpiresAt: now + 60_000,
         })
         if (claimed === null) throw new Error('Job was not claimed')
-        expect(workflow.startExternalEffect(claimed.id, 'claim-instagram', now + 1)).toBe(true)
+        expect(await workflow.startExternalEffect(claimed.id, 'claim-instagram', now + 1)).toBe(
+            true
+        )
 
         const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
         const executionRow = executionMedia[0]
@@ -359,7 +361,7 @@ async function fixture(options: FixtureOptions = {}): Promise<Fixture> {
                             projectId,
                             credentialId,
                         }),
-                    markReconnectRequired: () =>
+                    markReconnectRequired: async () =>
                         credentialPort.markPublisherCredentialReconnectRequired(projectId),
                 })
             },
@@ -471,9 +473,11 @@ test('publishes one JPEG and reports the provider media receipt', async () => {
         expect(item.requests[2]?.url.pathname).toBe(`/v26.0/${accountId}/media_publish`)
         expect(body(item.requests[2]!).get('creation_id')).toBe(containerId)
 
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({
             state: 'uploaded',
@@ -548,9 +552,11 @@ test('bounds the container preparation to the documented polling window', async 
         expect(item.requests).toHaveLength(6)
 
         // The container identity stays durable for reconciliation.
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({
             state: 'uploaded',
@@ -571,19 +577,19 @@ test('publishes an existing container that finishes inside the preparation windo
     })
     try {
         // The container identity was acknowledged by an earlier execution.
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
         })
-        item.deliveries.recordRemoteMediaId({
+        await item.deliveries.recordRemoteMediaId({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             remoteMediaId: containerId,
@@ -837,14 +843,14 @@ test('refreshes an expiring credential and publishes with the new token', async 
 test('keeps an interrupted container preparation ambiguous instead of recreating it', async () => {
     const item = await fixture()
     try {
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
@@ -864,19 +870,19 @@ test('reuses an acknowledged container identity instead of recreating it', async
                 : Response.json({ id: containerId, status_code: 'FINISHED' }),
     })
     try {
-        const reserved = item.deliveries.reserve({
+        const reserved = await item.deliveries.reserve({
             projectId: item.target.projectId,
             executionMediaId: item.target.media[0]!.id,
             publisherId: item.target.publisherId,
             providerId: 'instagram',
             at: now,
         })
-        item.deliveries.start({
+        await item.deliveries.start({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             at: now,
         })
-        item.deliveries.recordRemoteMediaId({
+        await item.deliveries.recordRemoteMediaId({
             projectId: item.target.projectId,
             deliveryId: reserved.id,
             remoteMediaId: containerId,
@@ -899,9 +905,11 @@ test('treats a lost container acknowledgement as ambiguous and never recreates i
     try {
         expect(await item.execute()).toMatchObject({ type: 'ambiguous' })
         expect(item.requests).toHaveLength(1)
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({ state: 'ambiguous', remoteMediaId: null })
         expect(await item.execute()).toMatchObject({ type: 'ambiguous' })
@@ -999,9 +1007,11 @@ test('a rejected container creation can be retried through the store lifecycle',
             effectOccurred: false,
             code: 'request_rejected',
         })
-        const delivery = item.deliveries.listByExecutionMedia(
-            item.target.projectId,
-            item.target.media[0]!.id
+        const delivery = (
+            await item.deliveries.listByExecutionMedia(
+                item.target.projectId,
+                item.target.media[0]!.id
+            )
         )[0]
         expect(delivery).toMatchObject({ state: 'failed', remoteMediaId: null })
         expect(await item.execute()).toEqual({ type: 'published', externalId: mediaId })
@@ -1068,9 +1078,11 @@ test('coordinates real Instagram renewal across concurrent preparation with stal
             )?.accessToken
         ).toBe('renewed-once')
         expect(
-            item.credentialStore!.getPublisherCredential(
-                item.target.projectId,
-                item.target.credentialId
+            (
+                await item.credentialStore!.getPublisherCredential(
+                    item.target.projectId,
+                    item.target.credentialId
+                )
             )?.expiresAt
         ).toBe(now + 5184000 * 1000)
         for (const request of item.requests)

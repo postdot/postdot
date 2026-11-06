@@ -15,11 +15,7 @@ import {
 
 import { cadenceEligibleAtSql, createChannelCadenceStore } from './channel-cadence'
 import { readChannelDestination, publicationDestinationConfirmed } from './channel-destination'
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import {
     automaticExecutionAuditActions,
     serializeAutomaticExecutionAuditMetadata,
@@ -106,7 +102,7 @@ export function createWorkflowStore(
     options: { publicMediaUrlAvailable?: boolean } = {}
 ) {
     const cadence = createChannelCadenceStore(database)
-    const client = database.$client
+    const sql = database.sql
     const createId = () => crypto.randomUUID()
     const profileCompiler = new ChannelProfileCompiler()
     const assessRetainedTarget = createRetainedTargetAssessor(
@@ -114,17 +110,17 @@ export function createWorkflowStore(
         options.publicMediaUrlAvailable
     )
 
-    const listProjectIdsStatement = client.query<{ id: string }, []>(`
+    const listProjectIdsStatement = sql.statement<{ id: string }, []>(`
         select id
         from projects
         order by created_at, id
     `)
-    const loadProjectStatement = client.query<{ id: string }, [projectId: string]>(`
+    const loadProjectStatement = sql.statement<{ id: string }, [projectId: string]>(`
         select id
         from projects
         where id = ?1
     `)
-    const loadSystemActorStatement = client.query<SystemActorRow, [projectId: string]>(`
+    const loadSystemActorStatement = sql.statement<SystemActorRow, [projectId: string]>(`
         select id
         from actors
         where project_id = ?1
@@ -132,7 +128,7 @@ export function createWorkflowStore(
         order by created_at, id
         limit 1
     `)
-    const insertSystemActorStatement = client.query<
+    const insertSystemActorStatement = sql.statement<
         void,
         [id: string, projectId: string, displayName: string, now: number]
     >(`
@@ -140,7 +136,7 @@ export function createWorkflowStore(
         values (?1, ?2, 'system', ?3, ?4, ?4)
         on conflict(id) do nothing
     `)
-    const loadPublisherKindStatement = client.query<
+    const loadPublisherKindStatement = sql.statement<
         { readonly kind: string },
         [projectId: string, publicationId: string]
     >(`
@@ -153,7 +149,7 @@ export function createWorkflowStore(
           and publications.id = ?2
         limit 1
     `)
-    const insertExecutionAuditEventStatement = client.query<
+    const insertExecutionAuditEventStatement = sql.statement<
         void,
         [
             id: string,
@@ -180,7 +176,7 @@ export function createWorkflowStore(
         ) values (?1, ?2, ?3, ?4, 'publication', ?5, ?6, 1, ?7, ?8)
     `)
 
-    const insertExecutionAuditEvent = (input: {
+    const insertExecutionAuditEvent = async (input: {
         readonly id: string
         readonly projectId: string
         readonly actorId: string
@@ -190,9 +186,9 @@ export function createWorkflowStore(
         readonly attempt: number
         readonly occurredAt: number
         readonly details?: Readonly<Record<string, unknown>>
-    }): void => {
+    }): Promise<void> => {
         recordDatabaseCommitProject(database, input.projectId)
-        insertExecutionAuditEventStatement.run(
+        await insertExecutionAuditEventStatement.run(
             input.id,
             input.projectId,
             input.actorId,
@@ -202,8 +198,8 @@ export function createWorkflowStore(
                 ...input.details,
                 deliveryMode: 'automatic',
                 provider:
-                    loadPublisherKindStatement.get(input.projectId, input.publicationId)?.kind ??
-                    null,
+                    (await loadPublisherKindStatement.get(input.projectId, input.publicationId))
+                        ?.kind ?? null,
                 jobId: input.jobId,
                 attempt: input.attempt,
                 occurredAt: input.occurredAt,
@@ -213,7 +209,7 @@ export function createWorkflowStore(
         )
     }
 
-    const nextEventStatement = client.query<{ eventAt: number | null }, []>(`
+    const nextEventStatement = sql.statement<{ eventAt: number | null }, []>(`
         select min(event_at) as eventAt
         from (
             select ${cadenceEligibleAtSql} as event_at
@@ -247,7 +243,7 @@ export function createWorkflowStore(
         )
     `)
 
-    const claimNextDueStatement = client.query<
+    const claimNextDueStatement = sql.statement<
         Job,
         [claimToken: string, actorId: string, now: number, leaseExpiresAt: number]
     >(`
@@ -299,10 +295,10 @@ export function createWorkflowStore(
         returning ${claimedJobColumns}
     `)
 
-    const claimNextDueTransaction = createDatabaseTransaction(
+    const claimNextDueTransaction = defineTransaction(
         database,
-        (input: ClaimDueJobInput): Job | null => {
-            const claimed = claimNextDueStatement.get(
+        async (input: ClaimDueJobInput): Promise<Job | null> => {
+            const claimed = await claimNextDueStatement.get(
                 input.claimToken,
                 input.actorId,
                 input.now,
@@ -310,7 +306,7 @@ export function createWorkflowStore(
             )
             if (claimed === null) return null
 
-            insertExecutionAuditEvent({
+            await insertExecutionAuditEvent({
                 id: createId(),
                 projectId: claimed.projectId,
                 actorId: input.actorId,
@@ -331,7 +327,7 @@ export function createWorkflowStore(
         }
     )
 
-    const loadRunningJobStatement = client.query<
+    const loadRunningJobStatement = sql.statement<
         RunningJobRow,
         [jobId: string, claimToken: string, now: number]
     >(`
@@ -356,7 +352,7 @@ export function createWorkflowStore(
           and jobs.effect_started_at is null
     `)
 
-    const promoteScheduledPublicationStatement = client.query<
+    const promoteScheduledPublicationStatement = sql.statement<
         { changes: number },
         [now: number, actorId: string, projectId: string, publicationId: string]
     >(`
@@ -370,7 +366,7 @@ export function createWorkflowStore(
           and state = 'scheduled'
     `)
 
-    const startPublishingStatement = client.query<
+    const startPublishingStatement = sql.statement<
         { changes: number },
         [now: number, actorId: string, projectId: string, publicationId: string]
     >(`
@@ -384,7 +380,7 @@ export function createWorkflowStore(
           and state = 'ready'
     `)
 
-    const markEffectStartedStatement = client.query<
+    const markEffectStartedStatement = sql.statement<
         { changes: number },
         [now: number, jobId: string, claimToken: string]
     >(`
@@ -398,7 +394,7 @@ export function createWorkflowStore(
           and effect_started_at is null
     `)
 
-    const insertExecutionRevisionStatement = client.query<
+    const insertExecutionRevisionStatement = sql.statement<
         { changes: number },
         [id: string, jobId: string, claimToken: string, createdAt: number]
     >(`
@@ -452,7 +448,7 @@ export function createWorkflowStore(
           and revisions.delivery_mode = 'automatic'
         on conflict(project_id, job_id) do nothing
     `)
-    const loadExecutionRevisionStatement = client.query<
+    const loadExecutionRevisionStatement = sql.statement<
         ExecutionRevisionRow,
         [projectId: string, jobId: string]
     >(`
@@ -463,7 +459,7 @@ export function createWorkflowStore(
         where project_id = ?1
           and job_id = ?2
     `)
-    const listTargetRevisionMediaStatement = client.query<
+    const listTargetRevisionMediaStatement = sql.statement<
         TargetRevisionMediaRow,
         [projectId: string, targetRevisionId: string]
     >(`
@@ -481,7 +477,7 @@ export function createWorkflowStore(
           and target_revision_id = ?2
         order by position, id
     `)
-    const listExecutionRevisionMediaCountStatement = client.query<
+    const listExecutionRevisionMediaCountStatement = sql.statement<
         { count: number },
         [projectId: string, executionRevisionId: string]
     >(`
@@ -490,7 +486,7 @@ export function createWorkflowStore(
         where project_id = ?1
           and execution_revision_id = ?2
     `)
-    const loadTargetRevisionContentStatement = client.query<
+    const loadTargetRevisionContentStatement = sql.statement<
         TargetRevisionContentRow,
         [projectId: string, targetRevisionId: string]
     >(`
@@ -504,7 +500,7 @@ export function createWorkflowStore(
         where revisions.project_id = ?1
           and revisions.id = ?2
     `)
-    const insertExecutionRevisionMediaStatement = client.query<
+    const insertExecutionRevisionMediaStatement = sql.statement<
         void,
         [
             id: string,
@@ -535,20 +531,20 @@ export function createWorkflowStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
     `)
 
-    const startExternalEffectTransaction = createDatabaseTransaction(
+    const startExternalEffectTransaction = defineTransaction(
         database,
-        (jobId: string, claimToken: string, now: number): boolean => {
-            const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
+        async (jobId: string, claimToken: string, now: number): Promise<boolean> => {
+            const runningJob = await loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
             if (
-                !publicationDestinationConfirmed(
+                !(await publicationDestinationConfirmed(
                     database,
                     runningJob.projectId,
                     runningJob.publicationId
-                )
+                ))
             ) {
-                client
-                    .query(`update jobs set state = 'pending', claim_token = null, claimed_by_actor_id = null,
+                await sql
+                    .statement(`update jobs set state = 'pending', claim_token = null, claimed_by_actor_id = null,
                     claimed_at = null, lease_expires_at = null, effect_started_at = null, started_at = null,
                     completed_at = null, error_message = null, updated_at = ? where id = ? and effect_started_at is null`)
                     .run(now, jobId)
@@ -556,25 +552,25 @@ export function createWorkflowStore(
                 return false
             }
             if (
-                !assessRetainedTarget(
+                !(await assessRetainedTarget(
                     runningJob.projectId,
                     runningJob.publicationId,
                     runningJob.claimedByActorId,
                     now
-                )
+                ))
             ) {
-                client
-                    .query(
+                await sql
+                    .statement(
                         "update jobs set state = 'cancelled', claim_token = null, lease_expires_at = null, completed_at = ?, updated_at = ? where id = ? and state = 'running' and effect_started_at is null"
                     )
                     .run(now, now, jobId)
                 return false
             }
 
-            const eligibleAt = cadence.eligibleAt(runningJob.publicationId, runningJob.runAt)
+            const eligibleAt = await cadence.eligibleAt(runningJob.publicationId, runningJob.runAt)
             if (eligibleAt > now) {
-                client
-                    .query(`update jobs set state='pending', attempts=max(0,attempts-1),
+                await sql
+                    .statement(`update jobs set state='pending', attempts=max(0,attempts-1),
                     claim_token=null,claimed_by_actor_id=null,claimed_at=null,lease_expires_at=null,
                     started_at=null,updated_at=? where id=?`)
                     .run(now, jobId)
@@ -582,13 +578,13 @@ export function createWorkflowStore(
                 return false
             }
             const executionRevisionId = createId()
-            const pinned = insertExecutionRevisionStatement.run(
+            const pinned = await insertExecutionRevisionStatement.run(
                 executionRevisionId,
                 jobId,
                 claimToken,
                 now
             )
-            const executionRevision = loadExecutionRevisionStatement.get(
+            const executionRevision = await loadExecutionRevisionStatement.get(
                 runningJob.projectId,
                 runningJob.id
             )
@@ -598,12 +594,12 @@ export function createWorkflowStore(
                     `Job ${runningJob.id} has no valid target revision to execute`
                 )
             }
-            const targetMedia = listTargetRevisionMediaStatement.all(
+            const targetMedia = await listTargetRevisionMediaStatement.all(
                 runningJob.projectId,
                 executionRevision.targetRevisionId
             )
             assertTargetRevisionMediaMatchesContent(
-                loadTargetRevisionContentStatement.get(
+                await loadTargetRevisionContentStatement.get(
                     runningJob.projectId,
                     executionRevision.targetRevisionId
                 ),
@@ -613,21 +609,21 @@ export function createWorkflowStore(
                 profileCompiler
             )
             if (pinned.changes === 1) {
-                const channel = client
-                    .query<{ channelId: string; revision: number }, [string, string]>(`
+                const channel = (await sql
+                    .statement<{ channelId: string; revision: number }, [string, string]>(`
                     select p.channel_id as channelId, c.destination_revision as revision from publications p
                     join project_channel_contexts c on c.project_id = p.project_id and c.id = p.channel_id
                     where p.project_id = ? and p.id = ?
                 `)
-                    .get(runningJob.projectId, runningJob.publicationId)!
-                const identity = readChannelDestination(
+                    .get(runningJob.projectId, runningJob.publicationId))!
+                const identity = await readChannelDestination(
                     database,
                     runningJob.projectId,
                     channel.channelId
                 )
                 if (identity !== null)
-                    client
-                        .query(
+                    await sql
+                        .statement(
                             'update publication_execution_revisions set destination_snapshot_json = ? where id = ?'
                         )
                         .run(
@@ -635,7 +631,7 @@ export function createWorkflowStore(
                             executionRevision.id
                         )
                 for (const media of targetMedia) {
-                    insertExecutionRevisionMediaStatement.run(
+                    await insertExecutionRevisionMediaStatement.run(
                         createId(),
                         media.projectId,
                         executionRevision.id,
@@ -650,9 +646,11 @@ export function createWorkflowStore(
                     )
                 }
             }
-            const executionMediaCount = listExecutionRevisionMediaCountStatement.get(
-                runningJob.projectId,
-                executionRevision.id
+            const executionMediaCount = (
+                await listExecutionRevisionMediaCountStatement.get(
+                    runningJob.projectId,
+                    executionRevision.id
+                )
             )?.count
             if (executionMediaCount !== executionRevision.mediaReferenceCount) {
                 throw new DomainInvariantError(
@@ -662,7 +660,7 @@ export function createWorkflowStore(
             }
 
             if (runningJob.publicationState === 'scheduled') {
-                const promoted = promoteScheduledPublicationStatement.run(
+                const promoted = await promoteScheduledPublicationStatement.run(
                     now,
                     runningJob.claimedByActorId,
                     runningJob.projectId,
@@ -678,7 +676,7 @@ export function createWorkflowStore(
                 return false
             }
 
-            const publishing = startPublishingStatement.run(
+            const publishing = await startPublishingStatement.run(
                 now,
                 runningJob.claimedByActorId,
                 runningJob.projectId,
@@ -691,8 +689,8 @@ export function createWorkflowStore(
                 )
             }
 
-            cadence.recordEffect(runningJob.publicationId, now)
-            const effectStarted = markEffectStartedStatement.run(now, jobId, claimToken)
+            await cadence.recordEffect(runningJob.publicationId, now)
+            const effectStarted = await markEffectStartedStatement.run(now, jobId, claimToken)
             if (effectStarted.changes !== 1) {
                 throw new DomainInvariantError(
                     'claim_mismatch',
@@ -700,7 +698,7 @@ export function createWorkflowStore(
                 )
             }
 
-            insertExecutionAuditEvent({
+            await insertExecutionAuditEvent({
                 id: createId(),
                 projectId: runningJob.projectId,
                 actorId: runningJob.claimedByActorId,
@@ -721,7 +719,7 @@ export function createWorkflowStore(
         }
     )
 
-    const loadCompletableJobStatement = client.query<
+    const loadCompletableJobStatement = sql.statement<
         RunningJobRow,
         [jobId: string, claimToken: string]
     >(`
@@ -746,7 +744,7 @@ export function createWorkflowStore(
           and publications.state = 'publishing'
     `)
 
-    const publishPublicationStatement = client.query<
+    const publishPublicationStatement = sql.statement<
         { changes: number },
         [
             completedAt: number,
@@ -771,7 +769,7 @@ export function createWorkflowStore(
           and state = 'publishing'
     `)
 
-    const failPublicationStatement = client.query<
+    const failPublicationStatement = sql.statement<
         { changes: number },
         [
             state: 'failed' | 'ambiguous',
@@ -792,7 +790,7 @@ export function createWorkflowStore(
           and state = 'publishing'
     `)
 
-    const readyPublicationForRetryStatement = client.query<
+    const readyPublicationForRetryStatement = sql.statement<
         { changes: number },
         [completedAt: number, actorId: string, projectId: string, publicationId: string]
     >(`
@@ -806,7 +804,7 @@ export function createWorkflowStore(
           and state = 'publishing'
     `)
 
-    const succeedJobStatement = client.query<
+    const succeedJobStatement = sql.statement<
         { changes: number },
         [completedAt: number, jobId: string, claimToken: string]
     >(`
@@ -823,7 +821,7 @@ export function createWorkflowStore(
           and effect_started_at is not null
     `)
 
-    const failJobStatement = client.query<
+    const failJobStatement = sql.statement<
         { changes: number },
         [errorMessage: string, completedAt: number, jobId: string, claimToken: string]
     >(`
@@ -840,7 +838,7 @@ export function createWorkflowStore(
           and effect_started_at is not null
     `)
 
-    const retryJobStatement = client.query<
+    const retryJobStatement = sql.statement<
         { changes: number },
         [retryAt: number, completedAt: number, jobId: string, claimToken: string]
     >(`
@@ -862,10 +860,10 @@ export function createWorkflowStore(
           and effect_started_at is not null
     `)
 
-    const completeExternalEffectTransaction = createDatabaseTransaction(
+    const completeExternalEffectTransaction = defineTransaction(
         database,
-        (input: CompleteExternalEffectInput): PersistedEffectOutcome | null => {
-            const job = loadCompletableJobStatement.get(input.jobId, input.claimToken)
+        async (input: CompleteExternalEffectInput): Promise<PersistedEffectOutcome | null> => {
+            const job = await loadCompletableJobStatement.get(input.jobId, input.claimToken)
             if (job === null) return null
 
             const completedAt = requireTimestamp(input.completedAt, 'completedAt')
@@ -887,15 +885,18 @@ export function createWorkflowStore(
                     input.outcome.externalUrl,
                     'externalUrl'
                 )
-                publicationChanges = publishPublicationStatement.run(
-                    completedAt,
-                    job.claimedByActorId,
-                    externalId,
-                    externalUrl,
-                    job.projectId,
-                    job.publicationId
+                publicationChanges = (
+                    await publishPublicationStatement.run(
+                        completedAt,
+                        job.claimedByActorId,
+                        externalId,
+                        externalUrl,
+                        job.projectId,
+                        job.publicationId
+                    )
                 ).changes
-                jobChanges = succeedJobStatement.run(completedAt, job.id, job.claimToken).changes
+                jobChanges = (await succeedJobStatement.run(completedAt, job.id, job.claimToken))
+                    .changes
                 persisted = 'published'
                 auditAction = automaticExecutionAuditActions.succeeded
                 auditDetails = {
@@ -926,35 +927,40 @@ export function createWorkflowStore(
 
                 if (
                     retryAt !== null &&
-                    !assessRetainedTarget(
+                    !(await assessRetainedTarget(
                         job.projectId,
                         job.publicationId,
                         job.claimedByActorId,
                         completedAt
-                    )
+                    ))
                 )
                     retryAt = null
                 if (
                     retryAt !== null &&
-                    !publicationDestinationConfirmed(database, job.projectId, job.publicationId)
+                    !(await publicationDestinationConfirmed(
+                        database,
+                        job.projectId,
+                        job.publicationId
+                    ))
                 )
                     retryAt = null
                 if (retryAt !== null) {
-                    publicationChanges = readyPublicationForRetryStatement.run(
-                        completedAt,
-                        job.claimedByActorId,
-                        job.projectId,
-                        job.publicationId
+                    publicationChanges = (
+                        await readyPublicationForRetryStatement.run(
+                            completedAt,
+                            job.claimedByActorId,
+                            job.projectId,
+                            job.publicationId
+                        )
                     ).changes
-                    jobChanges = retryJobStatement.run(
-                        retryAt,
-                        completedAt,
-                        job.id,
-                        job.claimToken
+                    jobChanges = (
+                        await retryJobStatement.run(retryAt, completedAt, job.id, job.claimToken)
                     ).changes
                     if (input.outcome.type === 'deferred') {
-                        client
-                            .query('update jobs set attempts = max(0, attempts - 1) where id = ?1')
+                        await sql
+                            .statement(
+                                'update jobs set attempts = max(0, attempts - 1) where id = ?1'
+                            )
                             .run(job.id)
                     }
                     persisted = 'retry_scheduled'
@@ -976,19 +982,23 @@ export function createWorkflowStore(
                 } else {
                     const publicationState =
                         input.outcome.type === 'ambiguous' ? 'ambiguous' : 'failed'
-                    publicationChanges = failPublicationStatement.run(
-                        publicationState,
-                        errorMessage,
-                        completedAt,
-                        job.claimedByActorId,
-                        job.projectId,
-                        job.publicationId
+                    publicationChanges = (
+                        await failPublicationStatement.run(
+                            publicationState,
+                            errorMessage,
+                            completedAt,
+                            job.claimedByActorId,
+                            job.projectId,
+                            job.publicationId
+                        )
                     ).changes
-                    jobChanges = failJobStatement.run(
-                        errorMessage,
-                        completedAt,
-                        job.id,
-                        job.claimToken
+                    jobChanges = (
+                        await failJobStatement.run(
+                            errorMessage,
+                            completedAt,
+                            job.id,
+                            job.claimToken
+                        )
                     ).changes
                     persisted = publicationState
                     auditAction =
@@ -1018,7 +1028,7 @@ export function createWorkflowStore(
                 )
             }
 
-            insertExecutionAuditEvent({
+            await insertExecutionAuditEvent({
                 id: createId(),
                 projectId: job.projectId,
                 actorId: job.claimedByActorId,
@@ -1034,7 +1044,7 @@ export function createWorkflowStore(
         }
     )
 
-    const loadCancellableJobStatement = client.query<
+    const loadCancellableJobStatement = sql.statement<
         CancellableJobRow,
         [jobId: string, actorId: string]
     >(`
@@ -1055,7 +1065,7 @@ export function createWorkflowStore(
           and publications.state in ('scheduled', 'ready')
     `)
 
-    const cancelPublicationStatement = client.query<
+    const cancelPublicationStatement = sql.statement<
         { changes: number },
         [now: number, actorId: string, projectId: string, publicationId: string]
     >(`
@@ -1069,7 +1079,7 @@ export function createWorkflowStore(
           and state in ('scheduled', 'ready')
     `)
 
-    const cancelJobStatement = client.query<{ changes: number }, [now: number, jobId: string]>(`
+    const cancelJobStatement = sql.statement<{ changes: number }, [now: number, jobId: string]>(`
         update jobs
         set state = 'cancelled',
             completed_at = ?1,
@@ -1079,19 +1089,19 @@ export function createWorkflowStore(
           and state = 'pending'
     `)
 
-    const cancelPendingJobTransaction = createDatabaseTransaction(
+    const cancelPendingJobTransaction = defineTransaction(
         database,
-        (jobId: string, actorId: string, now: number): boolean => {
-            const job = loadCancellableJobStatement.get(jobId, actorId)
+        async (jobId: string, actorId: string, now: number): Promise<boolean> => {
+            const job = await loadCancellableJobStatement.get(jobId, actorId)
             if (job === null) return false
 
-            const publication = cancelPublicationStatement.run(
+            const publication = await cancelPublicationStatement.run(
                 now,
                 actorId,
                 job.projectId,
                 job.publicationId
             )
-            const cancelled = cancelJobStatement.run(now, job.id)
+            const cancelled = await cancelJobStatement.run(now, job.id)
 
             if (publication.changes !== 1 || cancelled.changes !== 1) {
                 throw new DomainInvariantError(
@@ -1100,7 +1110,7 @@ export function createWorkflowStore(
                 )
             }
 
-            insertExecutionAuditEvent({
+            await insertExecutionAuditEvent({
                 id: createId(),
                 projectId: job.projectId,
                 actorId,
@@ -1120,7 +1130,7 @@ export function createWorkflowStore(
         }
     )
 
-    const loadExpiredClaimsStatement = client.query<RunningJobRow, [now: number]>(`
+    const loadExpiredClaimsStatement = sql.statement<RunningJobRow, [now: number]>(`
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
@@ -1140,7 +1150,7 @@ export function createWorkflowStore(
         order by jobs.lease_expires_at, jobs.id
     `)
 
-    const requeueExpiredClaimStatement = client.query<
+    const requeueExpiredClaimStatement = sql.statement<
         { changes: number },
         [now: number, jobId: string, claimToken: string]
     >(`
@@ -1164,7 +1174,7 @@ export function createWorkflowStore(
     `)
 
     const ambiguousError = 'Worker claim expired after the external-effect boundary'
-    const markPublicationAmbiguousStatement = client.query<
+    const markPublicationAmbiguousStatement = sql.statement<
         { changes: number },
         [now: number, actorId: string, projectId: string, publicationId: string]
     >(`
@@ -1178,7 +1188,7 @@ export function createWorkflowStore(
           and state = 'publishing'
     `)
 
-    const failAmbiguousJobStatement = client.query<
+    const failAmbiguousJobStatement = sql.statement<
         { changes: number },
         [now: number, jobId: string, claimToken: string]
     >(`
@@ -1196,15 +1206,15 @@ export function createWorkflowStore(
           and effect_started_at is not null
     `)
 
-    const recoverExpiredClaimsTransaction = createDatabaseTransaction(
+    const recoverExpiredClaimsTransaction = defineTransaction(
         database,
-        (now: number): ExpiredClaimRecovery => {
+        async (now: number): Promise<ExpiredClaimRecovery> => {
             const requeuedJobIds: string[] = []
             const ambiguousJobIds: string[] = []
 
-            for (const claim of loadExpiredClaimsStatement.all(now)) {
+            for (const claim of await loadExpiredClaimsStatement.all(now)) {
                 if (claim.effectStartedAt === null) {
-                    const requeued = requeueExpiredClaimStatement.run(
+                    const requeued = await requeueExpiredClaimStatement.run(
                         now,
                         claim.id,
                         claim.claimToken
@@ -1215,7 +1225,7 @@ export function createWorkflowStore(
                             `Could not recover expired claim for job ${claim.id}`
                         )
                     }
-                    insertExecutionAuditEvent({
+                    await insertExecutionAuditEvent({
                         id: createId(),
                         projectId: claim.projectId,
                         actorId: claim.claimedByActorId,
@@ -1236,7 +1246,7 @@ export function createWorkflowStore(
                     continue
                 }
 
-                const publication = markPublicationAmbiguousStatement.run(
+                const publication = await markPublicationAmbiguousStatement.run(
                     now,
                     claim.claimedByActorId,
                     claim.projectId,
@@ -1249,14 +1259,14 @@ export function createWorkflowStore(
                     )
                 }
 
-                const failed = failAmbiguousJobStatement.run(now, claim.id, claim.claimToken)
+                const failed = await failAmbiguousJobStatement.run(now, claim.id, claim.claimToken)
                 if (failed.changes !== 1) {
                     throw new DomainInvariantError(
                         'claim_mismatch',
                         `Could not fail expired claim for job ${claim.id}`
                     )
                 }
-                insertExecutionAuditEvent({
+                await insertExecutionAuditEvent({
                     id: createId(),
                     projectId: claim.projectId,
                     actorId: claim.claimedByActorId,
@@ -1282,17 +1292,18 @@ export function createWorkflowStore(
         }
     )
 
-    const ensureSystemActorTransaction = client.transaction(
-        (projectId: string, now: number): string | null => {
-            if (loadProjectStatement.get(projectId) === null) return null
+    const ensureSystemActorTransaction = defineTransaction(
+        database,
+        async (projectId: string, now: number): Promise<string | null> => {
+            if ((await loadProjectStatement.get(projectId)) === null) return null
 
-            const existing = loadSystemActorStatement.get(projectId)
+            const existing = await loadSystemActorStatement.get(projectId)
             if (existing !== null) return existing.id
 
             const actorId = `system:${projectId}`
-            insertSystemActorStatement.run(actorId, projectId, 'Postdot Worker', now)
+            await insertSystemActorStatement.run(actorId, projectId, 'Postdot Worker', now)
 
-            const inserted = loadSystemActorStatement.get(projectId)
+            const inserted = await loadSystemActorStatement.get(projectId)
             if (inserted === null) {
                 throw new DomainInvariantError(
                     'invalid_actor_kind',
@@ -1305,22 +1316,22 @@ export function createWorkflowStore(
     )
 
     return {
-        listProjectIds(): string[] {
-            return listProjectIdsStatement.all().map(row => row.id)
+        async listProjectIds(): Promise<string[]> {
+            return (await listProjectIdsStatement.all()).map(row => row.id)
         },
 
-        ensureSystemActor(projectId: string, now = Date.now()): string | null {
+        async ensureSystemActor(projectId: string, now = Date.now()): Promise<string | null> {
             return ensureSystemActorTransaction.immediate(
                 requireNonBlank(projectId, 'projectId'),
                 requireTimestamp(now, 'now')
             )
         },
 
-        getNextEventAt(): number | null {
-            return nextEventStatement.get()?.eventAt ?? null
+        async getNextEventAt(): Promise<number | null> {
+            return (await nextEventStatement.get())?.eventAt ?? null
         },
 
-        claimNextDueJob(input: ClaimDueJobInput): Job | null {
+        async claimNextDueJob(input: ClaimDueJobInput): Promise<Job | null> {
             const now = requireTimestamp(input.now, 'now')
             const leaseExpiresAt = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
             if (leaseExpiresAt <= now) {
@@ -1335,32 +1346,38 @@ export function createWorkflowStore(
             })
         },
 
-        renewClaim(input: {
+        async renewClaim(input: {
             jobId: string
             claimToken: string
             now: number
             leaseExpiresAt: number
-        }): boolean {
+        }): Promise<boolean> {
             const at = requireTimestamp(input.now, 'now')
             const expiry = requireTimestamp(input.leaseExpiresAt, 'leaseExpiresAt')
             if (expiry <= at)
                 throw new DomainInvariantError('invalid_time', 'leaseExpiresAt must be after now')
             return (
-                database.$client
-                    .query(
-                        `UPDATE jobs SET lease_expires_at = ? WHERE id = ? AND state = 'running' AND claim_token = ? AND lease_expires_at > ? AND lease_expires_at <= ?`
-                    )
-                    .run(
-                        expiry,
-                        requireNonBlank(input.jobId, 'jobId'),
-                        requireNonBlank(input.claimToken, 'claimToken'),
-                        at,
-                        expiry
-                    ).changes === 1
+                (
+                    await database.sql
+                        .statement(
+                            `UPDATE jobs SET lease_expires_at = ? WHERE id = ? AND state = 'running' AND claim_token = ? AND lease_expires_at > ? AND lease_expires_at <= ?`
+                        )
+                        .run(
+                            expiry,
+                            requireNonBlank(input.jobId, 'jobId'),
+                            requireNonBlank(input.claimToken, 'claimToken'),
+                            at,
+                            expiry
+                        )
+                ).changes === 1
             )
         },
 
-        startExternalEffect(jobId: string, claimToken: string, now: number): boolean {
+        async startExternalEffect(
+            jobId: string,
+            claimToken: string,
+            now: number
+        ): Promise<boolean> {
             return startExternalEffectTransaction.immediate(
                 requireNonBlank(jobId, 'jobId'),
                 requireNonBlank(claimToken, 'claimToken'),
@@ -1368,7 +1385,9 @@ export function createWorkflowStore(
             )
         },
 
-        completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome | null {
+        async completeExternalEffect(
+            input: CompleteExternalEffectInput
+        ): Promise<PersistedEffectOutcome | null> {
             return completeExternalEffectTransaction.immediate({
                 ...input,
                 jobId: requireNonBlank(input.jobId, 'jobId'),
@@ -1376,7 +1395,7 @@ export function createWorkflowStore(
             })
         },
 
-        cancelPendingJob(jobId: string, actorId: string, now: number): boolean {
+        async cancelPendingJob(jobId: string, actorId: string, now: number): Promise<boolean> {
             return cancelPendingJobTransaction.immediate(
                 requireNonBlank(jobId, 'jobId'),
                 requireNonBlank(actorId, 'actorId'),
@@ -1384,7 +1403,7 @@ export function createWorkflowStore(
             )
         },
 
-        recoverExpiredClaims(now: number): ExpiredClaimRecovery {
+        async recoverExpiredClaims(now: number): Promise<ExpiredClaimRecovery> {
             return recoverExpiredClaimsTransaction.immediate(requireTimestamp(now, 'now'))
         },
     }

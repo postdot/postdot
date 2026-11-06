@@ -141,8 +141,8 @@ async function executeBlueskyPublication(input: {
         }
         const agent = new Agent({
             did: restored.session.did,
-            fetchHandler: effectFetcher(execution.signal, (path, init) => {
-                execution.assertActive?.()
+            fetchHandler: effectFetcher(execution.signal, async (path, init) => {
+                await execution.assertActive?.()
                 return restored.session.fetchHandler(
                     typeof path === 'string' ? path : path instanceof URL ? path.href : path.url,
                     init
@@ -172,8 +172,8 @@ async function executeBlueskyPublication(input: {
     const publisherWithCheckpoints = input.createPublisher({
         agent: new Agent({
             did: restored.session.did,
-            fetchHandler: effectFetcher(execution.signal, (path, init) => {
-                execution.assertActive?.()
+            fetchHandler: effectFetcher(execution.signal, async (path, init) => {
+                await execution.assertActive?.()
                 return restored.session.fetchHandler(
                     typeof path === 'string' ? path : path instanceof URL ? path.href : path.url,
                     init
@@ -186,7 +186,7 @@ async function executeBlueskyPublication(input: {
                 throw new Error('The Bluesky media upload checkpoint is out of sequence')
             }
             const remoteMediaId = serializeBlobRef(blob)
-            const checkpoint = execution.providerMediaDeliveryStore.recordRemoteMediaId({
+            const checkpoint = await execution.providerMediaDeliveryStore.recordRemoteMediaId({
                 projectId: target.projectId,
                 deliveryId: prepared.delivery.id,
                 remoteMediaId,
@@ -195,7 +195,7 @@ async function executeBlueskyPublication(input: {
             if (checkpoint?.remoteMediaId !== remoteMediaId) {
                 throw new Error('The Bluesky media upload checkpoint could not be persisted')
             }
-            const completed = execution.providerMediaDeliveryStore.complete({
+            const completed = await execution.providerMediaDeliveryStore.complete({
                 projectId: target.projectId,
                 deliveryId: prepared.delivery.id,
                 remoteMediaId,
@@ -222,7 +222,7 @@ async function executeBlueskyPublication(input: {
 
     for (const media of mediaResult.media) {
         if (media.remoteBlob !== undefined || media.delivery.state !== 'uploading') continue
-        const failed = execution.providerMediaDeliveryStore.fail({
+        const failed = await execution.providerMediaDeliveryStore.fail({
             projectId: target.projectId,
             deliveryId: media.delivery.id,
             errorCode: outcome.type,
@@ -243,7 +243,7 @@ async function executeBlueskyPublication(input: {
 
 interface PreparedBlueskyMedia {
     readonly target: PublisherExecutionMedia
-    readonly delivery: ReturnType<ProviderMediaDeliveryPort['reserve']>
+    readonly delivery: Awaited<ReturnType<ProviderMediaDeliveryPort['reserve']>>
     readonly stream?: ReadableStream<Uint8Array>
     remoteBlob?: BlobRef
 }
@@ -285,7 +285,7 @@ async function prepareBlueskyMedia(input: {
             }
         }
 
-        const delivery = input.providerMediaDeliveryStore.reserve({
+        const delivery = await input.providerMediaDeliveryStore.reserve({
             projectId: input.target.projectId,
             executionMediaId: targetMedia.id,
             publisherId: input.target.publisherId,
@@ -303,7 +303,7 @@ async function prepareBlueskyMedia(input: {
 
         let current = delivery
         if (current.state === 'failed') {
-            const retried = input.providerMediaDeliveryStore.retry({
+            const retried = await input.providerMediaDeliveryStore.retry({
                 projectId: input.target.projectId,
                 deliveryId: current.id,
                 at: input.now,
@@ -330,7 +330,7 @@ async function prepareBlueskyMedia(input: {
         }
 
         if (current.state === 'uploading' && current.remoteMediaId !== null) {
-            const completed = input.providerMediaDeliveryStore.complete({
+            const completed = await input.providerMediaDeliveryStore.complete({
                 projectId: input.target.projectId,
                 deliveryId: current.id,
                 remoteMediaId: current.remoteMediaId,
@@ -358,7 +358,7 @@ async function prepareBlueskyMedia(input: {
             }
         }
 
-        const started = input.providerMediaDeliveryStore.start({
+        const started = await input.providerMediaDeliveryStore.start({
             projectId: input.target.projectId,
             deliveryId: current.id,
             at: input.now,
@@ -376,7 +376,7 @@ async function prepareBlueskyMedia(input: {
         try {
             opened = await openVerifiedPinnedMedia(input.media, input.target.projectId, targetMedia)
         } catch {
-            const failed = input.providerMediaDeliveryStore.fail({
+            const failed = await input.providerMediaDeliveryStore.fail({
                 projectId: input.target.projectId,
                 deliveryId: started.id,
                 errorCode: 'media_read_failure',
@@ -396,7 +396,7 @@ async function prepareBlueskyMedia(input: {
             }
         }
         if (opened === null) {
-            const failed = input.providerMediaDeliveryStore.fail({
+            const failed = await input.providerMediaDeliveryStore.fail({
                 projectId: input.target.projectId,
                 deliveryId: started.id,
                 errorCode: 'media_unavailable',

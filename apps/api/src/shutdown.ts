@@ -26,8 +26,8 @@ export type ShutdownExitCode =
 export interface ShutdownDependencies {
     readonly stopWorker: () => Promise<void>
     readonly stopMediaMaintenance: () => Promise<void>
-    readonly stopNotificationProjection: () => void
-    readonly stopRealtime: () => void
+    readonly stopNotificationProjection: () => Promise<void> | void
+    readonly stopRealtime: () => Promise<void> | void
     readonly clearCommitObserver: () => void
     readonly stopServer: () => Promise<void> | void
     readonly closeDatabase: () => void
@@ -99,12 +99,12 @@ export function createShutdownHandler(
             await dependencies.stopWorker()
             step = 'media-maintenance-stop'
             await dependencies.stopMediaMaintenance()
-            step = 'notification-projection-stop'
-            dependencies.stopNotificationProjection()
-            step = 'realtime-stop'
-            dependencies.stopRealtime()
             step = 'commit-observer-clear'
             dependencies.clearCommitObserver()
+            step = 'notification-projection-stop'
+            await dependencies.stopNotificationProjection()
+            step = 'realtime-stop'
+            await dependencies.stopRealtime()
             step = 'server-stop'
             await dependencies.stopServer()
         } catch (error) {

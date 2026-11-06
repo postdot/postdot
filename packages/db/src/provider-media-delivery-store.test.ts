@@ -97,13 +97,13 @@ describe('provider media delivery store', () => {
                 })(),
             })
             const manualStore = createManualStore(database, { now: () => now, media })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Media publication project',
                 subjectId: 'subject-1',
                 displayName: 'Media operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'subject-1',
                 name: 'Media provider',
@@ -114,14 +114,14 @@ describe('provider media delivery store', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-1',
-                    workspaceId: workspaceOf(database, project.project.id),
+                    workspaceId: await workspaceOf(database, project.project.id),
                     channelId: channel.id,
                     kind: 'media-provider',
                 })
                 .run()
 
             const bytes = previewFixturePng(4, 3)
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'subject-1',
                 originalFilename: 'cover.png',
@@ -142,7 +142,7 @@ describe('provider media delivery store', () => {
             })
             expect(finalized.kind).toBe('ready')
 
-            const created = manualStore.createPost({
+            const created = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'subject-1',
                 sourceContent: {
@@ -166,29 +166,29 @@ describe('provider media delivery store', () => {
             expect(database.select().from(publicationExecutionRevisionMedia).all()).toEqual([])
 
             const workflow = createWorkflowStore(database)
-            const systemActorId = workflow.ensureSystemActor(project.project.id, now)
+            const systemActorId = await workflow.ensureSystemActor(project.project.id, now)
             if (systemActorId === null) throw new Error('System actor was not created')
-            const claimed = workflow.claimNextDueJob({
+            const claimed = await workflow.claimNextDueJob({
                 actorId: systemActorId,
                 claimToken: 'claim-1',
                 now,
                 leaseExpiresAt: now + 60_000,
             })
             if (claimed === null) throw new Error('Job was not claimed')
-            expect(workflow.startExternalEffect(claimed.id, 'claim-1', now + 1)).toBe(true)
+            expect(await workflow.startExternalEffect(claimed.id, 'claim-1', now + 1)).toBe(true)
 
             const executionMedia = database.select().from(publicationExecutionRevisionMedia).all()
             expect(executionMedia).toHaveLength(1)
             expect(executionMedia[0]?.assetId).toBe(reservation.asset.id)
             expect(executionMedia[0]?.representationId).toBe(reservation.representation.id)
             expect(
-                media.getAsset(project.project.id, reservation.asset.id, 'subject-1')
+                (await media.getAsset(project.project.id, reservation.asset.id, 'subject-1'))
                     ?.representations
             ).toHaveLength(3)
             expect(executionMedia[0]?.accessibilityText).toBe('Default cover description')
 
             const deliveries = createProviderMediaDeliveryStore(database, { now: () => now })
-            const delivery = deliveries.reserve({
+            const delivery = await deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',
                 publisherId: 'publisher-1',
@@ -196,9 +196,10 @@ describe('provider media delivery store', () => {
             })
             expect(delivery.state).toBe('pending')
             expect(
-                deliveries.start({ projectId: project.project.id, deliveryId: delivery.id })?.state
+                (await deliveries.start({ projectId: project.project.id, deliveryId: delivery.id }))
+                    ?.state
             ).toBe('uploading')
-            const uploaded = deliveries.complete({
+            const uploaded = await deliveries.complete({
                 projectId: project.project.id,
                 deliveryId: delivery.id,
                 remoteMediaId: 'remote-media-1',
@@ -212,34 +213,38 @@ describe('provider media delivery store', () => {
                 remoteMediaExpiresAt: now + 60_000,
             })
             expect(
-                deliveries.complete({
-                    projectId: project.project.id,
-                    deliveryId: delivery.id,
-                    remoteMediaId: 'remote-media-1',
-                })?.state
+                (
+                    await deliveries.complete({
+                        projectId: project.project.id,
+                        deliveryId: delivery.id,
+                        remoteMediaId: 'remote-media-1',
+                    })
+                )?.state
             ).toBe('uploaded')
 
-            const checkpointDelivery = deliveries.reserve({
+            const checkpointDelivery = await deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',
                 publisherId: 'publisher-1',
                 providerId: 'checkpoint-provider',
             })
             expect(
-                deliveries.start({
-                    projectId: project.project.id,
-                    deliveryId: checkpointDelivery.id,
-                })?.state
+                (
+                    await deliveries.start({
+                        projectId: project.project.id,
+                        deliveryId: checkpointDelivery.id,
+                    })
+                )?.state
             ).toBe('uploading')
             expect(
-                deliveries.recordRemoteMediaId({
+                await deliveries.recordRemoteMediaId({
                     projectId: project.project.id,
                     deliveryId: checkpointDelivery.id,
                     remoteMediaId: 'checkpoint-media',
                 })
             ).toMatchObject({ state: 'uploading', remoteMediaId: 'checkpoint-media' })
             expect(
-                deliveries.fail({
+                await deliveries.fail({
                     projectId: project.project.id,
                     deliveryId: checkpointDelivery.id,
                     errorCode: 'provider_timeout',
@@ -247,65 +252,78 @@ describe('provider media delivery store', () => {
                     ambiguous: true,
                 })
             ).toMatchObject({ state: 'ambiguous', remoteMediaId: 'checkpoint-media' })
-            expect(() =>
+            await expect(
                 deliveries.complete({
                     projectId: project.project.id,
                     deliveryId: checkpointDelivery.id,
                     remoteMediaId: 'another-checkpoint-media',
                 })
-            ).toThrow('already has another remote media ID')
+            ).rejects.toThrow('already has another remote media ID')
             expect(
-                deliveries.complete({
+                await deliveries.complete({
                     projectId: project.project.id,
                     deliveryId: checkpointDelivery.id,
                     remoteMediaId: 'checkpoint-media',
                 })
             ).toMatchObject({ state: 'uploaded', remoteMediaId: 'checkpoint-media' })
 
-            const failedDelivery = deliveries.reserve({
+            const failedDelivery = await deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',
                 publisherId: 'publisher-1',
                 providerId: 'other-provider',
             })
-            deliveries.start({ projectId: project.project.id, deliveryId: failedDelivery.id })
+            await deliveries.start({ projectId: project.project.id, deliveryId: failedDelivery.id })
             expect(
-                deliveries.fail({
-                    projectId: project.project.id,
-                    deliveryId: failedDelivery.id,
-                    errorCode: 'rate_limited',
-                    errorMessage: 'Provider rate limit',
-                })?.state
+                (
+                    await deliveries.fail({
+                        projectId: project.project.id,
+                        deliveryId: failedDelivery.id,
+                        errorCode: 'rate_limited',
+                        errorMessage: 'Provider rate limit',
+                    })
+                )?.state
             ).toBe('failed')
             expect(
-                deliveries.retry({ projectId: project.project.id, deliveryId: failedDelivery.id })
-                    ?.state
+                (
+                    await deliveries.retry({
+                        projectId: project.project.id,
+                        deliveryId: failedDelivery.id,
+                    })
+                )?.state
             ).toBe('pending')
 
-            const ambiguousDelivery = deliveries.reserve({
+            const ambiguousDelivery = await deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',
                 publisherId: 'publisher-1',
                 providerId: 'ambiguous-provider',
             })
-            deliveries.start({ projectId: project.project.id, deliveryId: ambiguousDelivery.id })
+            await deliveries.start({
+                projectId: project.project.id,
+                deliveryId: ambiguousDelivery.id,
+            })
             expect(
-                deliveries.fail({
-                    projectId: project.project.id,
-                    deliveryId: ambiguousDelivery.id,
-                    errorCode: 'connection_lost',
-                    errorMessage: 'The provider response was lost',
-                    ambiguous: true,
-                })?.state
+                (
+                    await deliveries.fail({
+                        projectId: project.project.id,
+                        deliveryId: ambiguousDelivery.id,
+                        errorCode: 'connection_lost',
+                        errorMessage: 'The provider response was lost',
+                        ambiguous: true,
+                    })
+                )?.state
             ).toBe('ambiguous')
             expect(
-                deliveries.retry({
-                    projectId: project.project.id,
-                    deliveryId: ambiguousDelivery.id,
-                })?.state
+                (
+                    await deliveries.retry({
+                        projectId: project.project.id,
+                        deliveryId: ambiguousDelivery.id,
+                    })
+                )?.state
             ).toBe('ambiguous')
             expect(
-                deliveries.complete({
+                await deliveries.complete({
                     projectId: project.project.id,
                     deliveryId: ambiguousDelivery.id,
                     remoteMediaId: 'reconciled-media',
@@ -315,17 +333,17 @@ describe('provider media delivery store', () => {
                 remoteMediaId: 'reconciled-media',
             })
 
-            const rejectedAmbiguousDelivery = deliveries.reserve({
+            const rejectedAmbiguousDelivery = await deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',
                 publisherId: 'publisher-1',
                 providerId: 'rejected-ambiguous-provider',
             })
-            deliveries.start({
+            await deliveries.start({
                 projectId: project.project.id,
                 deliveryId: rejectedAmbiguousDelivery.id,
             })
-            deliveries.fail({
+            await deliveries.fail({
                 projectId: project.project.id,
                 deliveryId: rejectedAmbiguousDelivery.id,
                 errorCode: 'connection_lost',
@@ -333,16 +351,18 @@ describe('provider media delivery store', () => {
                 ambiguous: true,
             })
             expect(
-                deliveries.fail({
-                    projectId: project.project.id,
-                    deliveryId: rejectedAmbiguousDelivery.id,
-                    errorCode: 'confirmed_rejected',
-                    errorMessage: 'The provider confirms that no media was created',
-                })?.state
+                (
+                    await deliveries.fail({
+                        projectId: project.project.id,
+                        deliveryId: rejectedAmbiguousDelivery.id,
+                        errorCode: 'confirmed_rejected',
+                        errorMessage: 'The provider confirms that no media was created',
+                    })
+                )?.state
             ).toBe('failed')
 
             expect(
-                media.requestDeletion(project.project.id, reservation.asset.id, 'subject-1')
+                await media.requestDeletion(project.project.id, reservation.asset.id, 'subject-1')
             ).toEqual({ kind: 'blocked', reason: 'referenced' })
         } finally {
             closeDatabase(database)

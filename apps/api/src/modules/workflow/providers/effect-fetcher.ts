@@ -2,10 +2,10 @@
 export function effectFetcher(
     signal?: AbortSignal,
     fetcher: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = fetch,
-    assertActive?: () => void
+    assertActive?: () => Promise<void>
 ): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
-    return (input, init) => {
-        assertActive?.()
+    return async (input, init) => {
+        await assertActive?.()
         signal?.throwIfAborted()
         const requestSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
         return fetcher(input, {

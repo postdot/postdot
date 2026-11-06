@@ -148,8 +148,12 @@ async function startServerWithRuntimeLock(
     dependencies: MutableShutdownDependencies,
     shutdownRequested: () => boolean
 ) {
-    let resumeRuntimes: (() => void) | undefined
-    const recovery = createRecoveryService(config.database.fileName, () => resumeRuntimes?.())
+    let resumeRuntimes: (() => Promise<void>) | undefined
+    const recovery = createRecoveryService(config.database.fileName, () => {
+        void resumeRuntimes?.().catch(error =>
+            console.error('[postdot-recovery] runtime resume failed', error)
+        )
+    })
     const database = createDatabase(config.database.fileName)
     dependencies.closeDatabase = () => closeDatabase(database)
     runMigrations(database, config.database.migrationsDirectory)
@@ -169,7 +173,7 @@ async function startServerWithRuntimeLock(
             })
         ),
         initial: config.email?.smtp,
-        onChange: () => emailRuntime?.replan(),
+        onChange: () => void emailRuntime?.replan(),
         deliveryAllowed: () => !recovery.held(),
     })
     emailRuntime = createNotificationEmailRuntime({
@@ -179,9 +183,10 @@ async function startServerWithRuntimeLock(
         webOrigin: config.web.origin,
     })
     const realtime = createProjectRealtimeRuntime({
+        // Both projections are independent wakeups and never reject.
         onProjectsChanged: projectIds => {
-            notificationProjection.runProjects(projectIds)
-            emailRuntime?.runProjects(projectIds)
+            void notificationProjection.runProjects(projectIds)
+            void emailRuntime?.runProjects(projectIds)
         },
         resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
         onError: error => console.error('[postdot-realtime] post-commit wakeup failed', error),
@@ -189,7 +194,7 @@ async function startServerWithRuntimeLock(
     dependencies.stopRealtime = () => realtime.stop()
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
         database,
-        projectIds => realtime.publish(projectIds),
+        projectIds => void realtime.publish(projectIds),
         error => console.error('[postdot-realtime] post-commit observer failed', error)
     )
     dependencies.clearCommitObserver = () => clearDatabaseCommitObserver()
@@ -207,7 +212,8 @@ async function startServerWithRuntimeLock(
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
     })
     posterRuntime = createVideoPosterRuntime({
-        pending: () => (posterExtractor.available ? media.listPendingVideoPreviews() : []),
+        pending: async () =>
+            await (posterExtractor.available ? await media.listPendingVideoPreviews() : []),
         generate: (projectId, assetId) => media.generateVideoPreviews(projectId, assetId),
         cancel: () => posterExtractor.cancel(),
     })
@@ -337,7 +343,7 @@ async function startServerWithRuntimeLock(
                       bearerToken: metricsConfiguration.bearerToken,
                   },
               }),
-        onWorkScheduled: worker.replan,
+        onWorkScheduled: () => void worker.replan(),
         access,
         allowAdditionalSignups,
         notifications,
@@ -358,17 +364,25 @@ async function startServerWithRuntimeLock(
             : baseApp
     dependencies.stopServer = () => app.stop()
 
-    resumeRuntimes = () => {
-        worker.start()
-        mediaMaintenance.start()
-        posterRuntime?.start()
-        emailRuntime?.start()
+    // Start runtimes together, then recheck shutdown after their async setup.
+    resumeRuntimes = async () => {
+        await Promise.all([
+            worker.start(),
+            mediaMaintenance.start(),
+            posterRuntime?.start(),
+            emailRuntime?.start(),
+        ])
     }
     // A termination received during startup must not start a runtime that is
     // already draining, and must not start serving. No signal can arrive
     // between this check and the listen call, because no await separates them.
     if (shutdownRequested()) return
-    if (!recovery.held()) resumeRuntimes()
+    if (!recovery.held()) {
+        await resumeRuntimes().catch(error =>
+            console.error('[postdot-runtime] start failed', error)
+        )
+    }
+    if (shutdownRequested()) return
     notificationProjection.start()
     if (recovery.held())
         console.warn('[postdot-recovery] inspection only; resume from installation settings')

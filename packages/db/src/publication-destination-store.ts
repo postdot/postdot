@@ -1,11 +1,7 @@
 import { DomainInvariantError, requireTimestamp } from '@postdot/core'
 
 import { readChannelDestination } from './channel-destination'
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from './client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from './client'
 import { createEventJournalStore } from './event-journal-store'
 
 export interface PublicationDestinationState {
@@ -13,7 +9,7 @@ export interface PublicationDestinationState {
     readonly confirmedRevision: number
     readonly requiresConfirmation: boolean
     readonly connected: boolean
-    readonly current: ReturnType<typeof readChannelDestination>
+    readonly current: Awaited<ReturnType<typeof readChannelDestination>>
     readonly history: readonly {
         readonly id: string
         readonly createdAt: number
@@ -26,13 +22,13 @@ export function createPublicationDestinationStore(
     options: {
         createId?: () => string
         now: () => number
-        loadActor: (projectId: string, subjectId: string) => { readonly id: string } | null
+        loadActor: (projectId: string, subjectId: string) => Promise<{ readonly id: string } | null>
     }
 ) {
-    const client = database.$client
-    function load(projectId: string, publicationId: string) {
-        return client
-            .query<
+    const sql = database.sql
+    async function load(projectId: string, publicationId: string) {
+        return await sql
+            .statement<
                 {
                     channelId: string
                     targetId: string | null
@@ -52,15 +48,15 @@ export function createPublicationDestinationStore(
         `)
             .get(projectId, publicationId)
     }
-    function read(
+    async function read(
         projectId: string,
         publicationId: string,
         subjectId: string
-    ): PublicationDestinationState | null {
-        if (options.loadActor(projectId, subjectId) === null) return null
-        const row = load(projectId, publicationId)
+    ): Promise<PublicationDestinationState | null> {
+        if ((await options.loadActor(projectId, subjectId)) === null) return null
+        const row = await load(projectId, publicationId)
         if (row === null) return null
-        const current = readChannelDestination(database, projectId, row.channelId)
+        const current = await readChannelDestination(database, projectId, row.channelId)
         return {
             revision: row.revision,
             confirmedRevision: row.confirmedRevision,
@@ -69,41 +65,47 @@ export function createPublicationDestinationStore(
                 ['draft', 'scheduled', 'ready', 'failed'].includes(row.state) &&
                 row.revision !== row.confirmedRevision,
             connected:
-                client
-                    .query<{ state: string }, [string, string]>(`
+                (
+                    await sql
+                        .statement<{ state: string }, [string, string]>(`
                 select cr.state from project_publisher_connection_contexts pc
                 join project_publisher_contexts pub on pub.project_id = pc.project_id and pub.id = pc.publisher_id
                 join project_publisher_credential_contexts cr on cr.project_id = pc.project_id and cr.id = pc.credential_id
                 where pub.project_id = ? and pub.channel_id = ?
             `)
-                    .get(projectId, row.channelId)?.state === 'active',
+                        .get(projectId, row.channelId)
+                )?.state === 'active',
             current,
-            history: client
-                .query<{ id: string; createdAt: number; json: string | null }, [string, string]>(`
+            history: (
+                await sql
+                    .statement<
+                        { id: string; createdAt: number; json: string | null },
+                        [string, string]
+                    >(`
                 select id, created_at as createdAt, destination_snapshot_json as json
                 from publication_execution_revisions where project_id = ? and publication_id = ? order by created_at, id
             `)
-                .all(projectId, publicationId)
-                .map(({ id, createdAt, json }) => ({
-                    id,
-                    createdAt,
-                    destination: json === null ? null : JSON.parse(json),
-                })),
+                    .all(projectId, publicationId)
+            ).map(({ id, createdAt, json }) => ({
+                id,
+                createdAt,
+                destination: json === null ? null : JSON.parse(json),
+            })),
         }
     }
-    const confirm = createDatabaseTransaction(
+    const confirm = defineTransaction(
         database,
-        (input: {
+        async (input: {
             projectId: string
             publicationId: string
             subjectId: string
             expectedRevision: number
             expectedTargetRevisionId: string | null
         }) => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
-            const row = load(input.projectId, input.publicationId)
+            const actor = await options.loadActor(input.projectId, input.subjectId)
+            const row = await load(input.projectId, input.publicationId)
             if (actor === null || row === null) return null
-            const state = read(input.projectId, input.publicationId, input.subjectId)!
+            const state = (await read(input.projectId, input.publicationId, input.subjectId))!
             if (
                 row.revision !== input.expectedRevision ||
                 row.targetId !== input.expectedTargetRevisionId
@@ -113,19 +115,19 @@ export function createPublicationDestinationStore(
                     'The destination or selected target changed; review it again'
                 )
             if (
-                client
-                    .query(`select 1 from resource_lifecycles r where r.state <> 'active' and
+                (await sql
+                    .statement(`select 1 from resource_lifecycles r where r.state <> 'active' and
                     ((r.kind = 'project' and r.resource_id = ?) or (r.kind = 'workspace' and r.resource_id = (select workspace_id from projects where id = ?)))`)
-                    .get(input.projectId, input.projectId) !== null ||
+                    .get(input.projectId, input.projectId)) !== null ||
                 row.mode !== 'automatic' ||
                 row.channelState !== 'active' ||
                 !state.connected ||
                 !['draft', 'scheduled', 'ready', 'failed'].includes(row.state) ||
-                client
-                    .query(
+                (await sql
+                    .statement(
                         "select id from jobs where project_id = ? and publication_id = ? and state = 'running' limit 1"
                     )
-                    .get(input.projectId, input.publicationId)
+                    .get(input.projectId, input.publicationId))
             )
                 throw new DomainInvariantError(
                     'invalid_transition',
@@ -133,15 +135,15 @@ export function createPublicationDestinationStore(
                 )
             if (row.confirmedRevision === row.revision) return state
             const at = requireTimestamp(options.now(), 'now')
-            client
-                .query(
+            await sql
+                .statement(
                     'update publications set confirmed_destination_revision = ?, updated_at = ? where project_id = ? and id = ?'
                 )
                 .run(row.revision, at, input.projectId, input.publicationId)
             // A retry may already have pinned an earlier execution. Preserve that row
             // and start a fresh job rather than reinterpret its immutable snapshot.
-            const oldRetry = client
-                .query<{ id: string; runAt: number }, [string, string, number]>(`
+            const oldRetry = await sql
+                .statement<{ id: string; runAt: number }, [string, string, number]>(`
                 select j.id, j.run_at as runAt from jobs j
                 join publication_execution_revisions e on e.project_id = j.project_id and e.job_id = j.id
                 where j.project_id = ? and j.publication_id = ? and j.state = 'pending'
@@ -151,13 +153,13 @@ export function createPublicationDestinationStore(
             const replacementJobId =
                 oldRetry === null ? null : (options.createId ?? crypto.randomUUID)()
             if (oldRetry !== null) {
-                client
-                    .query(
+                await sql
+                    .statement(
                         "update jobs set state = 'cancelled', completed_at = ?, updated_at = ? where id = ? and state = 'pending'"
                     )
                     .run(at, at, oldRetry.id)
-                client
-                    .query(
+                await sql
+                    .statement(
                         "insert into jobs (id, project_id, publication_id, state, run_at, created_at, updated_at) values (?,?,?,'pending',?,?,?)"
                     )
                     .run(
@@ -169,7 +171,7 @@ export function createPublicationDestinationStore(
                         at
                     )
             }
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 projectId: input.projectId,
                 actorId: actor.id,
                 name: 'publication.destination_confirmed',

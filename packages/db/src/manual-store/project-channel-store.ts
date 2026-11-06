@@ -10,11 +10,7 @@ import {
     type Project,
 } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
 import { createWorkspaceActorStore } from '../workspace-actor-store'
 import { createWorkspaceChannelStore } from '../workspace-channel-store'
 import { parseProfile } from './content-codec'
@@ -67,9 +63,9 @@ export function createProjectChannelStore(
     database: PostdotDatabase,
     options: ProjectChannelStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
 
-    const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
+    const loadProjectStatement = sql.statement<ProjectRow, [projectId: string]>(`
         select id,
                name,
                time_zone as timeZone,
@@ -80,7 +76,7 @@ export function createProjectChannelStore(
         from projects
         where id = ?1
     `)
-    const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
+    const loadActorStatement = sql.statement<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
                project_id as projectId,
                kind,
@@ -95,7 +91,7 @@ export function createProjectChannelStore(
         order by created_at, id
         limit 1
     `)
-    const listProjectsStatement = client.query<ProjectRow, [subjectId: string]>(`
+    const listProjectsStatement = sql.statement<ProjectRow, [subjectId: string]>(`
         select distinct projects.id,
                projects.name,
                projects.time_zone as timeZone,
@@ -110,7 +106,7 @@ export function createProjectChannelStore(
            and actors.subject_id = ?1
         order by projects.created_at, projects.id
     `)
-    const listWorkspaceProjectsStatement = client.query<ProjectRow, [workspaceId: string]>(`
+    const listWorkspaceProjectsStatement = sql.statement<ProjectRow, [workspaceId: string]>(`
         select projects.id,
                projects.name,
                projects.time_zone as timeZone,
@@ -122,7 +118,7 @@ export function createProjectChannelStore(
         where projects.workspace_id = ?1
         order by projects.created_at, projects.id
     `)
-    const listChannelsStatement = client.query<
+    const listChannelsStatement = sql.statement<
         ChannelRow & { readonly profileJson: string; readonly shared: number },
         [projectId: string]
     >(`
@@ -153,7 +149,7 @@ export function createProjectChannelStore(
           and channels.attachment_state = 'active'
         order by channels.created_at, channels.id
     `)
-    const insertProjectStatement = client.query<
+    const insertProjectStatement = sql.statement<
         void,
         [id: string, name: string, timeZone: string, workspaceId: string | null, now: number]
     >(`
@@ -166,7 +162,7 @@ export function createProjectChannelStore(
             updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?5)
     `)
-    const updateProjectTimeZoneStatement = client.query<
+    const updateProjectTimeZoneStatement = sql.statement<
         { readonly changes: number },
         [timeZone: string, updatedAt: number, projectId: string]
     >(`
@@ -175,7 +171,7 @@ export function createProjectChannelStore(
             updated_at = ?2
         where id = ?3
     `)
-    const insertActorStatement = client.query<
+    const insertActorStatement = sql.statement<
         void,
         [
             id: string,
@@ -189,7 +185,7 @@ export function createProjectChannelStore(
         insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
         values (?1, ?2, ?3, ?4, ?5, ?6, ?6)
     `)
-    const insertAuditEventStatement = client.query<
+    const insertAuditEventStatement = sql.statement<
         void,
         [
             id: string,
@@ -214,9 +210,9 @@ export function createProjectChannelStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
 
-    const createProjectTransaction = createDatabaseTransaction(
+    const createProjectTransaction = defineTransaction(
         database,
-        (input: CreateProjectInput): CreatedProject => {
+        async (input: CreateProjectInput): Promise<CreatedProject> => {
             const timestamp = requireTimestamp(options.now(), 'now')
             const project = createProject({
                 id: options.createId(),
@@ -242,14 +238,14 @@ export function createProjectChannelStore(
                 now: timestamp,
             })
 
-            insertProjectStatement.run(
+            await insertProjectStatement.run(
                 project.id,
                 project.name,
                 project.timeZone,
                 input.workspaceId,
                 timestamp
             )
-            insertActorStatement.run(
+            await insertActorStatement.run(
                 actor.id,
                 project.id,
                 actor.kind,
@@ -257,7 +253,7 @@ export function createProjectChannelStore(
                 actor.displayName,
                 timestamp
             )
-            insertActorStatement.run(
+            await insertActorStatement.run(
                 systemActor.id,
                 project.id,
                 systemActor.kind,
@@ -266,7 +262,7 @@ export function createProjectChannelStore(
                 timestamp
             )
             recordDatabaseCommitProject(database, project.id)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 project.id,
                 actor.id,
@@ -281,11 +277,11 @@ export function createProjectChannelStore(
         }
     )
 
-    const updateProjectTimeZoneTransaction = createDatabaseTransaction(
+    const updateProjectTimeZoneTransaction = defineTransaction(
         database,
-        (input: UpdateProjectTimeZoneInput): Project | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const projectRow = loadProjectStatement.get(input.projectId)
+        async (input: UpdateProjectTimeZoneInput): Promise<Project | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const projectRow = await loadProjectStatement.get(input.projectId)
             if (actor === null || projectRow === null) return null
 
             const timeZone = requireProjectTimeZone(input.timeZone)
@@ -293,11 +289,11 @@ export function createProjectChannelStore(
             if (project.timeZone === timeZone) return project
 
             const timestamp = requireTimestamp(options.now(), 'now')
-            const update = updateProjectTimeZoneStatement.run(timeZone, timestamp, project.id)
+            const update = await updateProjectTimeZoneStatement.run(timeZone, timestamp, project.id)
             if (update.changes !== 1) return null
 
             recordDatabaseCommitProject(database, project.id)
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 project.id,
                 actor.id,
@@ -314,29 +310,29 @@ export function createProjectChannelStore(
 
     const workspaceActors = createWorkspaceActorStore(database, options)
     const workspaceChannels = createWorkspaceChannelStore(database, options)
-    const createChannelTransaction = createDatabaseTransaction(
+    const createChannelTransaction = defineTransaction(
         database,
-        (input: CreateChannelInput): Channel | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const projectRow = loadProjectStatement.get(input.projectId)
+        async (input: CreateChannelInput): Promise<Channel | null> => {
+            const actor = await loadActorStatement.get(input.projectId, input.subjectId)
+            const projectRow = await loadProjectStatement.get(input.projectId)
             if (actor === null || projectRow === null || projectRow.workspaceId === null)
                 return null
-            const attribution = workspaceActors.ensureFromProjectActor({
+            const attribution = await workspaceActors.ensureFromProjectActor({
                 workspaceId: projectRow.workspaceId,
                 projectActorId: actor.id,
             })
             if (attribution === null) return null
 
             // The caller already authenticated the project actor; this port only admits that project.
-            const created = workspaceChannels.create(
+            const created = await workspaceChannels.create(
                 {
                     actorId: attribution.id,
                     contextProjectId: projectRow.id,
                     authorization: {
-                        authorizeProject: (projectId, action) =>
+                        authorizeProject: async (projectId, action) =>
                             projectId === projectRow.id && action === 'create_channels',
-                        authorizeWorkspace: () => false,
-                        authorizeSharing: () => false,
+                        authorizeWorkspace: async () => false,
+                        authorizeSharing: async () => false,
                     },
                 },
                 { projectId: input.projectId, name: input.name, profile: input.profile }
@@ -344,7 +340,7 @@ export function createProjectChannelStore(
             if (created.kind !== 'created') return null
 
             const channel = toChannel({ ...created.channel, projectId: projectRow.id })
-            insertAuditEventStatement.run(
+            await insertAuditEventStatement.run(
                 options.createId(),
                 projectRow.id,
                 actor.id,
@@ -362,7 +358,7 @@ export function createProjectChannelStore(
     )
 
     return {
-        createProject(input: CreateProjectInput): CreatedProject {
+        async createProject(input: CreateProjectInput): Promise<CreatedProject> {
             return createProjectTransaction.immediate({
                 ...input,
                 name: requireNonBlank(input.name, 'name'),
@@ -371,17 +367,21 @@ export function createProjectChannelStore(
             })
         },
 
-        listProjects(subjectId: string): Project[] {
-            return listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId')).map(toProject)
+        async listProjects(subjectId: string): Promise<Project[]> {
+            return (await listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId'))).map(
+                toProject
+            )
         },
 
-        listProjectsForWorkspace(workspaceId: string): Project[] {
-            return listWorkspaceProjectsStatement
-                .all(requireNonBlank(workspaceId, 'workspaceId'))
-                .map(toProject)
+        async listProjectsForWorkspace(workspaceId: string): Promise<Project[]> {
+            return (
+                await listWorkspaceProjectsStatement.all(
+                    requireNonBlank(workspaceId, 'workspaceId')
+                )
+            ).map(toProject)
         },
 
-        updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Project | null {
+        async updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Promise<Project | null> {
             return updateProjectTimeZoneTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -390,7 +390,7 @@ export function createProjectChannelStore(
             })
         },
 
-        createChannel(input: CreateChannelInput): Channel | null {
+        async createChannel(input: CreateChannelInput): Promise<Channel | null> {
             return createChannelTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -399,25 +399,30 @@ export function createProjectChannelStore(
             })
         },
 
-        listChannels(projectId: string, subjectId: string): ChannelListItem[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const actor = loadActorStatement.get(
-                normalizedProjectId,
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
+        async listChannels(
+            projectId: string,
+            subjectId: string
+        ): Promise<ChannelListItem[] | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const actor = await loadActorStatement.get(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                )
+                if (actor === null) return null
 
-            return listChannelsStatement.all(normalizedProjectId).map(row => {
-                const execution = parseProfile(row.profileJson).execution
-                return {
-                    ...toChannel(row),
-                    shared: row.shared === 1,
-                    execution:
-                        execution.kind === 'built_in'
-                            ? { kind: execution.kind, contractId: execution.contractId }
-                            : { kind: execution.kind },
-                }
-            })
+                return (await listChannelsStatement.all(normalizedProjectId)).map(row => {
+                    const execution = parseProfile(row.profileJson).execution
+                    return {
+                        ...toChannel(row),
+                        shared: row.shared === 1,
+                        execution:
+                            execution.kind === 'built_in'
+                                ? { kind: execution.kind, contractId: execution.contractId }
+                                : { kind: execution.kind },
+                    }
+                })
+            }, 'deferred')
         },
     }
 }

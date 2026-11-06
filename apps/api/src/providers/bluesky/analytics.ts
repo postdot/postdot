@@ -55,7 +55,7 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const channelId = requireNonBlank(input.channelId, 'channelId')
-            const connections = options.publisher.publisherStore.listPublisherConnections(
+            const connections = await options.publisher.publisherStore.listPublisherConnections(
                 projectId,
                 subjectId
             )
@@ -69,7 +69,7 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
             )
             if (connection === undefined) return null
 
-            const knownContent = options.providerAnalytics.listKnownProviderContent({
+            const knownContent = await options.providerAnalytics.listKnownProviderContent({
                 projectId,
                 subjectId,
                 provider: BLUESKY_PROVIDER,
@@ -97,7 +97,7 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
                 })),
                 fetchedAt,
             })
-            const recorded = options.providerAnalytics.recordObservations({
+            const recorded = await options.providerAnalytics.recordObservations({
                 projectId,
                 subjectId,
                 observations: collection.observations,

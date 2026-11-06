@@ -112,15 +112,15 @@ function fixture(
     let opens = 0
     let changed = false
     const ledger: ProviderMediaDeliveryPort = {
-        reserve: () => state,
-        retry: () => (state = { ...state, state: 'pending' }),
-        start: () => (state = { ...state, state: 'uploading', attempts: state.attempts + 1 }),
-        complete: input =>
+        reserve: async () => state,
+        retry: async () => (state = { ...state, state: 'pending' }),
+        start: async () => (state = { ...state, state: 'uploading', attempts: state.attempts + 1 }),
+        complete: async input =>
             (state = { ...state, state: 'uploaded', remoteMediaId: input.remoteMediaId }),
         recordRemoteMediaId: () => {
             throw new Error('Unexpected intermediate checkpoint')
         },
-        fail: input =>
+        fail: async input =>
             (state = {
                 ...state,
                 state: input.ambiguous ? 'ambiguous' : 'failed',
@@ -150,7 +150,7 @@ function fixture(
                 providerSession: null,
             }),
             replacePublisherCredentialTokens: async () => ({ kind: 'conflict' }),
-            markPublisherCredentialReconnectRequired: () => {
+            markPublisherCredentialReconnectRequired: async () => {
                 reconnects++
             },
         },
@@ -282,7 +282,7 @@ test('missing media identity and failed completion remain ambiguous without a se
     expect((await missing.adapter.execute(missing.input)).type).toBe('ambiguous')
     expect(missing.sends).toBe(1)
     const failed = fixture(true)
-    failed.input.providerMediaDeliveryStore.complete = () => null
+    failed.input.providerMediaDeliveryStore.complete = async () => null
     expect((await failed.adapter.execute(failed.input)).type).toBe('ambiguous')
     expect(failed.state.state).toBe('uploading')
     expect((await failed.adapter.execute(failed.input)).type).toBe('ambiguous')
@@ -366,18 +366,18 @@ function albumFixture(response?: () => Promise<Response>) {
     )
     const byId = (id: string) => [...states.values()].find(state => state.id === id)!
     const ledger: ProviderMediaDeliveryPort = {
-        reserve: input => states.get(input.executionMediaId)!,
-        retry: input => {
+        reserve: async input => states.get(input.executionMediaId)!,
+        retry: async input => {
             const value = byId(input.deliveryId)
             value.state = 'pending'
             return value
         },
-        start: input => {
+        start: async input => {
             const value = byId(input.deliveryId)
             value.state = 'uploading'
             return value
         },
-        complete: input => {
+        complete: async input => {
             const value = byId(input.deliveryId)
             value.state = 'uploaded'
             value.remoteMediaId = input.remoteMediaId
@@ -386,7 +386,7 @@ function albumFixture(response?: () => Promise<Response>) {
         recordRemoteMediaId: () => {
             throw new Error('Unexpected checkpoint')
         },
-        fail: input => {
+        fail: async input => {
             const value = byId(input.deliveryId)
             value.state = input.ambiguous ? 'ambiguous' : 'failed'
             return value

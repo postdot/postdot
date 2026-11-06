@@ -17,7 +17,12 @@ export default defineConfig({
             // Server persistence is asynchronous (ADR-097): a store call that is not awaited
             // silently loses ordering, errors and transaction scope. These
             // rules run only with `--type-aware` (db and api lint scripts).
-            files: ['packages/db/**/*.ts', 'apps/api/**/*.ts'],
+            files: [
+                'packages/db/**/*.ts',
+                'apps/api/**/*.ts',
+                'packages/auth/**/*.ts',
+                'packages/core/**/*.ts',
+            ],
             rules: {
                 'typescript/no-floating-promises': 'error',
                 'typescript/no-misused-promises': [

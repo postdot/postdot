@@ -1,19 +1,18 @@
 export {
     closeDatabase,
     createDatabase,
-    createDatabaseTransaction,
     defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
 } from './client'
 export type {
-    AsyncDatabaseTransaction,
     DatabaseCommitErrorHandler,
     DatabaseCommitObserver,
     DatabaseTransaction,
     PostdotDatabase,
 } from './client'
 export type {
+    SqlCommitScope,
     SqlDatabase,
     SqlParams,
     SqlRunResult,
@@ -409,3 +408,4 @@ export type {
 export * from './channel-cadence'
 
 export type { MovePublicationInput } from './manual-store/publication-move-store'
+export { everySequential, filterSequential, mapSequential, someSequential } from './sql/sequential'

@@ -30,7 +30,7 @@ function limitedProfile(limit: number): ChannelProfileDefinition {
         },
     }
 }
-function fixture() {
+async function fixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
     let now = 1_800_000_000_000
@@ -46,27 +46,31 @@ function fixture() {
     })
     const manual = createManualStore(database, { now: () => now, media })
     const workflow = createWorkflowStore(database)
-    const { project } = manual.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const { project } = await manual.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Constraint evolution',
         subjectId: 'operator',
         displayName: 'Operator',
     })
-    const channel = manual.createChannel({
+    const channel = (await manual.createChannel({
         projectId: project.id,
         subjectId: 'operator',
         name: 'Synthetic LinkedIn',
         profile: limitedProfile(500),
-    })!
+    }))!
     database.$client
         .query(
             "insert into publishers (id,workspace_id,channel_id,kind) values (?,(select workspace_id from projects where id = ?),?,'linkedin')"
         )
         .run('publisher', project.id, channel.id)
-    const actorId = workflow.ensureSystemActor(project.id, now)!
+    const actorId = (await workflow.ensureSystemActor(project.id, now))!
     let sequence = 0
-    function create(length: number, scheduledAt?: number, attachments: { assetId: string }[] = []) {
-        const result = manual.createPost({
+    async function create(
+        length: number,
+        scheduledAt?: number,
+        attachments: { assetId: string }[] = []
+    ) {
+        const result = (await manual.createPost({
             projectId: project.id,
             subjectId: 'operator',
             sourceContent: {
@@ -80,45 +84,48 @@ function fixture() {
                     ...(scheduledAt === undefined ? {} : { scheduledAt }),
                 },
             ],
-        })!
+        }))!
         return result.publications[0]!
     }
-    function claim() {
+    async function claim() {
         const claimToken = `claim-${++sequence}`
-        const job = workflow.claimNextDueJob({
+        const job = (await workflow.claimNextDueJob({
             actorId,
             claimToken,
             now,
             leaseExpiresAt: now + 120_000,
-        })!
+        }))!
         expect(job).not.toBeNull()
         return { job, claimToken }
     }
-    function start() {
-        const work = claim()
-        expect(workflow.startExternalEffect(work.job.id, work.claimToken, now)).toBe(true)
+    async function start() {
+        const work = await claim()
+        expect(await workflow.startExternalEffect(work.job.id, work.claimToken, now)).toBe(true)
         return work
     }
-    function activate(execution = linkedinChannelProfile.execution, profile = limitedProfile(300)) {
-        const draft = manual.createChannelProfileDraft({
+    async function activate(
+        execution = linkedinChannelProfile.execution,
+        profile = limitedProfile(300)
+    ) {
+        const draft = (await manual.createChannelProfileDraft({
             projectId: project.id,
             channelId: channel.id,
             subjectId: 'operator',
             profile: { ...profile, execution },
-        })!
-        const preview = manual.previewChannelProfileActivation({
+        }))!
+        const preview = (await manual.previewChannelProfileActivation({
             projectId: project.id,
             channelId: channel.id,
             subjectId: 'operator',
             profileVersionId: draft.id,
-        })!
-        const result = manual.activateChannelProfile({
+        }))!
+        const result = (await manual.activateChannelProfile({
             projectId: project.id,
             channelId: channel.id,
             subjectId: 'operator',
             profileVersionId: draft.id,
             expectedRevision: draft.revision,
-        })!
+        }))!
         return { draft, preview, result }
     }
     const publication = (id: string) =>
@@ -158,13 +165,13 @@ function fixture() {
     }
 }
 
-test('a reduced built-in limit preserves drafts/targets/history and admits only compatible new and pending work', () => {
-    const f = fixture()
+test('a reduced built-in limit preserves drafts/targets/history and admits only compatible new and pending work', async () => {
+    const f = await fixture()
     try {
-        const historical = f.create(420, f.now)
-        const completed = f.start()
+        const historical = await f.create(420, f.now)
+        const completed = await f.start()
         expect(
-            f.workflow.completeExternalEffect({
+            await f.workflow.completeExternalEffect({
                 jobId: completed.job.id,
                 claimToken: completed.claimToken,
                 completedAt: f.now,
@@ -173,14 +180,14 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
         ).toBe('published')
         const historicalTarget = f.target(historical.id)
         const historicalExecution = f.execution(historical.id)
-        const long = f.create(420, f.now + 60_000)
-        const short = f.create(280, f.now + 60_000)
-        const draft = f.create(420)
+        const long = await f.create(420, f.now + 60_000)
+        const short = await f.create(280, f.now + 60_000)
+        const draft = await f.create(420)
         const beforeTargets = f.target(long.id)
         const beforeDraft = f.database.$client
             .query('select content_json from publication_working_drafts where publication_id = ?')
             .get(draft.id)
-        const activation = f.activate()
+        const activation = await f.activate()
         expect(activation.preview.pendingTargets).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ id: long.id, state: 'review_required' }),
@@ -206,9 +213,9 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
         ).toEqual({ review_state: 'review_required' })
         expect(f.target(historical.id)).toEqual(historicalTarget)
         expect(f.execution(historical.id)).toEqual(historicalExecution)
-        expect(f.create(420).reviewState).toBe('review_required')
-        expect(() => f.create(420, f.now)).toThrow()
-        const newDraft = f.create(280)
+        expect((await f.create(420)).reviewState).toBe('review_required')
+        await expect(f.create(420, f.now)).rejects.toThrow()
+        const newDraft = await f.create(280)
         expect(
             f.database.$client
                 .query(
@@ -217,10 +224,10 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
                 .get(newDraft.id)
         ).toEqual({ profile_version_id: activation.draft.id })
         f.advance()
-        const allowed = f.start()
+        const allowed = await f.start()
         expect(allowed.job.publicationId).toBe(short.id)
         expect(
-            f.workflow.completeExternalEffect({
+            await f.workflow.completeExternalEffect({
                 jobId: allowed.job.id,
                 claimToken: allowed.claimToken,
                 completedAt: f.now,
@@ -228,7 +235,7 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
             })
         ).toBe('published')
         expect(
-            f.workflow.claimNextDueJob({
+            await f.workflow.claimNextDueJob({
                 actorId: allowed.job.claimedByActorId!,
                 claimToken: 'none',
                 now: f.now,
@@ -240,14 +247,16 @@ test('a reduced built-in limit preserves drafts/targets/history and admits only 
     }
 })
 
-test('a claim made before limit activation cannot cross the effect boundary with newly incompatible content', () => {
-    const f = fixture()
+test('a claim made before limit activation cannot cross the effect boundary with newly incompatible content', async () => {
+    const f = await fixture()
     try {
-        const publication = f.create(420, f.now)
-        const work = f.claim()
+        const publication = await f.create(420, f.now)
+        const work = await f.claim()
         const before = f.target(publication.id)
-        f.activate()
-        expect(f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(false)
+        await f.activate()
+        expect(await f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(
+            false
+        )
         expect(f.publication(publication.id).review_state).toBe('review_required')
         expect(f.target(publication.id)).toEqual(before)
         expect(f.execution(publication.id)).toHaveLength(0)
@@ -257,16 +266,16 @@ test('a claim made before limit activation cannot cross the effect boundary with
 })
 
 for (const retry of [false, true]) {
-    test(`an already-started effect retains its snapshot after activation and ${retry ? 'cannot retry incompatible content' : 'can finish recording success'}`, () => {
-        const f = fixture()
+    test(`an already-started effect retains its snapshot after activation and ${retry ? 'cannot retry incompatible content' : 'can finish recording success'}`, async () => {
+        const f = await fixture()
         try {
-            const publication = f.create(420, f.now)
-            const work = f.start()
+            const publication = await f.create(420, f.now)
+            const work = await f.start()
             const before = f.execution(publication.id)
-            f.activate()
+            await f.activate()
             expect(f.execution(publication.id)).toEqual(before)
             expect(
-                f.workflow.completeExternalEffect({
+                await f.workflow.completeExternalEffect({
                     jobId: work.job.id,
                     claimToken: work.claimToken,
                     completedAt: f.now,
@@ -284,7 +293,7 @@ for (const retry of [false, true]) {
             if (retry) {
                 f.advance()
                 expect(
-                    f.workflow.claimNextDueJob({
+                    await f.workflow.claimNextDueJob({
                         actorId: work.job.claimedByActorId!,
                         claimToken: 'forbidden-retry',
                         now: f.now,
@@ -298,12 +307,12 @@ for (const retry of [false, true]) {
     })
 }
 
-test('explicit retries of retained failed targets cannot bypass a newer incompatible limit', () => {
-    const f = fixture()
+test('explicit retries of retained failed targets cannot bypass a newer incompatible limit', async () => {
+    const f = await fixture()
     try {
-        const publication = f.create(420, f.now)
-        const work = f.start()
-        f.workflow.completeExternalEffect({
+        const publication = await f.create(420, f.now)
+        const work = await f.start()
+        await f.workflow.completeExternalEffect({
             jobId: work.job.id,
             claimToken: work.claimToken,
             completedAt: f.now,
@@ -314,13 +323,15 @@ test('explicit retries of retained failed targets cannot bypass a newer incompat
             },
         })
         const before = f.target(publication.id)
-        f.activate()
+        await f.activate()
         expect(
-            f.manual.retryFailedPublication({
-                projectId: f.project.id,
-                publicationId: publication.id,
-                subjectId: 'operator',
-            }).kind
+            (
+                await f.manual.retryFailedPublication({
+                    projectId: f.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'operator',
+                })
+            ).kind
         ).toBe('not_retryable')
         expect(f.target(publication.id)).toEqual(before)
     } finally {
@@ -328,15 +339,15 @@ test('explicit retries of retained failed targets cannot bypass a newer incompat
     }
 })
 
-test('a compatible old target can retry after activation without replacing its immutable snapshot', () => {
-    const f = fixture()
+test('a compatible old target can retry after activation without replacing its immutable snapshot', async () => {
+    const f = await fixture()
     try {
-        const publication = f.create(280, f.now)
-        const work = f.start()
+        const publication = await f.create(280, f.now)
+        const work = await f.start()
         const target = f.target(publication.id)
-        f.activate()
+        await f.activate()
         expect(
-            f.workflow.completeExternalEffect({
+            await f.workflow.completeExternalEffect({
                 jobId: work.job.id,
                 claimToken: work.claimToken,
                 completedAt: f.now,
@@ -349,11 +360,11 @@ test('a compatible old target can retry after activation without replacing its i
             })
         ).toBe('retry_scheduled')
         f.advance()
-        const retry = f.start()
+        const retry = await f.start()
         expect(retry.job.publicationId).toBe(publication.id)
         expect(f.target(publication.id)).toEqual(target)
         expect(
-            f.workflow.completeExternalEffect({
+            await f.workflow.completeExternalEffect({
                 jobId: retry.job.id,
                 claimToken: retry.claimToken,
                 completedAt: f.now,
@@ -365,17 +376,19 @@ test('a compatible old target can retry after activation without replacing its i
     }
 })
 
-test('a changed built-in execution contract blocks even a short retained target before its effect', () => {
-    const f = fixture()
+test('a changed built-in execution contract blocks even a short retained target before its effect', async () => {
+    const f = await fixture()
     try {
-        const publication = f.create(280, f.now)
-        const work = f.claim()
-        f.activate({
+        const publication = await f.create(280, f.now)
+        const work = await f.claim()
+        await f.activate({
             kind: 'built_in',
             contractId: 'linkedin',
             revision: 'synthetic-unsupported-revision',
         })
-        expect(f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(false)
+        expect(await f.workflow.startExternalEffect(work.job.id, work.claimToken, f.now)).toBe(
+            false
+        )
         expect(f.publication(publication.id).review_state).toBe('review_required')
         expect(f.execution(publication.id)).toHaveLength(0)
     } finally {
@@ -383,14 +396,14 @@ test('a changed built-in execution contract blocks even a short retained target 
     }
 })
 
-test('an in-flight retry rechecks the current media requirements while preserving pinned media', () => {
-    const f = fixture()
+test('an in-flight retry rechecks the current media requirements while preserving pinned media', async () => {
+    const f = await fixture()
     try {
-        const reservation = f.media.reserveUpload({
+        const reservation = (await f.media.reserveUpload({
             projectId: f.project.id,
             subjectId: 'operator',
             originalFilename: 'retained.png',
-        })!
+        }))!
         f.database.$client
             .query("update media_assets set state = 'ready' where id = ?")
             .run(reservation.asset.id)
@@ -399,8 +412,8 @@ test('an in-flight retry rechecks the current media requirements while preservin
                 "update media_representations set state = 'ready', detected_content_type = 'image/png', detected_format = 'png', family = 'image', byte_size = 67, sha256 = ?, width = 1, height = 1 where id = ?"
             )
             .run('a'.repeat(64), reservation.representation.id)
-        const publication = f.create(280, f.now, [{ assetId: reservation.asset.id }])
-        const work = f.start()
+        const publication = await f.create(280, f.now, [{ assetId: reservation.asset.id }])
+        const work = await f.start()
         const before = f.database.$client
             .query(
                 'select * from publication_execution_revision_media where execution_revision_id = ?'
@@ -419,9 +432,9 @@ test('an in-flight retry rechecks the current media requirements while preservin
                 })),
             },
         }
-        f.activate(undefined, next)
+        await f.activate(undefined, next)
         expect(
-            f.workflow.completeExternalEffect({
+            await f.workflow.completeExternalEffect({
                 jobId: work.job.id,
                 claimToken: work.claimToken,
                 completedAt: f.now,

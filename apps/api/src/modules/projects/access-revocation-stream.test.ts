@@ -16,7 +16,7 @@ function createStream(authorized: { value: boolean }) {
     return createProjectEventStream({
         request: new Request(`http://localhost/api/projects/${projectId}/events`),
         projectId,
-        journal: { readAfter: () => [] },
+        journal: { readAfter: async () => [] },
         after: null,
         isAuthorized: () => authorized.value,
         options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
@@ -64,7 +64,7 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const reader = createProjectEventStream({
             request: new Request(`http://localhost/api/projects/${projectId}/events`),
             projectId,
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             isAuthorized: () => role.value,
             options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
@@ -88,7 +88,7 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const stream = createProjectEventStream({
             request: new Request(`http://localhost/api/projects/${projectId}/events`),
             projectId,
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             isAuthorized: () => {
                 throw new Error('authorization store unavailable')
@@ -104,7 +104,7 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const refused = createProjectEventStream({
             request: new Request(`http://localhost/api/projects/${projectId}/events`),
             projectId,
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             isAuthorized: () => false,
             options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
@@ -112,7 +112,7 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const failed = createProjectEventStream({
             request: new Request(`http://localhost/api/projects/${projectId}/events`),
             projectId,
-            journal: { readAfter: () => [] },
+            journal: { readAfter: async () => [] },
             after: null,
             isAuthorized: () => {
                 throw new Error('authorization store unavailable')

@@ -109,18 +109,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, body, user, status, authMethod, apiKeyPermissions }) => {
+            async ({ params, body, user, status, authMethod, apiKeyPermissions }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const current = manualStore.getPublicationEditorState(
+                const current = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -141,7 +141,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                                 'Moving scheduled work requires publication dispatch permission',
                         },
                     })
-                const editor = manualStore.movePublication({
+                const editor = await manualStore.movePublication({
                     ...params,
                     ...body,
                     subjectId: user.id,
@@ -196,15 +196,15 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, body, user, authMethod, status }) => {
+            async ({ params, body, user, authMethod, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
                 const result = manualStore.overridePublicationCadence({
@@ -234,20 +234,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'viewer',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(404, {
                         error: { code: 'not_found', message: 'Publication not found' },
                     })
-                const destination = manualStore.getPublicationDestination(
+                const destination = await manualStore.getPublicationDestination(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -287,18 +287,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const destination = manualStore.confirmPublicationDestination({
+                const destination = await manualStore.confirmPublicationDestination({
                     ...body,
                     ...params,
                     subjectId: user.id,
@@ -332,15 +332,15 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, query, status, user }) => {
+            async ({ authMethod, params, query, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'viewer',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -349,7 +349,9 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 if (query.expectedUserId !== undefined && query.expectedUserId !== user.id) {
                     return status(409, accountChanged())
                 }
-                return { draft: manualStore.getPublicationComposerDraft(params.projectId, user.id) }
+                return {
+                    draft: await manualStore.getPublicationComposerDraft(params.projectId, user.id),
+                }
             }
         )
         .put(
@@ -373,15 +375,15 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -389,7 +391,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(409, accountChanged())
                 }
 
-                const draft = manualStore.savePublicationComposerDraft({
+                const draft = await manualStore.savePublicationComposerDraft({
                     projectId: params.projectId,
                     subjectId: user.id,
                     expectedRevision: body.expectedRevision,
@@ -427,22 +429,22 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, query, params, status, user }) => {
+            async ({ authMethod, query, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
                 if (query.expectedUserId !== undefined && query.expectedUserId !== user.id) {
                     return status(409, accountChanged())
                 }
-                const deleted = manualStore.deletePublicationComposerDraft({
+                const deleted = await manualStore.deletePublicationComposerDraft({
                     projectId: params.projectId,
                     subjectId: user.id,
                     expectedRevision: query.expectedRevision,
@@ -471,16 +473,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, query, status, user }) => {
-                const page = manualStore.listPublicationSummaryPage(params.projectId, user.id, {
-                    cursor: query.cursor,
-                    filter: parsePublicationTagFilter(query.tagIds),
-                    from: query.from,
-                    limit: query.limit,
-                    sort: query.sort,
-                    state: query.state,
-                    to: query.to,
-                })
+            async ({ params, query, status, user }) => {
+                const page = await manualStore.listPublicationSummaryPage(
+                    params.projectId,
+                    user.id,
+                    {
+                        cursor: query.cursor,
+                        filter: parsePublicationTagFilter(query.tagIds),
+                        from: query.from,
+                        limit: query.limit,
+                        sort: query.sort,
+                        state: query.state,
+                        to: query.to,
+                    }
+                )
                 if (page === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -506,8 +512,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, status, user }) => {
-                const publications = manualStore.listDueManualPublications(
+            async ({ params, status, user }) => {
+                const publications = await manualStore.listDueManualPublications(
                     params.projectId,
                     user.id
                 )
@@ -537,16 +543,16 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
                     authMethod !== 'session' ||
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, {
                         error: {
@@ -555,7 +561,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         },
                     })
                 }
-                const requests = manualStore.listPendingPublicationApprovalRequests(
+                const requests = await manualStore.listPendingPublicationApprovalRequests(
                     params.projectId,
                     user.id
                 )
@@ -587,20 +593,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const publications = manualStore.reschedulePublications({
+                const publications = await manualStore.reschedulePublications({
                     projectId: params.projectId,
                     publicationIds: body.publicationIds,
                     scheduledAt: body.scheduledAt,
@@ -637,20 +643,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const publications = manualStore.cancelPublications({
+                const publications = await manualStore.cancelPublications({
                     projectId: params.projectId,
                     publicationIds: body.publicationIds,
                     subjectId: user.id,
@@ -683,20 +689,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const result = manualStore.deleteDraftPublication({
+                const result = await manualStore.deleteDraftPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -735,20 +741,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const result = manualStore.duplicateDraftPublication({
+                const result = await manualStore.duplicateDraftPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -790,19 +796,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const request = manualStore.submitPublicationForApproval({
+                const request = await manualStore.submitPublicationForApproval({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -839,16 +845,16 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
                     authMethod !== 'session' ||
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, {
                         error: {
@@ -857,7 +863,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         },
                     })
                 }
-                const requests = manualStore.listPendingPublicationApprovalRequests(
+                const requests = await manualStore.listPendingPublicationApprovalRequests(
                     params.projectId,
                     user.id
                 )
@@ -867,7 +873,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         error: { code: 'not_found', message: 'Approval request not found' },
                     })
                 }
-                const publication = manualStore.approvePublicationApprovalRequest({
+                const publication = await manualStore.approvePublicationApprovalRequest({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     requestId: request.id,
@@ -907,16 +913,16 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
                     authMethod !== 'session' ||
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, {
                         error: {
@@ -925,7 +931,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         },
                     })
                 }
-                const requests = manualStore.listPendingPublicationApprovalRequests(
+                const requests = await manualStore.listPendingPublicationApprovalRequests(
                     params.projectId,
                     user.id
                 )
@@ -935,7 +941,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         error: { code: 'not_found', message: 'Approval request not found' },
                     })
                 }
-                const rejected = manualStore.rejectPublicationApprovalRequest({
+                const rejected = await manualStore.rejectPublicationApprovalRequest({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     requestId: request.id,
@@ -968,8 +974,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, status, user }) => {
-                const editor = manualStore.getPublicationEditorState(
+            async ({ params, status, user }) => {
+                const editor = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1003,15 +1009,15 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
@@ -1022,12 +1028,12 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     )
                 }
 
-                const previous = manualStore.getPublicationEditorState(
+                const previous = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
                 )
-                const draft = manualStore.savePublicationDraft({
+                const draft = await manualStore.savePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -1041,7 +1047,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
 
-                const editor = manualStore.getPublicationEditorState(
+                const editor = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1087,8 +1093,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 },
                 detail: { operationId: 'listPublicationDraftAdoptions', tags: ['Publications'] },
             },
-            ({ params, user, status }) => {
-                const adoptions = manualStore.listPublicationDraftAdoptions(
+            async ({ params, user, status }) => {
+                const adoptions = await manualStore.listPublicationDraftAdoptions(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1120,18 +1126,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 },
                 detail: { operationId: 'assessPublicationDraftAdoption', tags: ['Publications'] },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const assessment = manualStore.assessPublicationDraftAdoption({
+                const assessment = await manualStore.assessPublicationDraftAdoption({
                     ...body,
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -1161,19 +1167,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 },
                 detail: { operationId: 'adoptPublicationDraftProfile', tags: ['Publications'] },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const draft = manualStore.adoptPublicationDraftProfile({
+                const draft = await manualStore.adoptPublicationDraftProfile({
                     ...body,
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -1183,7 +1189,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     return status(404, {
                         error: { code: 'not_found', message: 'Publication not found' },
                     })
-                const editor = manualStore.getPublicationEditorState(
+                const editor = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1222,19 +1228,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const draft = manualStore.rebasePublicationDraft({
+                const draft = await manualStore.rebasePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -1252,7 +1258,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
 
-                const editor = manualStore.getPublicationEditorState(
+                const editor = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1285,19 +1291,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const publication = manualStore.promotePublicationDraft({
+                const publication = await manualStore.promotePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -1311,7 +1317,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
 
-                const editor = manualStore.getPublicationEditorState(
+                const editor = await manualStore.getPublicationEditorState(
                     params.projectId,
                     params.publicationId,
                     user.id
@@ -1346,19 +1352,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const publication = manualStore.publishManualPublication({
+                const publication = await manualStore.publishManualPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,
@@ -1401,20 +1407,20 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                const result = manualStore.retryFailedPublication({
+                const result = await manualStore.retryFailedPublication({
                     cadenceConfirmation: body?.cadenceConfirmation,
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -1461,19 +1467,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.reconcileAmbiguousPublication({
+                const result = await manualStore.reconcileAmbiguousPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     subjectId: user.id,

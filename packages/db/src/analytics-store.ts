@@ -456,9 +456,9 @@ export function createAnalyticsStore(
     database: PostdotDatabase,
     options: AnalyticsStoreOptions = {}
 ) {
-    const client = database.$client
+    const sql = database.sql
     const now = options.now ?? Date.now
-    const projectAccessStatement = client.query<
+    const projectAccessStatement = sql.statement<
         ProjectAccessRow,
         [projectId: string, subjectId: string]
     >(
@@ -473,7 +473,7 @@ export function createAnalyticsStore(
         limit 1
     `
     )
-    const publicationInventoryStatement = client.query<
+    const publicationInventoryStatement = sql.statement<
         PublicationInventoryRow,
         [projectId: string]
     >(
@@ -511,7 +511,7 @@ export function createAnalyticsStore(
         -- The current snapshot is aggregate-only; callers do not observe row order.
     `
     )
-    const currentJobsStatement = client.query<CurrentJobRow, [projectId: string]>(
+    const currentJobsStatement = sql.statement<CurrentJobRow, [projectId: string]>(
         String.raw`
         select jobs.id,
                jobs.state,
@@ -535,7 +535,7 @@ export function createAnalyticsStore(
         -- The current snapshot computes counts and minima; callers do not observe row order.
     `
     )
-    const currentRetryablePendingStatement = client.query<
+    const currentRetryablePendingStatement = sql.statement<
         { id: string },
         [projectId: string, eventVersion: number]
     >(
@@ -569,7 +569,7 @@ export function createAnalyticsStore(
         -- This query only builds a membership set; row order is irrelevant.
     `
     )
-    const historicalFactsStatement = client.query<
+    const historicalFactsStatement = sql.statement<
         HistoricalFactRow,
         [projectId: string, from: number, to: number]
     >(
@@ -600,10 +600,21 @@ export function createAnalyticsStore(
     )
 
     return {
-        getProjectAnalytics(input: ProjectAnalyticsInput): ProjectAnalytics | null {
+        async getProjectAnalytics(input: ProjectAnalyticsInput): Promise<ProjectAnalytics | null> {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const project = projectAccessStatement.get(projectId, subjectId)
+            // One read snapshot across the access check, current state and history.
+            return database.sql.transaction(() => readProjectAnalytics(projectId, subjectId, input))
+        },
+    }
+
+    async function readProjectAnalytics(
+        projectId: string,
+        subjectId: string,
+        input: ProjectAnalyticsInput
+    ): Promise<ProjectAnalytics | null> {
+        {
+            const project = await projectAccessStatement.get(projectId, subjectId)
             if (project === null) return null
 
             const observedAt = requireTimestamp(now(), 'analytics observedAt')
@@ -613,18 +624,18 @@ export function createAnalyticsStore(
             const publicationRows = publicationInventoryStatement.iterate(projectId)
             const jobRows = currentJobsStatement.iterate(projectId)
             const retryablePendingIds = new Set(
-                currentRetryablePendingStatement
-                    .all(projectId, supportedEventVersion)
-                    .map(row => row.id)
+                (await currentRetryablePendingStatement.all(projectId, supportedEventVersion)).map(
+                    row => row.id
+                )
             )
-            const current = buildCurrentSnapshot(
+            const current = await buildCurrentSnapshot(
                 publicationRows,
                 jobRows,
                 retryablePendingIds,
                 observedAt,
                 filters
             )
-            const history = buildHistoricalMetrics(
+            const history = await buildHistoricalMetrics(
                 // SQLite yields one historical fact at a time. The accumulator retains only the
                 // state required by this read model.
                 historicalFactsStatement.iterate(projectId, range.from, range.to),
@@ -642,7 +653,7 @@ export function createAnalyticsStore(
                 historical: history.historical,
                 coverage: history.coverage,
             }
-        },
+        }
     }
 }
 
@@ -701,13 +712,13 @@ function normalizeFilters(input: AnalyticsFiltersInput): AnalyticsFilters {
     return { channelId, provider, deliveryMode }
 }
 
-function buildCurrentSnapshot(
-    publicationRows: Iterable<PublicationInventoryRow>,
-    jobRows: Iterable<CurrentJobRow>,
+async function buildCurrentSnapshot(
+    publicationRows: AsyncIterable<PublicationInventoryRow>,
+    jobRows: AsyncIterable<CurrentJobRow>,
     retryablePendingIds: ReadonlySet<string>,
     observedAt: number,
     filters: AnalyticsFilters
-): AnalyticsCurrentSnapshot {
+): Promise<AnalyticsCurrentSnapshot> {
     const byState = createCountMap(publicationStates)
     const byDeliveryMode = createCountMap(deliveryModes)
     const byDimension = new Map<string, MutableDimensionCount>()
@@ -715,7 +726,7 @@ function buildCurrentSnapshot(
     let currentAmbiguous = 0
     let manualDue = 0
 
-    for (const row of publicationRows) {
+    for await (const row of publicationRows) {
         const dimension = currentDimension(row)
         if (!matchesFilters(dimension, filters)) continue
 
@@ -751,7 +762,7 @@ function buildCurrentSnapshot(
     let oldestDueAt: number | null = null
     let nextRunAt: number | null = null
 
-    for (const row of jobRows) {
+    for await (const row of jobRows) {
         if (row.deliveryMode !== 'automatic' || !matchesFilters(currentDimension(row), filters)) {
             continue
         }
@@ -807,19 +818,19 @@ function buildCurrentSnapshot(
     }
 }
 
-function buildHistoricalMetrics(
-    rows: Iterable<HistoricalFactRow>,
+async function buildHistoricalMetrics(
+    rows: AsyncIterable<HistoricalFactRow>,
     timeZone: string,
     filters: AnalyticsFilters
-): {
+): Promise<{
     readonly historical: ProjectAnalytics['historical']
     readonly coverage: AnalyticsCoverage
-} {
+}> {
     const accumulator = createHistoricalAccumulator()
 
     // audit_events.id is unique, and the publication/channel joins are one-to-one by schema.
     // A per-read fact-id Set would therefore add unbounded memory without protecting this query.
-    for (const row of rows) {
+    for await (const row of rows) {
         if (row.eventVersion !== supportedEventVersion) {
             accumulator.coverage.unknownEventVersions += 1
             accumulator.coverage.skippedFactCount += 1

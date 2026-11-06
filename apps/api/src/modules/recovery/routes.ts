@@ -39,8 +39,8 @@ export function registerRecoveryRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, user, status }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id))
+            async ({ authMethod, user, status }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
                     return status(403, denied)
                 return recovery?.view() ?? { held: false, hold: null }
             }
@@ -65,8 +65,8 @@ export function registerRecoveryRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, user, body, status }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id))
+            async ({ authMethod, user, body, status }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id)))
                     return status(403, denied)
                 try {
                     if (!recovery) throw new Error('Recovery unavailable')

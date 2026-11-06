@@ -41,8 +41,8 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user }) => {
-                const profile = manualStore.getChannelProfileState(
+            async ({ params, status, user }) => {
+                const profile = await manualStore.getChannelProfileState(
                     params.projectId,
                     params.channelId,
                     user.id
@@ -75,21 +75,21 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
                 let profile
                 try {
-                    profile = manualStore.createChannelProfileDraft({
+                    profile = await manualStore.createChannelProfileDraft({
                         projectId: params.projectId,
                         channelId: params.channelId,
                         subjectId: user.id,
@@ -129,19 +129,19 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const assessment = manualStore.previewChannelProfileActivation({
+                const assessment = await manualStore.previewChannelProfileActivation({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     profileVersionId: params.profileVersionId,
@@ -175,19 +175,19 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const result = manualStore.activateChannelProfile({
+                const result = await manualStore.activateChannelProfile({
                     projectId: params.projectId,
                     channelId: params.channelId,
                     profileVersionId: params.profileVersionId,

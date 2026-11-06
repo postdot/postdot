@@ -66,13 +66,13 @@ export function registerPublicationRepliesRoutes<const Routes extends Record<str
                     tags: ['Publications'],
                 },
             },
-            ({ params, query, user, status }) =>
-                options.replies.list(
+            async ({ params, query, user, status }) =>
+                (await options.replies.list(
                     params.projectId,
                     params.publicationId,
                     user.id,
                     query.before
-                ) ??
+                )) ??
                 status(404, { error: { code: 'not_found', message: 'Conversation not found' } })
         )
         .post(
@@ -92,18 +92,18 @@ export function registerPublicationRepliesRoutes<const Routes extends Record<str
                     tags: ['Publications'],
                 },
             },
-            ({ params, body, user, authMethod, status }) => {
+            async ({ params, body, user, authMethod, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const result = options.replies.create({
+                const result = await options.replies.create({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
                     requestId: body.requestId,
@@ -120,7 +120,7 @@ export function registerPublicationRepliesRoutes<const Routes extends Record<str
                     })
                 options.onWorkScheduled?.()
                 return (
-                    options.replies.list(params.projectId, params.publicationId, user.id) ??
+                    (await options.replies.list(params.projectId, params.publicationId, user.id)) ??
                     status(404, { error: { code: 'not_found', message: 'Conversation not found' } })
                 )
             }

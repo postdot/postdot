@@ -32,8 +32,8 @@ export function createPublicationRepliesService(options: {
     const access = createAccessStore(options.database)
     const manual = createManualStore(options.database)
     const now = options.now ?? Date.now
-    function identity(projectId: string, publicationId: string, subjectId: string) {
-        const editor = manual.getPublicationEditorState(projectId, publicationId, subjectId)
+    async function identity(projectId: string, publicationId: string, subjectId: string) {
+        const editor = await manual.getPublicationEditorState(projectId, publicationId, subjectId)
         if (!editor || editor.publication.state !== 'published' || !editor.publication.externalId)
             return null
         const execution = editor.profile.profile.execution
@@ -54,10 +54,10 @@ export function createPublicationRepliesService(options: {
             : null
     }
 
-    function connection(projectId: string, publicationId: string, subjectId: string) {
-        const source = identity(projectId, publicationId, subjectId)
+    async function connection(projectId: string, publicationId: string, subjectId: string) {
+        const source = await identity(projectId, publicationId, subjectId)
         if (!source) return null
-        const connected = options.publisher.publisherStore.getPublisherConnection(
+        const connected = await options.publisher.publisherStore.getPublisherConnection(
             projectId,
             source.channelId,
             subjectId
@@ -94,13 +94,13 @@ export function createPublicationRepliesService(options: {
     ): Promise<ExternalEffectOutcome> {
         let dispatched = false
         try {
-            const author = options.database.$client
-                .query<{ subjectId: string | null }, [string, string]>(
+            const author = await options.database.sql
+                .statement<{ subjectId: string | null }, [string, string]>(
                     'select subject_id as subjectId from actors where project_id = ?1 and id = ?2'
                 )
                 .get(work.projectId, work.actorId)
             const pinned = author?.subjectId
-                ? connection(work.projectId, work.publicationId, author.subjectId)
+                ? await connection(work.projectId, work.publicationId, author.subjectId)
                 : null
             if (
                 !pinned ||
@@ -110,7 +110,7 @@ export function createPublicationRepliesService(options: {
                 pinned.source.rootUri !== work.rootUri ||
                 pinned.connected.externalAccountId !== work.accountId ||
                 pinned.source.origin !== work.instanceOrigin ||
-                !store.claimCurrent(work, now())
+                !(await store.claimCurrent(work, now()))
             )
                 return failed('The original account or editor access is no longer available')
             if (options.performReply) {
@@ -125,7 +125,7 @@ export function createPublicationRepliesService(options: {
                 contextFetcher: options.contextFetcher,
                 signal,
                 now: now(),
-                stillEligible: () => store.claimCurrent(work, now()),
+                stillEligible: async () => await store.claimCurrent(work, now()),
                 onDispatch: () => {
                     dispatched = true
                 },
@@ -156,22 +156,24 @@ export function createPublicationRepliesService(options: {
     return {
         store,
         getNextEventAt: store.getNextEventAt,
-        list(projectId: string, publicationId: string, subjectId: string, before?: string) {
-            const source = identity(projectId, publicationId, subjectId)
+        async list(projectId: string, publicationId: string, subjectId: string, before?: string) {
+            const source = await identity(projectId, publicationId, subjectId)
             if (!source) return null
-            const page = store.list(projectId, publicationId, subjectId, before)
+            const page = await store.list(projectId, publicationId, subjectId, before)
             if (!page) return null
-            const ready = connection(projectId, publicationId, subjectId)
+            const ready = await connection(projectId, publicationId, subjectId)
             return {
                 ...page,
                 provider: source.providerId,
                 textLimit: commentPolicy(source.providerId)!.textLimit,
                 instanceOrigin: source.origin,
-                canReply: ready !== null && access.canAccessProject(projectId, subjectId, 'editor'),
+                canReply:
+                    ready !== null &&
+                    (await access.canAccessProject(projectId, subjectId, 'editor')),
                 accountName: ready?.connected.externalAccountName ?? ready?.source.did ?? null,
             }
         },
-        create(input: {
+        async create(input: {
             projectId: string
             publicationId: string
             subjectId: string
@@ -179,7 +181,7 @@ export function createPublicationRepliesService(options: {
             parentUri: string
             text: string
         }) {
-            const source = identity(input.projectId, input.publicationId, input.subjectId)
+            const source = await identity(input.projectId, input.publicationId, input.subjectId)
             if (!source || providerEngagement(source.providerId)?.textValid(input.text) !== true)
                 return null
             if (
@@ -190,9 +192,9 @@ export function createPublicationRepliesService(options: {
             )
                 return null
             // Retrying an accepted request after a lost HTTP response must return that same request.
-            const existing = store.get(input.requestId)
+            const existing = await store.get(input.requestId)
             if (existing) {
-                const page = store.list(input.projectId, input.publicationId, input.subjectId)
+                const page = await store.list(input.projectId, input.publicationId, input.subjectId)
                 return page &&
                     existing.projectId === input.projectId &&
                     existing.publicationId === input.publicationId &&
@@ -201,10 +203,10 @@ export function createPublicationRepliesService(options: {
                     ? store.create({ ...existing, subjectId: input.subjectId, now: now() })
                     : null
             }
-            const ready = connection(input.projectId, input.publicationId, input.subjectId)
+            const ready = await connection(input.projectId, input.publicationId, input.subjectId)
             if (!ready) return null
-            const snapshot = options.database.$client
-                .query<{ snapshot: string | null }, [string, string, string]>(
+            const snapshot = await options.database.sql
+                .statement<{ snapshot: string | null }, [string, string, string]>(
                     'select snapshot_json as snapshot from publication_comment_snapshots where project_id = ?1 and publication_id = ?2 and root_uri = ?3'
                 )
                 .get(input.projectId, input.publicationId, ready.source.rootUri)

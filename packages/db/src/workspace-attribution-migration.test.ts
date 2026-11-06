@@ -148,8 +148,8 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             database.$client.query('select workspace_id,origin_actor_id from actors').all()
         ).toEqual([{ workspace_id: null, origin_actor_id: null }])
         const store = createEventJournalStore(database)
-        expect(store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9001'))
-        const next = store.append({
+        expect(await store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9001'))
+        const next = await store.append({
             projectId: legacy.project.id,
             actorId: legacy.actor.id,
             name: 'legacy.followup',
@@ -158,10 +158,9 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             occurredAt: 103,
         })
         expect(next.cursor).toBe(parseEventJournalCursor('event-sequence:9002'))
-        expect(store.readAfter({ projectId: legacy.project.id }).map(event => event.id)).toEqual([
-            'kept',
-            next.id,
-        ])
+        expect(
+            (await store.readAfter({ projectId: legacy.project.id })).map(event => event.id)
+        ).toEqual(['kept', next.id])
         runMigrations(database)
         // The next committed migrations convert channel ownership; the staged secret still decrypts.
         const reopenedCredentials = createPublisherCredentialStore(database, {
@@ -179,7 +178,7 @@ it('preserves the prior data graph and retired journal cursors across rehearsal,
             accessToken: 'synthetic-preserved-access',
             refreshToken: 'synthetic-preserved-refresh',
         })
-        expect(store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9002'))
+        expect(await store.latestCursor()).toBe(parseEventJournalCursor('event-sequence:9002'))
     } finally {
         closeDatabase(database)
         rmSync(directory, { recursive: true, force: true })

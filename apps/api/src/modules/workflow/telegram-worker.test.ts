@@ -81,18 +81,18 @@ for (const entry of scenarios) {
             now: () => now,
         })
         try {
-            const project = store.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await store.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Telegram worker',
                 subjectId: 'operator',
                 displayName: 'Operator',
-            })!
-            const channel = store.createChannel({
+            }))!
+            const channel = (await store.createChannel({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 name: 'Announcements',
                 profile: telegramChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -103,14 +103,20 @@ for (const entry of scenarios) {
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'operator',
-                    kind: 'telegram',
-                    credentialId: credential.credential.id,
-                    destination: { type: 'channel', id: '-1001234567890', name: 'Announcements' },
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'operator',
+                        kind: 'telegram',
+                        credentialId: credential.credential.id,
+                        destination: {
+                            type: 'channel',
+                            id: '-1001234567890',
+                            name: 'Announcements',
+                        },
+                    })
+                ).kind
             ).toBe('created')
             const bytes =
                 mediaKind === 'video'
@@ -139,13 +145,13 @@ for (const entry of scenarios) {
                               )
                           ).bytes()
                         : bytes
-                const reservation = media.reserveUpload({
+                const reservation = (await media.reserveUpload({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     originalFilename: member === 'video' ? 'clip.mp4' : 'photo.png',
                     contentType: member === 'video' ? 'video/mp4' : 'image/png',
                     expectedSize: memberBytes.length,
-                })!
+                }))!
                 expect(reservation).not.toBeNull()
                 expect(
                     await media.upload({
@@ -164,7 +170,7 @@ for (const entry of scenarios) {
                 ).toMatchObject({ kind: 'ready' })
                 references.push({ assetId: reservation.asset.id })
             }
-            const post = store.createPost({
+            const post = await store.createPost({
                 projectId: project.project.id,
                 subjectId: 'operator',
                 sourceContent: {
@@ -377,7 +383,7 @@ for (const entry of scenarios) {
                     }
                 }
 
-                const connection = publishers.listPublisherConnections(
+                const connection = await publishers.listPublisherConnections(
                     project.project.id,
                     'operator'
                 )

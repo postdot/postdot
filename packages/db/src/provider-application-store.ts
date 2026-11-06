@@ -6,6 +6,7 @@ import {
 } from '@postdot/core'
 
 import type { PostdotDatabase } from './client'
+import { defineTransaction } from './client'
 import type { EncryptedSecretEnvelope, SecretCipher } from './encrypted-secret-crypto'
 
 export type ProviderApplicationProvider = string
@@ -189,35 +190,35 @@ export function createProviderApplicationStore<const Id extends string>(
         }
     }
 
-    const client = database.$client
+    const sql = database.sql
     const cipher = options.cipher
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
 
-    const loadByIdStatement = client.query<ProviderApplicationRow, [id: string]>(`
+    const loadByIdStatement = sql.statement<ProviderApplicationRow, [id: string]>(`
         select ${applicationColumns}
         from provider_application_configurations
         where id = ?1
     `)
-    const listStatement = client.query<ProviderApplicationRow, []>(`
+    const listStatement = sql.statement<ProviderApplicationRow, []>(`
         select ${applicationColumns}
         from provider_application_configurations
         order by provider_id, is_default desc, created_at, id
     `)
-    const listProviderStatement = client.query<ProviderApplicationRow, [providerId: string]>(`
+    const listProviderStatement = sql.statement<ProviderApplicationRow, [providerId: string]>(`
         select ${applicationColumns}
         from provider_application_configurations
         where provider_id = ?1
         order by is_default desc, created_at, id
     `)
-    const loadDefaultStatement = client.query<ProviderApplicationRow, [providerId: string]>(`
+    const loadDefaultStatement = sql.statement<ProviderApplicationRow, [providerId: string]>(`
         select ${applicationColumns}
         from provider_application_configurations
         where provider_id = ?1
           and state = 'active'
           and is_default = 1
     `)
-    const insertStatement = client.query<
+    const insertStatement = sql.statement<
         { readonly changes: number },
         [
             id: string,
@@ -242,7 +243,7 @@ export function createProviderApplicationStore<const Id extends string>(
             client_secret_ciphertext, client_secret_nonce, created_at, updated_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)
     `)
-    const updateStatement = client.query<
+    const updateStatement = sql.statement<
         { readonly changes: number },
         [
             name: string,
@@ -273,7 +274,7 @@ export function createProviderApplicationStore<const Id extends string>(
             updated_at = ?11
         where id = ?12
     `)
-    const clearDefaultsStatement = client.query<
+    const clearDefaultsStatement = sql.statement<
         { readonly changes: number },
         [providerId: string]
     >(`
@@ -281,7 +282,7 @@ export function createProviderApplicationStore<const Id extends string>(
         set is_default = 0
         where provider_id = ?1
     `)
-    const promoteFallbackStatement = client.query<
+    const promoteFallbackStatement = sql.statement<
         { readonly changes: number },
         [providerId: string, timestamp: number]
     >(`
@@ -296,18 +297,18 @@ export function createProviderApplicationStore<const Id extends string>(
         )
     `)
 
-    function load(id: string): ProviderApplicationRow | null {
-        return loadByIdStatement.get(requireNonBlank(id, 'id'))
+    async function load(id: string): Promise<ProviderApplicationRow | null> {
+        return await loadByIdStatement.get(requireNonBlank(id, 'id'))
     }
 
-    function requireDefaultPolicy(
+    async function requireDefaultPolicy(
         providerId: Id,
         requestedDefault: boolean | undefined,
         requestedState: ProviderApplicationState
-    ): boolean {
+    ): Promise<boolean> {
         if (requestedState !== 'active') return false
         if (requestedDefault === true) return true
-        return loadDefaultStatement.get(providerId) === null
+        return (await loadDefaultStatement.get(providerId)) === null
     }
 
     async function encryptSecret(
@@ -323,154 +324,166 @@ export function createProviderApplicationStore<const Id extends string>(
     }
 
     return {
-        listProviderApplicationConfigurations(providerId?: Id) {
-            return (
-                providerId === undefined
-                    ? listStatement.all()
-                    : listProviderStatement.all(providerId)
-            ).map(toConfiguration)
+        async listProviderApplicationConfigurations(providerId?: Id) {
+            return database.sql.transaction(async () => {
+                return (
+                    providerId === undefined
+                        ? await listStatement.all()
+                        : await listProviderStatement.all(providerId)
+                ).map(toConfiguration)
+            }, 'deferred')
         },
 
-        getProviderApplicationConfiguration(
+        async getProviderApplicationConfiguration(
             id: string
-        ): ProviderApplicationConfiguration<Id> | null {
-            const row = load(id)
+        ): Promise<ProviderApplicationConfiguration<Id> | null> {
+            const row = await load(id)
             return row === null ? null : toConfiguration(row)
         },
 
-        hasProviderApplication(providerId: Id): boolean {
-            return listProviderStatement.all(providerId).length > 0
+        async hasProviderApplication(providerId: Id): Promise<boolean> {
+            return (await listProviderStatement.all(providerId)).length > 0
         },
 
         async resolveProviderApplication(
             providerId: Id,
             id?: string | null
         ): Promise<ResolvedProviderApplication<Id> | null> {
-            const row =
-                id === undefined || id === null ? loadDefaultStatement.get(providerId) : load(id)
-            if (row === null || row.providerId !== providerId || row.state !== 'active') return null
-            const configuration = toConfiguration(row)
-            const clientSecretEnvelope = envelope(row)
-            return {
-                ...configuration,
-                clientSecret:
-                    clientSecretEnvelope === null
-                        ? null
-                        : await cipher.decrypt(
-                              {
-                                  recordId: row.id,
-                                  purpose: [row.providerId, 'client_secret'],
-                              },
-                              clientSecretEnvelope
-                          ),
-            }
+            return database.sql.transaction(async () => {
+                const row =
+                    id === undefined || id === null
+                        ? await loadDefaultStatement.get(providerId)
+                        : await load(id)
+                if (row === null || row.providerId !== providerId || row.state !== 'active')
+                    return null
+                const configuration = toConfiguration(row)
+                const clientSecretEnvelope = envelope(row)
+                return {
+                    ...configuration,
+                    clientSecret:
+                        clientSecretEnvelope === null
+                            ? null
+                            : await cipher.decrypt(
+                                  {
+                                      recordId: row.id,
+                                      purpose: [row.providerId, 'client_secret'],
+                                  },
+                                  clientSecretEnvelope
+                              ),
+                }
+            }, 'deferred')
         },
 
         async createProviderApplication(
             input: CreateProviderApplicationInput<Id>
         ): Promise<CreateProviderApplicationResult<Id>> {
-            const normalized = normalizeApplication(input)
-            const createdByUserId = requireNonBlank(input.createdByUserId, 'createdByUserId')
-            const applicationId = createId()
-            const applicationState = input.state ?? 'active'
-            const isDefault = requireDefaultPolicy(
-                normalized.providerId,
-                input.isDefault,
-                applicationState
-            )
-            const secret = await encryptSecret(
-                applicationId,
-                normalized.providerId,
-                normalized.clientSecret
-            )
-            const timestamp = requireTimestamp(now(), 'now')
-            const transaction = client.transaction(() => {
-                if (isDefault) clearDefaultsStatement.run(normalized.providerId)
-                const inserted = insertStatement.run(
+            return database.sql.transaction(async () => {
+                const normalized = normalizeApplication(input)
+                const createdByUserId = requireNonBlank(input.createdByUserId, 'createdByUserId')
+                const applicationId = createId()
+                const applicationState = input.state ?? 'active'
+                const isDefault = await requireDefaultPolicy(
+                    normalized.providerId,
+                    input.isDefault,
+                    applicationState
+                )
+                const secret = await encryptSecret(
                     applicationId,
                     normalized.providerId,
-                    normalized.name,
-                    normalized.clientId,
-                    normalized.clientMetadataUrl,
-                    normalized.handleResolver,
-                    applicationState,
-                    isDefault ? 1 : 0,
-                    createdByUserId,
-                    secret?.version ?? null,
-                    secret?.keyId ?? null,
-                    secret?.ciphertext ?? null,
-                    secret?.nonce ?? null,
-                    timestamp
+                    normalized.clientSecret
                 )
-                if (inserted.changes !== 1) throw new Error('Provider application was not created')
-            })
-            transaction()
-            const created = load(applicationId)
-            if (created === null) throw new Error('Provider application was not persisted')
-            return { kind: 'created', configuration: toConfiguration(created) }
+                const timestamp = requireTimestamp(now(), 'now')
+                const transaction = defineTransaction(database, async () => {
+                    if (isDefault) await clearDefaultsStatement.run(normalized.providerId)
+                    const inserted = await insertStatement.run(
+                        applicationId,
+                        normalized.providerId,
+                        normalized.name,
+                        normalized.clientId,
+                        normalized.clientMetadataUrl,
+                        normalized.handleResolver,
+                        applicationState,
+                        isDefault ? 1 : 0,
+                        createdByUserId,
+                        secret?.version ?? null,
+                        secret?.keyId ?? null,
+                        secret?.ciphertext ?? null,
+                        secret?.nonce ?? null,
+                        timestamp
+                    )
+                    if (inserted.changes !== 1)
+                        throw new Error('Provider application was not created')
+                })
+                await transaction()
+                const created = await load(applicationId)
+                if (created === null) throw new Error('Provider application was not persisted')
+                return { kind: 'created', configuration: toConfiguration(created) }
+            }, 'immediate')
         },
 
         async updateProviderApplication(
             input: UpdateProviderApplicationInput
         ): Promise<UpdateProviderApplicationResult<Id>> {
-            const existing = load(input.id)
-            if (existing === null) return { kind: 'not_found' }
-            const hasOwn = (key: keyof UpdateProviderApplicationInput) =>
-                Object.prototype.hasOwnProperty.call(input, key)
-            const normalized = normalizeApplication(
-                {
-                    providerId: existing.providerId,
-                    name: input.name ?? existing.name,
-                    clientId: hasOwn('clientId') ? input.clientId : existing.clientId,
-                    clientMetadataUrl: hasOwn('clientMetadataUrl')
-                        ? input.clientMetadataUrl
-                        : existing.clientMetadataUrl,
-                    handleResolver: hasOwn('handleResolver')
-                        ? input.handleResolver
-                        : existing.handleResolver,
-                    clientSecret: input.clientSecret,
-                },
-                { preserveMissingSecret: input.clientSecret === undefined }
-            )
-            const applicationState = input.state ?? existing.state
-            const isDefault = requireDefaultPolicy(
-                provider(existing.providerId),
-                input.isDefault ?? existing.isDefault === 1,
-                applicationState
-            )
-            const secret =
-                input.clientSecret === undefined
-                    ? envelope(existing)
-                    : await encryptSecret(
-                          existing.id,
-                          provider(existing.providerId),
-                          normalized.clientSecret
-                      )
-            const timestamp = requireTimestamp(now(), 'now')
-            const transaction = client.transaction(() => {
-                if (isDefault) clearDefaultsStatement.run(existing.providerId)
-                updateStatement.run(
-                    normalized.name,
-                    normalized.clientId,
-                    normalized.clientMetadataUrl,
-                    normalized.handleResolver,
-                    applicationState,
-                    isDefault ? 1 : 0,
-                    secret?.version ?? null,
-                    secret?.keyId ?? null,
-                    secret?.ciphertext ?? null,
-                    secret?.nonce ?? null,
-                    timestamp,
-                    existing.id
+            return database.sql.transaction(async () => {
+                const existing = await load(input.id)
+                if (existing === null) return { kind: 'not_found' }
+                const hasOwn = (key: keyof UpdateProviderApplicationInput) =>
+                    Object.prototype.hasOwnProperty.call(input, key)
+                const normalized = normalizeApplication(
+                    {
+                        providerId: existing.providerId,
+                        name: input.name ?? existing.name,
+                        clientId: hasOwn('clientId') ? input.clientId : existing.clientId,
+                        clientMetadataUrl: hasOwn('clientMetadataUrl')
+                            ? input.clientMetadataUrl
+                            : existing.clientMetadataUrl,
+                        handleResolver: hasOwn('handleResolver')
+                            ? input.handleResolver
+                            : existing.handleResolver,
+                        clientSecret: input.clientSecret,
+                    },
+                    { preserveMissingSecret: input.clientSecret === undefined }
                 )
-                if (!isDefault && existing.isDefault === 1 && applicationState !== 'active') {
-                    promoteFallbackStatement.run(existing.providerId, timestamp)
-                }
-            })
-            transaction()
-            const updated = load(existing.id)
-            if (updated === null) return { kind: 'conflict' }
-            return { kind: 'updated', configuration: toConfiguration(updated) }
+                const applicationState = input.state ?? existing.state
+                const isDefault = await requireDefaultPolicy(
+                    provider(existing.providerId),
+                    input.isDefault ?? existing.isDefault === 1,
+                    applicationState
+                )
+                const secret =
+                    input.clientSecret === undefined
+                        ? envelope(existing)
+                        : await encryptSecret(
+                              existing.id,
+                              provider(existing.providerId),
+                              normalized.clientSecret
+                          )
+                const timestamp = requireTimestamp(now(), 'now')
+                const transaction = defineTransaction(database, async () => {
+                    if (isDefault) await clearDefaultsStatement.run(existing.providerId)
+                    await updateStatement.run(
+                        normalized.name,
+                        normalized.clientId,
+                        normalized.clientMetadataUrl,
+                        normalized.handleResolver,
+                        applicationState,
+                        isDefault ? 1 : 0,
+                        secret?.version ?? null,
+                        secret?.keyId ?? null,
+                        secret?.ciphertext ?? null,
+                        secret?.nonce ?? null,
+                        timestamp,
+                        existing.id
+                    )
+                    if (!isDefault && existing.isDefault === 1 && applicationState !== 'active') {
+                        await promoteFallbackStatement.run(existing.providerId, timestamp)
+                    }
+                })
+                await transaction()
+                const updated = await load(existing.id)
+                if (updated === null) return { kind: 'conflict' }
+                return { kind: 'updated', configuration: toConfiguration(updated) }
+            }, 'immediate')
         },
     }
 }

@@ -249,7 +249,7 @@ it('requires live ownership even for former initiators and hides unknown project
         database.$client.query('delete from team_member where user_id = ?').run(user.id)
         database.$client.query('delete from member where user_id = ?').run(user.id)
         expect((await other('GET')).status).toBe(404)
-        const workspace = access.getDefaultWorkspace()!
+        const workspace = (await access.getDefaultWorkspace())!
         database.$client
             .query(
                 "insert or ignore into member(id,organization_id,user_id,role,created_at) values (?,?,?,'member',?)"
@@ -259,13 +259,13 @@ it('requires live ownership even for former initiators and hides unknown project
         database.$client
             .query("update instance_memberships set role = 'member' where user_id = ?")
             .run(user.id)
-        access.grantProjectUserAccess({
+        await access.grantProjectUserAccess({
             projectId: created.project.id,
             userId: user.id,
             role: 'viewer',
         })
         expect((await other('GET')).status).toBe(403)
-        access.grantProjectUserAccess({
+        await access.grantProjectUserAccess({
             projectId: created.project.id,
             userId: user.id,
             role: 'owner',
@@ -288,7 +288,7 @@ it('requires live ownership even for former initiators and hides unknown project
                 "update project_user_grants set role = 'viewer' where project_id = ? and user_id = ?"
             )
             .run(created.project.id, user.id)
-        expect(access.canAccessProject(created.project.id, user.id, 'owner')).toBe(false)
+        expect(await access.canAccessProject(created.project.id, user.id, 'owner')).toBe(false)
         // The original initiator cannot use a receipt exception to regain live resource access.
         expect((await other('GET')).status).toBe(403)
     }, true)

@@ -4,6 +4,7 @@ import {
     type PostdotAuth,
 } from '@postdot/auth'
 import type { AccessStore } from '@postdot/db'
+import { everySequential } from '@postdot/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
@@ -204,14 +205,16 @@ function expiresInFrom(expiresAt: number | null | undefined, now: number): numbe
     return expiresIn < 24 * 60 * 60 ? -1 : expiresIn
 }
 
-function projectIdsForRequest(
+async function projectIdsForRequest(
     projectIds: readonly string[] | null | undefined,
     access: AccessStore,
     userId: string
-): readonly string[] | null | undefined {
+): Promise<readonly string[] | null | undefined> {
     if (projectIds === undefined || projectIds === null) return null
     const uniqueProjectIds = [...new Set(projectIds)]
-    return uniqueProjectIds.every(projectId => access.canAccessProject(projectId, userId))
+    return (await everySequential(uniqueProjectIds, projectId =>
+        access.canAccessProject(projectId, userId)
+    ))
         ? uniqueProjectIds
         : undefined
 }
@@ -286,7 +289,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                         },
                     })
                 }
-                const projectIds = projectIdsForRequest(body.projectIds, access, user.id)
+                const projectIds = await projectIdsForRequest(body.projectIds, access, user.id)
                 if (projectIds === undefined) return status(400, invalidProjectAccessResponse())
                 const expiresIn = expiresInFrom(body.expiresAt, now())
                 if (expiresIn === -1) {
@@ -348,7 +351,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                 const projectIds =
                     body.projectIds === undefined
                         ? undefined
-                        : projectIdsForRequest(body.projectIds, access, user.id)
+                        : await projectIdsForRequest(body.projectIds, access, user.id)
                 if (projectIds === undefined && body.projectIds !== undefined) {
                     return status(400, invalidProjectAccessResponse())
                 }

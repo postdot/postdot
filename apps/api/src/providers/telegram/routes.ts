@@ -59,24 +59,30 @@ export function registerTelegramPublisherRoutes<const Routes extends Record<stri
                 })
             }
             if (
-                !canAccessProjectRole({
+                !(await canAccessProjectRole({
                     access: options.access,
                     authMethod,
                     minimumRole: 'editor',
                     projectId: params.projectId,
                     userId: user.id,
-                })
+                }))
             ) {
                 return status(403, forbiddenProjectMutation())
             }
 
-            if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+            if (
+                !(await publisherStore.hasChannelAccess(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                ))
+            ) {
                 return status(404, {
                     error: { code: 'not_found', message: 'Project not found' },
                 })
             }
 
-            const existingConnection = publisherStore.getPublisherConnection(
+            const existingConnection = await publisherStore.getPublisherConnection(
                 params.projectId,
                 params.channelId,
                 user.id
@@ -94,7 +100,7 @@ export function registerTelegramPublisherRoutes<const Routes extends Record<stri
                     ? undefined
                     : { id: existingConnection.id, state: existingConnection.state }
 
-            const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+            const actorId = await publisherStore.getProjectActorId(params.projectId, user.id)
             if (actorId === null) {
                 return status(404, {
                     error: { code: 'not_found', message: 'Project not found' },
@@ -165,7 +171,7 @@ export function registerTelegramPublisherRoutes<const Routes extends Record<stri
                 })
             }
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: params.projectId,
                 channelId: params.channelId,
                 subjectId: user.id,
@@ -180,7 +186,7 @@ export function registerTelegramPublisherRoutes<const Routes extends Record<stri
             })
             if (connection.kind !== 'created') {
                 if (shouldRevokeCredentialOnFailure) {
-                    credentialStore.revokePublisherCredential(params.projectId, credentialId)
+                    await credentialStore.revokePublisherCredential(params.projectId, credentialId)
                 }
                 return connection.kind === 'publisher_exists'
                     ? status(409, {

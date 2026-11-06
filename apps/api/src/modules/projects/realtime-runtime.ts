@@ -29,14 +29,17 @@ export interface UserRealtimeHub extends RealtimeHub {}
 export interface ProjectRealtimeRuntime {
     readonly hub: ProjectRealtimeHub
     readonly userHub: UserRealtimeHub
-    publish(projectIds: readonly string[]): void
+    /** Never rejects: failures are reported through `onError`. */
+    publish(projectIds: readonly string[]): Promise<void>
     publishUsers(userIds: readonly string[]): void
-    stop(): void
+    stop(): Promise<void>
 }
 
 export interface ProjectRealtimeRuntimeOptions {
-    readonly onProjectsChanged?: (projectIds: readonly string[]) => void
-    readonly resolveUserIdsForProjects?: (projectIds: readonly string[]) => readonly string[]
+    readonly onProjectsChanged?: (projectIds: readonly string[]) => void | Promise<void>
+    readonly resolveUserIdsForProjects?: (
+        projectIds: readonly string[]
+    ) => Promise<readonly string[]>
     readonly onError?: (error: unknown) => void
 }
 
@@ -59,6 +62,7 @@ export function createProjectRealtimeRuntime(
     const userWaiters = new Map<string, Set<Waiter>>()
     const shutdownListeners = new Set<() => void>()
     let stopped = false
+    const pendingPublishes = new Set<Promise<void>>()
 
     function removeWaiter(
         waiterMap: Map<string, Set<Waiter>>,
@@ -102,14 +106,14 @@ export function createProjectRealtimeRuntime(
         }
     }
 
-    function resolveUserIds(projectIds: readonly string[]): readonly string[] {
+    async function resolveUserIds(projectIds: readonly string[]): Promise<readonly string[]> {
         if (options.resolveUserIdsForProjects === undefined) return []
         try {
             return [
                 ...new Set(
-                    options
-                        .resolveUserIdsForProjects(projectIds)
-                        .filter(userId => userId.length > 0)
+                    (await options.resolveUserIdsForProjects(projectIds)).filter(
+                        userId => userId.length > 0
+                    )
                 ),
             ]
         } catch (error) {
@@ -149,18 +153,32 @@ export function createProjectRealtimeRuntime(
         }
     }
 
-    function publish(projectIds: readonly string[]): void {
+    function publish(projectIds: readonly string[]): Promise<void> {
+        const pending = broadcast(projectIds)
+        pendingPublishes.add(pending)
+        void pending.then(
+            () => pendingPublishes.delete(pending),
+            () => pendingPublishes.delete(pending)
+        )
+        return pending
+    }
+
+    async function broadcast(projectIds: readonly string[]): Promise<void> {
         if (stopped) return
         const uniqueProjectIds = [...new Set(projectIds.filter(projectId => projectId.length > 0))]
         if (uniqueProjectIds.length === 0) return
 
         try {
-            options.onProjectsChanged?.(uniqueProjectIds)
+            await options.onProjectsChanged?.(uniqueProjectIds)
         } catch (error) {
             reportError(error)
         }
         notify(projectWaiters, uniqueProjectIds)
-        notify(userWaiters, resolveUserIds(uniqueProjectIds))
+        try {
+            notify(userWaiters, await resolveUserIds(uniqueProjectIds))
+        } catch (error) {
+            reportError(error)
+        }
     }
 
     function publishUsers(userIds: readonly string[]): void {
@@ -170,8 +188,7 @@ export function createProjectRealtimeRuntime(
         notify(userWaiters, uniqueUserIds)
     }
 
-    function stop(): void {
-        if (stopped) return
+    async function stop(): Promise<void> {
         stopped = true
         // The served streams are told first. A stream that waits for a wakeup
         // must end before its waiter is resolved, or it would read the journal
@@ -186,6 +203,7 @@ export function createProjectRealtimeRuntime(
             for (const waiter of waiters) waiter.resolve()
             userWaiters.delete(userId)
         }
+        await Promise.all(pendingPublishes)
     }
 
     return {

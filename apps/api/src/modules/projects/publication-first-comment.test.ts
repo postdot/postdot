@@ -151,15 +151,18 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
     expect(projectResponse.status).toBe(201)
     const { project } = (await projectResponse.json()) as { project: { id: string } }
     const manual = createManualStore(database, { now: () => clock })
-    const channel = manual.createChannel({
+    const channel = (await manual.createChannel({
         projectId: project.id,
         subjectId: owner.id,
         name: 'Bluesky',
         profile,
-    })!
+    }))!
     const credential = await publisher.credentialStore.createPublisherCredential({
         projectId: project.id,
-        connectedByActorId: publisher.publisherStore.getProjectActorId(project.id, owner.id)!,
+        connectedByActorId: (await publisher.publisherStore.getProjectActorId(
+            project.id,
+            owner.id
+        ))!,
         providerId: provider,
         externalAccountId: accountId,
         scopes: provider === 'mastodon' ? ['read:accounts', 'write:statuses'] : [],
@@ -177,21 +180,23 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
     })
     if (credential.kind !== 'created') throw new Error('Fixture credential unavailable')
     expect(
-        publisher.publisherStore.createPublisherConnection({
-            projectId: project.id,
-            channelId: channel.id,
-            subjectId: owner.id,
-            kind: provider,
-            credentialId: credential.credential.id,
-            ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
-        }).kind
+        (
+            await publisher.publisherStore.createPublisherConnection({
+                projectId: project.id,
+                channelId: channel.id,
+                subjectId: owner.id,
+                kind: provider,
+                credentialId: credential.credential.id,
+                ...(provider === 'mastodon' ? { endpointUrl: 'https://social.example' } : {}),
+            })
+        ).kind
     ).toBe('created')
-    const post = manual.createPost({
+    const post = (await manual.createPost({
         projectId: project.id,
         subjectId: owner.id,
         sourceContent: { body: { format: 'plain_text', text: 'Parent announcement' }, media: [] },
         publications: [{ channelId: channel.id, deliveryMode: 'automatic' }],
-    })!
+    }))!
     const publicationId = post.publications[0]!.id
     if (profile.execution.kind !== 'built_in') throw new Error('Expected native profile')
     const worker = createPublicationWorker({
@@ -259,8 +264,12 @@ async function fixture(provider: 'bluesky' | 'mastodon' = 'bluesky', production 
             commentThrows = true
         },
         async publish() {
-            const editor = manual.getPublicationEditorState(project.id, publicationId, owner.id)!
-            manual.promotePublicationDraft({
+            const editor = (await manual.getPublicationEditorState(
+                project.id,
+                publicationId,
+                owner.id
+            ))!
+            await manual.promotePublicationDraft({
                 projectId: project.id,
                 publicationId,
                 subjectId: owner.id,
@@ -302,20 +311,20 @@ test('prepares through HTTP and delivers once after native confirmation plus del
         await f.publish()
         expect(f.parentEffects).toBe(1)
         await f.service.processDueEvents()
-        const pending = f.service.get(f.project.id, f.publicationId, f.owner.id)!
+        const pending = (await f.service.get(f.project.id, f.publicationId, f.owner.id))!
         expect(pending.firstComment).toMatchObject({ state: 'pending', dueAt: f.now + 300_000 })
         expect(f.commentEffects).toHaveLength(0)
         f.advance(900_000)
         await f.worker.processDueEvents(f.now)
         expect(
-            f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment
+            (await f.service.get(f.project.id, f.publicationId, f.owner.id))?.firstComment
         ).toMatchObject({ state: 'sent', text: input.text })
         expect(f.commentEffects).toHaveLength(1)
         f.advance(900_000)
         await f.worker.processDueEvents(f.now)
         expect(f.commentEffects).toHaveLength(1)
         expect(
-            JSON.stringify(f.service.get(f.project.id, f.publicationId, f.owner.id))
+            JSON.stringify(await f.service.get(f.project.id, f.publicationId, f.owner.id))
         ).not.toContain('recordKey')
     } finally {
         await f.close()
@@ -345,9 +354,9 @@ test('never arms a comment for failed or merely manually marked parent success',
             .run(parentUri, f.now, f.publicationId, f.owner.id)
         await f.service.processDueEvents()
         expect(f.commentEffects).toHaveLength(0)
-        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
-            'waiting'
-        )
+        expect(
+            (await f.service.get(f.project.id, f.publicationId, f.owner.id))?.firstComment?.state
+        ).toBe('waiting')
     } finally {
         await f.close()
     }
@@ -375,7 +384,7 @@ test('cancels before claim and freezes uncertain outcomes without exposing diagn
             await f.publish()
             await f.service.processDueEvents()
             await f.worker.processDueEvents(f.now + 1_000_000)
-            const final = f.service.get(f.project.id, f.publicationId, f.owner.id)!
+            const final = (await f.service.get(f.project.id, f.publicationId, f.owner.id))!
             expect(final.firstComment?.state).toBe(cancel ? 'cancelled' : 'ambiguous')
             expect(f.commentEffects).toHaveLength(cancel ? 0 : 1)
             expect(JSON.stringify(final)).not.toContain('synthetic secret diagnostic')
@@ -390,12 +399,12 @@ test('reads with viewer access, rejects viewer writes and suspends until another
     const f = await fixture()
     try {
         const member = await f.signup('member')
-        f.access.updateInstanceMembership({
+        await f.access.updateInstanceMembership({
             actorUserId: f.owner.id,
             userId: member.id,
             role: 'member',
         })
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.project.id,
             userId: member.id,
             role: 'viewer',
@@ -407,7 +416,7 @@ test('reads with viewer access, rejects viewer writes and suspends until another
         expect(
             (await f.request(f.path.replace(f.project.id, 'foreign-project'), member.cookie)).status
         ).toBe(404)
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.project.id,
             userId: member.id,
             role: 'editor',
@@ -415,17 +424,17 @@ test('reads with viewer access, rejects viewer writes and suspends until another
         expect((await f.request(f.path, member.cookie, 'PUT', input)).status).toBe(200)
         await f.publish()
         await f.service.processDueEvents()
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.project.id,
             userId: member.id,
             role: 'viewer',
         })
         f.advance(120_000)
         await f.service.processDueEvents()
-        const paused = f.service.get(f.project.id, f.publicationId, f.owner.id)!
+        const paused = (await f.service.get(f.project.id, f.publicationId, f.owner.id))!
         expect(paused.firstComment?.state).toBe('suspended')
         expect(f.commentEffects).toHaveLength(0)
-        f.access.grantProjectUserAccess({
+        await f.access.grantProjectUserAccess({
             projectId: f.project.id,
             userId: member.id,
             role: 'editor',
@@ -442,9 +451,9 @@ test('reads with viewer access, rejects viewer writes and suspends until another
         ).toBe(200)
         await f.service.processDueEvents()
         expect(f.commentEffects).toHaveLength(1)
-        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
-            'sent'
-        )
+        expect(
+            (await f.service.get(f.project.id, f.publicationId, f.owner.id))?.firstComment?.state
+        ).toBe('sent')
     } finally {
         await f.close()
     }
@@ -476,7 +485,7 @@ test('Mastodon prepares 500 units and sends one direct first comment on its orig
         await f.publish()
         await f.service.processDueEvents()
         expect(f.commentEffects).toHaveLength(0)
-        const pinned = f.service.store.get(f.project.id, f.publicationId, f.owner.id)!
+        const pinned = (await f.service.store.get(f.project.id, f.publicationId, f.owner.id))!
         expect(pinned).toMatchObject({
             providerId: 'mastodon',
             instanceOrigin: 'https://social.example',
@@ -485,7 +494,7 @@ test('Mastodon prepares 500 units and sends one direct first comment on its orig
         })
         f.advance(900_000)
         await f.worker.processDueEvents(f.now)
-        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)).toMatchObject({
+        expect(await f.service.get(f.project.id, f.publicationId, f.owner.id)).toMatchObject({
             instanceOrigin: 'https://social.example',
             firstComment: { state: 'sent', externalUrl: 'https://social.example/@owner/200' },
         })
@@ -522,7 +531,8 @@ test('Mastodon first comments recheck the account and the instance immediately b
             await f.service.processDueEvents()
             expect(f.commentEffects).toHaveLength(0)
             expect(
-                f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state
+                (await f.service.get(f.project.id, f.publicationId, f.owner.id))?.firstComment
+                    ?.state
             ).toBe('failed')
         } finally {
             await f.close()
@@ -545,17 +555,17 @@ test('Mastodon first-comment uncertainty remains independent and is never resent
         f.loseCommentResponse()
         await f.publish()
         await f.service.processDueEvents()
-        expect(f.service.get(f.project.id, f.publicationId, f.owner.id)?.firstComment?.state).toBe(
-            'ambiguous'
-        )
         expect(
-            JSON.stringify(f.service.get(f.project.id, f.publicationId, f.owner.id))
+            (await f.service.get(f.project.id, f.publicationId, f.owner.id))?.firstComment?.state
+        ).toBe('ambiguous')
+        expect(
+            JSON.stringify(await f.service.get(f.project.id, f.publicationId, f.owner.id))
         ).not.toContain('secret diagnostic')
         f.advance(900_000)
         await f.worker.processDueEvents(f.now)
         expect(f.commentEffects).toHaveLength(1)
         expect(
-            f.manual.getPublicationEditorState(f.project.id, f.publicationId, f.owner.id)
+            (await f.manual.getPublicationEditorState(f.project.id, f.publicationId, f.owner.id))
                 ?.publication.state
         ).toBe('published')
     } finally {
@@ -580,7 +590,7 @@ test('first-comment renewal is project-scoped, token-fenced and cannot revive an
         const at = f.now
         const store = f.service.store.deliveries
         expect(
-            store.claimNextDueJob({
+            await store.claimNextDueJob({
                 actorId: 'worker',
                 claimToken: 'other',
                 now: at,
@@ -588,16 +598,16 @@ test('first-comment renewal is project-scoped, token-fenced and cannot revive an
                 projectId: 'foreign-project',
             })
         ).toBeNull()
-        const work = store.claimNextDueJob({
+        const work = (await store.claimNextDueJob({
             actorId: 'worker',
             claimToken: 'owner',
             now: at,
             leaseExpiresAt: at + 90,
             projectId: f.project.id,
-        })!
+        }))!
         expect(work).not.toBeNull()
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'stale',
                 now: at + 30,
@@ -605,7 +615,7 @@ test('first-comment renewal is project-scoped, token-fenced and cannot revive an
             })
         ).toBe(false)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 30,
@@ -613,25 +623,25 @@ test('first-comment renewal is project-scoped, token-fenced and cannot revive an
             })
         ).toBe(false)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 30,
                 leaseExpiresAt: at + 120,
             })
         ).toBe(true)
-        expect(store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
+        expect(await store.startExternalEffect(work.id, 'owner', at + 100)).toBe(true)
         expect(
-            store.renewClaim!({
+            await store.renewClaim!({
                 jobId: work.id,
                 claimToken: 'owner',
                 now: at + 120,
                 leaseExpiresAt: at + 210,
             })
         ).toBe(false)
-        expect(store.recoverExpiredClaims(at + 120).ambiguousJobIds).toEqual([work.id])
+        expect((await store.recoverExpiredClaims(at + 120)).ambiguousJobIds).toEqual([work.id])
         expect(
-            store.completeExternalEffect({
+            await store.completeExternalEffect({
                 jobId: work.id,
                 claimToken: 'owner',
                 completedAt: at + 121,

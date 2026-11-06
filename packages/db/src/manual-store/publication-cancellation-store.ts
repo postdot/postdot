@@ -6,8 +6,9 @@ import {
     type Publication,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type PostdotDatabase } from '../client'
 import type { CancelPublicationsInput } from '../manual-store'
+import { mapSequential } from '../sql/sequential'
 import { toActor, toPublication } from './mappers'
 import type { ActorRow, PublicationRow } from './rows'
 
@@ -32,20 +33,30 @@ interface AuditEventInsert {
 export interface PublicationCancellationStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly loadActiveJob: (projectId: string, publicationId: string) => ActiveJobRow | null
-    readonly loadProvider: (projectId: string, channelId: string) => string | null
-    readonly cancelPendingJob: (projectId: string, jobId: string, completedAt: number) => boolean
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly loadActiveJob: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<ActiveJobRow | null>
+    readonly loadProvider: (projectId: string, channelId: string) => Promise<string | null>
+    readonly cancelPendingJob: (
+        projectId: string,
+        jobId: string,
+        completedAt: number
+    ) => Promise<boolean>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export function createPublicationCancellationStore(
     database: PostdotDatabase,
     options: PublicationCancellationStoreOptions
 ) {
-    const client = database.$client
-    const cancelPublicationStatement = client.query<
+    const sql = database.sql
+    const cancelPublicationStatement = sql.statement<
         { changes: number },
         [
             stateChangedByActorId: string,
@@ -66,10 +77,10 @@ export function createPublicationCancellationStore(
           and updated_at = ?5
     `)
 
-    const cancelPublicationsTransaction = createDatabaseTransaction(
+    const cancelPublicationsTransaction = defineTransaction(
         database,
-        (input: CancelPublicationsInput): Publication[] | null => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
+        async (input: CancelPublicationsInput): Promise<Publication[] | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
             if (actorRow === null) return null
 
             const timestamp = requireTimestamp(options.now(), 'now')
@@ -77,14 +88,14 @@ export function createPublicationCancellationStore(
             const currentPublications: PublicationRow[] = []
 
             for (const publicationId of input.publicationIds) {
-                const row = options.loadPublication(input.projectId, publicationId)
+                const row = await options.loadPublication(input.projectId, publicationId)
                 if (row === null) return null
                 currentPublications.push(row)
             }
 
-            const candidates = currentPublications.map(row => {
-                const publication = toPublication(row)
-                const activeJob = options.loadActiveJob(input.projectId, publication.id)
+            const candidates = await mapSequential(currentPublications, async row => {
+                const publication = await toPublication(row)
+                const activeJob = await options.loadActiveJob(input.projectId, publication.id)
                 if (activeJob?.state === 'running') {
                     throw new DomainInvariantError(
                         'invalid_transition',
@@ -106,7 +117,7 @@ export function createPublicationCancellationStore(
 
             for (const candidate of candidates) {
                 const { current, next } = candidate
-                const result = cancelPublicationStatement.run(
+                const result = await cancelPublicationStatement.run(
                     next.stateChangedByActorId,
                     next.updatedAt,
                     input.projectId,
@@ -123,8 +134,8 @@ export function createPublicationCancellationStore(
                 const provider =
                     next.deliveryMode === 'manual'
                         ? 'manual'
-                        : options.loadProvider(input.projectId, next.channelId)
-                options.insertAuditEvent({
+                        : await options.loadProvider(input.projectId, next.channelId)
+                await options.insertAuditEvent({
                     id: options.createId(),
                     projectId: input.projectId,
                     actorId: actor.id,
@@ -143,11 +154,11 @@ export function createPublicationCancellationStore(
 
                 if (candidate.activeJob !== null) {
                     if (
-                        !options.cancelPendingJob(
+                        !(await options.cancelPendingJob(
                             input.projectId,
                             candidate.activeJob.id,
                             timestamp
-                        )
+                        ))
                     ) {
                         throw new DomainInvariantError(
                             'claim_mismatch',
@@ -155,7 +166,7 @@ export function createPublicationCancellationStore(
                         )
                     }
 
-                    options.insertAuditEvent({
+                    await options.insertAuditEvent({
                         id: options.createId(),
                         projectId: input.projectId,
                         actorId: actor.id,
@@ -184,7 +195,7 @@ export function createPublicationCancellationStore(
     )
 
     return {
-        cancelPublications(input: CancelPublicationsInput): Publication[] | null {
+        async cancelPublications(input: CancelPublicationsInput): Promise<Publication[] | null> {
             const publicationIds = input.publicationIds.map(id =>
                 requireNonBlank(id, 'publicationId')
             )

@@ -64,18 +64,18 @@ for (const photo of [false, true])
                 now: () => clock,
             })
             try {
-                const project = store.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = (await store.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'Facebook worker',
                     subjectId: 'operator',
                     displayName: 'Operator',
-                })!
-                const channel = store.createChannel({
+                }))!
+                const channel = (await store.createChannel({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     name: 'Announcements',
                     profile: facebookChannelProfile,
-                })!
+                }))!
                 const credential = await credentials.createPublisherCredential({
                     projectId: project.project.id,
                     connectedByActorId: project.actor.id,
@@ -86,14 +86,16 @@ for (const photo of [false, true])
                 })
                 if (credential.kind !== 'created') throw new Error('Expected credential')
                 expect(
-                    publishers.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'operator',
-                        kind: 'facebook',
-                        credentialId: credential.credential.id,
-                        destination: { type: 'channel', id: '123456', name: 'Announcements' },
-                    }).kind
+                    (
+                        await publishers.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'operator',
+                            kind: 'facebook',
+                            credentialId: credential.credential.id,
+                            destination: { type: 'channel', id: '123456', name: 'Announcements' },
+                        })
+                    ).kind
                 ).toBe('created')
                 const bytes = new Uint8Array(
                     Buffer.from(
@@ -103,13 +105,13 @@ for (const photo of [false, true])
                 )
                 let assetId: string | undefined
                 if (photo) {
-                    const reserved = media.reserveUpload({
+                    const reserved = (await media.reserveUpload({
                         projectId: project.project.id,
                         subjectId: 'operator',
                         originalFilename: 'photo.png',
                         contentType: 'image/png',
                         expectedSize: bytes.length,
-                    })!
+                    }))!
                     expect(
                         await media.upload({
                             projectId: project.project.id,
@@ -130,7 +132,7 @@ for (const photo of [false, true])
                 const references = assetId
                     ? [{ assetId, accessibilityText: 'Product announcement' }]
                     : []
-                const post = store.createPost({
+                const post = await store.createPost({
                     projectId: project.project.id,
                     subjectId: 'operator',
                     sourceContent: {
@@ -255,8 +257,12 @@ for (const photo of [false, true])
                             ).toBe('Hello Facebook')
                     }
                     expect(
-                        publishers.listPublisherConnections(project.project.id, 'operator')?.[0]
-                            ?.state
+                        (
+                            await publishers.listPublisherConnections(
+                                project.project.id,
+                                'operator'
+                            )
+                        )?.[0]?.state
                     ).toBe(scenario === 'authentication' ? 'reconnect_required' : 'active')
                 } finally {
                     await worker.stop()

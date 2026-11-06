@@ -28,8 +28,12 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
 ) {
     const readers = createProviderCommentsReaders(options)
     const now = options.now ?? Date.now
-    function identity(projectId: string, publicationId: string, subjectId: string) {
-        const editor = options.manual.getPublicationEditorState(projectId, publicationId, subjectId)
+    async function identity(projectId: string, publicationId: string, subjectId: string) {
+        const editor = await options.manual.getPublicationEditorState(
+            projectId,
+            publicationId,
+            subjectId
+        )
         if (editor === null || editor.publication.state !== 'published') return null
         const execution = editor.profile.profile.execution
         const rootUri = editor.publication.externalId
@@ -48,10 +52,10 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
             : null
     }
 
-    function stored(
-        input: NonNullable<ReturnType<typeof identity>>
-    ): PublicationCommentsResponse | null {
-        const row = options.store.read(input)
+    async function stored(
+        input: NonNullable<Awaited<ReturnType<typeof identity>>>
+    ): Promise<PublicationCommentsResponse | null> {
+        const row = await options.store.read(input)
         if (row === undefined) return null
         const decoded: unknown =
             row?.snapshotJson === null || row === null ? null : JSON.parse(row.snapshotJson)
@@ -93,9 +97,9 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                     tags: ['Publications'],
                 },
             },
-            ({ params, user, status }) => {
-                const input = identity(params.projectId, params.publicationId, user.id)
-                const result = input === null ? null : stored(input)
+            async ({ params, user, status }) => {
+                const input = await identity(params.projectId, params.publicationId, user.id)
+                const result = input === null ? null : await stored(input)
                 return (
                     result ??
                     status(404, {
@@ -122,16 +126,16 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
             },
             async ({ params, user, authMethod, status }) => {
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 )
                     return status(403, forbiddenProjectMutation())
-                const input = identity(params.projectId, params.publicationId, user.id)
+                const input = await identity(params.projectId, params.publicationId, user.id)
                 if (input === null)
                     return status(404, {
                         error: {
@@ -145,14 +149,14 @@ export function registerPublicationCommentsRoutes<const Routes extends Record<st
                 const keepSnapshot =
                     read.kind === 'unavailable' &&
                     !['blocked', 'not_found', 'disabled'].includes(read.availability)
-                const saved = options.store.saveAttempt({
+                const saved = await options.store.saveAttempt({
                     ...input,
                     lastAttemptAt: attemptedAt,
                     snapshotJson: keepSnapshot ? null : JSON.stringify(snapshot),
                     lastError:
                         keepSnapshot && read.kind === 'unavailable' ? read.availability : null,
                 })
-                const result = saved ? stored(input) : null
+                const result = saved ? await stored(input) : null
                 return (
                     result ??
                     status(404, {

@@ -23,14 +23,14 @@ import { seedTestWorkspace } from './testing'
 const eventTime = 1_800_000_000_000
 const operationTime = eventTime + 1_000
 
-function createFixture() {
+async function createFixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
     let nextId = 0
     const createId = () => `generated-${++nextId}`
     const manual = createManualStore(database, { createId, now: () => eventTime - 1_000 })
-    const project = manual.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manual.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Postdot',
         subjectId: 'human-1',
         displayName: 'First human',
@@ -53,7 +53,7 @@ function createFixture() {
 }
 
 function appendPublicationEvent(
-    fixture: ReturnType<typeof createFixture>,
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     input: { readonly id: string; readonly name: string; readonly version?: number }
 ) {
     return fixture.journal.append({
@@ -67,8 +67,8 @@ function appendPublicationEvent(
     })
 }
 
-function addDestination(fixture: ReturnType<typeof createFixture>, enabled = true) {
-    const destination = fixture.deliveries.createDestination({
+async function addDestination(fixture: Awaited<ReturnType<typeof createFixture>>, enabled = true) {
+    const destination = await fixture.deliveries.createDestination({
         projectId: fixture.project.project.id,
         subjectId: 'human-1',
         transportId: 'test',
@@ -81,7 +81,7 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
         'publication_failed',
         'publication_ambiguous',
     ] as const) {
-        fixture.deliveries.subscribe({
+        await fixture.deliveries.subscribe({
             projectId: fixture.project.project.id,
             subjectId: 'human-1',
             destinationId: destination.id,
@@ -94,14 +94,14 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
 
 describe('notification delivery store', () => {
     it('hands a claimed delivery to a recording transport without network access', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
         try {
-            addDestination(fixture)
-            appendPublicationEvent(fixture, {
+            await addDestination(fixture)
+            await appendPublicationEvent(fixture, {
                 id: 'event-recording-transport',
                 name: 'publication.execution.failed',
             })
-            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
+            expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(1)
 
             const recorded: NotificationDelivery[] = []
             const result = await processNextExternalEffect({
@@ -132,7 +132,9 @@ describe('notification delivery store', () => {
                 kind: 'publication_failed',
                 title: 'Publication failed',
             })
-            expect(fixture.deliveries.list(fixture.project.project.id, 'human-1')).toMatchObject([
+            expect(
+                await fixture.deliveries.list(fixture.project.project.id, 'human-1')
+            ).toMatchObject([
                 {
                     state: 'delivered',
                     externalId: expect.stringContaining('recorded:'),
@@ -144,10 +146,10 @@ describe('notification delivery store', () => {
     })
 
     it('binds a delivery secret to the same destination as the delivery', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
         try {
-            const firstDestination = addDestination(fixture)
-            const secondDestination = addDestination(fixture)
+            const firstDestination = await addDestination(fixture)
+            const secondDestination = await addDestination(fixture)
             const firstSecret = await fixture.secrets.setSecret({
                 projectId: fixture.project.project.id,
                 subjectId: 'human-1',
@@ -164,11 +166,11 @@ describe('notification delivery store', () => {
                 throw new Error('The notification destination secret is missing')
             }
 
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-secret-destination-binding',
                 name: 'publication.execution.failed',
             })
-            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(2)
+            expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(2)
 
             const firstDelivery = fixture.database.$client
                 .query<{ readonly id: string }, [destinationId: string]>(
@@ -190,9 +192,9 @@ describe('notification delivery store', () => {
     })
 
     it('encrypts versioned secrets and pins the referenced version in delivery snapshots', async () => {
-        const fixture = createFixture()
+        const fixture = await createFixture()
         try {
-            const destination = addDestination(fixture)
+            const destination = await addDestination(fixture)
             const firstSecret = await fixture.secrets.setSecret({
                 projectId: fixture.project.project.id,
                 subjectId: 'human-1',
@@ -206,23 +208,22 @@ describe('notification delivery store', () => {
             })
             expect(firstSecret).not.toHaveProperty('ciphertext')
             expect(
-                fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
+                await fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
             ).toMatchObject([{ secretVersion: 1 }])
 
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-secret-v1',
                 name: 'publication.execution.failed',
             })
-            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
-            const firstDelivery = fixture.deliveries.list(
-                fixture.project.project.id,
-                'human-1'
+            expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(1)
+            const firstDelivery = (
+                await fixture.deliveries.list(fixture.project.project.id, 'human-1')
             )?.[0]
             if (firstDelivery === undefined) throw new Error('The first delivery is missing')
             expect(firstDelivery.secretVersion).toBe(1)
             expect(firstDelivery.configuration).toEqual({ topic: 'postdot-test' })
 
-            const firstClaim = fixture.deliveries.claimNextDueJob({
+            const firstClaim = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'secret-claim-v1',
                 now: operationTime,
@@ -237,14 +238,14 @@ describe('notification delivery store', () => {
                 })
             ).toEqual({ bearerToken: 'notification-secret-v1' })
             expect(
-                fixture.deliveries.startExternalEffect(
+                await fixture.deliveries.startExternalEffect(
                     firstClaim.id,
                     'secret-claim-v1',
                     operationTime
                 )
             ).toBe(true)
             expect(
-                fixture.deliveries.completeExternalEffect({
+                await fixture.deliveries.completeExternalEffect({
                     jobId: firstClaim.id,
                     claimToken: 'secret-claim-v1',
                     completedAt: operationTime,
@@ -261,23 +262,23 @@ describe('notification delivery store', () => {
             expect(secondSecret).toMatchObject({ version: 2, state: 'active' })
             if (secondSecret === null) throw new Error('The rotated secret is missing')
 
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-secret-v2',
                 name: 'publication.execution.failed',
             })
-            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
+            expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(1)
             expect(
-                fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
+                await fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
             ).toMatchObject([{ secretVersion: 2 }])
 
-            const deliveries = fixture.deliveries.list(fixture.project.project.id, 'human-1')
+            const deliveries = await fixture.deliveries.list(fixture.project.project.id, 'human-1')
             expect(
                 deliveries
                     ?.map(delivery => delivery.secretVersion)
                     .sort((left, right) => (right ?? 0) - (left ?? 0))
             ).toEqual([2, 1])
 
-            const secondClaim = fixture.deliveries.claimNextDueJob({
+            const secondClaim = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'secret-claim-v2',
                 now: operationTime,
@@ -367,28 +368,30 @@ describe('notification delivery store', () => {
         }
     })
 
-    it('projects independent subscriptions for human destinations and snapshots configuration', () => {
-        const fixture = createFixture()
+    it('projects independent subscriptions for human destinations and snapshots configuration', async () => {
+        const fixture = await createFixture()
         try {
-            const destination = addDestination(fixture)
-            fixture.inbox.updatePreference({
+            const destination = await addDestination(fixture)
+            await fixture.inbox.updatePreference({
                 projectId: fixture.project.project.id,
                 subjectId: 'human-1',
                 kind: 'publication_failed',
                 inAppEnabled: false,
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-failed',
                 name: 'publication.execution.failed',
             })
 
-            expect(fixture.deliveries.project(fixture.project.project.id)).toEqual({
+            expect(await fixture.deliveries.project(fixture.project.project.id)).toEqual({
                 scanned: 2,
                 created: 1,
                 hasMore: false,
             })
-            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(0)
-            expect(fixture.deliveries.list(fixture.project.project.id, 'human-1')).toMatchObject([
+            expect((await fixture.deliveries.project(fixture.project.project.id)).created).toBe(0)
+            expect(
+                await fixture.deliveries.list(fixture.project.project.id, 'human-1')
+            ).toMatchObject([
                 {
                     destinationId: destination.id,
                     transportId: 'test',
@@ -399,10 +402,12 @@ describe('notification delivery store', () => {
                 },
             ])
             expect(
-                fixture.inbox.list({
-                    projectId: fixture.project.project.id,
-                    subjectId: 'human-1',
-                })?.items
+                (
+                    await fixture.inbox.list({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'human-1',
+                    })
+                )?.items
             ).toEqual([])
             expect(() =>
                 fixture.database.$client.run(
@@ -414,16 +419,16 @@ describe('notification delivery store', () => {
         }
     })
 
-    it('keeps projection writes atomic and skips unsupported facts without poisoning the cursor', () => {
-        const fixture = createFixture()
+    it('keeps projection writes atomic and skips unsupported facts without poisoning the cursor', async () => {
+        const fixture = await createFixture()
         try {
-            addDestination(fixture)
-            appendPublicationEvent(fixture, {
+            await addDestination(fixture)
+            await appendPublicationEvent(fixture, {
                 id: 'event-future',
                 name: 'publication.execution.failed',
                 version: 2,
             })
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-supported',
                 name: 'publication.execution.succeeded',
             })
@@ -435,11 +440,11 @@ describe('notification delivery store', () => {
                 end
             `)
 
-            expect(() => fixture.deliveries.project(fixture.project.project.id)).toThrow()
-            expect(fixture.deliveries.list(fixture.project.project.id, 'human-1')).toEqual([])
+            await expect(fixture.deliveries.project(fixture.project.project.id)).rejects.toThrow()
+            expect(await fixture.deliveries.list(fixture.project.project.id, 'human-1')).toEqual([])
 
             fixture.database.$client.run('drop trigger reject_delivery_cursor')
-            expect(fixture.deliveries.project(fixture.project.project.id)).toEqual({
+            expect(await fixture.deliveries.project(fixture.project.project.id)).toEqual({
                 scanned: 3,
                 created: 1,
                 hasMore: false,
@@ -449,12 +454,12 @@ describe('notification delivery store', () => {
         }
     })
 
-    it('requires a human owner and keeps destination access project-scoped', () => {
-        const fixture = createFixture()
+    it('requires a human owner and keeps destination access project-scoped', async () => {
+        const fixture = await createFixture()
         try {
-            const destination = addDestination(fixture)
+            const destination = await addDestination(fixture)
             expect(
-                fixture.deliveries.createDestination({
+                await fixture.deliveries.createDestination({
                     projectId: fixture.project.project.id,
                     subjectId: 'machine-1',
                     transportId: 'test',
@@ -463,7 +468,7 @@ describe('notification delivery store', () => {
                 })
             ).toBeNull()
             expect(
-                fixture.deliveries.subscribe({
+                await fixture.deliveries.subscribe({
                     projectId: fixture.project.project.id,
                     subjectId: 'other-human',
                     destinationId: destination.id,
@@ -480,7 +485,7 @@ describe('notification delivery store', () => {
                     configuration: JSON.parse('{"__proto__": null}'),
                 })
             ).not.toThrow()
-            expect(() =>
+            await expect(
                 fixture.deliveries.createDestination({
                     projectId: fixture.project.project.id,
                     subjectId: 'human-1',
@@ -488,34 +493,34 @@ describe('notification delivery store', () => {
                     label: 'Invalid',
                     configuration: 'not-an-object' as never,
                 })
-            ).toThrow(DomainInvariantError)
+            ).rejects.toThrow(DomainInvariantError)
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('fences concurrent claims and requeues a pre-effect lease', () => {
-        const fixture = createFixture()
+    it('fences concurrent claims and requeues a pre-effect lease', async () => {
+        const fixture = await createFixture()
         try {
-            addDestination(fixture)
-            appendPublicationEvent(fixture, {
+            await addDestination(fixture)
+            await appendPublicationEvent(fixture, {
                 id: 'event-claim',
                 name: 'publication.execution.failed',
             })
-            fixture.deliveries.project(fixture.project.project.id)
+            await fixture.deliveries.project(fixture.project.project.id)
             const secondStore = createNotificationDeliveryStore(fixture.database, {
                 createId: () => crypto.randomUUID(),
                 now: () => operationTime,
             })
-            expect(() =>
+            await expect(
                 fixture.deliveries.claimNextDueJob({
                     actorId: 'system-1',
                     claimToken: 'claim-invalid',
                     now: operationTime,
                     leaseExpiresAt: operationTime,
                 })
-            ).toThrow(DomainInvariantError)
-            const first = fixture.deliveries.claimNextDueJob({
+            ).rejects.toThrow(DomainInvariantError)
+            const first = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'claim-one',
                 now: operationTime,
@@ -524,84 +529,90 @@ describe('notification delivery store', () => {
             if (first === null) throw new Error('The delivery was not claimed')
             expect(first?.attempts).toBe(1)
             expect(
-                secondStore.claimNextDueJob({
+                await secondStore.claimNextDueJob({
                     actorId: 'system-2',
                     claimToken: 'claim-two',
                     now: operationTime,
                     leaseExpiresAt: operationTime + 100,
                 })
             ).toBeNull()
-            expect(fixture.deliveries.recoverExpiredClaims(operationTime + 101)).toEqual({
+            expect(await fixture.deliveries.recoverExpiredClaims(operationTime + 101)).toEqual({
                 requeuedJobIds: [first.id],
                 ambiguousJobIds: [],
             })
             expect(
-                fixture.deliveries.claimNextDueJob({
-                    actorId: 'system-1',
-                    claimToken: 'claim-three',
-                    now: operationTime + 101,
-                    leaseExpiresAt: operationTime + 201,
-                })?.attempts
+                (
+                    await fixture.deliveries.claimNextDueJob({
+                        actorId: 'system-1',
+                        claimToken: 'claim-three',
+                        now: operationTime + 101,
+                        leaseExpiresAt: operationTime + 201,
+                    })
+                )?.attempts
             ).toBe(2)
         } finally {
             closeDatabase(fixture.database)
         }
     })
 
-    it('makes post-effect expiry ambiguous and only retries explicit no-effect failures', () => {
-        const fixture = createFixture()
+    it('makes post-effect expiry ambiguous and only retries explicit no-effect failures', async () => {
+        const fixture = await createFixture()
         try {
-            addDestination(fixture)
-            appendPublicationEvent(fixture, {
+            await addDestination(fixture)
+            await appendPublicationEvent(fixture, {
                 id: 'event-effect',
                 name: 'publication.execution.failed',
             })
-            fixture.deliveries.project(fixture.project.project.id)
-            const claimed = fixture.deliveries.claimNextDueJob({
+            await fixture.deliveries.project(fixture.project.project.id)
+            const claimed = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'claim-effect',
                 now: operationTime,
                 leaseExpiresAt: operationTime + 100,
             })
             if (claimed === null) throw new Error('The delivery was not claimed')
-            expect(() =>
+            await expect(
                 fixture.deliveries.completeExternalEffect({
                     jobId: claimed.id,
                     claimToken: 'claim-effect',
                     completedAt: operationTime + 1,
                     outcome: { type: 'published' },
                 })
-            ).toThrow(DomainInvariantError)
+            ).rejects.toThrow(DomainInvariantError)
             expect(
-                fixture.deliveries.startExternalEffect(
+                await fixture.deliveries.startExternalEffect(
                     claimed.id,
                     'claim-effect',
                     operationTime + 1
                 )
             ).toBe(true)
-            expect(fixture.deliveries.recoverExpiredClaims(operationTime + 101)).toEqual({
+            expect(await fixture.deliveries.recoverExpiredClaims(operationTime + 101)).toEqual({
                 requeuedJobIds: [],
                 ambiguousJobIds: [claimed.id],
             })
-            expect(fixture.deliveries.list(fixture.project.project.id, 'human-1')?.[0]?.state).toBe(
-                'ambiguous'
-            )
+            expect(
+                (await fixture.deliveries.list(fixture.project.project.id, 'human-1'))?.[0]?.state
+            ).toBe('ambiguous')
 
-            appendPublicationEvent(fixture, {
+            await appendPublicationEvent(fixture, {
                 id: 'event-retry',
                 name: 'publication.execution.ambiguous',
             })
-            fixture.deliveries.project(fixture.project.project.id)
-            const retryClaim = fixture.deliveries.claimNextDueJob({
+            await fixture.deliveries.project(fixture.project.project.id)
+            const retryClaim = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'claim-retry',
                 now: operationTime,
                 leaseExpiresAt: operationTime + 100,
             })
             if (retryClaim === null) throw new Error('The retry delivery was not claimed')
-            fixture.deliveries.startExternalEffect(retryClaim.id, 'claim-retry', operationTime)
+            await fixture.deliveries.startExternalEffect(
+                retryClaim.id,
+                'claim-retry',
+                operationTime
+            )
             expect(
-                fixture.deliveries.completeExternalEffect({
+                await fixture.deliveries.completeExternalEffect({
                     jobId: retryClaim.id,
                     claimToken: 'claim-retry',
                     completedAt: operationTime + 1,
@@ -614,19 +625,19 @@ describe('notification delivery store', () => {
                 })
             ).toBe('retry_scheduled')
             expect(
-                fixture.deliveries
-                    .list(fixture.project.project.id, 'human-1')
-                    ?.find(item => item.id === retryClaim.id)?.state
+                (await fixture.deliveries.list(fixture.project.project.id, 'human-1'))?.find(
+                    item => item.id === retryClaim.id
+                )?.state
             ).toBe('pending')
 
-            const retryAttempt = fixture.deliveries.claimNextDueJob({
+            const retryAttempt = await fixture.deliveries.claimNextDueJob({
                 actorId: 'system-1',
                 claimToken: 'claim-retry-attempt',
                 now: operationTime + 100,
                 leaseExpiresAt: operationTime + 200,
             })
             if (retryAttempt === null) throw new Error('The retry attempt was not claimed')
-            expect(fixture.deliveries.recoverExpiredClaims(operationTime + 201)).toEqual({
+            expect(await fixture.deliveries.recoverExpiredClaims(operationTime + 201)).toEqual({
                 requeuedJobIds: [retryAttempt.id],
                 ambiguousJobIds: [],
             })

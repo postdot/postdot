@@ -651,7 +651,7 @@ it('lists workspace channels without widening key scope, transfers management an
         const outsiderId = f.database.$client
             .query<{ id: string }, [string]>('select id from user where email=?')
             .get('workspace-channel-outsider@postdot.local')!.id
-        createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
+        await createAccessStore(f.database, { now: () => now }).grantProjectUserAccess({
             projectId: f.source,
             userId: outsiderId,
             role: 'editor',
@@ -770,12 +770,12 @@ it('rejects an OAuth callback after its actor loses channel management, before p
             .query<{ id: string }, [string]>('select id from user where email=?')
             .get('former-channel-manager@postdot.local')!.id
         f.database.$client.query("update member set role='member' where user_id=?").run(editorId)
-        createAccessStore(f.database).grantProjectUserAccess({
+        await createAccessStore(f.database).grantProjectUserAccess({
             projectId: f.source,
             userId: editorId,
             role: 'editor',
         })
-        const actorId = f.publisher.publisherStore.getProjectActorId(f.source, editorId)!
+        const actorId = (await f.publisher.publisherStore.getProjectActorId(f.source, editorId))!
         const state = 'channel-management-callback-state-'.repeat(2)
         const attempt = await f.publisher.authorizationAttemptStore.createAuthorizationAttempt({
             projectId: f.source,

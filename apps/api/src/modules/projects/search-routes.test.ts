@@ -109,12 +109,12 @@ describe('global dashboard search', () => {
             })
             expect(projectResponse.status).toBe(201)
             const { project } = (await projectResponse.json()) as { project: { id: string } }
-            const channel = store.createChannel({
+            const channel = (await store.createChannel({
                 projectId: project.id,
                 subjectId: ownerId,
                 name: 'Needle channel',
-            })!
-            const post = store.createPost({
+            }))!
+            const post = (await store.createPost({
                 projectId: project.id,
                 subjectId: ownerId,
                 title: 'Needle post',
@@ -124,7 +124,7 @@ describe('global dashboard search', () => {
                     media: [],
                 },
                 publications: [{ channelId: channel.id }, { channelId: channel.id }],
-            })!
+            }))!
             const search = async (cookie: string, query: string, projectId?: string) => {
                 const response = await sessionRequest(
                     app,
@@ -171,21 +171,21 @@ describe('global dashboard search', () => {
             expect(await search(ownerCookie, 'Needle', 'inaccessible-project')).toEqual([])
             expect(await search(readerCookie, 'Needle')).toEqual([])
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: project.id,
                     userId: readerId,
                     role: 'viewer',
                 })
             ).not.toBeNull()
             expect(await search(readerCookie, 'Needle', project.id)).toHaveLength(4)
-            expect(access.removeProjectUserAccess(project.id, readerId)).toBe(true)
+            expect(await access.removeProjectUserAccess(project.id, readerId)).toBe(true)
             expect(await search(readerCookie, 'Needle')).toEqual([])
             expect((await sessionRequest(app, '/api/search?q=x', ownerCookie)).status).toBe(422)
             expect((await app.handle(new Request(`${baseURL}/api/search?q=Needle`))).status).toBe(
                 401
             )
             for (let index = 0; index < 12; index++)
-                store.createChannel({
+                await store.createChannel({
                     projectId: project.id,
                     subjectId: ownerId,
                     name: `Needle bounded ${index}`,

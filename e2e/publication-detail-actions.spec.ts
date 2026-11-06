@@ -722,12 +722,12 @@ test('requires destination confirmation after reconnecting while retaining the s
                 const actor = db.$client.query("select id, subject_id as subjectId from actors where project_id = ? and kind = 'human' limit 1").get(projectId);
                 const credentials = createPublisherCredentialStore(db, {cipher: createPublisherCredentialCipher({keyId:'e2e-v1', key: new Uint8Array(Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef','hex'))})});
                 const store = createPublisherStore(db, {credentialRevoker: credentials, connectionPolicies: {linkedin: {validateDestination: () => true}}});
-                const existing = store.getPublisherConnection(projectId, channelId, actor.subjectId);
-                if (existing) credentials.markPublisherCredentialReconnectRequired(projectId, existing.credentialId);
+                const existing = await store.getPublisherConnection(projectId, channelId, actor.subjectId);
+                if (existing) await credentials.markPublisherCredentialReconnectRequired(projectId, existing.credentialId);
                 const id = replace === 'true' ? 'replacement-account' : 'original-account';
                 const credential = await credentials.createPublisherCredential({projectId, connectedByActorId:actor.id, providerId:'linkedin',externalAccountId:id,externalAccountName:id,scopes:['w_member_social'],accessToken:'synthetic-never-dispatched'});
                 if (credential.kind !== 'created') throw new Error(credential.kind);
-                const connected = store.createPublisherConnection({projectId,channelId,subjectId:actor.subjectId,kind:'linkedin',credentialId:credential.credential.id,destination:{type:'member',id,name:replace==='true'?'Replacement destination':'Original destination'}, ...(existing ? {replaceNonActiveConnection:{id:existing.id,state:'reconnect_required'}} : {})});
+                const connected = await store.createPublisherConnection({projectId,channelId,subjectId:actor.subjectId,kind:'linkedin',credentialId:credential.credential.id,destination:{type:'member',id,name:replace==='true'?'Replacement destination':'Original destination'}, ...(existing ? {replaceNonActiveConnection:{id:existing.id,state:'reconnect_required'}} : {})});
                 if (connected.kind !== 'created') throw new Error(connected.kind);
             } finally {closeDatabase(db)}
         `,

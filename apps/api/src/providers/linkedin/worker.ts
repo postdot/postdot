@@ -129,7 +129,7 @@ async function executeLinkedInPublication(input: {
                     context.credential.expiresAt <= context.now()
                 ) {
                     if (refreshToken === null || oauth === undefined) {
-                        context.markReconnectRequired()
+                        await context.markReconnectRequired()
                         return {
                             kind: 'failed',
                             outcome: permanentFailure(
@@ -165,7 +165,7 @@ async function executeLinkedInPublication(input: {
                     accessToken = refreshed.accessToken
                 }
             } catch {
-                if (!execution.signal?.aborted) context.markReconnectRequired()
+                if (!execution.signal?.aborted) await context.markReconnectRequired()
                 return {
                     kind: 'failed',
                     outcome: permanentFailure('The publisher credential could not be refreshed'),
@@ -224,7 +224,7 @@ async function executeLinkedInPublication(input: {
         'code' in outcome &&
         (outcome.code === 'authentication_required' || outcome.code === 'forbidden')
     ) {
-        prepared.markReconnectRequired()
+        await prepared.markReconnectRequired()
     }
     return outcome
 }
@@ -305,7 +305,7 @@ async function prepareLinkedInImage(
     if (input.media === undefined) {
         return permanentFailure('Media lifecycle service is required for LinkedIn image posts')
     }
-    const delivery = input.providerMediaDeliveryStore.reserve({
+    const delivery = await input.providerMediaDeliveryStore.reserve({
         projectId: input.target.projectId,
         executionMediaId: targetMedia.id,
         publisherId: input.target.publisherId,
@@ -320,7 +320,7 @@ async function prepareLinkedInImage(
 
     let current = delivery
     if (current.state === 'failed') {
-        const retried = input.providerMediaDeliveryStore.retry({
+        const retried = await input.providerMediaDeliveryStore.retry({
             projectId: input.target.projectId,
             deliveryId: current.id,
             at: input.now,
@@ -334,7 +334,7 @@ async function prepareLinkedInImage(
     }
 
     if (current.state === 'uploading' && current.remoteMediaId !== null) {
-        const completed = input.providerMediaDeliveryStore.complete({
+        const completed = await input.providerMediaDeliveryStore.complete({
             projectId: input.target.projectId,
             deliveryId: current.id,
             remoteMediaId: current.remoteMediaId,
@@ -356,7 +356,7 @@ async function prepareLinkedInImage(
         )
     }
 
-    const started = input.providerMediaDeliveryStore.start({
+    const started = await input.providerMediaDeliveryStore.start({
         projectId: input.target.projectId,
         deliveryId: current.id,
         at: input.now,
@@ -378,7 +378,7 @@ async function prepareLinkedInImage(
         )
     }
     if (opened === null) {
-        const failed = input.providerMediaDeliveryStore.fail({
+        const failed = await input.providerMediaDeliveryStore.fail({
             projectId: input.target.projectId,
             deliveryId: started.id,
             errorCode: 'media_unavailable',
@@ -413,14 +413,14 @@ async function prepareLinkedInImage(
     }
     if (upload.type !== 'uploaded') {
         if (upload.type === 'ambiguous' && upload.remoteMediaId !== undefined) {
-            input.providerMediaDeliveryStore.recordRemoteMediaId({
+            await input.providerMediaDeliveryStore.recordRemoteMediaId({
                 projectId: input.target.projectId,
                 deliveryId: started.id,
                 remoteMediaId: upload.remoteMediaId,
                 at: input.now,
             })
         }
-        const failed = input.providerMediaDeliveryStore.fail({
+        const failed = await input.providerMediaDeliveryStore.fail({
             projectId: input.target.projectId,
             deliveryId: started.id,
             errorCode: upload.code,
@@ -433,7 +433,7 @@ async function prepareLinkedInImage(
             : upload
     }
 
-    const checkpoint = input.providerMediaDeliveryStore.recordRemoteMediaId({
+    const checkpoint = await input.providerMediaDeliveryStore.recordRemoteMediaId({
         projectId: input.target.projectId,
         deliveryId: started.id,
         remoteMediaId: upload.remoteMediaId,
@@ -442,7 +442,7 @@ async function prepareLinkedInImage(
     if (checkpoint === null || checkpoint.remoteMediaId !== upload.remoteMediaId) {
         return ambiguousFailure('The LinkedIn image provider identifier could not be persisted')
     }
-    const completed = input.providerMediaDeliveryStore.complete({
+    const completed = await input.providerMediaDeliveryStore.complete({
         projectId: input.target.projectId,
         deliveryId: started.id,
         remoteMediaId: upload.remoteMediaId,
@@ -472,15 +472,15 @@ function toLinkedInDestination(
     return { type: value.type, id }
 }
 
-function failLinkedInImageDelivery(
+async function failLinkedInImageDelivery(
     input: LinkedInImageExecutionInput,
     deliveryId: string,
     errorCode: string,
     errorMessage: string,
     ambiguous: boolean
-): ExternalEffectOutcome {
+): Promise<ExternalEffectOutcome> {
     try {
-        const failed = input.providerMediaDeliveryStore.fail({
+        const failed = await input.providerMediaDeliveryStore.fail({
             projectId: input.target.projectId,
             deliveryId,
             errorCode,

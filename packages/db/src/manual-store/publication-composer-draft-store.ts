@@ -1,6 +1,6 @@
 import { DomainInvariantError, requireNonBlank, type Timestamp } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type PostdotDatabase } from '../client'
 import { canonicalJson, parseJsonObject } from './content-codec'
 import type { ActorRow } from './rows'
 
@@ -43,15 +43,15 @@ interface PublicationComposerDraftRow {
 export interface PublicationComposerDraftStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
 }
 
 export function createPublicationComposerDraftStore(
     database: PostdotDatabase,
     options: PublicationComposerDraftStoreOptions
 ) {
-    const client = database.$client
-    const loadDraftStatement = client.query<
+    const sql = database.sql
+    const loadDraftStatement = sql.statement<
         PublicationComposerDraftRow,
         [projectId: string, ownerActorId: string]
     >(`
@@ -66,7 +66,7 @@ export function createPublicationComposerDraftStore(
         where project_id = ?1
           and owner_actor_id = ?2
     `)
-    const insertDraftStatement = client.query<
+    const insertDraftStatement = sql.statement<
         { changes: number },
         [id: string, projectId: string, ownerActorId: string, contentJson: string, now: number]
     >(`
@@ -80,7 +80,7 @@ export function createPublicationComposerDraftStore(
             updated_at
         ) values (?1, ?2, ?3, ?4, 1, ?5, ?5)
     `)
-    const updateDraftStatement = client.query<
+    const updateDraftStatement = sql.statement<
         { changes: number },
         [
             contentJson: string,
@@ -98,7 +98,7 @@ export function createPublicationComposerDraftStore(
           and owner_actor_id = ?4
           and revision = ?5
     `)
-    const deleteDraftStatement = client.query<
+    const deleteDraftStatement = sql.statement<
         { changes: number },
         [projectId: string, ownerActorId: string]
     >(`
@@ -107,10 +107,12 @@ export function createPublicationComposerDraftStore(
           and owner_actor_id = ?2
     `)
 
-    const saveDraftTransaction = createDatabaseTransaction(
+    const saveDraftTransaction = defineTransaction(
         database,
-        (input: SavePublicationComposerDraftInput): PublicationComposerDraft | null => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
+        async (
+            input: SavePublicationComposerDraftInput
+        ): Promise<PublicationComposerDraft | null> => {
+            const actor = await options.loadActor(input.projectId, input.subjectId)
             if (actor === null) return null
             if (!hasComposerContent(input.content)) {
                 throw new DomainInvariantError(
@@ -120,7 +122,7 @@ export function createPublicationComposerDraftStore(
             }
 
             const contentJson = canonicalJson(input.content)
-            const current = loadDraftStatement.get(input.projectId, actor.id)
+            const current = await loadDraftStatement.get(input.projectId, actor.id)
             const timestamp = options.now()
 
             if (input.expectedDraftId !== undefined && input.expectedDraftId !== current?.id) {
@@ -136,7 +138,7 @@ export function createPublicationComposerDraftStore(
                         'The composer draft was created in another session'
                     )
                 }
-                const inserted = insertDraftStatement.run(
+                const inserted = await insertDraftStatement.run(
                     options.createId(),
                     input.projectId,
                     actor.id,
@@ -158,7 +160,7 @@ export function createPublicationComposerDraftStore(
                 }
                 if (current.contentJson === contentJson) return toPublicationComposerDraft(current)
 
-                const updated = updateDraftStatement.run(
+                const updated = await updateDraftStatement.run(
                     contentJson,
                     timestamp,
                     input.projectId,
@@ -173,7 +175,7 @@ export function createPublicationComposerDraftStore(
                 }
             }
 
-            const saved = loadDraftStatement.get(input.projectId, actor.id)
+            const saved = await loadDraftStatement.get(input.projectId, actor.id)
             if (saved === null) {
                 throw new DomainInvariantError('invalid_input', 'Composer draft disappeared')
             }
@@ -181,12 +183,12 @@ export function createPublicationComposerDraftStore(
         }
     )
 
-    const deleteDraftTransaction = createDatabaseTransaction(
+    const deleteDraftTransaction = defineTransaction(
         database,
-        (input: DeletePublicationComposerDraftInput): boolean => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
+        async (input: DeletePublicationComposerDraftInput): Promise<boolean> => {
+            const actor = await options.loadActor(input.projectId, input.subjectId)
             if (actor === null) return false
-            const current = loadDraftStatement.get(input.projectId, actor.id)
+            const current = await loadDraftStatement.get(input.projectId, actor.id)
             if (
                 (input.expectedRevision !== undefined &&
                     input.expectedRevision !== current?.revision) ||
@@ -197,19 +199,21 @@ export function createPublicationComposerDraftStore(
                     'The composer draft changed before it could be discarded'
                 )
             }
-            return deleteDraftStatement.run(input.projectId, actor.id).changes === 1
+            return (await deleteDraftStatement.run(input.projectId, actor.id)).changes === 1
         }
     )
 
     return {
-        getPublicationComposerDraft(projectId: string, subjectId: string) {
-            const actor = options.loadActor(
-                requireNonBlank(projectId, 'projectId'),
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
-            const row = loadDraftStatement.get(projectId, actor.id)
-            return row === null ? null : toPublicationComposerDraft(row)
+        async getPublicationComposerDraft(projectId: string, subjectId: string) {
+            return database.sql.transaction(async () => {
+                const actor = await options.loadActor(
+                    requireNonBlank(projectId, 'projectId'),
+                    requireNonBlank(subjectId, 'subjectId')
+                )
+                if (actor === null) return null
+                const row = await loadDraftStatement.get(projectId, actor.id)
+                return row === null ? null : toPublicationComposerDraft(row)
+            }, 'deferred')
         },
 
         savePublicationComposerDraft(input: SavePublicationComposerDraftInput) {

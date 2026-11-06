@@ -72,7 +72,7 @@ export function createLinkedInRuntime({
         if (applicationId !== undefined && applicationId !== null) {
             return undefined
         }
-        if (providerApplicationStore.hasProviderApplication('linkedin')) return undefined
+        if (await providerApplicationStore.hasProviderApplication('linkedin')) return undefined
         if (linkedin === undefined) return undefined
         return { applicationId: null, ...linkedin }
     }

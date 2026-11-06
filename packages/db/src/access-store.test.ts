@@ -4,7 +4,7 @@ import { closeDatabase, createAccessStore, createDatabase, runMigrations } from 
 import { createManualStore } from './manual-store'
 
 describe('instance access store', () => {
-    it('claims a fresh instance once and gives the first user the admin role', () => {
+    it('claims a fresh instance once and gives the first user the admin role', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -17,21 +17,21 @@ describe('instance access store', () => {
                 .run()
 
             const access = createAccessStore(database)
-            expect(access.getInstanceState()).toMatchObject({
+            expect(await access.getInstanceState()).toMatchObject({
                 state: 'claimable',
                 bootstrapBlocked: false,
             })
 
-            const claimed = access.claimFirstAccount({ userId: 'user-1' })
+            const claimed = await access.claimFirstAccount({ userId: 'user-1' })
             expect(claimed.kind).toBe('claimed')
-            expect(access.isInstanceAdmin('user-1')).toBe(true)
-            const workspace = access.getDefaultWorkspace()
+            expect(await access.isInstanceAdmin('user-1')).toBe(true)
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).toMatchObject({
                 name: 'My workspace',
                 isDefault: true,
             })
             expect(workspace?.organizationId).toBeString()
-            expect(access.getDefaultWorkspaceForUser('user-1')?.id).toBe(workspace?.id)
+            expect((await access.getDefaultWorkspaceForUser('user-1'))?.id).toBe(workspace?.id)
             expect(
                 database.$client
                     .query<{ readonly count: number }, [string]>(
@@ -39,7 +39,7 @@ describe('instance access store', () => {
                     )
                     .get(workspace?.organizationId ?? '')
             ).toEqual({ count: 4 })
-            expect(access.claimFirstAccount({ userId: 'user-1' })).toEqual({
+            expect(await access.claimFirstAccount({ userId: 'user-1' })).toEqual({
                 kind: 'already_claimed',
             })
         } finally {
@@ -47,7 +47,7 @@ describe('instance access store', () => {
         }
     })
 
-    it('does not claim a database explicitly marked for orphan recovery', () => {
+    it('does not claim a database explicitly marked for orphan recovery', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -57,12 +57,12 @@ describe('instance access store', () => {
                 .run()
 
             const access = createAccessStore(database)
-            expect(access.getInstanceState()).toMatchObject({
+            expect(await access.getInstanceState()).toMatchObject({
                 state: 'claimable',
                 bootstrapBlocked: true,
             })
-            expect(access.isSignupAllowed()).toBe(false)
-            expect(access.claimFirstAccount({ userId: 'recovery-user' })).toEqual({
+            expect(await access.isSignupAllowed()).toBe(false)
+            expect(await access.claimFirstAccount({ userId: 'recovery-user' })).toEqual({
                 kind: 'already_claimed',
             })
         } finally {
@@ -70,7 +70,7 @@ describe('instance access store', () => {
         }
     })
 
-    it('creates owner memberships and evaluates direct grants through the workspace boundary', () => {
+    it('creates owner memberships and evaluates direct grants through the workspace boundary', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -85,8 +85,8 @@ describe('instance access store', () => {
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
-            access.claimFirstAccount({ userId: 'owner' })
-            const workspace = access.getDefaultWorkspace()
+            await access.claimFirstAccount({ userId: 'owner' })
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
             database.$client
@@ -105,15 +105,15 @@ describe('instance access store', () => {
                 .run(workspace.organizationId)
 
             const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const created = manualStore.createProject({
+            const created = await manualStore.createProject({
                 name: 'Access project',
                 subjectId: 'owner',
                 displayName: 'Project Owner',
                 workspaceId: workspace.id,
             })
 
-            expect(access.getProjectMembership(created.project.id, 'owner')).toBeNull()
-            const ownerMembership = access.ensureProjectOwnerMembership({
+            expect(await access.getProjectMembership(created.project.id, 'owner')).toBeNull()
+            const ownerMembership = await access.ensureProjectOwnerMembership({
                 projectId: created.project.id,
                 userId: 'owner',
             })
@@ -123,41 +123,66 @@ describe('instance access store', () => {
                 role: 'owner',
                 state: 'active',
             })
-            expect(access.canAccessProject(created.project.id, 'owner', 'editor')).toBe(true)
+            expect(await access.canAccessProject(created.project.id, 'owner', 'editor')).toBe(true)
             expect(
-                access.ensureProjectOwnerMembership({
+                await access.ensureProjectOwnerMembership({
                     projectId: created.project.id,
                     userId: 'owner',
                 })
             ).toMatchObject({ id: ownerMembership?.id, role: 'owner' })
 
-            expect(
+            database.$client.exec(`
+                create trigger reject_access_actor before insert on actors
+                when new.subject_id = 'member'
+                begin select raise(abort, 'actor insert failed'); end;
+            `)
+            await expect(
                 access.grantProjectUserAccess({
                     projectId: created.project.id,
                     userId: 'member',
                     role: 'viewer',
                 })
-            ).toMatchObject({ role: 'viewer' })
-            expect(access.canAccessProject(created.project.id, 'member', 'viewer')).toBe(true)
-            expect(access.canAccessProject(created.project.id, 'member', 'editor')).toBe(false)
-            expect(access.canAccessProject(created.project.id, 'outsider', 'viewer')).toBe(false)
+            ).rejects.toThrow('actor insert failed')
+            expect(
+                (await access.listProjectUserGrants(created.project.id)).some(
+                    grant => grant.userId === 'member'
+                )
+            ).toBe(false)
+            database.$client.exec('drop trigger reject_access_actor')
 
-            access.grantProjectUserAccess({
+            expect(
+                await access.grantProjectUserAccess({
+                    projectId: created.project.id,
+                    userId: 'member',
+                    role: 'viewer',
+                })
+            ).toMatchObject({ role: 'viewer' })
+            expect(await access.canAccessProject(created.project.id, 'member', 'viewer')).toBe(true)
+            expect(await access.canAccessProject(created.project.id, 'member', 'editor')).toBe(
+                false
+            )
+            expect(await access.canAccessProject(created.project.id, 'outsider', 'viewer')).toBe(
+                false
+            )
+
+            await access.grantProjectUserAccess({
                 projectId: created.project.id,
                 userId: 'member',
                 role: 'editor',
             })
-            expect(access.canAccessProject(created.project.id, 'member', 'editor')).toBe(true)
+            expect(await access.canAccessProject(created.project.id, 'member', 'editor')).toBe(true)
 
             database.$client
                 .query(
                     `update instance_memberships set state = 'disabled' where user_id = 'member'`
                 )
                 .run()
-            expect(access.getProjectMembership(created.project.id, 'member')).toBeNull()
-            expect(access.canAccessProject(created.project.id, 'member', 'viewer')).toBe(false)
+            expect(await access.getProjectMembership(created.project.id, 'member')).toBeNull()
+            expect(await access.canAccessProject(created.project.id, 'member', 'viewer')).toBe(
+                false
+            )
             expect(
-                access.ensureProjectOwnerMembership({
+                await access.ensureProjectOwnerMembership({
                     projectId: created.project.id,
                     userId: 'member',
                 })
@@ -167,7 +192,7 @@ describe('instance access store', () => {
         }
     })
 
-    it('does not treat workspace membership as project access without a Postdot grant', () => {
+    it('does not treat workspace membership as project access without a Postdot grant', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -181,8 +206,8 @@ describe('instance access store', () => {
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
-            access.claimFirstAccount({ userId: 'organization-owner' })
-            const workspace = access.getDefaultWorkspace()
+            await access.claimFirstAccount({ userId: 'organization-owner' })
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
             database.$client.exec(`
@@ -199,42 +224,48 @@ describe('instance access store', () => {
                 .run(workspace.organizationId)
 
             const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const created = manualStore.createProject({
+            const created = await manualStore.createProject({
                 name: 'Organization project',
                 subjectId: 'organization-owner',
                 displayName: 'Organization Owner',
                 workspaceId: workspace.id,
             })
-            access.ensureProjectOwnerMembership({
+            await access.ensureProjectOwnerMembership({
                 projectId: created.project.id,
                 userId: 'organization-owner',
             })
             expect(
-                access.getProjectMembership(created.project.id, 'organization-member')
+                await access.getProjectMembership(created.project.id, 'organization-member')
             ).toBeNull()
-            expect(access.canAccessProject(created.project.id, 'organization-member')).toBe(false)
+            expect(await access.canAccessProject(created.project.id, 'organization-member')).toBe(
+                false
+            )
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: created.project.id,
                     userId: 'organization-member',
                     role: 'viewer',
                 })
             ).toMatchObject({ role: 'viewer' })
-            expect(access.canAccessProject(created.project.id, 'organization-member')).toBe(true)
-            expect(access.removeProjectUserAccess(created.project.id, 'organization-member')).toBe(
+            expect(await access.canAccessProject(created.project.id, 'organization-member')).toBe(
                 true
             )
             expect(
-                access.getProjectMembership(created.project.id, 'organization-member')
+                await access.removeProjectUserAccess(created.project.id, 'organization-member')
+            ).toBe(true)
+            expect(
+                await access.getProjectMembership(created.project.id, 'organization-member')
             ).toBeNull()
-            expect(access.canAccessProject(created.project.id, 'organization-member')).toBe(false)
-            expect(access.listProjectMemberships(created.project.id)).toHaveLength(1)
+            expect(await access.canAccessProject(created.project.id, 'organization-member')).toBe(
+                false
+            )
+            expect(await access.listProjectMemberships(created.project.id)).toHaveLength(1)
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('keeps project grants separate from workspace membership and resolves team access', () => {
+    it('keeps project grants separate from workspace membership and resolves team access', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -250,8 +281,8 @@ describe('instance access store', () => {
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
-            access.claimFirstAccount({ userId: 'grant-owner' })
-            const workspace = access.getDefaultWorkspace()
+            await access.claimFirstAccount({ userId: 'grant-owner' })
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
@@ -272,58 +303,68 @@ describe('instance access store', () => {
             `)
 
             const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
-            const created = manualStore.createProject({
+            const created = await manualStore.createProject({
                 name: 'Grant project',
                 subjectId: 'grant-owner',
                 displayName: 'Grant Owner',
                 workspaceId: workspace.id,
             })
-            access.ensureProjectOwnerMembership({
+            await access.ensureProjectOwnerMembership({
                 projectId: created.project.id,
                 userId: 'grant-owner',
             })
 
-            expect(access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
-            const teamGrant = access.grantProjectTeamAccess({
+            expect(await access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
+            const teamGrant = await access.grantProjectTeamAccess({
                 projectId: created.project.id,
                 teamId: `postdot-workspace-team:${workspace.id}:editors`,
                 role: 'editor',
             })
             expect(teamGrant).toMatchObject({ role: 'editor', teamName: 'Editors' })
-            expect(access.getProjectMembership(created.project.id, 'grant-member')).toMatchObject({
+            expect(
+                await access.getProjectMembership(created.project.id, 'grant-member')
+            ).toMatchObject({
                 role: 'editor',
             })
-            expect(access.canAccessProject(created.project.id, 'grant-member', 'editor')).toBe(true)
+            expect(
+                await access.canAccessProject(created.project.id, 'grant-member', 'editor')
+            ).toBe(true)
 
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: created.project.id,
                     userId: 'grant-member',
                     role: 'viewer',
                 })
             ).toMatchObject({ role: 'viewer' })
             // The effective role is the highest role across direct and team grants.
-            expect(access.getProjectMembership(created.project.id, 'grant-member')).toMatchObject({
+            expect(
+                await access.getProjectMembership(created.project.id, 'grant-member')
+            ).toMatchObject({
                 role: 'editor',
             })
 
             expect(
-                access.removeProjectTeamAccess(
+                await access.removeProjectTeamAccess(
                     created.project.id,
                     `postdot-workspace-team:${workspace.id}:editors`
                 )
             ).toBe(true)
-            expect(access.getProjectMembership(created.project.id, 'grant-member')).toMatchObject({
+            expect(
+                await access.getProjectMembership(created.project.id, 'grant-member')
+            ).toMatchObject({
                 role: 'viewer',
             })
-            expect(access.removeProjectUserAccess(created.project.id, 'grant-member')).toBe(true)
-            expect(access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
+            expect(await access.removeProjectUserAccess(created.project.id, 'grant-member')).toBe(
+                true
+            )
+            expect(await access.canAccessProject(created.project.id, 'grant-member')).toBe(false)
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('lists safe member identity fields and makes role/state updates safe and idempotent', () => {
+    it('lists safe member identity fields and makes role/state updates safe and idempotent', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -337,7 +378,7 @@ describe('instance access store', () => {
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
-            access.claimFirstAccount({ userId: 'admin' })
+            await access.claimFirstAccount({ userId: 'admin' })
             database.$client.exec(`
                 insert into instance_memberships
                     (id, user_id, role, state, created_at, updated_at)
@@ -346,7 +387,7 @@ describe('instance access store', () => {
                     ('instance-membership:admin-2', 'admin-2', 'admin', 'enabled', 3, 3)
             `)
 
-            expect(access.listInstanceMemberships()).toEqual([
+            expect(await access.listInstanceMemberships()).toEqual([
                 expect.objectContaining({
                     userId: 'member',
                     email: 'member@postdot.local',
@@ -370,7 +411,7 @@ describe('instance access store', () => {
                 }),
             ])
 
-            const promoted = access.updateInstanceMembership({
+            const promoted = await access.updateInstanceMembership({
                 actorUserId: 'admin',
                 userId: 'member',
                 role: 'admin',
@@ -381,7 +422,7 @@ describe('instance access store', () => {
             })
 
             expect(
-                access.updateInstanceMembership({
+                await access.updateInstanceMembership({
                     actorUserId: 'admin',
                     userId: 'member',
                     role: 'admin',
@@ -389,18 +430,18 @@ describe('instance access store', () => {
             ).toEqual(promoted)
 
             expect(
-                access.updateInstanceMembership({
+                await access.updateInstanceMembership({
                     actorUserId: 'admin',
                     userId: 'admin',
                     role: 'member',
                 })
             ).toEqual({ kind: 'self_update' })
-            expect(access.getInstanceMembership('admin')).toMatchObject({
+            expect(await access.getInstanceMembership('admin')).toMatchObject({
                 role: 'admin',
                 state: 'enabled',
             })
 
-            const disabled = access.updateInstanceMembership({
+            const disabled = await access.updateInstanceMembership({
                 actorUserId: 'admin',
                 userId: 'member',
                 state: 'disabled',
@@ -410,7 +451,7 @@ describe('instance access store', () => {
                 membership: { userId: 'member', role: 'admin', state: 'disabled' },
             })
             expect(
-                access.updateInstanceMembership({
+                await access.updateInstanceMembership({
                     actorUserId: 'admin',
                     userId: 'member',
                     state: 'disabled',
@@ -418,7 +459,7 @@ describe('instance access store', () => {
             ).toEqual(disabled)
 
             expect(
-                access.updateInstanceMembership({
+                await access.updateInstanceMembership({
                     actorUserId: 'admin',
                     userId: 'admin-2',
                     role: 'member',
@@ -429,7 +470,7 @@ describe('instance access store', () => {
             })
 
             expect(
-                access.updateInstanceMembership({
+                await access.updateInstanceMembership({
                     actorUserId: 'admin-2',
                     userId: 'admin',
                     role: 'member',

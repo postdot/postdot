@@ -28,8 +28,8 @@ export function registerAnalyticsRoutes<const Routes extends Record<string, unkn
                 tags: ['Analytics'],
             },
         },
-        ({ params, query, status, user }) => {
-            const result = analytics.getProjectAnalytics({
+        async ({ params, query, status, user }) => {
+            const result = await analytics.getProjectAnalytics({
                 projectId: params.projectId,
                 subjectId: user.id,
                 from: query.from,

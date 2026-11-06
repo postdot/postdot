@@ -20,16 +20,16 @@ interface CommentIdentity {
 
 export function createPublicationCommentStore(database: PostdotDatabase) {
     const access = createAccessStore(database)
-    const publication = database.$client.query<
+    const publication = database.sql.statement<
         { id: string },
         [string, string, string, string | null]
     >(
         "select id from publications where project_id = ?1 and id = ?2 and external_id = ?3 and (?4 is null or external_url = ?4) and state = 'published'"
     )
-    const read = database.$client.query<PublicationCommentRecord, [string, string, string]>(
+    const read = database.sql.statement<PublicationCommentRecord, [string, string, string]>(
         'select snapshot_json as snapshotJson, last_attempt_at as lastAttemptAt, last_error as lastError from publication_comment_snapshots where project_id = ?1 and publication_id = ?2 and root_uri = ?3'
     )
-    const save = database.$client.query<
+    const save = database.sql.statement<
         never,
         [string, string, string, string | null, number, string | null]
     >(`
@@ -42,35 +42,39 @@ export function createPublicationCommentStore(database: PostdotDatabase) {
             last_error = excluded.last_error
         where last_attempt_at <= excluded.last_attempt_at
     `)
-    function eligible(input: CommentIdentity, role: 'viewer' | 'editor') {
+    async function eligible(input: CommentIdentity, role: 'viewer' | 'editor') {
         requireNonBlank(input.rootUri, 'comment root URI')
         return (
-            access.canAccessProject(input.projectId, input.subjectId, role) &&
-            publication.get(
+            (await access.canAccessProject(input.projectId, input.subjectId, role)) &&
+            (await publication.get(
                 input.projectId,
                 input.publicationId,
                 input.externalId,
                 input.externalUrl ?? null
-            ) !== null
+            )) !== null
         )
     }
     return {
-        read(input: CommentIdentity): PublicationCommentRecord | null | undefined {
-            if (!eligible(input, 'viewer')) return undefined
-            return read.get(input.projectId, input.publicationId, input.rootUri)
+        async read(input: CommentIdentity): Promise<PublicationCommentRecord | null | undefined> {
+            return database.sql.transaction(async () => {
+                if (!(await eligible(input, 'viewer'))) return undefined
+                return await read.get(input.projectId, input.publicationId, input.rootUri)
+            }, 'deferred')
         },
-        saveAttempt(input: CommentIdentity & PublicationCommentRecord): boolean {
-            requireTimestamp(input.lastAttemptAt, 'comment refresh timestamp')
-            if (!eligible(input, 'editor')) return false
-            save.run(
-                input.projectId,
-                input.publicationId,
-                input.rootUri,
-                input.snapshotJson,
-                input.lastAttemptAt,
-                input.lastError
-            )
-            return true
+        async saveAttempt(input: CommentIdentity & PublicationCommentRecord): Promise<boolean> {
+            return database.sql.transaction(async () => {
+                requireTimestamp(input.lastAttemptAt, 'comment refresh timestamp')
+                if (!(await eligible(input, 'editor'))) return false
+                await save.run(
+                    input.projectId,
+                    input.publicationId,
+                    input.rootUri,
+                    input.snapshotJson,
+                    input.lastAttemptAt,
+                    input.lastError
+                )
+                return true
+            }, 'immediate')
         },
     }
 }

@@ -61,18 +61,18 @@ async function fixture(
         now,
     })
     const channels = createManualStore(database, { now })
-    const project = channels.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await channels.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Test',
         subjectId: 'owner',
         displayName: 'Owner',
     })
-    const channel = channels.createChannel({
+    const channel = (await channels.createChannel({
         projectId: project.project.id,
         subjectId: 'owner',
         name: 'Instagram',
         profile: instagramChannelProfile,
-    })!
+    }))!
     const cipher = createPublisherCredentialCipher({ keyId: 'test', key })
     const attempts = createAuthorizationAttemptStore(database, {
         cipher,
@@ -147,8 +147,8 @@ async function fixture(
             credentials,
             publishers,
             channels,
-            access: { canAccessProject: () => editor },
-            canManageChannel: () => manager,
+            access: { canAccessProject: async () => editor },
+            canManageChannel: async () => manager,
             oauth,
             applicationId: issuingApplicationId,
             applicationAvailable: async () => {
@@ -220,7 +220,7 @@ async function connectAnotherAccount(
     f: Awaited<ReturnType<typeof fixture>>,
     input: { readonly accountId: string; readonly reconnectable?: boolean }
 ) {
-    const actorId = f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
+    const actorId = await f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
     if (!actorId) throw new Error('no actor')
     const saved = await f.credentials.createPublisherCredential({
         projectId: f.binding.projectId,
@@ -235,7 +235,7 @@ async function connectAnotherAccount(
         expiresAt: null,
     })
     if (saved.kind !== 'created') throw new Error('credential was not created')
-    const connected = f.publishers.createPublisherConnection({
+    const connected = await f.publishers.createPublisherConnection({
         projectId: f.binding.projectId,
         channelId: f.binding.channelId,
         subjectId: f.binding.subjectId,
@@ -245,7 +245,7 @@ async function connectAnotherAccount(
     })
     if (connected.kind !== 'created') throw new Error('connection was not created')
     if (input.reconnectable === true) {
-        f.credentials.markPublisherCredentialReconnectRequired(
+        await f.credentials.markPublisherCredentialReconnectRequired(
             f.binding.projectId,
             saved.credential.id
         )
@@ -265,7 +265,7 @@ test('the callback connects the professional account under its issuing applicati
         })
         expect(result.connection.externalAccountId).toBe(professionalAccountId)
         expect(JSON.stringify(result)).not.toContain(accessToken)
-        const stored = f.storedCredentials()
+        const stored = await f.storedCredentials()
         expect(stored).toHaveLength(1)
         expect(stored[0]!.externalAccountId).toBe(professionalAccountId)
         expect(stored[0]!.providerApplicationId).toBe(f.application.id)
@@ -323,8 +323,8 @@ test('an expired attempt is refused before the provider code is exchanged', asyn
             code: 'invalid_attempt',
         })
         expect(f.exchanges).toBe(0)
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -335,27 +335,27 @@ test('a callback bound to another channel, project, actor or application is refu
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         const parameters = f.callback(url)
-        const other = f.channels.createChannel({
+        const other = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Other',
             profile: instagramChannelProfile,
-        })!
+        }))!
         await expect(
             f.flow.complete({ ...f.binding, channelId: other.id }, parameters)
         ).rejects.toMatchObject({ code: 'invalid_attempt' })
-        const project = f.channels.createProject({
-            workspaceId: seedTestWorkspace(f.database),
+        const project = await f.channels.createProject({
+            workspaceId: await seedTestWorkspace(f.database),
             name: 'Other project',
             subjectId: 'owner',
             displayName: 'Owner',
         })
-        const channel = f.channels.createChannel({
+        const channel = (await f.channels.createChannel({
             projectId: project.project.id,
             subjectId: 'owner',
             name: 'Instagram',
             profile: instagramChannelProfile,
-        })!
+        }))!
         await expect(
             f.flow.complete(
                 { ...f.binding, projectId: project.project.id, channelId: channel.id },
@@ -390,8 +390,8 @@ test('losing editor access while the provider exchange runs stores no connection
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'forbidden',
         })
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -411,8 +411,8 @@ test('a disabled issuing application stops the connection after the provider exc
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -426,7 +426,7 @@ test('a connection made while the provider exchange runs is not overwritten', as
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'conflict',
         })
-        expect(f.connection()?.destination?.id).toBe('555000111')
+        expect((await f.connection())?.destination?.id).toBe('555000111')
     } finally {
         closeDatabase(f.database)
     }
@@ -442,8 +442,8 @@ test('a connection made after the authorization started is reported instead of r
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'conflict',
         })
-        expect(f.connection()?.destination?.id).toBe('555000111')
-        const stored = f.storedCredentials()
+        expect((await f.connection())?.destination?.id).toBe('555000111')
+        const stored = await f.storedCredentials()
         expect(stored).toHaveLength(2)
         expect(
             stored.find(credential => credential.externalAccountId === professionalAccountId)!.state
@@ -458,14 +458,17 @@ test('a reconnectable connection is replaced by the identity pinned at the start
     try {
         const first = await f.flow.start(f.binding, '/dashboard/channels')
         await f.flow.complete(f.binding, f.callback(first.url))
-        const credential = f.storedCredentials()[0]!
-        f.credentials.markPublisherCredentialReconnectRequired(f.binding.projectId, credential.id)
-        expect(f.connection()?.state).toBe('reconnect_required')
+        const credential = (await f.storedCredentials())[0]!
+        await f.credentials.markPublisherCredentialReconnectRequired(
+            f.binding.projectId,
+            credential.id
+        )
+        expect((await f.connection())?.state).toBe('reconnect_required')
         const second = await f.flow.start(f.binding, '/dashboard/channels')
         const result = await f.flow.complete(f.binding, f.callback(second.url))
         expect(result.connection.state).toBe('active')
-        expect(f.storedCredentials()).toHaveLength(1)
-        expect(f.storedCredentials()[0]!.state).toBe('active')
+        expect(await f.storedCredentials()).toHaveLength(1)
+        expect((await f.storedCredentials())[0]!.state).toBe('active')
     } finally {
         closeDatabase(f.database)
     }
@@ -485,7 +488,7 @@ test('two concurrent authorizations keep a single connection', async () => {
         expect(f.database.$client.query('select * from publisher_connections').all()).toHaveLength(
             1
         )
-        expect(f.storedCredentials()).toHaveLength(1)
+        expect(await f.storedCredentials()).toHaveLength(1)
     } finally {
         closeDatabase(f.database)
     }
@@ -499,8 +502,8 @@ test('an unknown provider lifetime is refused instead of being replaced by a def
             await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
                 code: 'provider_unavailable',
             })
-            expect(f.storedCredentials()).toHaveLength(0)
-            expect(f.connection()).toBeNull()
+            expect(await f.storedCredentials()).toHaveLength(0)
+            expect(await f.connection()).toBeNull()
         } finally {
             closeDatabase(f.database)
         }
@@ -514,8 +517,8 @@ test('a missing publishing scope is refused', async () => {
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'provider_unavailable',
         })
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -524,11 +527,11 @@ test('a missing publishing scope is refused', async () => {
 test('a manual channel cannot be connected through the Instagram flow', async () => {
     const f = await fixture()
     try {
-        const manual = f.channels.createChannel({
+        const manual = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Manual',
-        })!
+        }))!
         await expect(
             f.flow.start({ ...f.binding, channelId: manual.id }, '/dashboard/channels')
         ).rejects.toMatchObject({ code: 'conflict' })
@@ -546,8 +549,8 @@ test('editor access is rechecked after the asynchronous application lookup befor
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'forbidden',
         })
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -561,8 +564,8 @@ test('losing channel management during application lookup blocks credential pers
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
             code: 'forbidden',
         })
-        expect(f.storedCredentials()).toHaveLength(0)
-        expect(f.connection()).toBeNull()
+        expect(await f.storedCredentials()).toHaveLength(0)
+        expect(await f.connection()).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
@@ -573,8 +576,8 @@ test('stores a verified non-expiring Unified credential without inventing a dead
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await f.flow.complete(f.binding, f.callback(url))
-        expect(f.storedCredentials()[0]!.expiresAt).toBeNull()
-        expect(f.connection()).not.toBeNull()
+        expect((await f.storedCredentials())[0]!.expiresAt).toBeNull()
+        expect(await f.connection()).not.toBeNull()
     } finally {
         closeDatabase(f.database)
     }

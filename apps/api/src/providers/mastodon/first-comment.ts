@@ -17,7 +17,7 @@ export async function performMastodonFirstComment(input: {
     readonly publisher: PublisherRuntime
     readonly signal: AbortSignal
     readonly now: number
-    readonly stillEligible: () => boolean
+    readonly stillEligible: () => Promise<boolean>
     readonly onDispatch: () => void
 }): Promise<ExternalEffectOutcome> {
     const prepared = await prepareMastodonReplyAccount(input)
@@ -33,7 +33,7 @@ export async function performMastodonFirstComment(input: {
     })
     if (!context)
         return failed('The original Mastodon account or public parent is no longer available')
-    if (input.signal.aborted || !input.stillEligible())
+    if (input.signal.aborted || !(await input.stillEligible()))
         return failed('The first comment is no longer eligible for dispatch')
     input.onDispatch()
     return createMastodonPublisher({ baseUrl: origin, fetcher }).publishStatus({

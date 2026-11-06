@@ -9,24 +9,12 @@ import { SqliteSqlDatabase } from './sql/sqlite-adapter'
 export type DatabaseCommitObserver = (projectIds: readonly string[]) => void
 export type DatabaseCommitErrorHandler = (error: unknown) => void
 
-export type DatabaseTransaction<Args extends unknown[], Result> = {
-    (...args: Args): Result
-    deferred: (...args: Args) => Result
-    immediate: (...args: Args) => Result
-    exclusive: (...args: Args) => Result
-}
-
 interface CommitObserverRegistration {
     readonly observer: DatabaseCommitObserver
     readonly onError?: DatabaseCommitErrorHandler
 }
 
-interface TransactionState {
-    frames: Set<string>[]
-}
-
 const commitObservers = new WeakMap<object, CommitObserverRegistration>()
-const transactionStates = new WeakMap<object, TransactionState>()
 const asyncCommitProjects = new WeakMap<object, Set<string>>()
 
 export function createDatabase(filename: string) {
@@ -72,91 +60,27 @@ export function setDatabaseCommitObserver(
 /**
  * Records the project whose audit fact is being appended by the current
  * transaction. It is intentionally a no-op when no observer is installed so
- * database tests and maintenance commands keep the same behavior.
+ * database tests and maintenance commands keep the same behavior, and outside
+ * a transaction, as before: facts are always appended transactionally.
  */
 export function recordDatabaseCommitProject(database: PostdotDatabase, projectId: string): void {
+    const registration = commitObservers.get(database)
     const scope = database.sql.transactionScope()
-    if (scope !== undefined) {
-        const registration = commitObservers.get(database)
-        if (registration === undefined) return
-        let projects = asyncCommitProjects.get(scope)
-        if (projects === undefined) {
-            const recorded = new Set<string>()
-            projects = recorded
-            asyncCommitProjects.set(scope, recorded)
-            // Published once, after the outermost commit. A project recorded
-            // by a savepoint that later rolled back still produces a wakeup;
-            // wakeups are hints and readers re-read the durable journal.
-            database.sql.afterCommit(() => publishCommittedProjects(registration, [...recorded]))
-        }
-        projects.add(projectId)
-        return
+    if (registration === undefined || scope === undefined) return
+    let projects = asyncCommitProjects.get(scope)
+    if (projects === undefined) {
+        const recorded = new Set<string>()
+        projects = recorded
+        asyncCommitProjects.set(scope, recorded)
+        // Published once, after the outermost commit. A project recorded by a
+        // savepoint that later rolled back still produces a wakeup; wakeups
+        // are hints and readers re-read the durable journal.
+        database.sql.afterCommit(
+            () => publishCommittedProjects(registration, [...recorded]),
+            'transaction'
+        )
     }
-    const state = transactionStates.get(database)
-    state?.frames.at(-1)?.add(projectId)
-}
-
-/**
- * Wraps a Bun SQLite transaction and emits the affected project ids only
- * after Bun has successfully returned from the transaction (that is, after
- * SQLite committed it). The journal remains durable; the callback is only a
- * low-latency in-process wakeup.
- */
-export function createDatabaseTransaction<Args extends unknown[], Result>(
-    database: PostdotDatabase,
-    callback: (...args: Args) => Result
-): DatabaseTransaction<Args, Result> {
-    const legacy = database.$client.transaction(callback)
-    const sqlite = database.sql as SqliteSqlDatabase
-    const guard =
-        (operation: (...args: Args) => Result) =>
-        (...args: Args): Result => {
-            // Transitional (DB-609): a synchronous transaction must not start
-            // while an async transaction owns the shared connection.
-            if (sqlite.busy) {
-                throw new Error('Synchronous transaction attempted while the SQLite writer is busy')
-            }
-            return operation(...args)
-        }
-    const transaction = Object.assign(guard(legacy), {
-        deferred: guard(legacy.deferred),
-        immediate: guard(legacy.immediate),
-        exclusive: guard(legacy.exclusive),
-    })
-
-    const execute = (operation: (...args: Args) => Result, args: Args): Result => {
-        const registration = commitObservers.get(database)
-        if (registration === undefined) return operation(...args)
-
-        const state = transactionStates.get(database) ?? { frames: [] }
-        transactionStates.set(database, state)
-        const outermost = state.frames.length === 0
-        const frame = new Set<string>()
-        state.frames.push(frame)
-
-        try {
-            const result = operation(...args)
-            state.frames.pop()
-            const parent = state.frames.at(-1)
-            if (parent !== undefined) {
-                for (const projectId of frame) parent.add(projectId)
-            } else if (outermost) publishCommittedProjects(registration, [...frame])
-
-            return result
-        } catch (error) {
-            state.frames.pop()
-            throw error
-        }
-    }
-
-    const wrapped = ((...args: Args) => execute(transaction, args)) as DatabaseTransaction<
-        Args,
-        Result
-    >
-    wrapped.deferred = (...args: Args) => execute(transaction.deferred, args)
-    wrapped.immediate = (...args: Args) => execute(transaction.immediate, args)
-    wrapped.exclusive = (...args: Args) => execute(transaction.exclusive, args)
-    return wrapped
+    projects.add(projectId)
 }
 
 function publishCommittedProjects(
@@ -182,7 +106,15 @@ function handleCommitObserverError(registration: CommitObserverRegistration, err
     console.error('[postdot-db] post-commit observer failed', error)
 }
 
-export type AsyncDatabaseTransaction<Args extends unknown[], Result> = {
+/**
+ * Executes a synchronous Drizzle query against the shared SQLite connection
+ * without bypassing the writer gate or the current async transaction.
+ */
+export function runSync<T>(database: PostdotDatabase, query: () => T): Promise<T> {
+    return (database.sql as SqliteSqlDatabase).runNative(query)
+}
+
+export type DatabaseTransaction<Args extends unknown[], Result> = {
     (...args: Args): Promise<Result>
     deferred: (...args: Args) => Promise<Result>
     immediate: (...args: Args) => Promise<Result>
@@ -198,7 +130,7 @@ export type AsyncDatabaseTransaction<Args extends unknown[], Result> = {
 export function defineTransaction<Args extends unknown[], Result>(
     database: PostdotDatabase,
     callback: (...args: Args) => Promise<Result>
-): AsyncDatabaseTransaction<Args, Result> {
+): DatabaseTransaction<Args, Result> {
     const run =
         (mode: SqlTransactionMode) =>
         (...args: Args): Promise<Result> =>

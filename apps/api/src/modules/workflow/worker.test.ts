@@ -274,13 +274,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'LinkedIn Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -302,21 +302,23 @@ describe('publication worker', () => {
                 throw new Error('The test credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                    destination: {
-                        type: 'organization',
-                        id: '12345',
-                        name: 'Tala Web',
-                    },
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                        destination: {
+                            type: 'organization',
+                            id: '12345',
+                            name: 'Tala Web',
+                        },
+                    })
+                ).kind
             ).toBe('created')
 
-            const first = manualStore.createPost({
+            const first = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -327,9 +329,9 @@ describe('publication worker', () => {
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
                 ],
             })
-            const second = createPostAt(manualStore, project.project.id, channel.id, now + 1)
-            const third = createPostAt(manualStore, project.project.id, channel.id, now + 2)
-            const fourth = createPostAt(manualStore, project.project.id, channel.id, now + 3)
+            const second = await createPostAt(manualStore, project.project.id, channel.id, now + 1)
+            const third = await createPostAt(manualStore, project.project.id, channel.id, now + 2)
+            const fourth = await createPostAt(manualStore, project.project.id, channel.id, now + 3)
             expect(first).not.toBeNull()
             expect(second).not.toBeNull()
             expect(third).not.toBeNull()
@@ -396,8 +398,8 @@ describe('publication worker', () => {
 
             const notifications = createNotificationStore(database, { now: () => now + 4 })
             const notificationProjection = createNotificationProjectionRuntime(notifications)
-            notificationProjection.runNow()
-            const inbox = notifications.list({
+            await notificationProjection.runNow()
+            const inbox = await notifications.list({
                 projectId: project.project.id,
                 subjectId: 'user-1',
             })
@@ -471,7 +473,10 @@ describe('publication worker', () => {
             expect(jobRows.filter(row => row.state === 'succeeded')).toHaveLength(1)
             expect(jobRows.filter(row => row.state === 'failed')).toHaveLength(2)
             expect(
-                credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
+                await credentialStore.getPublisherCredential(
+                    project.project.id,
+                    credential.credential.id
+                )
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
             closeDatabase(database)
@@ -508,13 +513,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Retry Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Retry Receiver',
@@ -537,7 +542,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The retry credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -548,7 +553,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const created = manualStore.createPost({
+            const created = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -587,7 +592,7 @@ describe('publication worker', () => {
             expect(attempt).toBe(1)
             expect(readPublicationState(database, publication.id)).toBe('failed')
 
-            const retried = manualStore.retryFailedPublication({
+            const retried = await manualStore.retryFailedPublication({
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
@@ -641,10 +646,10 @@ describe('publication worker', () => {
             )
             const notifications = createNotificationStore(database, { now: () => now })
             const notificationProjection = createNotificationProjectionRuntime(notifications)
-            notificationProjection.runNow()
-            const publicationNotifications = notifications
-                .list({ projectId: project.project.id, subjectId: 'user-1' })
-                ?.items.filter(item => item.subject.id === publication.id)
+            await notificationProjection.runNow()
+            const publicationNotifications = (
+                await notifications.list({ projectId: project.project.id, subjectId: 'user-1' })
+            )?.items.filter(item => item.subject.id === publication.id)
             expect(publicationNotifications).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
@@ -681,13 +686,13 @@ describe('publication worker', () => {
             })
 
             async function createLinkedInProject(name: string, externalAccountId: string) {
-                const project = manualStore.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = await manualStore.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name,
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
                 })
-                const channel = manualStore.createChannel({
+                const channel = await manualStore.createChannel({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     name: `${name} channel`,
@@ -708,13 +713,15 @@ describe('publication worker', () => {
                 if (credential.kind !== 'created')
                     throw new Error(`The ${name} credential was not created`)
                 expect(
-                    publisherStore.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'user-1',
-                        kind: 'linkedin',
-                        credentialId: credential.credential.id,
-                    }).kind
+                    (
+                        await publisherStore.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'user-1',
+                            kind: 'linkedin',
+                            credentialId: credential.credential.id,
+                        })
+                    ).kind
                 ).toBe('created')
 
                 return { channel, project }
@@ -725,9 +732,13 @@ describe('publication worker', () => {
             const quietProject = await createLinkedInProject('Quiet project', 'quiet-member')
             currentTime = now
 
-            function createPublication(projectId: string, channelId: string, text: string): void {
+            async function createPublication(
+                projectId: string,
+                channelId: string,
+                text: string
+            ): Promise<void> {
                 expect(
-                    manualStore.createPost({
+                    await manualStore.createPost({
                         projectId,
                         subjectId: 'user-1',
                         sourceContent: {
@@ -739,10 +750,26 @@ describe('publication worker', () => {
                 ).not.toBeNull()
             }
 
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-1')
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-2')
-            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-3')
-            createPublication(quietProject.project.project.id, quietProject.channel.id, 'quiet-1')
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-1'
+            )
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-2'
+            )
+            await createPublication(
+                busyProject.project.project.id,
+                busyProject.channel.id,
+                'busy-3'
+            )
+            await createPublication(
+                quietProject.project.project.id,
+                quietProject.channel.id,
+                'quiet-1'
+            )
 
             const delivered: string[] = []
             let externalId = 0
@@ -808,13 +835,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => currentTime,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Worker Clock Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -836,17 +863,23 @@ describe('publication worker', () => {
                 throw new Error('The worker clock credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
 
-            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
-            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
+            expect(
+                await createPostAt(manualStore, project.project.id, channel.id, now)
+            ).not.toBeNull()
+            expect(
+                await createPostAt(manualStore, project.project.id, channel.id, now)
+            ).not.toBeNull()
 
             let requestCount = 0
             const publisher = createLinkedInTextPublisher({
@@ -935,8 +968,8 @@ describe('publication worker', () => {
                     connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                     now: () => now,
                 })
-                const project = manualStore.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const project = await manualStore.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'LinkedIn Image Worker Project',
                     subjectId: 'user-1',
                     displayName: 'Postdot Operator',
@@ -951,7 +984,7 @@ describe('publication worker', () => {
                     profile.contentSchema.properties.media.maxItems = 1
                     profile.capabilities.mediaFields[0].maxItems = 1
                 }
-                const channel = manualStore.createChannel({
+                const channel = await manualStore.createChannel({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     name: 'LinkedIn Member',
@@ -973,19 +1006,21 @@ describe('publication worker', () => {
                     throw new Error('The LinkedIn image credential was not created')
 
                 expect(
-                    publisherStore.createPublisherConnection({
-                        projectId: project.project.id,
-                        channelId: channel.id,
-                        subjectId: 'user-1',
-                        kind: 'linkedin',
-                        credentialId: credential.credential.id,
-                    }).kind
+                    (
+                        await publisherStore.createPublisherConnection({
+                            projectId: project.project.id,
+                            channelId: channel.id,
+                            subjectId: 'user-1',
+                            kind: 'linkedin',
+                            credentialId: credential.credential.id,
+                        })
+                    ).kind
                 ).toBe('created')
 
                 const bytes = createPng()
                 const assets: string[] = []
                 for (let index = 0; index < imageCount; index += 1) {
-                    const reservation = media.reserveUpload({
+                    const reservation = await media.reserveUpload({
                         projectId: project.project.id,
                         subjectId: 'user-1',
                         originalFilename: `announcement-${index}.png`,
@@ -1015,7 +1050,7 @@ describe('publication worker', () => {
                     assets.push(reservation.asset.id)
                 }
 
-                const post = manualStore.createPost({
+                const post = await manualStore.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: {
@@ -1200,13 +1235,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Local Receiver',
@@ -1230,7 +1265,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The custom HTTP credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1241,7 +1276,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1361,13 +1396,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => currentTime,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Worker Scheduler Sandbox Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Local Provider Sandbox',
@@ -1390,7 +1425,7 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The provider sandbox credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1401,7 +1436,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const mappedChannel = manualStore.createChannel({
+            const mappedChannel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Mapped Provider Sandbox',
@@ -1411,7 +1446,7 @@ describe('publication worker', () => {
             if (mappedChannel === null)
                 throw new Error('The mapped provider sandbox channel was not created')
 
-            const mappedConnection = publisherStore.createPublisherConnection({
+            const mappedConnection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: mappedChannel.id,
                 subjectId: 'user-1',
@@ -1422,12 +1457,12 @@ describe('publication worker', () => {
             })
             expect(mappedConnection.kind).toBe('created')
 
-            const createSandboxPublication = (
+            const createSandboxPublication = async (
                 label: string,
                 scheduledAt: number,
                 publicationChannelId = channel.id
             ) => {
-                const created = manualStore.createPost({
+                const created = await manualStore.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
                     sourceContent: {
@@ -1449,8 +1484,8 @@ describe('publication worker', () => {
                 return created.publications[0]
             }
 
-            const successful = createSandboxPublication('success', now + 100)
-            const cancelled = createSandboxPublication('cancelled', now + 200)
+            const successful = await createSandboxPublication('success', now + 100)
+            const cancelled = await createSandboxPublication('cancelled', now + 200)
             const worker = createPublicationWorker({
                 database,
                 publisherStore,
@@ -1477,16 +1512,16 @@ describe('publication worker', () => {
                 })(),
             })
 
-            worker.start()
+            await worker.start()
             expect(worker.scheduler.scheduledAt).toBe(now + 100)
             expect(
-                manualStore.cancelPublications({
+                await manualStore.cancelPublications({
                     projectId: project.project.id,
                     publicationIds: [cancelled.id],
                     subjectId: 'user-1',
                 })
             ).not.toBeNull()
-            worker.replan()
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 100)
 
             currentTime = now + 100
@@ -1495,16 +1530,16 @@ describe('publication worker', () => {
             expect(readPublicationState(database, successful.id)).toBe('published')
             expect(readPublicationState(database, cancelled.id)).toBe('cancelled')
 
-            const retry = createSandboxPublication('retry', now + 200)
-            const retryFiveHundredThree = createSandboxPublication(
+            const retry = await createSandboxPublication('retry', now + 200)
+            const retryFiveHundredThree = await createSandboxPublication(
                 'retry-5xx',
                 now + 200,
                 mappedChannel.id
             )
-            const failed = createSandboxPublication('failed', now + 200)
-            const ambiguous = createSandboxPublication('ambiguous', now + 200)
-            const timeout = createSandboxPublication('timeout', now + 200)
-            worker.replan()
+            const failed = await createSandboxPublication('failed', now + 200)
+            const ambiguous = await createSandboxPublication('ambiguous', now + 200)
+            const timeout = await createSandboxPublication('timeout', now + 200)
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 200)
 
             currentTime = now + 200
@@ -1527,7 +1562,7 @@ describe('publication worker', () => {
             expect(timeoutRequests).toEqual([1])
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
 
-            const reconciledTimeout = manualStore.reconcileAmbiguousPublication({
+            const reconciledTimeout = await manualStore.reconcileAmbiguousPublication({
                 projectId: project.project.id,
                 publicationId: timeout.id,
                 subjectId: 'user-1',
@@ -1539,13 +1574,13 @@ describe('publication worker', () => {
                 publication: { state: 'failed' },
             })
             expect(
-                manualStore.retryFailedPublication({
+                await manualStore.retryFailedPublication({
                     projectId: project.project.id,
                     publicationId: timeout.id,
                     subjectId: 'user-1',
                 })
             ).toMatchObject({ kind: 'retried', publication: { state: 'ready' } })
-            worker.replan()
+            await worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 200)
 
             currentTime = now + 200
@@ -1619,14 +1654,14 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Mapped Public Media Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 originalFilename: 'cover.png',
@@ -1651,7 +1686,7 @@ describe('publication worker', () => {
             })
             expect(finalized.kind).toBe('ready')
 
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Mapped Public Media Receiver',
@@ -1674,7 +1709,7 @@ describe('publication worker', () => {
             if (publisherCredential.kind !== 'created')
                 throw new Error('The mapped media credential was not created')
 
-            const connection = publisherStore.createPublisherConnection({
+            const connection = await publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: channel.id,
                 subjectId: 'user-1',
@@ -1685,7 +1720,7 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1791,14 +1826,14 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Custom HTTP Checksum Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
             const bytes = createPng()
-            const reservation = media.reserveUpload({
+            const reservation = await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 originalFilename: 'image.png',
@@ -1833,7 +1868,7 @@ describe('publication worker', () => {
                 changedBytes
             )
 
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Custom HTTP Checksum Receiver',
@@ -1855,17 +1890,19 @@ describe('publication worker', () => {
             if (credential.kind !== 'created')
                 throw new Error('The checksum test credential was not created')
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'custom_http',
-                    credentialId: credential.credential.id,
-                    endpointUrl: 'https://receiver.example.test',
-                    authentication: { kind: 'none' },
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'custom_http',
+                        credentialId: credential.credential.id,
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'none' },
+                    })
+                ).kind
             ).toBe('created')
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -1943,13 +1980,13 @@ describe('publication worker', () => {
                 connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Refresh Worker Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const channel = manualStore.createChannel({
+            const channel = await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
@@ -1973,16 +2010,18 @@ describe('publication worker', () => {
                 throw new Error('The expired credential was not created')
 
             expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
 
-            const post = manualStore.createPost({
+            const post = await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 sourceContent: {
@@ -2042,7 +2081,10 @@ describe('publication worker', () => {
                 providerSession: null,
             })
             expect(
-                credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
+                await credentialStore.getPublisherCredential(
+                    project.project.id,
+                    credential.credential.id
+                )
             ).toMatchObject({
                 state: 'active',
                 expiresAt: now + 3_600_000,
@@ -2142,18 +2184,18 @@ it('releases the worker during video processing and resumes without uploading or
             connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
             now: () => clock,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = (await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',
-        })!
-        const channel = manualStore.createChannel({
+        }))!
+        const channel = (await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'video-user',
             name: 'LinkedIn video',
             profile: linkedinChannelProfile,
-        })!
+        }))!
         const credential = await credentials.createPublisherCredential({
             projectId: project.project.id,
             connectedByActorId: project.actor.id,
@@ -2164,24 +2206,26 @@ it('releases the worker during video processing and resumes without uploading or
         })
         if (credential.kind !== 'created') throw new Error('Credential fixture failed')
         expect(
-            publishers.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel.id,
-                subjectId: 'video-user',
-                kind: 'linkedin',
-                credentialId: credential.credential.id,
-            }).kind
+            (
+                await publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'linkedin',
+                    credentialId: credential.credential.id,
+                })
+            ).kind
         ).toBe('created')
         const bytes = await Bun.file(
             new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
         ).bytes()
-        const reserved = media.reserveUpload({
+        const reserved = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'video.mp4',
             contentType: 'video/mp4',
             expectedSize: bytes.length,
-        })!
+        }))!
         expect(
             await media.upload({
                 projectId: project.project.id,
@@ -2198,13 +2242,13 @@ it('releases the worker during video processing and resumes without uploading or
             })
         ).toMatchObject({ kind: 'ready' })
         const imageBytes = createPng()
-        const image = media.reserveUpload({
+        const image = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'image.png',
             contentType: 'image/png',
             expectedSize: imageBytes.length,
-        })!
+        }))!
         await media.upload({
             projectId: project.project.id,
             subjectId: 'video-user',
@@ -2219,7 +2263,7 @@ it('releases the worker during video processing and resumes without uploading or
             })
         ).toMatchObject({ kind: 'ready' })
         expect(
-            assessWorkingDraftMedia(
+            await assessWorkingDraftMedia(
                 linkedinChannelProfile,
                 {
                     commentary: 'Mixed media',
@@ -2237,7 +2281,7 @@ it('releases the worker during video processing and resumes without uploading or
             }),
         ])
         expect(
-            assessWorkingDraftMedia(
+            await assessWorkingDraftMedia(
                 linkedinChannelProfile,
                 {
                     commentary: 'Too many videos',
@@ -2251,7 +2295,7 @@ it('releases the worker during video processing and resumes without uploading or
         ).toEqual([
             expect.objectContaining({ message: expect.stringContaining('at most 1 video') }),
         ])
-        const post = manualStore.createPost({
+        const post = (await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'video-user',
             sourceContent: {
@@ -2261,7 +2305,7 @@ it('releases the worker during video processing and resumes without uploading or
             publications: [
                 { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
             ],
-        })!
+        }))!
         expect(post).not.toBeNull()
         let registrations = 0
         let transfers = 0
@@ -2383,18 +2427,18 @@ for (const scenario of [
                 connectionPolicies: { mastodon: mastodonPublisherConnectionPolicy },
                 now: () => clock,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
-            })!
-            const channel = manualStore.createChannel({
+            }))!
+            const channel = (await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 name: 'Mastodon video',
                 profile: mastodonChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -2411,25 +2455,27 @@ for (const scenario of [
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'video-user',
-                    kind: 'mastodon',
-                    endpointUrl: 'https://mastodon.example',
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'video-user',
+                        kind: 'mastodon',
+                        endpointUrl: 'https://mastodon.example',
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
             const bytes = await Bun.file(
                 new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
             ).bytes()
-            const reserved = media.reserveUpload({
+            const reserved = (await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 originalFilename: 'video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-            })!
+            }))!
             expect(
                 await media.upload({
                     projectId: project.project.id,
@@ -2447,7 +2493,7 @@ for (const scenario of [
             ).toMatchObject({ kind: 'ready' })
 
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     mastodonImageChannelProfile,
                     {
                         text: 'Historical',
@@ -2460,7 +2506,7 @@ for (const scenario of [
                 )
             ).not.toEqual([])
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     mastodonChannelProfile,
                     {
                         text: 'Too many',
@@ -2475,7 +2521,7 @@ for (const scenario of [
                     false
                 )
             ).not.toEqual([])
-            const post = manualStore.createPost({
+            const post = (await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 sourceContent: {
@@ -2485,7 +2531,7 @@ for (const scenario of [
                 publications: [
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
                 ],
-            })!
+            }))!
             expect(post).not.toBeNull()
             let transfers = 0
             let posts = 0
@@ -2620,18 +2666,18 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 connectionPolicies: { discord: discordPublisherConnectionPolicy },
                 now: () => clock,
             })
-            const project = manualStore.createProject({
-                workspaceId: seedTestWorkspace(database),
+            const project = (await manualStore.createProject({
+                workspaceId: await seedTestWorkspace(database),
                 name: 'Video project',
                 subjectId: 'video-user',
                 displayName: 'Video editor',
-            })!
-            const channel = manualStore.createChannel({
+            }))!
+            const channel = (await manualStore.createChannel({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 name: 'Discord video',
                 profile: discordChannelProfile,
-            })!
+            }))!
             const credential = await credentials.createPublisherCredential({
                 projectId: project.project.id,
                 connectedByActorId: project.actor.id,
@@ -2642,25 +2688,27 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             })
             if (credential.kind !== 'created') throw new Error('Credential fixture failed')
             expect(
-                publishers.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'video-user',
-                    kind: 'discord',
-                    destination: { type: 'channel', id: '123456789012345678', name: 'Video' },
-                    credentialId: credential.credential.id,
-                }).kind
+                (
+                    await publishers.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'video-user',
+                        kind: 'discord',
+                        destination: { type: 'channel', id: '123456789012345678', name: 'Video' },
+                        credentialId: credential.credential.id,
+                    })
+                ).kind
             ).toBe('created')
             const bytes = await Bun.file(
                 new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
             ).bytes()
-            const reserved = media.reserveUpload({
+            const reserved = (await media.reserveUpload({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 originalFilename: 'video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-            })!
+            }))!
             expect(
                 await media.upload({
                     projectId: project.project.id,
@@ -2678,7 +2726,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
             ).toMatchObject({ kind: 'ready' })
 
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     discordImageChannelProfile,
                     {
                         text: 'Historical',
@@ -2691,7 +2739,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 )
             ).not.toEqual([])
             expect(
-                assessWorkingDraftMedia(
+                await assessWorkingDraftMedia(
                     discordChannelProfile,
                     {
                         text: 'Too many',
@@ -2706,7 +2754,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                     false
                 )
             ).not.toEqual([])
-            const post = manualStore.createPost({
+            const post = (await manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'video-user',
                 sourceContent: {
@@ -2716,7 +2764,7 @@ for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
                 publications: [
                     { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
                 ],
-            })!
+            }))!
             expect(post).not.toBeNull()
 
             let dispatches = 0
@@ -2816,18 +2864,18 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             connectionPolicies: { bluesky: blueskyPublisherConnectionPolicy },
             now: () => clock,
         })
-        const project = manualStore.createProject({
-            workspaceId: seedTestWorkspace(database),
+        const project = (await manualStore.createProject({
+            workspaceId: await seedTestWorkspace(database),
             name: 'Video project',
             subjectId: 'video-user',
             displayName: 'Video editor',
-        })!
-        const channel = manualStore.createChannel({
+        }))!
+        const channel = (await manualStore.createChannel({
             projectId: project.project.id,
             subjectId: 'video-user',
             name: 'Bluesky video',
             profile: blueskyChannelProfile,
-        })!
+        }))!
         const credential = await credentials.createPublisherCredential({
             projectId: project.project.id,
             connectedByActorId: project.actor.id,
@@ -2845,25 +2893,27 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
         })
         if (credential.kind !== 'created') throw new Error('Credential fixture failed')
         expect(
-            publishers.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel.id,
-                subjectId: 'video-user',
-                kind: 'bluesky',
-                credentialId: credential.credential.id,
-            }).kind
+            (
+                await publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'bluesky',
+                    credentialId: credential.credential.id,
+                })
+            ).kind
         ).toBe('created')
         const bytes = await Bun.file(
             new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
         ).bytes()
-        const reserved = media.reserveUpload({
+        const reserved = (await media.reserveUpload({
             projectId: project.project.id,
             subjectId: 'video-user',
             originalFilename: 'video.mp4',
             contentType: 'video/mp4',
             expectedSize: bytes.length,
             defaultAccessibilityText: 'A moving scene',
-        })!
+        }))!
         expect(
             await media.upload({
                 projectId: project.project.id,
@@ -2879,7 +2929,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
                 intentId: reserved.intent.id,
             })
         ).toMatchObject({ kind: 'ready' })
-        const post = manualStore.createPost({
+        const post = (await manualStore.createPost({
             projectId: project.project.id,
             subjectId: 'video-user',
             sourceContent: {
@@ -2889,7 +2939,7 @@ it('resumes a durable Bluesky video job without uploading again', async () => {
             publications: [
                 { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
             ],
-        })!
+        }))!
         expect(post).not.toBeNull()
         let uploads = 0
         let posts = 0

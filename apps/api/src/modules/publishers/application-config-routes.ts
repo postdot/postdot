@@ -99,8 +99,8 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+            async ({ authMethod, status, user }) => {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -111,7 +111,7 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                 }
                 return {
                     applications:
-                        publisher.providerApplicationStore.listProviderApplicationConfigurations(),
+                        await publisher.providerApplicationStore.listProviderApplicationConfigurations(),
                     xCallbackUri: publisher.xCallbackUri,
                     facebookCallbackUri: publisher.facebookCallbackUri,
                     instagramCallbackUri: publisher.instagramCallbackUri,
@@ -138,7 +138,7 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                 },
             },
             async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
@@ -196,7 +196,7 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                 },
             },
             async ({ authMethod, body, params, status, user }) => {
-                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
+                if (authMethod !== 'session' || !(await access.isInstanceAdmin(user.id))) {
                     return status(403, {
                         error: {
                             code: 'forbidden',

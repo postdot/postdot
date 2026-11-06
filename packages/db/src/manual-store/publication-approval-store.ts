@@ -6,11 +6,7 @@ import {
 } from '@postdot/core'
 import type { Publication } from '@postdot/core'
 
-import {
-    createDatabaseTransaction,
-    recordDatabaseCommitProject,
-    type PostdotDatabase,
-} from '../client'
+import { defineTransaction, recordDatabaseCommitProject, type PostdotDatabase } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import type { ActorRow } from './rows'
 
@@ -45,8 +41,10 @@ export interface PublicationApprovalRequestRow extends PublicationApprovalReques
 export interface PublicationApprovalStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly promotePublicationDraft: (input: PromotePublicationDraftInput) => Publication | null
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly promotePublicationDraft: (
+        input: PromotePublicationDraftInput
+    ) => Promise<Publication | null>
     readonly insertAuditEvent: (input: {
         readonly id: string
         readonly projectId: string
@@ -56,7 +54,7 @@ export interface PublicationApprovalStoreOptions {
         readonly entityId: string
         readonly metadataJson: string | null
         readonly createdAt: number
-    }) => void
+    }) => Promise<unknown>
 }
 
 interface ApprovalRequestDbRow {
@@ -99,7 +97,7 @@ export function createPublicationApprovalStore(
     database: PostdotDatabase,
     options: PublicationApprovalStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const selectApprovalRequest = `
         select id,
                project_id as projectId,
@@ -117,21 +115,21 @@ export function createPublicationApprovalStore(
                updated_at as updatedAt
         from publication_approval_requests
     `
-    const loadRequestStatement = client.query<
+    const loadRequestStatement = sql.statement<
         ApprovalRequestDbRow,
         [projectId: string, requestId: string, publicationId: string]
     >(`${selectApprovalRequest}
         where project_id = ?1
           and id = ?2
           and publication_id = ?3`)
-    const listPendingRequestsStatement = client.query<
+    const listPendingRequestsStatement = sql.statement<
         ApprovalRequestDbRow,
         [projectId: string]
     >(`${selectApprovalRequest}
         where project_id = ?1
           and state = 'pending'
         order by proposed_scheduled_at, created_at, id`)
-    const rejectRequestStatement = client.query<
+    const rejectRequestStatement = sql.statement<
         { changes: number },
         [
             reason: string | null,
@@ -155,12 +153,14 @@ export function createPublicationApprovalStore(
           and state = 'pending'
     `)
 
-    const rejectRequestTransaction = createDatabaseTransaction(
+    const rejectRequestTransaction = defineTransaction(
         database,
-        (input: DecidePublicationApprovalRequestInput): PublicationApprovalRequest | null => {
-            const actor = options.loadActor(input.projectId, input.subjectId)
+        async (
+            input: DecidePublicationApprovalRequestInput
+        ): Promise<PublicationApprovalRequest | null> => {
+            const actor = await options.loadActor(input.projectId, input.subjectId)
             if (actor === null) return null
-            const request = loadRequestStatement.get(
+            const request = await loadRequestStatement.get(
                 input.projectId,
                 input.requestId,
                 input.publicationId
@@ -180,7 +180,7 @@ export function createPublicationApprovalStore(
                 )
             }
             const timestamp = requireTimestamp(options.now(), 'now')
-            const result = rejectRequestStatement.run(
+            const result = await rejectRequestStatement.run(
                 reason,
                 actor.id,
                 timestamp,
@@ -196,7 +196,7 @@ export function createPublicationApprovalStore(
                 )
             }
             recordDatabaseCommitProject(database, input.projectId)
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
                 actorId: actor.id,
@@ -222,99 +222,109 @@ export function createPublicationApprovalStore(
     )
 
     return {
-        submitPublicationForApproval(input: SubmitPublicationForApprovalInput) {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const publicationId = requireNonBlank(input.publicationId, 'publicationId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const proposedScheduledAt = requireTimestamp(
-                input.proposedScheduledAt,
-                'proposedScheduledAt'
-            )
-            if (proposedScheduledAt <= requireTimestamp(options.now(), 'now')) {
-                throw new DomainInvariantError(
-                    'invalid_time',
-                    'The proposed schedule must be in the future'
+        async submitPublicationForApproval(input: SubmitPublicationForApprovalInput) {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const publicationId = requireNonBlank(input.publicationId, 'publicationId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                const proposedScheduledAt = requireTimestamp(
+                    input.proposedScheduledAt,
+                    'proposedScheduledAt'
                 )
-            }
-            const requestId = requireNonBlank(options.createId(), 'approval request id')
-            const publication = options.promotePublicationDraft({
-                projectId,
-                publicationId,
-                subjectId,
-                expectedRevision: input.expectedDraftRevision,
-                scheduledAt: null,
-                approvalRequest: { id: requestId, proposedScheduledAt },
-            })
-            if (publication === null) return null
-            const request = loadRequestStatement.get(projectId, requestId, publicationId)
-            if (request === null) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Could not load approval request ${requestId} after submission`
-                )
-            }
-            return toApprovalRequest(request)
+                if (proposedScheduledAt <= requireTimestamp(options.now(), 'now')) {
+                    throw new DomainInvariantError(
+                        'invalid_time',
+                        'The proposed schedule must be in the future'
+                    )
+                }
+                const requestId = requireNonBlank(options.createId(), 'approval request id')
+                const publication = await options.promotePublicationDraft({
+                    projectId,
+                    publicationId,
+                    subjectId,
+                    expectedRevision: input.expectedDraftRevision,
+                    scheduledAt: null,
+                    approvalRequest: { id: requestId, proposedScheduledAt },
+                })
+                if (publication === null) return null
+                const request = await loadRequestStatement.get(projectId, requestId, publicationId)
+                if (request === null) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Could not load approval request ${requestId} after submission`
+                    )
+                }
+                return toApprovalRequest(request)
+            }, 'immediate')
         },
-        listPendingPublicationApprovalRequests(projectId: string, subjectId: string) {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            if (
-                options.loadActor(normalizedProjectId, requireNonBlank(subjectId, 'subjectId')) ===
-                null
-            ) {
-                return null
-            }
-            return listPendingRequestsStatement.all(normalizedProjectId).map(toApprovalRequest)
+        async listPendingPublicationApprovalRequests(projectId: string, subjectId: string) {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                if (
+                    (await options.loadActor(
+                        normalizedProjectId,
+                        requireNonBlank(subjectId, 'subjectId')
+                    )) === null
+                ) {
+                    return null
+                }
+                return (await listPendingRequestsStatement.all(normalizedProjectId)).map(
+                    toApprovalRequest
+                )
+            }, 'deferred')
         },
-        approvePublicationApprovalRequest(input: ApprovePublicationRequestInput) {
-            const projectId = requireNonBlank(input.projectId, 'projectId')
-            const publicationId = requireNonBlank(input.publicationId, 'publicationId')
-            const requestId = requireNonBlank(input.requestId, 'requestId')
-            const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const actor = options.loadActor(projectId, subjectId)
-            const request = loadRequestStatement.get(projectId, requestId, publicationId)
-            if (actor === null || request === null) return null
-            if (request.state !== 'pending') {
-                throw new DomainInvariantError(
-                    'invalid_transition',
-                    `Cannot approve an approval request in the ${request.state} state`
-                )
-            }
-            const timestamp = requireTimestamp(options.now(), 'now')
-            if (input.publishNow === true && input.scheduledAt !== undefined) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    'Choose either an explicit schedule or publish now, not both'
-                )
-            }
-            if (
-                request.proposedScheduledAt <= timestamp &&
-                input.scheduledAt === undefined &&
-                input.publishNow !== true
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_time',
-                    'The proposed time has passed; choose a new time or explicitly publish now'
-                )
-            }
-            const scheduledAt =
-                input.scheduledAt === undefined
-                    ? request.proposedScheduledAt
-                    : requireTimestamp(input.scheduledAt, 'scheduledAt')
-            if (input.publishNow !== true && scheduledAt < timestamp) {
-                throw new DomainInvariantError(
-                    'invalid_time',
-                    'The approved schedule must not be before now'
-                )
-            }
-            return options.promotePublicationDraft({
-                projectId,
-                publicationId,
-                subjectId,
-                expectedRevision: request.draftRevision,
-                ...(input.publishNow === true ? { publishNow: true } : { scheduledAt }),
-                cadenceConfirmation: input.cadenceConfirmation,
-                approvalRequestId: requestId,
-            })
+        async approvePublicationApprovalRequest(input: ApprovePublicationRequestInput) {
+            return database.sql.transaction(async () => {
+                const projectId = requireNonBlank(input.projectId, 'projectId')
+                const publicationId = requireNonBlank(input.publicationId, 'publicationId')
+                const requestId = requireNonBlank(input.requestId, 'requestId')
+                const subjectId = requireNonBlank(input.subjectId, 'subjectId')
+                const actor = await options.loadActor(projectId, subjectId)
+                const request = await loadRequestStatement.get(projectId, requestId, publicationId)
+                if (actor === null || request === null) return null
+                if (request.state !== 'pending') {
+                    throw new DomainInvariantError(
+                        'invalid_transition',
+                        `Cannot approve an approval request in the ${request.state} state`
+                    )
+                }
+                const timestamp = requireTimestamp(options.now(), 'now')
+                if (input.publishNow === true && input.scheduledAt !== undefined) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'Choose either an explicit schedule or publish now, not both'
+                    )
+                }
+                if (
+                    request.proposedScheduledAt <= timestamp &&
+                    input.scheduledAt === undefined &&
+                    input.publishNow !== true
+                ) {
+                    throw new DomainInvariantError(
+                        'invalid_time',
+                        'The proposed time has passed; choose a new time or explicitly publish now'
+                    )
+                }
+                const scheduledAt =
+                    input.scheduledAt === undefined
+                        ? request.proposedScheduledAt
+                        : requireTimestamp(input.scheduledAt, 'scheduledAt')
+                if (input.publishNow !== true && scheduledAt < timestamp) {
+                    throw new DomainInvariantError(
+                        'invalid_time',
+                        'The approved schedule must not be before now'
+                    )
+                }
+                return options.promotePublicationDraft({
+                    projectId,
+                    publicationId,
+                    subjectId,
+                    expectedRevision: request.draftRevision,
+                    ...(input.publishNow === true ? { publishNow: true } : { scheduledAt }),
+                    cadenceConfirmation: input.cadenceConfirmation,
+                    approvalRequestId: requestId,
+                })
+            }, 'immediate')
         },
         rejectPublicationApprovalRequest(input: DecidePublicationApprovalRequestInput) {
             return rejectRequestTransaction.immediate({

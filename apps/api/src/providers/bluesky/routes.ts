@@ -27,7 +27,11 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
-        readonly canManageChannel: (projectId: string, channelId: string, userId: string) => boolean
+        readonly canManageChannel: (
+            projectId: string,
+            channelId: string,
+            userId: string
+        ) => Promise<boolean>
         readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
@@ -71,24 +75,30 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     })
                 }
                 if (
-                    !canAccessProjectRole({
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: params.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
 
-                if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+                if (
+                    !(await publisherStore.hasChannelAccess(
+                        params.projectId,
+                        params.channelId,
+                        user.id
+                    ))
+                ) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
 
-                const existingConnection = publisherStore.getPublisherConnection(
+                const existingConnection = await publisherStore.getPublisherConnection(
                     params.projectId,
                     params.channelId,
                     user.id
@@ -122,7 +132,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     })
                 }
 
-                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+                const actorId = await publisherStore.getProjectActorId(params.projectId, user.id)
                 if (actorId === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -261,7 +271,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                 }
 
                 const pendingAttempt =
-                    authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
+                    await authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== BLUESKY_PROVIDER) {
                     return redirectBlueskyPublisher(
                         publisher.webOrigin,
@@ -271,18 +281,18 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                 }
 
                 if (
-                    !options.canManageChannel(
+                    !(await options.canManageChannel(
                         pendingAttempt.projectId,
                         pendingAttempt.channelId,
                         user.id
-                    ) ||
-                    !canAccessProjectRole({
+                    )) ||
+                    !(await canAccessProjectRole({
                         access: options.access,
                         authMethod,
                         minimumRole: 'editor',
                         projectId: pendingAttempt.projectId,
                         userId: user.id,
-                    })
+                    }))
                 ) {
                     return redirectBlueskyPublisher(
                         publisher.webOrigin,
@@ -311,7 +321,10 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     )
                 }
 
-                const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
+                const actorId = await publisherStore.getProjectActorId(
+                    pendingAttempt.projectId,
+                    user.id
+                )
                 if (actorId !== pendingAttempt.connectedByActorId) {
                     return redirectBlueskyPublisher(
                         publisher.webOrigin,
@@ -379,7 +392,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         )
                     }
 
-                    const existingConnection = publisherStore.getPublisherConnection(
+                    const existingConnection = await publisherStore.getPublisherConnection(
                         consumed.attempt.projectId,
                         consumed.attempt.channelId,
                         user.id
@@ -390,11 +403,11 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                             : { id: existingConnection.id, state: existingConnection.state }
 
                     if (
-                        !options.canManageChannel(
+                        !(await options.canManageChannel(
                             pendingAttempt.projectId,
                             pendingAttempt.channelId,
                             user.id
-                        )
+                        ))
                     )
                         return redirectBlueskyPublisher(
                             publisher.webOrigin,
@@ -449,18 +462,18 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
 
                     callbackStage = 'create_connection'
                     if (
-                        !options.canManageChannel(
+                        !(await options.canManageChannel(
                             pendingAttempt.projectId,
                             pendingAttempt.channelId,
                             user.id
-                        )
+                        ))
                     )
                         return redirectBlueskyPublisher(
                             publisher.webOrigin,
                             pendingAttempt.returnPath,
                             'invalid_callback'
                         )
-                    const connection = publisherStore.createPublisherConnection({
+                    const connection = await publisherStore.createPublisherConnection({
                         projectId: consumed.attempt.projectId,
                         channelId: consumed.attempt.channelId,
                         subjectId: user.id,

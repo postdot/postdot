@@ -223,7 +223,7 @@ describe('Telegram publisher connection routes', () => {
             })
             expect(first.status).toBe(200)
             const { connection } = (await first.json()) as { connection: { credentialId: string } }
-            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+            await publisher.credentialStore.markPublisherCredentialReconnectRequired(
                 local.projectId,
                 connection.credentialId
             )

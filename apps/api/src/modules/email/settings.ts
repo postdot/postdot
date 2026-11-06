@@ -71,7 +71,7 @@ export async function createEmailSettingsService(options: {
             source: stored !== null ? 'database' : options.initial ? 'deployment' : 'none',
         }
     }
-    let tail = Promise.resolve()
+    let tail: Promise<unknown> = Promise.resolve()
     const sendMail = async (message: SendMailOptions) => {
         if (options.deliveryAllowed?.() === false)
             throw new Error('Email delivery is suspended during recovery')

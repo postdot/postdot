@@ -141,25 +141,25 @@ describe('provider analytics routes', () => {
 
             const manual = createManualStore(database, { now: () => now })
             const access = createAccessStore(database, { now: () => now })
-            const workspace = access.getDefaultWorkspaceForUser(user.id)
+            const workspace = await access.getDefaultWorkspaceForUser(user.id)
             if (workspace === null) throw new Error('The analytics workspace is missing')
-            const project = manual.createProject({
+            const project = await manual.createProject({
                 name: 'Provider analytics',
                 subjectId: user.id,
                 displayName: 'Analytics operator',
                 workspaceId: workspace.id,
             })
-            access.ensureProjectOwnerMembership({
+            await access.ensureProjectOwnerMembership({
                 projectId: project.project.id,
                 userId: user.id,
             })
-            const channel = manual.createChannel({
+            const channel = await manual.createChannel({
                 projectId: project.project.id,
                 subjectId: user.id,
                 name: 'Bluesky channel',
             })
             if (channel === null) throw new Error('The analytics channel is missing')
-            const created = manual.createPost({
+            const created = await manual.createPost({
                 projectId: project.project.id,
                 subjectId: user.id,
                 sourceContent: {
@@ -179,11 +179,13 @@ describe('provider analytics routes', () => {
             if (actor === null || actor === undefined)
                 throw new Error('The project actor is missing')
 
-            const workspaceId = workspaceOf(database, project.project.id)
-            const workspaceActor = createWorkspaceActorStore(database).ensureFromProjectActor({
-                workspaceId,
-                projectActorId: actor.id,
-            })
+            const workspaceId = await workspaceOf(database, project.project.id)
+            const workspaceActor = await createWorkspaceActorStore(database).ensureFromProjectActor(
+                {
+                    workspaceId,
+                    projectActorId: actor.id,
+                }
+            )
             if (workspaceActor === null) throw new Error('The workspace actor is missing')
             database.$client
                 .query(
@@ -340,14 +342,14 @@ describe('provider analytics routes', () => {
             })
             expect(providerCalls).toBe(4)
 
-            const devtoChannel = manual.createChannel({
+            const devtoChannel = await manual.createChannel({
                 projectId: project.project.id,
                 subjectId: user.id,
                 name: 'DEV.to channel',
                 profile: devtoChannelProfile,
             })
             if (devtoChannel === null) throw new Error('The DEV.to channel is missing')
-            const devtoPublication = manual.createPost({
+            const devtoPublication = await manual.createPost({
                 projectId: project.project.id,
                 subjectId: user.id,
                 title: 'Already published to DEV.to',
@@ -383,7 +385,7 @@ describe('provider analytics routes', () => {
             expect(savedCredential.kind).toBe('created')
             if (savedCredential.kind !== 'created')
                 throw new Error('The DEV.to credential was not saved')
-            const devtoConnection = publisher.publisherStore.createPublisherConnection({
+            const devtoConnection = await publisher.publisherStore.createPublisherConnection({
                 projectId: project.project.id,
                 channelId: devtoChannel.id,
                 subjectId: user.id,

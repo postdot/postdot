@@ -3,7 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
     closeDatabase,
     createDatabase,
-    createDatabaseTransaction,
+    defineTransaction,
     recordDatabaseCommitProject,
     setDatabaseCommitObserver,
 } from './client'
@@ -43,7 +43,7 @@ function appendEvent(
 }
 
 describe('database post-commit observer', () => {
-    it('publishes affected projects only after a successful commit', () => {
+    it('publishes affected projects only after a successful commit', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
@@ -59,7 +59,7 @@ describe('database post-commit observer', () => {
             })
 
             try {
-                const transaction = createDatabaseTransaction(database, () => {
+                const transaction = defineTransaction(database, async () => {
                     database.$client
                         .query('update projects set name = ?1 where id = ?2')
                         .run('Changed', first.projectId)
@@ -69,7 +69,7 @@ describe('database post-commit observer', () => {
                     expect(observed).toEqual([])
                 })
 
-                transaction()
+                await transaction()
 
                 expect(committedName).toBe('Changed')
                 expect(observed).toEqual([[first.projectId, second.projectId]])
@@ -81,7 +81,7 @@ describe('database post-commit observer', () => {
         }
     })
 
-    it('does not publish a transaction that rolls back', () => {
+    it('does not publish a transaction that rolls back', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
@@ -92,12 +92,12 @@ describe('database post-commit observer', () => {
             })
 
             try {
-                const transaction = createDatabaseTransaction(database, () => {
+                const transaction = defineTransaction(database, async () => {
                     appendEvent(database, project, 'rollback')
                     throw new Error('rollback')
                 })
 
-                expect(() => transaction()).toThrow('rollback')
+                await expect(transaction()).rejects.toThrow('rollback')
                 expect(observed).toEqual([])
                 expect(
                     database.$client
@@ -112,7 +112,7 @@ describe('database post-commit observer', () => {
         }
     })
 
-    it('publishes facts written through the manual store boundary', () => {
+    it('publishes facts written through the manual store boundary', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
@@ -129,8 +129,8 @@ describe('database post-commit observer', () => {
                         return () => `manual-${++sequence}`
                     })(),
                 })
-                const created = store.createProject({
-                    workspaceId: seedTestWorkspace(database),
+                const created = await store.createProject({
+                    workspaceId: await seedTestWorkspace(database),
                     name: 'Observed project',
                     subjectId: 'subject-manual',
                     displayName: 'Manual actor',
@@ -146,7 +146,7 @@ describe('database post-commit observer', () => {
         }
     })
 
-    it('does not leak project ids from a rolled-back nested transaction', () => {
+    it('does not leak project ids from a rolled-back nested transaction', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
@@ -157,16 +157,16 @@ describe('database post-commit observer', () => {
             })
 
             try {
-                const outer = createDatabaseTransaction(database, () => {
-                    const inner = createDatabaseTransaction(database, () => {
+                const outer = defineTransaction(database, async () => {
+                    const inner = defineTransaction(database, async () => {
                         appendEvent(database, project, 'nested-rolled-back')
                         throw new Error('savepoint rollback')
                     })
-                    expect(() => inner()).toThrow('savepoint rollback')
+                    await expect(inner()).rejects.toThrow('savepoint rollback')
                     appendEvent(database, project, 'nested-committed')
                 })
 
-                outer()
+                await outer()
 
                 expect(observed).toEqual([[project.projectId]])
                 expect(
@@ -182,7 +182,7 @@ describe('database post-commit observer', () => {
         }
     })
 
-    it('does not turn a committed write into a failed write when the observer fails', () => {
+    it('does not turn a committed write into a failed write when the observer fails', async () => {
         const database = createDatabase(':memory:')
         try {
             runMigrations(database)
@@ -197,12 +197,12 @@ describe('database post-commit observer', () => {
             )
 
             try {
-                const transaction = createDatabaseTransaction(database, () => {
+                const transaction = defineTransaction(database, async () => {
                     appendEvent(database, project, 'observer-error')
                     return 'committed'
                 })
 
-                expect(transaction()).toBe('committed')
+                expect(await transaction()).toBe('committed')
                 expect(errors).toHaveLength(1)
                 expect(
                     database.$client

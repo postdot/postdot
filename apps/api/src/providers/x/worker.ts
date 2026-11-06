@@ -93,7 +93,7 @@ async function executeXPublication(input: {
                 context.credential.expiresAt <= context.now()
             ) {
                 if (secrets.refreshToken === null || oauth === undefined) {
-                    context.markReconnectRequired()
+                    await context.markReconnectRequired()
                     return {
                         kind: 'failed',
                         outcome: permanentFailure(
@@ -129,7 +129,7 @@ async function executeXPublication(input: {
                     }
                     accessToken = refreshed.accessToken
                 } catch {
-                    if (!execution.signal?.aborted) context.markReconnectRequired()
+                    if (!execution.signal?.aborted) await context.markReconnectRequired()
                     return {
                         kind: 'failed',
                         outcome: permanentFailure(
@@ -188,7 +188,7 @@ async function executeXPublication(input: {
     })
     if (mediaResult.kind !== 'ready') {
         if (isXAuthenticationFailure(mediaResult.outcome)) {
-            prepared.markReconnectRequired()
+            await prepared.markReconnectRequired()
         }
         return mediaResult.outcome
     }
@@ -205,7 +205,7 @@ async function executeXPublication(input: {
     }
 
     if (outcome.type === 'permanent_failure' && outcome.code === 'authentication_required') {
-        prepared.markReconnectRequired()
+        await prepared.markReconnectRequired()
     }
 
     return outcome
@@ -248,7 +248,7 @@ async function prepareXMedia(input: {
             }
         }
 
-        const delivery = input.providerMediaDeliveryStore.reserve({
+        const delivery = await input.providerMediaDeliveryStore.reserve({
             projectId: input.target.projectId,
             executionMediaId: targetMedia.id,
             publisherId: input.target.publisherId,
@@ -266,7 +266,7 @@ async function prepareXMedia(input: {
 
         let current = delivery
         if (current.state === 'failed') {
-            const retried = input.providerMediaDeliveryStore.retry({
+            const retried = await input.providerMediaDeliveryStore.retry({
                 projectId: input.target.projectId,
                 deliveryId: current.id,
                 at: input.now,
@@ -315,7 +315,7 @@ async function prepareXMedia(input: {
             )
         }
 
-        const started = input.providerMediaDeliveryStore.start({
+        const started = await input.providerMediaDeliveryStore.start({
             projectId: input.target.projectId,
             deliveryId: current.id,
             at: input.now,
@@ -378,14 +378,14 @@ async function prepareXMedia(input: {
 
         if (upload.type !== 'uploaded') {
             if (upload.type === 'ambiguous' && upload.remoteMediaId !== undefined) {
-                input.providerMediaDeliveryStore.recordRemoteMediaId({
+                await input.providerMediaDeliveryStore.recordRemoteMediaId({
                     projectId: input.target.projectId,
                     deliveryId: started.id,
                     remoteMediaId: upload.remoteMediaId,
                     at: input.now,
                 })
             }
-            const failed = input.providerMediaDeliveryStore.fail({
+            const failed = await input.providerMediaDeliveryStore.fail({
                 projectId: input.target.projectId,
                 deliveryId: started.id,
                 errorCode: upload.code,
@@ -402,7 +402,7 @@ async function prepareXMedia(input: {
             }
         }
 
-        const checkpoint = input.providerMediaDeliveryStore.recordRemoteMediaId({
+        const checkpoint = await input.providerMediaDeliveryStore.recordRemoteMediaId({
             projectId: input.target.projectId,
             deliveryId: started.id,
             remoteMediaId: upload.remoteMediaId,
@@ -415,7 +415,7 @@ async function prepareXMedia(input: {
             }
         }
 
-        const completed = input.providerMediaDeliveryStore.complete({
+        const completed = await input.providerMediaDeliveryStore.complete({
             projectId: input.target.projectId,
             deliveryId: started.id,
             remoteMediaId: upload.remoteMediaId,
@@ -435,7 +435,7 @@ async function prepareXMedia(input: {
     return { kind: 'ready', mediaIds }
 }
 
-function failXMediaDelivery(
+async function failXMediaDelivery(
     store: ProviderMediaDeliveryPort,
     projectId: string,
     deliveryId: string,
@@ -443,9 +443,9 @@ function failXMediaDelivery(
     errorMessage: string,
     ambiguous: boolean,
     at: number
-): { readonly kind: 'failed'; readonly outcome: ExternalEffectOutcome } {
+): Promise<{ readonly kind: 'failed'; readonly outcome: ExternalEffectOutcome }> {
     try {
-        const failed = store.fail({
+        const failed = await store.fail({
             projectId,
             deliveryId,
             errorCode,

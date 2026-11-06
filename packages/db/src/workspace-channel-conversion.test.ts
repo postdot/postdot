@@ -55,13 +55,13 @@ async function fixture(filename = ':memory:') {
     })
     const records = []
     for (const id of ['first', 'second']) {
-        const project = manual.createProject({
+        const project = await manual.createProject({
             name: id,
             subjectId: id,
             displayName: id,
             workspaceId: 'workspace',
         })
-        const channel = manual.createChannel({
+        const channel = (await manual.createChannel({
             projectId: project.project.id,
             subjectId: id,
             name: id,
@@ -70,7 +70,7 @@ async function fixture(filename = ':memory:') {
                 id: 'fixture',
                 execution: { kind: 'built_in', contractId: 'fixture', revision: 'v1' },
             },
-        })!
+        }))!
         const credential = await credentials.createPublisherCredential({
             projectId: project.project.id,
             connectedByActorId: project.actor.id,
@@ -81,7 +81,7 @@ async function fixture(filename = ':memory:') {
             providerSession: `session-${id}`,
         })
         if (credential.kind !== 'created') throw new Error('Missing credential')
-        const connection = publishers.createPublisherConnection({
+        const connection = await publishers.createPublisherConnection({
             projectId: project.project.id,
             channelId: channel.id,
             subjectId: id,
@@ -89,7 +89,7 @@ async function fixture(filename = ':memory:') {
             credentialId: credential.credential.id,
         })
         if (connection.kind !== 'created') throw new Error('Missing connection')
-        const post = manual.createPost({
+        const post = (await manual.createPost({
             projectId: project.project.id,
             subjectId: id,
             sourceContent: { body: { format: 'plain_text', text: id }, media: [] },
@@ -100,7 +100,7 @@ async function fixture(filename = ':memory:') {
                     scheduledAt: Date.now() + 60000,
                 },
             ],
-        })!
+        }))!
         records.push({
             project,
             channel,
@@ -238,13 +238,13 @@ it('enforces attachment/workspace relations while retaining a shared resource af
         const [first, second] = f.records
         if (!first || !second) throw new Error('Missing projects')
         workspace(f.database, 'foreign')
-        const foreign = f.manual.createProject({
+        const foreign = await f.manual.createProject({
             name: 'Foreign',
             subjectId: 'foreign',
             displayName: 'Foreign',
             workspaceId: 'foreign',
         })
-        const unrelated = f.manual.createProject({
+        const unrelated = await f.manual.createProject({
             name: 'Unrelated',
             subjectId: 'unrelated',
             displayName: 'Unrelated',
@@ -520,7 +520,7 @@ it('keeps editorial readers and content on their project context when a detached
         const [first, second] = f.records
         if (!first || !second || !second.project.actor.subjectId)
             throw new Error('Missing projects')
-        const unrelated = f.manual.createProject({
+        const unrelated = await f.manual.createProject({
             name: 'Unrelated',
             subjectId: 'unrelated',
             displayName: 'Unrelated',
@@ -537,7 +537,7 @@ it('keeps editorial readers and content on their project context when a detached
             )
             .run(second.project.project.id, first.channel.id, actor.id)
         expect(
-            f.publishers.getPublisherConnection(
+            await f.publishers.getPublisherConnection(
                 second.project.project.id,
                 first.channel.id,
                 second.project.actor.subjectId
@@ -559,7 +559,7 @@ it('keeps editorial readers and content on their project context when a detached
                 first.credential.id
             )
         ).toBeNull()
-        const post = f.manual.createPost({
+        const post = (await f.manual.createPost({
             projectId: second.project.project.id,
             subjectId: second.project.actor.subjectId,
             sourceContent: {
@@ -573,13 +573,13 @@ it('keeps editorial readers and content on their project context when a detached
                     scheduledAt: Date.now() + 60000,
                 },
             ],
-        })!
+        }))!
         const publication = post.publications[0]!
-        const before = f.manual.getPublicationEditorState(
+        const before = (await f.manual.getPublicationEditorState(
             second.project.project.id,
             publication.id,
             second.project.actor.subjectId
-        )!
+        ))!
         expect(before).not.toBeNull()
         f.database.$client
             .query(
@@ -623,7 +623,7 @@ it('keeps editorial readers and content on their project context when a detached
                 )
                 .all(second.project.project.id)
         ).toEqual([])
-        const after = f.manual.getPublicationEditorState(
+        const after = await f.manual.getPublicationEditorState(
             second.project.project.id,
             publication.id,
             second.project.actor.subjectId
@@ -639,7 +639,7 @@ it('keeps editorial readers and content on their project context when a detached
     }
 })
 
-it('retires a migrated alpha.2 managing project while another project retains its channel and credential', () => {
+it('retires a migrated alpha.2 managing project while another project retains its channel and credential', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'postdot-alpha2-retirement-'))
     const database = createDatabase(':memory:')
     try {
@@ -667,17 +667,17 @@ it('retires a migrated alpha.2 managing project while another project retains it
             )
             .run(target.project, source.channel, actor.id)
         const lifecycle = createResourceLifecycleStore(database)
-        lifecycle.mutate({
+        await lifecycle.mutate({
             kind: 'project',
             id: source.project,
             action: 'delete',
             actorId: 'source',
-            fingerprint: lifecycle.impact('project', source.project)!.fingerprint,
+            fingerprint: (await lifecycle.impact('project', source.project))!.fingerprint,
             confirmName: 'source',
             cancelPending: true,
-            authorize: () => true,
+            authorize: async () => true,
         })
-        expect(lifecycle.state('project', source.project)).toBe('deleted')
+        expect(await lifecycle.state('project', source.project)).toBe('deleted')
         expect(
             database.$client
                 .query('select id from publisher_credentials where id=?')

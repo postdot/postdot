@@ -40,14 +40,14 @@ export function createPublicationFirstCommentService(options: {
     const access = createAccessStore(options.database)
     const manual = createManualStore(options.database)
     const now = options.now ?? Date.now
-    function get(
+    async function get(
         projectId: string,
         publicationId: string,
         subjectId: string
-    ): PublicationFirstCommentResponse | null {
-        const editor = manual.getPublicationEditorState(projectId, publicationId, subjectId)
+    ): Promise<PublicationFirstCommentResponse | null> {
+        const editor = await manual.getPublicationEditorState(projectId, publicationId, subjectId)
         if (!editor) return null
-        const row = store.get(projectId, publicationId, subjectId)
+        const row = await store.get(projectId, publicationId, subjectId)
         const execution = editor.profile.profile.execution
         const nativeProvider =
             execution.kind === 'built_in' ? (commentPolicy(execution.contractId)?.id ?? null) : null
@@ -59,7 +59,7 @@ export function createPublicationFirstCommentService(options: {
             nativeProvider === providerId &&
             editor.publication.deliveryMode === 'automatic'
         if ((!supported && row === null) || !providerId) return null
-        const canManage = access.canAccessProject(projectId, subjectId, 'editor')
+        const canManage = await access.canAccessProject(projectId, subjectId, 'editor')
         const canConfigure =
             canManage &&
             supported &&
@@ -69,8 +69,8 @@ export function createPublicationFirstCommentService(options: {
         const author =
             row === null
                 ? null
-                : options.database.$client
-                      .query<{ name: string }, [string, string]>(
+                : await options.database.sql
+                      .statement<{ name: string }, [string, string]>(
                           'select display_name as name from actors where project_id = ?1 and id = ?2'
                       )
                       .get(projectId, row.actorId)
@@ -108,7 +108,7 @@ export function createPublicationFirstCommentService(options: {
                 !work.rootUri ||
                 !work.accountId ||
                 !work.credentialId ||
-                !store.claimCurrent(work, now())
+                !(await store.claimCurrent(work, now()))
             )
                 return failed('The first comment is no longer eligible for dispatch')
             if (options.performComment) {
@@ -130,7 +130,7 @@ export function createPublicationFirstCommentService(options: {
                     contextFetcher: options.contextFetcher,
                     signal,
                     now: now(),
-                    stillEligible: () => store.claimCurrent(work, now()),
+                    stillEligible: async () => await store.claimCurrent(work, now()),
                     onDispatch: () => {
                         dispatched = true
                     },
@@ -146,7 +146,7 @@ export function createPublicationFirstCommentService(options: {
         }
     }
     async function processDueEvent(projectId?: string): Promise<boolean> {
-        store.reconcile(now())
+        await store.reconcile(now())
         const result = await processNextExternalEffect({
             store: store.deliveries,
             projectId,
@@ -164,14 +164,14 @@ export function createPublicationFirstCommentService(options: {
         store,
         get,
         getNextEventAt: () => store.getNextEventAt(now()),
-        save(
+        async save(
             input: PublicationFirstCommentSave & {
                 projectId: string
                 publicationId: string
                 subjectId: string
             }
         ) {
-            const current = get(input.projectId, input.publicationId, input.subjectId)
+            const current = await get(input.projectId, input.publicationId, input.subjectId)
             if (!current) return { kind: 'not_found' } as const
             if (
                 !current.canConfigure ||
@@ -184,13 +184,13 @@ export function createPublicationFirstCommentService(options: {
                 now: now(),
             })
         },
-        cancel(input: {
+        async cancel(input: {
             projectId: string
             publicationId: string
             subjectId: string
             expectedRevision: number
         }) {
-            const current = get(input.projectId, input.publicationId, input.subjectId)
+            const current = await get(input.projectId, input.publicationId, input.subjectId)
             if (!current) return { kind: 'not_found' } as const
             if (
                 !current.canManage ||

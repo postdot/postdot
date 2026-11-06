@@ -58,6 +58,47 @@ function createFixture(
 }
 
 describe('Postdot authentication', () => {
+    it('keeps auth reads outside an uncommitted Postdot transaction', async () => {
+        const { auth, database } = createFixture()
+        const entered = Promise.withResolvers<void>()
+        const release = Promise.withResolvers<void>()
+        let transaction: Promise<unknown> | undefined
+        let lookup: Promise<unknown> | undefined
+        try {
+            const { adapter } = await auth.$context
+            transaction = database.sql
+                .transaction(async () => {
+                    await database.sql
+                        .statement(`
+                    insert into user (id, name, email, email_verified, created_at, updated_at)
+                    values ('rolled-back', 'Uncommitted', 'uncommitted@example.com', 0, 0, 0)
+                `)
+                        .run()
+                    entered.resolve()
+                    await release.promise
+                    throw new Error('rollback auth fixture')
+                })
+                .catch(error => error as unknown)
+            await entered.promise
+            let readFinished = false
+            lookup = adapter
+                .findOne({ model: 'user', where: [{ field: 'id', value: 'rolled-back' }] })
+                .then(value => {
+                    readFinished = true
+                    return value
+                })
+            await new Promise<void>(resolve => setTimeout(resolve, 0))
+            expect(readFinished).toBe(false)
+            release.resolve()
+            expect(await transaction).toEqual(new Error('rollback auth fixture'))
+            expect(await lookup).toBeNull()
+        } finally {
+            release.resolve()
+            await Promise.allSettled([transaction, lookup])
+            closeDatabase(database)
+        }
+    })
+
     it('uses Better Auth password hashes for offline recovery', async () => {
         const password = 'recovered-password-123'
         const hash = await hashPostdotPassword(password)
@@ -600,17 +641,17 @@ describe('Postdot authentication', () => {
             const member = (await memberSignup.json()) as { user: { id: string } }
             const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
             const memberCookie = memberSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
-            const project = manualStore.createProject({
+            const project = await manualStore.createProject({
                 name: 'Workspace invitation project',
                 subjectId: owner.user.id,
                 displayName: 'Workspace Invitation Owner',
                 workspaceId: workspace.id,
             })
             expect(
-                access.ensureProjectOwnerMembership({
+                await access.ensureProjectOwnerMembership({
                     projectId: project.project.id,
                     userId: owner.user.id,
                 })
@@ -642,8 +683,10 @@ describe('Postdot authentication', () => {
                 userId: member.user.id,
                 role: 'member',
             })
-            expect(access.canAccessProject(project.project.id, member.user.id, 'editor')).toBe(true)
-            expect(manualStore.listProjects(member.user.id)).toEqual([
+            expect(
+                await access.canAccessProject(project.project.id, member.user.id, 'editor')
+            ).toBe(true)
+            expect(await manualStore.listProjects(member.user.id)).toEqual([
                 expect.objectContaining({ id: project.project.id }),
             ])
 
@@ -653,7 +696,7 @@ describe('Postdot authentication', () => {
             })
             // The Postdot grant remains stored, but project access is scoped to
             // current workspace membership and therefore becomes unavailable.
-            expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
+            expect(await access.canAccessProject(project.project.id, member.user.id)).toBe(false)
         } finally {
             closeDatabase(database)
         }

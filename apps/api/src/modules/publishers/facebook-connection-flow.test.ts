@@ -22,7 +22,7 @@ import { createFacebookConnectionFlow } from '../../providers/facebook/connectio
 
 const callbackUri = 'https://postdot.example/api/oauth/facebook/callback'
 type PermissionMode = 'granted' | 'declined' | 'missing' | 'revoked'
-function fixture(
+async function fixture(
     options: {
         readonly finalExpiration?: number | null
         readonly permissionDelayMs?: number
@@ -42,18 +42,18 @@ function fixture(
     const permissionDelayMs = options.permissionDelayMs ?? 0
     const permissionMode = options.permissionMode ?? 'granted'
     const channels = createManualStore(database, { now })
-    const project = channels.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await channels.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Test',
         subjectId: 'owner',
         displayName: 'Owner',
     })
-    const channel = channels.createChannel({
+    const channel = (await channels.createChannel({
         projectId: project.project.id,
         subjectId: 'owner',
         name: 'Facebook',
         profile: facebookChannelProfile,
-    })!
+    }))!
     const cipher = createPublisherCredentialCipher({
         keyId: 'test',
         key: new Uint8Array(32).fill(7),
@@ -145,13 +145,13 @@ function fixture(
         channels,
         publishers: {
             ...publishers,
-            createPublisherConnection: input =>
+            createPublisherConnection: async input =>
                 failConnection
                     ? { kind: 'invalid_connection' }
                     : publishers.createPublisherConnection(input),
         },
-        access: { canAccessProject: () => editor },
-        canManageChannel: () => manager,
+        access: { canAccessProject: async () => editor },
+        canManageChannel: async () => manager,
         oauth,
         graph,
         now,
@@ -212,7 +212,7 @@ async function stateDigest(state: string): Promise<Uint8Array> {
 
 /** Reads the decrypted pending provider state through the store's own API. */
 async function readPendingProviderState(
-    f: ReturnType<typeof fixture>,
+    f: Awaited<ReturnType<typeof fixture>>,
     selection: string
 ): Promise<Record<string, unknown>> {
     const row = f.database.$client
@@ -236,11 +236,11 @@ async function readPendingProviderState(
 
 /** Persists a crafted pending provider state through the store's own API. */
 async function storePendingProviderState(
-    f: ReturnType<typeof fixture>,
+    f: Awaited<ReturnType<typeof fixture>>,
     state: string,
     providerState: string
 ): Promise<void> {
-    const actorId = f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
+    const actorId = await f.publishers.getProjectActorId(f.binding.projectId, f.binding.subjectId)
     if (!actorId) throw new Error('no actor')
     const created = await f.attempts.createAuthorizationAttempt({
         projectId: f.binding.projectId,
@@ -259,11 +259,15 @@ async function storePendingProviderState(
 }
 
 test('Facebook callback stages encrypted choices and connects only the explicitly selected Page', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         expect(
-            f.publishers.getPublisherConnection(f.binding.projectId, f.binding.channelId, 'owner')
+            await f.publishers.getPublisherConnection(
+                f.binding.projectId,
+                f.binding.channelId,
+                'owner'
+            )
         ).toBeNull()
         const pages = await f.flow.listPages(f.binding, pending.selection)
         expect(pages).toEqual({
@@ -302,7 +306,7 @@ test('Facebook callback stages encrypted choices and connects only the explicitl
 })
 
 test('an unknown provider expiration completes the Page selection and stores only the selected Page token', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
         const stored = f.database.$client
@@ -367,7 +371,7 @@ test('an unknown provider expiration completes the Page selection and stores onl
 })
 
 test('an unknown provider expiration is stored as an explicit null deadline holding the final token', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
         const state = await readPendingProviderState(f, pending.selection)
@@ -385,7 +389,7 @@ test('an unknown provider expiration is stored as an explicit null deadline hold
 })
 
 test('an unknown provider expiration stays bound to the local attempt lifetime', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const pending = await f.pending()
         f.advance(59_999)
@@ -402,7 +406,7 @@ test('an unknown provider expiration stays bound to the local attempt lifetime',
 })
 
 test('a known provider expiration shorter than the local attempt lifetime refuses the pending token', async () => {
-    const f = fixture({ finalExpiration: 30 })
+    const f = await fixture({ finalExpiration: 30 })
     try {
         const pending = await f.pending()
         f.advance(30_000)
@@ -434,7 +438,7 @@ test('a known provider expiration shorter than the local attempt lifetime refuse
 })
 
 test('a permission probe that crosses a known deadline is refused before any pending choice exists', async () => {
-    const f = fixture({ finalExpiration: 10, permissionDelayMs: 11_000 })
+    const f = await fixture({ finalExpiration: 10, permissionDelayMs: 11_000 })
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
@@ -458,7 +462,7 @@ test('a permission probe that crosses a known deadline is refused before any pen
 })
 
 test('a refused permission discovery creates no pending Page selection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         f.losePermission()
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
@@ -482,7 +486,7 @@ test('a refused permission discovery creates no pending Page selection', async (
 
 test('an unknown provider expiration still refuses missing or declined publishing permissions', async () => {
     for (const permissionMode of ['declined', 'missing'] as const) {
-        const f = fixture({ finalExpiration: null, permissionMode })
+        const f = await fixture({ finalExpiration: null, permissionMode })
         try {
             const { url } = await f.flow.start(f.binding, '/dashboard/channels')
             await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
@@ -508,7 +512,7 @@ test('an unknown provider expiration still refuses missing or declined publishin
 })
 
 test('an unknown provider expiration refuses a revoked provider token', async () => {
-    const f = fixture({ finalExpiration: null, permissionMode: 'revoked' })
+    const f = await fixture({ finalExpiration: null, permissionMode: 'revoked' })
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         await expect(f.flow.complete(f.binding, f.callback(url))).rejects.toMatchObject({
@@ -533,7 +537,7 @@ test('an unknown provider expiration refuses a revoked provider token', async ()
 })
 
 test('API keys, foreign users and viewers cannot start authorization or contact Meta', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         await expect(
             f.flow.start({ ...f.binding, authMethod: 'user_api_key' }, '/dashboard/channels')
@@ -552,16 +556,16 @@ test('API keys, foreign users and viewers cannot start authorization or contact 
 })
 
 test('callback state is single use and binds the exact project and channel', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         const parameters = f.callback(url)
-        const other = f.channels.createChannel({
+        const other = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Other',
             profile: facebookChannelProfile,
-        })!
+        }))!
         await expect(
             f.flow.complete({ ...f.binding, channelId: other.id }, parameters)
         ).rejects.toMatchObject({ code: 'invalid_attempt' })
@@ -578,7 +582,7 @@ test('callback state is single use and binds the exact project and channel', asy
 })
 
 test('expired or foreign pending choices never disclose Pages', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests
@@ -604,7 +608,7 @@ test('a malformed pending provider state is refused before any Graph request', a
         'null',
         '"synthetic-long-user-token"',
     ]) {
-        const f = fixture({ finalExpiration: null })
+        const f = await fixture({ finalExpiration: null })
         try {
             const state = crypto.randomUUID() + crypto.randomUUID()
             await storePendingProviderState(f, state, providerState)
@@ -623,7 +627,7 @@ test('a malformed pending provider state is refused before any Graph request', a
 })
 
 test('a legacy numeric pending provider state is still accepted', async () => {
-    const f = fixture({ finalExpiration: null })
+    const f = await fixture({ finalExpiration: null })
     try {
         const state = crypto.randomUUID() + crypto.randomUUID()
         await storePendingProviderState(
@@ -639,7 +643,7 @@ test('a legacy numeric pending provider state is still accepted', async () => {
 })
 
 test('current permission and Page publishing task are required; no fallback Page is chosen', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         await expect(f.flow.selectPage(f.binding, pending.selection, '789')).rejects.toMatchObject({
@@ -653,7 +657,11 @@ test('current permission and Page publishing task are required; no fallback Page
             code: 'provider_unavailable',
         })
         expect(
-            f.publishers.getPublisherConnection(f.binding.projectId, f.binding.channelId, 'owner')
+            await f.publishers.getPublisherConnection(
+                f.binding.projectId,
+                f.binding.channelId,
+                'owner'
+            )
         ).toBeNull()
         expect(f.database.$client.query('select * from publisher_credentials').all()).toHaveLength(
             0
@@ -664,7 +672,7 @@ test('current permission and Page publishing task are required; no fallback Page
 })
 
 test('a persistence rejection consumes selection and revokes only its newly created credential', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         f.failConnection()
@@ -685,7 +693,7 @@ test('a persistence rejection consumes selection and revokes only its newly crea
 })
 
 test('concurrent Page selections persist one connection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const results = await Promise.allSettled([
@@ -705,7 +713,7 @@ test('concurrent Page selections persist one connection', async () => {
 })
 
 test('an expired callback is consumed as expired without exchanging its provider code', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const { url } = await f.flow.start(f.binding, '/dashboard/channels')
         f.advance()
@@ -722,7 +730,7 @@ test('an expired callback is consumed as expired without exchanging its provider
 })
 
 test('loss of editor access after authorization prevents Page inspection and persistence', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests
@@ -743,21 +751,21 @@ test('loss of editor access after authorization prevents Page inspection and per
 })
 
 test('an operator cannot move pending choices into another project they own', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
-        const project = f.channels.createProject({
-            workspaceId: seedTestWorkspace(f.database),
+        const project = await f.channels.createProject({
+            workspaceId: await seedTestWorkspace(f.database),
             name: 'Other project',
             subjectId: 'owner',
             displayName: 'Owner',
         })
-        const channel = f.channels.createChannel({
+        const channel = (await f.channels.createChannel({
             projectId: project.project.id,
             subjectId: 'owner',
             name: 'Facebook',
             profile: facebookChannelProfile,
-        })!
+        }))!
         const before = f.requests
         await expect(
             f.flow.selectPage(
@@ -776,13 +784,13 @@ test('an operator cannot move pending choices into another project they own', as
 })
 
 test('manual channels cannot be connected through the Facebook flow', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
-        const manual = f.channels.createChannel({
+        const manual = (await f.channels.createChannel({
             projectId: f.binding.projectId,
             subjectId: 'owner',
             name: 'Manual',
-        })!
+        }))!
         await expect(
             f.flow.start({ ...f.binding, channelId: manual.id }, '/dashboard/channels')
         ).rejects.toMatchObject({ code: 'conflict' })
@@ -793,7 +801,7 @@ test('manual channels cannot be connected through the Facebook flow', async () =
 })
 
 test('losing channel management preserves editor access but blocks Page selection', async () => {
-    const f = fixture()
+    const f = await fixture()
     try {
         const pending = await f.pending()
         const before = f.requests

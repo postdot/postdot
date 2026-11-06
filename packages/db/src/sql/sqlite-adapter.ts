@@ -1,7 +1,14 @@
 import type { Database, SQLQueryBindings, Statement } from 'bun:sqlite'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-import type { SqlDatabase, SqlParams, SqlRunResult, SqlStatement, SqlTransactionMode } from './port'
+import type {
+    SqlCommitScope,
+    SqlDatabase,
+    SqlParams,
+    SqlRunResult,
+    SqlStatement,
+    SqlTransactionMode,
+} from './port'
 
 /**
  * SQLite profile of the persistence port (ADR-097).
@@ -17,7 +24,7 @@ import type { SqlDatabase, SqlParams, SqlRunResult, SqlStatement, SqlTransaction
 interface TransactionRoot {
     readonly owner: SqliteSqlDatabase
     closed: boolean
-    readonly afterCommit: (() => void)[]
+    readonly afterCommit: { readonly callback: () => void; readonly durable: boolean }[]
 }
 
 /** One frame per transaction or savepoint scope in the current async context. */
@@ -25,6 +32,7 @@ interface TransactionFrame {
     readonly root: TransactionRoot
     /** Set while a nested savepoint opened from this frame is running. */
     childActive: boolean
+    readonly children: Set<Promise<unknown>>
 }
 
 const transactionContext = new AsyncLocalStorage<TransactionFrame>()
@@ -32,10 +40,6 @@ const transactionContext = new AsyncLocalStorage<TransactionFrame>()
 class WriterGate {
     #held = false
     readonly #waiters: (() => void)[] = []
-
-    get held(): boolean {
-        return this.#held
-    }
 
     tryAcquire(): boolean {
         if (this.#held) return false
@@ -68,12 +72,9 @@ export class SqliteSqlDatabase implements SqlDatabase {
         this.#client = client
     }
 
-    /** True while an async transaction or gated statement owns the connection. */
-    get busy(): boolean {
-        return this.#gate.held
-    }
-
-    statement<Row, Params extends SqlParams = []>(text: string): SqlStatement<Row, Params> {
+    statement<Row = unknown, Params extends SqlParams = SqlParams>(
+        text: string
+    ): SqlStatement<Row, Params> {
         let prepared: Statement<Row, SQLQueryBindings[]> | undefined
         const resolve = () => {
             prepared ??= this.#client.query<Row, SQLQueryBindings[]>(text)
@@ -91,6 +92,7 @@ export class SqliteSqlDatabase implements SqlDatabase {
                 }),
             values: (...params) =>
                 this.#execute(() => resolve().values(...bindings(params)) as unknown[][]),
+            iterate: (...params) => this.#iterate(() => resolve().iterate(...bindings(params))),
         }
     }
 
@@ -108,10 +110,10 @@ export class SqliteSqlDatabase implements SqlDatabase {
         return this.#currentFrame()?.root
     }
 
-    afterCommit(callback: () => void): void {
+    afterCommit(callback: () => void, scope: SqlCommitScope = 'savepoint'): void {
         const frame = this.#currentFrame()
         if (frame === undefined) callback()
-        else frame.root.afterCommit.push(callback)
+        else frame.root.afterCommit.push({ callback, durable: scope === 'transaction' })
     }
 
     async transaction<T>(
@@ -119,20 +121,35 @@ export class SqliteSqlDatabase implements SqlDatabase {
         mode: SqlTransactionMode = 'deferred'
     ): Promise<T> {
         const frame = this.#currentFrame()
-        if (frame !== undefined) return this.#savepoint(frame, operation)
+        if (frame !== undefined) {
+            const child = this.#savepoint(frame, operation)
+            frame.children.add(child)
+            void child.then(
+                () => frame.children.delete(child),
+                () => frame.children.delete(child)
+            )
+            return child
+        }
 
         await this.#gate.acquire()
         const owned: TransactionRoot = { owner: this, closed: false, afterCommit: [] }
+        const ownedFrame: TransactionFrame = {
+            root: owned,
+            childActive: false,
+            children: new Set(),
+        }
         let result: T
         try {
             this.#client.run(`begin ${mode}`)
             try {
-                result = await transactionContext.run(
-                    { root: owned, childActive: false },
-                    operation
-                )
+                result = await transactionContext.run(ownedFrame, operation)
+                await this.#drainChildren(ownedFrame)
                 this.#client.run('commit')
             } catch (error) {
+                // Promise.all can reject while a sibling savepoint is still
+                // running. Keep ownership until it settles, so its writes
+                // cannot escape the rollback into autocommit.
+                await this.#drainChildren(ownedFrame)
                 if (this.#client.inTransaction) this.#client.run('rollback')
                 throw error
             }
@@ -141,7 +158,7 @@ export class SqliteSqlDatabase implements SqlDatabase {
             this.#gate.release()
         }
 
-        for (const callback of owned.afterCommit) callback()
+        for (const { callback } of owned.afterCommit) callback()
         return result
     }
 
@@ -150,6 +167,10 @@ export class SqliteSqlDatabase implements SqlDatabase {
         return frame !== undefined && frame.root.owner === this && !frame.root.closed
             ? frame
             : undefined
+    }
+
+    async #drainChildren(frame: TransactionFrame): Promise<void> {
+        while (frame.children.size > 0) await Promise.allSettled(frame.children)
     }
 
     async #savepoint<T>(frame: TransactionFrame, operation: () => Promise<T>): Promise<T> {
@@ -162,22 +183,51 @@ export class SqliteSqlDatabase implements SqlDatabase {
         const { root } = frame
         const callbacks = root.afterCommit.length
         frame.childActive = true
+        const childFrame: TransactionFrame = { root, childActive: false, children: new Set() }
         try {
             this.#client.run(`savepoint ${name}`)
             try {
-                const result = await transactionContext.run({ root, childActive: false }, operation)
+                const result = await transactionContext.run(childFrame, operation)
+                await this.#drainChildren(childFrame)
                 this.#client.run(`release ${name}`)
                 return result
             } catch (error) {
+                await this.#drainChildren(childFrame)
                 this.#client.run(`rollback to ${name}`)
                 this.#client.run(`release ${name}`)
-                // Callbacks registered by the rolled-back scope must not run.
+                // Callbacks registered by the rolled-back scope must not run,
+                // unless they were bound to the whole transaction.
+                const kept = root.afterCommit.slice(callbacks).filter(entry => entry.durable)
                 root.afterCommit.length = callbacks
+                root.afterCommit.push(...kept)
                 throw error
             }
         } finally {
             frame.childActive = false
         }
+    }
+
+    async *#iterate<Row>(open: () => IterableIterator<Row>): AsyncGenerator<Row> {
+        if (this.#currentFrame() !== undefined) {
+            yield* open()
+            return
+        }
+        await this.#gate.acquire()
+        try {
+            yield* open()
+        } finally {
+            this.#gate.release()
+        }
+    }
+
+    /**
+     * Runs synchronous native work (Drizzle query builder on the shared
+     * connection) under the writer gate, or directly inside the transaction
+     * bound to the current async context. Transitional for the SQLite
+     * profile (ADR-097, DB-609); engine-neutral code uses statements.
+     */
+    runNative<T>(operation: () => T): Promise<T> {
+        return this.#execute(operation)
     }
 
     #execute<T>(operation: () => T): Promise<T> {

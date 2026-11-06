@@ -23,8 +23,8 @@ export function registerAuditEventRoutes<const Routes extends Record<string, unk
                 tags: ['Audit'],
             },
         },
-        ({ params, status, user }) => {
-            const events = manualStore.listAuditEvents(params.projectId, user.id)
+        async ({ params, status, user }) => {
+            const events = await manualStore.listAuditEvents(params.projectId, user.id)
             if (events === null) {
                 return status(404, {
                     error: { code: 'not_found', message: 'Project not found' },

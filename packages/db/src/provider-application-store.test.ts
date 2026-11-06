@@ -57,7 +57,7 @@ describe('provider application store', () => {
                 hasClientSecret: true,
             })
             expect(result.configuration).not.toHaveProperty('clientSecret')
-            expect(fixture.store.listProviderApplicationConfigurations()).toEqual([
+            expect(await fixture.store.listProviderApplicationConfigurations()).toEqual([
                 result.configuration,
             ])
 
@@ -117,9 +117,9 @@ describe('provider application store', () => {
                 first.configuration.id
             )
             expect(
-                fixture.store
-                    .listProviderApplicationConfigurations('linkedin')
-                    .filter(configuration => configuration.isDefault)
+                (await fixture.store.listProviderApplicationConfigurations('linkedin')).filter(
+                    configuration => configuration.isDefault
+                )
             ).toHaveLength(1)
         } finally {
             closeDatabase(fixture.database)
@@ -209,7 +209,7 @@ it('encrypts Facebook application secrets and rejects non-numeric application ID
         })
         expect(saved.kind).toBe('created')
         expect(
-            JSON.stringify(store.listProviderApplicationConfigurations('facebook'))
+            JSON.stringify(await store.listProviderApplicationConfigurations('facebook'))
         ).not.toContain('facebook-encrypted-secret')
         expect((await store.resolveProviderApplication('facebook'))?.clientSecret).toBe(
             'facebook-encrypted-secret'
@@ -248,7 +248,7 @@ it('encrypts Instagram application secrets and only exposes safe metadata', asyn
         })
         expect(saved.configuration).not.toHaveProperty('clientSecret')
         expect(
-            JSON.stringify(store.listProviderApplicationConfigurations('instagram'))
+            JSON.stringify(await store.listProviderApplicationConfigurations('instagram'))
         ).not.toContain(secret)
         const stored = database.$client
             .query<{ ciphertext: Uint8Array }, []>(

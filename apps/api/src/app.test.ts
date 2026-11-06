@@ -1805,7 +1805,7 @@ describe('Postdot API', () => {
             expect(actor).toBeDefined()
 
             const eventAt = Date.now() - 1_000
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'analytics-api-event',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1930,7 +1930,7 @@ describe('Postdot API', () => {
                 .get(created.project.id)
             expect(actor).toBeDefined()
 
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'notification-api-event',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1939,7 +1939,7 @@ describe('Postdot API', () => {
                 subject: { type: 'publication', id: 'publication-1' },
                 occurredAt: now,
             })
-            createEventJournalStore(database).append({
+            await createEventJournalStore(database).append({
                 id: 'notification-api-event-2',
                 projectId: created.project.id,
                 actorId: actor?.id ?? '',
@@ -1948,7 +1948,7 @@ describe('Postdot API', () => {
                 subject: { type: 'publication', id: 'publication-2' },
                 occurredAt: now,
             })
-            notifications.project(created.project.id)
+            await notifications.project(created.project.id)
 
             const inboxResponse = await jsonRequest(
                 app,
@@ -2098,7 +2098,7 @@ describe('Postdot API', () => {
             if (actor === null) throw new Error('The test human actor is missing')
 
             const journal = createEventJournalStore(database)
-            const first = journal.append({
+            const first = await journal.append({
                 id: 'realtime-api-event-1',
                 projectId,
                 actorId: actor.id,
@@ -2145,7 +2145,7 @@ describe('Postdot API', () => {
             expect(globalChunk.text).not.toContain('provider-access-token-must-not-leak')
             expect(globalChunk.text).not.toContain(actor.id)
 
-            const second = journal.append({
+            const second = await journal.append({
                 id: 'realtime-api-event-2',
                 projectId,
                 actorId: actor.id,
@@ -3141,7 +3141,7 @@ describe('Postdot API', () => {
             const outsider = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
                 .get('project-access-outsider@postdot.local')
-            const outsiderWorkspace = access.getDefaultWorkspace()
+            const outsiderWorkspace = await access.getDefaultWorkspace()
             expect(outsider).not.toBeNull()
             expect(outsiderWorkspace).not.toBeNull()
             if (outsider === null || outsiderWorkspace === null) {
@@ -3192,7 +3192,7 @@ describe('Postdot API', () => {
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
                 .get(memberEmail)
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
             if (member === null || workspace === null) {
@@ -3309,7 +3309,7 @@ describe('Postdot API', () => {
             )
             expect(removeResponse.status).toBe(200)
             expect(await removeResponse.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, projectMember.userId)).toBe(false)
+            expect(await access.canAccessProject(projectId, projectMember.userId)).toBe(false)
 
             const afterRemoveResponse = await jsonRequest(
                 app,
@@ -3412,7 +3412,7 @@ describe('Postdot API', () => {
             expect(member).not.toBeNull()
             if (member === null) throw new Error('The group grant member was not created')
 
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
             const editorsTeamId = `postdot-workspace-team:${workspace.id}:editors`
@@ -3524,7 +3524,7 @@ describe('Postdot API', () => {
             )
             expect(directGrantRemoved.status).toBe(200)
             expect(await directGrantRemoved.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, member.id, 'editor')).toBe(true)
+            expect(await access.canAccessProject(projectId, member.id, 'editor')).toBe(true)
 
             const forbiddenGrant = await jsonRequest(
                 app,
@@ -3545,7 +3545,7 @@ describe('Postdot API', () => {
             )
             expect(removed.status).toBe(200)
             expect(await removed.json()).toEqual({ removed: true })
-            expect(access.canAccessProject(projectId, member.id)).toBe(false)
+            expect(await access.canAccessProject(projectId, member.id)).toBe(false)
         } finally {
             closeDatabase(database)
         }
@@ -3556,7 +3556,7 @@ describe('Postdot API', () => {
 
         try {
             const ownerCookie = await signUp(app, 'workspace-flow-owner@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
@@ -3683,7 +3683,7 @@ describe('Postdot API', () => {
             const member = database.$client
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
                 .get('group-visibility-member@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(member).not.toBeNull()
             expect(workspace).not.toBeNull()
             if (member === null || workspace === null) {
@@ -3812,8 +3812,8 @@ describe('Postdot API', () => {
             expect(await projectsAfterEditorsRemovalResponse.json()).toEqual({
                 projects: [expect.objectContaining({ id: secondProject.project.id })],
             })
-            expect(access.canAccessProject(firstProject.project.id, member.id)).toBe(false)
-            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(true)
+            expect(await access.canAccessProject(firstProject.project.id, member.id)).toBe(false)
+            expect(await access.canAccessProject(secondProject.project.id, member.id)).toBe(true)
 
             const removedProjectMembersResponse = await jsonRequest(
                 app,
@@ -3837,7 +3837,7 @@ describe('Postdot API', () => {
             )
             expect(projectsAfterAllRemovalsResponse.status).toBe(200)
             expect(await projectsAfterAllRemovalsResponse.json()).toEqual({ projects: [] })
-            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
+            expect(await access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
         } finally {
             closeDatabase(database)
         }
@@ -3889,7 +3889,7 @@ describe('Postdot API', () => {
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
                 .get('organization-member@postdot.local')
             expect(member).not.toBeNull()
-            expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
+            expect(await access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
 
             const projectsResponse = await jsonRequest(app, '/api/projects', memberCookie)
             expect(projectsResponse.status).toBe(200)
@@ -4334,7 +4334,7 @@ describe('Postdot API', () => {
             )
             expect(duplicatePublishedResponse.status).toBe(409)
 
-            notificationProjection.runNow()
+            await notificationProjection.runNow()
             const notificationResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/notifications`,
@@ -5331,7 +5331,7 @@ describe('Postdot API', () => {
 
             // A revoked credential keeps the connection discoverable so the UI can offer recovery,
             // while removing secret usability until the user completes OAuth again.
-            const revokedCredential = publisher.credentialStore.revokePublisherCredential(
+            const revokedCredential = await publisher.credentialStore.revokePublisherCredential(
                 projectBody.project.id,
                 initialCredentialId
             )
@@ -5925,7 +5925,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
             expect(response.status).toBe(403)
         }
         const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@postdot.local')
-        const members = access.listInstanceMemberships()
+        const members = await access.listInstanceMemberships()
         const memberId = members.find(
             member => member.email === 'smtp-member@postdot.local'
         )!.userId
@@ -5936,7 +5936,7 @@ it('restricts SMTP settings to human instance administrators and never returns c
         expect(demotion.status).toBe(200)
         expect(await demotion.json()).toMatchObject({ membership: { role: 'member' } })
         expect(
-            access.isInstanceAdmin(
+            await access.isInstanceAdmin(
                 members.find(member => member.email === 'smtp-member@postdot.local')!.userId
             )
         ).toBe(false)
@@ -5991,8 +5991,8 @@ it('keeps recovery inspection accessible, blocks writes and requires administrat
             body: { userId: memberUser.id, role: 'user' },
             headers: new Headers({ cookie: admin }),
         })
-        expect(access.isInstanceAdmin(adminUser.id)).toBe(true)
-        expect(access.isInstanceAdmin(memberUser.id)).toBe(false)
+        expect(await access.isInstanceAdmin(adminUser.id)).toBe(true)
+        expect(await access.isInstanceAdmin(memberUser.id)).toBe(false)
         held = true
         expect((await app.handle(new Request(`${baseURL}/api/recovery/status`))).status).toBe(200)
         expect((await jsonRequest(app, '/api/projects', admin)).status).toBe(200)
@@ -6088,7 +6088,7 @@ it('saves the standalone post source with revision guards and no destination cha
             .query<{ id: string }, [string]>('select id from user where email = ?1')
             .get('source-viewer@postdot.local')!
         expect(
-            access.grantProjectUserAccess({
+            await access.grantProjectUserAccess({
                 projectId: project.id,
                 userId: viewer.id,
                 role: 'viewer',

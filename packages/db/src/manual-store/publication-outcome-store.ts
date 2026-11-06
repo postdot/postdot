@@ -6,7 +6,7 @@ import {
     type Publication,
 } from '@postdot/core'
 
-import { createDatabaseTransaction, type PostdotDatabase } from '../client'
+import { defineTransaction, type PostdotDatabase } from '../client'
 import type {
     DueManualPublication,
     PublishManualPublicationInput,
@@ -32,18 +32,21 @@ interface AuditEventInsert {
 export interface PublicationOutcomeStoreOptions {
     readonly now: () => number
     readonly createId: () => string
-    readonly loadActor: (projectId: string, subjectId: string) => ActorRow | null
-    readonly loadPublication: (projectId: string, publicationId: string) => PublicationRow | null
-    readonly insertAuditEvent: (input: AuditEventInsert) => void
+    readonly loadActor: (projectId: string, subjectId: string) => Promise<ActorRow | null>
+    readonly loadPublication: (
+        projectId: string,
+        publicationId: string
+    ) => Promise<PublicationRow | null>
+    readonly insertAuditEvent: (input: AuditEventInsert) => Promise<unknown>
 }
 
 export function createPublicationOutcomeStore(
     database: PostdotDatabase,
     options: PublicationOutcomeStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
 
-    const loadDuePublicationStatement = client.query<
+    const loadDuePublicationStatement = sql.statement<
         PublicationRow,
         [projectId: string, publicationId: string, now: number]
     >(`
@@ -60,7 +63,7 @@ export function createPublicationOutcomeStore(
           and publications.review_state = 'compatible'
           and publications.scheduled_at <= ?3
     `)
-    const loadAmbiguousExecutionProviderStatement = client.query<
+    const loadAmbiguousExecutionProviderStatement = sql.statement<
         { readonly provider: string | null },
         [projectId: string, publicationId: string]
     >(`
@@ -77,7 +80,7 @@ export function createPublicationOutcomeStore(
         order by audit_events.sequence desc
         limit 1
     `)
-    const publishPublicationStatement = client.query<
+    const publishPublicationStatement = sql.statement<
         void,
         [
             publicationId: string,
@@ -101,7 +104,7 @@ export function createPublicationOutcomeStore(
           and project_id = ?2
           and state = 'scheduled'
     `)
-    const reconcilePublishedPublicationStatement = client.query<
+    const reconcilePublishedPublicationStatement = sql.statement<
         { changes: number },
         [
             publicationId: string,
@@ -125,7 +128,7 @@ export function createPublicationOutcomeStore(
           and project_id = ?2
           and state = 'ambiguous'
     `)
-    const reconcileFailedPublicationStatement = client.query<
+    const reconcileFailedPublicationStatement = sql.statement<
         { changes: number },
         [
             publicationId: string,
@@ -144,7 +147,7 @@ export function createPublicationOutcomeStore(
           and project_id = ?2
           and state = 'ambiguous'
     `)
-    const listDuePublicationsStatement = client.query<
+    const listDuePublicationsStatement = sql.statement<
         DuePublicationRow,
         [projectId: string, now: number]
     >(`
@@ -171,14 +174,14 @@ export function createPublicationOutcomeStore(
         order by publications.scheduled_at, publications.id
     `)
 
-    const publishManualPublicationTransaction = createDatabaseTransaction(
+    const publishManualPublicationTransaction = defineTransaction(
         database,
-        (input: PublishManualPublicationInput): Publication | null => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
+        async (input: PublishManualPublicationInput): Promise<Publication | null> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
             if (actorRow === null) return null
 
             const timestamp = requireTimestamp(options.now(), 'now')
-            const row = loadDuePublicationStatement.get(
+            const row = await loadDuePublicationStatement.get(
                 input.projectId,
                 input.publicationId,
                 timestamp
@@ -202,7 +205,7 @@ export function createPublicationOutcomeStore(
                 externalUrl: input.externalUrl,
             })
 
-            const result = publishPublicationStatement.run(
+            const result = await publishPublicationStatement.run(
                 published.id,
                 published.projectId,
                 published.publishedAt as number,
@@ -212,7 +215,7 @@ export function createPublicationOutcomeStore(
             )
             if (result.changes !== 1) return null
 
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: published.projectId,
                 actorId: actor.id,
@@ -227,7 +230,7 @@ export function createPublicationOutcomeStore(
                 }),
                 createdAt: timestamp,
             })
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: published.projectId,
                 actorId: actor.id,
@@ -248,11 +251,13 @@ export function createPublicationOutcomeStore(
             return published
         }
     )
-    const reconcileAmbiguousPublicationTransaction = createDatabaseTransaction(
+    const reconcileAmbiguousPublicationTransaction = defineTransaction(
         database,
-        (input: ReconcileAmbiguousPublicationInput): ReconcileAmbiguousPublicationResult => {
-            const actorRow = options.loadActor(input.projectId, input.subjectId)
-            const row = options.loadPublication(input.projectId, input.publicationId)
+        async (
+            input: ReconcileAmbiguousPublicationInput
+        ): Promise<ReconcileAmbiguousPublicationResult> => {
+            const actorRow = await options.loadActor(input.projectId, input.subjectId)
+            const row = await options.loadPublication(input.projectId, input.publicationId)
             if (actorRow === null || row === null) return { kind: 'not_found' }
             if (row.state !== 'ambiguous') return { kind: 'not_ambiguous' }
 
@@ -282,7 +287,7 @@ export function createPublicationOutcomeStore(
 
             const result =
                 reconciled.state === 'published'
-                    ? reconcilePublishedPublicationStatement.run(
+                    ? await reconcilePublishedPublicationStatement.run(
                           reconciled.id,
                           reconciled.projectId,
                           reconciled.publishedAt as number,
@@ -290,7 +295,7 @@ export function createPublicationOutcomeStore(
                           reconciled.externalId as string,
                           reconciled.externalUrl
                       )
-                    : reconcileFailedPublicationStatement.run(
+                    : await reconcileFailedPublicationStatement.run(
                           reconciled.id,
                           reconciled.projectId,
                           reconciled.updatedAt,
@@ -305,14 +310,14 @@ export function createPublicationOutcomeStore(
                 )
             }
 
-            const ambiguityFact = loadAmbiguousExecutionProviderStatement.get(
+            const ambiguityFact = await loadAmbiguousExecutionProviderStatement.get(
                 reconciled.projectId,
                 reconciled.id
             )
             const provider =
                 reconciled.deliveryMode === 'manual' ? 'manual' : (ambiguityFact?.provider ?? null)
 
-            options.insertAuditEvent({
+            await options.insertAuditEvent({
                 id: options.createId(),
                 projectId: reconciled.projectId,
                 actorId: actor.id,
@@ -336,28 +341,37 @@ export function createPublicationOutcomeStore(
     )
 
     return {
-        listDueManualPublications(
+        async listDueManualPublications(
             projectId: string,
             subjectId: string,
             at?: number
-        ): DueManualPublication[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const actor = options.loadActor(
-                normalizedProjectId,
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
+        ): Promise<DueManualPublication[] | null> {
+            return database.sql.transaction(async () => {
+                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+                const actor = await options.loadActor(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                )
+                if (actor === null) return null
 
-            const timestamp = requireTimestamp(at ?? options.now(), 'now')
-            return listDuePublicationsStatement.all(normalizedProjectId, timestamp).map(row => ({
-                ...toPublication(row),
-                postTitle: row.postTitle,
-                channelName: row.channelName,
-                targetContent: parseJsonObject(row.targetContentJson, 'publication target content'),
-            }))
+                const timestamp = requireTimestamp(at ?? options.now(), 'now')
+                return (await listDuePublicationsStatement.all(normalizedProjectId, timestamp)).map(
+                    row => ({
+                        ...toPublication(row),
+                        postTitle: row.postTitle,
+                        channelName: row.channelName,
+                        targetContent: parseJsonObject(
+                            row.targetContentJson,
+                            'publication target content'
+                        ),
+                    })
+                )
+            }, 'deferred')
         },
 
-        publishManualPublication(input: PublishManualPublicationInput): Publication | null {
+        async publishManualPublication(
+            input: PublishManualPublicationInput
+        ): Promise<Publication | null> {
             return publishManualPublicationTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
@@ -374,9 +388,9 @@ export function createPublicationOutcomeStore(
             })
         },
 
-        reconcileAmbiguousPublication(
+        async reconcileAmbiguousPublication(
             input: ReconcileAmbiguousPublicationInput
-        ): ReconcileAmbiguousPublicationResult {
+        ): Promise<ReconcileAmbiguousPublicationResult> {
             return reconcileAmbiguousPublicationTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),

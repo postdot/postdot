@@ -95,7 +95,7 @@ test('Facebook application migration preserves encrypted configurations and refe
         expect((await applications.resolveProviderApplication('linkedin'))?.clientSecret).toBe(
             'existing-encrypted-secret'
         )
-        expect(attempts.getAuthorizationAttempt(stateDigest)?.providerApplicationId).toBe(
+        expect((await attempts.getAuthorizationAttempt(stateDigest))?.providerApplicationId).toBe(
             saved.configuration.id
         )
         expect(

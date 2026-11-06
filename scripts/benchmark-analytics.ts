@@ -136,7 +136,7 @@ async function main() {
         const measurements: BenchmarkMeasurement[] = []
         for (const publicationCount of benchmarkScales) {
             const databasePath = join(temporaryDirectory, `analytics-${publicationCount}.sqlite`)
-            const fixture = seedDatabase(databasePath, publicationCount)
+            const fixture = await seedDatabase(databasePath, publicationCount)
             const databaseBytes = Bun.file(databasePath).size
             const measurement = await measureInChildProcess(
                 databasePath,
@@ -153,7 +153,10 @@ async function main() {
     }
 }
 
-function seedDatabase(databasePath: string, publicationCount: number): BenchmarkFixture {
+async function seedDatabase(
+    databasePath: string,
+    publicationCount: number
+): Promise<BenchmarkFixture> {
     const database = createDatabase(databasePath)
     const projectId = 'analytics-benchmark-project'
     const subjectId = 'analytics-benchmark-user'
@@ -172,7 +175,7 @@ function seedDatabase(databasePath: string, publicationCount: number): Benchmark
                 id: projectId,
                 name: 'Analytics benchmark project',
                 timeZone: 'UTC',
-                workspaceId: seedTestWorkspace(database),
+                workspaceId: await seedTestWorkspace(database),
                 createdAt: from,
                 updatedAt: from,
             })
@@ -189,7 +192,7 @@ function seedDatabase(databasePath: string, publicationCount: number): Benchmark
                 updatedAt: from,
             })
             .run()
-        const owned = seedWorkspaceChannel(database, {
+        const owned = await seedWorkspaceChannel(database, {
             projectId,
             channelId,
             name: 'Analytics benchmark channel',
@@ -462,7 +465,7 @@ async function measureDatabase(
         const peakBeforeQueryKiB = await readPeakRssKiB()
         const heapBeforeQueryBytes = process.memoryUsage().heapUsed
         const firstQueryStartedAt = performance.now()
-        const firstQuery = analyticsStore.getProjectAnalytics(input)
+        const firstQuery = await analyticsStore.getProjectAnalytics(input)
         const firstQueryMilliseconds = round(performance.now() - firstQueryStartedAt)
         if (firstQuery === null) throw new Error('Benchmark project is not accessible')
         assertExpectedResult(firstQuery, publicationCount)
@@ -471,7 +474,7 @@ async function measureDatabase(
         const heapAfterFirstQueryBytes = process.memoryUsage().heapUsed
 
         for (let index = 0; index < queryWarmups; index += 1) {
-            const result = analyticsStore.getProjectAnalytics(input)
+            const result = await analyticsStore.getProjectAnalytics(input)
             if (result === null) throw new Error('Analytics read model lost project access')
             assertExpectedResult(result, publicationCount)
         }
@@ -480,7 +483,7 @@ async function measureDatabase(
         let latest = firstQuery
         for (let index = 0; index < querySamples; index += 1) {
             const startedAt = performance.now()
-            const result = analyticsStore.getProjectAnalytics(input)
+            const result = await analyticsStore.getProjectAnalytics(input)
             const finishedAt = performance.now()
             if (result === null) throw new Error('Analytics read model returned null')
             assertExpectedResult(result, publicationCount)
@@ -549,7 +552,9 @@ function collectGarbage(): void {
 }
 
 function assertExpectedResult(
-    result: NonNullable<ReturnType<ReturnType<typeof createAnalyticsStore>['getProjectAnalytics']>>,
+    result: NonNullable<
+        Awaited<ReturnType<ReturnType<typeof createAnalyticsStore>['getProjectAnalytics']>>
+    >,
     publicationCount: number
 ) {
     if (result.current.publications.total !== publicationCount) {

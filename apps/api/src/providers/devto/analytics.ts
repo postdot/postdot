@@ -74,7 +74,7 @@ export function createDevtoAnalyticsService(options: DevtoAnalyticsServiceOption
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const channelId = requireNonBlank(input.channelId, 'channelId')
             const publicationId = requireNonBlank(input.publicationId, 'publicationId')
-            const knownContent = options.providerAnalytics.listKnownProviderContent({
+            const knownContent = await options.providerAnalytics.listKnownProviderContent({
                 projectId,
                 subjectId,
                 provider: DEVTO_PROVIDER,
@@ -87,7 +87,7 @@ export function createDevtoAnalyticsService(options: DevtoAnalyticsServiceOption
             const content = knownContent[0]
             if (content === undefined) return null
 
-            const connections = options.publisher.publisherStore.listPublisherConnections(
+            const connections = await options.publisher.publisherStore.listPublisherConnections(
                 projectId,
                 subjectId
             )
@@ -155,7 +155,7 @@ export function createDevtoAnalyticsService(options: DevtoAnalyticsServiceOption
                     provenance: 'forem.api.analytics.totals',
                 })
             )
-            const recorded = options.providerAnalytics.recordObservations({
+            const recorded = await options.providerAnalytics.recordObservations({
                 projectId,
                 subjectId,
                 observations,

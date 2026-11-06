@@ -39,13 +39,17 @@ export function createMastodonAnalyticsService(options: {
         options.reader ??
         createMastodonAnalyticsReader({ fetcher: createNetworkControlledFetcher() })
     const now = options.now ?? Date.now
-    function identity(
+    async function identity(
         projectId: string,
         publicationId: string,
         subjectId: string,
         channelId: string
     ) {
-        const editor = options.manual.getPublicationEditorState(projectId, publicationId, subjectId)
+        const editor = await options.manual.getPublicationEditorState(
+            projectId,
+            publicationId,
+            subjectId
+        )
         if (
             !editor ||
             editor.publication.state !== 'published' ||
@@ -71,8 +75,9 @@ export function createMastodonAnalyticsService(options: {
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const channelId = requireNonBlank(input.channelId, 'channelId')
             const publicationId = requireNonBlank(input.publicationId, 'publicationId')
-            if (!options.access.canAccessProject(projectId, subjectId, 'editor')) return null
-            const initial = identity(projectId, publicationId, subjectId, channelId)
+            if (!(await options.access.canAccessProject(projectId, subjectId, 'editor')))
+                return null
+            const initial = await identity(projectId, publicationId, subjectId, channelId)
             if (!initial) return null
             const reference = resolveMastodonStatusReference(
                 initial.externalId,
@@ -97,8 +102,9 @@ export function createMastodonAnalyticsService(options: {
             }
             // Provider reads are asynchronous; lost editor access or a changed
             // retained receipt must not be recorded under the original identity.
-            if (!options.access.canAccessProject(projectId, subjectId, 'editor')) return null
-            const current = identity(projectId, publicationId, subjectId, channelId)
+            if (!(await options.access.canAccessProject(projectId, subjectId, 'editor')))
+                return null
+            const current = await identity(projectId, publicationId, subjectId, channelId)
             if (
                 !current ||
                 current.externalId !== initial.externalId ||
@@ -130,7 +136,7 @@ export function createMastodonAnalyticsService(options: {
                     provenance: 'mastodon.api.status.counts',
                 })
             )
-            const recorded = options.providerAnalytics.recordObservations({
+            const recorded = await options.providerAnalytics.recordObservations({
                 projectId,
                 subjectId,
                 observations,

@@ -87,13 +87,13 @@ async function createFixture() {
         },
         now: () => now,
     })
-    const project = manualStore.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await manualStore.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Publisher Project',
         subjectId: 'user-1',
         displayName: 'Postdot Operator',
     })
-    const channel = manualStore.createChannel({
+    const channel = await manualStore.createChannel({
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'LinkedIn',
@@ -135,28 +135,28 @@ describe('publisher connection store', () => {
         try {
             const credential = await createCredential(fixture)
             expect(
-                fixture.publisherStore.hasChannelAccess(
+                await fixture.publisherStore.hasChannelAccess(
                     fixture.project.project.id,
                     fixture.channel.id,
                     'user-1'
                 )
             ).toBe(true)
             expect(
-                fixture.publisherStore.hasChannelAccess(
+                await fixture.publisherStore.hasChannelAccess(
                     fixture.project.project.id,
                     'missing-channel',
                     'user-1'
                 )
             ).toBe(false)
             expect(
-                fixture.publisherStore.hasChannelAccess(
+                await fixture.publisherStore.hasChannelAccess(
                     fixture.project.project.id,
                     fixture.channel.id,
                     'user-2'
                 )
             ).toBe(false)
 
-            const result = fixture.publisherStore.createPublisherConnection({
+            const result = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -213,7 +213,7 @@ describe('publisher connection store', () => {
             const credential = await createCredential(fixture, {
                 scopes: ['openid', 'profile', 'w_organization_social', 'rw_organization_admin'],
             })
-            const result = fixture.publisherStore.createPublisherConnection({
+            const result = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -235,7 +235,7 @@ describe('publisher connection store', () => {
                 name: 'Tala Web',
             })
             expect(
-                fixture.publisherStore.listPublisherConnections(
+                await fixture.publisherStore.listPublisherConnections(
                     fixture.project.project.id,
                     'user-1'
                 )
@@ -255,7 +255,7 @@ describe('publisher connection store', () => {
         try {
             const credential = await createCredential(fixture, { providerId: 'custom_http' })
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -272,7 +272,7 @@ describe('publisher connection store', () => {
                 providerId: 'unknown-provider',
             })
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -290,13 +290,13 @@ describe('publisher connection store', () => {
 
         try {
             const credential = await createCredential(fixture)
-            const otherProject = fixture.manualStore.createProject({
-                workspaceId: seedTestWorkspace(fixture.database),
+            const otherProject = await fixture.manualStore.createProject({
+                workspaceId: await seedTestWorkspace(fixture.database),
                 name: 'Other Project',
                 subjectId: 'user-1',
                 displayName: 'Postdot Operator',
             })
-            const otherChannel = fixture.manualStore.createChannel({
+            const otherChannel = await fixture.manualStore.createChannel({
                 projectId: otherProject.project.id,
                 subjectId: 'user-1',
                 name: 'Other Channel',
@@ -304,7 +304,7 @@ describe('publisher connection store', () => {
             if (otherChannel === null) throw new Error('The second test channel was not created')
 
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: otherProject.project.id,
                     channelId: otherChannel.id,
                     subjectId: 'user-1',
@@ -319,7 +319,7 @@ describe('publisher connection store', () => {
                 externalAccountId: 'mastodon-account',
             })
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -328,12 +328,12 @@ describe('publisher connection store', () => {
                 })
             ).toEqual({ kind: 'invalid_credential' })
 
-            fixture.credentialStore.markPublisherCredentialReconnectRequired(
+            await fixture.credentialStore.markPublisherCredentialReconnectRequired(
                 fixture.project.project.id,
                 credential.id
             )
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -359,41 +359,43 @@ describe('publisher connection store', () => {
                 credentialId: credential.id,
             } as const
 
-            expect(fixture.publisherStore.createPublisherConnection(input).kind).toBe('created')
-            expect(fixture.publisherStore.createPublisherConnection(input)).toEqual({
+            expect((await fixture.publisherStore.createPublisherConnection(input)).kind).toBe(
+                'created'
+            )
+            expect(await fixture.publisherStore.createPublisherConnection(input)).toEqual({
                 kind: 'publisher_exists',
             })
             expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
             expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
 
             expect(
-                fixture.publisherStore.listPublisherConnections(
+                await fixture.publisherStore.listPublisherConnections(
                     fixture.project.project.id,
                     'user-1'
                 )
             ).toHaveLength(1)
             expect(
-                fixture.publisherStore.getPublisherConnection(
+                await fixture.publisherStore.getPublisherConnection(
                     fixture.project.project.id,
                     fixture.channel.id,
                     'user-1'
                 )
             ).toMatchObject({ state: 'active', channelId: fixture.channel.id })
             expect(
-                fixture.publisherStore.listPublisherConnections(
+                await fixture.publisherStore.listPublisherConnections(
                     fixture.project.project.id,
                     'user-2'
                 )
             ).toBeNull()
 
-            const disconnected = fixture.publisherStore.disconnectPublisherConnection({
+            const disconnected = await fixture.publisherStore.disconnectPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
             })
             expect(disconnected.kind).toBe('disconnected')
             expect(
-                fixture.publisherStore.listPublisherConnections(
+                await fixture.publisherStore.listPublisherConnections(
                     fixture.project.project.id,
                     'user-1'
                 )
@@ -422,7 +424,7 @@ describe('publisher connection store', () => {
 
         try {
             const staleCredential = await createCredential(fixture)
-            const initial = fixture.publisherStore.createPublisherConnection({
+            const initial = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -436,7 +438,7 @@ describe('publisher connection store', () => {
                 externalAccountId: 'member-43',
             })
             expect(
-                fixture.publisherStore.createPublisherConnection({
+                await fixture.publisherStore.createPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -449,11 +451,11 @@ describe('publisher connection store', () => {
                 })
             ).toEqual({ kind: 'publisher_exists' })
 
-            fixture.credentialStore.markPublisherCredentialReconnectRequired(
+            await fixture.credentialStore.markPublisherCredentialReconnectRequired(
                 fixture.project.project.id,
                 staleCredential.id
             )
-            const replaced = fixture.publisherStore.createPublisherConnection({
+            const replaced = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -494,7 +496,7 @@ describe('publisher connection store', () => {
 
         try {
             const credential = await createCredential(fixture)
-            const post = fixture.manualStore.createPost({
+            const post = await fixture.manualStore.createPost({
                 projectId: fixture.project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('Scheduled before the publisher was connected'),
@@ -509,7 +511,7 @@ describe('publisher connection store', () => {
             expect(post?.publications[0]?.state).toBe('scheduled')
             expect(fixture.database.select().from(jobs).all()).toEqual([])
 
-            const connection = fixture.publisherStore.createPublisherConnection({
+            const connection = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -529,7 +531,7 @@ describe('publisher connection store', () => {
 
         try {
             const credential = await createCredential(fixture)
-            const connection = fixture.publisherStore.createPublisherConnection({
+            const connection = await fixture.publisherStore.createPublisherConnection({
                 projectId: fixture.project.project.id,
                 channelId: fixture.channel.id,
                 subjectId: 'user-1',
@@ -585,7 +587,7 @@ describe('publisher connection store', () => {
                 .run()
 
             expect(
-                fixture.publisherStore.disconnectPublisherConnection({
+                await fixture.publisherStore.disconnectPublisherConnection({
                     projectId: fixture.project.project.id,
                     channelId: fixture.channel.id,
                     subjectId: 'user-1',
@@ -601,7 +603,7 @@ describe('confirmed publisher destination', () => {
     async function scenario() {
         const f = await createFixture()
         const first = await createCredential(f)
-        const connected = f.publisherStore.createPublisherConnection({
+        const connected = await f.publisherStore.createPublisherConnection({
             projectId: f.project.project.id,
             channelId: f.channel.id,
             subjectId: 'user-1',
@@ -609,17 +611,17 @@ describe('confirmed publisher destination', () => {
             credentialId: first.id,
         })
         if (connected.kind !== 'created') throw new Error('Connection missing')
-        const created = f.manualStore.createPost({
+        const created = (await f.manualStore.createPost({
             projectId: f.project.project.id,
             subjectId: 'user-1',
             sourceContent: sourceContent('Retained content'),
             publications: [
                 { channelId: f.channel.id, deliveryMode: 'automatic', scheduledAt: now },
             ],
-        })!
+        }))!
         const publication = created.publications[0]!
         const workflow = createWorkflowStore(f.database)
-        const actorId = workflow.ensureSystemActor(f.project.project.id, now)!
+        const actorId = (await workflow.ensureSystemActor(f.project.project.id, now))!
         function claim(token = 'claim', at = now) {
             return workflow.claimNextDueJob({
                 actorId,
@@ -629,12 +631,12 @@ describe('confirmed publisher destination', () => {
             })
         }
         async function replace(account = 'member-43') {
-            const current = f.publisherStore.getPublisherConnection(
+            const current = (await f.publisherStore.getPublisherConnection(
                 f.project.project.id,
                 f.channel.id,
                 'user-1'
-            )!
-            f.credentialStore.markPublisherCredentialReconnectRequired(
+            ))!
+            await f.credentialStore.markPublisherCredentialReconnectRequired(
                 f.project.project.id,
                 current.credentialId
             )
@@ -661,16 +663,22 @@ describe('confirmed publisher destination', () => {
                 },
             })
         }
-        const state = () =>
-            f.manualStore.getPublicationDestination(f.project.project.id, publication.id, 'user-1')!
-        const confirm = (revision = state().revision) =>
-            f.manualStore.confirmPublicationDestination({
+        const state = async () =>
+            (await f.manualStore.getPublicationDestination(
+                f.project.project.id,
+                publication.id,
+                'user-1'
+            ))!
+        const confirm = async (requestedRevision?: number) => {
+            const revision = requestedRevision ?? (await state()).revision
+            return (await f.manualStore.confirmPublicationDestination({
                 projectId: f.project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
                 expectedRevision: revision,
                 expectedTargetRevisionId: publication.targetRevisionId,
-            })!
+            }))!
+        }
         return { ...f, first, publication, workflow, claim, replace, state, confirm }
     }
 
@@ -679,26 +687,27 @@ describe('confirmed publisher destination', () => {
         try {
             const targets = f.database.select().from(publicationTargetRevisions).all()
             expect((await f.replace()).kind).toBe('created')
-            expect(f.state()).toMatchObject({
+            expect(await f.state()).toMatchObject({
                 revision: 1,
                 confirmedRevision: 0,
                 requiresConfirmation: true,
             })
-            expect(f.claim()).toBeNull()
-            expect(f.workflow.getNextEventAt()).toBeNull()
-            expect(() => f.confirm(0)).toThrow()
-            expect(f.confirm().requiresConfirmation).toBe(false)
-            const job = f.claim()!
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            expect(await f.claim()).toBeNull()
+            expect(await f.workflow.getNextEventAt()).toBeNull()
+            await expect(f.confirm(0)).rejects.toThrow()
+            expect((await f.confirm()).requiresConfirmation).toBe(false)
+            const job = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
             expect(
-                f.publisherStore.getPublisherExecutionTarget(job.id, 'claim')?.externalAccountId
+                (await f.publisherStore.getPublisherExecutionTarget(job.id, 'claim'))
+                    ?.externalAccountId
             ).toBe('member-43')
             expect(f.database.select().from(publicationTargetRevisions).all()).toEqual(targets)
-            expect(f.state().history[0]?.destination).toMatchObject({
+            expect((await f.state()).history[0]?.destination).toMatchObject({
                 externalAccountId: 'member-43',
                 revision: 1,
             })
-            expect(JSON.stringify(f.state())).not.toContain('fresh-token')
+            expect(JSON.stringify(await f.state())).not.toContain('fresh-token')
         } finally {
             closeDatabase(f.database)
         }
@@ -706,15 +715,15 @@ describe('confirmed publisher destination', () => {
     it('rechecks a claim acquired before replacement without losing its scheduled work', async () => {
         const f = await scenario()
         try {
-            const job = f.claim()!
+            const job = (await f.claim())!
             await f.replace()
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(false)
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(false)
             expect(f.database.select().from(jobs).all()[0]?.state).toBe('pending')
-            expect(f.state().history).toEqual([])
-            f.confirm()
-            const next = f.claim('next')!
+            expect((await f.state()).history).toEqual([])
+            await f.confirm()
+            const next = (await f.claim('next'))!
             expect(next.id).toBe(job.id)
-            expect(f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
+            expect(await f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
         } finally {
             closeDatabase(f.database)
         }
@@ -723,10 +732,10 @@ describe('confirmed publisher destination', () => {
         const f = await scenario()
         try {
             expect((await f.replace('member-42')).kind).toBe('created')
-            expect(f.state().requiresConfirmation).toBe(false)
-            expect(f.state().revision).toBe(0)
-            const job = f.claim()!
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            expect((await f.state()).requiresConfirmation).toBe(false)
+            expect((await f.state()).revision).toBe(0)
+            const job = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
         } finally {
             closeDatabase(f.database)
         }
@@ -734,22 +743,22 @@ describe('confirmed publisher destination', () => {
     it('preserves the executed identity and refuses to resolve a new account for an old effect', async () => {
         const f = await scenario()
         try {
-            const job = f.claim()!
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
-            const before = f.state().history
+            const job = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            const before = (await f.state()).history
             await f.replace()
-            expect(f.publisherStore.getPublisherExecutionTarget(job.id, 'claim')).toBeNull()
-            expect(f.state().history).toEqual(before)
-            expect(f.state().history[0]?.destination?.externalAccountId).toBe('member-42')
+            expect(await f.publisherStore.getPublisherExecutionTarget(job.id, 'claim')).toBeNull()
+            expect((await f.state()).history).toEqual(before)
+            expect((await f.state()).history[0]?.destination?.externalAccountId).toBe('member-42')
             expect(
-                f.workflow.completeExternalEffect({
+                await f.workflow.completeExternalEffect({
                     jobId: job.id,
                     claimToken: 'claim',
                     completedAt: now,
                     outcome: { type: 'published', externalId: 'original-receipt' },
                 })
             ).toBe('published')
-            expect(f.state().history).toEqual(before)
+            expect((await f.state()).history).toEqual(before)
         } finally {
             closeDatabase(f.database)
         }
@@ -757,11 +766,11 @@ describe('confirmed publisher destination', () => {
     it('suppresses automatic retries across a changed destination and preserves old execution when explicitly retried', async () => {
         const f = await scenario()
         try {
-            const job = f.claim()!
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            const job = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
             await f.replace()
             expect(
-                f.workflow.completeExternalEffect({
+                await f.workflow.completeExternalEffect({
                     jobId: job.id,
                     claimToken: 'claim',
                     completedAt: now,
@@ -774,28 +783,29 @@ describe('confirmed publisher destination', () => {
                 })
             ).toBe('failed')
             expect(
-                f.manualStore.retryFailedPublication({
-                    projectId: f.project.project.id,
-                    publicationId: f.publication.id,
-                    subjectId: 'user-1',
-                }).kind
+                (
+                    await f.manualStore.retryFailedPublication({
+                        projectId: f.project.project.id,
+                        publicationId: f.publication.id,
+                        subjectId: 'user-1',
+                    })
+                ).kind
             ).toBe('not_retryable')
-            f.confirm()
+            await f.confirm()
             expect(
-                f.manualStore.retryFailedPublication({
-                    projectId: f.project.project.id,
-                    publicationId: f.publication.id,
-                    subjectId: 'user-1',
-                }).kind
+                (
+                    await f.manualStore.retryFailedPublication({
+                        projectId: f.project.project.id,
+                        publicationId: f.publication.id,
+                        subjectId: 'user-1',
+                    })
+                ).kind
             ).toBe('retried')
-            const next = f.claim('next')!
+            const next = (await f.claim('next'))!
             expect(next.id).not.toBe(job.id)
-            expect(f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
+            expect(await f.workflow.startExternalEffect(next.id, 'next', now)).toBe(true)
             expect(
-                f
-                    .state()
-                    .history.map(row => row.destination?.externalAccountId)
-                    .sort()
+                (await f.state()).history.map(row => row.destination?.externalAccountId).sort()
             ).toEqual(['member-42', 'member-43'])
         } finally {
             closeDatabase(f.database)
@@ -805,27 +815,29 @@ describe('confirmed publisher destination', () => {
         const f = await scenario()
         try {
             await f.replace()
-            const created = f.manualStore.createPost({
+            const created = (await f.manualStore.createPost({
                 projectId: f.project.project.id,
                 subjectId: 'user-1',
                 sourceContent: sourceContent('New destination chosen'),
                 publications: [{ channelId: f.channel.id, deliveryMode: 'automatic' }],
-            })!
+            }))!
             expect(
-                f.manualStore.getPublicationDestination(
-                    f.project.project.id,
-                    created.publications[0]!.id,
-                    'user-1'
+                (
+                    await f.manualStore.getPublicationDestination(
+                        f.project.project.id,
+                        created.publications[0]!.id,
+                        'user-1'
+                    )
                 )?.requiresConfirmation
             ).toBe(false)
             expect(
-                f.manualStore.getPublicationDestination(
+                await f.manualStore.getPublicationDestination(
                     f.project.project.id,
                     f.publication.id,
                     'missing'
                 )
             ).toBeNull()
-            expect(() =>
+            await expect(
                 f.manualStore.confirmPublicationDestination({
                     projectId: f.project.project.id,
                     publicationId: f.publication.id,
@@ -833,7 +845,7 @@ describe('confirmed publisher destination', () => {
                     expectedRevision: 1,
                     expectedTargetRevisionId: 'stale',
                 })
-            ).toThrow()
+            ).rejects.toThrow()
         } finally {
             closeDatabase(f.database)
         }
@@ -843,12 +855,12 @@ describe('confirmed publisher destination', () => {
         try {
             expect((await f.replace()).kind).toBe('created')
             expect((await f.replace('member-42')).kind).toBe('created')
-            expect(f.state()).toMatchObject({
+            expect(await f.state()).toMatchObject({
                 revision: 2,
                 confirmedRevision: 0,
                 requiresConfirmation: true,
             })
-            expect(f.claim()).toBeNull()
+            expect(await f.claim()).toBeNull()
         } finally {
             closeDatabase(f.database)
         }
@@ -857,10 +869,10 @@ describe('confirmed publisher destination', () => {
         const f = await scenario()
         const folder = mkdtempSync(join(tmpdir(), 'postdot-destination-sql-'))
         try {
-            const job = f.claim()!
-            expect(f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
+            const job = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(job.id, 'claim', now)).toBe(true)
             expect(
-                f.workflow.completeExternalEffect({
+                await f.workflow.completeExternalEffect({
                     jobId: job.id,
                     claimToken: 'claim',
                     completedAt: now,
@@ -917,8 +929,8 @@ describe('confirmed publisher destination', () => {
                     )
                     .all()
             ).toEqual(before)
-            expect(f.state().history[0]?.destination).toBeNull()
-            expect(f.state().requiresConfirmation).toBe(false)
+            expect((await f.state()).history[0]?.destination).toBeNull()
+            expect((await f.state()).requiresConfirmation).toBe(false)
         } finally {
             closeDatabase(f.database)
             rmSync(folder, { recursive: true, force: true })
@@ -927,10 +939,10 @@ describe('confirmed publisher destination', () => {
     it('creates a fresh execution job when a pending automatic retry is reconfirmed for another destination', async () => {
         const f = await scenario()
         try {
-            const old = f.claim()!
-            expect(f.workflow.startExternalEffect(old.id, 'claim', now)).toBe(true)
+            const old = (await f.claim())!
+            expect(await f.workflow.startExternalEffect(old.id, 'claim', now)).toBe(true)
             expect(
-                f.workflow.completeExternalEffect({
+                await f.workflow.completeExternalEffect({
                     jobId: old.id,
                     claimToken: 'claim',
                     completedAt: now,
@@ -942,11 +954,11 @@ describe('confirmed publisher destination', () => {
                     },
                 })
             ).toBe('retry_scheduled')
-            const history = f.state().history
+            const history = (await f.state()).history
             await f.replace()
-            expect(f.claim('blocked', now + 10)).toBeNull()
-            f.confirm()
-            const next = f.claim('next', now + 10)!
+            expect(await f.claim('blocked', now + 10)).toBeNull()
+            await f.confirm()
+            const next = (await f.claim('next', now + 10))!
             expect(next.id).not.toBe(old.id)
             const confirmation = f.database.$client
                 .query<{ metadata: string }, []>(
@@ -957,11 +969,14 @@ describe('confirmed publisher destination', () => {
                 replacedJobId: old.id,
                 replacementJobId: next.id,
             })
-            expect(f.workflow.startExternalEffect(next.id, 'next', now + 10)).toBe(true)
+            expect(await f.workflow.startExternalEffect(next.id, 'next', now + 10)).toBe(true)
             expect(
-                f.publisherStore.getPublisherExecutionTarget(next.id, 'next')?.externalAccountId
+                (await f.publisherStore.getPublisherExecutionTarget(next.id, 'next'))
+                    ?.externalAccountId
             ).toBe('member-43')
-            expect(f.state().history.find(entry => entry.id === history[0]!.id)).toEqual(history[0])
+            expect((await f.state()).history.find(entry => entry.id === history[0]!.id)).toEqual(
+                history[0]
+            )
         } finally {
             closeDatabase(f.database)
         }

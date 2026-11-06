@@ -622,7 +622,7 @@ describe('access HTTP routes', () => {
                 'api-key-role-editor@postdot.local',
                 'API Key Editor'
             )
-            const defaultWorkspace = access.getDefaultWorkspace()
+            const defaultWorkspace = await access.getDefaultWorkspace()
             expect(defaultWorkspace).not.toBeNull()
             if (defaultWorkspace === null) throw new Error('The default workspace was not created')
             database.$client
@@ -645,7 +645,7 @@ describe('access HTTP routes', () => {
                 )
             const editorCookie = await signIn(app, 'api-key-role-editor@postdot.local')
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: projectBody.project.id,
                     userId: editorUserId,
                     role: 'editor',
@@ -670,7 +670,9 @@ describe('access HTTP routes', () => {
             )
             expect(allowedBeforeRevocation.status).toBe(201)
 
-            expect(access.removeProjectUserAccess(projectBody.project.id, editorUserId)).toBe(true)
+            expect(await access.removeProjectUserAccess(projectBody.project.id, editorUserId)).toBe(
+                true
+            )
             const deniedAfterRevocation = await bearerJsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/channels`,
@@ -791,7 +793,7 @@ describe('access HTTP routes', () => {
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const adminId = access.listInstanceMemberships()[0]?.userId
+            const adminId = (await access.listInstanceMemberships())[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
@@ -849,7 +851,7 @@ describe('access HTTP routes', () => {
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const adminId = access.listInstanceMemberships()[0]?.userId
+            const adminId = (await access.listInstanceMemberships())[0]?.userId
             expect(adminId).toBeString()
             if (adminId === undefined) throw new Error('The bootstrap admin was not created')
 
@@ -960,7 +962,7 @@ describe('access HTTP routes', () => {
                 body: { userId: memberId, role: 'user' },
                 headers: new Headers({ cookie: adminCookie }),
             })
-            expect(access.getInstanceMembership(memberId)).toMatchObject({
+            expect(await access.getInstanceMembership(memberId)).toMatchObject({
                 role: 'member',
                 state: 'enabled',
             })
@@ -968,7 +970,7 @@ describe('access HTTP routes', () => {
                 body: { userId: memberId, role: 'admin' },
                 headers: new Headers({ cookie: adminCookie }),
             })
-            expect(access.getInstanceMembership(memberId)).toMatchObject({
+            expect(await access.getInstanceMembership(memberId)).toMatchObject({
                 role: 'admin',
                 state: 'enabled',
             })
@@ -1044,7 +1046,7 @@ describe('access HTTP routes', () => {
             )
             expect(lastAdmin.status).toBe(409)
             expect(await lastAdmin.json()).toMatchObject({ error: { code: 'last_admin' } })
-            expect(access.getInstanceMembership(adminId)).toMatchObject({
+            expect(await access.getInstanceMembership(adminId)).toMatchObject({
                 role: 'admin',
                 state: 'enabled',
             })
@@ -1098,7 +1100,7 @@ describe('access HTTP routes', () => {
                 }
             )
             expect(wrongEmailResponse.status).toBe(403)
-            expect(access.getInstanceMembership(memberId)).toBeNull()
+            expect(await access.getInstanceMembership(memberId)).toBeNull()
 
             const acceptedResponse = await jsonRequest(
                 app,
@@ -1173,7 +1175,7 @@ describe('access HTTP routes', () => {
                     state: 'enabled',
                 },
             })
-            expect(access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
+            expect(await access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
 
             const projectsResponse = await jsonRequest(app, '/api/projects', inviteeCookie)
             expect(projectsResponse.status).toBe(200)
@@ -1190,7 +1192,7 @@ describe('access HTTP routes', () => {
 
         try {
             const adminCookie = await signUp(app, 'admin@postdot.local')
-            const workspace = access.getDefaultWorkspace()
+            const workspace = await access.getDefaultWorkspace()
             expect(workspace).not.toBeNull()
             if (workspace === null) throw new Error('The default workspace was not created')
 
@@ -1279,7 +1281,7 @@ describe('access HTTP routes', () => {
                 membership: { role: 'member' },
                 invitation: { id: created.invitation.id, status: 'accepted' },
             })
-            expect(access.getInstanceMembership(inviteeId?.id ?? '')).toMatchObject({
+            expect(await access.getInstanceMembership(inviteeId?.id ?? '')).toMatchObject({
                 role: 'member',
                 state: 'enabled',
             })
@@ -1468,7 +1470,7 @@ describe('access HTTP routes', () => {
                 role: 'owner',
             })
 
-            const workspace = access.getWorkspace(created.workspace.id)
+            const workspace = await access.getWorkspace(created.workspace.id)
             expect(workspace).toMatchObject({
                 name: 'Editorial workspace',
                 slug: created.workspace.slug,

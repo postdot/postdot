@@ -83,12 +83,12 @@ export function createNotificationDestinationSecretStore(
     database: PostdotDatabase,
     options: NotificationDestinationSecretStoreOptions
 ) {
-    const client = database.$client
+    const sql = database.sql
     const cipher = options.cipher
     const createId = options.createId ?? (() => crypto.randomUUID())
     const now = options.now ?? Date.now
 
-    const loadDestinationStatement = client.query<
+    const loadDestinationStatement = sql.statement<
         DestinationRow,
         [projectId: string, destinationId: string, subjectId: string]
     >(`
@@ -106,11 +106,11 @@ export function createNotificationDestinationSecretStore(
           and a.subject_id = ?3
           and a.kind = 'human'
     `)
-    const loadActiveSecretStatement = client.query<
+    const loadActiveSecretStatement = sql.statement<
         ActiveSecretRow,
         [projectId: string, destinationId: string]
     >(secretSelect(`where s.project_id = ?1 and s.destination_id = ?2 and s.state = 'active'`))
-    const loadSecretForDeliveryStatement = client.query<
+    const loadSecretForDeliveryStatement = sql.statement<
         DeliverySecretRow,
         [projectId: string, deliveryId: string, claimToken: string]
     >(`
@@ -137,7 +137,7 @@ export function createNotificationDestinationSecretStore(
         where d.project_id = ?1 and d.id = ?2
           and d.state = 'running' and d.lease_token = ?3
     `)
-    const retireActiveSecretStatement = client.query<
+    const retireActiveSecretStatement = sql.statement<
         { readonly changes: number },
         [updatedAt: number, projectId: string, destinationId: string]
     >(`
@@ -145,7 +145,7 @@ export function createNotificationDestinationSecretStore(
         set state = 'retired', updated_at = ?1
         where project_id = ?2 and destination_id = ?3 and state = 'active'
     `)
-    const insertSecretStatement = client.query<
+    const insertSecretStatement = sql.statement<
         { readonly changes: number },
         [
             id: string,
@@ -173,11 +173,15 @@ export function createNotificationDestinationSecretStore(
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
             const destinationId = requireNonBlank(input.destinationId, 'destinationId')
-            const destination = loadDestinationStatement.get(projectId, destinationId, subjectId)
+            const destination = await loadDestinationStatement.get(
+                projectId,
+                destinationId,
+                subjectId
+            )
             if (destination === null) return null
 
             const material = normalizeSecretMaterial(input.material)
-            const active = loadActiveSecretStatement.get(projectId, destinationId)
+            const active = await loadActiveSecretStatement.get(projectId, destinationId)
             const version = (active?.version ?? 0) + 1
             const secretId = createId()
             const createdAt = Math.max(requireTimestamp(now(), 'now'), destination.createdAt)
@@ -189,35 +193,33 @@ export function createNotificationDestinationSecretStore(
                 JSON.stringify(material)
             )
 
-            const inserted = client
-                .transaction(() => {
-                    const current = loadActiveSecretStatement.get(projectId, destinationId)
-                    if ((current?.version ?? 0) !== (active?.version ?? 0)) {
-                        throw new DomainInvariantError(
-                            'write_conflict',
-                            'Notification destination secret changed during rotation'
-                        )
-                    }
-                    retireActiveSecretStatement.run(createdAt, projectId, destinationId)
-                    return insertSecretStatement.run(
-                        secretId,
-                        projectId,
-                        destinationId,
-                        version,
-                        destination.transportId,
-                        envelope.version,
-                        envelope.keyId,
-                        envelope.ciphertext,
-                        envelope.nonce,
-                        createdAt
+            const inserted = await database.sql.transaction(async () => {
+                const current = await loadActiveSecretStatement.get(projectId, destinationId)
+                if ((current?.version ?? 0) !== (active?.version ?? 0)) {
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        'Notification destination secret changed during rotation'
                     )
-                })
-                .immediate()
+                }
+                await retireActiveSecretStatement.run(createdAt, projectId, destinationId)
+                return await insertSecretStatement.run(
+                    secretId,
+                    projectId,
+                    destinationId,
+                    version,
+                    destination.transportId,
+                    envelope.version,
+                    envelope.keyId,
+                    envelope.ciphertext,
+                    envelope.nonce,
+                    createdAt
+                )
+            }, 'immediate')
             if (inserted.changes !== 1) {
                 throw new Error('Notification destination secret was not persisted')
             }
 
-            const stored = loadActiveSecretStatement.get(projectId, destinationId)
+            const stored = await loadActiveSecretStatement.get(projectId, destinationId)
             if (stored === null) {
                 throw new Error('Notification destination secret disappeared after persistence')
             }
@@ -230,7 +232,7 @@ export function createNotificationDestinationSecretStore(
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
             const claimToken = requireNonBlank(input.claimToken, 'claimToken')
-            const row = loadSecretForDeliveryStatement.get(projectId, deliveryId, claimToken)
+            const row = await loadSecretForDeliveryStatement.get(projectId, deliveryId, claimToken)
             if (row === null) return null
             if (row.deliverySecretId === null) return null
             if (row.id === null) {

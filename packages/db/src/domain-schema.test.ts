@@ -21,7 +21,7 @@ import {
 } from './schema'
 import { seedTestWorkspace, seedWorkspaceChannel, workspaceOf } from './testing'
 
-function seedProject(database: PostdotDatabase, suffix: string) {
+async function seedProject(database: PostdotDatabase, suffix: string) {
     const projectId = `project-${suffix}`
     const actorId = `actor-${suffix}`
     const channelId = `channel-${suffix}`
@@ -34,7 +34,7 @@ function seedProject(database: PostdotDatabase, suffix: string) {
         .values({
             id: projectId,
             name: `Project ${suffix}`,
-            workspaceId: seedTestWorkspace(database, `workspace-${suffix}`),
+            workspaceId: await seedTestWorkspace(database, `workspace-${suffix}`),
         })
         .run()
     database
@@ -46,7 +46,7 @@ function seedProject(database: PostdotDatabase, suffix: string) {
             displayName: `Editor ${suffix}`,
         })
         .run()
-    const owned = seedWorkspaceChannel(database, {
+    const owned = await seedWorkspaceChannel(database, {
         projectId,
         channelId: channelId,
         name: `Channel ${suffix}`,
@@ -72,13 +72,13 @@ function seedProject(database: PostdotDatabase, suffix: string) {
 }
 
 describe('domain schema', () => {
-    it('enforces project ownership with composite foreign keys', () => {
+    it('enforces project ownership with composite foreign keys', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const first = seedProject(database, 'first')
-            const second = seedProject(database, 'second')
+            const first = await seedProject(database, 'first')
+            const second = await seedProject(database, 'second')
 
             expect(() =>
                 database
@@ -147,12 +147,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('allows manual channels and limits each channel to one publisher', () => {
+    it('allows manual channels and limits each channel to one publisher', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedProject(database, 'manual')
+            const fixture = await seedProject(database, 'manual')
 
             expect(database.select().from(publishers).all()).toEqual([])
 
@@ -160,18 +160,19 @@ describe('domain schema', () => {
                 .insert(publishers)
                 .values({
                     id: 'publisher-one',
-                    workspaceId: workspaceOf(database, fixture.projectId),
+                    workspaceId: await workspaceOf(database, fixture.projectId),
                     channelId: fixture.channelId,
                     kind: 'mastodon',
                 })
                 .run()
 
+            const workspaceId = await workspaceOf(database, fixture.projectId)
             expect(() =>
                 database
                     .insert(publishers)
                     .values({
                         id: 'publisher-two',
-                        workspaceId: workspaceOf(database, fixture.projectId),
+                        workspaceId,
                         channelId: fixture.channelId,
                         kind: 'bluesky',
                     })
@@ -182,12 +183,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('rejects invalid and incomplete publication states', () => {
+    it('rejects invalid and incomplete publication states', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedProject(database, 'states')
+            const fixture = await seedProject(database, 'states')
             const basePublication = {
                 projectId: fixture.projectId,
                 postId: fixture.postId,
@@ -248,13 +249,13 @@ describe('domain schema', () => {
         }
     })
 
-    it('rejects incomplete credential envelopes and cross-project attribution', () => {
+    it('rejects incomplete credential envelopes and cross-project attribution', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const first = seedProject(database, 'credential-first')
-            const second = seedProject(database, 'credential-second')
+            const first = await seedProject(database, 'credential-first')
+            const second = await seedProject(database, 'credential-second')
             const activeCredential = {
                 workspaceId: first.workspaceId,
                 providerId: 'linkedin',
@@ -314,12 +315,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('rejects incomplete and contradictory OAuth authorization attempts', () => {
+    it('rejects incomplete and contradictory OAuth authorization attempts', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedProject(database, 'oauth-attempt')
+            const fixture = await seedProject(database, 'oauth-attempt')
             const pendingAttempt = {
                 projectId: fixture.projectId,
                 channelId: fixture.channelId,
@@ -398,12 +399,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('rejects job rows that contradict their lifecycle state', () => {
+    it('rejects job rows that contradict their lifecycle state', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedProject(database, 'jobs')
+            const fixture = await seedProject(database, 'jobs')
             database
                 .insert(publications)
                 .values({
@@ -455,12 +456,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('enforces media representation facts and upload intent lifecycle timestamps', () => {
+    it('enforces media representation facts and upload intent lifecycle timestamps', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            const fixture = seedProject(database, 'media-state')
+            const fixture = await seedProject(database, 'media-state')
             const timestamp = 1_800_000_000_000
 
             database
@@ -543,12 +544,12 @@ describe('domain schema', () => {
         }
     })
 
-    it('commits scheduler indexes and leaves no foreign-key violations', () => {
+    it('commits scheduler indexes and leaves no foreign-key violations', async () => {
         const database = createDatabase(':memory:')
 
         try {
             runMigrations(database)
-            seedProject(database, 'integrity')
+            await seedProject(database, 'integrity')
 
             const publicationIndexes = database.$client
                 .query<{ name: string }, []>('pragma index_list(publications)')

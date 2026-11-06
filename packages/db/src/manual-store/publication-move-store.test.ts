@@ -34,37 +34,37 @@ function profile(limit = 1000): ChannelProfileDefinition {
         execution: { kind: 'built_in', contractId: 'move-test', revision: 'v1' },
     }
 }
-function fixture() {
+async function fixture() {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const store = createManualStore(database, { now: () => now })
-    const project = store.createProject({
-        workspaceId: seedTestWorkspace(database),
+    const project = await store.createProject({
+        workspaceId: await seedTestWorkspace(database),
         name: 'Moves',
         subjectId: 'operator',
         displayName: 'Operator',
     })
     const projectId = project.project.id
-    const source = store.createChannel({
+    const source = (await store.createChannel({
         projectId,
         subjectId: 'operator',
         name: 'Source',
         profile: profile(),
-    })!
-    const target = store.createChannel({
+    }))!
+    const target = (await store.createChannel({
         projectId,
         subjectId: 'operator',
         name: 'Target',
         profile: profile(),
-    })!
-    const narrow = store.createChannel({
+    }))!
+    const narrow = (await store.createChannel({
         projectId,
         subjectId: 'operator',
         name: 'Narrow',
         profile: profile(3),
-    })!
-    const create = (scheduledAt: number | null = now + 60000) =>
-        store.createPost({
+    }))!
+    const create = async (scheduledAt: number | null = now + 60000) =>
+        (await store.createPost({
             projectId,
             subjectId: 'operator',
             sourceContent: {
@@ -72,10 +72,10 @@ function fixture() {
                 media: [],
             },
             publications: [{ channelId: source.id, deliveryMode: 'manual', scheduledAt }],
-        })!.publications[0]!
-    const publication = create()
-    function input(id = publication.id, channel = target): MovePublicationInput {
-        const editor = store.getPublicationEditorState(projectId, id, 'operator')!
+        }))!.publications[0]!
+    const publication = await create()
+    async function input(id = publication.id, channel = target): Promise<MovePublicationInput> {
+        const editor = (await store.getPublicationEditorState(projectId, id, 'operator'))!
         return {
             projectId,
             subjectId: 'operator',
@@ -92,15 +92,15 @@ function fixture() {
     }
     return { database, store, projectId, source, target, narrow, publication, create, input }
 }
-it('moves future work atomically in the same post, preserving exact content, source and original revision', () => {
-    const f = fixture()
+it('moves future work atomically in the same post, preserving exact content, source and original revision', async () => {
+    const f = await fixture()
     try {
-        const original = f.store.getPublicationEditorState(
+        const original = (await f.store.getPublicationEditorState(
             f.projectId,
             f.publication.id,
             'operator'
-        )!
-        const moved = f.store.movePublication(f.input())!
+        ))!
+        const moved = (await f.store.movePublication(await f.input()))!
         expect(moved.post).toEqual(original.post)
         expect(moved.publication).toMatchObject({
             postId: original.post.id,
@@ -115,7 +115,11 @@ it('moves future work atomically in the same post, preserving exact content, sou
             fromPublicationId: original.publication.id,
             requestedScheduledAt: original.publication.scheduledAt,
         })
-        const old = f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+        const old = (await f.store.getPublicationEditorState(
+            f.projectId,
+            f.publication.id,
+            'operator'
+        ))!
         expect(old.publication.state).toBe('cancelled')
         expect(old.selectedTarget).toEqual(original.selectedTarget)
         expect(old.draft).toEqual(original.draft)
@@ -126,15 +130,15 @@ it('moves future work atomically in the same post, preserving exact content, sou
                 .all(moved.publication.id)
         ).toEqual([])
         expect(f.database.$client.query('PRAGMA foreign_key_check').all()).toEqual([])
-        expect(() => f.store.movePublication(f.input())).toThrow('Only future work')
+        await expect(f.store.movePublication(await f.input())).rejects.toThrow('Only future work')
     } finally {
         closeDatabase(f.database)
     }
 })
-it('keeps incompatible destination content as an unscheduled review draft with the requested time retained', () => {
-    const f = fixture()
+it('keeps incompatible destination content as an unscheduled review draft with the requested time retained', async () => {
+    const f = await fixture()
     try {
-        const moved = f.store.movePublication(f.input(f.publication.id, f.narrow))!
+        const moved = (await f.store.movePublication(await f.input(f.publication.id, f.narrow)))!
         expect(moved.publication).toMatchObject({
             state: 'draft',
             scheduledAt: null,
@@ -150,19 +154,21 @@ it('keeps incompatible destination content as an unscheduled review draft with t
                 .all(moved.publication.id)
         ).toEqual([])
         expect(
-            f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+            (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('cancelled')
         // Explicit draft deletion may remove its live link, but not the original or move audit fact.
         expect(
-            f.store.deleteDraftPublication({
-                projectId: f.projectId,
-                subjectId: 'operator',
-                publicationId: moved.publication.id,
-            }).kind
+            (
+                await f.store.deleteDraftPublication({
+                    projectId: f.projectId,
+                    subjectId: 'operator',
+                    publicationId: moved.publication.id,
+                })
+            ).kind
         ).toBe('deleted')
         expect(
-            f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+            (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('cancelled')
         expect(
@@ -176,10 +182,10 @@ it('keeps incompatible destination content as an unscheduled review draft with t
         closeDatabase(f.database)
     }
 })
-it('rejects stale publication, source and destination profile revisions without touching the original', () => {
-    const f = fixture()
+it('rejects stale publication, source and destination profile revisions without touching the original', async () => {
+    const f = await fixture()
     try {
-        const input = f.input()
+        const input = await f.input()
         for (const change of [
             { expectedDraftRevision: 99 },
             { expectedSourceRevision: 99 },
@@ -188,9 +194,11 @@ it('rejects stale publication, source and destination profile revisions without 
             { expectedTargetRevisionId: 'other' },
             { expectedTargetProfileVersionId: 'other' },
         ])
-            expect(() => f.store.movePublication({ ...input, ...change })).toThrow('changed')
+            await expect(f.store.movePublication({ ...input, ...change })).rejects.toThrow(
+                'changed'
+            )
         expect(
-            f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+            (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
         expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
@@ -198,15 +206,17 @@ it('rejects stale publication, source and destination profile revisions without 
         closeDatabase(f.database)
     }
 })
-it('refuses any execution attempt, even when no remote effect occurred or a claim was compensated', () => {
-    const f = fixture()
+it('refuses any execution attempt, even when no remote effect occurred or a claim was compensated', async () => {
+    const f = await fixture()
     try {
         f.database.$client
             .query(
                 `insert into jobs(id,project_id,publication_id,state,run_at,attempts,created_at,updated_at,completed_at) values ('attempted',?,?,'cancelled',?,1,?,?,?)`
             )
             .run(f.projectId, f.publication.id, now, now, now, now)
-        expect(() => f.store.movePublication(f.input())).toThrow('without an execution attempt')
+        await expect(f.store.movePublication(await f.input())).rejects.toThrow(
+            'without an execution attempt'
+        )
         f.database.$client.query('update jobs set attempts=0 where id=?').run('attempted')
         const actor = f.database.$client
             .query<{ id: string }, [string]>('select id from actors where project_id=? limit 1')
@@ -216,22 +226,24 @@ it('refuses any execution attempt, even when no remote effect occurred or a clai
                 `insert into audit_events(id,project_id,actor_id,action,entity_type,entity_id,created_at) values ('claim-proof',?,?,'publication.execution.claimed','publication',?,?)`
             )
             .run(f.projectId, actor, f.publication.id, now)
-        expect(() => f.store.movePublication(f.input())).toThrow('without an execution attempt')
+        await expect(f.store.movePublication(await f.input())).rejects.toThrow(
+            'without an execution attempt'
+        )
     } finally {
         closeDatabase(f.database)
     }
 })
-it('rolls back cancellation, new work and observer wakeups if move history cannot persist', () => {
-    const f = fixture()
+it('rolls back cancellation, new work and observer wakeups if move history cannot persist', async () => {
+    const f = await fixture()
     try {
         const commits: unknown[] = []
         setDatabaseCommitObserver(f.database, ids => commits.push(ids))
         f.database.$client.run(
             "create temp trigger reject_move before insert on publication_moves begin select raise(abort,'Move rejected'); end"
         )
-        expect(() => f.store.movePublication(f.input())).toThrow('Move rejected')
+        await expect(f.store.movePublication(await f.input())).rejects.toThrow('Move rejected')
         expect(
-            f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+            (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
         expect(f.database.$client.query('select id from publications').all()).toHaveLength(1)
@@ -240,32 +252,37 @@ it('rolls back cancellation, new work and observer wakeups if move history canno
         closeDatabase(f.database)
     }
 })
-it('can recover detached pending work but never write a detached, foreign or archived destination', () => {
-    const f = fixture()
+it('can recover detached pending work but never write a detached, foreign or archived destination', async () => {
+    const f = await fixture()
     try {
         f.database.$client
             .query(
                 "update project_channel_attachments set state='detached',detached_at=? where project_id=? and channel_id=?"
             )
             .run(now, f.projectId, f.source.id)
-        expect(f.store.movePublication(f.input())!.publication.channelId).toBe(f.target.id)
-        const fresh = f.store.createPost({
+        expect((await f.store.movePublication(await f.input()))!.publication.channelId).toBe(
+            f.target.id
+        )
+        const fresh = (await f.store.createPost({
             projectId: f.projectId,
             subjectId: 'operator',
             sourceContent: { body: { format: 'plain_text', text: 'Another' }, media: [] },
             publications: [{ channelId: f.target.id, deliveryMode: 'manual' }],
-        })!.publications[0]!
-        expect(f.store.movePublication({ ...f.input(fresh.id, f.source) })).toBeNull()
+        }))!.publications[0]!
+        expect(await f.store.movePublication({ ...(await f.input(fresh.id, f.source)) })).toBeNull()
         expect(
-            f.store.movePublication({ ...f.input(fresh.id), targetChannelId: 'foreign' })
+            await f.store.movePublication({
+                ...(await f.input(fresh.id)),
+                targetChannelId: 'foreign',
+            })
         ).toBeNull()
     } finally {
         closeDatabase(f.database)
     }
 })
 
-it('cancels only the old pending job and creates a fresh automatic job without any execution or approval state', () => {
-    const f = fixture()
+it('cancels only the old pending job and creates a fresh automatic job without any execution or approval state', async () => {
+    const f = await fixture()
     try {
         const workspace = f.database.$client
             .query<{ workspace_id: string }, [string]>(
@@ -281,15 +298,18 @@ it('cancels only the old pending job and creates a fresh automatic job without a
                     "insert into publishers(id,workspace_id,channel_id,kind,created_at,updated_at) values (?,?,?,'move-test',?,?)"
                 )
                 .run(id, workspace, channel.id, now, now)
-        const source = f.store.createPost({
+        const source = (await f.store.createPost({
             projectId: f.projectId,
             subjectId: 'operator',
             sourceContent: { body: { format: 'plain_text', text: 'Automatic' }, media: [] },
             publications: [
                 { channelId: f.source.id, deliveryMode: 'automatic', scheduledAt: now + 60000 },
             ],
-        })!.publications[0]!
-        const moved = f.store.movePublication({ ...f.input(source.id), deliveryMode: 'automatic' })!
+        }))!.publications[0]!
+        const moved = (await f.store.movePublication({
+            ...(await f.input(source.id)),
+            deliveryMode: 'automatic',
+        }))!
         expect(
             f.database.$client
                 .query('select state,attempts from jobs where publication_id=?')
@@ -309,10 +329,10 @@ it('cancels only the old pending job and creates a fresh automatic job without a
         closeDatabase(f.database)
     }
 })
-it('binds a cadence confirmation to the move and rolls back the first conflicting write', () => {
-    const f = fixture()
+it('binds a cadence confirmation to the move and rolls back the first conflicting write', async () => {
+    const f = await fixture()
     try {
-        f.store.createPost({
+        await f.store.createPost({
             projectId: f.projectId,
             subjectId: 'operator',
             sourceContent: { body: { format: 'plain_text', text: 'Occupied' }, media: [] },
@@ -324,16 +344,16 @@ it('binds a cadence confirmation to the move and rolls back the first conflictin
                 },
             ],
         })
-        const ctx = f.store.sharedChannels.contextFor({
+        const ctx = (await f.store.sharedChannels.contextFor({
             contextProjectId: f.projectId,
             subjectId: 'operator',
             authorization: {
-                authorizeProject: () => true,
-                authorizeWorkspace: () => false,
-                authorizeSharing: () => true,
+                authorizeProject: async () => true,
+                authorizeWorkspace: async () => false,
+                authorizeSharing: async () => true,
             },
-        })!
-        f.store.sharedChannels.configureCadence(ctx, {
+        }))!
+        await f.store.sharedChannels.configureCadence(ctx, {
             channelId: f.target.id,
             expectedRevision: 0,
             dailyMax: 1,
@@ -342,37 +362,39 @@ it('binds a cadence confirmation to the move and rolls back the first conflictin
         })
         let confirmation = ''
         try {
-            f.store.movePublication(f.input())
+            await f.store.movePublication(await f.input())
             throw new Error('Expected conflict')
         } catch (error) {
             expect(error).toBeInstanceOf(CadenceConflictError)
             confirmation = (error as CadenceConflictError).confirmation
         }
         expect(
-            f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator')!
+            (await f.store.getPublicationEditorState(f.projectId, f.publication.id, 'operator'))!
                 .publication.state
         ).toBe('scheduled')
         expect(f.database.$client.query('select * from publication_moves').all()).toEqual([])
         expect(
-            f.store.movePublication({ ...f.input(), cadenceConfirmation: confirmation })!
-                .publication.state
+            (await f.store.movePublication({
+                ...(await f.input()),
+                cadenceConfirmation: confirmation,
+            }))!.publication.state
         ).toBe('scheduled')
     } finally {
         closeDatabase(f.database)
     }
 })
-it('supersedes pending approval without granting a new approval to the replacement', () => {
-    const f = fixture()
+it('supersedes pending approval without granting a new approval to the replacement', async () => {
+    const f = await fixture()
     try {
-        const draft = f.create(null)
-        f.store.submitPublicationForApproval({
+        const draft = await f.create(null)
+        await f.store.submitPublicationForApproval({
             projectId: f.projectId,
             subjectId: 'operator',
             publicationId: draft.id,
             expectedDraftRevision: 1,
             proposedScheduledAt: now + 90000,
         })
-        const moved = f.store.movePublication(f.input(draft.id))!
+        const moved = (await f.store.movePublication(await f.input(draft.id)))!
         expect(moved.publication.state).toBe('draft')
         expect(
             f.database.$client
@@ -388,16 +410,16 @@ it('supersedes pending approval without granting a new approval to the replaceme
         closeDatabase(f.database)
     }
 })
-it('revalidates media references and keeps unavailable media intact for review', () => {
-    const f = fixture()
+it('revalidates media references and keeps unavailable media intact for review', async () => {
+    const f = await fixture()
     try {
-        const target = f.store.createChannel({
+        const target = (await f.store.createChannel({
             projectId: f.projectId,
             subjectId: 'operator',
             name: 'Media review',
             profile: createManualChannelProfile(),
-        })!
-        const source = f.store.createPost({
+        }))!
+        const source = (await f.store.createPost({
             projectId: f.projectId,
             subjectId: 'operator',
             sourceContent: { body: { format: 'plain_text', text: 'Missing media' }, media: [] },
@@ -416,8 +438,8 @@ it('revalidates media references and keeps unavailable media intact for review',
                     },
                 },
             ],
-        })!.publications[0]!
-        const moved = f.store.movePublication(f.input(source.id, target))!
+        }))!.publications[0]!
+        const moved = (await f.store.movePublication(await f.input(source.id, target)))!
         expect(moved.draft.content).toEqual({
             body: 'Saved media',
             media: [{ assetId: 'missing-asset', representationId: 'missing-representation' }],
@@ -428,10 +450,10 @@ it('revalidates media references and keeps unavailable media intact for review',
         closeDatabase(f.database)
     }
 })
-it('keeps move receipts immutable and permits authorized project graph deletion without foreign-key damage', () => {
-    const f = fixture()
+it('keeps move receipts immutable and permits authorized project graph deletion without foreign-key damage', async () => {
+    const f = await fixture()
     try {
-        f.store.movePublication(f.input())
+        await f.store.movePublication(await f.input())
         expect(() =>
             f.database.$client
                 .query('update publication_moves set created_at=0 where project_id=?')

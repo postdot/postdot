@@ -32,7 +32,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
         })
         let calls = 0
         let mode: 'available' | 'failure' | 'blocked' = 'available'
-        let beforeReturn: (() => void) | undefined
+        let beforeReturn: (() => unknown) | undefined
         let clock = 1_800_000_000_000
         const externalId =
             provider === 'bluesky' ? 'at://did:plc:comments/app.bsky.feed.post/root' : '100'
@@ -65,7 +65,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                             ],
                         })
                     calls++
-                    beforeReturn?.()
+                    await beforeReturn?.()
                     if (mode === 'failure') return new Response('', { status: 503 })
                     if (mode === 'blocked') return new Response('', { status: 404 })
                     return Response.json({ id: '100', visibility: 'public' })
@@ -74,7 +74,7 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             blueskyCommentsReader: {
                 async getPostThread(uri): Promise<BlueskyThreadRead> {
                     calls++
-                    beforeReturn?.()
+                    await beforeReturn?.()
                     expect(uri).toBe(rootUri)
                     if (mode === 'failure')
                         return {
@@ -148,21 +148,25 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             expect(made.status).toBe(201)
             const { project } = (await made.json()) as { project: { id: string } }
             const manual = createManualStore(database)
-            const channel = manual.createChannel({
+            const channel = (await manual.createChannel({
                 projectId: project.id,
                 subjectId: owner.id,
                 name: 'Bluesky',
                 profile: provider === 'bluesky' ? blueskyChannelProfile : mastodonChannelProfile,
-            })!
-            const created = manual.createPost({
+            }))!
+            const created = (await manual.createPost({
                 projectId: project.id,
                 subjectId: owner.id,
                 sourceContent: { body: { format: 'plain_text', text: 'Source' }, media: [] },
                 publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
-            })!
+            }))!
             const publicationId = created.publications[0]!.id
-            const editor = manual.getPublicationEditorState(project.id, publicationId, owner.id)!
-            manual.promotePublicationDraft({
+            const editor = (await manual.getPublicationEditorState(
+                project.id,
+                publicationId,
+                owner.id
+            ))!
+            await manual.promotePublicationDraft({
                 projectId: project.id,
                 publicationId,
                 subjectId: owner.id,
@@ -216,13 +220,13 @@ for (const provider of ['bluesky', 'mastodon'] as const)
             const viewer = await signup('comments-viewer@postdot.local')
             await request('/api/projects', viewer.cookie)
             const access = createAccessStore(database)
-            access.updateInstanceMembership({
+            await access.updateInstanceMembership({
                 actorUserId: owner.id,
                 userId: viewer.id,
                 role: 'member',
             })
             expect(
-                access.grantProjectUserAccess({
+                await access.grantProjectUserAccess({
                     projectId: project.id,
                     userId: viewer.id,
                     role: 'viewer',
@@ -245,13 +249,13 @@ for (const provider of ['bluesky', 'mastodon'] as const)
                 lastError: null,
             })
             const savedBeforeRevocation = await (await request(path, owner.cookie)).json()
-            access.grantProjectUserAccess({
+            await access.grantProjectUserAccess({
                 projectId: project.id,
                 userId: viewer.id,
                 role: 'editor',
             })
-            beforeReturn = () => {
-                access.grantProjectUserAccess({
+            beforeReturn = async () => {
+                await access.grantProjectUserAccess({
                     projectId: project.id,
                     userId: viewer.id,
                     role: 'viewer',
