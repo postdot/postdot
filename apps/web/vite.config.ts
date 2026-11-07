@@ -28,6 +28,20 @@ export default defineConfig(({ mode }) => {
     const allowedHost = parseAllowedHost(environment.POSTDOT_VITE_ALLOWED_HOST)
 
     return {
+        // Browser tests use development routes but repeatedly reload a fixed catalog.
+        // Bundle its re-exports once, including shared locale state to avoid duplicates.
+        ...(process.env.NODE_ENV === 'test'
+            ? {
+                  optimizeDeps: {
+                      force: true,
+                      include: [
+                          '@/paraglide/messages.js',
+                          '@/paraglide/runtime.js',
+                          '@/lib/i18n-store.js',
+                      ],
+                  },
+              }
+            : {}),
         build: {
             manifest: true,
         },
