@@ -1,5 +1,11 @@
 # @postdot/cli
 
+## 0.1.0-alpha.3
+
+### Patch Changes
+
+- 7b7f1dd: Align public packages and validate npm trusted publishing via OIDC.
+
 ## 0.1.0-alpha.2
 
 ### Minor Changes

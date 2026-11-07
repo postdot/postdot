@@ -1,6 +1,6 @@
 {
     "name": "@postdot/cli",
-    "version": "0.1.0-alpha.2",
+    "version": "0.1.0-alpha.3",
     "description": "Operate a remote Postdot instance from your terminal",
     "homepage": "https://github.com/postdot/postdot/tree/main/integrations/cli#readme",
     "license": "AGPL-3.0-only",
