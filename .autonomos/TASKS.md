@@ -100,7 +100,7 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
-### Storage profiles — ISSUE-194, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md) (proposed), branch `feat/postgres-storage-profiles`
+### Storage profiles — ISSUE-194, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md) (accepted), branch `feat/postgres-storage-profiles`
 
 - [x] **[DB-609]** Make persistence asynchronous behind a port with ambient transactions (phase 0) `Priority: 🟠` `Complexity: XL` `Completed: 2026-11-06` — Runtime stores and callers converted, including auth isolation, composite-operation transactions and shutdown drains. Root static checks, 1,150 db/API/core/auth/script tests and all 216 browser scenarios pass across the documented qualification stages. SQLite only; PostgreSQL remains DB-611. [Worklog](worklogs/2026-11-06-DB-609.md).
 - [x] **[DB-610]** Isolate dialect fragments and regenerate the SQLite baseline (phase 1) `Priority: 🟠` `Complexity: L` `Completed: 2026-11-06` — Portable `?N` SQL audit, one dialect module, one generated baseline plus explicit triggers/views/expression-index extras, replacing the 27-file chain (owner: no compatibility required). Dialect fragments isolated (checkpoints 1–2). Baseline work moved to DB-611 (portable SQL migrations replace Drizzle, ADR-097 §6 amended 2026-11-06); runtime dialect audit is complete. [Worklog](worklogs/2026-11-06-DB-610.md).

@@ -1,11 +1,11 @@
 # ADR-097 — Offer selectable storage profiles: embedded SQLite or PostgreSQL in one image
 
-- Status: proposed — exploration under DB-609 on branch `feat/postgres-storage-profiles`
+- Status: accepted — owner approval on 2026-11-07
 - Date: 2026-11-06
 - Scope: persistence port, database engines, media storage topology, instance count, migrations,
   data transfer between profiles
 - Provenance: owner direction on 2026-11-06 (ISSUE-194)
-- Partially supersedes (once accepted): [ADR-003](ADR-003-use-a-single-process-singleton.md) (the
+- Partially supersedes: [ADR-003](ADR-003-use-a-single-process-singleton.md) (the
   singleton becomes a property of the embedded profile, not of the product),
   [ADR-005](ADR-005-use-sqlite-first-persistence.md) (SQLite stays the default, no longer the only
   engine)
@@ -46,7 +46,7 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
   the same connection. Outside reads see uncommitted rows, and an outside write lands inside the
   transaction. It is therefore not used as-is for the SQLite profile.
 
-## Decision (proposed)
+## Decision
 
 1. **One image, profile chosen at runtime.** `POSTDOT_DATABASE_URL` picks the engine:
    `sqlite:` (default, a file under the data volume) or `postgres:`/`postgresql:`. The engine

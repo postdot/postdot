@@ -31,10 +31,11 @@ content generator.
 
 - **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
 - **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
-- **Integration (temporary owner direction):** Until the owner changes this
-  direction, merge completed work directly into local `main`. Do not open pull
-  requests or wait for GitHub Actions. Local integration must not depend on
-  publishing `main` to the remote.
+- **Integration (owner direction, 2026-11-07):** Integrate completed work through
+  pull requests. Group related changes into substantial, coherent PRs rather than
+  opening small PRs that could be combined. Validate locally before pushing and
+  avoid unnecessary pushes or repeated GitHub Actions runs that slow delivery.
+  This replaces the temporary direct-to-local-main integration policy.
 - **Proportionate validation (owner direction, 2026-10-10):** Verify local UI
   and copy changes with static checks and the focused affected scenario or test.
   Do not run the whole repository because a selector path is unmapped, a shared
