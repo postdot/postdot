@@ -111,3 +111,26 @@ test('reuses mail-enabled runtime ports when Playwright loads its config in a wo
         await rm(parentResources.dataDirectory, { recursive: true, force: true })
     }
 })
+
+test('excludes the automatically selected web port when the OS reuses a freed port', async () => {
+    // A closed probe socket can yield the same candidate on the next allocation.
+    const candidates = [32101, 32102, 32103, 32104]
+    const resources = await createE2ERuntimeResources(
+        { POSTDOT_E2E_MAILPIT: 'true' },
+        async excluded => {
+            const port = candidates.find(candidate => !excluded.has(candidate))
+            if (port === undefined) throw new Error('No distinct candidate left')
+            return port
+        }
+    )
+    try {
+        expect([
+            resources.apiPort,
+            resources.webPort,
+            resources.mailpit?.smtpPort,
+            resources.mailpit?.uiPort,
+        ]).toEqual(candidates)
+    } finally {
+        await rm(resources.dataDirectory, { recursive: true, force: true })
+    }
+})
