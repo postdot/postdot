@@ -40,7 +40,7 @@ export async function createContainerCliFixture(
             process.exited,
         ])
         assert.equal(status, 0, `Docker ${args[0]} failed: ${stderr}`)
-        return stdout.trim()
+        return (args[0] === 'logs' ? stdout + stderr : stdout).trim()
     }
     let started = false
     async function stop() {
@@ -98,6 +98,9 @@ export async function createContainerCliFixture(
                 const target = new URL(request.url)
                 target.host = url.host
                 return fetch(new Request(target, request))
+            },
+            async diagnostics() {
+                return docker(['logs', '--tail', '100', name])
             },
             stop,
         }

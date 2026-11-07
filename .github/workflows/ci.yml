@@ -123,7 +123,7 @@ jobs:
 
             - name: Web and client
               run: |
-                  (cd apps/web && bun test)
+                  (cd apps/web && bun run test)
                   (cd packages/client && bun test)
 
             - name: API servers on PostgreSQL (single and several instances, profile transfer)
@@ -167,6 +167,14 @@ jobs:
             - name: Password reset browser test
               if: matrix.shard == 1
               run: bun run test:e2e:password-reset
+
+            - name: Preserve failed browser evidence
+              if: failure()
+              uses: actions/upload-artifact@v6
+              with:
+                  name: browser-failures-${{ matrix.shard }}
+                  path: test-results/
+                  retention-days: 7
 
     recovery:
         name: Production image backup and restore

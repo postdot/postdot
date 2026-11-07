@@ -89,6 +89,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             mediaMaintenance: 'started',
             notifications: 'started',
             recovery: 'normal',
+            topology: { engine: 'sqlite', media: 'local', instances: 'single', role: 'leader' },
         },
     })
 
