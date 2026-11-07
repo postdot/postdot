@@ -34,6 +34,7 @@ import { createApp } from './app'
 import {
     createPostdotConfig,
     createPostdotMaintenanceConfig,
+    createPostdotTransferConfig,
     decodeHexKey,
     type PostdotConfig,
 } from './config'
@@ -69,6 +70,7 @@ import {
     createShutdownHandler,
     type MutableShutdownDependencies,
 } from './shutdown'
+import { isTransferCommand, runTransferCommand } from './transfer'
 import { createVideoPosterExtractor, createVideoPosterRuntime } from './video-posters'
 
 export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
@@ -591,6 +593,14 @@ if (import.meta.main) {
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Account recovery failed'
             console.error(`[postdot-maintenance] ${message}`)
+            process.exitCode = 1
+        }
+    } else if (isTransferCommand(args)) {
+        try {
+            await runTransferCommand(args, createPostdotTransferConfig())
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'The transfer failed'
+            console.error(`[postdot-transfer] ${message}`)
             process.exitCode = 1
         }
     } else if (

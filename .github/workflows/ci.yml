@@ -126,8 +126,8 @@ jobs:
                   (cd apps/web && bun test)
                   (cd packages/client && bun test)
 
-            - name: API servers on PostgreSQL (single and several instances)
-              run: bun test scripts/postgres-profile.test.ts scripts/multi-instance.test.ts
+            - name: API servers on PostgreSQL (single and several instances, profile transfer)
+              run: bun test scripts/postgres-profile.test.ts scripts/multi-instance.test.ts scripts/profile-transfer.test.ts
 
     e2e:
         name: Browser tests (${{ matrix.shard }}/4)

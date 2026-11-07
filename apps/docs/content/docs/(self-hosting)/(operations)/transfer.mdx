@@ -1,0 +1,156 @@
+---
+title: Move between SQLite and PostgreSQL
+description: Move an existing installation between SQLite and PostgreSQL, and its media between local storage and S3, with the server stopped.
+---
+
+An installation keeps its storage choices until you move it. Three commands of
+the image move it, with every server stopped:
+
+| Command          | What it does                                                                                         |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `export`         | Writes the configured database to a directory, in a format that does not depend on the engine.       |
+| `import`         | Loads such a directory into the configured database, which must be empty.                            |
+| `media transfer` | Copies every media file from a source store to the configured store, then points the database at it. |
+
+They move everything in the database: accounts, sessions, workspaces, projects,
+publications and their history, connected accounts and settings. Nothing is
+converted automatically at startup.
+
+## Before you start
+
+- **Same release.** Start the release you will use on the current installation
+  once, so it applies its migrations, then stop it. `export` refuses a database
+  at another schema version, and `import` refuses an export from another release.
+- **Same secrets.** Keep `BETTER_AUTH_SECRET`, `POSTDOT_MEDIA_PUBLIC_URL_SECRET`,
+  `POSTDOT_PUBLISHER_ENCRYPTION_KEY` and its key ID. Connected provider
+  accounts are stored encrypted with that key, and sessions depend on the auth
+  secret.
+- **A backup.** On SQLite, run `backup --media` as described in
+  [Installation](/docs/installation/#backup-and-restoration). On PostgreSQL, use
+  `pg_dump`. The commands below never change the source, but keep the backup
+  until the new installation is verified.
+- **An empty target.** A PostgreSQL database that you created empty, owned by
+  the user in `POSTDOT_DATABASE_URL`, or a SQLite path where no file exists yet.
+- **Every server stopped.** The commands refuse to run while a server uses the
+  database: SQLite has its runtime lock, and on PostgreSQL they also refuse while
+  any other session is connected to the database.
+
+The export holds everything Postdot stores, including password hashes, session
+tokens and encrypted credentials. Its files are readable only by their owner.
+Delete the export once the move is verified.
+
+## From SQLite and local media to PostgreSQL and S3
+
+The steps use the Compose installation. Its `/data` volume holds the SQLite
+file, the media and, here, the export.
+
+1. Stop the server, then export the database with the current configuration:
+
+    ```sh
+    docker compose stop postdot
+    docker compose run --rm --no-deps postdot export --output /data/transfer/export
+    ```
+
+    The command prints a summary such as
+    `{"exported":"/data/transfer/export","engine":"sqlite","tables":70,"rows":3154}`.
+
+2. Change `.env` to the new configuration: add `POSTDOT_DATABASE_URL`, and the
+   S3 settings from [S3-compatible media storage](/docs/installation/#s3-compatible-media-storage)
+   with a **new** `POSTDOT_MEDIA_STORE_ID`, for example `primary-media`. The
+   media store ID names where each file lives; the media transfer needs the new
+   store to have its own ID. Do not start the server yet.
+
+3. Import the export into the empty PostgreSQL database:
+
+    ```sh
+    docker compose run --rm --no-deps postdot import --input /data/transfer/export
+    ```
+
+    The import first creates the schema, then loads the rows in a single
+    transaction. It checks every file against the export's checksums, loads the
+    rows, then checks that the database now reproduces the export exactly
+    before committing. If anything fails, no row is imported and you can run
+    the import again on the same database.
+
+4. Copy the media to S3. Describe the old store with the media variables
+   prefixed by `SOURCE_`:
+
+    ```sh
+    docker compose run --rm --no-deps \
+        -e SOURCE_POSTDOT_MEDIA_STORE=local \
+        -e SOURCE_POSTDOT_MEDIA_STORE_ID=local-default \
+        -e SOURCE_POSTDOT_MEDIA_DIRECTORY=/data/media \
+        postdot media transfer
+    ```
+
+    Use the store ID the old installation had: `local-default` unless you
+    changed it. The command reads every file, checks its size and SHA-256
+    checksum against the database, writes it to S3 and reads it back. Only when
+    every file is verified does it update the database to the new store, in one
+    transaction. It prints a summary such as
+    `{"from":"local-default","to":"primary-media","copied":412,"alreadyPresent":0,"skippedMissing":0,"bytes":731906123,"relocatedRows":440}`.
+
+    If it stops partway, run it again: files already copied with the same bytes
+    are counted under `alreadyPresent` and not rewritten. It refuses to overwrite
+    a file that exists in the destination with different bytes.
+
+5. Start the server and check it:
+
+    ```sh
+    docker compose up -d postdot
+    curl -fsS http://127.0.0.1:3000/ready
+    ```
+
+    The startup log names the profile: `[postdot-topology] postgres database, s3 media, ...`. Existing
+    sessions remain signed in. Open a project and its media to confirm.
+
+6. Once verified, delete `/data/transfer` and, later, the old
+   `/data/postdot.sqlite` and `/data/media`. The image still sets `DB_FILE_NAME`
+   to the SQLite file; `POSTDOT_DATABASE_URL` takes precedence, so that file is no
+   longer used.
+
+## From PostgreSQL and S3 to SQLite and local media
+
+The same commands work in the other direction:
+
+1. Stop every server, then run `export --output /data/transfer/export` with the
+   PostgreSQL configuration.
+2. In `.env`, remove `POSTDOT_DATABASE_URL` and the S3 settings, and set a new
+   `POSTDOT_MEDIA_STORE_ID`, for example `local-media`. `DB_FILE_NAME` must name
+   a file that does not exist yet; the image default `/data/postdot.sqlite` works
+   for a fresh volume.
+3. Run `import --input /data/transfer/export`. It creates the SQLite file. If the
+   import fails, it removes the file it created.
+4. Run `media transfer` with the S3 store described by `SOURCE_POSTDOT_MEDIA_STORE=s3`,
+   `SOURCE_POSTDOT_MEDIA_STORE_ID` and each `SOURCE_POSTDOT_MEDIA_S3_*` setting the
+   old configuration used.
+5. Start one server and check `/ready`.
+
+## Moving only the database or only the media
+
+The two halves are independent:
+
+- To change the database engine and keep the media where they are, run
+  `export` and `import`, and keep the media settings, including
+  `POSTDOT_MEDIA_STORE_ID`, unchanged.
+- To move media between local storage and S3 on the same database, set the new
+  store in `.env` with a new `POSTDOT_MEDIA_STORE_ID` and run `media transfer`
+  with the old store described by `SOURCE_` variables.
+
+## When a command refuses
+
+| Message                                                             | What to do                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `runtime lock ... is already held` or `A Postdot server is running` | Stop every server using the database.                                                             |
+| `Other sessions are connected to this database`                     | Close other clients of the PostgreSQL database (`psql`, administration tools, other servers).     |
+| `The database schema version differs from this release`             | Start this release once on the source, stop it, then export again.                                |
+| `The target database is not empty`                                  | Import into a new, empty database or a SQLite path with no file.                                  |
+| `does not match its manifest checksum`                              | The export was modified or copied incompletely. Export again.                                     |
+| `does not match the database` (media)                               | A media file changed or was corrupted in the source store. Restore it from a backup.              |
+| `already holds a different object`                                  | The destination contains other files at Postdot's keys. Use an empty bucket, prefix or directory. |
+| `must have its own store ID`                                        | Set a new `POSTDOT_MEDIA_STORE_ID` for the destination store.                                     |
+
+Every command exits with a non-zero code when it refuses. A refused import
+leaves no row behind, and a refused media transfer leaves the database pointing
+at the source store. Add `--help` after a command to print its options, for example
+`docker compose run --rm --no-deps postdot import --help`.

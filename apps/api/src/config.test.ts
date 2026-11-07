@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
     createPostdotConfig,
     createPostdotMaintenanceConfig,
+    createPostdotTransferConfig,
     defaultMediaDirectory,
 } from './config'
 
@@ -125,13 +126,14 @@ describe('Postdot configuration', () => {
             poolSize: 4,
             migrationsDirectory: expect.any(String),
         })
-        expect(() =>
+        // The image always sets DB_FILE_NAME; a PostgreSQL URL takes precedence.
+        expect(
             createPostdotConfig({
                 ...base,
                 POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal/postdot',
-                DB_FILE_NAME: './postdot.sqlite',
-            })
-        ).toThrow('set only one')
+                DB_FILE_NAME: '/data/postdot.sqlite',
+            }).database
+        ).toMatchObject({ engine: 'postgres' })
         expect(() =>
             createPostdotConfig({ ...base, POSTDOT_DATABASE_URL: 'mysql://db.internal/postdot' })
         ).toThrow('postgres:// or postgresql://')
@@ -140,6 +142,33 @@ describe('Postdot configuration', () => {
                 POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal/postdot',
             })
         ).toThrow('pg_dump')
+    })
+
+    it('reads the transfer target from the usual variables and its media source from SOURCE_ variables', () => {
+        const target = createPostdotTransferConfig({
+            POSTDOT_DATABASE_URL: 'postgres://postdot@db.internal/postdot',
+            POSTDOT_MEDIA_STORE: 's3',
+            POSTDOT_MEDIA_STORE_ID: 'shared-media',
+            POSTDOT_MEDIA_S3_BUCKET: 'postdot',
+            POSTDOT_MEDIA_S3_REGION: 'eu-west-3',
+            POSTDOT_MEDIA_S3_ACCESS_KEY_ID: 'key',
+            POSTDOT_MEDIA_S3_SECRET_ACCESS_KEY: 'secret',
+            SOURCE_POSTDOT_MEDIA_STORE: 'local',
+            SOURCE_POSTDOT_MEDIA_STORE_ID: 'local-default',
+            SOURCE_POSTDOT_MEDIA_DIRECTORY: '/data/media',
+        })
+        expect(target.database).toMatchObject({ engine: 'postgres' })
+        expect(target.media).toMatchObject({ driver: 's3', storeId: 'shared-media' })
+        expect(target.sourceMedia).toMatchObject({
+            driver: 'local',
+            storeId: 'local-default',
+            directory: '/data/media',
+        })
+        expect(createPostdotTransferConfig({}).sourceMedia).toBeUndefined()
+        // The source is never guessed from defaults.
+        expect(() => createPostdotTransferConfig({ SOURCE_POSTDOT_MEDIA_STORE: 'local' })).toThrow(
+            'SOURCE_POSTDOT_MEDIA_STORE_ID'
+        )
     })
 
     it('keeps Prometheus metrics disabled by default and requires a dedicated token to enable them', () => {

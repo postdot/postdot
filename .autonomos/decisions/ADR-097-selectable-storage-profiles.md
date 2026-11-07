@@ -102,6 +102,16 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
    target at the same schema version: SQLite ↔ PostgreSQL. A media copy through the storage
    contract with checksum verification covers local ↔ S3. Both run with the runtime quiesced and
    are documented in the runbook. No automatic conversion happens.
+   Implemented by DB-613 (2026-11-07): `export` / `import` (directory with `manifest.json` and
+   one NDJSON file per table, values encoded from the declared column type, rows in byte order
+   of the primary key, so both engines export identical bytes; the import suspends user
+   triggers, restores the journal sequence high-water mark and re-exports the target inside its
+   transaction, committing only on identical checksums) and `media transfer` (copy through the
+   storage contract with size/SHA-256 checks against the database and a read-back, then one
+   transaction rewriting `store_id`; the destination needs its own store ID; the source is
+   never changed). Commands refuse while a server runs (SQLite runtime lock; PostgreSQL
+   instance and leader locks plus no other connected session). `POSTDOT_DATABASE_URL` takes
+   precedence over `DB_FILE_NAME`, which the image always sets.
 9. **Same tests on both engines.** The `packages/db` and API integration suites run against
    SQLite and PostgreSQL in CI. A PostgreSQL feature counts only once its parity passes.
 

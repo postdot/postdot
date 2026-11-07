@@ -173,7 +173,7 @@ export function closeDatabase(database: PostdotDatabase) {
 }
 
 /** Arbitrary constant identifying the Postdot server instance lock. */
-const postgresInstanceLock = 7_310_201_612
+export const postgresInstanceLockKey = 7_310_201_612
 
 export interface PostgresInstanceLock {
     /** Releases the lock by closing its dedicated session. */
@@ -203,7 +203,7 @@ export async function acquirePostgresInstanceLock(
     try {
         session = await client.reserve()
         const [row] = (await session.unsafe('select pg_try_advisory_lock($1) as acquired', [
-            postgresInstanceLock,
+            postgresInstanceLockKey,
         ])) as { acquired: boolean }[]
         if (row?.acquired !== true) {
             throw new Error(
@@ -223,7 +223,7 @@ export async function acquirePostgresInstanceLock(
                 `select exists (select 1 from pg_locks where locktype = 'advisory' and granted
                    and pid = pg_backend_pid() and objsubid = 1
                    and ((classid::bigint << 32) | objid::bigint) = $1) as held`,
-                [postgresInstanceLock]
+                [postgresInstanceLockKey]
             )
             .then(
                 rows => (rows as { held: boolean }[])[0]?.held === true,

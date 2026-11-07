@@ -232,7 +232,8 @@ able to reach the endpoint; `localhost` inside it refers to the container itself
 Choose it once and keep it stable across restarts, updates and maintenance commands.
 Changing it can make existing media inaccessible. Changing bucket, prefix or
 storage backend does **not** migrate stored objects or update saved media records.
-Plan a migration separately for an instance that already contains media.
+To move the media of an existing instance, use the `media transfer` command
+described in [Move between SQLite and PostgreSQL](/docs/transfer/).
 
 Compose passes `.env` to both the server and maintenance commands. SQLite still
 uses the persistent `/data` volume when media uses S3. After configuration, upload
@@ -251,8 +252,8 @@ POSTDOT_DATABASE_URL=postgres://postdot:replace-with-password@db.example.com:543
 # POSTDOT_DATABASE_POOL_SIZE=10
 ```
 
-Do not set `DB_FILE_NAME` at the same time: Postdot refuses to start when both
-name a database. At startup Postdot applies its migrations to the PostgreSQL
+`POSTDOT_DATABASE_URL` takes precedence over `DB_FILE_NAME`, which the image sets
+for its SQLite default; the startup log names the engine in use. At startup Postdot applies its migrations to the PostgreSQL
 database; restarting it is safe.
 
 With local media, one server runs per database: a second server started against
@@ -264,8 +265,8 @@ for availability and rolling updates. See
 With PostgreSQL, the `backup` and `restore` commands below do not apply: they work
 on the SQLite file. Back up the database with your PostgreSQL tooling (for example
 `pg_dump`) together with the media storage, and keep the encryption key separately
-as described below. Moving an existing instance between SQLite and PostgreSQL is
-not supported yet.
+as described below. To move an existing instance between SQLite and PostgreSQL,
+see [Move between SQLite and PostgreSQL](/docs/transfer/).
 
 ## Backup and restoration
 

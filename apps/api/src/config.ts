@@ -132,16 +132,17 @@ export type PostdotDatabaseConfig =
           readonly migrationsDirectory: string
       }
 
-/** Rejects ambiguous profiles: a PostgreSQL URL and a SQLite file cannot both be meant. */
-export function createDatabaseConfig(
-    source: EnvironmentSource,
-    values: {
-        readonly DB_FILE_NAME: string
-        readonly POSTDOT_DATABASE_URL: string | undefined
-        readonly POSTDOT_DATABASE_POOL_SIZE: number
-        readonly POSTDOT_MIGRATIONS_DIR: string
-    }
-): PostdotDatabaseConfig {
+/**
+ * `POSTDOT_DATABASE_URL` selects PostgreSQL and takes precedence: the image
+ * always sets `DB_FILE_NAME` for its SQLite default, so that file is then
+ * unused. The startup log names the engine in use.
+ */
+export function createDatabaseConfig(values: {
+    readonly DB_FILE_NAME: string
+    readonly POSTDOT_DATABASE_URL: string | undefined
+    readonly POSTDOT_DATABASE_POOL_SIZE: number
+    readonly POSTDOT_MIGRATIONS_DIR: string
+}): PostdotDatabaseConfig {
     const url = values.POSTDOT_DATABASE_URL
     if (url === undefined) {
         return {
@@ -152,11 +153,6 @@ export function createDatabaseConfig(
     }
     if (!/^postgres(?:ql)?:\/\//.test(url)) {
         throw new Error('POSTDOT_DATABASE_URL must be a postgres:// or postgresql:// URL')
-    }
-    if (source.DB_FILE_NAME !== undefined) {
-        throw new Error(
-            'DB_FILE_NAME and POSTDOT_DATABASE_URL select different databases; set only one'
-        )
     }
     return {
         engine: 'postgres',
@@ -250,6 +246,65 @@ type PostdotMediaEnvironment = Omit<
     InferEnvironment<typeof mediaEnvironmentDefinitions>,
     'DB_FILE_NAME'
 >
+
+/** Configuration of the offline transfer commands (ADR-097 §8). */
+export interface PostdotTransferConfig {
+    /** The configured database: the source of an export, the target of an import. */
+    readonly database: PostdotDatabaseConfig
+    /** The configured media store: the destination of a media transfer. */
+    readonly media: PostdotConfig['media']
+    /** The store media are copied from, described by `SOURCE_`-prefixed variables. */
+    readonly sourceMedia: PostdotConfig['media'] | undefined
+}
+
+/** Prefix naming the source store of a media transfer: `SOURCE_POSTDOT_MEDIA_STORE`, ... */
+export const transferSourcePrefix = 'SOURCE_'
+
+export function createPostdotTransferConfig(
+    source: EnvironmentSource = Bun.env
+): PostdotTransferConfig {
+    const environment = createEnvironment(
+        {
+            ...mediaEnvironmentDefinitions,
+            POSTDOT_MIGRATIONS_DIR: environmentDefinitions.POSTDOT_MIGRATIONS_DIR,
+            POSTDOT_DATABASE_URL: environmentDefinitions.POSTDOT_DATABASE_URL,
+            POSTDOT_DATABASE_POOL_SIZE: environmentDefinitions.POSTDOT_DATABASE_POOL_SIZE,
+        },
+        source
+    )
+    const sourceValues: Record<string, string | undefined> = {}
+    for (const [name, value] of Object.entries(source)) {
+        if (name.startsWith(`${transferSourcePrefix}POSTDOT_MEDIA_`)) {
+            sourceValues[name.slice(transferSourcePrefix.length)] = value
+        }
+    }
+    let sourceMedia: PostdotConfig['media'] | undefined
+    if (Object.keys(sourceValues).length > 0) {
+        // No defaults for the identity of the source: it must be named explicitly.
+        if (
+            sourceValues.POSTDOT_MEDIA_STORE === undefined ||
+            sourceValues.POSTDOT_MEDIA_STORE_ID === undefined ||
+            (sourceValues.POSTDOT_MEDIA_STORE === 'local' &&
+                sourceValues.POSTDOT_MEDIA_DIRECTORY === undefined)
+        ) {
+            throw new Error(
+                'The media transfer source needs SOURCE_POSTDOT_MEDIA_STORE, SOURCE_POSTDOT_MEDIA_STORE_ID ' +
+                    'and, for a local store, SOURCE_POSTDOT_MEDIA_DIRECTORY'
+            )
+        }
+        sourceMedia = createMediaConfig(
+            createEnvironment(mediaEnvironmentDefinitions, {
+                POSTDOT_MEDIA_MAX_OBJECT_BYTES: source.POSTDOT_MEDIA_MAX_OBJECT_BYTES,
+                ...sourceValues,
+            })
+        )
+    }
+    return {
+        database: createDatabaseConfig(environment),
+        media: createMediaConfig(environment),
+        sourceMedia,
+    }
+}
 
 export function createPostdotBootstrapConfig(source: EnvironmentSource = Bun.env) {
     return createEnvironment(
@@ -353,7 +408,7 @@ export function createPostdotConfig(source: EnvironmentSource = Bun.env): Postdo
         server: {
             port: environment.PORT,
         },
-        database: createDatabaseConfig(source, environment),
+        database: createDatabaseConfig(environment),
         media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,

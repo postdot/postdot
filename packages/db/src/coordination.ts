@@ -74,7 +74,7 @@ const signalChannel = 'postdot_signals'
 /** PostgreSQL rejects NOTIFY payloads of 8000 bytes or more. */
 const maximumPayloadBytes = 7_500
 /** Two-key advisory lock (namespace, key) identifying the runtime leader. */
-const leaderLock = [731_020_162, 1] as const
+export const postgresLeaderLock = [731_020_162, 1] as const
 
 export interface PostgresCoordinationOptions {
     /** Delay between leadership attempts while another instance leads. */
@@ -132,7 +132,7 @@ export function createPostgresCoordination(
         try {
             session ??= await client.reserve()
             const [row] = (await session.unsafe('select pg_try_advisory_lock($1, $2) as held', [
-                ...leaderLock,
+                ...postgresLeaderLock,
             ])) as { held: boolean }[]
             if (row?.held === true) {
                 leader = true
@@ -158,7 +158,7 @@ export function createPostgresCoordination(
                     where locktype = 'advisory' and granted and pid = pg_backend_pid()
                       and classid = $1 and objid = $2 and objsubid = 2
                 ) as held`,
-                [...leaderLock]
+                [...postgresLeaderLock]
             )) as { held: boolean }[]
             held = row?.held === true
         } catch (error) {
