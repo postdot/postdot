@@ -2002,3 +2002,23 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related: ADR-003, ADR-005, ADR-049, ADR-053, ADR-068, ADR-089, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md)
 - Tasks: DB-609 (phase 0), DB-610, DB-611, DB-612, DB-613
 - Source: owner direction, 2026-11-06.
+
+
+## [ISSUE-195] Characterize PostgreSQL workflow planning under deep backlogs
+
+- Type: problem
+- Status: open
+- Priority: high — large bulk queues and cold planner statistics can delay execution
+- Evidence: DB-614's isolated real executor probe, one project/channel, 30 attempts:
+  at 10,000 due jobs with refreshed statistics PostgreSQL p95 is about 239 ms;
+  after fresh bulk insertion without explicit ANALYZE, p95 is about 16 seconds.
+  Initial slow samples differ substantially from later ones. This is a controlled
+  development workload, not a universal production limit or proof of a JIT cause.
+- Impact: Bulk queue changes can produce a latency cliff; capacity cannot be
+  inferred solely from small fixtures or steady-state median latency.
+- Desired outcome: Explain the dominant claim/planning query plans and statistics
+  sensitivity, reduce the cold/deep-queue tail without weakening transactional
+  claims, and measure sustained arrivals using actual API admission across projects.
+- Related: ADR-097, DB-614, [measurement evidence](worklogs/2026-11-07-DB-614.md)
+- Tasks: no optimization intervention selected yet; DB-614 provides the probes.
+- Source: owner request for capacity/fragility measurements, 2026-11-07.

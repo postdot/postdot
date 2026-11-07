@@ -1,5 +1,7 @@
 import { SQL } from 'bun'
 
+import { createCoordinationRecovery } from './coordination-recovery'
+
 /**
  * Coordination between Postdot server instances (ADR-097 §7).
  *
@@ -24,7 +26,7 @@ export type CoordinationSignal =
 export interface CoordinationHandlers {
     signal(signal: CoordinationSignal): void
     /** Signals may have been missed (a reconnect): reread every durable source. */
-    resync(): void
+    resync(): void | Promise<void>
 }
 
 export interface LeadershipHandlers {
@@ -81,6 +83,8 @@ export interface PostgresCoordinationOptions {
     readonly retryMs?: number
     /** Delay between checks that the leader still holds its lock. */
     readonly heartbeatMs?: number
+    /** Safety rescan interval for missed notifications; not a delivery deadline. */
+    readonly resyncMs?: number
     readonly onError?: (error: unknown) => void
 }
 
@@ -103,6 +107,7 @@ export function createPostgresCoordination(
     let timer: ReturnType<typeof setTimeout> | undefined
     let session: Awaited<ReturnType<SQL['reserve']>> | undefined
     let subscription: { unlisten(): Promise<void> } | undefined
+    let recovery: ReturnType<typeof createCoordinationRecovery> | undefined
 
     function payloads(signal: CoordinationSignal): string[] {
         if (signal.kind !== 'projects') return [JSON.stringify(signal)]
@@ -176,15 +181,23 @@ export function createPostgresCoordination(
     return {
         mode: 'multiple',
         publish(signal) {
+            if (closed) return
             for (const payload of payloads(signal)) {
                 client.unsafe('select pg_notify($1, $2)', [signalChannel, payload]).catch(report)
             }
         },
         async subscribe(handlers) {
+            if (closed) throw new Error('Coordination is closed')
+            if (recovery !== undefined) throw new Error('Coordination is already subscribed')
+            recovery = createCoordinationRecovery(handlers.resync, {
+                intervalMs: options.resyncMs ?? 30_000,
+                onError: report,
+            })
             let first = true
             subscription = await client.listen(
                 signalChannel,
                 payload => {
+                    if (closed) return
                     try {
                         handlers.signal(JSON.parse(payload) as CoordinationSignal)
                     } catch (error) {
@@ -193,7 +206,7 @@ export function createPostgresCoordination(
                 },
                 () => {
                     // A reconnect may have dropped signals: reread durable state.
-                    if (!first) handlers.resync()
+                    if (!first) recovery?.request()
                     first = false
                 }
             )
@@ -205,6 +218,7 @@ export function createPostgresCoordination(
         async close() {
             closed = true
             leader = false
+            await recovery?.close()
             if (timer !== undefined) clearTimeout(timer)
             await subscription?.unlisten().catch(report)
             if (session !== undefined) {

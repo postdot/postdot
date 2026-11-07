@@ -89,7 +89,10 @@ Measured starting point (2026-11-06, `main` at `aa33df034`):
      singleton lease and refuses to start while another live instance holds it.
    - PostgreSQL **and** S3 → **multiple instances allowed**: serialized migrations (advisory
      lock), cross-instance wakeup (`LISTEN/NOTIFY` with the durable journal remaining the source
-     of truth), database-backed credential-refresh coordination.
+     of truth), database-backed credential-refresh coordination. Missed signals are covered by
+     a non-overlapping safety rescan every 30 seconds after the previous pass completes, plus
+     rescan on listener reconnect (owner-approved hardening, 2026-11-07, DB-614). Slow database
+     reads add to recovery latency; this interval is not a hard execution deadline.
    - Background runtimes (publication worker, media maintenance, video previews, notification
      projection, email) run on **one elected leader** (amended 2026-11-07, owner): a session
      advisory lock, released when its connection ends, so another instance takes over after a
