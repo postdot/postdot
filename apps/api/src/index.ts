@@ -529,17 +529,25 @@ async function startServerWithRuntimeLock(
                     break
             }
         },
-        // Signals may have been missed while reconnecting: reread durable state.
-        resync: () => {
+        // Reconnects and the periodic safety pass recover missed notifications.
+        resync: async () => {
+            if (shutdownRequested()) return
             realtime.wakeAll()
-            void emailSettings
-                .reload()
-                .catch(error => console.error('[postdot-email] settings reload failed', error))
-            if (!coordination.isLeader()) return
-            void notificationProjection.runNow()
-            void worker.replan()
-            void posterRuntime?.rescan()
-            void emailRuntime?.replan()
+            const work: Promise<unknown>[] = [
+                emailSettings.reload().then(() => {
+                    if (coordination.isLeader() && !shutdownRequested())
+                        return emailRuntime?.replan()
+                }),
+            ]
+            if (coordination.isLeader()) {
+                work.push(notificationProjection.runNow(), worker.replan())
+                if (posterRuntime !== undefined) work.push(posterRuntime.rescan())
+            }
+            const results = await Promise.allSettled(work)
+            const failures = results.flatMap(result =>
+                result.status === 'rejected' ? [result.reason] : []
+            )
+            if (failures.length) throw new AggregateError(failures, 'Coordination recovery failed')
         },
     })
     console.info(

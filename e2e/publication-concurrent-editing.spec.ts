@@ -552,6 +552,8 @@ for (const outcome of ['rejected', 'lost_response'] as const) {
     test(`checks server state after ${outcome} application without repeating it or losing local work`, async ({
         page,
     }, info) => {
+        // Recovery checks plus three viewport accessibility/screenshot passes share this budget.
+        test.setTimeout(60_000)
         const pair = await createDraftPair(page)
         await page.goto(pair.pageUrl(pair.first))
         await openCustomization(page)

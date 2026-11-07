@@ -1,0 +1,35 @@
+{
+  "runtime": "1.4.4",
+  "bursts": [
+    {
+      "count": 1,
+      "delivered": 1,
+      "elapsedMs": 5.313361999999998,
+      "p50Ms": 0.7338550000000055,
+      "p95Ms": 0.7338550000000055
+    },
+    {
+      "count": 100,
+      "delivered": 100,
+      "elapsedMs": 6.1790260000000075,
+      "p50Ms": 1.3261700000000047,
+      "p95Ms": 1.9839660000000094
+    },
+    {
+      "count": 1000,
+      "delivered": 1000,
+      "elapsedMs": 22.896686000000003,
+      "p50Ms": 10.282646999999997,
+      "p95Ms": 16.946889
+    }
+  ],
+  "failoverMs": 1970.595273,
+  "recovery": {
+    "resyncMs": 30000,
+    "recovered": true,
+    "delayMs": 27983.050393,
+    "recoveryReads": 1
+  },
+  "errors": [],
+  "scope": "Two local coordination clients, notification bursts, graceful leader release, and a committed marker without notification; not full API or cross-region latency."
+}

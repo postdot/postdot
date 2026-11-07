@@ -100,6 +100,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[DB-614]** Recover missed PostgreSQL wakeups and measure worker capacity `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Owner-approved bounded recovery without new services; fault injection, reproducible isolated queue/wakeup measurements and explicit capacity limits. npm publication belongs to a separate agent. [Evidence](worklogs/2026-11-07-DB-614.md); measured planning sensitivity tracked as ISSUE-195.
+
 ### Storage profiles — ISSUE-194, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md) (accepted), branch `feat/postgres-storage-profiles`
 
 - [x] **[DB-609]** Make persistence asynchronous behind a port with ambient transactions (phase 0) `Priority: 🟠` `Complexity: XL` `Completed: 2026-11-06` — Runtime stores and callers converted, including auth isolation, composite-operation transactions and shutdown drains. Root static checks, 1,150 db/API/core/auth/script tests and all 216 browser scenarios pass across the documented qualification stages. SQLite only; PostgreSQL remains DB-611. [Worklog](worklogs/2026-11-06-DB-609.md).

@@ -5,6 +5,9 @@ import { join } from 'node:path'
 
 import { SQL } from 'bun'
 
+import { createPostgresDatabase, closePostgresDatabase } from '../packages/db/src'
+import { seedWorkflowBenchmark } from './fixtures/workflow-benchmark'
+
 /**
  * PostgreSQL with S3 media allows several servers (ADR-097 §7): every server
  * serves HTTP, one elected leader runs the background runtimes, and changes
@@ -94,7 +97,7 @@ function streamReader(reader: ReadableStreamDefaultReader<Uint8Array>) {
 }
 
 test.skipIf(serverUrl === undefined)(
-    'two servers share PostgreSQL: one leader, cross-instance streams and failover',
+    'two servers share PostgreSQL: streams, missed wakeup recovery and leader failover',
     async () => {
         // A minimal S3 stand-in: objects live in memory; signatures are not checked.
         const objects = new Map<string, ArrayBuffer>()
@@ -229,6 +232,30 @@ test.skipIf(serverUrl === undefined)(
         const startedAt = Date.now()
         await events.until(text => /^id: /m.test(text), 5_000)
         expect(Date.now() - startedAt).toBeLessThan(5_000)
+
+        // Commit work through a separate connection without any application signal.
+        // The leader was idle: only its production safety pass can discover this job.
+        const recoveryDatabase = createPostgresDatabase(databaseUrl.toString())
+        cleanups.push(() => closePostgresDatabase(recoveryDatabase))
+        await seedWorkflowBenchmark(recoveryDatabase, 1)
+        const readRecoveredJob = () =>
+            recoveryDatabase.sql
+                .statement<{
+                    state: string
+                    attempts: number
+                    error: string | null
+                }>("select state, attempts, error_message as error from jobs where id = 'job-0'")
+                .get()
+        expect((await readRecoveredJob())?.state).toBe('pending')
+        const recoveredJob = await waitFor(
+            readRecoveredJob,
+            job => job?.state === 'failed',
+            35_000,
+            'a committed job with no wakeup'
+        )
+        expect(recoveredJob?.attempts).toBe(1)
+        // The synthetic execution has no adapter, so it fails locally without provider I/O.
+        expect(recoveredJob?.error).toContain('publisher')
 
         // The leader dies without draining: the follower takes over the runtimes.
         first.child.kill('SIGKILL')

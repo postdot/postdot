@@ -27,7 +27,8 @@ export interface E2ERuntimeResources {
  * test invocations do not share a listener, database, or media directory.
  */
 export async function createE2ERuntimeResources(
-    environment: NodeJS.ProcessEnv = process.env
+    environment: NodeJS.ProcessEnv = process.env,
+    allocatePort: (excluded: ReadonlySet<number>) => Promise<number> = findAvailablePort
 ): Promise<E2ERuntimeResources> {
     const existingDataDirectory = environment.POSTDOT_E2E_DATA_DIRECTORY
     if (existingDataDirectory !== undefined) {
@@ -65,20 +66,21 @@ export async function createE2ERuntimeResources(
         ) {
             throw new Error('E2E API, web, and Mailpit ports must be different')
         }
-        const apiPort = requestedApiPort ?? (await findAvailablePort(requestedPorts))
+        const apiPort = requestedApiPort ?? (await allocatePort(requestedPorts))
         const usedPorts = new Set(requestedPorts).add(apiPort)
-        const webPort = requestedWebPort ?? (await findAvailablePort(usedPorts))
+        const webPort = requestedWebPort ?? (await allocatePort(usedPorts))
+        usedPorts.add(webPort)
 
         if (apiPort === webPort) {
             throw new Error(`E2E API and web ports must be different, received ${apiPort}`)
         }
 
         const mailpitSmtpPort = useMailpit
-            ? (requestedMailpitSmtpPort ?? (await findAvailablePort(usedPorts)))
+            ? (requestedMailpitSmtpPort ?? (await allocatePort(usedPorts)))
             : undefined
         if (mailpitSmtpPort !== undefined) usedPorts.add(mailpitSmtpPort)
         const mailpitUiPort = useMailpit
-            ? (requestedMailpitUiPort ?? (await findAvailablePort(usedPorts)))
+            ? (requestedMailpitUiPort ?? (await allocatePort(usedPorts)))
             : undefined
         if (mailpitUiPort !== undefined) usedPorts.add(mailpitUiPort)
 

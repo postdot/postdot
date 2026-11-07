@@ -69,6 +69,7 @@ Paraglide
 patterncraft
 permissioned
 Permix
+pgdg
 Playwright
 pnpm
 postbot
