@@ -53,16 +53,21 @@ export function cadencePeriod(at: number, timeZone: string) {
  * planning index of migration 0024, so that index stays usable.
  */
 export function cadenceEligibleAtSql(dialect: SqlDialect): string {
-    const lastEffectAt = scalarMaxSql(
-        dialect,
+    // Every operand here is non-null: jobs.run_at is required, and the
+    // optional cadence/history values are coalesced. Avoid scalarMaxSql's
+    // null-propagating CASE on PostgreSQL: it duplicates correlated subqueries.
+    const maximum = (...operands: [string, string, ...string[]]) =>
+        dialect === 'postgres'
+            ? `greatest(${operands.join(', ')})`
+            : scalarMaxSql(dialect, ...operands)
+    const lastEffectAt = maximum(
         'coalesce(r.last_effect_at, 0)',
         `coalesce((
         select max(p.published_at) from publications p where p.channel_id = publications.channel_id
         and p.state = 'published'
     ), 0)`
     )
-    return scalarMaxSql(
-        dialect,
+    return maximum(
         'jobs.run_at',
         `coalesce((
     select case when r.minimum_interval_ms is null or exists (

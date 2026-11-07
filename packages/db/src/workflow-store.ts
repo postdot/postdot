@@ -209,14 +209,11 @@ export function createWorkflowStore(
         )
     }
 
-    const nextEventStatement = sql.statement<{ eventAt: number | null }, []>(`
-        select min(event_at) as eventAt
-        from (
-            select ${cadenceEligibleAtSql(sql.dialect)} as event_at
-            from jobs
-            inner join publications
-                on publications.project_id = jobs.project_id
-               and publications.id = jobs.publication_id
+    // SQLite's existing join plan remains efficient. PostgreSQL needs bounded
+    // context lookups to avoid quadratic joins with stale bulk-insert statistics.
+    const eligibilityJoins =
+        sql.dialect === 'sqlite'
+            ? `
             inner join project_publisher_contexts as publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
@@ -227,13 +224,51 @@ export function createWorkflowStore(
             inner join project_channel_profile_contexts as channel_profiles
                 on channel_profiles.project_id = target_revisions.project_id
                and channel_profiles.id = target_revisions.profile_version_id
+    `
+            : ''
+
+    // Keep context validation correlated to one publication. Flattening these
+    // views into the candidate join lets PostgreSQL choose quadratic nested loops
+    // after a bulk insert with stale statistics. OFFSET 0 keeps the bounded EXISTS
+    // lookups intact; both engines still use the same eligibility predicates.
+    const eligiblePublicationSql =
+        sql.dialect === 'sqlite'
+            ? "channel_profiles.state <> 'disabled'"
+            : `
+        exists (
+            select 1 from project_publisher_contexts as publishers
+            where publishers.project_id = publications.project_id
+              and publishers.channel_id = publications.channel_id
+            limit 1 offset 0
+        ) and exists (
+            select 1 from publication_target_revisions as target_revisions
+            inner join project_channel_profile_contexts as channel_profiles
+                on channel_profiles.project_id = target_revisions.project_id
+               and channel_profiles.id = target_revisions.profile_version_id
+            where target_revisions.project_id = publications.project_id
+              and target_revisions.id = publications.target_revision_id
+              and target_revisions.publication_id = publications.id
+              and channel_profiles.state <> 'disabled'
+            limit 1 offset 0
+        )
+    `
+
+    const nextEventStatement = sql.statement<{ eventAt: number | null }, []>(`
+        select min(event_at) as eventAt
+        from (
+            select ${cadenceEligibleAtSql(sql.dialect)} as event_at
+            from jobs
+            inner join publications
+                on publications.project_id = jobs.project_id
+               and publications.id = jobs.publication_id
+            ${eligibilityJoins}
             where jobs.state = 'pending'
+              and ${eligiblePublicationSql}
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
-              and channel_profiles.state <> 'disabled'
 
             union all
 
@@ -265,21 +300,13 @@ export function createWorkflowStore(
             inner join publications
                 on publications.project_id = jobs.project_id
                and publications.id = jobs.publication_id
-            inner join project_publisher_contexts as publishers
-                on publishers.project_id = publications.project_id
-               and publishers.channel_id = publications.channel_id
-            inner join publication_target_revisions as target_revisions
-                on target_revisions.project_id = publications.project_id
-               and target_revisions.id = publications.target_revision_id
-               and target_revisions.publication_id = publications.id
-            inner join project_channel_profile_contexts as channel_profiles
-                on channel_profiles.project_id = target_revisions.project_id
-               and channel_profiles.id = target_revisions.profile_version_id
+            ${eligibilityJoins}
             inner join actors
                 on actors.project_id = jobs.project_id
                and actors.id = ?2
                and actors.kind = 'system'
             where jobs.state = 'pending'
+              and ${eligiblePublicationSql}
               and not exists (select 1 from resource_lifecycles where kind = 'project' and resource_id = jobs.project_id and state <> 'active')
               and ${cadenceEligibleAtSql(sql.dialect)} <= ?3
               and publications.state in ('scheduled', 'ready')
@@ -287,7 +314,6 @@ export function createWorkflowStore(
               and publications.review_state = 'compatible'
               and publications.confirmed_destination_revision = (select destination_revision from project_channel_contexts as channels where channels.project_id = publications.project_id and channels.id = publications.channel_id)
               and publications.target_revision_id is not null
-              and channel_profiles.state <> 'disabled'
             order by ${cadenceEligibleAtSql(sql.dialect)}, jobs.id
             limit 1
         )

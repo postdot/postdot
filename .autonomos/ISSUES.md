@@ -2007,7 +2007,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-195] Characterize PostgreSQL workflow planning under deep backlogs
 
 - Type: problem
-- Status: open
+- Status: resolved — PERF-615 identifies and bounds the bad plan; overload recovery remains ISSUE-196
 - Priority: high — large bulk queues and cold planner statistics can delay execution
 - Evidence: DB-614's isolated real executor probe, one project/channel, 30 attempts:
   at 10,000 due jobs with refreshed statistics PostgreSQL p95 is about 239 ms;
@@ -2020,5 +2020,39 @@ posture` is an exact patch duplicate of `aa889111`, and
   sensitivity, reduce the cold/deep-queue tail without weakening transactional
   claims, and measure sustained arrivals using actual API admission across projects.
 - Related: ADR-097, DB-614, [measurement evidence](worklogs/2026-11-07-DB-614.md)
-- Tasks: no optimization intervention selected yet; DB-614 provides the probes.
+- Tasks: PERF-615; [controlled plans and sustained admission](worklogs/2026-11-07-PERF-615.md).
 - Source: owner request for capacity/fragility measurements, 2026-11-07.
+
+## [ISSUE-196] Recover background scheduling after exhausted database retries
+
+- Type: problem
+- Status: open
+- Priority: high — one transient database error can leave background execution stopped
+- Evidence: PERF-615's supported API worker probe (two active projects globally,
+  one effect per project) with four projects, synthetic 100 ms effects and 24
+  offered publications/second for 30 seconds. One PostgreSQL run reports SQLSTATE
+  40001 after transaction retries: only 157 of 720 jobs succeeded; 562 remain
+  pending and one running. The database log's final rejected statement promotes
+  a scheduled publication to ready. The scheduler's existing error path enters
+  `failed`, and a replan/safety wakeup does not restart it.
+- Repeatability: a second current-code run and a parent-code reference run at the
+  same rate drained all 720 jobs. This is an intermittent overload failure, not a
+  deterministic 24/s ceiling or sufficient evidence to attribute a changed failure
+  probability to PERF-615. The serializable adapter and scheduler failure policy
+  are unchanged by that task. The adapter already has eight attempts and jitter.
+- Impact: transient contention can stop further scheduling after pressure subsides;
+  a larger durable backlog does not by itself cause automatic recovery. Job rows
+  remain persisted, but completion and ambiguity must follow lease/effect fencing.
+- Desired outcome: preserve bounded database retries and durable effect safety,
+  distinguish recoverable infrastructure failures from permanent scheduler errors,
+  and resume processing after contention without a busy loop or duplicate effect.
+  Test failures before and after the external-effect boundary, including a running
+  job whose completion could not be recorded. Do not silently raise retry counts
+  or restart every scheduler failure indiscriminately.
+- Reproduce: `POSTDOT_TEST_POSTGRES_URL=postgres://... bun scripts/benchmark-worker-admission.ts --engine postgres --seconds 30 --projects 4 --rate 24 --effect-ms 100`.
+  The command uses disposable databases and returns nonzero when a run fails;
+  successful repeats do not disprove the failure path. Add deterministic fault
+  injection when implementing recovery.
+- Related: ADR-090, ADR-097, DB-614, PERF-615,
+  [capacity evidence](worklogs/2026-11-07-PERF-615.md).
+- Source: owner request to measure when the durable worker becomes fragile, 2026-11-07.

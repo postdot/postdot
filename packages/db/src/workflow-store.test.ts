@@ -1306,6 +1306,56 @@ describe('project retirement effect fencing', () => {
         })
 })
 
+it('discovery and claim agree on retained profile, publisher and destination eligibility', async () => {
+    const database = (await openTestDatabase()).database
+    try {
+        const fixture = await seedDueJob(database, 'eligibility')
+        const store = createWorkflowStore(database)
+        const claim = () =>
+            store.claimNextDueJob({
+                actorId: fixture.systemActorId,
+                claimToken: 'eligible-claim',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 60_000,
+            })
+        const expectBlocked = async () => {
+            expect(await store.getNextEventAt()).toBeNull()
+            expect(await claim()).toBeNull()
+        }
+        expect(await store.getNextEventAt()).toBe(dueAt)
+        await database.sql
+            .statement("update channel_profile_versions set state='disabled' where id=?")
+            .run(fixture.profileVersionId)
+        await expectBlocked()
+        // Retained superseded profiles remain executable; only disabled ones block.
+        await database.sql
+            .statement("update channel_profile_versions set state='superseded' where id=?")
+            .run(fixture.profileVersionId)
+        expect(await store.getNextEventAt()).toBe(dueAt)
+        await database.sql
+            .statement('update channels set destination_revision=1 where id=?')
+            .run('channel-eligibility')
+        await expectBlocked()
+        await database.sql
+            .statement('update channels set destination_revision=0 where id=?')
+            .run('channel-eligibility')
+        await database.sql
+            .statement('delete from publishers where id=?')
+            .run('publisher-eligibility')
+        await expectBlocked()
+        await insertRow(database, 'publishers', {
+            id: 'publisher-eligibility',
+            workspaceId: await workspaceOf(database, fixture.projectId),
+            channelId: 'channel-eligibility',
+            kind: 'test',
+        })
+        expect(await store.getNextEventAt()).toBe(dueAt)
+        expect(await claim()).toMatchObject({ id: fixture.jobId, attempts: 1, state: 'running' })
+    } finally {
+        await closeTestDatabase(database)
+    }
+})
+
 it('paces overdue work before claim, persists timing across store restart and lets another channel run', async () => {
     const database = (await openTestDatabase()).database
     try {
