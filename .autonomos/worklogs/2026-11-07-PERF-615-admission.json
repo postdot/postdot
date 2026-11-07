@@ -1,0 +1,2277 @@
+{
+  "scope": "Real API worker; 30-second offered schedule, synthetic 100ms provider, no warmup. Final durable states after shutdown. Starts aggregated by second; queue wait percentiles computed over every provider start including drain. Failed-case wait excludes jobs never started. Offered-minus-returns includes in-flight work and producer lag; it is not a durable pending-state count. No universal rate limit is established by these local short runs.",
+  "results": [
+    {
+      "case": "load-4-8",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:13:49.456Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "sqlite",
+      "seconds": 30,
+      "settings": {
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "rate": 8,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 240,
+      "arrivalElapsedMs": 29999.915171,
+      "completedDuringArrivals": 240,
+      "outstandingAfterArrivals": 0,
+      "completed": 240,
+      "elapsedMs": 30000.08281,
+      "maximumActive": 1,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 240
+        }
+      ],
+      "enqueueP95Ms": 1.0299720000002708,
+      "producerLagP95Ms": 0.8523510000004535,
+      "queueWaitP50Ms": 3.1577350000006845,
+      "queueWaitP95Ms": 4.331960999999865,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 9,
+          "providerReturns": 8,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 2,
+          "offered": 17,
+          "providerReturns": 16,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 3,
+          "offered": 25,
+          "providerReturns": 24,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 4,
+          "offered": 33,
+          "providerReturns": 32,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 5,
+          "offered": 41,
+          "providerReturns": 40,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 6,
+          "offered": 49,
+          "providerReturns": 48,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 7,
+          "offered": 57,
+          "providerReturns": 56,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 8,
+          "offered": 65,
+          "providerReturns": 64,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 9,
+          "offered": 73,
+          "providerReturns": 72,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 10,
+          "offered": 81,
+          "providerReturns": 80,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 11,
+          "offered": 89,
+          "providerReturns": 88,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 12,
+          "offered": 97,
+          "providerReturns": 96,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 13,
+          "offered": 105,
+          "providerReturns": 104,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 14,
+          "offered": 113,
+          "providerReturns": 112,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 15,
+          "offered": 121,
+          "providerReturns": 120,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 16,
+          "offered": 129,
+          "providerReturns": 128,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 17,
+          "offered": 137,
+          "providerReturns": 136,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 18,
+          "offered": 145,
+          "providerReturns": 144,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 19,
+          "offered": 153,
+          "providerReturns": 152,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 20,
+          "offered": 161,
+          "providerReturns": 160,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 21,
+          "offered": 169,
+          "providerReturns": 168,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 22,
+          "offered": 177,
+          "providerReturns": 176,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 23,
+          "offered": 185,
+          "providerReturns": 184,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 24,
+          "offered": 193,
+          "providerReturns": 192,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 25,
+          "offered": 201,
+          "providerReturns": 200,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 26,
+          "offered": 209,
+          "providerReturns": 208,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 27,
+          "offered": 217,
+          "providerReturns": 216,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 28,
+          "offered": 225,
+          "providerReturns": 224,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 29,
+          "offered": 233,
+          "providerReturns": 232,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 30,
+          "offered": 240,
+          "providerReturns": 240,
+          "unfinishedOffered": 0
+        }
+      ]
+    },
+    {
+      "case": "load-4-8",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:13:49.456Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 8,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 240,
+      "arrivalElapsedMs": 29999.314314000003,
+      "completedDuringArrivals": 240,
+      "outstandingAfterArrivals": 0,
+      "completed": 240,
+      "elapsedMs": 29999.365224,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 240
+        }
+      ],
+      "enqueueP95Ms": 6.946876000001794,
+      "producerLagP95Ms": 6.66227500000241,
+      "queueWaitP50Ms": 20.513044999999693,
+      "queueWaitP95Ms": 53.90395500000159,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 9,
+          "providerReturns": 7,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 2,
+          "offered": 17,
+          "providerReturns": 15,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 3,
+          "offered": 25,
+          "providerReturns": 23,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 4,
+          "offered": 33,
+          "providerReturns": 32,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 5,
+          "offered": 41,
+          "providerReturns": 40,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 6,
+          "offered": 49,
+          "providerReturns": 48,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 7,
+          "offered": 57,
+          "providerReturns": 56,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 8,
+          "offered": 65,
+          "providerReturns": 64,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 9,
+          "offered": 73,
+          "providerReturns": 71,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 10,
+          "offered": 81,
+          "providerReturns": 80,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 11,
+          "offered": 89,
+          "providerReturns": 88,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 12,
+          "offered": 97,
+          "providerReturns": 96,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 13,
+          "offered": 105,
+          "providerReturns": 104,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 14,
+          "offered": 113,
+          "providerReturns": 112,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 15,
+          "offered": 121,
+          "providerReturns": 120,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 16,
+          "offered": 129,
+          "providerReturns": 128,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 17,
+          "offered": 137,
+          "providerReturns": 136,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 18,
+          "offered": 145,
+          "providerReturns": 144,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 19,
+          "offered": 153,
+          "providerReturns": 152,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 20,
+          "offered": 161,
+          "providerReturns": 160,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 21,
+          "offered": 169,
+          "providerReturns": 168,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 22,
+          "offered": 177,
+          "providerReturns": 176,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 23,
+          "offered": 185,
+          "providerReturns": 184,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 24,
+          "offered": 193,
+          "providerReturns": 192,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 25,
+          "offered": 201,
+          "providerReturns": 200,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 26,
+          "offered": 209,
+          "providerReturns": 208,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 27,
+          "offered": 217,
+          "providerReturns": 216,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 28,
+          "offered": 225,
+          "providerReturns": 224,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 29,
+          "offered": 233,
+          "providerReturns": 232,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 30,
+          "offered": 240,
+          "providerReturns": 240,
+          "unfinishedOffered": 0
+        }
+      ]
+    },
+    {
+      "case": "load-4-16",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:14:50.229Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "sqlite",
+      "seconds": 30,
+      "settings": {
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "rate": 16,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 480,
+      "arrivalElapsedMs": 29999.556045999998,
+      "completedDuringArrivals": 479,
+      "outstandingAfterArrivals": 1,
+      "completed": 480,
+      "elapsedMs": 30059.890475,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 480
+        }
+      ],
+      "enqueueP95Ms": 1.2558009999993374,
+      "producerLagP95Ms": 0.9163989999979094,
+      "queueWaitP50Ms": 3.5386200000002646,
+      "queueWaitP95Ms": 5.0335790000000316,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 17,
+          "providerReturns": 15,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 2,
+          "offered": 33,
+          "providerReturns": 31,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 3,
+          "offered": 49,
+          "providerReturns": 47,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 4,
+          "offered": 65,
+          "providerReturns": 63,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 5,
+          "offered": 81,
+          "providerReturns": 79,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 6,
+          "offered": 97,
+          "providerReturns": 95,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 7,
+          "offered": 113,
+          "providerReturns": 111,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 8,
+          "offered": 129,
+          "providerReturns": 127,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 9,
+          "offered": 145,
+          "providerReturns": 143,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 10,
+          "offered": 161,
+          "providerReturns": 159,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 11,
+          "offered": 177,
+          "providerReturns": 175,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 12,
+          "offered": 193,
+          "providerReturns": 191,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 13,
+          "offered": 209,
+          "providerReturns": 207,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 14,
+          "offered": 225,
+          "providerReturns": 223,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 15,
+          "offered": 241,
+          "providerReturns": 239,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 16,
+          "offered": 257,
+          "providerReturns": 255,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 17,
+          "offered": 273,
+          "providerReturns": 271,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 18,
+          "offered": 289,
+          "providerReturns": 287,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 19,
+          "offered": 305,
+          "providerReturns": 303,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 20,
+          "offered": 321,
+          "providerReturns": 319,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 21,
+          "offered": 337,
+          "providerReturns": 335,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 22,
+          "offered": 353,
+          "providerReturns": 351,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 23,
+          "offered": 369,
+          "providerReturns": 367,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 24,
+          "offered": 385,
+          "providerReturns": 383,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 25,
+          "offered": 401,
+          "providerReturns": 399,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 26,
+          "offered": 417,
+          "providerReturns": 415,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 27,
+          "offered": 433,
+          "providerReturns": 431,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 28,
+          "offered": 449,
+          "providerReturns": 447,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 29,
+          "offered": 465,
+          "providerReturns": 463,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 30,
+          "offered": 480,
+          "providerReturns": 479,
+          "unfinishedOffered": 1
+        }
+      ]
+    },
+    {
+      "case": "load-4-16",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:14:50.229Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 16,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 480,
+      "arrivalElapsedMs": 29999.600454000003,
+      "completedDuringArrivals": 479,
+      "outstandingAfterArrivals": 1,
+      "completed": 480,
+      "elapsedMs": 30060.967224999997,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 480
+        }
+      ],
+      "enqueueP95Ms": 6.4805710000000545,
+      "producerLagP95Ms": 6.1324359999998705,
+      "queueWaitP50Ms": 20.648717000000033,
+      "queueWaitP95Ms": 356.0411400000012,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 17,
+          "providerReturns": 12,
+          "unfinishedOffered": 5
+        },
+        {
+          "second": 2,
+          "offered": 33,
+          "providerReturns": 24,
+          "unfinishedOffered": 9
+        },
+        {
+          "second": 3,
+          "offered": 49,
+          "providerReturns": 41,
+          "unfinishedOffered": 8
+        },
+        {
+          "second": 4,
+          "offered": 65,
+          "providerReturns": 58,
+          "unfinishedOffered": 7
+        },
+        {
+          "second": 5,
+          "offered": 81,
+          "providerReturns": 75,
+          "unfinishedOffered": 6
+        },
+        {
+          "second": 6,
+          "offered": 97,
+          "providerReturns": 92,
+          "unfinishedOffered": 5
+        },
+        {
+          "second": 7,
+          "offered": 113,
+          "providerReturns": 108,
+          "unfinishedOffered": 5
+        },
+        {
+          "second": 8,
+          "offered": 129,
+          "providerReturns": 124,
+          "unfinishedOffered": 5
+        },
+        {
+          "second": 9,
+          "offered": 145,
+          "providerReturns": 140,
+          "unfinishedOffered": 5
+        },
+        {
+          "second": 10,
+          "offered": 161,
+          "providerReturns": 158,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 11,
+          "offered": 177,
+          "providerReturns": 174,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 12,
+          "offered": 193,
+          "providerReturns": 191,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 13,
+          "offered": 209,
+          "providerReturns": 206,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 14,
+          "offered": 225,
+          "providerReturns": 222,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 15,
+          "offered": 241,
+          "providerReturns": 239,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 16,
+          "offered": 257,
+          "providerReturns": 255,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 17,
+          "offered": 273,
+          "providerReturns": 271,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 18,
+          "offered": 289,
+          "providerReturns": 287,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 19,
+          "offered": 305,
+          "providerReturns": 303,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 20,
+          "offered": 321,
+          "providerReturns": 319,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 21,
+          "offered": 337,
+          "providerReturns": 335,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 22,
+          "offered": 353,
+          "providerReturns": 351,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 23,
+          "offered": 369,
+          "providerReturns": 367,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 24,
+          "offered": 385,
+          "providerReturns": 382,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 25,
+          "offered": 401,
+          "providerReturns": 398,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 26,
+          "offered": 417,
+          "providerReturns": 414,
+          "unfinishedOffered": 3
+        },
+        {
+          "second": 27,
+          "offered": 433,
+          "providerReturns": 431,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 28,
+          "offered": 449,
+          "providerReturns": 447,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 29,
+          "offered": 465,
+          "providerReturns": 463,
+          "unfinishedOffered": 2
+        },
+        {
+          "second": 30,
+          "offered": 480,
+          "providerReturns": 479,
+          "unfinishedOffered": 1
+        }
+      ]
+    },
+    {
+      "case": "load-4-24",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:15:57.968Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "sqlite",
+      "seconds": 30,
+      "settings": {
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "rate": 24,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 720,
+      "arrivalElapsedMs": 30000.035216,
+      "completedDuringArrivals": 582,
+      "outstandingAfterArrivals": 138,
+      "completed": 720,
+      "elapsedMs": 37078.278244,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 720
+        }
+      ],
+      "enqueueP95Ms": 1.2105609999998705,
+      "producerLagP95Ms": 1.2569393333324115,
+      "queueWaitP50Ms": 3447.7109813333354,
+      "queueWaitP95Ms": 6679.997170999995,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 25,
+          "providerReturns": 18,
+          "unfinishedOffered": 7
+        },
+        {
+          "second": 2,
+          "offered": 49,
+          "providerReturns": 38,
+          "unfinishedOffered": 11
+        },
+        {
+          "second": 3,
+          "offered": 73,
+          "providerReturns": 57,
+          "unfinishedOffered": 16
+        },
+        {
+          "second": 4,
+          "offered": 97,
+          "providerReturns": 76,
+          "unfinishedOffered": 21
+        },
+        {
+          "second": 5,
+          "offered": 121,
+          "providerReturns": 96,
+          "unfinishedOffered": 25
+        },
+        {
+          "second": 6,
+          "offered": 145,
+          "providerReturns": 116,
+          "unfinishedOffered": 29
+        },
+        {
+          "second": 7,
+          "offered": 169,
+          "providerReturns": 135,
+          "unfinishedOffered": 34
+        },
+        {
+          "second": 8,
+          "offered": 193,
+          "providerReturns": 154,
+          "unfinishedOffered": 39
+        },
+        {
+          "second": 9,
+          "offered": 217,
+          "providerReturns": 174,
+          "unfinishedOffered": 43
+        },
+        {
+          "second": 10,
+          "offered": 241,
+          "providerReturns": 194,
+          "unfinishedOffered": 47
+        },
+        {
+          "second": 11,
+          "offered": 265,
+          "providerReturns": 214,
+          "unfinishedOffered": 51
+        },
+        {
+          "second": 12,
+          "offered": 289,
+          "providerReturns": 232,
+          "unfinishedOffered": 57
+        },
+        {
+          "second": 13,
+          "offered": 313,
+          "providerReturns": 252,
+          "unfinishedOffered": 61
+        },
+        {
+          "second": 14,
+          "offered": 337,
+          "providerReturns": 272,
+          "unfinishedOffered": 65
+        },
+        {
+          "second": 15,
+          "offered": 361,
+          "providerReturns": 292,
+          "unfinishedOffered": 69
+        },
+        {
+          "second": 16,
+          "offered": 385,
+          "providerReturns": 310,
+          "unfinishedOffered": 75
+        },
+        {
+          "second": 17,
+          "offered": 409,
+          "providerReturns": 330,
+          "unfinishedOffered": 79
+        },
+        {
+          "second": 18,
+          "offered": 433,
+          "providerReturns": 350,
+          "unfinishedOffered": 83
+        },
+        {
+          "second": 19,
+          "offered": 457,
+          "providerReturns": 370,
+          "unfinishedOffered": 87
+        },
+        {
+          "second": 20,
+          "offered": 481,
+          "providerReturns": 388,
+          "unfinishedOffered": 93
+        },
+        {
+          "second": 21,
+          "offered": 505,
+          "providerReturns": 408,
+          "unfinishedOffered": 97
+        },
+        {
+          "second": 22,
+          "offered": 529,
+          "providerReturns": 428,
+          "unfinishedOffered": 101
+        },
+        {
+          "second": 23,
+          "offered": 553,
+          "providerReturns": 448,
+          "unfinishedOffered": 105
+        },
+        {
+          "second": 24,
+          "offered": 577,
+          "providerReturns": 466,
+          "unfinishedOffered": 111
+        },
+        {
+          "second": 25,
+          "offered": 601,
+          "providerReturns": 486,
+          "unfinishedOffered": 115
+        },
+        {
+          "second": 26,
+          "offered": 625,
+          "providerReturns": 506,
+          "unfinishedOffered": 119
+        },
+        {
+          "second": 27,
+          "offered": 649,
+          "providerReturns": 524,
+          "unfinishedOffered": 125
+        },
+        {
+          "second": 28,
+          "offered": 673,
+          "providerReturns": 544,
+          "unfinishedOffered": 129
+        },
+        {
+          "second": 29,
+          "offered": 697,
+          "providerReturns": 564,
+          "unfinishedOffered": 133
+        },
+        {
+          "second": 30,
+          "offered": 720,
+          "providerReturns": 582,
+          "unfinishedOffered": 138
+        }
+      ]
+    },
+    {
+      "case": "load-4-24",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:15:57.968Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 24,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 720,
+      "arrivalElapsedMs": 30000.440302999996,
+      "completedDuringArrivals": 157,
+      "outstandingAfterArrivals": 563,
+      "completed": 157,
+      "elapsedMs": 30000.590861999997,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [
+        "could not serialize access due to read/write dependencies among transactions"
+      ],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 157
+        },
+        {
+          "state": "pending",
+          "count": 562
+        },
+        {
+          "state": "running",
+          "count": 1
+        }
+      ],
+      "enqueueP95Ms": 6.414461000000301,
+      "producerLagP95Ms": 6.22084399999585,
+      "queueWaitP50Ms": 1945.982753999997,
+      "queueWaitP95Ms": 3973.078478333334,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 25,
+          "providerReturns": 10,
+          "unfinishedOffered": 15
+        },
+        {
+          "second": 2,
+          "offered": 49,
+          "providerReturns": 25,
+          "unfinishedOffered": 24
+        },
+        {
+          "second": 3,
+          "offered": 73,
+          "providerReturns": 41,
+          "unfinishedOffered": 32
+        },
+        {
+          "second": 4,
+          "offered": 97,
+          "providerReturns": 58,
+          "unfinishedOffered": 39
+        },
+        {
+          "second": 5,
+          "offered": 121,
+          "providerReturns": 73,
+          "unfinishedOffered": 48
+        },
+        {
+          "second": 6,
+          "offered": 145,
+          "providerReturns": 89,
+          "unfinishedOffered": 56
+        },
+        {
+          "second": 7,
+          "offered": 169,
+          "providerReturns": 105,
+          "unfinishedOffered": 64
+        },
+        {
+          "second": 8,
+          "offered": 193,
+          "providerReturns": 120,
+          "unfinishedOffered": 73
+        },
+        {
+          "second": 9,
+          "offered": 217,
+          "providerReturns": 134,
+          "unfinishedOffered": 83
+        },
+        {
+          "second": 10,
+          "offered": 241,
+          "providerReturns": 145,
+          "unfinishedOffered": 96
+        },
+        {
+          "second": 11,
+          "offered": 265,
+          "providerReturns": 157,
+          "unfinishedOffered": 108
+        },
+        {
+          "second": 12,
+          "offered": 289,
+          "providerReturns": 157,
+          "unfinishedOffered": 132
+        },
+        {
+          "second": 13,
+          "offered": 313,
+          "providerReturns": 157,
+          "unfinishedOffered": 156
+        },
+        {
+          "second": 14,
+          "offered": 337,
+          "providerReturns": 157,
+          "unfinishedOffered": 180
+        },
+        {
+          "second": 15,
+          "offered": 361,
+          "providerReturns": 157,
+          "unfinishedOffered": 204
+        },
+        {
+          "second": 16,
+          "offered": 385,
+          "providerReturns": 157,
+          "unfinishedOffered": 228
+        },
+        {
+          "second": 17,
+          "offered": 409,
+          "providerReturns": 157,
+          "unfinishedOffered": 252
+        },
+        {
+          "second": 18,
+          "offered": 433,
+          "providerReturns": 157,
+          "unfinishedOffered": 276
+        },
+        {
+          "second": 19,
+          "offered": 457,
+          "providerReturns": 157,
+          "unfinishedOffered": 300
+        },
+        {
+          "second": 20,
+          "offered": 481,
+          "providerReturns": 157,
+          "unfinishedOffered": 324
+        },
+        {
+          "second": 21,
+          "offered": 505,
+          "providerReturns": 157,
+          "unfinishedOffered": 348
+        },
+        {
+          "second": 22,
+          "offered": 529,
+          "providerReturns": 157,
+          "unfinishedOffered": 372
+        },
+        {
+          "second": 23,
+          "offered": 553,
+          "providerReturns": 157,
+          "unfinishedOffered": 396
+        },
+        {
+          "second": 24,
+          "offered": 577,
+          "providerReturns": 157,
+          "unfinishedOffered": 420
+        },
+        {
+          "second": 25,
+          "offered": 601,
+          "providerReturns": 157,
+          "unfinishedOffered": 444
+        },
+        {
+          "second": 26,
+          "offered": 625,
+          "providerReturns": 157,
+          "unfinishedOffered": 468
+        },
+        {
+          "second": 27,
+          "offered": 649,
+          "providerReturns": 157,
+          "unfinishedOffered": 492
+        },
+        {
+          "second": 28,
+          "offered": 673,
+          "providerReturns": 157,
+          "unfinishedOffered": 516
+        },
+        {
+          "second": 29,
+          "offered": 697,
+          "providerReturns": 157,
+          "unfinishedOffered": 540
+        },
+        {
+          "second": 30,
+          "offered": 720,
+          "providerReturns": 157,
+          "unfinishedOffered": 563
+        }
+      ]
+    },
+    {
+      "case": "load-1-16",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:19:18.417Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "sqlite",
+      "seconds": 30,
+      "settings": {
+        "journalMode": {
+          "journal_mode": "wal"
+        },
+        "synchronous": {
+          "synchronous": 2
+        }
+      },
+      "rate": 16,
+      "projects": 1,
+      "effectMs": 100,
+      "created": 480,
+      "arrivalElapsedMs": 29999.850822,
+      "completedDuringArrivals": 291,
+      "outstandingAfterArrivals": 189,
+      "completed": 480,
+      "elapsedMs": 49375.954034,
+      "maximumActive": 1,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 480
+        }
+      ],
+      "enqueueP95Ms": 1.1423309999991034,
+      "producerLagP95Ms": 1.0877899999977672,
+      "queueWaitP50Ms": 9674.028049,
+      "queueWaitP95Ms": 18407.350178,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 17,
+          "providerReturns": 9,
+          "unfinishedOffered": 8
+        },
+        {
+          "second": 2,
+          "offered": 33,
+          "providerReturns": 19,
+          "unfinishedOffered": 14
+        },
+        {
+          "second": 3,
+          "offered": 49,
+          "providerReturns": 29,
+          "unfinishedOffered": 20
+        },
+        {
+          "second": 4,
+          "offered": 65,
+          "providerReturns": 38,
+          "unfinishedOffered": 27
+        },
+        {
+          "second": 5,
+          "offered": 81,
+          "providerReturns": 48,
+          "unfinishedOffered": 33
+        },
+        {
+          "second": 6,
+          "offered": 97,
+          "providerReturns": 58,
+          "unfinishedOffered": 39
+        },
+        {
+          "second": 7,
+          "offered": 113,
+          "providerReturns": 67,
+          "unfinishedOffered": 46
+        },
+        {
+          "second": 8,
+          "offered": 129,
+          "providerReturns": 77,
+          "unfinishedOffered": 52
+        },
+        {
+          "second": 9,
+          "offered": 145,
+          "providerReturns": 87,
+          "unfinishedOffered": 58
+        },
+        {
+          "second": 10,
+          "offered": 161,
+          "providerReturns": 97,
+          "unfinishedOffered": 64
+        },
+        {
+          "second": 11,
+          "offered": 177,
+          "providerReturns": 106,
+          "unfinishedOffered": 71
+        },
+        {
+          "second": 12,
+          "offered": 193,
+          "providerReturns": 116,
+          "unfinishedOffered": 77
+        },
+        {
+          "second": 13,
+          "offered": 209,
+          "providerReturns": 126,
+          "unfinishedOffered": 83
+        },
+        {
+          "second": 14,
+          "offered": 225,
+          "providerReturns": 136,
+          "unfinishedOffered": 89
+        },
+        {
+          "second": 15,
+          "offered": 241,
+          "providerReturns": 145,
+          "unfinishedOffered": 96
+        },
+        {
+          "second": 16,
+          "offered": 257,
+          "providerReturns": 155,
+          "unfinishedOffered": 102
+        },
+        {
+          "second": 17,
+          "offered": 273,
+          "providerReturns": 165,
+          "unfinishedOffered": 108
+        },
+        {
+          "second": 18,
+          "offered": 289,
+          "providerReturns": 175,
+          "unfinishedOffered": 114
+        },
+        {
+          "second": 19,
+          "offered": 305,
+          "providerReturns": 184,
+          "unfinishedOffered": 121
+        },
+        {
+          "second": 20,
+          "offered": 321,
+          "providerReturns": 194,
+          "unfinishedOffered": 127
+        },
+        {
+          "second": 21,
+          "offered": 337,
+          "providerReturns": 204,
+          "unfinishedOffered": 133
+        },
+        {
+          "second": 22,
+          "offered": 353,
+          "providerReturns": 214,
+          "unfinishedOffered": 139
+        },
+        {
+          "second": 23,
+          "offered": 369,
+          "providerReturns": 223,
+          "unfinishedOffered": 146
+        },
+        {
+          "second": 24,
+          "offered": 385,
+          "providerReturns": 233,
+          "unfinishedOffered": 152
+        },
+        {
+          "second": 25,
+          "offered": 401,
+          "providerReturns": 243,
+          "unfinishedOffered": 158
+        },
+        {
+          "second": 26,
+          "offered": 417,
+          "providerReturns": 252,
+          "unfinishedOffered": 165
+        },
+        {
+          "second": 27,
+          "offered": 433,
+          "providerReturns": 262,
+          "unfinishedOffered": 171
+        },
+        {
+          "second": 28,
+          "offered": 449,
+          "providerReturns": 272,
+          "unfinishedOffered": 177
+        },
+        {
+          "second": 29,
+          "offered": 465,
+          "providerReturns": 282,
+          "unfinishedOffered": 183
+        },
+        {
+          "second": 30,
+          "offered": 480,
+          "providerReturns": 291,
+          "unfinishedOffered": 189
+        }
+      ]
+    },
+    {
+      "case": "load-1-16",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:19:18.417Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 16,
+      "projects": 1,
+      "effectMs": 100,
+      "created": 480,
+      "arrivalElapsedMs": 29999.171021999995,
+      "completedDuringArrivals": 243,
+      "outstandingAfterArrivals": 237,
+      "completed": 480,
+      "elapsedMs": 58303.250067,
+      "maximumActive": 1,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 480
+        }
+      ],
+      "enqueueP95Ms": 6.554359000001568,
+      "producerLagP95Ms": 6.234661000002234,
+      "queueWaitP50Ms": 14594.554510999995,
+      "queueWaitP95Ms": 26977.439497,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 17,
+          "providerReturns": 6,
+          "unfinishedOffered": 11
+        },
+        {
+          "second": 2,
+          "offered": 33,
+          "providerReturns": 13,
+          "unfinishedOffered": 20
+        },
+        {
+          "second": 3,
+          "offered": 49,
+          "providerReturns": 21,
+          "unfinishedOffered": 28
+        },
+        {
+          "second": 4,
+          "offered": 65,
+          "providerReturns": 29,
+          "unfinishedOffered": 36
+        },
+        {
+          "second": 5,
+          "offered": 81,
+          "providerReturns": 36,
+          "unfinishedOffered": 45
+        },
+        {
+          "second": 6,
+          "offered": 97,
+          "providerReturns": 44,
+          "unfinishedOffered": 53
+        },
+        {
+          "second": 7,
+          "offered": 113,
+          "providerReturns": 53,
+          "unfinishedOffered": 60
+        },
+        {
+          "second": 8,
+          "offered": 129,
+          "providerReturns": 61,
+          "unfinishedOffered": 68
+        },
+        {
+          "second": 9,
+          "offered": 145,
+          "providerReturns": 69,
+          "unfinishedOffered": 76
+        },
+        {
+          "second": 10,
+          "offered": 161,
+          "providerReturns": 77,
+          "unfinishedOffered": 84
+        },
+        {
+          "second": 11,
+          "offered": 177,
+          "providerReturns": 85,
+          "unfinishedOffered": 92
+        },
+        {
+          "second": 12,
+          "offered": 193,
+          "providerReturns": 94,
+          "unfinishedOffered": 99
+        },
+        {
+          "second": 13,
+          "offered": 209,
+          "providerReturns": 102,
+          "unfinishedOffered": 107
+        },
+        {
+          "second": 14,
+          "offered": 225,
+          "providerReturns": 110,
+          "unfinishedOffered": 115
+        },
+        {
+          "second": 15,
+          "offered": 241,
+          "providerReturns": 118,
+          "unfinishedOffered": 123
+        },
+        {
+          "second": 16,
+          "offered": 257,
+          "providerReturns": 127,
+          "unfinishedOffered": 130
+        },
+        {
+          "second": 17,
+          "offered": 273,
+          "providerReturns": 135,
+          "unfinishedOffered": 138
+        },
+        {
+          "second": 18,
+          "offered": 289,
+          "providerReturns": 143,
+          "unfinishedOffered": 146
+        },
+        {
+          "second": 19,
+          "offered": 305,
+          "providerReturns": 152,
+          "unfinishedOffered": 153
+        },
+        {
+          "second": 20,
+          "offered": 321,
+          "providerReturns": 160,
+          "unfinishedOffered": 161
+        },
+        {
+          "second": 21,
+          "offered": 337,
+          "providerReturns": 168,
+          "unfinishedOffered": 169
+        },
+        {
+          "second": 22,
+          "offered": 353,
+          "providerReturns": 177,
+          "unfinishedOffered": 176
+        },
+        {
+          "second": 23,
+          "offered": 369,
+          "providerReturns": 185,
+          "unfinishedOffered": 184
+        },
+        {
+          "second": 24,
+          "offered": 385,
+          "providerReturns": 193,
+          "unfinishedOffered": 192
+        },
+        {
+          "second": 25,
+          "offered": 401,
+          "providerReturns": 202,
+          "unfinishedOffered": 199
+        },
+        {
+          "second": 26,
+          "offered": 417,
+          "providerReturns": 210,
+          "unfinishedOffered": 207
+        },
+        {
+          "second": 27,
+          "offered": 433,
+          "providerReturns": 218,
+          "unfinishedOffered": 215
+        },
+        {
+          "second": 28,
+          "offered": 449,
+          "providerReturns": 226,
+          "unfinishedOffered": 223
+        },
+        {
+          "second": 29,
+          "offered": 465,
+          "providerReturns": 235,
+          "unfinishedOffered": 230
+        },
+        {
+          "second": 30,
+          "offered": 480,
+          "providerReturns": 243,
+          "unfinishedOffered": 237
+        }
+      ]
+    },
+    {
+      "case": "repeat-4-24",
+      "revision": "PERF-615",
+      "generatedAt": "2026-11-07T19:20:02.931Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 24,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 720,
+      "arrivalElapsedMs": 30000.045674,
+      "schedulerStateAfterArrivals": "running",
+      "schedulerStateBeforeStop": "running",
+      "completedDuringArrivals": 485,
+      "outstandingAfterArrivals": 235,
+      "completed": 720,
+      "elapsedMs": 43872.387356,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 720
+        }
+      ],
+      "enqueueP95Ms": 7.313024000000041,
+      "producerLagP95Ms": 6.9403783333332285,
+      "queueWaitP50Ms": 7477.161136333334,
+      "queueWaitP95Ms": 13224.223785333332,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 25,
+          "providerReturns": 11,
+          "unfinishedOffered": 14
+        },
+        {
+          "second": 2,
+          "offered": 49,
+          "providerReturns": 25,
+          "unfinishedOffered": 24
+        },
+        {
+          "second": 3,
+          "offered": 73,
+          "providerReturns": 41,
+          "unfinishedOffered": 32
+        },
+        {
+          "second": 4,
+          "offered": 97,
+          "providerReturns": 56,
+          "unfinishedOffered": 41
+        },
+        {
+          "second": 5,
+          "offered": 121,
+          "providerReturns": 72,
+          "unfinishedOffered": 49
+        },
+        {
+          "second": 6,
+          "offered": 145,
+          "providerReturns": 88,
+          "unfinishedOffered": 57
+        },
+        {
+          "second": 7,
+          "offered": 169,
+          "providerReturns": 104,
+          "unfinishedOffered": 65
+        },
+        {
+          "second": 8,
+          "offered": 193,
+          "providerReturns": 119,
+          "unfinishedOffered": 74
+        },
+        {
+          "second": 9,
+          "offered": 217,
+          "providerReturns": 131,
+          "unfinishedOffered": 86
+        },
+        {
+          "second": 10,
+          "offered": 241,
+          "providerReturns": 148,
+          "unfinishedOffered": 93
+        },
+        {
+          "second": 11,
+          "offered": 265,
+          "providerReturns": 165,
+          "unfinishedOffered": 100
+        },
+        {
+          "second": 12,
+          "offered": 289,
+          "providerReturns": 182,
+          "unfinishedOffered": 107
+        },
+        {
+          "second": 13,
+          "offered": 313,
+          "providerReturns": 199,
+          "unfinishedOffered": 114
+        },
+        {
+          "second": 14,
+          "offered": 337,
+          "providerReturns": 216,
+          "unfinishedOffered": 121
+        },
+        {
+          "second": 15,
+          "offered": 361,
+          "providerReturns": 233,
+          "unfinishedOffered": 128
+        },
+        {
+          "second": 16,
+          "offered": 385,
+          "providerReturns": 250,
+          "unfinishedOffered": 135
+        },
+        {
+          "second": 17,
+          "offered": 409,
+          "providerReturns": 267,
+          "unfinishedOffered": 142
+        },
+        {
+          "second": 18,
+          "offered": 433,
+          "providerReturns": 283,
+          "unfinishedOffered": 150
+        },
+        {
+          "second": 19,
+          "offered": 457,
+          "providerReturns": 300,
+          "unfinishedOffered": 157
+        },
+        {
+          "second": 20,
+          "offered": 481,
+          "providerReturns": 317,
+          "unfinishedOffered": 164
+        },
+        {
+          "second": 21,
+          "offered": 505,
+          "providerReturns": 334,
+          "unfinishedOffered": 171
+        },
+        {
+          "second": 22,
+          "offered": 529,
+          "providerReturns": 351,
+          "unfinishedOffered": 178
+        },
+        {
+          "second": 23,
+          "offered": 553,
+          "providerReturns": 368,
+          "unfinishedOffered": 185
+        },
+        {
+          "second": 24,
+          "offered": 577,
+          "providerReturns": 385,
+          "unfinishedOffered": 192
+        },
+        {
+          "second": 25,
+          "offered": 601,
+          "providerReturns": 401,
+          "unfinishedOffered": 200
+        },
+        {
+          "second": 26,
+          "offered": 625,
+          "providerReturns": 419,
+          "unfinishedOffered": 206
+        },
+        {
+          "second": 27,
+          "offered": 649,
+          "providerReturns": 435,
+          "unfinishedOffered": 214
+        },
+        {
+          "second": 28,
+          "offered": 673,
+          "providerReturns": 452,
+          "unfinishedOffered": 221
+        },
+        {
+          "second": 29,
+          "offered": 697,
+          "providerReturns": 469,
+          "unfinishedOffered": 228
+        },
+        {
+          "second": 30,
+          "offered": 720,
+          "providerReturns": 485,
+          "unfinishedOffered": 235
+        }
+      ]
+    },
+    {
+      "case": "baseline-load-4-24",
+      "revision": "396ce5097",
+      "generatedAt": "2026-11-07T19:20:58.705Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "engine": "postgres",
+      "seconds": 30,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "rate": 24,
+      "projects": 4,
+      "effectMs": 100,
+      "created": 720,
+      "arrivalElapsedMs": 29999.701733,
+      "schedulerStateAfterArrivals": "running",
+      "schedulerStateBeforeStop": "started",
+      "completedDuringArrivals": 477,
+      "outstandingAfterArrivals": 243,
+      "completed": 720,
+      "elapsedMs": 44505.466350999995,
+      "maximumActive": 2,
+      "admissionViolations": 0,
+      "errors": [],
+      "states": [
+        {
+          "state": "succeeded",
+          "count": 720
+        }
+      ],
+      "enqueueP95Ms": 7.780549999999494,
+      "producerLagP95Ms": 7.321125333333157,
+      "queueWaitP50Ms": 7979.954856666665,
+      "queueWaitP95Ms": 13762.189470333327,
+      "timeline": [
+        {
+          "second": 0,
+          "offered": 1,
+          "providerReturns": 0,
+          "unfinishedOffered": 1
+        },
+        {
+          "second": 1,
+          "offered": 25,
+          "providerReturns": 7,
+          "unfinishedOffered": 18
+        },
+        {
+          "second": 2,
+          "offered": 49,
+          "providerReturns": 18,
+          "unfinishedOffered": 31
+        },
+        {
+          "second": 3,
+          "offered": 73,
+          "providerReturns": 32,
+          "unfinishedOffered": 41
+        },
+        {
+          "second": 4,
+          "offered": 97,
+          "providerReturns": 48,
+          "unfinishedOffered": 49
+        },
+        {
+          "second": 5,
+          "offered": 121,
+          "providerReturns": 64,
+          "unfinishedOffered": 57
+        },
+        {
+          "second": 6,
+          "offered": 145,
+          "providerReturns": 81,
+          "unfinishedOffered": 64
+        },
+        {
+          "second": 7,
+          "offered": 169,
+          "providerReturns": 96,
+          "unfinishedOffered": 73
+        },
+        {
+          "second": 8,
+          "offered": 193,
+          "providerReturns": 113,
+          "unfinishedOffered": 80
+        },
+        {
+          "second": 9,
+          "offered": 217,
+          "providerReturns": 130,
+          "unfinishedOffered": 87
+        },
+        {
+          "second": 10,
+          "offered": 241,
+          "providerReturns": 146,
+          "unfinishedOffered": 95
+        },
+        {
+          "second": 11,
+          "offered": 265,
+          "providerReturns": 161,
+          "unfinishedOffered": 104
+        },
+        {
+          "second": 12,
+          "offered": 289,
+          "providerReturns": 177,
+          "unfinishedOffered": 112
+        },
+        {
+          "second": 13,
+          "offered": 313,
+          "providerReturns": 194,
+          "unfinishedOffered": 119
+        },
+        {
+          "second": 14,
+          "offered": 337,
+          "providerReturns": 207,
+          "unfinishedOffered": 130
+        },
+        {
+          "second": 15,
+          "offered": 361,
+          "providerReturns": 224,
+          "unfinishedOffered": 137
+        },
+        {
+          "second": 16,
+          "offered": 385,
+          "providerReturns": 241,
+          "unfinishedOffered": 144
+        },
+        {
+          "second": 17,
+          "offered": 409,
+          "providerReturns": 258,
+          "unfinishedOffered": 151
+        },
+        {
+          "second": 18,
+          "offered": 433,
+          "providerReturns": 275,
+          "unfinishedOffered": 158
+        },
+        {
+          "second": 19,
+          "offered": 457,
+          "providerReturns": 292,
+          "unfinishedOffered": 165
+        },
+        {
+          "second": 20,
+          "offered": 481,
+          "providerReturns": 309,
+          "unfinishedOffered": 172
+        },
+        {
+          "second": 21,
+          "offered": 505,
+          "providerReturns": 325,
+          "unfinishedOffered": 180
+        },
+        {
+          "second": 22,
+          "offered": 529,
+          "providerReturns": 342,
+          "unfinishedOffered": 187
+        },
+        {
+          "second": 23,
+          "offered": 553,
+          "providerReturns": 359,
+          "unfinishedOffered": 194
+        },
+        {
+          "second": 24,
+          "offered": 577,
+          "providerReturns": 376,
+          "unfinishedOffered": 201
+        },
+        {
+          "second": 25,
+          "offered": 601,
+          "providerReturns": 393,
+          "unfinishedOffered": 208
+        },
+        {
+          "second": 26,
+          "offered": 625,
+          "providerReturns": 410,
+          "unfinishedOffered": 215
+        },
+        {
+          "second": 27,
+          "offered": 649,
+          "providerReturns": 426,
+          "unfinishedOffered": 223
+        },
+        {
+          "second": 28,
+          "offered": 673,
+          "providerReturns": 443,
+          "unfinishedOffered": 230
+        },
+        {
+          "second": 29,
+          "offered": 697,
+          "providerReturns": 460,
+          "unfinishedOffered": 237
+        },
+        {
+          "second": 30,
+          "offered": 720,
+          "providerReturns": 477,
+          "unfinishedOffered": 243
+        }
+      ]
+    }
+  ]
+}

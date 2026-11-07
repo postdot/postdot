@@ -1,0 +1,1275 @@
+{
+  "scope": "PostgreSQL 18.6; 10000 synthetic due jobs, real store SQL; automatic statistics frozen only in disposable fixtures; EXPLAIN ANALYZE adds instrumentation overhead. Before: 396ce5097. After: PERF-615 working tree. Same data per configuration; warm page caches, not cold disk.",
+  "reports": [
+    {
+      "generatedAt": "2026-11-07T19:12:37.167Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "backlog": 10000,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "scope": "Real workflow SQL; synthetic fixture with all jobs due; rollback after each EXPLAIN ANALYZE. Automatic statistics disabled only on disposable tables, then explicit ANALYZE. EXPLAIN adds instrumentation overhead. Initial/analyzed and JIT on/off share the same data; page caches are not reset.",
+      "revision": "before",
+      "plans": [
+        {
+          "statistics": "initial",
+          "jitSetting": "on",
+          "query": "claim",
+          "Planning Time": 89.723,
+          "Execution Time": 20231.858,
+          "rootEstimatedCost": 219,
+          "rootSharedHitBlocks": 22562255,
+          "maximumRemovedJoinPairs": 99990000,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20231.226
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20230.172,
+              "Index Cond": "(id = (InitPlan 34).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20230.157
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20230.155
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20225.771
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20195.857,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = a_1.project_id) AND (a_1.workspace_id = p_13.workspace_id) AND (a_1.channel_id = p_13.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20185.889
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20174
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "on",
+          "query": "next-event",
+          "Planning Time": 69.128,
+          "Execution Time": 20024.537,
+          "rootEstimatedCost": 217.01,
+          "rootSharedHitBlocks": 22460158,
+          "maximumRemovedJoinPairs": 99990000,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20023.434
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 19,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20022.102
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20021.103
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19992.53
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19980.497,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = jobs.project_id) AND (publications.id = jobs.publication_id) AND (b.channel_id = publications.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19912.84,
+              "Rows Removed by Join Filter": 99990000,
+              "Join Filter": "((jobs.project_id = target_revisions.project_id) AND (jobs.publication_id = target_revisions.publication_id) AND (target_revisions.profile_version_id = p_1.id))"
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publication_target_revisions",
+              "Plan Rows": 29,
+              "Actual Rows": 10000,
+              "Actual Loops": 10000,
+              "Actual Total Time": 1.222,
+              "Index Cond": "(project_id = b.project_id)"
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006,
+              "Index Cond": "(id = target_revisions.publication_id)"
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "off",
+          "query": "claim",
+          "Planning Time": 89.994,
+          "Execution Time": 19873.934,
+          "rootEstimatedCost": 219,
+          "rootSharedHitBlocks": 22562272,
+          "maximumRemovedJoinPairs": 99990000,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 19873.359
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 19872.294,
+              "Index Cond": "(id = (InitPlan 34).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 19872.278
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 19872.276
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19868.749
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19842.087,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = a_1.project_id) AND (a_1.workspace_id = p_13.workspace_id) AND (a_1.channel_id = p_13.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19832.838
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19822.476
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "off",
+          "query": "next-event",
+          "Planning Time": 64.824,
+          "Execution Time": 20068.527,
+          "rootEstimatedCost": 217.01,
+          "rootSharedHitBlocks": 22460158,
+          "maximumRemovedJoinPairs": 99990000,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 20067.632
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 19,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20066.443
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20065.385
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20037.435
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 20025.53,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = jobs.project_id) AND (publications.id = jobs.publication_id) AND (b.channel_id = publications.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 19959.849,
+              "Rows Removed by Join Filter": 99990000,
+              "Join Filter": "((jobs.project_id = target_revisions.project_id) AND (jobs.publication_id = target_revisions.publication_id) AND (target_revisions.profile_version_id = p_1.id))"
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publication_target_revisions",
+              "Plan Rows": 29,
+              "Actual Rows": 10000,
+              "Actual Loops": 10000,
+              "Actual Total Time": 1.223,
+              "Index Cond": "(project_id = b.project_id)"
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006,
+              "Index Cond": "(id = target_revisions.publication_id)"
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "on",
+          "query": "claim",
+          "Planning Time": 24.819,
+          "Execution Time": 173.596,
+          "rootEstimatedCost": 17218.52,
+          "rootSharedHitBlocks": 120342,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.399
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.109,
+              "Index Cond": "(id = (InitPlan 34).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.103
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.101
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 170.708,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 149.631,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a_1.workspace_id = p_13.workspace_id) AND (a_1.channel_id = p_13.channel_id) AND (target_revisions.profile_version_id = p_13.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 140.4,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = a_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 131.112,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((p_12.channel_id = b.channel_id) AND (b.publisher_id = p_12.id))"
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "on",
+          "query": "next-event",
+          "Planning Time": 29.235,
+          "Execution Time": 147.241,
+          "rootEstimatedCost": 21196.88,
+          "rootSharedHitBlocks": 120229,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 147.072
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 2,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 146.365
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 145.663,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 124.114,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a.workspace_id = p_1.workspace_id) AND (a.channel_id = p_1.channel_id) AND (target_revisions.profile_version_id = p_1.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 114.964,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = a.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 105.725,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((p.channel_id = b.channel_id) AND (b.publisher_id = p.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 97.007,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = b.project_id) AND (b.channel_id = publications.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 87.295,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = jobs.project_id) AND (publications.id = jobs.publication_id))"
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "off",
+          "query": "claim",
+          "Planning Time": 26.767,
+          "Execution Time": 171.804,
+          "rootEstimatedCost": 17218.52,
+          "rootSharedHitBlocks": 120340,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 171.594
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 171.285,
+              "Index Cond": "(id = (InitPlan 34).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 171.28
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 171.278
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 169.043,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 148.049,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a_1.workspace_id = p_13.workspace_id) AND (a_1.channel_id = p_13.channel_id) AND (target_revisions.profile_version_id = p_13.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 139.024,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = a_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 129.754,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((p_12.channel_id = b.channel_id) AND (b.publisher_id = p_12.id))"
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "off",
+          "query": "next-event",
+          "Planning Time": 29.107,
+          "Execution Time": 146.585,
+          "rootEstimatedCost": 21196.88,
+          "rootSharedHitBlocks": 120229,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 146.412
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 2,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 145.712
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 145.023,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 123.618,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a.workspace_id = p_1.workspace_id) AND (a.channel_id = p_1.channel_id) AND (target_revisions.profile_version_id = p_1.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 114.4,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = a.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 105.195,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((p.channel_id = b.channel_id) AND (b.publisher_id = p.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 96.383,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = b.project_id) AND (b.channel_id = publications.channel_id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 86.613,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((publications.project_id = jobs.project_id) AND (publications.id = jobs.publication_id))"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "generatedAt": "2026-11-07T19:08:53.218Z",
+      "runtime": "1.4.4",
+      "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+      "backlog": 10000,
+      "settings": {
+        "version": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+        "fsync": "on",
+        "synchronous_commit": "on",
+        "jit": "on"
+      },
+      "scope": "Real workflow SQL; synthetic fixture with all jobs due; rollback after each EXPLAIN ANALYZE. Automatic statistics disabled only on disposable tables, then explicit ANALYZE. EXPLAIN adds instrumentation overhead. Initial/analyzed and JIT on/off share the same data; page caches are not reset.",
+      "revision": "after",
+      "plans": [
+        {
+          "statistics": "initial",
+          "jitSetting": "on",
+          "query": "claim",
+          "Planning Time": 2.843,
+          "Execution Time": 175.112,
+          "rootEstimatedCost": 158.01,
+          "rootSharedHitBlocks": 272255,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 174.652
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.601,
+              "Index Cond": "(id = (InitPlan 16).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.587
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 173.586
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 171.118
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 158.526
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.015,
+              "Index Cond": "((project_id = jobs_1.project_id) AND (id = jobs_1.publication_id))"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "on",
+          "query": "next-event",
+          "Planning Time": 4.461,
+          "Execution Time": 168.438,
+          "rootEstimatedCost": 1268.31,
+          "rootSharedHitBlocks": 240154,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 167.823
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 19,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 167.095
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 166.373
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 153.036
+            },
+            {
+              "Node Type": "Memoize",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.015
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.014,
+              "Index Cond": "((project_id = jobs.project_id) AND (id = jobs.publication_id))"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "off",
+          "query": "claim",
+          "Planning Time": 2.674,
+          "Execution Time": 169.939,
+          "rootEstimatedCost": 158.01,
+          "rootSharedHitBlocks": 272250,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 169.562
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 168.54,
+              "Index Cond": "(id = (InitPlan 16).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 168.525
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 168.525
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 166.136
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 153.826
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.015,
+              "Index Cond": "((project_id = jobs_1.project_id) AND (id = jobs_1.publication_id))"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            }
+          ]
+        },
+        {
+          "statistics": "initial",
+          "jitSetting": "off",
+          "query": "next-event",
+          "Planning Time": 4.186,
+          "Execution Time": 163.848,
+          "rootEstimatedCost": 1268.31,
+          "rootSharedHitBlocks": 240154,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 163.028
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 19,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 162.275
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 161.561
+            },
+            {
+              "Node Type": "Memoize",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.015
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 148.61
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.014,
+              "Index Cond": "((project_id = jobs.project_id) AND (id = jobs.publication_id))"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "on",
+          "query": "claim",
+          "Planning Time": 1.668,
+          "Execution Time": 213.938,
+          "JIT": {
+            "Functions": 104,
+            "Options": {
+              "Inlining": false,
+              "Optimization": false,
+              "Expressions": true,
+              "Deforming": true
+            },
+            "Timing": {
+              "Generation": {
+                "Deform": 1.277,
+                "Total": 2.743
+              },
+              "Inlining": 0,
+              "Optimization": 1.391,
+              "Emission": 29.149,
+              "Total": 33.283
+            }
+          },
+          "rootEstimatedCost": 145032.55,
+          "rootSharedHitBlocks": 120261,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 199.184
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 198.055,
+              "Index Cond": "(id = (InitPlan 16).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 168.285
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 3,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 168.276
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 3,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 165.776,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 3,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 152.788
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 8,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 104.229,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = actors.project_id)"
+            },
+            {
+              "Node Type": "Seq Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 103.076
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "on",
+          "query": "next-event",
+          "Planning Time": 2.967,
+          "Execution Time": 227.544,
+          "JIT": {
+            "Functions": 218,
+            "Options": {
+              "Inlining": false,
+              "Optimization": false,
+              "Expressions": true,
+              "Deforming": true
+            },
+            "Timing": {
+              "Generation": {
+                "Deform": 2.803,
+                "Total": 6.244
+              },
+              "Inlining": 0,
+              "Optimization": 2.059,
+              "Emission": 53.768,
+              "Total": 62.072
+            }
+          },
+          "rootEstimatedCost": 145049.68,
+          "rootSharedHitBlocks": 120229,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 209.491
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 13,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 208.814
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 208.139,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 194.307
+            },
+            {
+              "Node Type": "Seq Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 155.293
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a.workspace_id = p_3.workspace_id) AND (a.channel_id = p_3.channel_id) AND (target_revisions.profile_version_id = p_3.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "off",
+          "query": "claim",
+          "Planning Time": 1.849,
+          "Execution Time": 165.426,
+          "rootEstimatedCost": 145032.55,
+          "rootSharedHitBlocks": 120259,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "ModifyTable",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 165.236
+            },
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "jobs",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 164.874,
+              "Index Cond": "(id = (InitPlan 16).col1)"
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 164.86
+            },
+            {
+              "Node Type": "Sort",
+              "Plan Rows": 3,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 164.86
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 3,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 162.546,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs_1.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 3,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 149.324
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 8,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 101.738,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(publications.project_id = actors.project_id)"
+            },
+            {
+              "Node Type": "Seq Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 100.554
+            }
+          ]
+        },
+        {
+          "statistics": "analyzed",
+          "jitSetting": "off",
+          "query": "next-event",
+          "Planning Time": 3.837,
+          "Execution Time": 152.019,
+          "rootEstimatedCost": 145049.68,
+          "rootSharedHitBlocks": 120229,
+          "maximumRemovedJoinPairs": 0,
+          "slowestNodes": [
+            {
+              "Node Type": "Aggregate",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 1,
+              "Actual Total Time": 151.855
+            },
+            {
+              "Node Type": "Append",
+              "Plan Rows": 13,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 151.18
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 150.465,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "(resource_lifecycles.resource_id = jobs.project_id)"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 136.707
+            },
+            {
+              "Node Type": "Seq Scan",
+              "Relation Name": "publications",
+              "Plan Rows": 12,
+              "Actual Rows": 10000,
+              "Actual Loops": 1,
+              "Actual Total Time": 97.959
+            },
+            {
+              "Node Type": "Limit",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.006
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005,
+              "Rows Removed by Join Filter": 0,
+              "Join Filter": "((a.workspace_id = p_3.workspace_id) AND (a.channel_id = p_3.channel_id) AND (target_revisions.profile_version_id = p_3.id))"
+            },
+            {
+              "Node Type": "Nested Loop",
+              "Plan Rows": 1,
+              "Actual Rows": 1,
+              "Actual Loops": 10000,
+              "Actual Total Time": 0.005
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -100,6 +100,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[PERF-615]** Explain and improve PostgreSQL workflow planning, then measure sustained admission `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Bounded PostgreSQL eligibility plans remove the controlled cold-statistics cliff; actual API admission measured across arrival rates and project counts. ISSUE-195 resolved; intermittent exhausted-retry recovery tracked separately as ISSUE-196. [Evidence](worklogs/2026-11-07-PERF-615.md).
+
 - [x] **[DB-614]** Recover missed PostgreSQL wakeups and measure worker capacity `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Owner-approved bounded recovery without new services; fault injection, reproducible isolated queue/wakeup measurements and explicit capacity limits. npm publication belongs to a separate agent. [Evidence](worklogs/2026-11-07-DB-614.md); measured planning sensitivity tracked as ISSUE-195.
 
 ### Storage profiles — ISSUE-194, [ADR-097](decisions/ADR-097-selectable-storage-profiles.md) (accepted), branch `feat/postgres-storage-profiles`
