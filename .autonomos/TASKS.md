@@ -100,6 +100,8 @@ receipt while durable media cleanup retries independently.
 
 ## 🚀 Active Sprint
 
+- [x] **[PERF-617]** Qualify sustained overload and scheduler recovery `Priority: 🟠` `Complexity: M` `Completed: 2026-11-07` — DB-616 follow-up: 4,080 jobs succeeded across sustained workloads; natural and injected conflicts recovered without duplicate effects or admission violations. [Evidence](worklogs/2026-11-07-PERF-617.md).
+
 - [x] **[DB-616]** Recover workflow scheduling after exhausted PostgreSQL conflicts `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — ISSUE-196; classified bounded recovery, durable rereads, fault injection on both sides of external effects, shutdown drain and no duplicate delivery. [Evidence](worklogs/2026-11-07-DB-616.md).
 
 - [x] **[PERF-615]** Explain and improve PostgreSQL workflow planning, then measure sustained admission `Priority: 🟠` `Complexity: L` `Completed: 2026-11-07` — Bounded PostgreSQL eligibility plans remove the controlled cold-statistics cliff; actual API admission measured across arrival rates and project counts. ISSUE-195 resolved; intermittent exhausted-retry recovery tracked separately as ISSUE-196. [Evidence](worklogs/2026-11-07-PERF-615.md).
